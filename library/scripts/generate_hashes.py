@@ -20,8 +20,12 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
 
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import DATABASE_PATH
+
 # Configuration
-DB_PATH = Path(__file__).parent.parent / "backend" / "audiobooks.db"
+DB_PATH = DATABASE_PATH
 CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks for efficient reading
 
 

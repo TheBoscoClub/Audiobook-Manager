@@ -1,6 +1,17 @@
 #!/bin/bash
 # Audiobook Library Setup Script
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Load configuration
+if [ -f "$PROJECT_DIR/config.env" ]; then
+    source "$PROJECT_DIR/config.env"
+fi
+
+# Set defaults if not configured
+AUDIOBOOK_DIR="${AUDIOBOOK_DIR:-/raid0/Audiobooks}"
+
 echo "========================================="
 echo "  Audiobook Library Setup"
 echo "========================================="
@@ -10,23 +21,23 @@ echo ""
 echo "Checking dependencies..."
 
 if ! command -v python3 &> /dev/null; then
-    echo "❌ Error: Python 3 is not installed"
+    echo "Error: Python 3 is not installed"
     exit 1
 fi
-echo "✓ Python 3 found"
+echo "Python 3 found"
 
 if ! command -v ffprobe &> /dev/null; then
-    echo "❌ Error: ffprobe is not installed"
+    echo "Error: ffprobe is not installed"
     echo "   Install with: sudo pacman -S ffmpeg"
     exit 1
 fi
-echo "✓ ffprobe found"
+echo "ffprobe found"
 
 if ! command -v ffmpeg &> /dev/null; then
-    echo "⚠️  Warning: ffmpeg not found - cover art extraction will fail"
+    echo "Warning: ffmpeg not found - cover art extraction will fail"
     echo "   Install with: sudo pacman -S ffmpeg"
 else
-    echo "✓ ffmpeg found"
+    echo "ffmpeg found"
 fi
 
 echo ""
@@ -34,15 +45,18 @@ echo "Dependencies OK!"
 echo ""
 
 # Check if audiobooks directory exists
-if [ ! -d "/raid0/Audiobooks" ]; then
-    echo "❌ Error: /raid0/Audiobooks directory not found"
+if [ ! -d "$AUDIOBOOK_DIR" ]; then
+    echo "Error: Audiobooks directory not found: $AUDIOBOOK_DIR"
+    echo ""
+    echo "To configure a different path, edit config.env:"
+    echo "  AUDIOBOOK_DIR=\"/path/to/your/audiobooks\""
     exit 1
 fi
-echo "✓ Audiobooks directory found"
+echo "Audiobooks directory found: $AUDIOBOOK_DIR"
 
 # Count audiobooks
-AUDIOBOOK_COUNT=$(find /raid0/Audiobooks -type f -name "*.m4b" | wc -l)
-echo "✓ Found $AUDIOBOOK_COUNT audiobook files"
+AUDIOBOOK_COUNT=$(find "$AUDIOBOOK_DIR" -type f -name "*.m4b" | wc -l)
+echo "Found $AUDIOBOOK_COUNT audiobook files"
 echo ""
 
 # Ask user if they want to scan now
@@ -64,29 +78,34 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
     echo "Starting scan..."
     echo "========================================="
-    cd scanner
+    cd "$SCRIPT_DIR/scanner"
     python3 scan_audiobooks.py
 
     if [ $? -eq 0 ]; then
         echo ""
+        echo "Importing to database..."
+        cd "$SCRIPT_DIR/backend"
+        python3 import_to_db.py
+
+        echo ""
         echo "========================================="
-        echo "✓ Scan completed successfully!"
+        echo "Scan completed successfully!"
         echo ""
         echo "To launch the library:"
-        echo "  cd web"
-        echo "  python3 -m http.server 8080"
+        echo "  $PROJECT_DIR/launch.sh"
         echo ""
-        echo "Then open: http://localhost:8080"
         echo "========================================="
     else
         echo ""
-        echo "❌ Scan failed. Please check errors above."
+        echo "Scan failed. Please check errors above."
         exit 1
     fi
 else
     echo ""
     echo "Scan cancelled. You can run it manually later:"
-    echo "  cd scanner"
+    echo "  cd $SCRIPT_DIR/scanner"
     echo "  python3 scan_audiobooks.py"
+    echo "  cd $SCRIPT_DIR/backend"
+    echo "  python3 import_to_db.py"
     echo ""
 fi

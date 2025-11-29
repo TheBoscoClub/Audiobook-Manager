@@ -9,12 +9,17 @@ from flask_cors import CORS
 import sqlite3
 from pathlib import Path
 import os
+import sys
+
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import DATABASE_PATH, COVER_DIR, API_PORT, PROJECT_DIR
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for local development
 
-DB_PATH = Path(os.environ.get('DATABASE_PATH', Path(__file__).parent / "audiobooks.db"))
-PROJECT_ROOT = Path(__file__).parent.parent
+DB_PATH = DATABASE_PATH
+PROJECT_ROOT = PROJECT_DIR / "library"
 
 
 def get_db():
@@ -671,7 +676,7 @@ if __name__ == '__main__':
 
     print(f"Starting Audiobook Library API...")
     print(f"Database: {DB_PATH}")
-    print(f"API running on: http://localhost:5000")
+    print(f"API running on: http://localhost:{API_PORT}")
     print(f"\nEndpoints:")
     print(f"  GET /api/stats - Library statistics")
     print(f"  GET /api/audiobooks - Paginated audiobooks")
@@ -684,4 +689,4 @@ if __name__ == '__main__':
     print(f"  /api/audiobooks?search=tolkien")
     print(f"  /api/audiobooks?author=sanderson&sort=duration_hours&order=desc")
 
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=API_PORT)

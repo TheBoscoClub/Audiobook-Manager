@@ -5,10 +5,14 @@ Identifies empty or corrupted audiobook files that need to be re-downloaded
 """
 
 import json
+import sys
 from pathlib import Path
 import csv
 
-AUDIOBOOK_DIR = Path("/raid0/Audiobooks")
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import AUDIOBOOK_DIR
+
 OUTPUT_CSV = Path("missing_audiobooks.csv")
 OUTPUT_TXT = Path("missing_audiobooks.txt")
 

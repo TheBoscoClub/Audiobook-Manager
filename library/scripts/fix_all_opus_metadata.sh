@@ -2,9 +2,18 @@
 # Complete OPUS Metadata Fix - Extract ALL metadata from AAXC and apply to OPUS
 # Fixes: Author, Narrator, Publisher, Title, Cover Art
 
-AUDIOBOOKS_DIR="/raid0/Audiobooks"
-OPUS_DIR="/raid0/Audiobooks/Audiobooks-Converted-Opus-nocomp"
-COVER_DIR="/raid0/ClaudeCodeProjects/audiobook-library/web/covers"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+
+# Load configuration
+if [ -f "$PROJECT_DIR/config.env" ]; then
+    source "$PROJECT_DIR/config.env"
+fi
+
+# Set defaults if not configured
+AUDIOBOOKS_DIR="${AUDIOBOOK_DIR:-/raid0/Audiobooks}"
+OPUS_DIR="${OPUS_DIR:-$AUDIOBOOKS_DIR/Audiobooks-Converted-Opus-nocomp}"
+COVER_DIR="${COVER_DIR:-$PROJECT_DIR/library/web/covers}"
 LOG_FILE="/tmp/opus_metadata_fix.log"
 
 mkdir -p "$COVER_DIR"

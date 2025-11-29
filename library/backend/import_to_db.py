@@ -10,9 +10,13 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-DB_PATH = Path(__file__).parent / "audiobooks.db"
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import DATABASE_PATH, DATA_DIR
+
+DB_PATH = DATABASE_PATH
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
-JSON_PATH = Path(__file__).parent.parent / "data" / "audiobooks.json"
+JSON_PATH = DATA_DIR / "audiobooks.json"
 
 
 def create_database():

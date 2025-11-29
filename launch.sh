@@ -3,7 +3,17 @@
 # Starts the Flask API and web server
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIBRARY_DIR="$SCRIPT_DIR/library"
+
+# Load configuration
+if [ -f "$SCRIPT_DIR/config.env" ]; then
+    source "$SCRIPT_DIR/config.env"
+fi
+
+# Set defaults if not configured
+PROJECT_DIR="${PROJECT_DIR:-$SCRIPT_DIR}"
+LIBRARY_DIR="$PROJECT_DIR/library"
+WEB_PORT="${WEB_PORT:-8090}"
+API_PORT="${API_PORT:-5001}"
 
 echo "=========================================="
 echo "  Audiobook Library"
@@ -33,7 +43,6 @@ pkill -f "python3.*api.py" 2>/dev/null
 pkill -f "python3.*http.server" 2>/dev/null
 
 # Find available port for web server
-WEB_PORT=8090
 while lsof -i:$WEB_PORT >/dev/null 2>&1; do
     WEB_PORT=$((WEB_PORT + 1))
     if [ $WEB_PORT -gt 8099 ]; then
@@ -43,7 +52,6 @@ while lsof -i:$WEB_PORT >/dev/null 2>&1; do
 done
 
 # Find available port for API
-API_PORT=5001
 while lsof -i:$API_PORT >/dev/null 2>&1; do
     API_PORT=$((API_PORT + 1))
     if [ $API_PORT -gt 5010 ]; then
@@ -51,6 +59,10 @@ while lsof -i:$API_PORT >/dev/null 2>&1; do
         exit 1
     fi
 done
+
+# Export ports for Python scripts
+export API_PORT
+export WEB_PORT
 
 echo "Starting API server on port $API_PORT..."
 cd "$LIBRARY_DIR/backend"

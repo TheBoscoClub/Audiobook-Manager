@@ -17,6 +17,14 @@ Web-based audiobook library browser with:
 
 ## Quick Start
 
+### Browse Library
+```bash
+# Launch the web interface
+./launch.sh
+
+# Opens http://localhost:8090 in your browser
+```
+
 ### Convert Audiobooks
 ```bash
 # Basic conversion to MP3
@@ -27,18 +35,6 @@ Web-based audiobook library browser with:
 
 # Interactive mode
 ./converter/interactiveAAXtoMP3
-```
-
-### Browse Library
-```bash
-# Launch the web interface
-./launch.sh
-
-# Or manually:
-cd library
-source venv/bin/activate
-python3 backend/api.py &
-python3 -m http.server 8090 --directory web-v2
 ```
 
 ### Scan New Audiobooks
@@ -67,20 +63,61 @@ python3 scripts/find_duplicates.py --remove
 python3 scripts/find_duplicates.py --execute
 ```
 
+## Configuration
+
+All paths are configured in `config.env`. Edit this file to customize your installation:
+
+```bash
+# config.env - Main configuration file
+
+# Path to your audiobook collection
+AUDIOBOOK_DIR="/path/to/your/audiobooks"
+
+# Path where this project is installed (usually auto-detected)
+PROJECT_DIR="/path/to/Audiobooks"
+
+# Server ports
+WEB_PORT=8090
+API_PORT=5001
+```
+
+### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUDIOBOOK_DIR` | `/raid0/Audiobooks` | Where your audiobook files are stored |
+| `PROJECT_DIR` | Auto-detected | Installation directory of this project |
+| `DATABASE_PATH` | `${PROJECT_DIR}/library/backend/audiobooks.db` | SQLite database location |
+| `COVER_DIR` | `${PROJECT_DIR}/library/web/covers` | Cover art cache |
+| `DATA_DIR` | `${PROJECT_DIR}/library/data` | JSON data directory |
+| `WEB_PORT` | `8090` | Web interface port |
+| `API_PORT` | `5001` | REST API port |
+
+### Environment Variables
+
+You can also override any setting via environment variables:
+```bash
+AUDIOBOOK_DIR=/mnt/nas/audiobooks ./launch.sh
+```
+
 ## Directory Structure
 
 ```
 Audiobooks/
+├── config.env           # Main configuration file
+├── launch.sh            # Quick launcher
 ├── converter/           # AAXtoMP3 conversion tools
-│   ├── AAXtoMP3        # Main conversion script
+│   ├── AAXtoMP3         # Main conversion script
 │   └── interactiveAAXtoMP3
-├── library/            # Web library interface
-│   ├── backend/        # Flask API + SQLite database
-│   ├── scanner/        # Metadata extraction
-│   ├── scripts/        # Hash generation, duplicate detection
-│   ├── web-v2/         # Modern web interface
-│   └── web/            # Legacy interface + cover storage
-├── launch.sh           # Quick launcher
+├── library/             # Web library interface
+│   ├── config.py        # Python configuration module
+│   ├── backend/         # Flask API + SQLite database
+│   ├── scanner/         # Metadata extraction
+│   ├── scripts/         # Hash generation, duplicate detection
+│   ├── web-v2/          # Modern web interface
+│   └── web/             # Legacy interface + cover storage
+├── Dockerfile           # Docker build file
+├── docker-compose.yml   # Docker Compose config
 └── README.md
 ```
 
@@ -118,13 +155,21 @@ docker exec -it audiobooks python3 /app/backend/import_to_db.py
 - ffmpeg 4.4+ (with ffprobe)
 - Flask, flask-cors
 
-## Data Source
+### First-time setup
+```bash
+# Create virtual environment and install dependencies
+cd library
+python3 -m venv venv
+source venv/bin/activate
+pip install flask flask-cors
 
-Default audiobook directory: `/raid0/Audiobooks`
+# Scan your audiobooks
+cd scanner
+python3 scan_audiobooks.py
 
-Configure in `library/scanner/scan_audiobooks.py`:
-```python
-AUDIOBOOK_DIR = Path("/your/path/to/audiobooks")
+# Import to database
+cd ../backend
+python3 import_to_db.py
 ```
 
 ## License

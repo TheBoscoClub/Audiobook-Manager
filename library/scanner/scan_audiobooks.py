@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Audiobook Metadata Scanner
-Scans /raid0/Audiobooks and extracts metadata from various audio formats
+Scans audiobook directory and extracts metadata from various audio formats
 Supports: .m4b, .opus, .m4a, .mp3
 """
 
@@ -14,10 +14,12 @@ from datetime import datetime
 import base64
 import hashlib
 
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
+
 # Configuration
-AUDIOBOOK_DIR = Path("/raid0/Audiobooks")
-OUTPUT_FILE = Path("../data/audiobooks.json")
-COVER_DIR = Path("../web/covers")
+OUTPUT_FILE = DATA_DIR / "audiobooks.json"
 SUPPORTED_FORMATS = ['.m4b', '.opus', '.m4a', '.mp3']
 
 

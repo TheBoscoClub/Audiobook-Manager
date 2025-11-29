@@ -2,8 +2,17 @@
 # Fix OPUS Metadata - Extract metadata from AAXC and apply to OPUS files
 # This script fixes existing OPUS files that are missing author/narrator metadata
 
-AUDIOBOOKS_DIR="/raid0/Audiobooks"
-OPUS_DIR="/raid0/Audiobooks/Audiobooks-Converted-Opus-nocomp"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+
+# Load configuration
+if [ -f "$PROJECT_DIR/config.env" ]; then
+    source "$PROJECT_DIR/config.env"
+fi
+
+# Set defaults if not configured
+AUDIOBOOKS_DIR="${AUDIOBOOK_DIR:-/raid0/Audiobooks}"
+OPUS_DIR="${OPUS_DIR:-$AUDIOBOOKS_DIR/Audiobooks-Converted-Opus-nocomp}"
 
 echo "================================================================"
 echo "  OPUS Metadata Fixer"

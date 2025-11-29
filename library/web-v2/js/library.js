@@ -129,7 +129,7 @@ class AudiobookLibraryV2 {
                     Error loading audiobooks. Please ensure the API server is running.
                     <br><br>
                     Run: <code style="background: var(--wood-dark); padding: 0.5rem; border-radius: 4px;">
-                        cd /raid0/ClaudeCodeProjects/audiobook-library && source venv/bin/activate && python backend/api.py
+                        ./launch.sh
                     </code>
                 </p>
             `;
@@ -610,30 +610,31 @@ class DuplicateManager {
     }
 
     handleAction(action) {
+        // Commands use relative paths from project root
         const cliCommands = {
             'hash-generate': {
                 desc: 'Generate SHA-256 hashes for all audiobooks. This may take several hours for large collections.',
-                cmd: 'cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/generate_hashes.py'
+                cmd: 'cd library && python3 scripts/generate_hashes.py'
             },
             'hash-verify': {
                 desc: 'Verify a random sample of hashes to check for file corruption.',
-                cmd: 'cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/generate_hashes.py --verify 20'
+                cmd: 'cd library && python3 scripts/generate_hashes.py --verify 20'
             },
             'duplicates-report': {
                 desc: 'Generate a detailed duplicate report in the terminal.',
-                cmd: 'cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/find_duplicates.py'
+                cmd: 'cd library && python3 scripts/find_duplicates.py'
             },
             'duplicates-json': {
                 desc: 'Export duplicate information to a JSON file.',
-                cmd: 'cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/find_duplicates.py --json -o duplicates.json'
+                cmd: 'cd library && python3 scripts/find_duplicates.py --json -o duplicates.json'
             },
             'duplicates-dryrun': {
                 desc: 'Preview which files would be deleted without actually removing them.',
-                cmd: 'cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/find_duplicates.py --remove'
+                cmd: 'cd library && python3 scripts/find_duplicates.py --remove'
             },
             'duplicates-execute': {
                 desc: 'CAUTION: This will permanently delete duplicate files. The first copy of each audiobook is always protected.',
-                cmd: 'cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/find_duplicates.py --execute'
+                cmd: 'cd library && python3 scripts/find_duplicates.py --execute'
             }
         };
 
@@ -677,7 +678,7 @@ class DuplicateManager {
             if (!stats.hash_column_exists) {
                 content.innerHTML = `
                     <p>Hash column not found in database. Run hash generation first:</p>
-                    <pre class="cli-command">cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/generate_hashes.py</pre>
+                    <pre class="cli-command">cd library && python3 scripts/generate_hashes.py</pre>
                 `;
                 return;
             }
@@ -709,7 +710,7 @@ class DuplicateManager {
                 </div>
                 ${stats.unhashed_count > 0 ? `
                     <p>To generate remaining hashes, run:</p>
-                    <pre class="cli-command">cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/generate_hashes.py</pre>
+                    <pre class="cli-command">cd library && python3 scripts/generate_hashes.py</pre>
                 ` : '<p style="color: #27ae60;">All audiobooks have been hashed!</p>'}
             `;
         } catch (error) {
@@ -775,7 +776,7 @@ class DuplicateManager {
             content.innerHTML = `
                 <p style="color: #c0392b;">Error loading duplicates: ${error.message}</p>
                 <p>Make sure hashes have been generated first:</p>
-                <pre class="cli-command">cd /raid0/ClaudeCodeProjects/audiobook-library && python3 scripts/generate_hashes.py</pre>
+                <pre class="cli-command">cd library && python3 scripts/generate_hashes.py</pre>
             `;
         }
     }
