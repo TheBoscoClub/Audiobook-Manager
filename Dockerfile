@@ -15,13 +15,13 @@ LABEL version="2.2"
 # - mediainfo: Audio file metadata extraction
 # - jq: JSON processing for AAXtoMP3 converter
 # - curl: Health checks and API testing
-# - mp4v2-utils: MP4 metadata tools (mp4art, mp4chaps) for M4B/AAC
+# Note: mp4v2-utils (mp4art, mp4chaps) not available in Debian trixie
+# Chapter/cover tools use ffmpeg fallback instead
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     mediainfo \
     jq \
     curl \
-    mp4v2-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
