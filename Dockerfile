@@ -7,8 +7,8 @@
 FROM python:3.11-slim
 
 LABEL maintainer="Audiobooks Project"
-LABEL description="Web-based audiobook library with search, playback, and cover art"
-LABEL version="2.2"
+LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"
+LABEL version="2.3"
 
 # Install system dependencies
 # - ffmpeg: Audio/video processing for conversion and metadata
@@ -46,8 +46,8 @@ COPY library/web-v2 /app/web
 COPY converter /app/converter
 
 # Create directories for data persistence
-# Covers will be populated at runtime or mounted as a volume
-RUN mkdir -p /app/data /app/covers
+# Covers and supplements will be populated at runtime or mounted as volumes
+RUN mkdir -p /app/data /app/covers /app/supplements
 
 # Set environment variables
 ENV FLASK_APP=backend/api.py
@@ -61,6 +61,7 @@ ENV AUDIOBOOK_DIR=/audiobooks
 ENV DATABASE_PATH=/app/data/audiobooks.db
 ENV COVER_DIR=/app/covers
 ENV DATA_DIR=/app/data
+ENV SUPPLEMENTS_DIR=/supplements
 ENV WEB_PORT=8090
 ENV API_PORT=5001
 

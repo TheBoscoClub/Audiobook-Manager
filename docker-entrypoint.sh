@@ -42,6 +42,16 @@ export AUDIOBOOK_DIR="${AUDIOBOOK_DIR:-/audiobooks}"
 export COVER_DIR="${COVER_DIR:-/app/covers}"
 export DATA_DIR="${DATA_DIR:-/app/data}"
 export PROJECT_DIR="${PROJECT_DIR:-/app}"
+export SUPPLEMENTS_DIR="${SUPPLEMENTS_DIR:-/supplements}"
+
+# Scan supplements if directory exists and has files
+if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A $SUPPLEMENTS_DIR 2>/dev/null)" ]; then
+    SUPPLEMENT_COUNT=$(find "$SUPPLEMENTS_DIR" -type f \( -name "*.pdf" -o -name "*.epub" -o -name "*.jpg" -o -name "*.png" \) 2>/dev/null | wc -l)
+    echo -e "Supplements mounted: ${GREEN}$SUPPLEMENT_COUNT files found${NC}"
+    echo "Scanning supplements into database..."
+    cd /app/scripts && python3 scan_supplements.py --supplements-dir "$SUPPLEMENTS_DIR" --quiet || true
+    echo -e "${GREEN}Supplements scanned${NC}"
+fi
 
 echo ""
 

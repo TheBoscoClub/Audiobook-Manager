@@ -407,6 +407,7 @@ class AudiobookLibraryV2 {
     createBookCard(book) {
         const formatQuality = book.format ? book.format.toUpperCase() : 'M4B';
         const quality = book.quality ? ` ${book.quality}` : '';
+        const hasSupplement = book.supplement_count > 0;
 
         return `
             <div class="book-card" data-id="${book.id}">
@@ -415,6 +416,7 @@ class AudiobookLibraryV2 {
                 `<img src="/covers/${book.cover_path}" alt="${this.escapeHtml(book.title)}" onerror="this.parentElement.innerHTML='<span class=\\'book-cover-placeholder\\'>📖</span>'">` :
                 '<span class="book-cover-placeholder">📖</span>'
             }
+                    ${hasSupplement ? `<span class="supplement-badge" title="Has PDF supplement" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ''}
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
                 ${book.author ? `<div class="book-author">by ${this.escapeHtml(book.author)}</div>` : ''}
@@ -425,6 +427,24 @@ class AudiobookLibraryV2 {
                 </div>
             </div>
         `;
+    }
+
+    async showSupplements(audiobookId) {
+        try {
+            const response = await fetch(`${API_BASE}/audiobooks/${audiobookId}/supplements`);
+            const data = await response.json();
+
+            if (data.supplements && data.supplements.length > 0) {
+                // Open the first supplement (typically PDF)
+                const supplement = data.supplements[0];
+                window.open(`${API_BASE}/supplements/${supplement.id}/download`, '_blank');
+            } else {
+                alert('No supplements available for this audiobook.');
+            }
+        } catch (error) {
+            console.error('Error loading supplements:', error);
+            alert('Error loading supplements.');
+        }
     }
 
     escapeHtml(text) {

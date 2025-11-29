@@ -14,6 +14,7 @@ Web-based audiobook library browser with:
 - Full-text search
 - SHA-256 hash-based duplicate detection
 - Cover art display
+- PDF supplement support (course materials, maps, etc.)
 
 ## Quick Start
 
@@ -63,6 +64,17 @@ python3 scripts/find_duplicates.py --remove
 python3 scripts/find_duplicates.py --execute
 ```
 
+### Manage Supplements
+Some Audible audiobooks include supplemental PDFs (course materials, maps, reference guides).
+```bash
+# Scan supplements directory and link to audiobooks
+cd library/scripts
+python3 scan_supplements.py --supplements-dir /path/to/supplements
+
+# In Docker, supplements are scanned automatically on startup
+```
+Books with supplements show a red "PDF" badge in the UI. Click to download.
+
 ## Configuration
 
 All paths are configured in `config.env`. Edit this file to customize your installation:
@@ -90,6 +102,7 @@ API_PORT=5001
 | `DATABASE_PATH` | `${PROJECT_DIR}/library/backend/audiobooks.db` | SQLite database location |
 | `COVER_DIR` | `${PROJECT_DIR}/library/web/covers` | Cover art cache |
 | `DATA_DIR` | `${PROJECT_DIR}/library/data` | JSON data directory |
+| `SUPPLEMENTS_DIR` | `/raid0/Audiobooks/Supplements` | PDF supplements directory |
 | `WEB_PORT` | `8090` | Web interface port |
 | `API_PORT` | `5001` | REST API port |
 
@@ -123,7 +136,33 @@ Audiobooks/
 
 ## Docker (macOS, Windows, Linux)
 
-Run the library in Docker for easy cross-platform deployment:
+Run the library in Docker for easy cross-platform deployment.
+
+### Option 1: Pull from GitHub Container Registry (Recommended)
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/greogory/audiobook-toolkit:latest
+
+# Or pull a specific version
+docker pull ghcr.io/greogory/audiobook-toolkit:2.3
+
+# Run with your audiobook directory
+docker run -d \
+  --name audiobooks \
+  -p 8090:8090 \
+  -p 5001:5001 \
+  -v /path/to/your/audiobooks:/audiobooks:ro \
+  -v /path/to/supplements:/supplements:ro \
+  -v audiobooks_data:/app/data \
+  -v audiobooks_covers:/app/covers \
+  ghcr.io/greogory/audiobook-toolkit:latest
+
+# Access the web interface
+open http://localhost:8090
+```
+
+### Option 2: Build Locally with Docker Compose
 
 ```bash
 # Set your audiobooks directory
