@@ -16,8 +16,10 @@ version: '3.8'
 
 services:
   audiobooks:
-    build: .
-    image: audiobooks:latest
+    # Option 1: Pull from GHCR (recommended)
+    image: ghcr.io/greogory/audiobook-toolkit:latest
+    # Option 2: Build locally (uncomment below, comment out image above)
+    # build: .
     container_name: audiobooks
     ports:
       - "${WEB_PORT:-8090}:8090"   # Web interface
@@ -26,6 +28,9 @@ services:
       # Mount your audiobook directory (read-only for safety)
       # The Library subdirectory contains converted OPUS files
       - ${AUDIOBOOK_DIR:-/path/to/audiobooks}:/audiobooks:ro
+
+      # Mount supplements directory (PDFs, course materials, etc.)
+      - ${SUPPLEMENTS_DIR:-/path/to/supplements}:/supplements:ro
 
       # Persist database across container restarts
       - audiobooks_data:/app/data
@@ -42,6 +47,9 @@ services:
 
       # Cover art cache location
       - COVER_DIR=/app/covers
+
+      # Supplements directory (PDFs, maps, etc.)
+      - SUPPLEMENTS_DIR=/supplements
 
       # Server ports (match exposed ports)
       - WEB_PORT=8090
