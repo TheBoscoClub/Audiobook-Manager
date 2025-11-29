@@ -1,0 +1,92 @@
+# =============================================================================
+# AAXtoMP3 Security .gitignore
+# Protects sensitive audiobook files and credentials
+# =============================================================================
+
+# Authentication / Activation Files
+ACTIVATION
+.authcode
+*.authcode
+
+# Audiobook Files (Copyrighted Content)
+*.aax
+*.aaxc
+*.voucher
+
+# Cover Art and Metadata (May contain personal library info)
+*.jpg
+*.jpeg
+*.png
+*.json
+
+# Converted Output (Personal audiobooks)
+*.mp3
+*.m4a
+*.m4b
+*.flac
+*.ogg
+*.opus
+
+# Chapter Files
+*.chapters.txt
+*.m3u
+
+# Output Directories
+Audiobook/
+audiobooks/
+output/
+converted/
+
+# Backup Files
+*.bak
+*.backup
+*.original
+*~
+
+# Logs
+*.log
+logs/
+
+# Temporary Files
+*.tmp
+.cache/
+tmp/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Test Files with Real Data
+test_audiobooks/
+test_*.aax*
+my_*.txt
+
+# Python (if used for helper scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Personal Library Data
+library.tsv
+my_library.tsv

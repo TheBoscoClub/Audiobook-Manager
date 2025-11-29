@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""
+Import audiobooks from JSON into SQLite database
+Builds indices for fast querying
+"""
+
+import json
+import sqlite3
+import sys
+from pathlib import Path
+from datetime import datetime
+
+DB_PATH = Path(__file__).parent / "audiobooks.db"
+SCHEMA_PATH = Path(__file__).parent / "schema.sql"
+JSON_PATH = Path(__file__).parent.parent / "data" / "audiobooks.json"
+
+
+def create_database():
+    """Create database with schema"""
+    print(f"Creating database: {DB_PATH}")
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Load and execute schema
+    with open(SCHEMA_PATH) as f:
+        schema = f.read()
+
+    cursor.executescript(schema)
+    conn.commit()
+
+    print("✓ Database schema created")
+    return conn
+
+
+def import_audiobooks(conn):
+    """Import audiobooks from JSON"""
+    print(f"\nLoading audiobooks from: {JSON_PATH}")
+
+    with open(JSON_PATH) as f:
+        data = json.load(f)
+
+    audiobooks = data['audiobooks']
+    print(f"Found {len(audiobooks)} audiobooks")
+
+    cursor = conn.cursor()
+
+    # Clear existing data
+    cursor.execute("DELETE FROM audiobook_topics")
+    cursor.execute("DELETE FROM audiobook_eras")
+    cursor.execute("DELETE FROM audiobook_genres")
+    cursor.execute("DELETE FROM audiobooks")
+    cursor.execute("DELETE FROM topics")
+    cursor.execute("DELETE FROM eras")
+    cursor.execute("DELETE FROM genres")
+
+    print("\nImporting audiobooks...")
+
+    # Track unique values
+    genres_map = {}
+    eras_map = {}
+    topics_map = {}
+
+    for idx, book in enumerate(audiobooks, 1):
+        if idx % 100 == 0:
+            print(f"  Processed {idx}/{len(audiobooks)} audiobooks...")
+
+        # Insert audiobook
+        cursor.execute("""
+            INSERT INTO audiobooks (
+                title, author, narrator, publisher, series,
+                duration_hours, duration_formatted, file_size_mb,
+                file_path, cover_path, format, quality, description,
+                sha256_hash, hash_verified_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            book.get('title'),
+            book.get('author'),
+            book.get('narrator'),
+            book.get('publisher'),
+            book.get('series'),
+            book.get('duration_hours'),
+            book.get('duration_formatted'),
+            book.get('file_size_mb'),
+            book.get('file_path'),
+            book.get('cover_path'),
+            book.get('format'),
+            book.get('quality'),
+            book.get('description', ''),
+            book.get('sha256_hash'),
+            book.get('hash_verified_at')
+        ))
+
+        audiobook_id = cursor.lastrowid
+
+        # Handle genres
+        for genre_name in book.get('genres', []):
+            if genre_name not in genres_map:
+                cursor.execute("INSERT INTO genres (name) VALUES (?)", (genre_name,))
+                genres_map[genre_name] = cursor.lastrowid
+
+            cursor.execute(
+                "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+                (audiobook_id, genres_map[genre_name])
+            )
+
+        # Handle eras
+        for era_name in book.get('eras', []):
+            if era_name not in eras_map:
+                cursor.execute("INSERT INTO eras (name) VALUES (?)", (era_name,))
+                eras_map[era_name] = cursor.lastrowid
+
+            cursor.execute(
+                "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
+                (audiobook_id, eras_map[era_name])
+            )
+
+        # Handle topics
+        for topic_name in book.get('topics', []):
+            if topic_name not in topics_map:
+                cursor.execute("INSERT INTO topics (name) VALUES (?)", (topic_name,))
+                topics_map[topic_name] = cursor.lastrowid
+
+            cursor.execute(
+                "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
+                (audiobook_id, topics_map[topic_name])
+            )
+
+    conn.commit()
+
+    print(f"\n✓ Imported {len(audiobooks)} audiobooks")
+    print(f"✓ Imported {len(genres_map)} genres")
+    print(f"✓ Imported {len(eras_map)} eras")
+    print(f"✓ Imported {len(topics_map)} topics")
+
+    # Show statistics
+    cursor.execute("SELECT COUNT(*) FROM audiobooks")
+    total = cursor.fetchone()[0]
+
+    cursor.execute("SELECT SUM(duration_hours) FROM audiobooks")
+    total_hours = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(DISTINCT author) FROM audiobooks WHERE author IS NOT NULL")
+    unique_authors = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(DISTINCT narrator) FROM audiobooks WHERE narrator IS NOT NULL")
+    unique_narrators = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
+    hashed_count = cursor.fetchone()[0]
+
+    print(f"\n=== Database Statistics ===")
+    print(f"Total audiobooks: {total:,}")
+    print(f"Total hours: {int(total_hours):,} ({int(total_hours/24):,} days)")
+    print(f"Unique authors: {unique_authors}")
+    print(f"Unique narrators: {unique_narrators}")
+    print(f"Unique genres: {len(genres_map)}")
+    print(f"With SHA-256 hashes: {hashed_count:,}")
+
+    # Optimize database
+    print("\nOptimizing database...")
+    cursor.execute("VACUUM")
+    cursor.execute("ANALYZE")
+    print("✓ Database optimized")
+
+
+def main():
+    """Main import process"""
+    if not JSON_PATH.exists():
+        print(f"Error: JSON file not found: {JSON_PATH}")
+        print("Please run the scanner first: python3 scanner/scan_audiobooks.py")
+        sys.exit(1)
+
+    conn = create_database()
+
+    try:
+        import_audiobooks(conn)
+        print(f"\n✓ Database created successfully: {DB_PATH}")
+        print(f"  Size: {DB_PATH.stat().st_size / 1024 / 1024:.1f} MB")
+    except Exception as e:
+        print(f"\n✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

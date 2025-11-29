@@ -1,0 +1,80 @@
+name: Security Checks
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Full history for better analysis
+
+    - name: Check for hardcoded credentials
+      run: |
+        echo "Checking for hardcoded credentials..."
+        # Check for potential API keys, passwords, tokens
+        if git diff HEAD~1 | grep -iE '(api.?key|password|token|secret).*=.*["\047][a-zA-Z0-9]{16,}["\047]'; then
+          echo "❌ ERROR: Potential hardcoded credential detected"
+          exit 1
+        fi
+        echo "✅ No hardcoded credentials found"
+
+    - name: Verify .gitignore integrity
+      run: |
+        echo "Verifying .gitignore protects sensitive files..."
+
+        # Critical patterns that should be in .gitignore
+        REQUIRED_IGNORES=(
+          ".env"
+          "*.key"
+          "*.log"
+        )
+
+        for pattern in "${REQUIRED_IGNORES[@]}"; do
+          if ! grep -q "$pattern" .gitignore 2>/dev/null; then
+            echo "⚠️  WARNING: .gitignore missing recommended pattern: $pattern"
+          fi
+        done
+
+        echo "✅ .gitignore check complete"
+
+    - name: Check for sensitive files committed
+      run: |
+        echo "Scanning for accidentally committed sensitive files..."
+
+        # Check for common sensitive file patterns
+        if git ls-files | grep -iE '\.(key|pem|cert|env)$' | grep -v '.env.example'; then
+          echo "❌ ERROR: Sensitive files committed to repository"
+          exit 1
+        fi
+
+        echo "✅ No sensitive files found in repository"
+
+    - name: Check for dangerous logging
+      run: |
+        echo "Checking for dangerous logging patterns..."
+
+        # Check for logging credentials
+        if git diff HEAD~1 | grep -iE '(print|echo|console\.log|logger).*\$?(API_KEY|PASSWORD|TOKEN|SECRET)'; then
+          echo "⚠️  WARNING: Code may log sensitive data"
+        fi
+
+        echo "✅ Logging check complete"
+
+    - name: Security scan summary
+      if: always()
+      run: |
+        echo "=========================================="
+        echo "Security Scan Complete"
+        echo "=========================================="
+        echo "Repository: ${{ github.repository }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "=========================================="

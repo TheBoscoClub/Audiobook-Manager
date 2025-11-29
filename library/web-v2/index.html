@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Library - Audiobook Collection</title>
+    <link rel="stylesheet" href="css/library.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="library-header">
+        <div class="header-content">
+            <h1 class="library-title">The Library</h1>
+            <p class="library-subtitle">A Private Collection of Audiobooks</p>
+        </div>
+
+        <div class="library-stats">
+            <div class="stat-item">
+                <span class="stat-value" id="total-books">-</span>
+                <span class="stat-label">volumes</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="total-hours">-</span>
+                <span class="stat-label">hours</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="total-authors">-</span>
+                <span class="stat-label">authors</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="total-narrators">-</span>
+                <span class="stat-label">narrators</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Search and Filters -->
+    <div class="search-section">
+        <div class="search-container">
+            <input type="text"
+                   id="search-input"
+                   class="search-input"
+                   placeholder="Search books, authors, narrators...">
+            <button id="clear-search" class="clear-btn">Clear</button>
+        </div>
+
+        <div class="filters-container">
+            <select id="author-filter" class="filter-select">
+                <option value="">All Authors</option>
+            </select>
+
+            <select id="narrator-filter" class="filter-select">
+                <option value="">All Narrators</option>
+            </select>
+
+            <select id="format-filter" class="filter-select">
+                <option value="">All Formats</option>
+            </select>
+
+            <select id="sort-filter" class="filter-select">
+                <option value="title:asc">Title (A-Z)</option>
+                <option value="title:desc">Title (Z-A)</option>
+                <option value="author:asc">Author (A-Z)</option>
+                <option value="author:desc">Author (Z-A)</option>
+                <option value="duration_hours:desc">Longest First</option>
+                <option value="duration_hours:asc">Shortest First</option>
+                <option value="created_at:desc">Recently Added</option>
+            </select>
+
+            <button id="refresh-btn" class="refresh-btn">↻ Refresh</button>
+
+            <!-- Find Duplicates Dropdown -->
+            <div class="dropdown" id="duplicates-dropdown">
+                <button class="dropdown-btn" id="duplicates-btn">Find Duplicates ▾</button>
+                <div class="dropdown-content" id="duplicates-menu">
+                    <div class="dropdown-header">Hash Generation</div>
+                    <a href="#" data-action="hash-stats">View Hash Statistics</a>
+                    <a href="#" data-action="hash-generate">Generate Hashes (CLI)</a>
+                    <a href="#" data-action="hash-verify">Verify Hashes (CLI)</a>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-header">Duplicate Detection</div>
+                    <a href="#" data-action="show-duplicates">View Duplicates</a>
+                    <a href="#" data-action="duplicates-report">Full Report (CLI)</a>
+                    <a href="#" data-action="duplicates-json">Export to JSON (CLI)</a>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-header">Duplicate Removal</div>
+                    <a href="#" data-action="duplicates-dryrun">Dry Run (CLI)</a>
+                    <a href="#" data-action="duplicates-execute" class="danger">Execute Removal (CLI)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Info -->
+    <div class="results-info">
+        <p id="showing-count">Loading...</p>
+        <div class="pagination-controls" id="top-pagination"></div>
+    </div>
+
+    <!-- Audiobooks Grid -->
+    <div class="books-grid" id="books-grid">
+        <!-- Books will be loaded here -->
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-section">
+        <div class="pagination-controls" id="bottom-pagination"></div>
+        <div class="per-page-control">
+            <label for="per-page">Items per page:</label>
+            <select id="per-page" class="filter-select">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Loading audiobooks...</p>
+    </div>
+
+    <!-- Hash Stats Modal -->
+    <div class="modal" id="hash-stats-modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Hash Statistics</h2>
+                <button class="modal-close" data-modal="hash-stats-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="hash-stats-content">
+                <div class="loading-spinner"></div>
+                <p>Loading statistics...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicates Modal -->
+    <div class="modal" id="duplicates-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Duplicate Audiobooks</h2>
+                <button class="modal-close" data-modal="duplicates-modal">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <div class="toolbar-left">
+                    <span id="duplicates-summary">Loading...</span>
+                </div>
+                <div class="toolbar-right">
+                    <button class="btn btn-secondary" id="select-all-duplicates">Select All Duplicates</button>
+                    <button class="btn btn-secondary" id="deselect-all">Deselect All</button>
+                    <button class="btn btn-danger" id="delete-selected" disabled>Delete Selected (0)</button>
+                </div>
+            </div>
+            <div class="modal-body" id="duplicates-content">
+                <div class="loading-spinner"></div>
+                <p>Loading duplicates...</p>
+            </div>
+            <div class="modal-footer">
+                <p class="safety-note">
+                    <strong>Safety:</strong> The first file in each group (marked KEEP) is protected and cannot be deleted.
+                    This ensures you never lose the last copy of any audiobook.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLI Command Modal -->
+    <div class="modal" id="cli-modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>CLI Command</h2>
+                <button class="modal-close" data-modal="cli-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="cli-description"></p>
+                <pre class="cli-command" id="cli-command"></pre>
+                <button class="btn btn-primary" id="copy-cli-command">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Confirm Deletion</h2>
+                <button class="modal-close" data-modal="confirm-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="confirm-content">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete">Delete Files</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Player -->
+    <div class="audio-player" id="audio-player" style="display: none;">
+        <button class="player-close" id="close-player">×</button>
+
+        <div class="player-info">
+            <img id="player-cover" src="" alt="" class="player-cover">
+            <div class="player-meta">
+                <div class="player-title" id="player-title">-</div>
+                <div class="player-author" id="player-author">-</div>
+            </div>
+        </div>
+
+        <div class="player-controls">
+            <button class="control-btn" id="play-pause">▶</button>
+            <div class="time-info">
+                <span id="current-time">0:00</span>
+                <span> / </span>
+                <span id="total-time">0:00</span>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <input type="range" id="progress-bar" class="progress-bar" min="0" max="100" value="0">
+        </div>
+
+        <div class="player-extras">
+            <button class="control-btn small-btn" id="rewind">-30s</button>
+            <button class="control-btn small-btn" id="forward">+30s</button>
+            <input type="range" id="volume" class="volume-slider" min="0" max="100" value="100">
+            <span id="playback-speed">1x</span>
+            <button class="control-btn small-btn" id="speed-btn">Speed</button>
+        </div>
+
+        <audio id="audio-element"></audio>
+    </div>
+
+    <script src="js/library.js"></script>
+</body>
+</html>

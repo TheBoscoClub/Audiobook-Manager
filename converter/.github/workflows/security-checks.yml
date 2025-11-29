@@ -1,0 +1,140 @@
+name: Security Checks
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Full history for better analysis
+
+    - name: Check for hardcoded auth codes
+      run: |
+        echo "Checking for hardcoded authentication codes..."
+        # Check for potential auth codes (hex strings)
+        if git diff HEAD~1 | grep -iE '(auth.?code|activation.?bytes).*=.*["\047][a-f0-9]{8,}["\047]'; then
+          echo "❌ ERROR: Hardcoded authentication code detected"
+          exit 1
+        fi
+        echo "✅ No hardcoded auth codes found"
+
+    - name: Verify .gitignore integrity
+      run: |
+        echo "Verifying .gitignore protects sensitive files..."
+
+        # Critical files/patterns that must be in .gitignore
+        REQUIRED_IGNORES=(
+          ".authcode"
+          "*.aax"
+          "*.aaxc"
+          "*.voucher"
+          "*.mp3"
+          "*.m4a"
+          "*.m4b"
+        )
+
+        for pattern in "${REQUIRED_IGNORES[@]}"; do
+          if ! grep -q "$pattern" .gitignore; then
+            echo "❌ ERROR: .gitignore missing protection for: $pattern"
+            exit 1
+          fi
+        done
+
+        echo "✅ .gitignore integrity verified"
+
+    - name: Check for audiobook files committed
+      run: |
+        echo "Scanning for accidentally committed audiobook files..."
+
+        # Check for AAX/AAXC files
+        if git ls-files | grep -iE '\.(aax|aaxc|voucher)$'; then
+          echo "❌ ERROR: Audiobook source files committed to repository"
+          exit 1
+        fi
+
+        # Check for converted audio files
+        if git ls-files | grep -iE '\.(mp3|m4a|m4b|flac|ogg|opus)$'; then
+          echo "❌ ERROR: Converted audio files committed to repository"
+          exit 1
+        fi
+
+        echo "✅ No audiobook files found in repository"
+
+    - name: Check for auth code files
+      run: |
+        echo "Checking for accidentally committed auth files..."
+        if git ls-files | grep -iE '(^\.authcode|ACTIVATION|\.voucher)$'; then
+          echo "❌ ERROR: Authentication files committed to repository"
+          exit 1
+        fi
+        echo "✅ No authentication files found in repository"
+
+    - name: Check for sensitive data in commits
+      run: |
+        echo "Scanning for sensitive data patterns..."
+
+        # Check for personal audiobook titles in commit messages
+        if git log -1 --pretty=%B | grep -iE '(audible|audiobook)' | grep -vE '(AAXtoMP3|conversion|script|tool|fix|improve)'; then
+          echo "⚠️  WARNING: Commit message may contain personal audiobook references"
+        fi
+
+        echo "✅ Sensitive data scan complete"
+
+    - name: Check for dangerous logging
+      run: |
+        echo "Checking for dangerous logging patterns..."
+
+        # Check for logging auth codes or sensitive paths
+        if git diff HEAD~1 -- "*.sh" "*.bash" | grep -iE '(echo|printf|log).*\$?(auth_code|activation_bytes|AUTHCODE)'; then
+          echo "❌ ERROR: Code appears to log authentication data"
+          exit 1
+        fi
+
+        echo "✅ No sensitive data logging detected"
+
+    - name: Verify script permissions
+      run: |
+        echo "Checking script permissions..."
+
+        # Verify main script is executable
+        if [ -f "AAXtoMP3" ] && [ ! -x "AAXtoMP3" ]; then
+          echo "⚠️  WARNING: AAXtoMP3 is not executable"
+        fi
+
+        if [ -f "interactiveAAXtoMP3" ] && [ ! -x "interactiveAAXtoMP3" ]; then
+          echo "⚠️  WARNING: interactiveAAXtoMP3 is not executable"
+        fi
+
+        echo "✅ Script permissions checked"
+
+    - name: Check for copyright violations
+      run: |
+        echo "Checking for potential copyright issues..."
+
+        # Check for suspiciously large files (might be audiobooks)
+        LARGE_FILES=$(git diff --stat HEAD~1 | awk '{if ($3 > 1024) print $1}')
+        if [ -n "$LARGE_FILES" ]; then
+          echo "⚠️  WARNING: Large files detected in commit (verify not audiobooks):"
+          echo "$LARGE_FILES"
+        fi
+
+        echo "✅ Copyright check complete"
+
+    - name: Security scan summary
+      if: always()
+      run: |
+        echo "=========================================="
+        echo "Security Scan Complete"
+        echo "=========================================="
+        echo "Repository: ${{ github.repository }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "=========================================="

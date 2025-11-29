@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database (keep structure, ignore actual data)
+*.db
+!library/backend/schema.sql
+
+# Generated data
+library/data/audiobooks.json
+library/web/covers/
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# Credentials and secrets
+*.pem
+*.key
+credentials.json
+secrets/
+authcode.txt
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Audible auth codes (sensitive)
+*.authcode
