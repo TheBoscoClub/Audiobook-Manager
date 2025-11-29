@@ -10,6 +10,11 @@ LABEL maintainer="Audiobooks Project"
 LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"
 LABEL version="2.3"
 
+# OCI labels for GitHub Container Registry
+LABEL org.opencontainers.image.source="https://github.com/greogory/audiobook-toolkit"
+LABEL org.opencontainers.image.description="Web-based audiobook library browser with search, playback, and PDF supplements"
+LABEL org.opencontainers.image.licenses="MIT"
+
 # Install system dependencies
 # - ffmpeg: Audio/video processing for conversion and metadata
 # - mediainfo: Audio file metadata extraction
