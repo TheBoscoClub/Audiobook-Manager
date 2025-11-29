@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  audiobooks:
+    build: .
+    container_name: audiobooks
+    ports:
+      - "8090:8090"  # Web interface
+      - "5001:5001"  # API
+    volumes:
+      # Mount your audiobook directory (read-only for safety)
+      - ${AUDIOBOOK_DIR:-/path/to/audiobooks}:/audiobooks:ro
+
+      # Persist database and covers
+      - audiobooks_data:/app/data
+      - audiobooks_covers:/app/covers
+
+      # Optional: Mount config for scanner
+      # - ./config:/app/config
+    environment:
+      - AUDIOBOOK_DIR=/audiobooks
+      - DATABASE_PATH=/app/data/audiobooks.db
+    restart: unless-stopped
+
+volumes:
+  audiobooks_data:
+    name: audiobooks_data
+  audiobooks_covers:
+    name: audiobooks_covers

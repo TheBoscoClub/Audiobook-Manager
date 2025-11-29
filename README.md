@@ -84,7 +84,35 @@ Audiobooks/
 └── README.md
 ```
 
-## Requirements
+## Docker (macOS, Windows, Linux)
+
+Run the library in Docker for easy cross-platform deployment:
+
+```bash
+# Set your audiobooks directory
+export AUDIOBOOK_DIR=/path/to/your/audiobooks
+
+# Build and run
+docker-compose up -d
+
+# Access the web interface
+open http://localhost:8090
+```
+
+### First-time setup (scan audiobooks)
+```bash
+# Scan your audiobook directory
+docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py
+
+# Import to database
+docker exec -it audiobooks python3 /app/backend/import_to_db.py
+```
+
+### Docker volumes
+- `audiobooks_data`: Persists the SQLite database
+- `audiobooks_covers`: Persists cover art cache
+
+## Requirements (native install)
 
 - Python 3.8+
 - ffmpeg 4.4+ (with ffprobe)

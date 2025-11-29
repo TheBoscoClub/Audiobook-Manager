@@ -13,7 +13,7 @@ import os
 app = Flask(__name__)
 CORS(app)  # Enable CORS for local development
 
-DB_PATH = Path(__file__).parent / "audiobooks.db"
+DB_PATH = Path(os.environ.get('DATABASE_PATH', Path(__file__).parent / "audiobooks.db"))
 PROJECT_ROOT = Path(__file__).parent.parent
 
 

@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*.so
+venv/
+.venv/
+ENV/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database (will be mounted as volume)
+*.db
+
+# Covers (will be mounted as volume)
+library/web/covers/
+
+# Development files
+*.log
+*.tmp
+*.temp
+
+# Sensitive files
+.env
+.env.local
+*.pem
+*.key
+authcode.txt
+*.authcode
+credentials.json
+secrets/
+
+# Documentation (not needed in container)
+*.md
+!README.md
+SECURITY.md
