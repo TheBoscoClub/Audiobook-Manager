@@ -2,8 +2,8 @@
 # Re-download Corrupted Audiobooks
 # Reads the priority list and forces re-download of corrupted files
 
-PRIORITY_LIST="/raid0/ClaudeCodeProjects/audiobook-library/scanner/priority_audiobooks_to_redownload.txt"
-DOWNLOAD_DIR="/raid0/Audiobooks"
+PRIORITY_LIST="/raid0/ClaudeCodeProjects/Audiobooks/library/scanner/priority_audiobooks_to_redownload.txt"
+DOWNLOAD_DIR="/raid0/Audiobooks/Sources"
 LOG_FILE="/raid0/Audiobooks/logs/redownload_corrupted.log"
 TEMP_DIR="/tmp/redownload-corrupted"
 AUDIBLE_CMD="$HOME/.local/bin/audible"
@@ -112,8 +112,7 @@ REMOVED_COUNT=0
 while IFS= read -r ASIN; do
     # Find and remove all files with this ASIN (including converted files)
     find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -size 0 -delete 2>/dev/null && ((REMOVED_COUNT++))
-    find "/raid0/Audiobooks/Audiobooks-Converted-Opus-nocomp" -name "${ASIN}*" -type f -name "*.opus" -size 0 -delete 2>/dev/null
-    find "/raid0/Audiobooks/converted" -name "*${ASIN}*" -type f -name "*.m4b" -size 0 -delete 2>/dev/null
+    find "/raid0/Audiobooks/Library" -name "${ASIN}*" -type f -name "*.opus" -size 0 -delete 2>/dev/null
 done < "$TEMP_DIR/asins_to_redownload.txt"
 
 log "Removed $REMOVED_COUNT corrupted files"
@@ -200,5 +199,5 @@ echo "  Failed: $FAILED"
 echo ""
 echo "The audiobook-converter service will automatically convert the re-downloaded files."
 echo "Run the library scanner after conversion completes to update the web interface:"
-echo "  cd /raid0/ClaudeCodeProjects/audiobook-library/scanner"
+echo "  cd /raid0/ClaudeCodeProjects/Audiobooks/library/scanner"
 echo "  python3 scan_audiobooks.py"

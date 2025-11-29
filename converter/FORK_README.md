@@ -6,10 +6,10 @@
 
 ---
 
-**Fork Version**: 2.1 | **Original**: [KrumpetPirate/AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3) v1.3 (archived)
+**Fork Version**: 2.2 | **Original**: [KrumpetPirate/AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3) v1.3 (archived)
 **License**: WTFPL v2 | **Platform**: Linux (Tested: CachyOS) | **Language**: Bash
-**Dependencies**: ffmpeg 4.4+, jq, bash 3.2.57+
-**Fork Improvements**: AAXC fallback handling, enhanced logging, security docs, multi-distro support
+**Dependencies**: ffmpeg 4.4+, jq, bash 3.2.57+, mutagen (optional, for Opus cover art)
+**Fork Improvements**: AAXC fallback handling, Opus cover art embedding, enhanced logging, security docs
 
 ---
 
@@ -53,14 +53,22 @@ This is a **casual personal fork** of [KrumpetPirate/AAXtoMP3](https://github.co
    - Issue: Used hardcoded `-activation_bytes` parameter which doesn't work for AAXC
    - Fix: Now uses `${decrypt_param}` which correctly handles both AAX and AAXC
 
+### Opus Cover Art Embedding (v2.2)
+
+3. **Fixed cover art embedding for Opus files**
+   - Issue: FFmpeg cannot embed cover art in OGG/Opus containers (error: "Unsupported codec id in stream 1")
+   - Fix: Use Python mutagen library with METADATA_BLOCK_PICTURE (Vorbis Comments standard)
+   - Benefit: Opus audiobooks now have embedded cover art that displays in audio players
+   - Install: `pip3 install mutagen` (optional - script will warn and continue without cover art if missing)
+
 ### Robustness Improvements
 
-3. **Made chapter/cover file validation non-fatal**
+4. **Made chapter/cover file validation non-fatal**
    - Before: Script would fail with ERROR if audible-cli metadata files were missing
    - After: Script warns but continues, extracting data directly from AAXC file
    - Benefit: Works with incomplete audible-cli setups
 
-4. **Enhanced user feedback**
+5. **Enhanced user feedback**
    - Added informative log messages when extracting chapters/cover as fallback
    - Users now understand what the script is doing during conversion
 
@@ -202,10 +210,10 @@ For additional legal and security considerations, see [SECURITY.md](SECURITY.md)
 
 ## Fork Status
 
-**Current Version:** 2.1 ([Release](https://github.com/greogory/AAXtoMP3/releases/tag/v2.1))
-**Last Updated:** 2025-11-22
+**Current Version:** 2.2 ([Release](https://github.com/greogory/AAXtoMP3/releases/tag/v2.2))
+**Last Updated:** 2025-11-29
 **Upstream:** KrumpetPirate/AAXtoMP3 v1.3 (archived)
-**Commits Ahead:** 8
+**Commits Ahead:** 9
 **Maintenance Level:** Casual / As-needed
 
 ---

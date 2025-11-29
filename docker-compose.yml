@@ -1,29 +1,71 @@
+# Audiobooks - Docker Compose Configuration
+#
+# Quick Start:
+#   export AUDIOBOOK_DIR=/path/to/your/audiobooks
+#   docker-compose up -d
+#
+# Access:
+#   Web UI: http://localhost:8090
+#   API:    http://localhost:5001
+#
+# First-time setup (scan audiobooks):
+#   docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py
+#   docker exec -it audiobooks python3 /app/backend/import_to_db.py
+
 version: '3.8'
 
 services:
   audiobooks:
     build: .
+    image: audiobooks:latest
     container_name: audiobooks
     ports:
-      - "8090:8090"  # Web interface
-      - "5001:5001"  # API
+      - "${WEB_PORT:-8090}:8090"   # Web interface
+      - "${API_PORT:-5001}:5001"   # REST API
     volumes:
       # Mount your audiobook directory (read-only for safety)
+      # The Library subdirectory contains converted OPUS files
       - ${AUDIOBOOK_DIR:-/path/to/audiobooks}:/audiobooks:ro
 
-      # Persist database and covers
+      # Persist database across container restarts
       - audiobooks_data:/app/data
+
+      # Persist cover art cache
       - audiobooks_covers:/app/covers
 
-      # Optional: Mount config for scanner
-      # - ./config:/app/config
     environment:
+      # Path to audiobooks inside container
       - AUDIOBOOK_DIR=/audiobooks
+
+      # Database location (persisted via volume)
       - DATABASE_PATH=/app/data/audiobooks.db
+
+      # Cover art cache location
+      - COVER_DIR=/app/covers
+
+      # Server ports (match exposed ports)
+      - WEB_PORT=8090
+      - API_PORT=5001
+
     restart: unless-stopped
+
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
 volumes:
   audiobooks_data:
     name: audiobooks_data
+    driver: local
   audiobooks_covers:
     name: audiobooks_covers
+    driver: local
+
+# Network configuration (optional)
+networks:
+  default:
+    name: audiobooks_network

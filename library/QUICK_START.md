@@ -77,7 +77,7 @@ Click any audiobook to see:
 ## Troubleshooting
 
 **Problem:** Scanner fails with "ffprobe not found"
-- **Solution:** Install ffmpeg: `sudo pacman -S ffmpeg`
+- **Solution:** Install ffmpeg using your system's package manager
 
 **Problem:** No cover art showing
 - **Solution:** Ensure ffmpeg is installed (not just ffprobe)

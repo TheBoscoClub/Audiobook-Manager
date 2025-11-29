@@ -11,15 +11,17 @@ class AudiobookLibraryV2 {
             search: '',
             author: '',
             narrator: '',
-            format: '',
             sort: 'title',
             order: 'asc'
         };
         this.filters = {
             authors: [],
-            narrators: [],
-            formats: []
+            narrators: []
         };
+        this.narratorCounts = {}; // narrator -> book count
+        this.narratorLetterGroup = 'all'; // current letter group filter
+        this.narratorSortAsc = true; // A-Z = true, Z-A = false
+        this.highlightedNarratorIndex = -1;
 
         this.init();
     }
@@ -59,13 +61,253 @@ class AudiobookLibraryV2 {
             const response = await fetch(`${API_BASE}/filters`);
             this.filters = await response.json();
 
-            // Populate filter dropdowns
+            // Populate author dropdown
             this.populateSelect('author-filter', this.filters.authors);
-            this.populateSelect('narrator-filter', this.filters.narrators);
-            this.populateSelect('format-filter', this.filters.formats);
+
+            // Load narrator counts for autocomplete
+            await this.loadNarratorCounts();
+
+            // Setup narrator autocomplete
+            this.setupNarratorAutocomplete();
         } catch (error) {
             console.error('Error loading filters:', error);
         }
+    }
+
+    async loadNarratorCounts() {
+        try {
+            // Get narrator counts from stats endpoint
+            const response = await fetch(`${API_BASE}/narrator-counts`);
+            if (response.ok) {
+                this.narratorCounts = await response.json();
+            } else {
+                // Fallback: just use narrator list without counts
+                this.narratorCounts = {};
+                this.filters.narrators.forEach(n => this.narratorCounts[n] = null);
+            }
+        } catch (error) {
+            // Fallback
+            this.narratorCounts = {};
+            this.filters.narrators.forEach(n => this.narratorCounts[n] = null);
+        }
+    }
+
+    setupNarratorAutocomplete() {
+        const container = document.getElementById('narrator-autocomplete');
+        const input = document.getElementById('narrator-search');
+        const dropdown = document.getElementById('narrator-dropdown');
+        const clearBtn = document.getElementById('narrator-clear');
+        const sortBtn = document.getElementById('narrator-sort');
+
+        // Letter group buttons
+        container.querySelectorAll('.letter-group').forEach(btn => {
+            btn.addEventListener('click', () => {
+                container.querySelectorAll('.letter-group').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.narratorLetterGroup = btn.dataset.group;
+                const query = input.value.toLowerCase().trim();
+                this.highlightedNarratorIndex = -1;
+                this.showNarratorDropdown(query);
+            });
+        });
+
+        // Sort toggle button
+        sortBtn.addEventListener('click', () => {
+            this.narratorSortAsc = !this.narratorSortAsc;
+            sortBtn.textContent = this.narratorSortAsc ? 'A-Z' : 'Z-A';
+            const query = input.value.toLowerCase().trim();
+            this.highlightedNarratorIndex = -1;
+            this.showNarratorDropdown(query);
+        });
+
+        // Input event - filter narrators as user types
+        input.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            this.highlightedNarratorIndex = -1;
+            this.showNarratorDropdown(query);
+        });
+
+        // Focus event - show dropdown
+        input.addEventListener('focus', () => {
+            const query = input.value.toLowerCase().trim();
+            this.showNarratorDropdown(query);
+        });
+
+        // Keyboard navigation
+        input.addEventListener('keydown', (e) => {
+            const options = dropdown.querySelectorAll('.narrator-option');
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                this.highlightedNarratorIndex = Math.min(this.highlightedNarratorIndex + 1, options.length - 1);
+                this.updateNarratorHighlight(options);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.highlightedNarratorIndex = Math.max(this.highlightedNarratorIndex - 1, -1);
+                this.updateNarratorHighlight(options);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.highlightedNarratorIndex >= 0 && options[this.highlightedNarratorIndex]) {
+                    options[this.highlightedNarratorIndex].click();
+                }
+            } else if (e.key === 'Escape') {
+                this.hideNarratorDropdown();
+                input.blur();
+            }
+        });
+
+        // Clear button
+        clearBtn.addEventListener('click', () => {
+            this.selectNarrator('');
+        });
+
+        // Click outside to close
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target)) {
+                this.hideNarratorDropdown();
+            }
+        });
+    }
+
+    showNarratorDropdown(query = '') {
+        const dropdown = document.getElementById('narrator-dropdown');
+        const narrators = this.filters.narrators || [];
+
+        // Filter by letter group first
+        let filtered = this.filterByLetterGroup(narrators, this.narratorLetterGroup);
+
+        // Then filter by search query
+        if (query) {
+            filtered = filtered.filter(n => n.toLowerCase().includes(query));
+        }
+
+        // Sort the results
+        filtered = this.sortNarrators(filtered, this.narratorSortAsc);
+
+        // Count for this group before limiting
+        const groupTotal = filtered.length;
+
+        // Limit display to prevent performance issues
+        const maxDisplay = 50;
+        const hasMore = filtered.length > maxDisplay;
+        filtered = filtered.slice(0, maxDisplay);
+
+        // Build dropdown HTML
+        let html = '';
+
+        // "All Narrators" option at top (shows total count for current group)
+        const allLabel = this.narratorLetterGroup === 'all' ? 'All Narrators' : `All ${this.narratorLetterGroup.toUpperCase()}`;
+        html += `<div class="narrator-option narrator-all-option" data-value="">
+            <span>${allLabel}</span>
+            <span class="count">${narrators.length} total</span>
+        </div>`;
+
+        if (filtered.length === 0 && query) {
+            html += `<div class="narrator-no-results">No narrators matching "${query}"</div>`;
+        } else if (filtered.length === 0) {
+            html += `<div class="narrator-no-results">No narrators in this range</div>`;
+        } else {
+            filtered.forEach(narrator => {
+                const count = this.narratorCounts[narrator];
+                const countHtml = count !== null ? `<span class="count">${count}</span>` : '';
+                html += `<div class="narrator-option" data-value="${this.escapeHtml(narrator)}">
+                    <span>${this.highlightMatch(narrator, query)}</span>
+                    ${countHtml}
+                </div>`;
+            });
+
+            if (hasMore) {
+                html += `<div class="narrator-no-results">Showing ${maxDisplay} of ${groupTotal}. Type to filter...</div>`;
+            }
+        }
+
+        dropdown.innerHTML = html;
+
+        // Add click handlers to options
+        dropdown.querySelectorAll('.narrator-option').forEach(option => {
+            option.addEventListener('click', () => {
+                this.selectNarrator(option.dataset.value);
+            });
+        });
+
+        dropdown.classList.add('active');
+    }
+
+    filterByLetterGroup(narrators, group) {
+        if (group === 'all') return [...narrators];
+
+        const ranges = {
+            'a-e': ['A', 'B', 'C', 'D', 'E'],
+            'f-j': ['F', 'G', 'H', 'I', 'J'],
+            'k-o': ['K', 'L', 'M', 'N', 'O'],
+            'p-t': ['P', 'Q', 'R', 'S', 'T'],
+            'u-z': ['U', 'V', 'W', 'X', 'Y', 'Z']
+        };
+
+        const letters = ranges[group] || [];
+        return narrators.filter(n => {
+            const firstLetter = n.charAt(0).toUpperCase();
+            return letters.includes(firstLetter);
+        });
+    }
+
+    sortNarrators(narrators, ascending) {
+        return narrators.sort((a, b) => {
+            const cmp = a.localeCompare(b, undefined, { sensitivity: 'base' });
+            return ascending ? cmp : -cmp;
+        });
+    }
+
+    hideNarratorDropdown() {
+        const dropdown = document.getElementById('narrator-dropdown');
+        dropdown.classList.remove('active');
+        this.highlightedNarratorIndex = -1;
+    }
+
+    updateNarratorHighlight(options) {
+        options.forEach((opt, i) => {
+            opt.classList.toggle('highlighted', i === this.highlightedNarratorIndex);
+            if (i === this.highlightedNarratorIndex) {
+                opt.scrollIntoView({ block: 'nearest' });
+            }
+        });
+    }
+
+    selectNarrator(narrator) {
+        const container = document.getElementById('narrator-autocomplete');
+        const input = document.getElementById('narrator-search');
+
+        this.currentFilters.narrator = narrator;
+        input.value = narrator;
+
+        if (narrator) {
+            container.classList.add('has-value');
+            input.classList.add('has-value');
+        } else {
+            container.classList.remove('has-value');
+            input.classList.remove('has-value');
+        }
+
+        this.hideNarratorDropdown();
+        this.currentPage = 1;
+        this.loadAudiobooks();
+    }
+
+    highlightMatch(text, query) {
+        if (!query) return this.escapeHtml(text);
+        const escaped = this.escapeHtml(text);
+        const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
+        return escaped.replace(regex, '<strong>$1</strong>');
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     populateSelect(selectId, options) {
@@ -106,7 +348,6 @@ class AudiobookLibraryV2 {
             if (this.currentFilters.search) params.append('search', this.currentFilters.search);
             if (this.currentFilters.author) params.append('author', this.currentFilters.author);
             if (this.currentFilters.narrator) params.append('narrator', this.currentFilters.narrator);
-            if (this.currentFilters.format) params.append('format', this.currentFilters.format);
             if (this.currentFilters.sort) params.append('sort', this.currentFilters.sort);
             if (this.currentFilters.order) params.append('order', this.currentFilters.order);
 
@@ -277,13 +518,12 @@ class AudiobookLibraryV2 {
         document.getElementById('clear-search').addEventListener('click', () => {
             document.getElementById('search-input').value = '';
             document.getElementById('author-filter').value = '';
-            document.getElementById('narrator-filter').value = '';
-            document.getElementById('format-filter').value = '';
+            // Clear narrator autocomplete
+            this.selectNarrator('');
             this.currentFilters = {
                 search: '',
                 author: '',
                 narrator: '',
-                format: '',
                 sort: 'title',
                 order: 'asc'
             };
@@ -294,20 +534,6 @@ class AudiobookLibraryV2 {
         // Author filter
         document.getElementById('author-filter').addEventListener('change', (e) => {
             this.currentFilters.author = e.target.value;
-            this.currentPage = 1;
-            this.loadAudiobooks();
-        });
-
-        // Narrator filter
-        document.getElementById('narrator-filter').addEventListener('change', (e) => {
-            this.currentFilters.narrator = e.target.value;
-            this.currentPage = 1;
-            this.loadAudiobooks();
-        });
-
-        // Format filter
-        document.getElementById('format-filter').addEventListener('change', (e) => {
-            this.currentFilters.format = e.target.value;
             this.currentPage = 1;
             this.loadAudiobooks();
         });
@@ -372,6 +598,24 @@ class AudioPlayer {
         this.currentBook = null;
         this.playbackRates = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
         this.currentRateIndex = 1; // Start at 1.0x
+
+        // Set CORS mode for cross-origin streaming
+        this.audio.crossOrigin = 'anonymous';
+
+        // Add error handler for debugging
+        this.audio.addEventListener('error', (e) => {
+            const error = this.audio.error;
+            let message = 'Unknown error';
+            if (error) {
+                switch (error.code) {
+                    case 1: message = 'MEDIA_ERR_ABORTED - Fetching aborted'; break;
+                    case 2: message = 'MEDIA_ERR_NETWORK - Network error'; break;
+                    case 3: message = 'MEDIA_ERR_DECODE - Decoding error'; break;
+                    case 4: message = 'MEDIA_ERR_SRC_NOT_SUPPORTED - Format not supported'; break;
+                }
+            }
+            console.error('Audio error:', message, error);
+        });
 
         this.setupEventListeners();
     }
@@ -440,6 +684,12 @@ class AudioPlayer {
         // Update player UI
         document.getElementById('player-title').textContent = book.title;
         document.getElementById('player-author').textContent = book.author || 'Unknown Author';
+
+        // Update file info (ID and path)
+        document.getElementById('player-id').textContent = `ID: ${book.id}`;
+        const pathEl = document.getElementById('player-path');
+        pathEl.textContent = book.file_path || 'Unknown path';
+        pathEl.title = book.file_path || '';
 
         const coverImg = document.getElementById('player-cover');
         if (book.cover_path) {
@@ -589,6 +839,20 @@ class DuplicateManager {
             this.confirmDelete();
         });
 
+        // Duplicate mode tabs
+        this.duplicateMode = 'title'; // Default to title/author mode
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const mode = e.target.dataset.mode;
+                if (mode !== this.duplicateMode) {
+                    this.duplicateMode = mode;
+                    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    this.showDuplicates(mode);
+                }
+            });
+        });
+
         // Confirmation modal
         document.getElementById('confirm-cancel')?.addEventListener('click', () => {
             this.closeModal('confirm-modal');
@@ -718,10 +982,16 @@ class DuplicateManager {
         }
     }
 
-    async showDuplicates() {
+    async showDuplicates(mode = null) {
         this.openModal('duplicates-modal');
         this.selectedIds.clear();
         this.updateDeleteButton();
+
+        // Use provided mode or current mode
+        if (mode) {
+            this.duplicateMode = mode;
+        }
+        const currentMode = this.duplicateMode || 'title';
 
         const content = document.getElementById('duplicates-content');
         const summary = document.getElementById('duplicates-summary');
@@ -729,7 +999,9 @@ class DuplicateManager {
         summary.textContent = 'Loading...';
 
         try {
-            const response = await fetch(`${API_BASE}/duplicates`);
+            // Choose endpoint based on mode
+            const endpoint = currentMode === 'hash' ? 'duplicates' : 'duplicates/by-title';
+            const response = await fetch(`${API_BASE}/${endpoint}`);
 
             if (!response.ok) {
                 const error = await response.json();
@@ -741,18 +1013,24 @@ class DuplicateManager {
 
             if (data.total_groups === 0) {
                 summary.textContent = 'No duplicates found';
+                const modeDesc = currentMode === 'hash'
+                    ? 'No byte-for-byte identical files found.'
+                    : 'No audiobooks with matching title and author found.';
                 content.innerHTML = `
                     <div style="text-align: center; padding: 3rem;">
                         <p style="font-size: 1.2rem; color: #27ae60;">No duplicate audiobooks found!</p>
-                        <p>All your audiobooks are unique.</p>
+                        <p>${modeDesc}</p>
                     </div>
                 `;
                 return;
             }
 
-            summary.textContent = `${data.total_groups} groups | ${data.total_duplicate_files} duplicates | ${this.formatSize(data.total_wasted_mb)} wasted`;
+            // Format summary based on mode
+            const savingsLabel = currentMode === 'hash' ? 'wasted' : 'potential savings';
+            const savingsValue = currentMode === 'hash' ? data.total_wasted_mb : data.total_potential_savings_mb;
+            summary.textContent = `${data.total_groups} groups | ${data.total_duplicate_files} duplicates | ${this.formatSize(savingsValue)} ${savingsLabel}`;
 
-            content.innerHTML = data.duplicate_groups.map(group => this.renderDuplicateGroup(group)).join('');
+            content.innerHTML = data.duplicate_groups.map(group => this.renderDuplicateGroup(group, currentMode)).join('');
 
             // Add checkbox event listeners
             content.querySelectorAll('.duplicate-checkbox').forEach(checkbox => {
@@ -773,15 +1051,17 @@ class DuplicateManager {
 
         } catch (error) {
             summary.textContent = 'Error';
+            const helpText = currentMode === 'hash'
+                ? '<p>Make sure hashes have been generated first:</p><pre class="cli-command">cd library && python3 scripts/generate_hashes.py</pre>'
+                : '';
             content.innerHTML = `
                 <p style="color: #c0392b;">Error loading duplicates: ${error.message}</p>
-                <p>Make sure hashes have been generated first:</p>
-                <pre class="cli-command">cd library && python3 scripts/generate_hashes.py</pre>
+                ${helpText}
             `;
         }
     }
 
-    renderDuplicateGroup(group) {
+    renderDuplicateGroup(group, mode = 'hash') {
         const filesHtml = group.files.map(file => {
             const isKeeper = file.is_keeper;
             const badgeClass = isKeeper ? 'badge-keep' : 'badge-duplicate';
@@ -793,7 +1073,7 @@ class DuplicateManager {
                     <input type="checkbox"
                            class="duplicate-checkbox"
                            data-id="${file.id}"
-                           ${isKeeper ? 'disabled title="This file is protected - it is the original copy"' : ''}>
+                           ${isKeeper ? 'disabled title="This file is protected - it is the preferred copy"' : ''}>
                     <div class="duplicate-info">
                         <div class="duplicate-title">${this.escapeHtml(file.title)}</div>
                         <div class="duplicate-path">${this.escapeHtml(file.file_path)}</div>
@@ -808,12 +1088,16 @@ class DuplicateManager {
             `;
         }).join('');
 
+        // Use appropriate label for mode
+        const savingsLabel = mode === 'hash' ? 'Wasted' : 'Savings';
+        const savingsValue = mode === 'hash' ? group.wasted_mb : group.potential_savings_mb;
+
         return `
             <div class="duplicate-group">
                 <div class="duplicate-group-header">
-                    <span class="duplicate-group-title">${this.escapeHtml(group.files[0]?.title || 'Unknown')}</span>
+                    <span class="duplicate-group-title">${this.escapeHtml(group.title || group.files[0]?.title || 'Unknown')}</span>
                     <span class="duplicate-group-meta">
-                        ${group.count} copies | Wasted: ${this.formatSize(group.wasted_mb)}
+                        ${group.count} copies | ${savingsLabel}: ${this.formatSize(savingsValue)}
                     </span>
                 </div>
                 ${filesHtml}
@@ -872,7 +1156,10 @@ class DuplicateManager {
             const response = await fetch(`${API_BASE}/duplicates/delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ audiobook_ids: Array.from(this.selectedIds) })
+                body: JSON.stringify({
+                    audiobook_ids: Array.from(this.selectedIds),
+                    mode: this.duplicateMode || 'title'
+                })
             });
 
             const result = await response.json();

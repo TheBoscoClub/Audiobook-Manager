@@ -98,25 +98,23 @@ npm audit
 ```
 
 **Update system packages:**
-```bash
-# Arch Linux / CachyOS / Manjaro
-sudo pacman -Syu
 
-# Ubuntu / Debian
-sudo apt update && sudo apt upgrade
+Use your system's package manager to keep packages up to date:
 
-# Fedora / RHEL
-sudo dnf upgrade
-
-# macOS (Homebrew)
-brew update && brew upgrade
-```
+| OS | Update Command |
+|----|----------------|
+| Arch/CachyOS/Manjaro | `sudo pacman -Syu` |
+| Ubuntu/Debian | `sudo apt update && sudo apt upgrade` |
+| Fedora/RHEL | `sudo dnf upgrade` |
+| openSUSE | `sudo zypper update` |
+| macOS (Homebrew) | `brew update && brew upgrade` |
+| Alpine | `apk update && apk upgrade` |
 
 **Update dependencies regularly:**
 ```bash
 # Python: pip list --outdated
 # Node.js: npm outdated
-# Arch: pacman -Qu
+# Check your package manager's outdated list
 ```
 
 ### Local Security

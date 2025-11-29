@@ -131,6 +131,52 @@ debug() {
 }
 
 # -----
+# embed_ogg_cover
+# Embed cover art into OGG/Opus files using mutagen (METADATA_BLOCK_PICTURE)
+# FFmpeg cannot add cover art to OGG containers properly, so we use mutagen
+embed_ogg_cover() {
+  local opus_file="$1"
+  local cover_file="$2"
+
+  # Determine MIME type from extension
+  local mime_type="image/jpeg"
+  if [[ "${cover_file##*.}" == "png" ]]; then
+    mime_type="image/png"
+  fi
+
+  python3 << EMBED_SCRIPT
+import sys
+import base64
+try:
+    from mutagen.oggopus import OggOpus
+    from mutagen.flac import Picture
+except ImportError:
+    print("ERROR: mutagen not installed", file=sys.stderr)
+    sys.exit(1)
+
+opus_path = "${opus_file}"
+cover_path = "${cover_file}"
+mime_type = "${mime_type}"
+
+try:
+    audio = OggOpus(opus_path)
+    picture = Picture()
+    picture.type = 3  # Front cover
+    picture.mime = mime_type
+    picture.desc = 'Front cover'
+    with open(cover_path, 'rb') as f:
+        picture.data = f.read()
+    picture_data = picture.write()
+    encoded_data = base64.b64encode(picture_data).decode('ascii')
+    audio['metadata_block_picture'] = [encoded_data]
+    audio.save()
+except Exception as e:
+    print(f"ERROR embedding cover: {e}", file=sys.stderr)
+    sys.exit(1)
+EMBED_SCRIPT
+}
+
+# -----
 # debug dump contents of a file to STDOUT
 # debug "<full path to file>"
 debug_file() {
@@ -296,6 +342,20 @@ if [[ "x${container}" == "xmp4" && "x$(type -P mp4art)" == "x" ]]; then
   echo "INSTALL:"
   echo "MacOS:   brew install mp4v2"
   echo "Ubuntu:  sudo apt-get install mp4v2-utils"
+fi
+
+# -----
+# Detect if we need mutagen for cover additions to OGG/Opus files.
+if [[ "x${container}" == "xogg" ]]; then
+  # Check for Python and mutagen
+  if ! python3 -c "from mutagen.oggopus import OggOpus; from mutagen.flac import Picture" 2>/dev/null; then
+    echo "WARN mutagen Python library not found"
+    echo "Without it, this script will not be able to add cover art to"
+    echo "Opus files. Note if there are no other errors the AAXtoMP3 will"
+    echo "continue. However no cover art will be added to the output."
+    echo "INSTALL:"
+    echo "pip3 install mutagen"
+  fi
 fi
 
 # -----
@@ -975,7 +1035,15 @@ do
     # FFMPEG does not support MPEG-4 containers fully #
     if [ "${container}" == "mp4" ] ; then
       mp4art --add "${cover_file}" "${output_file}"
-    # FFMPEG for everything else #
+    # OGG/Opus containers need mutagen (FFmpeg cannot embed covers properly) #
+    elif [ "${container}" == "ogg" ] ; then
+      # Use mutagen to embed cover via METADATA_BLOCK_PICTURE (Vorbis Comments)
+      if python3 -c "from mutagen.oggopus import OggOpus" 2>/dev/null; then
+        embed_ogg_cover "${output_file}" "${cover_file}"
+      else
+        log "WARN: mutagen not available, cover art not embedded in Opus file"
+      fi
+    # FFMPEG for everything else (MP3, FLAC) #
     else
       # Create temporary output file name - ensure extention matches previous appropriate output file to keep ffmpeg happy
       cover_output_file="${output_file%.*}.cover.${output_file##*.}"

@@ -82,11 +82,17 @@ WEB_PORT = int(get_config('WEB_PORT', '8090'))
 API_PORT = int(get_config('API_PORT', '5001'))
 
 # =============================================================================
-# Conversion Paths
+# Directory Structure
 # =============================================================================
 
-OPUS_DIR = Path(get_config('OPUS_DIR', str(AUDIOBOOK_DIR / "Audiobooks-Converted-Opus-nocomp")))
-CONVERTED_DIR = Path(get_config('CONVERTED_DIR', str(AUDIOBOOK_DIR / "converted")))
+# Original AAXC source files
+SOURCES_DIR = Path(get_config('SOURCES_DIR', str(AUDIOBOOK_DIR / "Sources")))
+
+# Converted OPUS files (organized by Author/Title)
+OPUS_DIR = Path(get_config('OPUS_DIR', str(AUDIOBOOK_DIR / "Library")))
+
+# Legacy alias for OPUS_DIR (deprecated)
+CONVERTED_DIR = Path(get_config('CONVERTED_DIR', str(AUDIOBOOK_DIR / "Library")))
 
 # =============================================================================
 # Utility Functions

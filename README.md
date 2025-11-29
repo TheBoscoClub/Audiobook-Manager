@@ -172,6 +172,30 @@ cd ../backend
 python3 import_to_db.py
 ```
 
+## Local Audiobook Directory Structure
+
+The audiobook files on this system are organized as follows:
+
+```
+/raid0/Audiobooks/
+├── Sources/           # Original AAXC files from Audible
+├── Library/           # Converted OPUS files (organized by Author/Title)
+├── scripts/           # Conversion scripts (master copies)
+├── systemd/           # Systemd service files
+├── logs/              # Conversion logs
+└── README_CONVERSION.md  # Detailed conversion documentation
+```
+
+For more information about the automated conversion system, see `/raid0/Audiobooks/README_CONVERSION.md`.
+
+### Conversion Commands (available in PATH)
+```bash
+audiobook-status    # Check conversion status
+audiobook-help      # Full command reference
+audiobook-start     # Start conversion services
+audiobook-stop      # Stop conversion services
+```
+
 ## License
 
 See individual component licenses in `converter/LICENSE` and `library/` files.

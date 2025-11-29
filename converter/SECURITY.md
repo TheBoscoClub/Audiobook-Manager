@@ -122,19 +122,19 @@ auth_code="hardcoded-auth-here"
 - mp4art / mp4chaps - Metadata tools
 
 **Check for updates:**
-```bash
-# CachyOS / Arch Linux / Manjaro
-sudo pacman -Syu ffmpeg jq mp4v2-utils
 
-# Ubuntu / Debian
-sudo apt update && sudo apt upgrade ffmpeg jq mp4v2-utils
+Use your system's package manager to keep dependencies updated:
 
-# Fedora / RHEL
-sudo dnf upgrade ffmpeg jq mp4v2-utils
+| OS | Update Command |
+|----|----------------|
+| Arch/CachyOS/Manjaro | `sudo pacman -Syu ffmpeg jq mp4v2` |
+| Ubuntu/Debian | `sudo apt update && sudo apt install --only-upgrade ffmpeg jq mp4v2-utils` |
+| Fedora/RHEL | `sudo dnf upgrade ffmpeg jq` |
+| openSUSE | `sudo zypper update ffmpeg jq` |
+| macOS (Homebrew) | `brew update && brew upgrade ffmpeg jq mp4v2` |
+| Alpine | `apk update && apk upgrade ffmpeg jq` |
 
-# macOS (Homebrew)
-brew update && brew upgrade ffmpeg jq mp4v2-utils
-```
+**Note:** Package names may vary by distribution. Search your package manager if exact names don't work.
 
 ### Local Security
 

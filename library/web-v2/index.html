@@ -49,13 +49,28 @@
                 <option value="">All Authors</option>
             </select>
 
-            <select id="narrator-filter" class="filter-select">
-                <option value="">All Narrators</option>
-            </select>
-
-            <select id="format-filter" class="filter-select">
-                <option value="">All Formats</option>
-            </select>
+            <div class="narrator-autocomplete" id="narrator-autocomplete">
+                <div class="narrator-controls">
+                    <div class="letter-groups">
+                        <button class="letter-group active" data-group="all">All</button>
+                        <button class="letter-group" data-group="a-e">A-E</button>
+                        <button class="letter-group" data-group="f-j">F-J</button>
+                        <button class="letter-group" data-group="k-o">K-O</button>
+                        <button class="letter-group" data-group="p-t">P-T</button>
+                        <button class="letter-group" data-group="u-z">U-Z</button>
+                    </div>
+                    <button class="sort-toggle" id="narrator-sort" title="Toggle sort order">A-Z</button>
+                </div>
+                <div class="narrator-search-row">
+                    <input type="text"
+                           id="narrator-search"
+                           class="filter-select narrator-input"
+                           placeholder="Search narrators..."
+                           autocomplete="off">
+                    <button id="narrator-clear" class="narrator-clear" title="Clear narrator filter">&times;</button>
+                </div>
+                <div class="narrator-dropdown" id="narrator-dropdown"></div>
+            </div>
 
             <select id="sort-filter" class="filter-select">
                 <option value="title:asc">Title (A-Z)</option>
@@ -143,6 +158,10 @@
                 <h2>Duplicate Audiobooks</h2>
                 <button class="modal-close" data-modal="duplicates-modal">&times;</button>
             </div>
+            <div class="duplicate-mode-tabs">
+                <button class="mode-tab active" data-mode="title">Same Title/Author</button>
+                <button class="mode-tab" data-mode="hash">Exact Match (SHA-256)</button>
+            </div>
             <div class="modal-toolbar">
                 <div class="toolbar-left">
                     <span id="duplicates-summary">Loading...</span>
@@ -206,6 +225,10 @@
             <div class="player-meta">
                 <div class="player-title" id="player-title">-</div>
                 <div class="player-author" id="player-author">-</div>
+                <div class="player-file-info" id="player-file-info">
+                    <span class="player-id" id="player-id">ID: -</span>
+                    <span class="player-path" id="player-path" title="">-</span>
+                </div>
             </div>
         </div>
 

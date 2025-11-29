@@ -43,27 +43,29 @@ Complete installation instructions for the Audiobook Library system.
 
 ### System Packages
 
-#### Arch Linux / CachyOS
-```bash
-sudo pacman -S python python-pip ffmpeg
-```
+Install the following using your system's package manager:
 
-#### Ubuntu / Debian
-```bash
-sudo apt update
-sudo apt install python3 python3-pip python3-venv ffmpeg
-```
+| Package | Description |
+|---------|-------------|
+| `python3` | Python 3.8+ interpreter |
+| `python3-pip` | Python package manager |
+| `python3-venv` | Virtual environment support (some distros) |
+| `ffmpeg` | Audio/video processing (includes ffprobe) |
 
-#### macOS (Homebrew)
-```bash
-brew install python@3 ffmpeg
-```
+**Package Names by OS:**
 
-#### Windows (WSL2)
-```bash
-sudo apt update
-sudo apt install python3 python3-pip python3-venv ffmpeg
-```
+| OS | Package Manager | Example Command |
+|----|-----------------|-----------------|
+| Arch/CachyOS/Manjaro | pacman | `sudo pacman -S python python-pip ffmpeg` |
+| Ubuntu/Debian | apt | `sudo apt install python3 python3-pip python3-venv ffmpeg` |
+| Fedora/RHEL | dnf | `sudo dnf install python3 python3-pip ffmpeg` |
+| openSUSE | zypper | `sudo zypper install python3 python3-pip ffmpeg` |
+| macOS | Homebrew | `brew install python@3 ffmpeg` |
+| Windows | WSL2/Chocolatey | Use WSL2 with your preferred Linux distro |
+| NixOS | nix | `nix-env -iA nixpkgs.python3 nixpkgs.ffmpeg` |
+| Alpine | apk | `apk add python3 py3-pip ffmpeg` |
+
+**Note:** Package names may vary slightly between distributions. Search your package manager if the exact name doesn't work.
 
 ### Python Packages
 
@@ -279,10 +281,8 @@ For production use, consider:
 
 **Problem**: Scanner fails with "ffprobe not found"
 ```bash
-# Solution: Install ffmpeg
-sudo apt install ffmpeg  # Ubuntu/Debian
-sudo pacman -S ffmpeg    # Arch Linux
-brew install ffmpeg      # macOS
+# Solution: Install ffmpeg using your system's package manager
+# See the Dependencies section above for your OS-specific command
 ```
 
 **Problem**: No metadata extracted from files

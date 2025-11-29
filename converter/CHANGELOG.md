@@ -5,6 +5,22 @@ All notable changes to this fork will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2] - 2025-11-29
+
+### Added
+- **Opus cover art embedding using mutagen**: FFmpeg cannot embed cover art in OGG/Opus containers (error: "Unsupported codec id in stream 1"). Added Python mutagen integration using METADATA_BLOCK_PICTURE Vorbis Comments standard.
+- New `embed_ogg_cover()` function for Opus cover embedding
+- Optional mutagen dependency check at startup (warns if missing but continues)
+
+### Fixed
+- **Fixed cover art for Opus output**: Cover art now properly embeds in Opus audiobooks and displays in audio players
+
+### Documentation
+- Updated FORK_README.md with Opus cover art embedding documentation
+- Added mutagen to dependencies list with installation instructions
+
+---
+
 ## [2.1] - 2025-11-22
 
 ### Changed

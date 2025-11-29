@@ -1,22 +1,22 @@
 #!/bin/bash
 # Safely Remove Corrupted Duplicate M4B Files
 # These are failed conversions - valid versions exist in other locations/formats
+# NOTE: After 2024-11 directory reorganization, M4B conversions are deprecated
+# All audiobooks are now converted to OPUS and stored in /raid0/Audiobooks/Library/
 
-CORRUPTED_DIR="/raid0/Audiobooks/converted"
+CORRUPTED_DIR="/raid0/Audiobooks/Library"
 LOG_FILE="/raid0/Audiobooks/logs/cleanup_duplicates.log"
 
 echo "========================================"
 echo "  Corrupted Duplicate Cleanup"
 echo "========================================"
 echo ""
-echo "This script will remove 147 corrupted (0-byte) M4B files from:"
+echo "This script will remove corrupted (0-byte) audio files from:"
 echo "  $CORRUPTED_DIR"
 echo ""
 echo "These files are safe to delete because:"
-echo "  - 75 have valid M4B versions in /Audiobooks-Converted/"
-echo "  - 64 exist as OPUS in /Audiobooks-Converted-Opus-nocomp/"
-echo "  - 2 exist in other locations"
-echo "  - Only 6 audiobooks are truly missing (listed separately)"
+echo "  - Valid versions exist in the Library"
+echo "  - Source AAXC files are preserved in /raid0/Audiobooks/Sources/"
 echo ""
 read -p "Continue with cleanup? (y/n): " -n 1 -r
 echo ""

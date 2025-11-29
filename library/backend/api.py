@@ -4,7 +4,7 @@ Audiobook Library API - Flask Backend
 Provides fast, paginated API for audiobook queries
 """
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 import sqlite3
 from pathlib import Path
@@ -16,7 +16,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH, COVER_DIR, API_PORT, PROJECT_DIR
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for local development
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Range"],
+        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length"]
+    }
+})
 
 DB_PATH = DATABASE_PATH
 PROJECT_ROOT = PROJECT_DIR / "library"
@@ -280,6 +287,28 @@ def get_filters():
     })
 
 
+@app.route('/api/narrator-counts', methods=['GET'])
+def get_narrator_counts():
+    """Get narrator book counts for autocomplete"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT narrator, COUNT(*) as count
+        FROM audiobooks
+        WHERE narrator IS NOT NULL
+          AND narrator != ''
+          AND narrator != 'Unknown Narrator'
+        GROUP BY narrator
+        ORDER BY narrator
+    """)
+
+    counts = {row['narrator']: row['count'] for row in cursor.fetchall()}
+    conn.close()
+
+    return jsonify(counts)
+
+
 @app.route('/api/audiobooks/<int:audiobook_id>', methods=['GET'])
 def get_audiobook(audiobook_id):
     """Get single audiobook details"""
@@ -337,7 +366,7 @@ def stream_audiobook(audiobook_id):
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT file_path FROM audiobooks WHERE id = ?", (audiobook_id,))
+    cursor.execute("SELECT file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,))
     row = cursor.fetchone()
     conn.close()
 
@@ -348,8 +377,24 @@ def stream_audiobook(audiobook_id):
     if not file_path.exists():
         return jsonify({'error': 'File not found on disk'}), 404
 
-    # Serve the file with range support for seeking
-    return send_from_directory(file_path.parent, file_path.name, as_attachment=False)
+    # Map file formats to MIME types
+    mime_types = {
+        'opus': 'audio/ogg',
+        'm4b': 'audio/mp4',
+        'm4a': 'audio/mp4',
+        'mp3': 'audio/mpeg',
+    }
+
+    file_format = row['format'] or file_path.suffix.lower().lstrip('.')
+    mimetype = mime_types.get(file_format, 'application/octet-stream')
+
+    # Use send_file directly for better handling of special characters in paths
+    return send_file(
+        file_path,
+        mimetype=mimetype,
+        as_attachment=False,
+        conditional=True  # Enable range requests for seeking
+    )
 
 
 @app.route('/health')
@@ -480,6 +525,90 @@ def get_duplicates():
     })
 
 
+@app.route('/api/duplicates/by-title', methods=['GET'])
+def get_duplicates_by_title():
+    """
+    Get duplicate audiobooks based on normalized title and author.
+    This finds "same book, different version/format" entries.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Find duplicates by normalized title + author
+    # Normalize: lowercase, remove special chars, trim whitespace
+    cursor.execute("""
+        SELECT
+            LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
+            LOWER(TRIM(author)) as norm_author,
+            COUNT(*) as count
+        FROM audiobooks
+        WHERE title IS NOT NULL AND author IS NOT NULL
+        GROUP BY norm_title, norm_author
+        HAVING count > 1
+        ORDER BY count DESC, norm_title
+    """)
+    groups = cursor.fetchall()
+
+    duplicate_groups = []
+    total_potential_savings = 0
+
+    for group in groups:
+        norm_title = group['norm_title']
+        norm_author = group['norm_author']
+        count = group['count']
+
+        # Get all files in this group
+        cursor.execute("""
+            SELECT id, title, author, narrator, file_path, file_size_mb,
+                   format, duration_formatted, duration_hours, cover_path, sha256_hash
+            FROM audiobooks
+            WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
+              AND LOWER(TRIM(author)) = ?
+            ORDER BY
+                CASE format
+                    WHEN 'opus' THEN 1
+                    WHEN 'm4b' THEN 2
+                    WHEN 'm4a' THEN 3
+                    WHEN 'mp3' THEN 4
+                    ELSE 5
+                END,
+                file_size_mb DESC,
+                id ASC
+        """, (norm_title, norm_author))
+
+        files = [dict(row) for row in cursor.fetchall()]
+
+        if len(files) < 2:
+            continue
+
+        # First file (preferred format, largest size) is the "keeper"
+        for i, f in enumerate(files):
+            f['is_keeper'] = (i == 0)
+            f['is_duplicate'] = (i > 0)
+
+        # Calculate potential savings (sum of all but the largest file)
+        sizes = sorted([f['file_size_mb'] for f in files], reverse=True)
+        potential_savings = sum(sizes[1:])  # All except the largest
+        total_potential_savings += potential_savings
+
+        duplicate_groups.append({
+            'title': files[0]['title'],
+            'author': files[0]['author'],
+            'count': count,
+            'potential_savings_mb': round(potential_savings, 2),
+            'files': files
+        })
+
+    conn.close()
+
+    return jsonify({
+        'duplicate_groups': duplicate_groups,
+        'total_groups': len(duplicate_groups),
+        'total_potential_savings_mb': round(total_potential_savings, 2),
+        'total_duplicate_files': sum(g['count'] - 1 for g in duplicate_groups)
+    })
+
+
 @app.route('/api/duplicates/delete', methods=['POST'])
 def delete_duplicates():
     """
@@ -488,7 +617,8 @@ def delete_duplicates():
 
     Request body:
     {
-        "audiobook_ids": [1, 2, 3]  // IDs to delete
+        "audiobook_ids": [1, 2, 3],  // IDs to delete
+        "mode": "title" or "hash"    // Optional, defaults to "title"
     }
     """
     data = request.get_json()
@@ -499,56 +629,87 @@ def delete_duplicates():
     if not ids_to_delete:
         return jsonify({'error': 'No audiobook IDs provided'}), 400
 
+    mode = data.get('mode', 'title')  # Default to title mode
+
     conn = get_db()
     cursor = conn.cursor()
 
-    # CRITICAL SAFETY CHECK: For each hash, ensure we're not deleting ALL copies
-    # Get hashes of all audiobooks to be deleted
+    # Get all audiobooks to be deleted with their grouping keys
     placeholders = ','.join('?' * len(ids_to_delete))
     cursor.execute(f"""
-        SELECT id, sha256_hash, title, file_path
+        SELECT id, sha256_hash, title, author, file_path,
+               LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
+               LOWER(TRIM(author)) as norm_author
         FROM audiobooks
         WHERE id IN ({placeholders})
     """, ids_to_delete)
 
     to_delete = [dict(row) for row in cursor.fetchall()]
 
-    # Group by hash
-    hash_groups = {}
-    for item in to_delete:
-        h = item['sha256_hash']
-        if h not in hash_groups:
-            hash_groups[h] = []
-        hash_groups[h].append(item)
-
-    # For each hash, verify at least one copy will remain
     blocked_ids = []
     safe_to_delete = []
 
-    for hash_val, items in hash_groups.items():
-        if hash_val is None:
-            # No hash - these are unique files, can't safely delete
-            blocked_ids.extend([i['id'] for i in items])
-            continue
+    if mode == 'title':
+        # Group by normalized title + author
+        title_groups = {}
+        for item in to_delete:
+            key = (item['norm_title'], item['norm_author'])
+            if key not in title_groups:
+                title_groups[key] = []
+            title_groups[key].append(item)
 
-        # Count total copies with this hash
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ?
-        """, (hash_val,))
-        total_copies = cursor.fetchone()['count']
+        # For each title group, verify at least one copy will remain
+        for (norm_title, norm_author), items in title_groups.items():
+            # Count total copies with this title+author
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM audiobooks
+                WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
+                  AND LOWER(TRIM(author)) = ?
+            """, (norm_title, norm_author))
+            total_copies = cursor.fetchone()['count']
 
-        # How many are we trying to delete?
-        deleting_count = len(items)
+            deleting_count = len(items)
 
-        if deleting_count >= total_copies:
-            # Would delete all copies - block the last one
-            # Sort by ID to keep the lowest (original)
-            items_sorted = sorted(items, key=lambda x: x['id'])
-            blocked_ids.append(items_sorted[0]['id'])
-            safe_to_delete.extend([i['id'] for i in items_sorted[1:]])
-        else:
-            # Safe to delete all requested
-            safe_to_delete.extend([i['id'] for i in items])
+            if deleting_count >= total_copies:
+                # Would delete all copies - block the first one (keeper)
+                # Sort by preferred format order, then by ID
+                def sort_key(x):
+                    fmt_order = {'opus': 1, 'm4b': 2, 'm4a': 3, 'mp3': 4}
+                    ext = Path(x['file_path']).suffix.lower().lstrip('.')
+                    return (fmt_order.get(ext, 5), x['id'])
+
+                items_sorted = sorted(items, key=sort_key)
+                blocked_ids.append(items_sorted[0]['id'])
+                safe_to_delete.extend([i['id'] for i in items_sorted[1:]])
+            else:
+                safe_to_delete.extend([i['id'] for i in items])
+    else:
+        # Hash-based mode (original logic)
+        hash_groups = {}
+        for item in to_delete:
+            h = item['sha256_hash']
+            if h not in hash_groups:
+                hash_groups[h] = []
+            hash_groups[h].append(item)
+
+        for hash_val, items in hash_groups.items():
+            if hash_val is None:
+                blocked_ids.extend([i['id'] for i in items])
+                continue
+
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ?
+            """, (hash_val,))
+            total_copies = cursor.fetchone()['count']
+
+            deleting_count = len(items)
+
+            if deleting_count >= total_copies:
+                items_sorted = sorted(items, key=lambda x: x['id'])
+                blocked_ids.append(items_sorted[0]['id'])
+                safe_to_delete.extend([i['id'] for i in items_sorted[1:]])
+            else:
+                safe_to_delete.extend([i['id'] for i in items])
 
     # Now perform the actual deletions
     deleted_files = []

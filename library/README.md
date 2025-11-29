@@ -15,8 +15,7 @@ A beautiful, old-fashioned library-themed web interface for browsing, searching,
 - **Smart Pagination**: Efficient browsing with customizable results per page (25/50/100/200)
 - **Multiple Filters**: Browse by:
   - Authors (524+)
-  - Narrators (386+)
-  - Formats (M4B, OPUS, MP3, M4A)
+  - Narrators (620+)
   - Sort by title, author, narrator, or duration
 - **Cover Art Display**: Visual browsing with audiobook covers extracted from files
 - **Metadata Rich**: Displays duration, narrator, series, topics, and more
@@ -97,12 +96,13 @@ audiobook-library/
 - **flask-cors**: 4.0.0+
 - **Web Browser**: Modern browser with HTML5 audio support
 
-## Supported Formats
+## Audio Format
 
-- **M4B** (Apple Audiobook) - 1,597 books
-- **OPUS** (Opus audio) - 1,105 books
-- **MP3** (MP3 audio)
-- **M4A** (AAC audio)
+All audiobooks are standardized to **OPUS** format for optimal compression and quality.
+
+- OPUS provides ~50% smaller file sizes compared to M4B with equivalent audio quality
+- Full metadata support including cover art, chapter markers, and narrator information
+- Previous M4B files have been converted to OPUS
 
 ## Data Source
 
@@ -126,9 +126,9 @@ The Flask API provides the following endpoints:
 
 - `GET /api/stats` - Library statistics
 - `GET /api/audiobooks` - Paginated audiobook list
-  - Query params: `page`, `per_page`, `search`, `author`, `narrator`, `format`, `sort`, `order`
+  - Query params: `page`, `per_page`, `search`, `author`, `narrator`, `sort`, `order`
 - `GET /api/audiobooks/<id>` - Single audiobook details
-- `GET /api/filters` - Available filter options (authors, narrators, formats)
+- `GET /api/filters` - Available filter options (authors, narrators)
 - `GET /api/stream/<id>` - Stream audiobook file
 - `GET /covers/<filename>` - Serve cover images
 
@@ -136,7 +136,7 @@ Example queries:
 ```
 /api/audiobooks?search=tolkien
 /api/audiobooks?author=Brandon%20Sanderson&sort=duration_hours&order=desc
-/api/audiobooks?format=opus&per_page=100
+/api/audiobooks?narrator=Ray%20Porter&per_page=100
 ```
 
 ## Screenshots

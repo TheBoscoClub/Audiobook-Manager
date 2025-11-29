@@ -153,6 +153,170 @@ body {
     border-color: var(--gold-dark);
 }
 
+/* Narrator Autocomplete */
+.narrator-autocomplete {
+    position: relative;
+    flex: 1;
+    min-width: 280px;
+}
+
+.narrator-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    align-items: center;
+}
+
+.letter-groups {
+    display: flex;
+    gap: 0.2rem;
+    flex-wrap: wrap;
+}
+
+.letter-group {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    background: var(--parchment);
+    color: var(--wood-dark);
+    border: 1px solid var(--gold-dark);
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    transition: all 0.2s;
+}
+
+.letter-group:hover {
+    background: var(--gold);
+}
+
+.letter-group.active {
+    background: var(--gold);
+    border-color: var(--gold-dark);
+    font-weight: bold;
+}
+
+.sort-toggle {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    background: var(--leather);
+    color: var(--parchment);
+    border: 1px solid var(--gold-dark);
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.sort-toggle:hover {
+    background: var(--wood-light);
+}
+
+.narrator-search-row {
+    position: relative;
+}
+
+.narrator-input {
+    width: 100%;
+    padding-right: 2.5rem;
+}
+
+.narrator-input.has-value {
+    background-color: #e8f4e8;
+    border-color: #5a8a5a;
+}
+
+.narrator-clear {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--wood-medium);
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    display: none;
+    line-height: 1;
+}
+
+.narrator-autocomplete.has-value .narrator-clear {
+    display: block;
+}
+
+.narrator-clear:hover {
+    color: #c00;
+}
+
+.narrator-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--parchment);
+    border: 2px solid var(--gold);
+    border-top: none;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.narrator-dropdown.active {
+    display: block;
+}
+
+.narrator-option {
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    color: var(--text-dark);
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.narrator-option:last-child {
+    border-bottom: none;
+}
+
+.narrator-option:hover,
+.narrator-option.highlighted {
+    background: var(--gold);
+    color: var(--wood-dark);
+}
+
+.narrator-option .count {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    background: rgba(0,0,0,0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+
+.narrator-option:hover .count,
+.narrator-option.highlighted .count {
+    background: rgba(0,0,0,0.2);
+}
+
+.narrator-no-results {
+    padding: 1rem;
+    text-align: center;
+    color: var(--wood-medium);
+    font-style: italic;
+}
+
+.narrator-all-option {
+    background: linear-gradient(180deg, #f0e6d2 0%, var(--parchment) 100%);
+    font-weight: bold;
+    border-bottom: 2px solid var(--gold);
+}
+
 .refresh-btn {
     padding: 0.7rem 1.5rem;
     background: var(--gold);
@@ -494,6 +658,28 @@ body {
     text-overflow: ellipsis;
 }
 
+.player-file-info {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+.player-id {
+    color: var(--gold);
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.player-path {
+    color: var(--parchment);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
+}
+
 .player-controls {
     display: flex;
     align-items: center;
@@ -732,6 +918,11 @@ body {
     display: flex;
 }
 
+/* Confirmation modal needs higher z-index to appear over other modals */
+#confirm-modal {
+    z-index: 2100;
+}
+
 .modal-content {
     background: var(--parchment);
     border-radius: var(--border-radius);
@@ -781,6 +972,39 @@ body {
 
 .modal-close:hover {
     opacity: 1;
+}
+
+/* Duplicate Mode Tabs */
+.duplicate-mode-tabs {
+    display: flex;
+    background: var(--wood-dark);
+    border-bottom: 2px solid var(--gold);
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    color: var(--parchment);
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.7;
+    border-bottom: 3px solid transparent;
+}
+
+.mode-tab:hover {
+    opacity: 0.9;
+    background: rgba(255,255,255,0.05);
+}
+
+.mode-tab.active {
+    opacity: 1;
+    background: var(--wood-medium);
+    border-bottom-color: var(--gold);
+    font-weight: 600;
 }
 
 .modal-toolbar {

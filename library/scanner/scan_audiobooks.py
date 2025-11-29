@@ -56,12 +56,12 @@ def get_file_metadata(filepath):
         # For OPUS files, try to extract author from folder structure if metadata is missing
         author_from_path = None
         if filepath.suffix.lower() == '.opus':
-            # Path structure: .../Audiobook/Author Name/Book Title/Book Title.opus
+            # Path structure: .../Library/Author Name/Book Title/Book Title.opus
             parts = filepath.parts
-            if 'Audiobook' in parts:
-                audiobook_idx = parts.index('Audiobook')
-                if len(parts) > audiobook_idx + 1:
-                    author_from_path = parts[audiobook_idx + 1]
+            if 'Library' in parts:
+                library_idx = parts.index('Library')
+                if len(parts) > library_idx + 1:
+                    author_from_path = parts[library_idx + 1]
 
         # Extract metadata
         metadata = {
@@ -202,6 +202,13 @@ def scan_audiobooks():
         files = list(AUDIOBOOK_DIR.rglob(f"*{ext}"))
         print(f"  Found {len(files)} {ext} files")
         audiobook_files.extend(files)
+
+    # Filter out cover art files (*.cover.opus, *.cover.m4b, etc.)
+    original_count = len(audiobook_files)
+    audiobook_files = [f for f in audiobook_files if '.cover.' not in f.name.lower()]
+    filtered_count = original_count - len(audiobook_files)
+    if filtered_count > 0:
+        print(f"  Filtered out {filtered_count} cover art files")
 
     print(f"\nTotal audiobook files: {len(audiobook_files)}")
     print()

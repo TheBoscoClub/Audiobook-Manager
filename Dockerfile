@@ -1,40 +1,77 @@
-# Audiobooks - Web-based audiobook library and converter
+# Audiobooks - Web-based audiobook library browser
 # Supports: Linux, macOS, Windows (via Docker Desktop)
+#
+# Build: docker build -t audiobooks .
+# Run:   docker-compose up -d
 
 FROM python:3.11-slim
 
+LABEL maintainer="Audiobooks Project"
+LABEL description="Web-based audiobook library with search, playback, and cover art"
+LABEL version="2.2"
+
 # Install system dependencies
+# - ffmpeg: Audio/video processing for conversion and metadata
+# - mediainfo: Audio file metadata extraction
+# - jq: JSON processing for AAXtoMP3 converter
+# - curl: Health checks and API testing
+# - mp4v2-utils: MP4 metadata tools (mp4art, mp4chaps) for M4B/AAC
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     mediainfo \
+    jq \
+    curl \
+    mp4v2-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
+# Copy requirements first for better Docker layer caching
 COPY library/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Copy configuration module (shared by all Python scripts)
+COPY library/config.py /app/config.py
+
+# Copy application components
 COPY library/backend /app/backend
-COPY library/web-v2 /app/web
 COPY library/scanner /app/scanner
 COPY library/scripts /app/scripts
+COPY library/web-v2 /app/web
+
+# Copy converter tools (AAXtoMP3 fork v2.2 for optional in-container conversion)
+# Converter uses: ffmpeg, jq, mp4v2-utils (system), mutagen (pip)
+# mutagen is required for Opus cover art embedding via METADATA_BLOCK_PICTURE
 COPY converter /app/converter
 
 # Create directories for data persistence
+# Covers will be populated at runtime or mounted as a volume
 RUN mkdir -p /app/data /app/covers
 
 # Set environment variables
 ENV FLASK_APP=backend/api.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Docker-specific paths (overrides config.py defaults)
+ENV PROJECT_DIR=/app
+ENV AUDIOBOOK_DIR=/audiobooks
+ENV DATABASE_PATH=/app/data/audiobooks.db
+ENV COVER_DIR=/app/covers
+ENV DATA_DIR=/app/data
+ENV WEB_PORT=8090
+ENV API_PORT=5001
 
 # Expose ports
-# 5001: Flask API
-# 8090: Web interface
+# 5001: Flask REST API
+# 8090: Web interface (static files)
 EXPOSE 5001 8090
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:5001/api/audiobooks?limit=1 || exit 1
 
 # Copy and set entrypoint
 COPY docker-entrypoint.sh /docker-entrypoint.sh

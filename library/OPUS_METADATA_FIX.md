@@ -31,7 +31,7 @@ format: {
 
 **How:** OPUS files are organized as:
 ```
-/Audiobooks-Converted-Opus-nocomp/Audiobook/[Author Name]/[Book Title]/[Book Title].opus
+/raid0/Audiobooks/Library/[Author Name]/[Book Title]/[Book Title].opus
 ```
 
 The scanner now extracts `[Author Name]` from the path.
@@ -43,12 +43,12 @@ The scanner now extracts `[Author Name]` from the path.
 # For OPUS files, try to extract author from folder structure if metadata is missing
 author_from_path = None
 if filepath.suffix.lower() == '.opus':
-    # Path structure: .../Audiobook/Author Name/Book Title/Book Title.opus
+    # Path structure: .../Library/Author Name/Book Title/Book Title.opus
     parts = filepath.parts
-    if 'Audiobook' in parts:
-        audiobook_idx = parts.index('Audiobook')
-        if len(parts) > audiobook_idx + 1:
-            author_from_path = parts[audiobook_idx + 1]
+    if 'Library' in parts:
+        library_idx = parts.index('Library')
+        if len(parts) > library_idx + 1:
+            author_from_path = parts[library_idx + 1]
 
 # Use author_from_path as fallback
 metadata = {
@@ -134,7 +134,7 @@ For the 2,229 existing OPUS files without metadata, you can run a batch fix scri
 
 **Usage:**
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /raid0/ClaudeCodeProjects/Audiobooks/library
 ./scripts/fix_opus_metadata.sh
 ```
 
@@ -172,7 +172,7 @@ tail -f /tmp/rescan.log
 
 ### Step 2: Re-import Database
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /raid0/ClaudeCodeProjects/Audiobooks/library
 source venv/bin/activate
 python backend/import_to_db.py
 ```
@@ -190,11 +190,28 @@ Edit `/home/bosco/.local/bin/convert-audiobooks-opus-parallel` to add metadata e
 
 If you want narrator information and full metadata in existing OPUS files:
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /raid0/ClaudeCodeProjects/Audiobooks/library
 ./scripts/fix_opus_metadata.sh
 ```
 
 Then repeat Steps 1-3.
+
+---
+
+## Directory Structure (Updated November 2024)
+
+After the directory reorganization, the new structure is:
+```
+/raid0/Audiobooks/
+├── Sources/           # Original AAXC files + vouchers
+│   ├── *.aaxc        # Encrypted Audible audiobooks
+│   ├── *.voucher     # Decryption keys
+│   └── metadata/     # Cover images, chapter JSON
+├── Library/          # Converted OPUS files (organized by Author/Title)
+│   └── Author/Title/*.opus
+├── logs/             # Conversion and service logs
+└── scripts/          # Conversion scripts
+```
 
 ---
 
