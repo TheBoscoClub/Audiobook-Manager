@@ -90,7 +90,7 @@ ffmpeg -i input.opus \
 
 Add metadata embedding as a post-processing step in the conversion script:
 
-**File to Modify:** `/home/bosco/.local/bin/convert-audiobooks-opus-parallel`
+**File to Modify:** `~/.local/bin/convert-audiobooks-opus-parallel`
 
 **Add after line 116 (after successful conversion):**
 ```bash
@@ -184,7 +184,7 @@ Open http://localhost:8090 and click the "↻ Refresh" button.
 
 ### Step 4 (Optional): Update Conversion Script for Future Books
 
-Edit `/home/bosco/.local/bin/convert-audiobooks-opus-parallel` to add metadata embedding (see Option B above).
+Edit `~/.local/bin/convert-audiobooks-opus-parallel` to add metadata embedding (see Option B above).
 
 ### Step 5 (Optional): Fix Existing OPUS Files
 

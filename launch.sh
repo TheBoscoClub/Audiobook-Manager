@@ -5,15 +5,13 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
-if [ -f "$SCRIPT_DIR/config.env" ]; then
-    source "$SCRIPT_DIR/config.env"
-fi
+source "$SCRIPT_DIR/lib/audiobooks-config.sh"
 
-# Set defaults if not configured
-PROJECT_DIR="${PROJECT_DIR:-$SCRIPT_DIR}"
-LIBRARY_DIR="$PROJECT_DIR/library"
-WEB_PORT="${WEB_PORT:-8090}"
-API_PORT="${API_PORT:-5001}"
+# Legacy variable mapping for this script
+PROJECT_DIR="$AUDIOBOOKS_HOME"
+LIBRARY_DIR="$AUDIOBOOKS_HOME/library"
+WEB_PORT="$AUDIOBOOKS_WEB_PORT"
+API_PORT="$AUDIOBOOKS_API_PORT"
 
 echo "=========================================="
 echo "  Audiobook Library"

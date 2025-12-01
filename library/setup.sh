@@ -5,12 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Load configuration
-if [ -f "$PROJECT_DIR/config.env" ]; then
-    source "$PROJECT_DIR/config.env"
-fi
+source "$PROJECT_DIR/lib/audiobooks-config.sh"
 
-# Set defaults if not configured
-AUDIOBOOK_DIR="${AUDIOBOOK_DIR:-/raid0/Audiobooks}"
+# Use configured audiobook library path
+AUDIOBOOK_DIR="$AUDIOBOOKS_LIBRARY"
 
 echo "========================================="
 echo "  Audiobook Library Setup"

@@ -204,7 +204,7 @@ You can integrate database updates into your existing automation:
 
 **Update conversion script** to rebuild database after conversions:
 ```bash
-# Add to /home/bosco/.local/bin/convert-audiobooks-opus-parallel
+# Add to ~/.local/bin/convert-audiobooks-opus-parallel
 # After conversion completes:
 cd /raid0/ClaudeCodeProjects/audiobook-library/scanner
 python3 scan_audiobooks.py
