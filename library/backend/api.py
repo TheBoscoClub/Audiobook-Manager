@@ -5,7 +5,6 @@ Provides fast, paginated API for audiobook queries
 """
 
 from flask import Flask, jsonify, request, send_from_directory, send_file
-from flask_cors import CORS
 import sqlite3
 from pathlib import Path
 import os
@@ -16,14 +15,31 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH, COVER_DIR, API_PORT, PROJECT_DIR
 
 app = Flask(__name__)
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Range"],
-        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length"]
-    }
-})
+
+
+# =============================================================================
+# CORS Implementation (replaces flask-cors to eliminate CVE vulnerabilities)
+# =============================================================================
+
+@app.after_request
+def add_cors_headers(response):
+    """
+    Add CORS headers to all responses.
+    This is a simple implementation suitable for localhost/personal use.
+    Replaces flask-cors which has multiple CVEs (CVE-2024-6221, etc.)
+    """
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Range'
+    response.headers['Access-Control-Expose-Headers'] = 'Content-Range, Accept-Ranges, Content-Length'
+    return response
+
+
+@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
+@app.route('/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    """Handle CORS preflight requests"""
+    return '', 204
 
 DB_PATH = DATABASE_PATH
 PROJECT_ROOT = PROJECT_DIR / "library"
