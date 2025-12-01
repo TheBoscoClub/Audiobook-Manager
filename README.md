@@ -412,7 +412,7 @@ This project would not be possible without the incredible work of many developer
 
 ### Development Tools
 
-- **[Claude Code](https://claude.ai/code)** (Anthropic) - This project was developed with significant assistance from Claude Code, an AI-powered coding assistant running on CachyOS Linux. Claude helped with architecture decisions, debugging, documentation, Docker configuration, and implementing features like the portable configuration system, HTTPS redirect server, and auto-initialization. The collaborative development process with Claude Code made this project possible for a solo hobbyist developer.
+- **[Claude Code](https://claude.ai/code)** (Anthropic) - AI coding assistant that helped with implementation details, debugging, and documentation throughout development.
 
 - **[CachyOS](https://cachyos.org/)** - The Arch-based Linux distribution where this project was developed and tested. CachyOS provides an excellent development environment with up-to-date packages and performance optimizations.
 

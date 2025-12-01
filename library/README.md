@@ -173,7 +173,7 @@ This library interface was built with the help of many excellent open-source pro
 - **Vanilla JavaScript** - No framework bloat, just clean ES6+
 
 ### Development
-- **[Claude Code](https://claude.ai/code)** (Anthropic) - AI-powered development assistant that helped design the architecture, implement the vintage library theme, build the audio player, create the Docker configuration, and write documentation. This project was developed collaboratively with Claude Code on CachyOS Linux.
+- **[Claude Code](https://claude.ai/code)** (Anthropic) - AI coding assistant that helped with implementation details, debugging, and documentation throughout development.
 
 ### Related Projects
 - **[AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3)** - The converter component (included as a fork in `converter/`)
