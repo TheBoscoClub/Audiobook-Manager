@@ -68,6 +68,27 @@ jobs:
 
         echo "✅ Logging check complete"
 
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Check Python dependency vulnerabilities
+      run: |
+        echo "Checking Python dependencies for known vulnerabilities..."
+        pip install pip-audit -q
+
+        # Check if requirements.txt exists and audit it
+        if [ -f "library/requirements.txt" ]; then
+          echo "Auditing library/requirements.txt..."
+          pip-audit -r library/requirements.txt --desc on || {
+            echo "❌ ERROR: Vulnerable dependencies found"
+            exit 1
+          }
+        fi
+
+        echo "✅ No known vulnerabilities in Python dependencies"
+
     - name: Security scan summary
       if: always()
       run: |
