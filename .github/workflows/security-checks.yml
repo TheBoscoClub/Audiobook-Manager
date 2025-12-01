@@ -68,6 +68,48 @@ jobs:
 
         echo "✅ Logging check complete"
 
+    - name: Check JavaScript for dangerous patterns
+      run: |
+        echo "Checking JavaScript for dangerous patterns..."
+
+        # Check for eval() usage (potential code injection)
+        if grep -rn "eval\s*(" --include="*.js" library/ 2>/dev/null | grep -v "node_modules"; then
+          echo "⚠️  WARNING: eval() usage detected - potential code injection risk"
+        fi
+
+        # Check for document.write() (XSS risk)
+        if grep -rn "document\.write\s*(" --include="*.js" library/ 2>/dev/null; then
+          echo "⚠️  WARNING: document.write() usage detected - XSS risk"
+        fi
+
+        # Check for innerHTML without escaping (look for innerHTML = with variables)
+        if grep -rn "\.innerHTML\s*=\s*[^'\"<]" --include="*.js" library/ 2>/dev/null | grep -v "escapeHtml"; then
+          echo "⚠️  WARNING: Potential unescaped innerHTML assignment detected"
+        fi
+
+        # Check for Function constructor (similar to eval)
+        if grep -rn "new\s*Function\s*(" --include="*.js" library/ 2>/dev/null; then
+          echo "⚠️  WARNING: Function constructor usage detected - similar to eval()"
+        fi
+
+        echo "✅ JavaScript security check complete"
+
+    - name: Check shell scripts for dangerous patterns
+      run: |
+        echo "Checking shell scripts for dangerous patterns..."
+
+        # Check for eval in shell scripts
+        if grep -rn "^\s*eval\s" --include="*.sh" . 2>/dev/null | grep -v ".git"; then
+          echo "⚠️  WARNING: eval usage in shell scripts detected"
+        fi
+
+        # Check for curl | bash pattern (remote code execution)
+        if grep -rn "curl.*|.*bash\|wget.*|.*sh" --include="*.sh" . 2>/dev/null | grep -v ".git"; then
+          echo "⚠️  WARNING: Potential remote code execution pattern (curl|bash) detected"
+        fi
+
+        echo "✅ Shell script security check complete"
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
