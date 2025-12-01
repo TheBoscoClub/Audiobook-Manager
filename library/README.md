@@ -164,6 +164,20 @@ This project is open source. See LICENSE file for details.
 
 ## Acknowledgments
 
-- Built with Flask, SQLite, and vanilla JavaScript
-- Uses ffmpeg/ffprobe for metadata extraction
-- Designed for personal audiobook library management
+This library interface was built with the help of many excellent open-source projects and tools:
+
+### Core Technologies
+- **[Flask](https://flask.palletsprojects.com/)** - Python web framework powering the REST API
+- **[SQLite](https://sqlite.org/)** with FTS5 - Fast, embedded database with full-text search
+- **[FFmpeg](https://ffmpeg.org/)** / ffprobe - Metadata extraction from audio files
+- **Vanilla JavaScript** - No framework bloat, just clean ES6+
+
+### Development
+- **[Claude Code](https://claude.ai/code)** (Anthropic) - AI-powered development assistant that helped design the architecture, implement the vintage library theme, build the audio player, create the Docker configuration, and write documentation. This project was developed collaboratively with Claude Code on CachyOS Linux.
+
+### Related Projects
+- **[AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3)** - The converter component (included as a fork in `converter/`)
+- **[audible-cli](https://github.com/mkb79/audible-cli)** - CLI tool for Audible integration
+- **[mutagen](https://mutagen.readthedocs.io/)** - Audio metadata library for Opus cover embedding
+
+*Designed for personal audiobook library management.*

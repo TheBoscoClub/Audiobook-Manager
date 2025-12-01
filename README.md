@@ -24,7 +24,29 @@ Pull requests welcome if you need this functionality.
 ## Components
 
 ### 1. Converter (`converter/`)
-AAXtoMP3 - Converts Audible AAX/AAXC files to OGG/OPUS format. The converter supports other formats but this project only uses OPUS.
+
+This project includes a **personal fork of [AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3)** (v2.2) for converting Audible AAX/AAXC files to OGG/OPUS format. The original project by KrumpetPirate has been archived, and this fork includes essential fixes for modern AAXC file handling.
+
+> **Note**: While AAXtoMP3 supports multiple output formats (MP3, M4A, M4B, FLAC, OPUS), this toolkit is configured exclusively for OPUS output. See the converter's [FORK_README.md](converter/FORK_README.md) for full documentation.
+
+<details>
+<summary>Fork modifications from original AAXtoMP3</summary>
+
+**Bug Fixes:**
+- Fixed `tmp_chapter_file: unbound variable` crash when chapter files are missing
+- Fixed cover extraction for AAXC files (was using hardcoded `-activation_bytes` instead of `${decrypt_param}`)
+- Made audible-cli chapter/cover files optional instead of required
+
+**New Features:**
+- **Opus cover art embedding** via Python mutagen library (FFmpeg cannot embed covers in OGG/Opus)
+- Enhanced fallback handling - extracts metadata directly from AAXC when audible-cli files are missing
+- Improved logging and user feedback during conversion
+
+**Dependencies Added:**
+- `mutagen` (optional) - Required for Opus cover art embedding
+
+See [converter/CHANGELOG.md](converter/CHANGELOG.md) for version history.
+</details>
 
 ### 2. Library (`library/`)
 Web-based audiobook library browser with:
@@ -369,6 +391,38 @@ sudo systemctl start audiobooks.target
 # Check status
 systemctl status audiobooks-api audiobooks-web
 ```
+
+## Acknowledgments
+
+This project would not be possible without the incredible work of many developers and open-source communities. I am deeply grateful to:
+
+### Core Dependencies
+
+- **[KrumpetPirate](https://github.com/KrumpetPirate)** and the **55+ contributors** to [AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3) - The foundation of the converter component. Years of community effort went into building this essential tool for the audiobook community.
+
+- **[mkb79](https://github.com/mkb79)** for [audible-cli](https://github.com/mkb79/audible-cli) - An indispensable CLI tool for interacting with Audible's API, downloading books, and extracting metadata. This project relies heavily on audible-cli for AAXC decryption and metadata.
+
+- **[FFmpeg](https://ffmpeg.org/)** - The Swiss Army knife of multimedia processing. FFmpeg handles all audio conversion, metadata extraction, and stream processing in this project.
+
+- **[Flask](https://flask.palletsprojects.com/)** by the Pallets Projects team - The lightweight Python web framework powering the REST API.
+
+- **[SQLite](https://sqlite.org/)** - The embedded database engine that stores and indexes the audiobook library with remarkable efficiency.
+
+- **[mutagen](https://mutagen.readthedocs.io/)** - Python library for handling audio metadata, essential for embedding cover art in Opus files.
+
+### Development Tools
+
+- **[Claude Code](https://claude.ai/code)** (Anthropic) - This project was developed with significant assistance from Claude Code, an AI-powered coding assistant running on CachyOS Linux. Claude helped with architecture decisions, debugging, documentation, Docker configuration, and implementing features like the portable configuration system, HTTPS redirect server, and auto-initialization. The collaborative development process with Claude Code made this project possible for a solo hobbyist developer.
+
+- **[CachyOS](https://cachyos.org/)** - The Arch-based Linux distribution where this project was developed and tested. CachyOS provides an excellent development environment with up-to-date packages and performance optimizations.
+
+### The Audiobook Community
+
+Special thanks to the broader audiobook and self-hosting communities on Reddit ([r/audiobooks](https://www.reddit.com/r/audiobooks/), [r/selfhosted](https://www.reddit.com/r/selfhosted/)) and various forums for sharing knowledge, workarounds, and inspiration for managing personal audiobook libraries.
+
+---
+
+*This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## License
 
