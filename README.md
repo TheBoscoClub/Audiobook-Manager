@@ -2,10 +2,29 @@
 
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 
+## Important: OGG/OPUS Format Only
+
+**This project uses OGG/OPUS as the exclusive audio format.** While the included AAXtoMP3 converter supports other formats (MP3, M4A, M4B, FLAC), the library browser, web UI, Docker container, and all tooling are designed and tested **only with OGG/OPUS files**.
+
+OPUS offers superior audio quality at lower bitrates compared to MP3, making it ideal for audiobooks. I chose this format for my personal library and have no plans to support other formats.
+
+<details>
+<summary>What would need to change for other formats?</summary>
+
+- Scanner: Update file extension detection (`.opus` → `.mp3`, etc.)
+- Database schema: Potentially add format-specific metadata fields
+- Web UI: Update MIME types in audio player, file extension filters
+- Cover art handling: Different embedding methods per format
+- Docker entrypoint: Update file discovery patterns
+- API: Modify file serving and content-type headers
+
+Pull requests welcome if you need this functionality.
+</details>
+
 ## Components
 
 ### 1. Converter (`converter/`)
-AAXtoMP3 - Convert Audible AAX/AAXC files to common audio formats (MP3, M4A, M4B, FLAC, OPUS).
+AAXtoMP3 - Converts Audible AAX/AAXC files to OGG/OPUS format. The converter supports other formats but this project only uses OPUS.
 
 ### 2. Library (`library/`)
 Web-based audiobook library browser with:
@@ -29,11 +48,8 @@ Web-based audiobook library browser with:
 
 ### Convert Audiobooks
 ```bash
-# Basic conversion to MP3
-./converter/AAXtoMP3 -A <AUTHCODE> input.aax
-
-# Convert to M4B audiobook format
-./converter/AAXtoMP3 -e:m4b -A <AUTHCODE> input.aax
+# Convert to OPUS (recommended, default for this project)
+./converter/AAXtoMP3 --opus --single --use-audible-cli-data input.aaxc
 
 # Interactive mode
 ./converter/interactiveAAXtoMP3

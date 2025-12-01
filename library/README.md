@@ -2,6 +2,8 @@
 
 A beautiful, old-fashioned library-themed web interface for browsing, searching, and playing your personal audiobook collection.
 
+> **Note:** This library is designed and tested exclusively with OGG/OPUS audiobook files. See the main [README](../README.md) for details.
+
 ## Features
 
 ### Core Features
