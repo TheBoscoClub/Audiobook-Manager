@@ -12,15 +12,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Load configuration
-if [ -f "$PROJECT_DIR/config.env" ]; then
-    source "$PROJECT_DIR/config.env"
-fi
+source "$PROJECT_DIR/lib/audiobooks-config.sh"
 
-# Set defaults if not configured
-AUDIOBOOKS_DIR="${AUDIOBOOK_DIR:-/raid0/Audiobooks}"
-OPUS_DIR="${OPUS_DIR:-$AUDIOBOOKS_DIR/Library}"
-SOURCES_DIR="${SOURCES_DIR:-$AUDIOBOOKS_DIR/Sources}"
-COVER_DIR="${COVER_DIR:-$PROJECT_DIR/library/web/covers}"
+# Use configured paths
+AUDIOBOOKS_DIR="$AUDIOBOOKS_DATA"
+OPUS_DIR="$AUDIOBOOKS_LIBRARY"
+SOURCES_DIR="$AUDIOBOOKS_SOURCES"
+COVER_DIR="$AUDIOBOOKS_COVERS"
 LOG_FILE="/tmp/opus_metadata_fix.log"
 
 mkdir -p "$COVER_DIR"

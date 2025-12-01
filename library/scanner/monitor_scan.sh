@@ -1,6 +1,11 @@
 #!/bin/bash
 # Audiobook Scan Progress Monitor
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load configuration
+source "$SCRIPT_DIR/../../lib/audiobooks-config.sh"
+
 LOG_FILE="/tmp/audiobook-scan.log"
 TOTAL_FILES=3985
 
@@ -117,10 +122,10 @@ if [ -f "$LOG_FILE" ]; then
         echo ""
         echo "🎉 SCAN COMPLETE! 🎉"
         echo ""
-        echo "Output file: /raid0/ClaudeCodeProjects/audiobook-library/data/audiobooks.json"
+        echo "Output file: $AUDIOBOOKS_HOME/library/data/audiobooks.json"
         echo ""
         echo "Next steps:"
-        echo "  1. Launch the library: cd /raid0/ClaudeCodeProjects/audiobook-library && ./launch.sh"
+        echo "  1. Launch the library: cd $AUDIOBOOKS_HOME && ./launch.sh"
         echo "  2. Or click 'Refresh' in the web interface if already open"
     fi
 

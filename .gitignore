@@ -41,9 +41,13 @@ logs/
 # Credentials and secrets
 *.pem
 *.key
+*.crt
 credentials.json
 secrets/
 authcode.txt
+
+# SSL certificates (user-generated)
+library/certs/
 
 # Temporary files
 *.tmp

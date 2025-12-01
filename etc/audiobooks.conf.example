@@ -1,0 +1,90 @@
+# Audiobook Library Configuration
+# ================================
+# Copy this file to one of these locations:
+#   System-wide: /etc/audiobooks/audiobooks.conf
+#   User-only:   ~/.config/audiobooks/audiobooks.conf
+#
+# Environment variables override these settings.
+# Values are read in this order (later overrides earlier):
+#   1. Built-in defaults
+#   2. /etc/audiobooks/audiobooks.conf (system)
+#   3. ~/.config/audiobooks/audiobooks.conf (user)
+#   4. Environment variables
+#   5. Command-line arguments
+
+# =============================================================================
+# Core Directories
+# =============================================================================
+
+# Root directory containing all audiobook data (sources, library, supplements)
+# Default: /srv/audiobooks (system) or ~/Audiobooks (user)
+AUDIOBOOKS_DATA="/srv/audiobooks"
+
+# Converted audiobook files organized by Author/Title
+# Default: ${AUDIOBOOKS_DATA}/Library
+AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"
+
+# Original source files (AAXC, vouchers, metadata)
+# Default: ${AUDIOBOOKS_DATA}/Sources
+AUDIOBOOKS_SOURCES="${AUDIOBOOKS_DATA}/Sources"
+
+# PDF supplements and companion materials
+# Default: ${AUDIOBOOKS_DATA}/Supplements
+AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
+
+# =============================================================================
+# Application Directories
+# =============================================================================
+
+# Project installation directory (contains scripts, web UI, etc.)
+# Default: /opt/audiobooks (system) or detected from script location
+AUDIOBOOKS_HOME="/opt/audiobooks"
+
+# Database file location
+# Default: /var/lib/audiobooks/audiobooks.db (system)
+#      or: ${AUDIOBOOKS_HOME}/library/backend/audiobooks.db (user)
+AUDIOBOOKS_DATABASE="/var/lib/audiobooks/audiobooks.db"
+
+# Cover art cache directory
+# Default: ${AUDIOBOOKS_HOME}/library/web-v2/covers
+AUDIOBOOKS_COVERS="${AUDIOBOOKS_HOME}/library/web-v2/covers"
+
+# SSL certificate directory (for HTTPS)
+# Default: ${AUDIOBOOKS_HOME}/library/certs
+AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
+
+# Log file directory
+# Default: /var/log/audiobooks (system) or ${AUDIOBOOKS_DATA}/logs (user)
+AUDIOBOOKS_LOGS="/var/log/audiobooks"
+
+# =============================================================================
+# Server Configuration
+# =============================================================================
+
+# API server port
+# Default: 5001
+AUDIOBOOKS_API_PORT="5001"
+
+# Web server port (HTTPS)
+# Default: 8090
+AUDIOBOOKS_WEB_PORT="8090"
+
+# Bind address (0.0.0.0 for all interfaces, 127.0.0.1 for localhost only)
+# Default: 0.0.0.0
+AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
+
+# =============================================================================
+# Optional Features
+# =============================================================================
+
+# Enable HTTPS for web server (requires certificate)
+# Default: true
+AUDIOBOOKS_HTTPS_ENABLED="true"
+
+# Python virtual environment path (for API server)
+# Default: ${AUDIOBOOKS_HOME}/library/venv
+AUDIOBOOKS_VENV="${AUDIOBOOKS_HOME}/library/venv"
+
+# AAXtoMP3 converter location
+# Default: ${AUDIOBOOKS_HOME}/converter/AAXtoMP3
+AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"

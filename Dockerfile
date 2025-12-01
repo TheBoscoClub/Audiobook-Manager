@@ -8,7 +8,7 @@ FROM python:3.11-slim
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"
-LABEL version="2.4"
+LABEL version="2.5"
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.source="https://github.com/greogory/audiobook-toolkit"
@@ -49,6 +49,9 @@ COPY library/web-v2 /app/web
 # Converter uses: ffmpeg, jq, mp4v2-utils (system), mutagen (pip)
 # mutagen is required for Opus cover art embedding via METADATA_BLOCK_PICTURE
 COPY converter /app/converter
+
+# Copy documentation for reference inside container
+COPY README.md /app/README.md
 
 # Create directories for data persistence
 # Covers and supplements will be populated at runtime or mounted as volumes

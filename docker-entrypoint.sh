@@ -5,36 +5,16 @@ set -e
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}=========================================="
-echo "  Audiobook Library - Starting"
+echo "  Audiobook Library - Docker Container"
 echo -e "==========================================${NC}"
+echo ""
 
 # Ensure data directories exist
 mkdir -p /app/data /app/covers
-
-# Check for database
-if [ ! -f /app/data/audiobooks.db ]; then
-    echo -e "${YELLOW}Database not found at /app/data/audiobooks.db${NC}"
-    echo ""
-    echo "To scan your audiobooks for the first time, run:"
-    echo "  docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py"
-    echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
-    echo ""
-    echo "Or mount an existing database to /app/data/audiobooks.db"
-    echo ""
-fi
-
-# Check if audiobooks are mounted
-if [ -d /audiobooks ] && [ "$(ls -A /audiobooks 2>/dev/null)" ]; then
-    AUDIOBOOK_COUNT=$(find /audiobooks -name "*.opus" -o -name "*.m4b" -o -name "*.mp3" 2>/dev/null | wc -l)
-    echo -e "Audiobooks mounted: ${GREEN}$AUDIOBOOK_COUNT files found${NC}"
-else
-    echo -e "${YELLOW}Warning: No audiobooks found in /audiobooks${NC}"
-    echo "Make sure to mount your audiobook directory:"
-    echo "  -v /path/to/audiobooks:/audiobooks:ro"
-fi
 
 # Export environment variables for Python scripts
 export DATABASE_PATH="${DATABASE_PATH:-/app/data/audiobooks.db}"
@@ -43,20 +23,178 @@ export COVER_DIR="${COVER_DIR:-/app/covers}"
 export DATA_DIR="${DATA_DIR:-/app/data}"
 export PROJECT_DIR="${PROJECT_DIR:-/app}"
 export SUPPLEMENTS_DIR="${SUPPLEMENTS_DIR:-/supplements}"
+export WEB_PORT="${WEB_PORT:-8090}"
+export API_PORT="${API_PORT:-5001}"
 
-# Scan supplements if directory exists and has files
+# Function to check if audiobooks are mounted
+check_audiobooks_mounted() {
+    if [ -d /audiobooks ] && [ "$(ls -A /audiobooks 2>/dev/null)" ]; then
+        return 0
+    fi
+    return 1
+}
+
+# Function to count audiobook files
+count_audiobooks() {
+    find /audiobooks -type f \( -name "*.opus" -o -name "*.m4b" -o -name "*.mp3" -o -name "*.m4a" -o -name "*.flac" \) 2>/dev/null | wc -l
+}
+
+# Function to scan audiobooks
+scan_audiobooks() {
+    echo -e "${CYAN}Scanning audiobook directory...${NC}"
+    cd /app/scanner
+    if python3 scan_audiobooks.py; then
+        echo -e "${GREEN}Scan complete${NC}"
+        return 0
+    else
+        echo -e "${RED}Scan failed${NC}"
+        return 1
+    fi
+}
+
+# Function to import to database
+import_to_database() {
+    echo -e "${CYAN}Importing to database...${NC}"
+    cd /app/backend
+    if python3 import_to_db.py; then
+        echo -e "${GREEN}Import complete${NC}"
+        return 0
+    else
+        echo -e "${RED}Import failed${NC}"
+        return 1
+    fi
+}
+
+# Function to verify database has entries
+database_has_entries() {
+    if [ ! -f "$DATABASE_PATH" ]; then
+        return 1
+    fi
+    count=$(python3 -c "
+import sqlite3
+try:
+    conn = sqlite3.connect('$DATABASE_PATH')
+    cursor = conn.execute('SELECT COUNT(*) FROM audiobooks')
+    count = cursor.fetchone()[0]
+    conn.close()
+    print(count)
+except:
+    print(0)
+" 2>/dev/null || echo "0")
+    [ "$count" -gt 0 ]
+}
+
+# ============================================================================
+# Step 1: Check for mounted audiobooks
+# ============================================================================
+echo -e "${CYAN}Checking mounted volumes...${NC}"
+
+if check_audiobooks_mounted; then
+    AUDIOBOOK_COUNT=$(count_audiobooks)
+    echo -e "  Audiobooks: ${GREEN}$AUDIOBOOK_COUNT files found${NC}"
+else
+    echo -e "  Audiobooks: ${YELLOW}None mounted${NC}"
+    echo ""
+    echo -e "${YELLOW}Warning: No audiobooks directory mounted.${NC}"
+    echo "Mount your audiobook directory to use this container:"
+    echo "  docker run -v /path/to/audiobooks:/audiobooks:ro ..."
+    echo ""
+fi
+
+# Check supplements
 if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A $SUPPLEMENTS_DIR 2>/dev/null)" ]; then
-    SUPPLEMENT_COUNT=$(find "$SUPPLEMENTS_DIR" -type f \( -name "*.pdf" -o -name "*.epub" -o -name "*.jpg" -o -name "*.png" \) 2>/dev/null | wc -l)
-    echo -e "Supplements mounted: ${GREEN}$SUPPLEMENT_COUNT files found${NC}"
-    echo "Scanning supplements into database..."
-    cd /app/scripts && python3 scan_supplements.py --supplements-dir "$SUPPLEMENTS_DIR" --quiet || true
-    echo -e "${GREEN}Supplements scanned${NC}"
+    SUPPLEMENT_COUNT=$(find "$SUPPLEMENTS_DIR" -type f \( -name "*.pdf" -o -name "*.epub" \) 2>/dev/null | wc -l)
+    echo -e "  Supplements: ${GREEN}$SUPPLEMENT_COUNT files found${NC}"
+else
+    echo -e "  Supplements: ${YELLOW}None mounted (optional)${NC}"
 fi
 
 echo ""
 
+# ============================================================================
+# Step 2: Auto-initialize database if needed
+# ============================================================================
+echo -e "${CYAN}Checking database...${NC}"
+
+if [ ! -f "$DATABASE_PATH" ]; then
+    echo -e "  Database: ${YELLOW}Not found${NC}"
+    NEEDS_INIT=true
+elif ! database_has_entries; then
+    echo -e "  Database: ${YELLOW}Empty (no audiobooks)${NC}"
+    NEEDS_INIT=true
+else
+    DB_COUNT=$(python3 -c "
+import sqlite3
+conn = sqlite3.connect('$DATABASE_PATH')
+cursor = conn.execute('SELECT COUNT(*) FROM audiobooks')
+count = cursor.fetchone()[0]
+conn.close()
+print(count)
+" 2>/dev/null || echo "0")
+    echo -e "  Database: ${GREEN}$DB_COUNT audiobooks indexed${NC}"
+    NEEDS_INIT=false
+fi
+
+echo ""
+
+# ============================================================================
+# Step 3: Auto-scan and import if database is missing/empty
+# ============================================================================
+if [ "$NEEDS_INIT" = true ] && check_audiobooks_mounted; then
+    echo -e "${CYAN}=========================================="
+    echo "  First-time setup: Scanning library"
+    echo -e "==========================================${NC}"
+    echo ""
+
+    # Scan audiobooks
+    if scan_audiobooks; then
+        echo ""
+        # Import to database
+        if import_to_database; then
+            echo ""
+            echo -e "${GREEN}Library initialized successfully!${NC}"
+
+            # Show final count
+            DB_COUNT=$(python3 -c "
+import sqlite3
+conn = sqlite3.connect('$DATABASE_PATH')
+cursor = conn.execute('SELECT COUNT(*) FROM audiobooks')
+count = cursor.fetchone()[0]
+conn.close()
+print(count)
+" 2>/dev/null || echo "0")
+            echo -e "  Indexed: ${GREEN}$DB_COUNT audiobooks${NC}"
+        fi
+    fi
+    echo ""
+elif [ "$NEEDS_INIT" = true ]; then
+    echo -e "${YELLOW}Skipping auto-initialization: No audiobooks mounted${NC}"
+    echo "Mount your audiobooks and restart the container, or run manually:"
+    echo "  docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py"
+    echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
+    echo ""
+fi
+
+# ============================================================================
+# Step 4: Scan supplements if available
+# ============================================================================
+if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A $SUPPLEMENTS_DIR 2>/dev/null)" ]; then
+    echo -e "${CYAN}Scanning supplements...${NC}"
+    cd /app/scripts && python3 scan_supplements.py --supplements-dir "$SUPPLEMENTS_DIR" --quiet 2>/dev/null || true
+    echo -e "  ${GREEN}Supplements scanned${NC}"
+    echo ""
+fi
+
+# ============================================================================
+# Step 5: Start servers
+# ============================================================================
+echo -e "${CYAN}=========================================="
+echo "  Starting services"
+echo -e "==========================================${NC}"
+echo ""
+
 # Start Flask API in background
-echo -e "Starting API server on port ${API_PORT:-5001}..."
+echo -e "Starting API server on port ${API_PORT}..."
 cd /app/backend
 python3 api.py &
 API_PID=$!
@@ -66,29 +204,43 @@ sleep 2
 
 # Check if API started successfully
 if ! kill -0 $API_PID 2>/dev/null; then
-    echo -e "${YELLOW}Warning: API server may have failed to start${NC}"
+    echo -e "${RED}Error: API server failed to start${NC}"
     echo "Check logs for details"
+else
+    echo -e "  API: ${GREEN}Running on port ${API_PORT}${NC}"
 fi
 
 # Start web server
-echo -e "Starting web server on port ${WEB_PORT:-8090}..."
+echo -e "Starting web server on port ${WEB_PORT}..."
 cd /app/web
-python3 -m http.server ${WEB_PORT:-8090} &
+python3 -m http.server ${WEB_PORT} &
 WEB_PID=$!
+
+sleep 1
+if ! kill -0 $WEB_PID 2>/dev/null; then
+    echo -e "${RED}Error: Web server failed to start${NC}"
+else
+    echo -e "  Web: ${GREEN}Running on port ${WEB_PORT}${NC}"
+fi
 
 echo ""
 echo -e "${GREEN}=========================================="
 echo "  Audiobook Library is running!"
 echo "=========================================="
-echo -e "  Web UI:  http://localhost:${WEB_PORT:-8090}"
-echo -e "  API:     http://localhost:${API_PORT:-5001}"
+echo -e "  Web UI:  http://localhost:${WEB_PORT}"
+echo -e "  API:     http://localhost:${API_PORT}"
 echo -e "==========================================${NC}"
 echo ""
 echo "API Endpoints:"
 echo "  GET /api/audiobooks       - List all audiobooks"
 echo "  GET /api/audiobooks/:id   - Get audiobook details"
 echo "  GET /api/search?q=query   - Search audiobooks"
+echo "  GET /api/stats            - Library statistics"
 echo "  GET /api/narrator-counts  - Narrator statistics"
+echo ""
+echo "Management Commands:"
+echo "  docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py"
+echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
 echo ""
 
 # Handle shutdown gracefully

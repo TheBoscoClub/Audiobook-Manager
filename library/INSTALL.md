@@ -6,7 +6,7 @@ Complete installation instructions for the Audiobook Library system.
 
 - [System Requirements](#system-requirements)
 - [Dependencies](#dependencies)
-- [Installation Steps](#installation-steps)
+- [Installation Methods](#installation-methods)
 - [Configuration](#configuration)
 - [Running the Application](#running-the-application)
 - [Troubleshooting](#troubleshooting)
@@ -31,6 +31,7 @@ Complete installation instructions for the Audiobook Library system.
 ### Software
 - **Python**: 3.8 or higher
 - **ffmpeg**: 4.0 or higher (with ffprobe)
+- **openssl**: For SSL certificate generation
 - **Web Browser**: Modern browser with HTML5 audio support
   - Chrome/Chromium 90+
   - Firefox 88+
@@ -51,19 +52,20 @@ Install the following using your system's package manager:
 | `python3-pip` | Python package manager |
 | `python3-venv` | Virtual environment support (some distros) |
 | `ffmpeg` | Audio/video processing (includes ffprobe) |
+| `openssl` | SSL certificate generation |
 
 **Package Names by OS:**
 
 | OS | Package Manager | Example Command |
 |----|-----------------|-----------------|
-| Arch/CachyOS/Manjaro | pacman | `sudo pacman -S python python-pip ffmpeg` |
-| Ubuntu/Debian | apt | `sudo apt install python3 python3-pip python3-venv ffmpeg` |
-| Fedora/RHEL | dnf | `sudo dnf install python3 python3-pip ffmpeg` |
-| openSUSE | zypper | `sudo zypper install python3 python3-pip ffmpeg` |
-| macOS | Homebrew | `brew install python@3 ffmpeg` |
+| Arch/CachyOS/Manjaro | pacman | `sudo pacman -S python python-pip ffmpeg openssl` |
+| Ubuntu/Debian | apt | `sudo apt install python3 python3-pip python3-venv ffmpeg openssl` |
+| Fedora/RHEL | dnf | `sudo dnf install python3 python3-pip ffmpeg openssl` |
+| openSUSE | zypper | `sudo zypper install python3 python3-pip ffmpeg openssl` |
+| macOS | Homebrew | `brew install python@3 ffmpeg openssl` |
 | Windows | WSL2/Chocolatey | Use WSL2 with your preferred Linux distro |
-| NixOS | nix | `nix-env -iA nixpkgs.python3 nixpkgs.ffmpeg` |
-| Alpine | apk | `apk add python3 py3-pip ffmpeg` |
+| NixOS | nix | `nix-env -iA nixpkgs.python3 nixpkgs.ffmpeg nixpkgs.openssl` |
+| Alpine | apk | `apk add python3 py3-pip ffmpeg openssl` |
 
 **Note:** Package names may vary slightly between distributions. Search your package manager if the exact name doesn't work.
 
@@ -76,202 +78,223 @@ All Python dependencies are listed in `requirements.txt`:
 
 ---
 
-## Installation Steps
+## Installation Methods
 
-### 1. Clone the Repository
+### Method 1: User Installation (Recommended)
+
+Installs to `~/.local/bin` and `~/.config/audiobooks` (no root required):
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/audiobook-library.git
-cd audiobook-library
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/audiobook-toolkit.git
+cd audiobook-toolkit
+
+# Run user installer
+./install-user.sh --data-dir ~/Audiobooks
 ```
 
-### 2. Create Python Virtual Environment
+The installer will:
+- Create directories for audiobook data
+- Install commands to `~/.local/bin`
+- Create configuration at `~/.config/audiobooks/audiobooks.conf`
+- Generate SSL certificate at `~/.config/audiobooks/certs/`
+- Install systemd user services
+- Set up Python virtual environment
+
+### Method 2: System Installation
+
+Installs to `/usr/local/bin` and `/etc/audiobooks` (requires root):
 
 ```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/audiobook-toolkit.git
+cd audiobook-toolkit
+
+# Run system installer
+sudo ./install-system.sh --data-dir /srv/audiobooks
+```
+
+### Method 3: Manual Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/audiobook-toolkit.git
+cd audiobook-toolkit
+
+# Create Python virtual environment
+cd library
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
 
-### 3. Install Python Dependencies
-
-```bash
+# Install Python dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
+
+# Copy example configuration
+mkdir -p ~/.config/audiobooks
+cp ../etc/audiobooks.conf.example ~/.config/audiobooks/audiobooks.conf
+
+# Edit configuration
+nano ~/.config/audiobooks/audiobooks.conf
 ```
 
-### 4. Verify FFmpeg Installation
+### Verify Installation
+
+After installation:
 
 ```bash
+# Check FFmpeg
 ffmpeg -version
 ffprobe -version
-```
 
-Both commands should display version information. If not, install ffmpeg using your package manager.
+# Check configuration (if installed via install scripts)
+audiobooks-config
 
-### 5. Configure Audiobook Directory
-
-Edit the scanner configuration to point to your audiobook directory:
-
-```bash
-# Edit scanner/scan_audiobooks.py
-# Change AUDIOBOOKS_DIR to your audiobook collection path
-```
-
-Default path: `/raid0/Audiobooks`
-
-Supported formats:
-- M4B (Apple Audiobook)
-- OPUS (Opus audio)
-- M4A (AAC audio)
-- MP3 (MP3 audio)
-
-### 6. Scan Your Audiobook Collection
-
-```bash
-cd scanner
-python3 scan_audiobooks.py
-```
-
-This will:
-- Scan your audiobook directory
-- Extract metadata (title, author, narrator, duration, etc.)
-- Extract cover art images
-- Save metadata to `../data/audiobooks.json`
-- Save cover images to `../web/covers/`
-
-**Estimated time**: 1-2 hours for ~4,000 audiobooks
-
-### 7. Import to Database
-
-```bash
-cd ../backend
-python3 import_to_db.py
-```
-
-This creates an optimized SQLite database with:
-- Full-text search index
-- Author/narrator/publisher indices
-- Efficient pagination support
-
-### 8. Start the API Server
-
-```bash
-python3 api.py
-```
-
-The API will be available at `http://localhost:5001`
-
-### 9. Start the Web Server
-
-In a new terminal:
-
-```bash
-cd web-v2
-python3 -m http.server 8090
-```
-
-The web interface will be available at `http://localhost:8090`
-
-### 10. Access the Library
-
-Open your web browser and navigate to:
-```
-http://localhost:8090
+# Or source config manually
+source lib/audiobooks-config.sh
+audiobooks_print_config
 ```
 
 ---
 
 ## Configuration
 
-### Directory Structure
+### Configuration Files
 
-```
-audiobook-library/
-├── backend/
-│   ├── api.py              # Flask API server
-│   ├── audiobooks.db       # SQLite database
-│   └── import_to_db.py     # Database import script
-├── scanner/
-│   └── scan_audiobooks.py  # Audiobook scanner
-├── data/
-│   └── audiobooks.json     # Metadata JSON export
-├── web/
-│   └── covers/             # Cover art images
-├── web-v2/
-│   ├── index.html          # Web interface
-│   ├── css/
-│   │   └── library.css     # Styling
-│   └── js/
-│       └── library.js      # Frontend JavaScript
-├── scripts/
-│   └── fix_all_opus_metadata.sh  # OPUS metadata fixer
-└── requirements.txt        # Python dependencies
-```
+Configuration is loaded from multiple sources in priority order:
 
-### API Configuration
+1. **System config**: `/etc/audiobooks/audiobooks.conf`
+2. **User config**: `~/.config/audiobooks/audiobooks.conf`
+3. **Environment variables**
 
-Edit `backend/api.py` to change:
-- **Port**: Default `5001` (line 355)
-- **Host**: Default `0.0.0.0` (listens on all interfaces)
-- **Debug mode**: Default `True` (disable for production)
+### Configuration Variables
 
-### Web Server Configuration
+| Variable | Description |
+|----------|-------------|
+| `AUDIOBOOKS_DATA` | Root data directory for all audiobook files |
+| `AUDIOBOOKS_LIBRARY` | Converted audiobook files (default: `${AUDIOBOOKS_DATA}/Library`) |
+| `AUDIOBOOKS_SOURCES` | Source AAXC files (default: `${AUDIOBOOKS_DATA}/Sources`) |
+| `AUDIOBOOKS_SUPPLEMENTS` | PDF supplements (default: `${AUDIOBOOKS_DATA}/Supplements`) |
+| `AUDIOBOOKS_HOME` | Application installation directory |
+| `AUDIOBOOKS_DATABASE` | SQLite database path |
+| `AUDIOBOOKS_COVERS` | Cover art cache directory |
+| `AUDIOBOOKS_CERTS` | SSL certificate directory |
+| `AUDIOBOOKS_LOGS` | Log files directory |
+| `AUDIOBOOKS_VENV` | Python virtual environment path |
+| `AUDIOBOOKS_API_PORT` | API server port (default: 5001) |
+| `AUDIOBOOKS_WEB_PORT` | Web server port (default: 8090) |
 
-The frontend runs on port `8090` by default. Change with:
+### Example Configuration
 
 ```bash
-python3 -m http.server PORT_NUMBER
+# ~/.config/audiobooks/audiobooks.conf
+
+# Data directories
+AUDIOBOOKS_DATA="$HOME/Audiobooks"
+AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"
+AUDIOBOOKS_SOURCES="${AUDIOBOOKS_DATA}/Sources"
+AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
+
+# Application directories
+AUDIOBOOKS_HOME="$HOME/.local/lib/audiobooks"
+AUDIOBOOKS_DATABASE="$HOME/.local/var/lib/audiobooks/audiobooks.db"
+AUDIOBOOKS_COVERS="${AUDIOBOOKS_HOME}/library/web-v2/covers"
+AUDIOBOOKS_CERTS="$HOME/.config/audiobooks/certs"
+AUDIOBOOKS_LOGS="$HOME/.local/var/log/audiobooks"
+
+# Server settings
+AUDIOBOOKS_API_PORT="5001"
+AUDIOBOOKS_WEB_PORT="8090"
 ```
 
-### Audiobook Paths
+### Override via Environment
 
-If your audiobooks are in a different location, update:
+You can override any configuration variable:
 
-1. `scanner/scan_audiobooks.py`:
-   ```python
-   AUDIOBOOKS_DIR = Path("/your/path/to/audiobooks")
-   ```
-
-2. `scripts/fix_all_opus_metadata.sh`:
-   ```bash
-   AUDIOBOOKS_DIR="/your/path/to/audiobooks"
-   ```
+```bash
+AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks audiobooks-scan
+```
 
 ---
 
 ## Running the Application
 
-### Quick Start (Development)
+### First-Time Setup
+
+After installation, scan your audiobook collection:
+
+```bash
+# Scan audiobooks
+audiobooks-scan
+
+# Import to database
+audiobooks-import
+
+# Or with manual installation:
+cd library/scanner
+python3 scan_audiobooks.py
+cd ../backend
+python3 import_to_db.py
+```
+
+**Estimated time**: 1-2 hours for ~4,000 audiobooks
+
+### Starting Services
+
+#### Using Systemd (Recommended)
+
+```bash
+# Enable services at login
+systemctl --user enable audiobooks-api audiobooks-web
+
+# Start services
+systemctl --user start audiobooks.target
+
+# Enable lingering (services start at boot without login)
+loginctl enable-linger $USER
+```
+
+#### Using Launch Script
+
+```bash
+./launch.sh
+```
+
+#### Manual Start
 
 ```bash
 # Terminal 1: API Server
-cd audiobook-library
-source venv/bin/activate
-python3 backend/api.py
+audiobooks-api
 
 # Terminal 2: Web Server
-cd audiobook-library/web-v2
-python3 -m http.server 8090
+audiobooks-web
 ```
 
-### Production Deployment
+### Access the Library
 
-For production use, consider:
+Open your browser and navigate to:
+```
+https://localhost:8090
+```
 
-1. **WSGI Server** (for API):
-   ```bash
-   pip install gunicorn
-   gunicorn -w 4 -b 0.0.0.0:5001 backend.api:app
-   ```
+**Note**: You'll see a browser warning about the self-signed certificate. Click "Advanced" → "Proceed to localhost" to continue.
 
-2. **Web Server** (for frontend):
-   Use nginx or Apache to serve the `web-v2` directory
+### Service Management
 
-3. **Systemd Service** (Linux):
-   Create service files for automatic startup
+```bash
+# Check status
+systemctl --user status audiobooks-api audiobooks-web
 
-4. **Reverse Proxy**:
-   Use nginx to proxy both API and web interface
+# Restart services
+systemctl --user restart audiobooks.target
+
+# Stop services
+systemctl --user stop audiobooks.target
+
+# View logs
+journalctl --user -u audiobooks-api -f
+journalctl --user -u audiobooks-web -f
+```
 
 ---
 
@@ -295,10 +318,10 @@ ffprobe /path/to/audiobook.m4b
 
 **Problem**: API won't start - "Address already in use"
 ```bash
-# Check what's using port 5001
-sudo lsof -i :5001
+# Check what's using the port
+lsof -i :5001
 
-# Kill the process or change the port in backend/api.py
+# Kill the process or change the port in config
 ```
 
 **Problem**: CORS errors in browser console
@@ -314,10 +337,10 @@ pip install flask-cors
 **Problem**: Cover images not displaying
 ```bash
 # Check symlink exists
-ls -la web-v2/covers
+ls -la library/web-v2/covers
 
 # Create if missing
-cd web-v2
+cd library/web-v2
 ln -s ../web/covers covers
 ```
 
@@ -335,32 +358,74 @@ curl http://localhost:5001/health
 **Problem**: No audiobooks showing in web interface
 ```bash
 # Verify database exists and has data
-sqlite3 backend/audiobooks.db "SELECT COUNT(*) FROM audiobooks"
+sqlite3 $AUDIOBOOKS_DATABASE "SELECT COUNT(*) FROM audiobooks"
 
 # Re-import if needed
-python3 backend/import_to_db.py
+audiobooks-import
 ```
 
 **Problem**: Search not working
 ```bash
 # Verify FTS5 index exists
-sqlite3 backend/audiobooks.db "SELECT name FROM sqlite_master WHERE type='table'"
+sqlite3 $AUDIOBOOKS_DATABASE "SELECT name FROM sqlite_master WHERE type='table'"
 
 # Re-import database to rebuild indexes
+audiobooks-import
 ```
 
-### OPUS Metadata Issues
+### Configuration Issues
 
-**Problem**: OPUS files showing "Unknown Author/Narrator"
+**Problem**: Commands not found
 ```bash
-# Run metadata fix script
-cd audiobook-library
-./scripts/fix_all_opus_metadata.sh
+# Add ~/.local/bin to PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 
-# Re-scan and re-import
-cd scanner && python3 scan_audiobooks.py
-cd ../backend && python3 import_to_db.py
+# Or for zsh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
+
+**Problem**: Configuration not loading
+```bash
+# Check config file syntax
+cat ~/.config/audiobooks/audiobooks.conf
+
+# Verify config loads correctly
+source lib/audiobooks-config.sh
+audiobooks_print_config
+```
+
+### SSL Certificate Issues
+
+**Problem**: Certificate expired
+```bash
+# Regenerate certificate
+./install-user.sh  # Will prompt to regenerate
+
+# Or manually:
+openssl req -x509 -newkey rsa:4096 -sha256 -days 1095 \
+    -nodes -keyout ~/.config/audiobooks/certs/server.key \
+    -out ~/.config/audiobooks/certs/server.crt \
+    -subj "/CN=localhost/O=Audiobooks/C=US" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+```
+
+---
+
+## Uninstalling
+
+### User Installation
+```bash
+./install-user.sh --uninstall
+```
+
+### System Installation
+```bash
+sudo ./install-system.sh --uninstall
+```
+
+**Note**: Uninstallers do NOT remove configuration files or data directories. Remove manually if desired.
 
 ---
 
@@ -369,14 +434,11 @@ cd ../backend && python3 import_to_db.py
 If you encounter issues not covered here:
 
 1. **Check Logs**: Look for error messages in:
-   - Scanner output
-   - API server output (`python3 backend/api.py`)
+   - `journalctl --user -u audiobooks-api`
+   - `journalctl --user -u audiobooks-web`
    - Browser console (F12)
 
-2. **GitHub Issues**: Report bugs or ask questions at:
-   https://github.com/YOUR_USERNAME/audiobook-library/issues
-
-3. **Verify Setup**:
+2. **Verify Setup**:
    ```bash
    # Check Python version
    python3 --version
@@ -384,9 +446,15 @@ If you encounter issues not covered here:
    # Check FFmpeg
    ffmpeg -version
 
+   # Check configuration
+   audiobooks-config
+
    # Check Python packages
    pip list | grep -E "Flask|flask-cors"
    ```
+
+3. **GitHub Issues**: Report bugs or ask questions at:
+   https://github.com/YOUR_USERNAME/audiobook-toolkit/issues
 
 ---
 
@@ -394,15 +462,18 @@ If you encounter issues not covered here:
 
 After installation:
 
-1. **Customize Theme**: Edit `web-v2/css/library.css` for styling
-2. **Add Desktop Launcher**: Use provided launcher script for easy access
-3. **Set Up Backups**: Regular backups of `backend/audiobooks.db` and `web/covers/`
-4. **Explore Features**:
-   - Full-text search
-   - Filter by author, narrator, format
-   - Playback speed control (0.75x - 2.0x)
-   - Skip ±30 seconds
-   - Volume control
+1. **Scan Your Library**: Run `audiobooks-scan` to index your audiobooks
+2. **Import to Database**: Run `audiobooks-import` to build searchable database
+3. **Start Services**: Enable systemd services for automatic startup
+4. **Access Web Interface**: Open https://localhost:8090
+
+**Features to Explore**:
+- Full-text search
+- Filter by author, narrator, format
+- Playback speed control (0.75x - 2.0x)
+- Skip ±30 seconds
+- Volume control
+- PDF supplements
 
 ---
 

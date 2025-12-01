@@ -23,7 +23,8 @@ Web-based audiobook library browser with:
 # Launch the web interface
 ./launch.sh
 
-# Opens http://localhost:8090 in your browser
+# Opens https://localhost:8090 in your browser
+# HTTP requests to port 8081 are automatically redirected to HTTPS
 ```
 
 ### Convert Audiobooks
@@ -75,85 +76,124 @@ python3 scan_supplements.py --supplements-dir /path/to/supplements
 ```
 Books with supplements show a red "PDF" badge in the UI. Click to download.
 
-## Configuration
+## Installation
 
-All paths are configured in `config.env`. Edit this file to customize your installation:
-
+Run the interactive installer:
 ```bash
-# config.env - Main configuration file
-
-# Path to your audiobook collection
-AUDIOBOOK_DIR="/path/to/your/audiobooks"
-
-# Path where this project is installed (usually auto-detected)
-PROJECT_DIR="/path/to/Audiobooks"
-
-# Server ports
-WEB_PORT=8090
-API_PORT=5001
+./install.sh
 ```
 
-### Configuration Options
+You'll be presented with a menu to choose:
+- **System Installation** - Installs to `/usr/local/bin` and `/etc/audiobooks` (requires sudo)
+- **User Installation** - Installs to `~/.local/bin` and `~/.config/audiobooks` (no root required)
+- **Exit** - Exit without changes
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AUDIOBOOK_DIR` | `/raid0/Audiobooks` | Where your audiobook files are stored |
-| `PROJECT_DIR` | Auto-detected | Installation directory of this project |
-| `DATABASE_PATH` | `${PROJECT_DIR}/library/backend/audiobooks.db` | SQLite database location |
-| `COVER_DIR` | `${PROJECT_DIR}/library/web/covers` | Cover art cache |
-| `DATA_DIR` | `${PROJECT_DIR}/library/data` | JSON data directory |
-| `SUPPLEMENTS_DIR` | `/raid0/Audiobooks/Supplements` | PDF supplements directory |
-| `WEB_PORT` | `8090` | Web interface port |
-| `API_PORT` | `5001` | REST API port |
-
-### Environment Variables
-
-You can also override any setting via environment variables:
+### Command-Line Options
 ```bash
-AUDIOBOOK_DIR=/mnt/nas/audiobooks ./launch.sh
+./install.sh --system              # Skip menu, system install
+./install.sh --user                # Skip menu, user install
+./install.sh --data-dir /path      # Specify data directory
+./install.sh --uninstall           # Remove installation
+./install.sh --no-services         # Skip systemd services
+```
+
+### Port Conflict Detection
+The installer automatically checks if the required ports (5001, 8090, 8081) are available before installation. If a port is in use, you'll see options to:
+1. Choose an alternate port
+2. Continue anyway (if you plan to stop the conflicting service)
+3. Abort installation
+
+Both installation modes:
+- Create configuration files
+- Generate SSL certificates
+- Install systemd services
+- Set up Python virtual environment
+
+After installation, use these commands:
+```bash
+audiobooks-api      # Start API server
+audiobooks-web      # Start web server (HTTPS)
+audiobooks-scan     # Scan audiobook library
+audiobooks-import   # Import to database
+audiobooks-config   # Show configuration
+```
+
+## Configuration
+
+Configuration is loaded from multiple sources in priority order:
+1. System config: `/etc/audiobooks/audiobooks.conf`
+2. User config: `~/.config/audiobooks/audiobooks.conf`
+3. Environment variables
+
+### Configuration Variables
+
+| Variable | Description |
+|----------|-------------|
+| `AUDIOBOOKS_DATA` | Root data directory |
+| `AUDIOBOOKS_LIBRARY` | Converted audiobook files |
+| `AUDIOBOOKS_SOURCES` | Source AAXC files |
+| `AUDIOBOOKS_SUPPLEMENTS` | PDF supplements |
+| `AUDIOBOOKS_HOME` | Application installation directory |
+| `AUDIOBOOKS_DATABASE` | SQLite database path |
+| `AUDIOBOOKS_COVERS` | Cover art cache |
+| `AUDIOBOOKS_CERTS` | SSL certificate directory |
+| `AUDIOBOOKS_LOGS` | Log files directory |
+| `AUDIOBOOKS_API_PORT` | API server port (default: 5001) |
+| `AUDIOBOOKS_WEB_PORT` | HTTPS web server port (default: 8090) |
+| `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8081) |
+| `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
+
+### Override via Environment
+```bash
+AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks ./launch.sh
+```
+
+### View Current Configuration
+```bash
+audiobooks-config
 ```
 
 ## Directory Structure
 
 ```
 Audiobooks/
-├── config.env           # Main configuration file
-├── launch.sh            # Quick launcher
-├── converter/           # AAXtoMP3 conversion tools
-│   ├── AAXtoMP3         # Main conversion script
+├── etc/
+│   └── audiobooks.conf.example  # Config template
+├── lib/
+│   └── audiobooks-config.sh     # Config loader (shell)
+├── install.sh                   # Unified installer (interactive)
+├── install-user.sh              # User installation (standalone)
+├── install-system.sh            # System installation (standalone)
+├── install-services.sh          # Legacy service installer
+├── launch.sh                    # Quick launcher
+├── converter/                   # AAXtoMP3 conversion tools
+│   ├── AAXtoMP3                 # Main conversion script
 │   └── interactiveAAXtoMP3
-├── library/             # Web library interface
-│   ├── config.py        # Python configuration module
-│   ├── backend/         # Flask API + SQLite database
-│   ├── scanner/         # Metadata extraction
-│   ├── scripts/         # Hash generation, duplicate detection
-│   ├── web-v2/          # Modern web interface
-│   └── web/             # Legacy interface + cover storage
-├── Dockerfile           # Docker build file
-├── docker-compose.yml   # Docker Compose config
+├── library/                     # Web library interface
+│   ├── config.py                # Python configuration module
+│   ├── backend/                 # Flask API + SQLite database
+│   ├── scanner/                 # Metadata extraction
+│   ├── scripts/                 # Hash generation, duplicate detection
+│   ├── web-v2/                  # Modern web interface
+│   └── web/                     # Legacy interface + cover storage
+├── Dockerfile                   # Docker build file
+├── docker-compose.yml           # Docker Compose config
 └── README.md
 ```
 
 ## Docker (macOS, Windows, Linux)
 
-Run the library in Docker for easy cross-platform deployment.
+Run the library in Docker for easy cross-platform deployment. The Docker container automatically initializes the database on first run - just mount your audiobooks and start the container.
 
-### Option 1: Pull from GitHub Container Registry (Recommended)
+### Quick Start (Recommended)
 
 ```bash
-# Pull the latest image
-docker pull ghcr.io/greogory/audiobook-toolkit:latest
-
-# Or pull a specific version
-docker pull ghcr.io/greogory/audiobook-toolkit:2.3
-
-# Run with your audiobook directory
+# Pull and run with a single command
 docker run -d \
   --name audiobooks \
   -p 8090:8090 \
   -p 5001:5001 \
   -v /path/to/your/audiobooks:/audiobooks:ro \
-  -v /path/to/supplements:/supplements:ro \
   -v audiobooks_data:/app/data \
   -v audiobooks_covers:/app/covers \
   ghcr.io/greogory/audiobook-toolkit:latest
@@ -162,11 +202,20 @@ docker run -d \
 open http://localhost:8090
 ```
 
-### Option 2: Build Locally with Docker Compose
+On first run, the container automatically:
+1. Detects mounted audiobooks
+2. Scans and indexes your library
+3. Imports metadata into the database
+4. Starts the web and API servers
+
+### Using Docker Compose
 
 ```bash
 # Set your audiobooks directory
 export AUDIOBOOK_DIR=/path/to/your/audiobooks
+
+# Optional: Set supplements directory for PDFs
+export SUPPLEMENTS_DIR=/path/to/supplements
 
 # Build and run
 docker-compose up -d
@@ -175,24 +224,86 @@ docker-compose up -d
 open http://localhost:8090
 ```
 
-### First-time setup (scan audiobooks)
-```bash
-# Scan your audiobook directory
-docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py
+### Build Locally
 
-# Import to database
-docker exec -it audiobooks python3 /app/backend/import_to_db.py
+```bash
+# Build the image
+docker build -t audiobooks .
+
+# Run with your audiobook directory
+docker run -d \
+  --name audiobooks \
+  -p 8090:8090 \
+  -p 5001:5001 \
+  -v /path/to/audiobooks:/audiobooks:ro \
+  -v audiobooks_data:/app/data \
+  -v audiobooks_covers:/app/covers \
+  audiobooks
 ```
 
-### Docker volumes
-- `audiobooks_data`: Persists the SQLite database
-- `audiobooks_covers`: Persists cover art cache
+### Docker Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUDIOBOOK_DIR` | `/audiobooks` | Path to audiobooks inside container |
+| `DATABASE_PATH` | `/app/data/audiobooks.db` | SQLite database path |
+| `COVER_DIR` | `/app/covers` | Cover art cache directory |
+| `SUPPLEMENTS_DIR` | `/supplements` | PDF supplements directory |
+| `WEB_PORT` | `8090` | Web interface port |
+| `API_PORT` | `5001` | REST API port |
+
+### Docker Volumes
+
+| Volume | Purpose |
+|--------|---------|
+| `audiobooks_data` | Persists SQLite database across container restarts |
+| `audiobooks_covers` | Persists cover art cache |
+
+### Manual Library Management
+
+If you need to manually rescan or update your library:
+
+```bash
+# Rescan audiobook directory
+docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py
+
+# Re-import to database
+docker exec -it audiobooks python3 /app/backend/import_to_db.py
+
+# View README inside container
+docker exec -it audiobooks cat /app/README.md
+```
+
+### Docker Health Check
+
+The container includes a health check that verifies the API is responding:
+```bash
+# Check container health
+docker inspect --format='{{.State.Health.Status}}' audiobooks
+```
+
+### Troubleshooting Docker
+
+```bash
+# View container logs
+docker logs audiobooks
+
+# Check running processes
+docker exec -it audiobooks ps aux
+
+# Access container shell
+docker exec -it audiobooks /bin/bash
+
+# Restart container (re-runs initialization)
+docker restart audiobooks
+```
 
 ## Requirements (native install)
 
 - Python 3.8+
 - ffmpeg 4.4+ (with ffprobe)
 - Flask, flask-cors
+- openssl (for SSL certificate generation)
 
 ### First-time setup
 ```bash
@@ -211,28 +322,36 @@ cd ../backend
 python3 import_to_db.py
 ```
 
-## Local Audiobook Directory Structure
+## Systemd Services
 
-The audiobook files on this system are organized as follows:
-
-```
-/raid0/Audiobooks/
-├── Sources/           # Original AAXC files from Audible
-├── Library/           # Converted OPUS files (organized by Author/Title)
-├── scripts/           # Conversion scripts (master copies)
-├── systemd/           # Systemd service files
-├── logs/              # Conversion logs
-└── README_CONVERSION.md  # Detailed conversion documentation
-```
-
-For more information about the automated conversion system, see `/raid0/Audiobooks/README_CONVERSION.md`.
-
-### Conversion Commands (available in PATH)
+### User Services
 ```bash
-audiobook-status    # Check conversion status
-audiobook-help      # Full command reference
-audiobook-start     # Start conversion services
-audiobook-stop      # Stop conversion services
+# Enable services at login
+systemctl --user enable audiobooks-api audiobooks-web
+
+# Start services
+systemctl --user start audiobooks.target
+
+# Check status
+systemctl --user status audiobooks-api audiobooks-web
+
+# View logs
+journalctl --user -u audiobooks-api -f
+
+# Enable lingering (services start at boot without login)
+loginctl enable-linger $USER
+```
+
+### System Services
+```bash
+# Enable services at boot
+sudo systemctl enable audiobooks-api audiobooks-web
+
+# Start services
+sudo systemctl start audiobooks.target
+
+# Check status
+systemctl status audiobooks-api audiobooks-web
 ```
 
 ## License

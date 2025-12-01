@@ -1,8 +1,14 @@
+# =============================================================================
+# Docker Build Exclusions
+# =============================================================================
+# This file excludes files not needed in the Docker container
+
 # Git
 .git
 .gitignore
+.github
 
-# Python
+# Python virtual environments and caches
 __pycache__
 *.py[cod]
 *.so
@@ -10,6 +16,7 @@ venv/
 .venv/
 ENV/
 *.egg-info/
+library/venv/
 
 # IDE
 .idea/
@@ -21,11 +28,13 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Database (will be mounted as volume)
+# Database (will be mounted as volume or auto-created)
 *.db
+library/backend/*.db
 
 # Covers (will be mounted as volume)
 library/web/covers/
+library/web-v2/covers/
 
 # Development files
 *.log
@@ -41,8 +50,32 @@ authcode.txt
 *.authcode
 credentials.json
 secrets/
+config.env
 
-# Documentation (not needed in container)
-*.md
-!README.md
+# =============================================================================
+# Native Installation Files (NOT needed in Docker)
+# =============================================================================
+# These are for native Linux/macOS installs, Docker uses docker-entrypoint.sh
+
+# Install scripts
+install.sh
+install-user.sh
+install-system.sh
+install-services.sh
+launch.sh
+
+# Shell config loader (not used in Docker)
+lib/
+
+# Config templates (Docker uses environment variables)
+etc/
+
+# Security documentation (not needed in container)
 SECURITY.md
+
+# Legacy web interface (using web-v2 only)
+library/web/
+
+# Certs directory (Docker generates/mounts its own)
+library/certs/
+certs/

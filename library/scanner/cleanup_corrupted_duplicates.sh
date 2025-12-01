@@ -2,10 +2,15 @@
 # Safely Remove Corrupted Duplicate M4B Files
 # These are failed conversions - valid versions exist in other locations/formats
 # NOTE: After 2024-11 directory reorganization, M4B conversions are deprecated
-# All audiobooks are now converted to OPUS and stored in /raid0/Audiobooks/Library/
+# All audiobooks are now converted to OPUS and stored in $AUDIOBOOKS_LIBRARY
 
-CORRUPTED_DIR="/raid0/Audiobooks/Library"
-LOG_FILE="/raid0/Audiobooks/logs/cleanup_duplicates.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load configuration
+source "$SCRIPT_DIR/../../lib/audiobooks-config.sh"
+
+CORRUPTED_DIR="$AUDIOBOOKS_LIBRARY"
+LOG_FILE="$AUDIOBOOKS_LOGS/cleanup_duplicates.log"
 
 echo "========================================"
 echo "  Corrupted Duplicate Cleanup"
@@ -16,7 +21,7 @@ echo "  $CORRUPTED_DIR"
 echo ""
 echo "These files are safe to delete because:"
 echo "  - Valid versions exist in the Library"
-echo "  - Source AAXC files are preserved in /raid0/Audiobooks/Sources/"
+echo "  - Source AAXC files are preserved in $AUDIOBOOKS_SOURCES"
 echo ""
 read -p "Continue with cleanup? (y/n): " -n 1 -r
 echo ""
