@@ -55,10 +55,12 @@ Web-based audiobook library browser with:
 - Resume from last position
 - Full-text search across titles, authors, and narrators
 - **Author/Narrator autocomplete** with letter group filters (A-E, F-J, K-O, P-T, U-Z)
+- **Collections sidebar** for browsing by category (Fiction, Nonfiction, Mystery, Sci-Fi, etc.)
 - **Comprehensive sorting**: title, author/narrator first/last name, duration, publish date, acquired date, series with sequence, edition
 - **Smart duplicate detection** by title/author/narrator or SHA-256 hash
 - Cover art display with automatic extraction
 - PDF supplement support (course materials, maps, etc.)
+- **Genre sync** from Audible library export with 250+ genre categories
 - **Narrator metadata sync** from Audible library export
 - Production-ready HTTPS server with reverse proxy
 
@@ -139,6 +141,21 @@ python3 update_narrators_from_audible.py
 # Apply changes
 python3 update_narrators_from_audible.py --execute
 ```
+
+### Populate Genres
+Genre information enables the Collections sidebar for browsing by category. Sync genres from your Audible library export:
+```bash
+# Export your Audible library metadata (if not already done)
+audible library export -f json -o /path/to/Audiobooks/library_metadata.json
+
+# Preview genre matches (dry run)
+cd library/scripts
+python3 populate_genres.py
+
+# Apply changes
+python3 populate_genres.py --execute
+```
+The script matches books by ASIN, exact title, or fuzzy title matching (85% threshold). This populates the genres table and enables collection-based filtering in the web UI.
 
 ### Populate Sort Fields
 Extract author/narrator names and series info for enhanced sorting:
@@ -264,6 +281,7 @@ Audiobooks/
 │   │   ├── find_duplicates.py           # Duplicate detection & removal
 │   │   ├── scan_supplements.py          # PDF supplement scanner
 │   │   ├── populate_sort_fields.py      # Extract name/series/edition info
+│   │   ├── populate_genres.py           # Sync genres from Audible export
 │   │   ├── update_narrators_from_audible.py  # Sync narrator metadata
 │   │   ├── cleanup_audiobook_duplicates.py   # Database cleanup
 │   │   └── fix_audiobook_authors.py     # Author metadata repair
@@ -281,10 +299,18 @@ Audiobooks/
 
 ## Web Interface Features
 
+### Collections Sidebar
+Browse your library by curated categories:
+- **Toggle button**: Click "Collections" in the results bar to open the sidebar
+- **Categories**: Special (The Great Courses), Main Genres (Fiction, Nonfiction), Nonfiction (History, Science, Biography, Memoir), Subgenres (Mystery & Thriller, Science Fiction, Fantasy, Romance)
+- **Active filter badge**: Shows current collection on toggle button
+- **Close options**: × button, click overlay, or press Escape
+
 ### Search & Filtering
 - **Full-text search**: Search across titles, authors, and narrators
 - **Author filter**: Autocomplete dropdown with A-E, F-J, K-O, P-T, U-Z letter groups
 - **Narrator filter**: Autocomplete dropdown with book counts and letter groups
+- **Collection filter**: Browse by category via Collections sidebar
 - **Clear button**: Reset all filters with one click
 
 ### Sorting Options
@@ -323,6 +349,7 @@ The library exposes a REST API on port 5001:
 |----------|--------|-------------|
 | `/api/audiobooks` | GET | List audiobooks with pagination, search, filtering, sorting |
 | `/api/audiobooks/<id>` | GET | Get single audiobook details |
+| `/api/collections` | GET | List available collections with book counts |
 | `/api/stats` | GET | Library statistics (counts, total hours) |
 | `/api/filters` | GET | Available filter options (authors, narrators, genres) |
 | `/api/narrator-counts` | GET | Narrator names with book counts |
@@ -339,6 +366,7 @@ The library exposes a REST API on port 5001:
 - `search` - Full-text search query
 - `author` - Filter by author name
 - `narrator` - Filter by narrator name
+- `collection` - Filter by collection slug (e.g., `fiction`, `mystery-thriller`, `great-courses`)
 - `sort` - Sort field (title, author, author_last, narrator_last, duration_hours, acquired_date, published_year, series, edition)
 - `order` - Sort order (asc, desc)
 
