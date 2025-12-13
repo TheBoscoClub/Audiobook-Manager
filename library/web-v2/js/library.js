@@ -29,12 +29,17 @@ class AudiobookLibraryV2 {
         this.authorSortAsc = true;
         this.highlightedAuthorIndex = -1;
 
+        // Collections state
+        this.collections = [];
+        this.currentCollection = '';
+
         this.init();
     }
 
     async init() {
         await this.loadStats();
         await this.loadFilters();
+        await this.loadCollections();
         this.setupEventListeners();
         await this.loadAudiobooks();
     }
@@ -78,6 +83,163 @@ class AudiobookLibraryV2 {
         } catch (error) {
             console.error('Error loading filters:', error);
         }
+    }
+
+    async loadCollections() {
+        try {
+            const response = await fetch(`${API_BASE}/collections`);
+            this.collections = await response.json();
+            this.renderCollectionButtons();
+        } catch (error) {
+            console.error('Error loading collections:', error);
+        }
+    }
+
+    renderCollectionButtons() {
+        const container = document.getElementById('collections-buttons');
+        if (!container || this.collections.length === 0) {
+            return;
+        }
+
+        // Group collections by category
+        const grouped = {};
+        this.collections.forEach(c => {
+            const cat = c.category || 'main';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(c);
+        });
+
+        // Render grouped buttons for sidebar
+        let html = '';
+        const categoryOrder = ['special', 'main', 'nonfiction', 'subgenre'];
+        const categoryLabels = {
+            special: 'Special Collections',
+            main: 'Fiction Genres',
+            nonfiction: 'Nonfiction',
+            subgenre: 'More Genres'
+        };
+
+        categoryOrder.forEach(cat => {
+            if (!grouped[cat] || grouped[cat].length === 0) return;
+
+            html += `<div class="collection-category">`;
+            html += `<span class="collection-category-label">${categoryLabels[cat]}</span>`;
+            html += `<div class="collection-category-items">`;
+
+            grouped[cat].forEach(collection => {
+                html += `
+                    <button class="collection-btn ${this.currentCollection === collection.id ? 'active' : ''}"
+                            data-collection="${collection.id}"
+                            title="${collection.description}">
+                        <span class="icon">${collection.icon}</span>
+                        <span class="name">${collection.name}</span>
+                        <span class="count">${collection.count}</span>
+                    </button>
+                `;
+            });
+
+            html += `</div></div>`;
+        });
+
+        container.innerHTML = html;
+
+        // Add click handlers
+        container.querySelectorAll('.collection-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const collectionId = btn.dataset.collection;
+                this.toggleCollection(collectionId);
+            });
+        });
+
+        // Update active filter badge
+        this.updateFilterBadge();
+    }
+
+    updateFilterBadge() {
+        const badge = document.getElementById('active-filter-badge');
+        if (!badge) return;
+
+        if (this.currentCollection) {
+            const collection = this.collections.find(c => c.id === this.currentCollection);
+            if (collection) {
+                badge.textContent = collection.icon + ' ' + collection.name;
+                badge.classList.add('visible');
+            }
+        } else {
+            badge.textContent = '';
+            badge.classList.remove('visible');
+        }
+    }
+
+    toggleCollection(collectionId) {
+        if (this.currentCollection === collectionId) {
+            // Deselect - show all books
+            this.currentCollection = '';
+        } else {
+            // Select this collection
+            this.currentCollection = collectionId;
+        }
+        this.currentPage = 1;
+        this.renderCollectionButtons();
+        this.loadAudiobooks();
+        // Close sidebar after selection on mobile
+        if (window.innerWidth < 768) {
+            this.closeSidebar();
+        }
+    }
+
+    openSidebar() {
+        const sidebar = document.getElementById('collections-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.add('open');
+        if (overlay) overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeSidebar() {
+        const sidebar = document.getElementById('collections-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    setupSidebarEvents() {
+        // Toggle button
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.openSidebar());
+        }
+
+        // Close button
+        const closeBtn = document.getElementById('sidebar-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeSidebar());
+        }
+
+        // Overlay click to close
+        const overlay = document.getElementById('sidebar-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', () => this.closeSidebar());
+        }
+
+        // Clear filter button
+        const clearBtn = document.getElementById('sidebar-clear-filter');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.currentCollection = '';
+                this.currentPage = 1;
+                this.renderCollectionButtons();
+                this.loadAudiobooks();
+            });
+        }
+
+        // Escape key to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeSidebar();
+            }
+        });
     }
 
     setupAuthorAutocomplete() {
@@ -533,6 +695,7 @@ class AudiobookLibraryV2 {
             if (this.currentFilters.search) params.append('search', this.currentFilters.search);
             if (this.currentFilters.author) params.append('author', this.currentFilters.author);
             if (this.currentFilters.narrator) params.append('narrator', this.currentFilters.narrator);
+            if (this.currentCollection) params.append('collection', this.currentCollection);
             if (this.currentFilters.sort) params.append('sort', this.currentFilters.sort);
             if (this.currentFilters.order) params.append('order', this.currentFilters.order);
 
@@ -806,6 +969,9 @@ class AudiobookLibraryV2 {
             this.selectAuthor('');
             // Clear narrator autocomplete
             this.selectNarrator('');
+            // Clear collection filter
+            this.currentCollection = '';
+            this.renderCollectionButtons();
             this.currentFilters = {
                 search: '',
                 author: '',
@@ -837,6 +1003,9 @@ class AudiobookLibraryV2 {
         document.getElementById('refresh-btn').addEventListener('click', async () => {
             await this.refreshLibrary();
         });
+
+        // Setup sidebar events
+        this.setupSidebarEvents();
     }
 
     async refreshLibrary() {
