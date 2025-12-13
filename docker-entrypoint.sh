@@ -23,8 +23,11 @@ export COVER_DIR="${COVER_DIR:-/app/covers}"
 export DATA_DIR="${DATA_DIR:-/app/data}"
 export PROJECT_DIR="${PROJECT_DIR:-/app}"
 export SUPPLEMENTS_DIR="${SUPPLEMENTS_DIR:-/supplements}"
-export WEB_PORT="${WEB_PORT:-8090}"
+export WEB_PORT="${WEB_PORT:-8443}"
 export API_PORT="${API_PORT:-5001}"
+export HTTP_REDIRECT_PORT="${HTTP_REDIRECT_PORT:-8080}"
+export AUDIOBOOKS_USE_WAITRESS="${AUDIOBOOKS_USE_WAITRESS:-true}"
+export AUDIOBOOKS_BIND_ADDRESS="${AUDIOBOOKS_BIND_ADDRESS:-127.0.0.1}"
 
 # Function to check if audiobooks are mounted
 check_audiobooks_mounted() {
@@ -193,10 +196,10 @@ echo "  Starting services"
 echo -e "==========================================${NC}"
 echo ""
 
-# Start Flask API in background
-echo -e "Starting API server on port ${API_PORT}..."
+# Start API server with waitress (production WSGI)
+echo -e "Starting API server (waitress) on port ${API_PORT}..."
 cd /app/backend
-python3 api.py &
+AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS=127.0.0.1 python3 api.py &
 API_PID=$!
 
 # Wait for API to start
@@ -207,31 +210,65 @@ if ! kill -0 $API_PID 2>/dev/null; then
     echo -e "${RED}Error: API server failed to start${NC}"
     echo "Check logs for details"
 else
-    echo -e "  API: ${GREEN}Running on port ${API_PORT}${NC}"
+    echo -e "  API: ${GREEN}Running on port ${API_PORT}${NC} (waitress)"
 fi
 
-# Start web server
-echo -e "Starting web server on port ${WEB_PORT}..."
-cd /app/web
-python3 -m http.server ${WEB_PORT} &
-WEB_PID=$!
+# Wait for API health check
+echo -n "Waiting for API to be ready"
+for i in {1..10}; do
+    if curl -s http://localhost:${API_PORT}/api/stats > /dev/null 2>&1; then
+        echo -e " ${GREEN}✓${NC}"
+        break
+    fi
+    if [ $i -eq 10 ]; then
+        echo -e " ${RED}✗${NC}"
+        echo -e "${RED}Warning: API may not be fully ready${NC}"
+    fi
+    echo -n "."
+    sleep 1
+done
 
-sleep 1
-if ! kill -0 $WEB_PID 2>/dev/null; then
-    echo -e "${RED}Error: Web server failed to start${NC}"
+# Start HTTPS reverse proxy
+echo -e "Starting HTTPS proxy on port ${WEB_PORT}..."
+cd /app/web-v2
+python3 proxy_server.py &
+PROXY_PID=$!
+
+sleep 2
+if ! kill -0 $PROXY_PID 2>/dev/null; then
+    echo -e "${RED}Error: HTTPS proxy failed to start${NC}"
 else
-    echo -e "  Web: ${GREEN}Running on port ${WEB_PORT}${NC}"
+    echo -e "  Proxy: ${GREEN}Running on port ${WEB_PORT}${NC} (HTTPS)"
+fi
+
+# Start HTTP redirect (optional)
+if [ "${HTTP_REDIRECT_ENABLED:-true}" = "true" ]; then
+    echo -e "Starting HTTP redirect on port ${HTTP_REDIRECT_PORT}..."
+    cd /app/web-v2
+    python3 redirect_server.py &
+    REDIRECT_PID=$!
+
+    sleep 1
+    if ! kill -0 $REDIRECT_PID 2>/dev/null; then
+        echo -e "${YELLOW}Warning: HTTP redirect server failed to start${NC}"
+        REDIRECT_PID=""
+    else
+        echo -e "  Redirect: ${GREEN}Running on port ${HTTP_REDIRECT_PORT}${NC}"
+    fi
 fi
 
 echo ""
 echo -e "${GREEN}=========================================="
 echo "  Audiobook Library is running!"
 echo "=========================================="
-echo -e "  Web UI:  http://localhost:${WEB_PORT}"
-echo -e "  API:     http://localhost:${API_PORT}"
+echo -e "  Web UI:  https://localhost:${WEB_PORT}"
+if [ -n "$REDIRECT_PID" ]; then
+    echo -e "           http://localhost:${HTTP_REDIRECT_PORT} (redirects to HTTPS)"
+fi
+echo -e "  API:     http://localhost:${API_PORT} (internal)"
 echo -e "==========================================${NC}"
 echo ""
-echo "API Endpoints:"
+echo "API Endpoints (via HTTPS proxy):"
 echo "  GET /api/audiobooks       - List all audiobooks"
 echo "  GET /api/audiobooks/:id   - Get audiobook details"
 echo "  GET /api/search?q=query   - Search audiobooks"
@@ -244,7 +281,9 @@ echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
 echo ""
 
 # Handle shutdown gracefully
-trap "echo 'Shutting down...'; kill $API_PID $WEB_PID 2>/dev/null; exit 0" SIGTERM SIGINT
+PIDS="$API_PID $PROXY_PID"
+[ -n "$REDIRECT_PID" ] && PIDS="$PIDS $REDIRECT_PID"
+trap "echo 'Shutting down...'; kill $PIDS 2>/dev/null; exit 0" SIGTERM SIGINT
 
 # Keep container running and wait for processes
 wait

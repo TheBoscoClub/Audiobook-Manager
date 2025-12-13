@@ -65,13 +65,21 @@ AUDIOBOOKS_LOGS="/var/log/audiobooks"
 # Default: 5001
 AUDIOBOOKS_API_PORT="5001"
 
-# Web server port (HTTPS)
-# Default: 8090
-AUDIOBOOKS_WEB_PORT="8090"
+# Web server port (HTTPS) - changed from 8090 to 8443
+# Default: 8443
+AUDIOBOOKS_WEB_PORT="8443"
 
 # Bind address (0.0.0.0 for all interfaces, 127.0.0.1 for localhost only)
 # Default: 0.0.0.0
 AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
+
+# HTTP to HTTPS redirect port
+# Default: 8080
+AUDIOBOOKS_HTTP_REDIRECT_PORT="8080"
+
+# Use waitress WSGI server (production mode)
+# Default: true
+AUDIOBOOKS_USE_WAITRESS="true"
 
 # =============================================================================
 # Optional Features

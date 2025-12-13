@@ -153,6 +153,124 @@ body {
     border-color: var(--gold-dark);
 }
 
+/* Author Autocomplete */
+.author-autocomplete {
+    position: relative;
+    flex: 1;
+    min-width: 280px;
+}
+
+.author-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    align-items: center;
+}
+
+.author-search-row {
+    position: relative;
+}
+
+.author-input {
+    width: 100%;
+    padding-right: 2.5rem;
+}
+
+.author-input.has-value {
+    background-color: #e8f4e8;
+    border-color: #5a8a5a;
+}
+
+.author-clear {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--wood-medium);
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    display: none;
+    line-height: 1;
+}
+
+.author-autocomplete.has-value .author-clear {
+    display: block;
+}
+
+.author-clear:hover {
+    color: #c00;
+}
+
+.author-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--parchment);
+    border: 2px solid var(--gold);
+    border-top: none;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.author-dropdown.active {
+    display: block;
+}
+
+.author-option {
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    color: var(--text-dark);
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.author-option:last-child {
+    border-bottom: none;
+}
+
+.author-option:hover,
+.author-option.highlighted {
+    background: var(--gold);
+    color: var(--wood-dark);
+}
+
+.author-option .count {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    background: rgba(0,0,0,0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+
+.author-option:hover .count,
+.author-option.highlighted .count {
+    background: rgba(0,0,0,0.2);
+}
+
+.author-all-option {
+    background: rgba(139,90,43,0.08);
+    font-weight: 600;
+}
+
+.author-no-results {
+    padding: 0.8rem 1rem;
+    color: var(--wood-medium);
+    font-size: 0.85rem;
+    font-style: italic;
+    text-align: center;
+}
+
 /* Narrator Autocomplete */
 .narrator-autocomplete {
     position: relative;
@@ -1313,4 +1431,285 @@ body {
 
 .supplement-badge:hover {
     background: #e74c3c;
+}
+
+/* Continue Badge (for books in progress) */
+.continue-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: linear-gradient(135deg, #d4af37, #b8860b);
+    color: #2c1810;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    font-family: Georgia, serif;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Editions Badge */
+.editions-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, #27ae60, #229954);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    font-family: Georgia, serif;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+}
+
+.editions-badge:hover {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+/* Book Progress Bar */
+.book-progress {
+    margin-top: 8px;
+    padding: 0 8px;
+}
+
+.progress-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: rgba(107, 68, 35, 0.4);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #d4af37, #b8860b);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.75rem;
+    color: #d4af37;
+    font-family: Georgia, serif;
+}
+
+/* Book Action Buttons */
+.book-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    margin-top: 8px;
+}
+
+.btn-play,
+.btn-resume {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #d4af37;
+    background: linear-gradient(135deg, #4a2c1a, #2c1810);
+    color: #f4e8d0;
+    font-family: Georgia, serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    font-weight: bold;
+}
+
+.btn-play:hover:not(:disabled),
+.btn-resume:hover:not(:disabled) {
+    background: linear-gradient(135deg, #6b4423, #4a2c1a);
+    border-color: #b8860b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+}
+
+.btn-play:active:not(:disabled),
+.btn-resume:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(212, 175, 55, 0.2);
+}
+
+.btn-resume:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: rgba(212, 175, 55, 0.3);
+}
+/* ============================================ */
+/* EDITIONS FEATURE */
+/* ============================================ */
+
+/* Editions Container */
+.book-editions {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(44, 24, 16, 0.4);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 6px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 1000px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+}
+
+/* Editions Header */
+.editions-header {
+    font-family: 'Cinzel', Georgia, serif;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #d4af37;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+/* Editions List */
+.editions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Edition Item */
+.edition-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: rgba(107, 68, 35, 0.3);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.edition-item:hover {
+    background: rgba(107, 68, 35, 0.5);
+    border-color: rgba(212, 175, 55, 0.4);
+    transform: translateX(2px);
+}
+
+/* Edition Info */
+.edition-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.edition-narrator {
+    font-family: Georgia, serif;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #f4e8d0;
+}
+
+.edition-details {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+    color: rgba(244, 232, 208, 0.8);
+}
+
+.edition-details span {
+    padding: 2px 6px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+}
+
+.edition-format {
+    font-weight: bold;
+    color: #d4af37;
+}
+
+.edition-progress {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+/* Edition Actions */
+.edition-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-play-edition,
+.btn-resume-edition {
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #8b6423, #6b4423);
+    border: 1px solid #d4af37;
+    color: #f4e8d0;
+    font-family: Georgia, serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.btn-play-edition:hover,
+.btn-resume-edition:hover {
+    background: linear-gradient(135deg, #6b4423, #4a2c1a);
+    border-color: #b8860b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+}
+
+.btn-play-edition:active,
+.btn-resume-edition:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(212, 175, 55, 0.2);
+}
+
+.btn-resume-edition {
+    background: linear-gradient(135deg, #27ae60, #229954);
+    border-color: #2ecc71;
+}
+
+.btn-resume-edition:hover {
+    background: linear-gradient(135deg, #229954, #1e8449);
+    border-color: #27ae60;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .edition-item {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .edition-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .btn-play-edition,
+    .btn-resume-edition {
+        flex: 1;
+    }
 }

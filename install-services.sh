@@ -80,11 +80,16 @@ if [[ -f "$CERT_FILE" && -f "$KEY_FILE" ]]; then
     echo "Certificate already exists. Checking validity..."
     EXPIRY=$(openssl x509 -in "$CERT_FILE" -noout -enddate 2>/dev/null | cut -d= -f2)
     echo "  Current certificate expires: $EXPIRY"
-    read -p "  Generate new certificate? [y/N]: " REGEN
-    if [[ "$REGEN" != "y" && "$REGEN" != "Y" ]]; then
-        echo "  Keeping existing certificate."
+
+    if [[ "$NO_PROMPT" != "true" ]]; then
+        read -p "  Generate new certificate? [y/N]: " REGEN
+        if [[ "$REGEN" != "y" && "$REGEN" != "Y" ]]; then
+            echo "  Keeping existing certificate."
+        else
+            rm -f "$CERT_FILE" "$KEY_FILE"
+        fi
     else
-        rm -f "$CERT_FILE" "$KEY_FILE"
+        echo "  Keeping existing certificate (no-prompt mode)."
     fi
 fi
 
@@ -112,10 +117,10 @@ echo -e "${YELLOW}Step 2: Creating systemd user services...${NC}"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
 mkdir -p "$SYSTEMD_DIR"
 
-# API Service - uses environment variables from config
+# API Service - uses waitress WSGI server (production-ready)
 cat > "$SYSTEMD_DIR/audiobooks-api.service" << EOF
 [Unit]
-Description=Audiobooks Library API Server
+Description=Audiobooks Library API Server (Waitress)
 Documentation=https://github.com/greogory/audiobook-toolkit
 After=default.target
 
@@ -132,12 +137,16 @@ Environment=AUDIOBOOKS_DATABASE=$AUDIOBOOKS_DATABASE
 Environment=AUDIOBOOKS_COVERS=$AUDIOBOOKS_COVERS
 Environment=AUDIOBOOKS_API_PORT=$AUDIOBOOKS_API_PORT
 Environment=AUDIOBOOKS_WEB_PORT=$AUDIOBOOKS_WEB_PORT
+Environment=AUDIOBOOKS_USE_WAITRESS=true
+Environment=AUDIOBOOKS_BIND_ADDRESS=127.0.0.1
 
 # Only start if port is not already in use
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:$AUDIOBOOKS_API_PORT >/dev/null 2>&1'
 ExecStart=$AUDIOBOOKS_VENV/bin/python api.py
 Restart=on-failure
 RestartSec=5
+StandardOutput=append:$AUDIOBOOKS_DATA/logs/api.log
+StandardError=append:$AUDIOBOOKS_DATA/logs/api-error.log
 
 [Install]
 WantedBy=default.target
@@ -145,13 +154,13 @@ EOF
 
 echo "  Created: audiobooks-api.service"
 
-# Web Service (HTTPS) - uses environment variables from config
-cat > "$SYSTEMD_DIR/audiobooks-web.service" << EOF
+# Proxy Service (HTTPS reverse proxy) - replaces audiobooks-web.service
+cat > "$SYSTEMD_DIR/audiobooks-proxy.service" << EOF
 [Unit]
-Description=Audiobooks Library Web Server (HTTPS)
+Description=Audiobooks Library HTTPS Reverse Proxy
 Documentation=https://github.com/greogory/audiobook-toolkit
 After=audiobooks-api.service
-Wants=audiobooks-api.service
+Requires=audiobooks-api.service
 
 [Service]
 Type=simple
@@ -159,26 +168,61 @@ WorkingDirectory=$PROJECT_DIR/library/web-v2
 Environment=PYTHONUNBUFFERED=1
 Environment=AUDIOBOOKS_HOME=$PROJECT_DIR
 Environment=AUDIOBOOKS_WEB_PORT=$AUDIOBOOKS_WEB_PORT
+Environment=AUDIOBOOKS_API_PORT=$AUDIOBOOKS_API_PORT
 Environment=AUDIOBOOKS_CERTS=$CERT_DIR
+Environment=AUDIOBOOKS_BIND_ADDRESS=0.0.0.0
 
 # Only start if port is not already in use
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:$AUDIOBOOKS_WEB_PORT >/dev/null 2>&1'
-ExecStart=/usr/bin/python3 $PROJECT_DIR/library/web-v2/https_server.py
+ExecStart=/usr/bin/python3 $PROJECT_DIR/library/web-v2/proxy_server.py
 Restart=on-failure
 RestartSec=5
+StandardOutput=append:$AUDIOBOOKS_DATA/logs/proxy.log
+StandardError=append:$AUDIOBOOKS_DATA/logs/proxy-error.log
 
 [Install]
 WantedBy=default.target
 EOF
 
-echo "  Created: audiobooks-web.service"
+echo "  Created: audiobooks-proxy.service"
 
-# Target (groups both services)
+# HTTP Redirect Service (optional)
+cat > "$SYSTEMD_DIR/audiobooks-redirect.service" << EOF
+[Unit]
+Description=Audiobooks Library HTTP to HTTPS Redirect
+Documentation=https://github.com/greogory/audiobook-toolkit
+After=audiobooks-proxy.service
+Wants=audiobooks-proxy.service
+
+[Service]
+Type=simple
+WorkingDirectory=$PROJECT_DIR/library/web-v2
+Environment=PYTHONUNBUFFERED=1
+Environment=AUDIOBOOKS_HOME=$PROJECT_DIR
+Environment=AUDIOBOOKS_WEB_PORT=$AUDIOBOOKS_WEB_PORT
+Environment=AUDIOBOOKS_HTTP_REDIRECT_PORT=$AUDIOBOOKS_HTTP_REDIRECT_PORT
+Environment=AUDIOBOOKS_BIND_ADDRESS=0.0.0.0
+
+# Only start if port is not already in use
+ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:$AUDIOBOOKS_HTTP_REDIRECT_PORT >/dev/null 2>&1'
+ExecStart=/usr/bin/python3 $PROJECT_DIR/library/web-v2/redirect_server.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:$AUDIOBOOKS_DATA/logs/redirect.log
+StandardError=append:$AUDIOBOOKS_DATA/logs/redirect-error.log
+
+[Install]
+WantedBy=default.target
+EOF
+
+echo "  Created: audiobooks-redirect.service (optional)"
+
+# Target (groups all services)
 cat > "$SYSTEMD_DIR/audiobooks.target" << EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/greogory/audiobook-toolkit
-Wants=audiobooks-api.service audiobooks-web.service
+Wants=audiobooks-api.service audiobooks-proxy.service audiobooks-redirect.service
 
 [Install]
 WantedBy=default.target
@@ -194,14 +238,19 @@ echo ""
 echo -e "${YELLOW}Step 3: Enabling systemd services...${NC}"
 
 systemctl --user daemon-reload
-systemctl --user enable audiobooks-api.service audiobooks-web.service 2>&1 | grep -v "^$" || true
+systemctl --user enable audiobooks-api.service audiobooks-proxy.service audiobooks-redirect.service 2>&1 | grep -v "^$" || true
 
 echo ""
 
 # ============================================================================
 # Step 4: Start services (optional)
 # ============================================================================
-read -p "Start services now? [Y/n]: " START_NOW
+if [[ "$NO_PROMPT" != "true" ]]; then
+    read -p "Start services now? [Y/n]: " START_NOW
+else
+    START_NOW="Y"
+fi
+
 if [[ "$START_NOW" != "n" && "$START_NOW" != "N" ]]; then
     echo -e "${YELLOW}Starting services...${NC}"
 
@@ -212,36 +261,48 @@ if [[ "$START_NOW" != "n" && "$START_NOW" != "N" ]]; then
         sleep 1
     fi
 
-    if lsof -i:8090 >/dev/null 2>&1; then
-        echo "  Stopping existing process on port 8090..."
-        kill $(lsof -t -i:8090) 2>/dev/null || true
+    if lsof -i:8443 >/dev/null 2>&1; then
+        echo "  Stopping existing process on port 8443..."
+        kill $(lsof -t -i:8443) 2>/dev/null || true
         sleep 1
     fi
 
-    systemctl --user start audiobooks-api.service audiobooks-web.service
+    if lsof -i:8080 >/dev/null 2>&1; then
+        echo "  Stopping existing process on port 8080..."
+        kill $(lsof -t -i:8080) 2>/dev/null || true
+        sleep 1
+    fi
+
+    systemctl --user start audiobooks.target
     sleep 2
 
     echo ""
     echo -e "${GREEN}Service status:${NC}"
     systemctl --user status audiobooks-api.service --no-pager | head -5
     echo ""
-    systemctl --user status audiobooks-web.service --no-pager | head -5
+    systemctl --user status audiobooks-proxy.service --no-pager | head -5
+    echo ""
+    systemctl --user status audiobooks-redirect.service --no-pager | head -5
 fi
 
 echo ""
 echo -e "${GREEN}=== Installation Complete ===${NC}"
 echo ""
-echo "Access your library at: https://localhost:8090"
+echo "Access your library at: https://localhost:8443"
 echo ""
 echo "NOTE: Your browser will show a security warning because this is a"
 echo "self-signed certificate. Click 'Advanced' -> 'Proceed to localhost'"
 echo "to continue."
 echo ""
+echo "Enable auto-start at boot:"
+echo "  loginctl enable-linger \$USER"
+echo ""
 echo "Management commands:"
-echo "  systemctl --user status audiobooks-api audiobooks-web"
+echo "  systemctl --user status audiobooks.target"
 echo "  systemctl --user restart audiobooks.target"
 echo "  systemctl --user stop audiobooks.target"
 echo "  journalctl --user -u audiobooks-api -f"
+echo "  journalctl --user -u audiobooks-proxy -f"
 echo ""
 echo "Certificate location: $CERT_DIR"
 echo "Certificate expires:  $(openssl x509 -in "$CERT_FILE" -noout -enddate | cut -d= -f2)"

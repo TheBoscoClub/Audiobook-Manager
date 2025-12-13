@@ -5,12 +5,15 @@
 #   docker-compose up -d
 #
 # Access:
-#   Web UI: http://localhost:8090
-#   API:    http://localhost:5001
+#   Web UI: https://localhost:8443 (HTTPS)
+#           http://localhost:8080 (redirects to HTTPS)
 #
 # First-time setup (scan audiobooks):
 #   docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py
 #   docker exec -it audiobooks python3 /app/backend/import_to_db.py
+#
+# Note: Browser will show security warning (self-signed certificate)
+#       Click 'Advanced' -> 'Proceed to localhost' to continue
 
 version: '3.8'
 
@@ -22,8 +25,9 @@ services:
     # build: .
     container_name: audiobooks
     ports:
-      - "${WEB_PORT:-8090}:8090"   # Web interface
-      - "${API_PORT:-5001}:5001"   # REST API
+      - "${WEB_PORT:-8443}:8443"   # HTTPS web interface
+      - "${HTTP_PORT:-8080}:8080"  # HTTP redirect to HTTPS
+      # Note: API port 5001 is internal only (not exposed)
     volumes:
       # Mount your audiobook directory (read-only for safety)
       # The Library subdirectory contains converted OPUS files
@@ -52,8 +56,11 @@ services:
       - SUPPLEMENTS_DIR=/supplements
 
       # Server ports (match exposed ports)
-      - WEB_PORT=8090
+      - WEB_PORT=8443
       - API_PORT=5001
+      - HTTP_REDIRECT_PORT=8080
+      - AUDIOBOOKS_USE_WAITRESS=true
+      - HTTP_REDIRECT_ENABLED=true
 
     restart: unless-stopped
 
