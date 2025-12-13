@@ -151,9 +151,31 @@
         </div>
     </div>
 
-    <!-- Results Info -->
+    <!-- Collections Sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <aside class="collections-sidebar" id="collections-sidebar">
+        <div class="sidebar-header">
+            <h2>Collections</h2>
+            <button class="sidebar-close" id="sidebar-close" title="Close sidebar">&times;</button>
+        </div>
+        <div class="sidebar-content" id="collections-buttons">
+            <!-- Collection buttons loaded dynamically -->
+        </div>
+        <div class="sidebar-footer">
+            <button class="sidebar-clear" id="sidebar-clear-filter">Clear Filter</button>
+        </div>
+    </aside>
+
+    <!-- Results Info with Sidebar Toggle -->
     <div class="results-info">
-        <p id="showing-count">Loading...</p>
+        <div class="results-left">
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Browse Collections">
+                <span class="toggle-icon">☰</span>
+                <span class="toggle-text">Collections</span>
+                <span class="active-filter" id="active-filter-badge"></span>
+            </button>
+            <p id="showing-count">Loading...</p>
+        </div>
         <div class="pagination-controls" id="top-pagination"></div>
     </div>
 
