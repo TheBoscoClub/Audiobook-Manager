@@ -104,8 +104,20 @@ python3 import_to_db.py
 ```bash
 cd library
 
-# Generate file hashes
+# Generate file hashes (sequential)
 python3 scripts/generate_hashes.py
+
+# Generate hashes in parallel (uses all CPU cores)
+python3 scripts/generate_hashes.py --parallel
+
+# Generate with specific worker count
+python3 scripts/generate_hashes.py --parallel 8
+
+# View hash statistics
+python3 scripts/generate_hashes.py --stats
+
+# Verify random sample of hashes
+python3 scripts/generate_hashes.py --verify 20
 
 # Find duplicates
 python3 scripts/find_duplicates.py
@@ -156,6 +168,33 @@ python3 populate_genres.py
 python3 populate_genres.py --execute
 ```
 The script matches books by ASIN, exact title, or fuzzy title matching (85% threshold). This populates the genres table and enables collection-based filtering in the web UI.
+
+### Multi-Source Audiobooks
+Import audiobooks from sources beyond Audible (Google Play, Librivox, Chirp, etc.):
+
+```bash
+# Process Google Play audiobook (ZIP or M4A files)
+cd library/scripts
+python3 google_play_processor.py /path/to/audiobook.zip --import-db --execute
+
+# Process directory of MP3/M4A chapter files
+python3 google_play_processor.py /path/to/chapters/ --import-db --execute
+
+# Enrich metadata from OpenLibrary API
+python3 populate_from_openlibrary.py --execute
+
+# Download free audiobooks from Librivox
+python3 librivox_downloader.py --search "pride and prejudice"
+python3 librivox_downloader.py --id 12345  # Download by Librivox ID
+```
+
+The Google Play processor:
+- Accepts ZIP files, directories of chapters, or single audio files (MP3/M4A/M4B)
+- Merges chapters into a single OPUS file at 64kbps (optimal for speech)
+- Extracts and embeds cover art
+- Enriches metadata from OpenLibrary (title, author, subjects)
+- Calculates SHA-256 hash automatically
+- Imports directly to database with `--import-db`
 
 ### Populate Sort Fields
 Extract author/narrator names and series info for enhanced sorting:
@@ -277,14 +316,19 @@ Audiobooks/
 │   ├── scanner/
 │   │   └── scan_audiobooks.py   # Metadata extraction from audio files
 │   ├── scripts/
-│   │   ├── generate_hashes.py           # SHA-256 hash generation
+│   │   ├── generate_hashes.py           # SHA-256 hash generation (parallel)
 │   │   ├── find_duplicates.py           # Duplicate detection & removal
 │   │   ├── scan_supplements.py          # PDF supplement scanner
 │   │   ├── populate_sort_fields.py      # Extract name/series/edition info
 │   │   ├── populate_genres.py           # Sync genres from Audible export
+│   │   ├── populate_from_openlibrary.py # Enrich from OpenLibrary API
 │   │   ├── update_narrators_from_audible.py  # Sync narrator metadata
+│   │   ├── google_play_processor.py     # Process multi-source audiobooks
+│   │   ├── librivox_downloader.py       # Download free Librivox audiobooks
 │   │   ├── cleanup_audiobook_duplicates.py   # Database cleanup
-│   │   └── fix_audiobook_authors.py     # Author metadata repair
+│   │   ├── fix_audiobook_authors.py     # Author metadata repair
+│   │   └── utils/
+│   │       └── openlibrary_client.py    # OpenLibrary API client
 │   ├── web-v2/
 │   │   ├── index.html           # Main web interface
 │   │   ├── js/library.js        # Frontend JavaScript
@@ -395,6 +439,8 @@ The SQLite database stores audiobook metadata with the following key fields:
 | `sha256_hash` | TEXT | SHA-256 hash for duplicate detection |
 | `cover_path` | TEXT | Path to extracted cover art |
 | `asin` | TEXT | Amazon Standard Identification Number |
+| `isbn` | TEXT | International Standard Book Number |
+| `source` | TEXT | Audiobook source (audible, google_play, librivox, chirp, etc.) |
 
 Additional tables: `supplements` (PDF attachments), `audiobook_genres`, `audiobook_topics`, `audiobook_eras`
 

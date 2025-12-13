@@ -21,9 +21,23 @@ from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
 # Configuration
 OUTPUT_FILE = DATA_DIR / "audiobooks.json"
 SUPPORTED_FORMATS = ['.m4b', '.opus', '.m4a', '.mp3']
+HASH_CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks for hashing
 
 
-def get_file_metadata(filepath):
+def calculate_sha256(filepath):
+    """Calculate SHA-256 hash of a file."""
+    sha256 = hashlib.sha256()
+    try:
+        with open(filepath, 'rb') as f:
+            while chunk := f.read(HASH_CHUNK_SIZE):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    except (IOError, OSError) as e:
+        print(f"Error calculating hash for {filepath}: {e}", file=sys.stderr)
+        return None
+
+
+def get_file_metadata(filepath, calculate_hash=True):
     """Extract metadata from audiobook file using ffprobe"""
     try:
         cmd = [
@@ -94,6 +108,14 @@ def get_file_metadata(filepath):
         if not narrator:
             narrator = 'Unknown Narrator'
 
+        # Calculate SHA-256 hash if requested
+        file_hash = None
+        hash_verified_at = None
+        if calculate_hash:
+            file_hash = calculate_sha256(filepath)
+            if file_hash:
+                hash_verified_at = datetime.now().isoformat()
+
         # Extract metadata
         metadata = {
             'title': tags_normalized.get('title', tags_normalized.get('album', filepath.stem)),
@@ -110,6 +132,8 @@ def get_file_metadata(filepath):
             'relative_path': str(filepath.relative_to(AUDIOBOOK_DIR)),
             'series': tags_normalized.get('series', ''),
             'series_part': tags_normalized.get('series-part', ''),
+            'sha256_hash': file_hash,
+            'hash_verified_at': hash_verified_at,
         }
 
         return metadata

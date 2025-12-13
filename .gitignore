@@ -56,3 +56,4 @@ library/certs/
 
 # Audible auth codes (sensitive)
 *.authcode
+library/backend/audiobooks.db-journal
