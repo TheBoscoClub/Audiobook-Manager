@@ -1,5 +1,6 @@
 // Modern Audiobook Library - API-backed with pagination
-const API_BASE = 'http://localhost:5001/api';
+// Use relative URL for proxy support (works with both direct API and HTTPS proxy)
+const API_BASE = '/api';
 
 class AudiobookLibraryV2 {
     constructor() {
@@ -22,6 +23,11 @@ class AudiobookLibraryV2 {
         this.narratorLetterGroup = 'all'; // current letter group filter
         this.narratorSortAsc = true; // A-Z = true, Z-A = false
         this.highlightedNarratorIndex = -1;
+
+        // Author autocomplete state
+        this.authorLetterGroup = 'all';
+        this.authorSortAsc = true;
+        this.highlightedAuthorIndex = -1;
 
         this.init();
     }
@@ -61,17 +67,196 @@ class AudiobookLibraryV2 {
             const response = await fetch(`${API_BASE}/filters`);
             this.filters = await response.json();
 
-            // Populate author dropdown
-            this.populateSelect('author-filter', this.filters.authors);
-
             // Load narrator counts for autocomplete
             await this.loadNarratorCounts();
+
+            // Setup author autocomplete (similar to narrator)
+            this.setupAuthorAutocomplete();
 
             // Setup narrator autocomplete
             this.setupNarratorAutocomplete();
         } catch (error) {
             console.error('Error loading filters:', error);
         }
+    }
+
+    setupAuthorAutocomplete() {
+        const container = document.getElementById('author-autocomplete');
+        const input = document.getElementById('author-search');
+        const dropdown = document.getElementById('author-dropdown');
+        const clearBtn = document.getElementById('author-clear');
+        const sortBtn = document.getElementById('author-sort');
+
+        if (!container || !input || !dropdown) return;
+
+        // Letter group buttons
+        container.querySelectorAll('.letter-group').forEach(btn => {
+            btn.addEventListener('click', () => {
+                container.querySelectorAll('.letter-group').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.authorLetterGroup = btn.dataset.group;
+                const query = input.value.toLowerCase().trim();
+                this.highlightedAuthorIndex = -1;
+                this.showAuthorDropdown(query);
+            });
+        });
+
+        // Sort toggle button
+        if (sortBtn) {
+            sortBtn.addEventListener('click', () => {
+                this.authorSortAsc = !this.authorSortAsc;
+                sortBtn.textContent = this.authorSortAsc ? 'A-Z' : 'Z-A';
+                const query = input.value.toLowerCase().trim();
+                this.highlightedAuthorIndex = -1;
+                this.showAuthorDropdown(query);
+            });
+        }
+
+        // Input event - filter authors as user types
+        input.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            this.highlightedAuthorIndex = -1;
+            this.showAuthorDropdown(query);
+        });
+
+        // Focus event - show dropdown
+        input.addEventListener('focus', () => {
+            const query = input.value.toLowerCase().trim();
+            this.showAuthorDropdown(query);
+        });
+
+        // Keyboard navigation
+        input.addEventListener('keydown', (e) => {
+            const options = dropdown.querySelectorAll('.author-option');
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                this.highlightedAuthorIndex = Math.min(this.highlightedAuthorIndex + 1, options.length - 1);
+                this.updateAuthorHighlight(options);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.highlightedAuthorIndex = Math.max(this.highlightedAuthorIndex - 1, -1);
+                this.updateAuthorHighlight(options);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.highlightedAuthorIndex >= 0 && options[this.highlightedAuthorIndex]) {
+                    options[this.highlightedAuthorIndex].click();
+                }
+            } else if (e.key === 'Escape') {
+                this.hideAuthorDropdown();
+                input.blur();
+            }
+        });
+
+        // Clear button
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.selectAuthor('');
+            });
+        }
+
+        // Click outside to close
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target)) {
+                this.hideAuthorDropdown();
+            }
+        });
+    }
+
+    showAuthorDropdown(query = '') {
+        const dropdown = document.getElementById('author-dropdown');
+        const authors = this.filters.authors || [];
+
+        // Filter by letter group first
+        let filtered = this.filterByLetterGroup(authors, this.authorLetterGroup);
+
+        // Then filter by search query
+        if (query) {
+            filtered = filtered.filter(a => a.toLowerCase().includes(query));
+        }
+
+        // Sort the results
+        filtered = this.authorSortAsc ? filtered.sort() : filtered.sort().reverse();
+
+        // Count for this group before limiting
+        const groupTotal = filtered.length;
+
+        // Limit display to prevent performance issues
+        const maxDisplay = 50;
+        const hasMore = filtered.length > maxDisplay;
+        filtered = filtered.slice(0, maxDisplay);
+
+        // Build dropdown HTML
+        let html = '';
+
+        // "All Authors" option at top
+        const allLabel = this.authorLetterGroup === 'all' ? 'All Authors' : `All ${this.authorLetterGroup.toUpperCase()}`;
+        html += `<div class="author-option author-all-option" data-value="">
+            <span>${allLabel}</span>
+            <span class="count">${authors.length} total</span>
+        </div>`;
+
+        if (filtered.length === 0 && query) {
+            html += `<div class="author-no-results">No authors matching "${query}"</div>`;
+        } else if (filtered.length === 0) {
+            html += `<div class="author-no-results">No authors in this range</div>`;
+        } else {
+            filtered.forEach(author => {
+                html += `<div class="author-option" data-value="${this.escapeHtml(author)}">
+                    <span>${this.highlightMatch(author, query)}</span>
+                </div>`;
+            });
+
+            if (hasMore) {
+                html += `<div class="author-no-results">Showing ${maxDisplay} of ${groupTotal}. Type to filter...</div>`;
+            }
+        }
+
+        dropdown.innerHTML = html;
+
+        // Add click handlers to options
+        dropdown.querySelectorAll('.author-option').forEach(option => {
+            option.addEventListener('click', () => {
+                this.selectAuthor(option.dataset.value);
+            });
+        });
+
+        dropdown.classList.add('active');
+    }
+
+    hideAuthorDropdown() {
+        const dropdown = document.getElementById('author-dropdown');
+        if (dropdown) {
+            dropdown.classList.remove('active');
+        }
+    }
+
+    updateAuthorHighlight(options) {
+        options.forEach((opt, idx) => {
+            opt.classList.toggle('highlighted', idx === this.highlightedAuthorIndex);
+        });
+
+        // Scroll into view
+        if (this.highlightedAuthorIndex >= 0 && options[this.highlightedAuthorIndex]) {
+            options[this.highlightedAuthorIndex].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    selectAuthor(author) {
+        const input = document.getElementById('author-search');
+        const clearBtn = document.getElementById('author-clear');
+
+        this.currentFilters.author = author;
+        input.value = author;
+
+        // Show/hide clear button
+        if (clearBtn) {
+            clearBtn.style.display = author ? 'block' : 'none';
+        }
+
+        this.hideAuthorDropdown();
+        this.currentPage = 1;
+        this.loadAudiobooks();
     }
 
     async loadNarratorCounts() {
@@ -209,7 +394,7 @@ class AudiobookLibraryV2 {
         } else {
             filtered.forEach(narrator => {
                 const count = this.narratorCounts[narrator];
-                const countHtml = count !== null ? `<span class="count">${count}</span>` : '';
+                const countHtml = (count != null) ? `<span class="count">${count}</span>` : '';
                 html += `<div class="narrator-option" data-value="${this.escapeHtml(narrator)}">
                     <span>${this.highlightMatch(narrator, query)}</span>
                     ${countHtml}
@@ -392,22 +577,18 @@ class AudiobookLibraryV2 {
         }
 
         grid.innerHTML = books.map(book => this.createBookCard(book)).join('');
-
-        // Add click event listeners to play audiobooks
-        books.forEach(book => {
-            const card = grid.querySelector(`.book-card[data-id="${book.id}"]`);
-            if (card && audioPlayer) {
-                card.addEventListener('click', () => {
-                    audioPlayer.playAudiobook(book);
-                });
-            }
-        });
     }
 
     createBookCard(book) {
         const formatQuality = book.format ? book.format.toUpperCase() : 'M4B';
         const quality = book.quality ? ` ${book.quality}` : '';
         const hasSupplement = book.supplement_count > 0;
+        const hasEditions = book.edition_count && book.edition_count > 1;
+
+        // Check for saved playback position
+        const savedPosition = playbackManager ? playbackManager.getPosition(book.id) : null;
+        const percentComplete = savedPosition ? playbackManager.getPercentComplete(book.id) : 0;
+        const hasContinue = percentComplete > 0;
 
         return `
             <div class="book-card" data-id="${book.id}">
@@ -417,6 +598,8 @@ class AudiobookLibraryV2 {
                 '<span class="book-cover-placeholder">📖</span>'
             }
                     ${hasSupplement ? `<span class="supplement-badge" title="Has PDF supplement" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ''}
+                    ${hasContinue ? `<span class="continue-badge" title="${percentComplete}% complete">Continue</span>` : ''}
+                    ${hasEditions ? `<span class="editions-badge" title="${book.edition_count} editions" onclick="event.stopPropagation(); library.toggleEditions(${book.id})">${book.edition_count} editions</span>` : ''}
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
                 ${book.author ? `<div class="book-author">by ${this.escapeHtml(book.author)}</div>` : ''}
@@ -424,6 +607,88 @@ class AudiobookLibraryV2 {
                 <div class="book-meta">
                     <span class="book-format">${formatQuality}${quality}</span>
                     <span class="book-duration">${book.duration_formatted || `${Math.round(book.duration_hours || 0)}h`}</span>
+                </div>
+                ${hasContinue ? `
+                <div class="book-progress">
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: ${percentComplete}%"></div>
+                    </div>
+                    <span class="progress-text">${percentComplete}%</span>
+                </div>
+                ` : ''}
+                <div class="book-actions">
+                    <button class="btn-play" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, false)">▶ Play</button>
+                    <button class="btn-resume" ${!hasContinue ? 'disabled' : ''} onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, true)" title="${hasContinue ? 'Resume from ' + playbackManager.formatTime(savedPosition.position) : 'No saved position'}">
+                        ${hasContinue ? '⏯ Resume' : '⏯ Resume'}
+                    </button>
+                </div>
+                ${hasEditions ? '<div class="book-editions" data-book-id="' + book.id + '" style="display: none;"></div>' : ''}
+            </div>
+        `;
+    }
+
+    async toggleEditions(bookId) {
+        const editionsContainer = document.querySelector(`.book-editions[data-book-id="${bookId}"]`);
+        if (!editionsContainer) return;
+
+        // Toggle visibility
+        const isVisible = editionsContainer.style.display !== 'none';
+
+        if (isVisible) {
+            // Hide editions
+            editionsContainer.style.display = 'none';
+        } else {
+            // Show editions - fetch if not already loaded
+            if (!editionsContainer.dataset.loaded) {
+                try {
+                    const response = await fetch(`${API_BASE}/audiobooks/${bookId}/editions`);
+                    const data = await response.json();
+
+                    if (data.editions && data.editions.length > 0) {
+                        editionsContainer.innerHTML = this.renderEditions(data.editions);
+                        editionsContainer.dataset.loaded = 'true';
+                    } else {
+                        editionsContainer.innerHTML = '<p style="padding: 1rem; text-align: center;">No other editions found.</p>';
+                    }
+                } catch (error) {
+                    console.error('Error loading editions:', error);
+                    editionsContainer.innerHTML = '<p style="padding: 1rem; color: #c0392b;">Error loading editions.</p>';
+                }
+            }
+            editionsContainer.style.display = 'block';
+        }
+    }
+
+    renderEditions(editions) {
+        return `
+            <div class="editions-header">Available Editions</div>
+            <div class="editions-list">
+                ${editions.map(edition => this.renderEditionItem(edition)).join('')}
+            </div>
+        `;
+    }
+
+    renderEditionItem(edition) {
+        const formatQuality = edition.format ? edition.format.toUpperCase() : 'M4B';
+        const quality = edition.quality ? ` ${edition.quality}` : '';
+        const savedPosition = playbackManager ? playbackManager.getPosition(edition.id) : null;
+        const percentComplete = savedPosition ? playbackManager.getPercentComplete(edition.id) : 0;
+        const hasContinue = percentComplete > 0;
+
+        return `
+            <div class="edition-item">
+                <div class="edition-info">
+                    <div class="edition-narrator">🎙️ ${this.escapeHtml(edition.narrator || 'Unknown Narrator')}</div>
+                    <div class="edition-details">
+                        <span class="edition-format">${formatQuality}${quality}</span>
+                        <span class="edition-duration">${edition.duration_formatted || `${Math.round(edition.duration_hours || 0)}h`}</span>
+                        <span class="edition-size">${Math.round(edition.file_size_mb)}MB</span>
+                        ${hasContinue ? `<span class="edition-progress">${percentComplete}% played</span>` : ''}
+                    </div>
+                </div>
+                <div class="edition-actions">
+                    <button class="btn-play-edition" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(edition).replace(/"/g, '&quot;')}, false)">▶ Play</button>
+                    ${hasContinue ? `<button class="btn-resume-edition" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(edition).replace(/"/g, '&quot;')}, true)">⏯ Resume</button>` : ''}
                 </div>
             </div>
         `;
@@ -537,7 +802,8 @@ class AudiobookLibraryV2 {
         // Clear search
         document.getElementById('clear-search').addEventListener('click', () => {
             document.getElementById('search-input').value = '';
-            document.getElementById('author-filter').value = '';
+            // Clear author autocomplete
+            this.selectAuthor('');
             // Clear narrator autocomplete
             this.selectNarrator('');
             this.currentFilters = {
@@ -547,13 +813,6 @@ class AudiobookLibraryV2 {
                 sort: 'title',
                 order: 'asc'
             };
-            this.currentPage = 1;
-            this.loadAudiobooks();
-        });
-
-        // Author filter
-        document.getElementById('author-filter').addEventListener('change', (e) => {
-            this.currentFilters.author = e.target.value;
             this.currentPage = 1;
             this.loadAudiobooks();
         });
@@ -616,8 +875,9 @@ class AudioPlayer {
         this.player = document.getElementById('audio-player');
         this.audio = document.getElementById('audio-element');
         this.currentBook = null;
-        this.playbackRates = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-        this.currentRateIndex = 1; // Start at 1.0x
+        this.playbackRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
+        this.currentRateIndex = 2; // Start at 1.0x
+        this.saveTimeout = null; // For debouncing position saves
 
         // Set CORS mode for cross-origin streaming
         this.audio.crossOrigin = 'anonymous';
@@ -687,6 +947,10 @@ class AudioPlayer {
 
         this.audio.addEventListener('ended', () => {
             document.getElementById('play-pause').textContent = '▶';
+            // Clear saved position when audiobook finishes
+            if (this.currentBook && playbackManager) {
+                playbackManager.clearPosition(this.currentBook.id);
+            }
         });
 
         this.audio.addEventListener('play', () => {
@@ -698,7 +962,7 @@ class AudioPlayer {
         });
     }
 
-    async playAudiobook(book) {
+    async playAudiobook(book, resume = false) {
         this.currentBook = book;
 
         // Update player UI
@@ -721,11 +985,32 @@ class AudioPlayer {
         }
 
         // Load audio file
-        this.audio.src = 'http://localhost:5001/api/stream/' + book.id;
+        this.audio.src = `${API_BASE}/stream/` + book.id;
+
+        // Load saved playback speed
+        if (playbackManager) {
+            const savedSpeed = playbackManager.getSpeed();
+            const speedIndex = this.playbackRates.indexOf(savedSpeed);
+            if (speedIndex !== -1) {
+                this.currentRateIndex = speedIndex;
+            }
+        }
         this.audio.playbackRate = this.playbackRates[this.currentRateIndex];
+        document.getElementById('playback-speed').textContent = this.playbackRates[this.currentRateIndex] + 'x';
 
         // Show player
         this.player.style.display = 'block';
+
+        // Handle resume
+        if (resume && playbackManager) {
+            const savedPosition = playbackManager.getPosition(book.id);
+            if (savedPosition) {
+                // Wait for metadata to load, then seek
+                this.audio.addEventListener('loadedmetadata', () => {
+                    this.audio.currentTime = savedPosition.position;
+                }, { once: true });
+            }
+        }
 
         // Try to play
         try {
@@ -749,6 +1034,11 @@ class AudioPlayer {
         const newRate = this.playbackRates[this.currentRateIndex];
         this.audio.playbackRate = newRate;
         document.getElementById('playback-speed').textContent = newRate + 'x';
+
+        // Save speed preference
+        if (playbackManager) {
+            playbackManager.saveSpeed(newRate);
+        }
     }
 
     updateProgress() {
@@ -762,6 +1052,20 @@ class AudioPlayer {
         const seconds = Math.floor(this.audio.currentTime % 60);
         document.getElementById('current-time').textContent =
             minutes + ':' + seconds.toString().padStart(2, '0');
+
+        // Auto-save position (debounced to every 5 seconds)
+        if (this.currentBook && playbackManager && this.audio.currentTime > 0) {
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+            }
+            this.saveTimeout = setTimeout(() => {
+                playbackManager.savePosition(
+                    this.currentBook.id,
+                    this.audio.currentTime,
+                    this.audio.duration
+                );
+            }, 5000);
+        }
     }
 
     updateTotalTime() {
@@ -780,6 +1084,15 @@ class AudioPlayer {
     }
 
     close() {
+        // Save position before closing
+        if (this.currentBook && playbackManager && this.audio.currentTime > 0 && this.audio.duration) {
+            playbackManager.savePosition(
+                this.currentBook.id,
+                this.audio.currentTime,
+                this.audio.duration
+            );
+        }
+
         this.audio.pause();
         this.player.style.display = 'none';
         this.currentBook = null;
@@ -1227,8 +1540,75 @@ class DuplicateManager {
     }
 }
 
-// Initialize duplicate manager
+// Playback Manager - handles playback position persistence
+class PlaybackManager {
+    constructor() {
+        this.storagePrefix = 'audiobook_';
+        this.saveInterval = null;
+    }
+
+    savePosition(fileId, position, duration) {
+        const data = {
+            position: position,
+            duration: duration,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(`${this.storagePrefix}position_${fileId}`, JSON.stringify(data));
+    }
+
+    getPosition(fileId) {
+        const data = localStorage.getItem(`${this.storagePrefix}position_${fileId}`);
+        if (!data) return null;
+
+        try {
+            const parsed = JSON.parse(data);
+            // Return null if position is near end (>95%) or very beginning (<30s)
+            const percentComplete = (parsed.position / parsed.duration) * 100;
+            if (percentComplete > 95 || parsed.position < 30) {
+                return null;
+            }
+            return parsed;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    saveSpeed(speed) {
+        localStorage.setItem(`${this.storagePrefix}speed`, speed.toString());
+    }
+
+    getSpeed() {
+        const speed = localStorage.getItem(`${this.storagePrefix}speed`);
+        return speed ? parseFloat(speed) : 1.0;
+    }
+
+    clearPosition(fileId) {
+        localStorage.removeItem(`${this.storagePrefix}position_${fileId}`);
+    }
+
+    // Format time for display
+    formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    getPercentComplete(fileId) {
+        const data = this.getPosition(fileId);
+        if (!data || !data.duration) return 0;
+        return Math.round((data.position / data.duration) * 100);
+    }
+}
+
+// Initialize managers
 let duplicateManager;
+let playbackManager;
 document.addEventListener('DOMContentLoaded', () => {
     duplicateManager = new DuplicateManager();
+    playbackManager = new PlaybackManager();
 });

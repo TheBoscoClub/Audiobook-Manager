@@ -124,11 +124,12 @@ AUDIOBOOKS_CONVERTER = Path(get_config('AUDIOBOOKS_CONVERTER',
 
 # Server settings
 AUDIOBOOKS_API_PORT = int(get_config('AUDIOBOOKS_API_PORT', '5001'))
-AUDIOBOOKS_WEB_PORT = int(get_config('AUDIOBOOKS_WEB_PORT', '8090'))
-AUDIOBOOKS_HTTP_REDIRECT_PORT = int(get_config('AUDIOBOOKS_HTTP_REDIRECT_PORT', '8081'))
+AUDIOBOOKS_WEB_PORT = int(get_config('AUDIOBOOKS_WEB_PORT', '8443'))  # Changed from 8090 to 8443 (HTTPS)
+AUDIOBOOKS_HTTP_REDIRECT_PORT = int(get_config('AUDIOBOOKS_HTTP_REDIRECT_PORT', '8080'))  # Changed from 8081 to 8080
 AUDIOBOOKS_BIND_ADDRESS = get_config('AUDIOBOOKS_BIND_ADDRESS', '0.0.0.0')
 AUDIOBOOKS_HTTPS_ENABLED = get_config('AUDIOBOOKS_HTTPS_ENABLED', 'true').lower() in ('true', '1', 'yes')
 AUDIOBOOKS_HTTP_REDIRECT_ENABLED = get_config('AUDIOBOOKS_HTTP_REDIRECT_ENABLED', 'true').lower() in ('true', '1', 'yes')
+AUDIOBOOKS_USE_WAITRESS = get_config('AUDIOBOOKS_USE_WAITRESS', 'true').lower() in ('true', '1', 'yes')
 
 # =============================================================================
 # Legacy Aliases (backwards compatibility)
@@ -174,6 +175,7 @@ def print_config():
     print(f"AUDIOBOOKS_HTTP_REDIRECT_ENABLED: {AUDIOBOOKS_HTTP_REDIRECT_ENABLED}")
     print(f"AUDIOBOOKS_BIND_ADDRESS: {AUDIOBOOKS_BIND_ADDRESS}")
     print(f"AUDIOBOOKS_HTTPS_ENABLED: {AUDIOBOOKS_HTTPS_ENABLED}")
+    print(f"AUDIOBOOKS_USE_WAITRESS: {AUDIOBOOKS_USE_WAITRESS}")
     print("=" * 50)
 
 

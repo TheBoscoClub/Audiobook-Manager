@@ -45,9 +45,28 @@
         </div>
 
         <div class="filters-container">
-            <select id="author-filter" class="filter-select">
-                <option value="">All Authors</option>
-            </select>
+            <div class="author-autocomplete" id="author-autocomplete">
+                <div class="author-controls">
+                    <div class="letter-groups">
+                        <button class="letter-group active" data-group="all">All</button>
+                        <button class="letter-group" data-group="a-e">A-E</button>
+                        <button class="letter-group" data-group="f-j">F-J</button>
+                        <button class="letter-group" data-group="k-o">K-O</button>
+                        <button class="letter-group" data-group="p-t">P-T</button>
+                        <button class="letter-group" data-group="u-z">U-Z</button>
+                    </div>
+                    <button class="sort-toggle" id="author-sort" title="Toggle sort order">A-Z</button>
+                </div>
+                <div class="author-search-row">
+                    <input type="text"
+                           id="author-search"
+                           class="filter-select author-input"
+                           placeholder="Search authors..."
+                           autocomplete="off">
+                    <button id="author-clear" class="author-clear" title="Clear author filter">&times;</button>
+                </div>
+                <div class="author-dropdown" id="author-dropdown"></div>
+            </div>
 
             <div class="narrator-autocomplete" id="narrator-autocomplete">
                 <div class="narrator-controls">
@@ -73,13 +92,39 @@
             </div>
 
             <select id="sort-filter" class="filter-select">
-                <option value="title:asc">Title (A-Z)</option>
-                <option value="title:desc">Title (Z-A)</option>
-                <option value="author:asc">Author (A-Z)</option>
-                <option value="author:desc">Author (Z-A)</option>
-                <option value="duration_hours:desc">Longest First</option>
-                <option value="duration_hours:asc">Shortest First</option>
-                <option value="created_at:desc">Recently Added</option>
+                <optgroup label="Title">
+                    <option value="title:asc">Title (A-Z)</option>
+                    <option value="title:desc">Title (Z-A)</option>
+                </optgroup>
+                <optgroup label="Author">
+                    <option value="author_last:asc">Author Last Name (A-Z)</option>
+                    <option value="author_last:desc">Author Last Name (Z-A)</option>
+                    <option value="author_first:asc">Author First Name (A-Z)</option>
+                    <option value="author_first:desc">Author First Name (Z-A)</option>
+                    <option value="author:asc">Author Full Name (A-Z)</option>
+                    <option value="author:desc">Author Full Name (Z-A)</option>
+                </optgroup>
+                <optgroup label="Narrator">
+                    <option value="narrator_last:asc">Narrator Last Name (A-Z)</option>
+                    <option value="narrator_last:desc">Narrator Last Name (Z-A)</option>
+                    <option value="narrator_first:asc">Narrator First Name (A-Z)</option>
+                    <option value="narrator_first:desc">Narrator First Name (Z-A)</option>
+                </optgroup>
+                <optgroup label="Duration">
+                    <option value="duration_hours:desc">Longest First</option>
+                    <option value="duration_hours:asc">Shortest First</option>
+                </optgroup>
+                <optgroup label="Dates">
+                    <option value="acquired_date:desc">Recently Acquired</option>
+                    <option value="acquired_date:asc">Oldest Acquired</option>
+                    <option value="published_year:desc">Newest Published</option>
+                    <option value="published_year:asc">Oldest Published</option>
+                </optgroup>
+                <optgroup label="Series &amp; Editions">
+                    <option value="series:asc">Series (A-Z with sequence)</option>
+                    <option value="series:desc">Series (Z-A with sequence)</option>
+                    <option value="edition:asc">Edition (A-Z)</option>
+                </optgroup>
             </select>
 
             <button id="refresh-btn" class="refresh-btn">↻ Refresh</button>
@@ -159,7 +204,7 @@
                 <button class="modal-close" data-modal="duplicates-modal">&times;</button>
             </div>
             <div class="duplicate-mode-tabs">
-                <button class="mode-tab active" data-mode="title">Same Title/Author</button>
+                <button class="mode-tab active" data-mode="title">Same Title/Author/Narrator</button>
                 <button class="mode-tab" data-mode="hash">Exact Match (SHA-256)</button>
             </div>
             <div class="modal-toolbar">

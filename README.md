@@ -51,22 +51,34 @@ See [converter/CHANGELOG.md](converter/CHANGELOG.md) for version history.
 ### 2. Library (`library/`)
 Web-based audiobook library browser with:
 - Vintage library-themed interface
-- Built-in audio player
-- Full-text search
-- SHA-256 hash-based duplicate detection
-- Cover art display
+- Built-in audio player with playback position saving
+- Resume from last position
+- Full-text search across titles, authors, and narrators
+- **Author/Narrator autocomplete** with letter group filters (A-E, F-J, K-O, P-T, U-Z)
+- **Comprehensive sorting**: title, author/narrator first/last name, duration, publish date, acquired date, series with sequence, edition
+- **Smart duplicate detection** by title/author/narrator or SHA-256 hash
+- Cover art display with automatic extraction
 - PDF supplement support (course materials, maps, etc.)
+- **Narrator metadata sync** from Audible library export
+- Production-ready HTTPS server with reverse proxy
 
 ## Quick Start
 
 ### Browse Library
 ```bash
-# Launch the web interface
-./launch.sh
+# Launch the web interface (production mode)
+cd library
+./launch-v3.sh
 
-# Opens https://localhost:8090 in your browser
-# HTTP requests to port 8081 are automatically redirected to HTTPS
+# Opens https://localhost:8443 in your browser
+# HTTP requests to port 8080 are automatically redirected to HTTPS
+# Uses Waitress WSGI server for production-ready performance
+
+# Or use legacy launcher (development mode)
+./launch-v2.sh  # Opens http://localhost:8090
 ```
+
+**Note**: Your browser will show a security warning (self-signed certificate). Click "Advanced" → "Proceed to localhost" to continue.
 
 ### Convert Audiobooks
 ```bash
@@ -114,6 +126,38 @@ python3 scan_supplements.py --supplements-dir /path/to/supplements
 ```
 Books with supplements show a red "PDF" badge in the UI. Click to download.
 
+### Update Narrator Metadata
+Narrator information is often missing from converted audio files. Sync from your Audible library:
+```bash
+# Export your Audible library metadata (requires audible-cli authentication)
+audible library export -f json -o /path/to/Audiobooks/library_metadata.json
+
+# Update database with narrator information (dry run first)
+cd library/scripts
+python3 update_narrators_from_audible.py
+
+# Apply changes
+python3 update_narrators_from_audible.py --execute
+```
+
+### Populate Sort Fields
+Extract author/narrator names and series info for enhanced sorting:
+```bash
+cd library/scripts
+
+# Preview changes
+python3 populate_sort_fields.py
+
+# Apply changes
+python3 populate_sort_fields.py --execute
+```
+This extracts:
+- Author first/last name from full name (handles "J.R.R. Tolkien", "John le Carré", etc.)
+- Narrator first/last name
+- Series sequence numbers from titles ("Book 1", "#2", "Part 3", Roman numerals)
+- Edition information ("20th Anniversary Edition", "Unabridged", etc.)
+- Acquired date from file modification time
+
 ## Installation
 
 Run the interactive installer:
@@ -136,7 +180,7 @@ You'll be presented with a menu to choose:
 ```
 
 ### Port Conflict Detection
-The installer automatically checks if the required ports (5001, 8090, 8081) are available before installation. If a port is in use, you'll see options to:
+The installer automatically checks if the required ports (5001, 8443, 8080) are available before installation. If a port is in use, you'll see options to:
 1. Choose an alternate port
 2. Continue anyway (if you plan to stop the conflicting service)
 3. Abort installation
@@ -177,8 +221,8 @@ Configuration is loaded from multiple sources in priority order:
 | `AUDIOBOOKS_CERTS` | SSL certificate directory |
 | `AUDIOBOOKS_LOGS` | Log files directory |
 | `AUDIOBOOKS_API_PORT` | API server port (default: 5001) |
-| `AUDIOBOOKS_WEB_PORT` | HTTPS web server port (default: 8090) |
-| `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8081) |
+| `AUDIOBOOKS_WEB_PORT` | HTTPS web server port (default: 8443) |
+| `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8080) |
 | `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
 
 ### Override via Environment
@@ -209,15 +253,122 @@ Audiobooks/
 │   └── interactiveAAXtoMP3
 ├── library/                     # Web library interface
 │   ├── config.py                # Python configuration module
-│   ├── backend/                 # Flask API + SQLite database
-│   ├── scanner/                 # Metadata extraction
-│   ├── scripts/                 # Hash generation, duplicate detection
-│   ├── web-v2/                  # Modern web interface
+│   ├── backend/
+│   │   ├── api.py               # Flask REST API
+│   │   ├── schema.sql           # Database schema
+│   │   └── audiobooks.db        # SQLite database
+│   ├── scanner/
+│   │   └── scan_audiobooks.py   # Metadata extraction from audio files
+│   ├── scripts/
+│   │   ├── generate_hashes.py           # SHA-256 hash generation
+│   │   ├── find_duplicates.py           # Duplicate detection & removal
+│   │   ├── scan_supplements.py          # PDF supplement scanner
+│   │   ├── populate_sort_fields.py      # Extract name/series/edition info
+│   │   ├── update_narrators_from_audible.py  # Sync narrator metadata
+│   │   ├── cleanup_audiobook_duplicates.py   # Database cleanup
+│   │   └── fix_audiobook_authors.py     # Author metadata repair
+│   ├── web-v2/
+│   │   ├── index.html           # Main web interface
+│   │   ├── js/library.js        # Frontend JavaScript
+│   │   ├── css/library.css      # Vintage library styling
+│   │   ├── proxy_server.py      # HTTPS reverse proxy
+│   │   └── redirect_server.py   # HTTP→HTTPS redirect
 │   └── web/                     # Legacy interface + cover storage
 ├── Dockerfile                   # Docker build file
 ├── docker-compose.yml           # Docker Compose config
 └── README.md
 ```
+
+## Web Interface Features
+
+### Search & Filtering
+- **Full-text search**: Search across titles, authors, and narrators
+- **Author filter**: Autocomplete dropdown with A-E, F-J, K-O, P-T, U-Z letter groups
+- **Narrator filter**: Autocomplete dropdown with book counts and letter groups
+- **Clear button**: Reset all filters with one click
+
+### Sorting Options
+| Sort By | Description |
+|---------|-------------|
+| Title (A-Z/Z-A) | Alphabetical by title |
+| Author Last Name | Sort by author's last name (Smith, King, etc.) |
+| Author First Name | Sort by author's first name |
+| Author Full Name | Sort by full author name as displayed |
+| Narrator Last Name | Sort by narrator's last name |
+| Narrator First Name | Sort by narrator's first name |
+| Duration | Longest or shortest first |
+| Recently Acquired | By file modification date |
+| Newest/Oldest Published | By publication year |
+| Series (A-Z with sequence) | Groups series together, ordered by book number |
+| Edition | Sort by edition type |
+
+### Duplicate Detection
+Two modes available via "Find Duplicates" dropdown:
+1. **Same Title/Author/Narrator**: Finds books with matching metadata (different files)
+2. **Exact Match (SHA-256)**: Finds byte-identical files using cryptographic hashes
+
+### Audio Player
+- Play/pause with progress bar
+- Skip forward/back 30 seconds
+- Adjustable playback speed (0.5x - 2.5x)
+- Volume control
+- **Position saving**: Automatically saves playback position per book
+- **Resume playback**: Click any book to resume from last position
+
+## REST API
+
+The library exposes a REST API on port 5001:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/audiobooks` | GET | List audiobooks with pagination, search, filtering, sorting |
+| `/api/audiobooks/<id>` | GET | Get single audiobook details |
+| `/api/stats` | GET | Library statistics (counts, total hours) |
+| `/api/filters` | GET | Available filter options (authors, narrators, genres) |
+| `/api/narrator-counts` | GET | Narrator names with book counts |
+| `/api/duplicates/by-title` | GET | Find duplicates by title/author/narrator |
+| `/api/duplicates/by-hash` | GET | Find exact duplicates by SHA-256 hash |
+| `/api/hash-stats` | GET | Hash generation statistics |
+| `/api/stream/<id>` | GET | Stream audio file (supports range requests) |
+| `/api/covers/<filename>` | GET | Get cover art image |
+| `/api/supplements/<id>/download` | GET | Download PDF supplement |
+
+### Query Parameters for `/api/audiobooks`
+- `page` - Page number (default: 1)
+- `per_page` - Items per page (default: 50, max: 200)
+- `search` - Full-text search query
+- `author` - Filter by author name
+- `narrator` - Filter by narrator name
+- `sort` - Sort field (title, author, author_last, narrator_last, duration_hours, acquired_date, published_year, series, edition)
+- `order` - Sort order (asc, desc)
+
+## Database Schema
+
+The SQLite database stores audiobook metadata with the following key fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | INTEGER | Primary key |
+| `title` | TEXT | Audiobook title |
+| `author` | TEXT | Full author name |
+| `author_last_name` | TEXT | Extracted last name for sorting |
+| `author_first_name` | TEXT | Extracted first name for sorting |
+| `narrator` | TEXT | Full narrator name(s) |
+| `narrator_last_name` | TEXT | Extracted last name for sorting |
+| `narrator_first_name` | TEXT | Extracted first name for sorting |
+| `series` | TEXT | Series name (if part of series) |
+| `series_sequence` | REAL | Book number in series (e.g., 1.0, 2.5) |
+| `edition` | TEXT | Edition info (e.g., "20th Anniversary Edition") |
+| `duration_hours` | REAL | Duration in hours |
+| `published_year` | INTEGER | Year of publication |
+| `acquired_date` | TEXT | Date added to library (YYYY-MM-DD) |
+| `file_path` | TEXT | Full path to audio file |
+| `file_size_mb` | REAL | File size in megabytes |
+| `sha256_hash` | TEXT | SHA-256 hash for duplicate detection |
+| `cover_path` | TEXT | Path to extracted cover art |
+| `asin` | TEXT | Amazon Standard Identification Number |
+
+Additional tables: `supplements` (PDF attachments), `audiobook_genres`, `audiobook_topics`, `audiobook_eras`
 
 ## Docker (macOS, Windows, Linux)
 
@@ -229,15 +380,15 @@ Run the library in Docker for easy cross-platform deployment. The Docker contain
 # Pull and run with a single command
 docker run -d \
   --name audiobooks \
-  -p 8090:8090 \
-  -p 5001:5001 \
+  -p 8443:8443 \
+  -p 8080:8080 \
   -v /path/to/your/audiobooks:/audiobooks:ro \
   -v audiobooks_data:/app/data \
   -v audiobooks_covers:/app/covers \
   ghcr.io/greogory/audiobook-toolkit:latest
 
 # Access the web interface
-open http://localhost:8090
+open https://localhost:8443
 ```
 
 On first run, the container automatically:
@@ -259,7 +410,7 @@ export SUPPLEMENTS_DIR=/path/to/supplements
 docker-compose up -d
 
 # Access the web interface
-open http://localhost:8090
+open https://localhost:8443
 ```
 
 ### Build Locally
@@ -271,8 +422,8 @@ docker build -t audiobooks .
 # Run with your audiobook directory
 docker run -d \
   --name audiobooks \
-  -p 8090:8090 \
-  -p 5001:5001 \
+  -p 8443:8443 \
+  -p 8080:8080 \
   -v /path/to/audiobooks:/audiobooks:ro \
   -v audiobooks_data:/app/data \
   -v audiobooks_covers:/app/covers \
@@ -287,7 +438,7 @@ docker run -d \
 | `DATABASE_PATH` | `/app/data/audiobooks.db` | SQLite database path |
 | `COVER_DIR` | `/app/covers` | Cover art cache directory |
 | `SUPPLEMENTS_DIR` | `/supplements` | PDF supplements directory |
-| `WEB_PORT` | `8090` | Web interface port |
+| `WEB_PORT` | `8443` | HTTPS web interface port |
 | `API_PORT` | `5001` | REST API port |
 
 ### Docker Volumes

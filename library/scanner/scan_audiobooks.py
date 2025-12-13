@@ -53,21 +53,52 @@ def get_file_metadata(filepath):
         duration_sec = float(format_data.get('duration', 0))
         duration_hours = duration_sec / 3600
 
-        # For OPUS files, try to extract author from folder structure if metadata is missing
+        # Extract author from folder structure for all audio files
+        # Path structure: .../Library/Author Name/Book Title/Book Title.opus
         author_from_path = None
-        if filepath.suffix.lower() == '.opus':
-            # Path structure: .../Library/Author Name/Book Title/Book Title.opus
-            parts = filepath.parts
-            if 'Library' in parts:
-                library_idx = parts.index('Library')
-                if len(parts) > library_idx + 1:
-                    author_from_path = parts[library_idx + 1]
+        narrator_from_path = None
+        parts = filepath.parts
+
+        if 'Library' in parts:
+            library_idx = parts.index('Library')
+            if len(parts) > library_idx + 1:
+                potential_author = parts[library_idx + 1]
+                # Skip "Audiobook" folder - use next level if present
+                if potential_author.lower() == 'audiobook':
+                    if len(parts) > library_idx + 2:
+                        author_from_path = parts[library_idx + 2]
+                else:
+                    author_from_path = potential_author
+
+        # Try multiple metadata fields for author (in priority order)
+        author_fields = ['artist', 'album_artist', 'author', 'writer', 'creator']
+        author = None
+        for field in author_fields:
+            if field in tags_normalized and tags_normalized[field]:
+                author = tags_normalized[field]
+                break
+        if not author:
+            author = author_from_path or 'Unknown Author'
+
+        # Try multiple metadata fields for narrator (in priority order)
+        # Audiobooks often store narrator in various fields
+        narrator_fields = ['narrator', 'composer', 'performer', 'read_by', 'narrated_by', 'reader']
+        narrator = None
+        for field in narrator_fields:
+            if field in tags_normalized and tags_normalized[field]:
+                val = tags_normalized[field]
+                # Skip if it's the same as author (sometimes composer = author)
+                if val.lower() != author.lower() if author else True:
+                    narrator = val
+                    break
+        if not narrator:
+            narrator = 'Unknown Narrator'
 
         # Extract metadata
         metadata = {
             'title': tags_normalized.get('title', tags_normalized.get('album', filepath.stem)),
-            'author': tags_normalized.get('artist', tags_normalized.get('album_artist', author_from_path or 'Unknown Author')),
-            'narrator': tags_normalized.get('composer', tags_normalized.get('narrator', 'Unknown Narrator')),
+            'author': author,
+            'narrator': narrator,
             'publisher': tags_normalized.get('publisher', tags_normalized.get('label', 'Unknown Publisher')),
             'genre': tags_normalized.get('genre', 'Uncategorized'),
             'year': tags_normalized.get('date', tags_normalized.get('year', '')),
@@ -209,6 +240,12 @@ def scan_audiobooks():
     filtered_count = original_count - len(audiobook_files)
     if filtered_count > 0:
         print(f"  Filtered out {filtered_count} cover art files")
+
+    # Filter out /Library/Audiobook/ folder (contains duplicates with wrong metadata)
+    audiobook_folder_count = len([f for f in audiobook_files if '/Library/Audiobook/' in str(f)])
+    audiobook_files = [f for f in audiobook_files if '/Library/Audiobook/' not in str(f)]
+    if audiobook_folder_count > 0:
+        print(f"  Filtered out {audiobook_folder_count} files from /Library/Audiobook/ (duplicates)")
 
     print(f"\nTotal audiobook files: {len(audiobook_files)}")
     print()

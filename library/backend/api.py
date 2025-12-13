@@ -52,6 +52,67 @@ def get_db():
     return conn
 
 
+# ============================================
+# EDITION DETECTION HELPERS
+# ============================================
+
+def has_edition_marker(title):
+    """Check if a title contains edition markers indicating it's a specific edition"""
+    if not title:
+        return False
+
+    title_lower = title.lower()
+
+    # Edition keywords
+    edition_markers = [
+        'edition',           # 2nd edition, revised edition, etc.
+        'anniversary',       # 20th anniversary, etc.
+        'revised',          # revised version
+        'updated',          # updated version
+        'unabridged',       # unabridged vs abridged
+        'abridged',
+        'complete',         # complete edition
+        'expanded',         # expanded edition
+        'deluxe',           # deluxe edition
+        'special',          # special edition
+        'collectors',       # collector's edition
+        'annotated',        # annotated edition
+        'illustrated',      # illustrated edition
+    ]
+
+    return any(marker in title_lower for marker in edition_markers)
+
+
+def normalize_base_title(title):
+    """
+    Normalize title by removing edition markers and common suffixes.
+    This creates a base title for matching different editions.
+    """
+    import re
+
+    if not title:
+        return ""
+
+    base = title.lower().strip()
+
+    # Remove edition markers and surrounding text
+    base = re.sub(r'\s*\([^)]*edition[^)]*\)', '', base, flags=re.IGNORECASE)
+    base = re.sub(r'\s*\([^)]*anniversary[^)]*\)', '', base, flags=re.IGNORECASE)
+    base = re.sub(r'\s*-\s*\d+(st|nd|rd|th)\s+edition.*$', '', base, flags=re.IGNORECASE)
+    base = re.sub(r'\s*:\s*(unabridged|abridged|complete|expanded).*$', '', base, flags=re.IGNORECASE)
+
+    # Remove "(Unabridged)" or similar at the end
+    base = re.sub(r'\s*\((un)?abridged\)', '', base, flags=re.IGNORECASE)
+
+    # Remove year in parentheses at the end like "(2024)"
+    base = re.sub(r'\s*\(\d{4}\)\s*$', '', base)
+
+    # Normalize punctuation
+    base = base.replace(':', '').replace('-', ' ').replace('  ', ' ')
+
+    return base.strip()
+
+
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """Get library statistics"""
@@ -66,11 +127,21 @@ def get_stats():
     cursor.execute("SELECT SUM(duration_hours) as total_hours FROM audiobooks")
     total_hours = cursor.fetchone()['total_hours'] or 0
 
-    # Unique counts
-    cursor.execute("SELECT COUNT(DISTINCT author) as count FROM audiobooks WHERE author IS NOT NULL")
+    # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
+    cursor.execute("""
+        SELECT COUNT(DISTINCT author) as count FROM audiobooks
+        WHERE author IS NOT NULL
+          AND LOWER(TRIM(author)) != 'audiobook'
+          AND LOWER(TRIM(author)) != 'unknown author'
+    """)
     unique_authors = cursor.fetchone()['count']
 
-    cursor.execute("SELECT COUNT(DISTINCT narrator) as count FROM audiobooks WHERE narrator IS NOT NULL")
+    cursor.execute("""
+        SELECT COUNT(DISTINCT narrator) as count FROM audiobooks
+        WHERE narrator IS NOT NULL
+          AND LOWER(TRIM(narrator)) != 'unknown narrator'
+          AND LOWER(TRIM(narrator)) != ''
+    """)
     unique_narrators = cursor.fetchone()['count']
 
     cursor.execute("SELECT COUNT(DISTINCT publisher) as count FROM audiobooks WHERE publisher IS NOT NULL")
@@ -120,9 +191,31 @@ def get_audiobooks():
     sort_field = request.args.get('sort', 'title')
     sort_order = request.args.get('order', 'asc').lower()
 
-    # Validate sort field
-    allowed_sorts = ['title', 'author', 'narrator', 'duration_hours', 'created_at', 'file_size_mb']
-    if sort_field not in allowed_sorts:
+    # Map user-friendly sort names to SQL expressions
+    sort_mappings = {
+        'title': 'title',
+        'author': 'author',
+        'author_last': 'author_last_name',
+        'author_first': 'author_first_name',
+        'narrator': 'narrator',
+        'narrator_last': 'narrator_last_name',
+        'narrator_first': 'narrator_first_name',
+        'duration_hours': 'duration_hours',
+        'created_at': 'created_at',
+        'acquired_date': 'acquired_date',
+        'published_year': 'published_year',
+        'published_date': 'published_date',
+        'file_size_mb': 'file_size_mb',
+        'series': 'series, series_sequence',  # Sort by series name, then sequence
+        'asin': 'asin',
+        'edition': 'edition',
+    }
+
+    # Get SQL sort expression
+    if sort_field in sort_mappings:
+        sort_sql = sort_mappings[sort_field]
+    else:
+        sort_sql = 'title'
         sort_field = 'title'
 
     # Validate sort order
@@ -182,11 +275,14 @@ def get_audiobooks():
     query = f"""
         SELECT
             id, title, author, narrator, publisher, series,
+            series_sequence, edition, asin, acquired_date, published_year,
+            author_last_name, author_first_name,
+            narrator_last_name, narrator_first_name,
             duration_hours, duration_formatted, file_size_mb,
             file_path, cover_path, format, quality, description
         FROM audiobooks
         {where_sql}
-        ORDER BY {sort_field} {sort_order}
+        ORDER BY {sort_sql} {sort_order}
         LIMIT ? OFFSET ?
     """
 
@@ -227,6 +323,32 @@ def get_audiobooks():
         """, (book['id'],))
         result = cursor.fetchone()
         book['supplement_count'] = result['count'] if result else 0
+
+        # Get edition count (only count if book has edition markers)
+        # First check if this book or any related books have edition markers
+        base_title = normalize_base_title(book['title'])
+
+        # Find books with same author
+        cursor.execute("""
+            SELECT title
+            FROM audiobooks
+            WHERE author = ?
+        """, (book['author'],))
+
+        related_books = cursor.fetchall()
+        matching_editions = []
+
+        for related in related_books:
+            related_base = normalize_base_title(related['title'])
+            if related_base == base_title:
+                matching_editions.append(related['title'])
+
+        # Only set edition_count > 1 if there are multiple matches AND at least one has markers
+        has_markers = any(has_edition_marker(title) for title in matching_editions)
+        if len(matching_editions) > 1 and has_markers:
+            book['edition_count'] = len(matching_editions)
+        else:
+            book['edition_count'] = 1
 
         audiobooks.append(book)
 
@@ -552,22 +674,31 @@ def get_duplicates():
 @app.route('/api/duplicates/by-title', methods=['GET'])
 def get_duplicates_by_title():
     """
-    Get duplicate audiobooks based on normalized title and author.
+    Get duplicate audiobooks based on normalized title and REAL author.
     This finds "same book, different version/format" entries.
+
+    IMPROVED LOGIC:
+    - Excludes "Audiobook" as a valid author for grouping
+    - Groups by title + real author + similar duration (within 10%)
+    - Prevents flagging different books with same title as duplicates
     """
     conn = get_db()
     cursor = conn.cursor()
 
-    # Find duplicates by normalized title + author
-    # Normalize: lowercase, remove special chars, trim whitespace
+    # Find duplicates by normalized title + real author (excluding "Audiobook")
+    # Also require similar duration to avoid grouping different books
     cursor.execute("""
         SELECT
             LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
             LOWER(TRIM(author)) as norm_author,
+            ROUND(duration_hours, 1) as duration_group,
             COUNT(*) as count
         FROM audiobooks
-        WHERE title IS NOT NULL AND author IS NOT NULL
-        GROUP BY norm_title, norm_author
+        WHERE title IS NOT NULL
+          AND author IS NOT NULL
+          AND LOWER(TRIM(author)) != 'audiobook'
+          AND LOWER(TRIM(author)) != 'unknown author'
+        GROUP BY norm_title, norm_author, duration_group
         HAVING count > 1
         ORDER BY count DESC, norm_title
     """)
@@ -579,16 +710,20 @@ def get_duplicates_by_title():
     for group in groups:
         norm_title = group['norm_title']
         norm_author = group['norm_author']
+        duration_group = group['duration_group']
         count = group['count']
 
-        # Get all files in this group
+        # Get all files in this group (including any with "Audiobook" author that match)
         cursor.execute("""
             SELECT id, title, author, narrator, file_path, file_size_mb,
                    format, duration_formatted, duration_hours, cover_path, sha256_hash
             FROM audiobooks
             WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
-              AND LOWER(TRIM(author)) = ?
+              AND (LOWER(TRIM(author)) = ? OR LOWER(TRIM(author)) = 'audiobook')
+              AND ROUND(duration_hours, 1) = ?
             ORDER BY
+                -- Prefer entries with real author over "Audiobook"
+                CASE WHEN LOWER(TRIM(author)) = 'audiobook' THEN 1 ELSE 0 END,
                 CASE format
                     WHEN 'opus' THEN 1
                     WHEN 'm4b' THEN 2
@@ -598,14 +733,14 @@ def get_duplicates_by_title():
                 END,
                 file_size_mb DESC,
                 id ASC
-        """, (norm_title, norm_author))
+        """, (norm_title, norm_author, duration_group))
 
         files = [dict(row) for row in cursor.fetchall()]
 
         if len(files) < 2:
             continue
 
-        # First file (preferred format, largest size) is the "keeper"
+        # First file (with real author, preferred format) is the "keeper"
         for i, f in enumerate(files):
             f['is_keeper'] = (i == 0)
             f['is_duplicate'] = (i > 0)
@@ -615,10 +750,19 @@ def get_duplicates_by_title():
         potential_savings = sum(sizes[1:])  # All except the largest
         total_potential_savings += potential_savings
 
+        # Use the real author (first file has real author due to ORDER BY)
+        display_author = files[0]['author']
+        if display_author.lower() == 'audiobook':
+            # Fallback: find real author from the group
+            for f in files:
+                if f['author'].lower() != 'audiobook':
+                    display_author = f['author']
+                    break
+
         duplicate_groups.append({
             'title': files[0]['title'],
-            'author': files[0]['author'],
-            'count': count,
+            'author': display_author,
+            'count': len(files),
             'potential_savings_mb': round(potential_savings, 2),
             'files': files
         })
@@ -633,6 +777,93 @@ def get_duplicates_by_title():
     })
 
 
+@app.route('/api/audiobooks/<int:book_id>/editions', methods=['GET'])
+def get_book_editions(book_id):
+    """
+    Get all editions of a specific audiobook.
+    Only returns books that are truly different editions (with edition markers in title).
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # First, get the book to find its title and author
+    cursor.execute("""
+        SELECT title, author FROM audiobooks WHERE id = ?
+    """, (book_id,))
+    result = cursor.fetchone()
+
+    if not result:
+        conn.close()
+        return jsonify({'error': 'Book not found'}), 404
+
+    title = result['title']
+    author = result['author']
+
+    # Check if this book or related books have edition markers
+    # Get the base title for matching
+    base_title = normalize_base_title(title)
+
+    # Find all books with similar base title + same author
+    cursor.execute("""
+        SELECT
+            id, title, author, narrator, publisher, series,
+            duration_hours, duration_formatted, file_size_mb,
+            file_path, cover_path, format, quality, description
+        FROM audiobooks
+        WHERE author = ?
+        ORDER BY title ASC, id ASC
+    """, (author,))
+
+    # Filter to books with matching base title
+    all_books = cursor.fetchall()
+    editions = []
+
+    for row in all_books:
+        book_title = row['title']
+        book_base = normalize_base_title(book_title)
+
+        # Match if base titles are similar
+        if book_base == base_title:
+            editions.append(dict(row))
+
+    # Only return if multiple editions exist OR if any title has edition markers
+    has_markers = any(has_edition_marker(ed['title']) for ed in editions)
+
+    if len(editions) <= 1 and not has_markers:
+        # Not a true multi-edition book
+        editions = [dict(row) for row in all_books if row['id'] == book_id]
+
+    # Get additional metadata for each edition
+    final_editions = []
+    for edition in editions:
+        # Get genres
+        cursor.execute("""
+            SELECT g.name FROM genres g
+            JOIN audiobook_genres ag ON g.id = ag.genre_id
+            WHERE ag.audiobook_id = ?
+        """, (edition['id'],))
+        edition['genres'] = [r['name'] for r in cursor.fetchall()]
+
+        # Get supplement count
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM supplements
+            WHERE audiobook_id = ?
+        """, (edition['id'],))
+        result = cursor.fetchone()
+        edition['supplement_count'] = result['count'] if result else 0
+
+        final_editions.append(edition)
+
+    conn.close()
+
+    return jsonify({
+        'title': title,
+        'author': author,
+        'edition_count': len(final_editions),
+        'editions': final_editions
+    })
+
+
 @app.route('/api/duplicates/delete', methods=['POST'])
 def delete_duplicates():
     """
@@ -644,6 +875,11 @@ def delete_duplicates():
         "audiobook_ids": [1, 2, 3],  // IDs to delete
         "mode": "title" or "hash"    // Optional, defaults to "title"
     }
+
+    IMPROVED SAFETY:
+    - Groups by title + duration (not author, since author may be "Audiobook")
+    - Ensures at least one copy with REAL author is kept
+    - Prefers keeping entries with real author over "Audiobook" entries
     """
     data = request.get_json()
     if not data or 'audiobook_ids' not in data:
@@ -661,9 +897,10 @@ def delete_duplicates():
     # Get all audiobooks to be deleted with their grouping keys
     placeholders = ','.join('?' * len(ids_to_delete))
     cursor.execute(f"""
-        SELECT id, sha256_hash, title, author, file_path,
+        SELECT id, sha256_hash, title, author, file_path, duration_hours, file_size_mb,
                LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
-               LOWER(TRIM(author)) as norm_author
+               LOWER(TRIM(author)) as norm_author,
+               ROUND(duration_hours, 1) as duration_group
         FROM audiobooks
         WHERE id IN ({placeholders})
     """, ids_to_delete)
@@ -674,33 +911,35 @@ def delete_duplicates():
     safe_to_delete = []
 
     if mode == 'title':
-        # Group by normalized title + author
+        # Group by normalized title + duration (duration distinguishes different books with same title)
         title_groups = {}
         for item in to_delete:
-            key = (item['norm_title'], item['norm_author'])
+            key = (item['norm_title'], item['duration_group'])
             if key not in title_groups:
                 title_groups[key] = []
             title_groups[key].append(item)
 
         # For each title group, verify at least one copy will remain
-        for (norm_title, norm_author), items in title_groups.items():
-            # Count total copies with this title+author
+        for (norm_title, duration_group), items in title_groups.items():
+            # Count total copies with this title + similar duration
             cursor.execute("""
                 SELECT COUNT(*) as count FROM audiobooks
                 WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
-                  AND LOWER(TRIM(author)) = ?
-            """, (norm_title, norm_author))
+                  AND ROUND(duration_hours, 1) = ?
+            """, (norm_title, duration_group))
             total_copies = cursor.fetchone()['count']
 
             deleting_count = len(items)
 
             if deleting_count >= total_copies:
-                # Would delete all copies - block the first one (keeper)
-                # Sort by preferred format order, then by ID
+                # Would delete all copies - block the best one (keeper)
+                # Sort: prefer real author, then preferred format, then by ID
                 def sort_key(x):
+                    # Prefer real author over "Audiobook"
+                    author_priority = 1 if x['norm_author'] == 'audiobook' else 0
                     fmt_order = {'opus': 1, 'm4b': 2, 'm4a': 3, 'mp3': 4}
                     ext = Path(x['file_path']).suffix.lower().lstrip('.')
-                    return (fmt_order.get(ext, 5), x['id'])
+                    return (author_priority, fmt_order.get(ext, 5), x['id'])
 
                 items_sorted = sorted(items, key=sort_key)
                 blocked_ids.append(items_sorted[0]['id'])
@@ -1059,7 +1298,6 @@ if __name__ == '__main__':
 
     print(f"Starting Audiobook Library API...")
     print(f"Database: {DB_PATH}")
-    print(f"API running on: http://localhost:{API_PORT}")
     print(f"\nEndpoints:")
     print(f"  GET /api/stats - Library statistics")
     print(f"  GET /api/audiobooks - Paginated audiobooks")
@@ -1075,5 +1313,28 @@ if __name__ == '__main__':
     print(f"  /api/audiobooks?page=1&per_page=50")
     print(f"  /api/audiobooks?search=tolkien")
     print(f"  /api/audiobooks?author=sanderson&sort=duration_hours&order=desc")
+    print()
 
-    app.run(debug=True, host='0.0.0.0', port=API_PORT)
+    # Check if running with waitress (production mode)
+    use_waitress = os.environ.get('AUDIOBOOKS_USE_WAITRESS', 'false').lower() in ('true', '1', 'yes')
+
+    if use_waitress:
+        try:
+            from waitress import serve
+            bind_address = os.environ.get('AUDIOBOOKS_BIND_ADDRESS', '127.0.0.1')
+            print(f"Running in production mode (waitress)")
+            print(f"Listening on: http://{bind_address}:{API_PORT}")
+            print()
+            serve(app, host=bind_address, port=API_PORT, threads=4)
+        except ImportError:
+            print("Error: waitress not installed. Install with: pip install waitress")
+            print("Falling back to Flask development server...")
+            print(f"API running on: http://0.0.0.0:{API_PORT}")
+            print()
+            app.run(debug=True, host='0.0.0.0', port=API_PORT)
+    else:
+        # Development mode (Flask dev server)
+        print(f"Running in development mode (Flask dev server)")
+        print(f"API running on: http://0.0.0.0:{API_PORT}")
+        print()
+        app.run(debug=True, host='0.0.0.0', port=API_PORT)
