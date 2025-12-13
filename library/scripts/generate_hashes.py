@@ -9,6 +9,7 @@ Features:
 - Progress tracking with ETA
 - Duplicate detection report
 - Direct database updates
+- Parallel processing support
 """
 
 import hashlib
@@ -19,6 +20,8 @@ import time
 from pathlib import Path
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -40,6 +43,21 @@ def calculate_sha256(filepath: Path) -> str | None:
     except (IOError, OSError) as e:
         print(f"  Error reading {filepath}: {e}", file=sys.stderr)
         return None
+
+
+def hash_file_worker(args: tuple) -> tuple:
+    """Worker function for parallel hashing. Returns (audiobook_id, hash, title, file_size_mb, error)"""
+    audiobook_id, file_path, file_size_mb, title = args
+    filepath = Path(file_path)
+
+    if not filepath.exists():
+        return (audiobook_id, None, title, file_size_mb, "File not found")
+
+    hash_value = calculate_sha256(filepath)
+    if hash_value:
+        return (audiobook_id, hash_value, title, file_size_mb, None)
+    else:
+        return (audiobook_id, None, title, file_size_mb, "Hash calculation failed")
 
 
 def format_duration(seconds: float) -> str:
@@ -110,7 +128,7 @@ def find_duplicates(conn: sqlite3.Connection) -> list:
     return cursor.fetchall()
 
 
-def generate_hashes(force: bool = False, limit: int = None):
+def generate_hashes(force: bool = False, limit: int = None, parallel: int = None):
     """Main hash generation function"""
     if not DB_PATH.exists():
         print(f"Error: Database not found at {DB_PATH}")
@@ -145,6 +163,11 @@ def generate_hashes(force: bool = False, limit: int = None):
 
     total_files = len(pending)
     total_size = sum(row[2] or 0 for row in pending)
+
+    # Use parallel processing if requested
+    if parallel:
+        conn.close()
+        return generate_hashes_parallel(pending, total_files, total_size, parallel)
 
     print(f"\n{'='*60}")
     print(f"SHA-256 Hash Generation")
@@ -212,6 +235,94 @@ def generate_hashes(force: bool = False, limit: int = None):
     print(f"Data processed: {format_size(processed_size * 1024 * 1024)}")
     print(f"Time elapsed: {format_duration(elapsed)}")
     print(f"Errors: {errors}")
+    if elapsed > 0:
+        print(f"Average speed: {format_size(processed_size * 1024 * 1024 / elapsed)}/s")
+
+    show_stats(conn)
+    conn.close()
+
+
+def generate_hashes_parallel(pending: list, total_files: int, total_size: float, workers: int):
+    """Generate hashes using parallel processing"""
+    print(f"\n{'='*60}")
+    print(f"SHA-256 Hash Generation (PARALLEL)")
+    print(f"{'='*60}")
+    print(f"Files to process: {total_files:,}")
+    print(f"Total size: {format_size(total_size * 1024 * 1024)}")
+    print(f"Workers: {workers}")
+    print(f"{'='*60}\n")
+
+    processed = 0
+    processed_size = 0
+    errors = 0
+    start_time = time.time()
+
+    # Open connection for updates (will batch them)
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    try:
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            # Submit all jobs
+            futures = {executor.submit(hash_file_worker, task): task for task in pending}
+
+            for future in as_completed(futures):
+                processed += 1
+                audiobook_id, hash_value, title, file_size_mb, error = future.result()
+                file_size_mb = file_size_mb or 0
+
+                # Progress info
+                elapsed = time.time() - start_time
+                if processed > 1:
+                    rate = processed_size / elapsed if elapsed > 0 else 0
+                    remaining_size = total_size - processed_size
+                    eta = remaining_size / rate if rate > 0 else 0
+                    eta_str = format_duration(eta)
+                else:
+                    eta_str = "calculating..."
+
+                # Truncate title for display
+                display_title = title[:40] + "..." if len(title) > 40 else title
+
+                if error:
+                    print(f"[{processed}/{total_files}] {display_title}")
+                    print(f"  ⚠ {error}")
+                    errors += 1
+                elif hash_value:
+                    cursor.execute("""
+                        UPDATE audiobooks
+                        SET sha256_hash = ?, hash_verified_at = ?
+                        WHERE id = ?
+                    """, (hash_value, datetime.now().isoformat(), audiobook_id))
+
+                    print(f"[{processed}/{total_files}] {display_title}")
+                    print(f"  ✓ {hash_value[:16]}... | ETA: {eta_str}")
+
+                processed_size += file_size_mb
+
+                # Commit every 50 updates for safety
+                if processed % 50 == 0:
+                    conn.commit()
+
+    except KeyboardInterrupt:
+        print("\n\nInterrupted! Saving progress...")
+        conn.commit()
+        conn.close()
+        print(f"Processed {processed}/{total_files} files.")
+        print("Run again to continue where you left off.")
+        sys.exit(0)
+
+    conn.commit()
+    elapsed = time.time() - start_time
+
+    print(f"\n{'='*60}")
+    print("COMPLETE")
+    print(f"{'='*60}")
+    print(f"Files processed: {processed:,}")
+    print(f"Data processed: {format_size(processed_size * 1024 * 1024)}")
+    print(f"Time elapsed: {format_duration(elapsed)}")
+    print(f"Errors: {errors}")
+    print(f"Workers used: {workers}")
     if elapsed > 0:
         print(f"Average speed: {format_size(processed_size * 1024 * 1024 / elapsed)}/s")
 
@@ -339,11 +450,15 @@ def verify_hashes(sample_size: int = 10):
 
 
 def main():
+    cpu_count = multiprocessing.cpu_count()
     parser = ArgumentParser(description="Generate SHA-256 hashes for audiobook library")
     parser.add_argument('--force', '-f', action='store_true',
                        help='Recalculate all hashes, even existing ones')
     parser.add_argument('--limit', '-l', type=int,
                        help='Limit number of files to process')
+    parser.add_argument('--parallel', '-p', type=int, nargs='?', const=cpu_count,
+                       metavar='N',
+                       help=f'Use parallel processing with N workers (default: {cpu_count} CPUs)')
     parser.add_argument('--stats', '-s', action='store_true',
                        help='Show statistics only')
     parser.add_argument('--duplicates', '-d', action='store_true',
@@ -360,7 +475,7 @@ def main():
     elif args.verify:
         verify_hashes(args.verify)
     else:
-        generate_hashes(force=args.force, limit=args.limit)
+        generate_hashes(force=args.force, limit=args.limit, parallel=args.parallel)
 
 
 if __name__ == "__main__":
