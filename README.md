@@ -649,6 +649,95 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
+## Changelog
+
+### v2.9 (Current Development)
+- **Metadata Preservation**: Import now preserves manually-populated narrator and genre data from Audible exports, preventing data loss on reimport
+- **Improved Deduplication**: Scanner now intelligently deduplicates between main library and `/Library/Audiobook/` folder, preferring main library files while keeping unique entries
+- **Security**: Updated flask-cors from 4.0.0 to 6.0.0 (fixes CVE-2024-6839, CVE-2024-6844, CVE-2024-6866)
+
+### v2.8
+- Multi-source audiobook support (Google Play, Librivox, OpenLibrary)
+- Parallel SHA-256 hash generation (24x speedup on multi-core systems)
+- Automatic hashing during import
+- New `isbn` and `source` database fields
+
+### v2.7
+- Collections sidebar for browsing by category
+- Genre sync from Audible library export
+
+### v2.6
+- Author/narrator autocomplete with letter group filters
+- Enhanced sorting options (first/last name, series sequence, edition)
+- Narrator metadata sync from Audible
+
+### v2.5
+- Docker auto-initialization
+- Portable configuration system
+- Production-ready HTTPS server with Waitress
+
+See [GitHub Releases](https://github.com/greogory/audiobook-toolkit/releases) for full version history.
+
+## Known Issues
+
+| Issue | Workaround | Status |
+|-------|------------|--------|
+| Browser security warning for self-signed SSL cert | Click "Advanced" → "Proceed to localhost" | By design |
+| Narrator/genre data must be re-synced after adding new books | Run `update_narrators_from_audible.py` and `populate_genres.py` after importing | Planned: Auto-sync on import |
+| No UI for duplicate management | Use CLI scripts (`find_duplicates.py --remove --execute`) | Planned: Web UI |
+| Limited metadata editing in webapp | Edit database directly or re-import | Planned: Edit modal |
+
+## Roadmap
+
+### Planned Features
+
+#### Utilities Section (Web UI)
+A new "Utilities" or "Library Management" section in the webapp for:
+
+**Database Management**
+- View database statistics (total books, storage, duplicates)
+- Trigger full library rescan from web UI
+- Rebuild search index
+- Export/import database backups
+
+**Duplicate Management**
+- Visual duplicate finder with side-by-side comparison
+- One-click duplicate removal (keep highest quality)
+- Merge duplicate entries (combine metadata from multiple sources)
+
+**Audiobook Management**
+- Delete audiobooks from library (with file deletion option)
+- Edit metadata directly in webapp (title, author, narrator, series)
+- Bulk operations (delete selected, update metadata)
+- Move/reorganize files within library structure
+
+**Audible Integration**
+- Sync library with Audible account (via audible-cli)
+- Download missing audiobooks directly
+- Remove audiobooks from Audible library (with confirmation)
+- Auto-import new Audible purchases
+
+**Import Tools**
+- Drag-and-drop audiobook import
+- Bulk conversion from AAX/AAXC
+- Multi-source import wizard (Google Play, Librivox, manual)
+- Metadata lookup and enrichment
+
+#### Enhanced Player
+- Chapter navigation
+- Bookmarks and notes
+- Sleep timer
+- Queue/playlist management
+
+#### Mobile Support
+- Responsive design improvements
+- Progressive Web App (PWA) support
+- Offline playback caching
+
+### Contributing
+
+Feature requests and pull requests welcome! See the [GitHub Issues](https://github.com/greogory/audiobook-toolkit/issues) page.
+
 ## License
 
 See individual component licenses in `converter/LICENSE` and `library/` files.

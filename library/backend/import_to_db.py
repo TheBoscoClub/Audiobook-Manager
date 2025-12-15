@@ -38,7 +38,7 @@ def create_database():
 
 
 def import_audiobooks(conn):
-    """Import audiobooks from JSON"""
+    """Import audiobooks from JSON, preserving manually-populated metadata"""
     print(f"\nLoading audiobooks from: {JSON_PATH}")
 
     with open(JSON_PATH) as f:
@@ -48,6 +48,31 @@ def import_audiobooks(conn):
     print(f"Found {len(audiobooks)} audiobooks")
 
     cursor = conn.cursor()
+
+    # PRESERVE existing narrator and genre data before clearing
+    # These are populated from Audible export and would be lost on reimport
+    print("\nPreserving existing metadata...")
+
+    # Save narrator data (keyed by file_path)
+    preserved_narrators = {}
+    cursor.execute("SELECT file_path, narrator FROM audiobooks WHERE narrator IS NOT NULL AND narrator != 'Unknown Narrator' AND narrator != ''")
+    for row in cursor.fetchall():
+        preserved_narrators[row[0]] = row[1]
+    print(f"  Preserved {len(preserved_narrators)} narrator records")
+
+    # Save genre data (keyed by file_path)
+    preserved_genres = {}
+    cursor.execute("""
+        SELECT a.file_path, GROUP_CONCAT(g.name, '|||')
+        FROM audiobooks a
+        JOIN audiobook_genres ag ON a.id = ag.audiobook_id
+        JOIN genres g ON ag.genre_id = g.id
+        GROUP BY a.file_path
+    """)
+    for row in cursor.fetchall():
+        if row[1]:
+            preserved_genres[row[0]] = row[1].split('|||')
+    print(f"  Preserved genre data for {len(preserved_genres)} audiobooks")
 
     # Clear existing data
     cursor.execute("DELETE FROM audiobook_topics")
@@ -69,6 +94,10 @@ def import_audiobooks(conn):
         if idx % 100 == 0:
             print(f"  Processed {idx}/{len(audiobooks)} audiobooks...")
 
+        # Use preserved narrator if available, otherwise use JSON value
+        file_path = book.get('file_path')
+        narrator = preserved_narrators.get(file_path, book.get('narrator'))
+
         # Insert audiobook
         cursor.execute("""
             INSERT INTO audiobooks (
@@ -80,13 +109,13 @@ def import_audiobooks(conn):
         """, (
             book.get('title'),
             book.get('author'),
-            book.get('narrator'),
+            narrator,
             book.get('publisher'),
             book.get('series'),
             book.get('duration_hours'),
             book.get('duration_formatted'),
             book.get('file_size_mb'),
-            book.get('file_path'),
+            file_path,
             book.get('cover_path'),
             book.get('format'),
             book.get('quality'),
@@ -97,8 +126,9 @@ def import_audiobooks(conn):
 
         audiobook_id = cursor.lastrowid
 
-        # Handle genres
-        for genre_name in book.get('genres', []):
+        # Handle genres - use preserved genres if available, otherwise use JSON
+        genre_list = preserved_genres.get(file_path, book.get('genres', []))
+        for genre_name in genre_list:
             if genre_name not in genres_map:
                 cursor.execute("INSERT INTO genres (name) VALUES (?)", (genre_name,))
                 genres_map[genre_name] = cursor.lastrowid
@@ -133,7 +163,9 @@ def import_audiobooks(conn):
     conn.commit()
 
     print(f"\n✓ Imported {len(audiobooks)} audiobooks")
-    print(f"✓ Imported {len(genres_map)} genres")
+    print(f"✓ Restored {len(preserved_narrators)} narrator records")
+    print(f"✓ Restored genres for {len(preserved_genres)} audiobooks")
+    print(f"✓ Total {len(genres_map)} unique genres")
     print(f"✓ Imported {len(eras_map)} eras")
     print(f"✓ Imported {len(topics_map)} topics")
 

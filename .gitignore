@@ -57,3 +57,4 @@ library/certs/
 # Audible auth codes (sensitive)
 *.authcode
 library/backend/audiobooks.db-journal
+library/scripts/nohup.out

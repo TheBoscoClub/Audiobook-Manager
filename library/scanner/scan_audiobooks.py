@@ -265,11 +265,22 @@ def scan_audiobooks():
     if filtered_count > 0:
         print(f"  Filtered out {filtered_count} cover art files")
 
-    # Filter out /Library/Audiobook/ folder (contains duplicates with wrong metadata)
-    audiobook_folder_count = len([f for f in audiobook_files if '/Library/Audiobook/' in str(f)])
-    audiobook_files = [f for f in audiobook_files if '/Library/Audiobook/' not in str(f)]
-    if audiobook_folder_count > 0:
-        print(f"  Filtered out {audiobook_folder_count} files from /Library/Audiobook/ (duplicates)")
+    # Deduplicate: prefer files from main Library over /Library/Audiobook/ (which may have duplicates)
+    main_library_files = [f for f in audiobook_files if '/Library/Audiobook/' not in str(f)]
+    audiobook_folder_files = [f for f in audiobook_files if '/Library/Audiobook/' in str(f)]
+
+    # Get titles from main library
+    main_titles = {f.stem for f in main_library_files}
+
+    # Add Audiobook/ files only if title doesn't exist in main library
+    unique_audiobook_files = [f for f in audiobook_folder_files if f.stem not in main_titles]
+
+    # Combine: main library + unique from Audiobook/
+    audiobook_files = main_library_files + unique_audiobook_files
+
+    if len(audiobook_folder_files) > len(unique_audiobook_files):
+        dup_count = len(audiobook_folder_files) - len(unique_audiobook_files)
+        print(f"  Deduplicated {dup_count} files from /Library/Audiobook/ (keeping {len(unique_audiobook_files)} unique)")
 
     print(f"\nTotal audiobook files: {len(audiobook_files)}")
     print()
