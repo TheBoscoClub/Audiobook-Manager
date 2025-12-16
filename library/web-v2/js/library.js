@@ -36,6 +36,32 @@ class AudiobookLibraryV2 {
         this.init();
     }
 
+    /**
+     * Extract sort key from a name - returns "LastName, FirstName" format
+     * Handles various name formats: "First Last", "First Middle Last", etc.
+     */
+    getNameSortKey(name) {
+        if (!name) return '';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return name.toLowerCase();
+        // Last word is the last name, everything else is first/middle
+        const lastName = parts[parts.length - 1];
+        const firstName = parts.slice(0, -1).join(' ');
+        return `${lastName}, ${firstName}`.toLowerCase();
+    }
+
+    /**
+     * Sort names by last name, first name
+     */
+    sortByLastName(names, ascending = true) {
+        return names.sort((a, b) => {
+            const keyA = this.getNameSortKey(a);
+            const keyB = this.getNameSortKey(b);
+            const cmp = keyA.localeCompare(keyB, undefined, { sensitivity: 'base' });
+            return ascending ? cmp : -cmp;
+        });
+    }
+
     async init() {
         await this.loadStats();
         await this.loadFilters();
@@ -338,7 +364,7 @@ class AudiobookLibraryV2 {
         }
 
         // Sort the results
-        filtered = this.authorSortAsc ? filtered.sort() : filtered.sort().reverse();
+        filtered = this.sortByLastName(filtered, this.authorSortAsc);
 
         // Count for this group before limiting
         const groupTotal = filtered.length;
@@ -599,10 +625,7 @@ class AudiobookLibraryV2 {
     }
 
     sortNarrators(narrators, ascending) {
-        return narrators.sort((a, b) => {
-            const cmp = a.localeCompare(b, undefined, { sensitivity: 'base' });
-            return ascending ? cmp : -cmp;
-        });
+        return this.sortByLastName(narrators, ascending);
     }
 
     hideNarratorDropdown() {
