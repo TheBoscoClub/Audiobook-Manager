@@ -38,6 +38,53 @@ body {
 .header-content {
     text-align: center;
     margin-bottom: 1.5rem;
+    position: relative;
+}
+
+/* Title Section (for centering with utilities link) */
+.title-section {
+    display: inline-block;
+}
+
+/* Utilities Link */
+.utilities-link {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--wood-dark);
+    color: var(--parchment);
+    text-decoration: none;
+    border: 1px solid var(--gold-dark);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.utilities-link:hover {
+    background: var(--gold-dark);
+    color: var(--wood-dark);
+    border-color: var(--gold);
+}
+
+.utilities-icon {
+    font-size: 1.2rem;
+}
+
+@media (max-width: 768px) {
+    .utilities-link {
+        position: static;
+        transform: none;
+        margin-top: 1rem;
+    }
+
+    .utilities-text {
+        display: none;
+    }
 }
 
 .library-title {

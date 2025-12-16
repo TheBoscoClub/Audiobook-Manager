@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Back Office - Library Utilities</title>
+    <link rel="stylesheet" href="css/library.css">
+    <link rel="stylesheet" href="css/utilities.css">
+</head>
+<body class="back-office">
+    <!-- Header -->
+    <header class="office-header">
+        <div class="header-content">
+            <div class="header-left">
+                <a href="index.html" class="back-link" title="Return to The Library">
+                    <span class="back-icon">&#8592;</span>
+                    <span class="back-text">The Library</span>
+                </a>
+            </div>
+            <div class="header-center">
+                <h1 class="office-title">The Back Office</h1>
+                <p class="office-subtitle">Library Administration & Utilities</p>
+            </div>
+            <div class="header-right">
+                <div class="banker-lamp">
+                    <div class="lamp-shade"></div>
+                    <div class="lamp-stem"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="office-main">
+        <!-- Navigation Tabs (Filing Cabinet Style) -->
+        <nav class="filing-cabinet">
+            <div class="cabinet-tabs">
+                <button class="cabinet-tab active" data-section="database">
+                    <span class="tab-icon">&#128451;</span>
+                    <span class="tab-label">Database</span>
+                </button>
+                <button class="cabinet-tab" data-section="audiobooks">
+                    <span class="tab-icon">&#128214;</span>
+                    <span class="tab-label">Audiobooks</span>
+                </button>
+                <button class="cabinet-tab" data-section="duplicates">
+                    <span class="tab-icon">&#128464;</span>
+                    <span class="tab-label">Duplicates</span>
+                </button>
+                <button class="cabinet-tab" data-section="bulk">
+                    <span class="tab-icon">&#128230;</span>
+                    <span class="tab-label">Bulk Ops</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Content Sections -->
+        <div class="office-content">
+            <!-- Database Management Section -->
+            <section class="drawer-content active" id="database-section">
+                <div class="section-header">
+                    <h2>Database Management</h2>
+                    <p class="section-desc">Statistics, maintenance, and backup operations</p>
+                </div>
+
+                <!-- Stats Overview -->
+                <div class="card-catalog">
+                    <div class="catalog-card">
+                        <div class="card-header">Library Statistics</div>
+                        <div class="card-body">
+                            <div class="stat-grid">
+                                <div class="stat-row">
+                                    <span class="stat-label">Total Audiobooks</span>
+                                    <span class="stat-value" id="db-total-books">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Total Duration</span>
+                                    <span class="stat-value" id="db-total-hours">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Storage Used</span>
+                                    <span class="stat-value" id="db-total-size">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Unique Authors</span>
+                                    <span class="stat-value" id="db-total-authors">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Unique Narrators</span>
+                                    <span class="stat-value" id="db-total-narrators">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Books with Hashes</span>
+                                    <span class="stat-value" id="db-hash-count">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Duplicate Groups</span>
+                                    <span class="stat-value" id="db-duplicate-groups">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Database Size</span>
+                                    <span class="stat-value" id="db-file-size">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn" id="refresh-stats">
+                                <span class="btn-icon">&#8635;</span> Refresh Stats
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="catalog-card">
+                        <div class="card-header">Maintenance Operations</div>
+                        <div class="card-body">
+                            <div class="operation-list">
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Rescan Library</h4>
+                                        <p>Scan audiobook directory for new or changed files</p>
+                                    </div>
+                                    <button class="office-btn" id="rescan-library">
+                                        <span class="btn-icon">&#128269;</span> Scan
+                                    </button>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Reimport Database</h4>
+                                        <p>Rebuild database from scan results (preserves metadata)</p>
+                                    </div>
+                                    <button class="office-btn" id="reimport-db">
+                                        <span class="btn-icon">&#128190;</span> Import
+                                    </button>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Generate Hashes</h4>
+                                        <p>Calculate SHA-256 hashes for duplicate detection</p>
+                                    </div>
+                                    <button class="office-btn" id="generate-hashes">
+                                        <span class="btn-icon">&#128274;</span> Generate
+                                    </button>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Vacuum Database</h4>
+                                        <p>Optimize database and reclaim unused space</p>
+                                    </div>
+                                    <button class="office-btn" id="vacuum-db">
+                                        <span class="btn-icon">&#128295;</span> Vacuum
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="catalog-card">
+                        <div class="card-header">Backup & Export</div>
+                        <div class="card-body">
+                            <div class="operation-list">
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Export Database</h4>
+                                        <p>Download a backup of the SQLite database</p>
+                                    </div>
+                                    <button class="office-btn" id="export-db">
+                                        <span class="btn-icon">&#128229;</span> Download
+                                    </button>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Export to JSON</h4>
+                                        <p>Export library metadata as JSON file</p>
+                                    </div>
+                                    <button class="office-btn" id="export-json">
+                                        <span class="btn-icon">&#128196;</span> Export
+                                    </button>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Export to CSV</h4>
+                                        <p>Export library listing as spreadsheet</p>
+                                    </div>
+                                    <button class="office-btn" id="export-csv">
+                                        <span class="btn-icon">&#128200;</span> Export
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Audiobook Management Section -->
+            <section class="drawer-content" id="audiobooks-section">
+                <div class="section-header">
+                    <h2>Audiobook Management</h2>
+                    <p class="section-desc">Edit metadata and manage individual audiobooks</p>
+                </div>
+
+                <!-- Search for audiobook to edit -->
+                <div class="card-catalog">
+                    <div class="catalog-card wide">
+                        <div class="card-header">Find Audiobook</div>
+                        <div class="card-body">
+                            <div class="search-row">
+                                <input type="text" id="edit-search" class="office-input" placeholder="Search by title, author, or narrator...">
+                                <button class="office-btn" id="edit-search-btn">
+                                    <span class="btn-icon">&#128269;</span> Search
+                                </button>
+                            </div>
+                            <div class="search-results" id="edit-search-results">
+                                <!-- Results loaded here -->
+                                <p class="placeholder-text">Enter a search term to find audiobooks</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Form (shown when audiobook selected) -->
+                <div class="card-catalog" id="edit-form-container" style="display: none;">
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Edit Audiobook</span>
+                            <button class="close-btn" id="close-edit-form">&times;</button>
+                        </div>
+                        <div class="card-body">
+                            <form id="edit-audiobook-form" class="edit-form">
+                                <input type="hidden" id="edit-id">
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="edit-title">Title</label>
+                                        <input type="text" id="edit-title" class="office-input">
+                                    </div>
+                                </div>
+
+                                <div class="form-row two-col">
+                                    <div class="form-group">
+                                        <label for="edit-author">Author</label>
+                                        <input type="text" id="edit-author" class="office-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-narrator">Narrator</label>
+                                        <input type="text" id="edit-narrator" class="office-input">
+                                    </div>
+                                </div>
+
+                                <div class="form-row two-col">
+                                    <div class="form-group">
+                                        <label for="edit-series">Series</label>
+                                        <input type="text" id="edit-series" class="office-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-series-seq">Series #</label>
+                                        <input type="number" id="edit-series-seq" class="office-input" step="0.1">
+                                    </div>
+                                </div>
+
+                                <div class="form-row three-col">
+                                    <div class="form-group">
+                                        <label for="edit-publisher">Publisher</label>
+                                        <input type="text" id="edit-publisher" class="office-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-year">Year</label>
+                                        <input type="number" id="edit-year" class="office-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-asin">ASIN</label>
+                                        <input type="text" id="edit-asin" class="office-input">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>File Path</label>
+                                        <div class="file-path" id="edit-file-path">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="button" class="office-btn secondary" id="cancel-edit">Cancel</button>
+                                    <button type="submit" class="office-btn primary">
+                                        <span class="btn-icon">&#128190;</span> Save Changes
+                                    </button>
+                                    <button type="button" class="office-btn danger" id="delete-audiobook">
+                                        <span class="btn-icon">&#128465;</span> Delete
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Duplicates Section -->
+            <section class="drawer-content" id="duplicates-section">
+                <div class="section-header">
+                    <h2>Duplicate Management</h2>
+                    <p class="section-desc">Find and remove duplicate audiobooks</p>
+                </div>
+
+                <div class="card-catalog">
+                    <div class="catalog-card">
+                        <div class="card-header">Detection Methods</div>
+                        <div class="card-body">
+                            <div class="detection-options">
+                                <label class="radio-option">
+                                    <input type="radio" name="dup-method" value="title" checked>
+                                    <span class="radio-label">
+                                        <strong>By Title/Author/Narrator</strong>
+                                        <small>Find books with matching metadata (may be different files)</small>
+                                    </span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="dup-method" value="hash">
+                                    <span class="radio-label">
+                                        <strong>By SHA-256 Hash</strong>
+                                        <small>Find byte-identical files (exact duplicates)</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn primary" id="find-duplicates">
+                                <span class="btn-icon">&#128269;</span> Find Duplicates
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Duplicate Groups</span>
+                            <span class="badge" id="dup-group-count">0</span>
+                        </div>
+                        <div class="card-body">
+                            <div id="duplicates-list" class="duplicates-list">
+                                <p class="placeholder-text">Click "Find Duplicates" to scan your library</p>
+                            </div>
+                        </div>
+                        <div class="card-footer" id="dup-actions" style="display: none;">
+                            <button class="office-btn secondary" id="select-all-dups">Select All Duplicates</button>
+                            <button class="office-btn secondary" id="deselect-all-dups">Deselect All</button>
+                            <button class="office-btn danger" id="delete-selected-dups" disabled>
+                                <span class="btn-icon">&#128465;</span> Delete Selected (<span id="selected-count">0</span>)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bulk Operations Section -->
+            <section class="drawer-content" id="bulk-section">
+                <div class="section-header">
+                    <h2>Bulk Operations</h2>
+                    <p class="section-desc">Perform operations on multiple audiobooks at once</p>
+                </div>
+
+                <div class="card-catalog">
+                    <div class="catalog-card wide">
+                        <div class="card-header">Select Audiobooks</div>
+                        <div class="card-body">
+                            <div class="bulk-filters">
+                                <div class="filter-group">
+                                    <label>Filter by:</label>
+                                    <select id="bulk-filter-type" class="office-select">
+                                        <option value="all">All Audiobooks</option>
+                                        <option value="author">Author</option>
+                                        <option value="narrator">Narrator</option>
+                                        <option value="series">Series</option>
+                                        <option value="no-narrator">Missing Narrator</option>
+                                        <option value="no-hash">Missing Hash</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" id="bulk-filter-value-group" style="display: none;">
+                                    <label>Value:</label>
+                                    <input type="text" id="bulk-filter-value" class="office-input" placeholder="Enter filter value...">
+                                </div>
+                                <button class="office-btn" id="bulk-load">
+                                    <span class="btn-icon">&#128269;</span> Load
+                                </button>
+                            </div>
+
+                            <div class="bulk-selection-bar" id="bulk-selection-bar" style="display: none;">
+                                <label class="checkbox-option">
+                                    <input type="checkbox" id="bulk-select-all">
+                                    <span>Select All</span>
+                                </label>
+                                <span class="selection-count"><span id="bulk-selected-count">0</span> selected</span>
+                            </div>
+
+                            <div id="bulk-list" class="bulk-list">
+                                <p class="placeholder-text">Select a filter and click "Load" to view audiobooks</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="catalog-card" id="bulk-actions-card" style="display: none;">
+                        <div class="card-header">Bulk Actions</div>
+                        <div class="card-body">
+                            <div class="bulk-action-list">
+                                <div class="bulk-action-item">
+                                    <div class="action-info">
+                                        <h4>Update Field</h4>
+                                        <p>Set a field value for all selected audiobooks</p>
+                                    </div>
+                                    <div class="action-controls">
+                                        <select id="bulk-update-field" class="office-select">
+                                            <option value="">Select field...</option>
+                                            <option value="narrator">Narrator</option>
+                                            <option value="series">Series</option>
+                                            <option value="publisher">Publisher</option>
+                                        </select>
+                                        <input type="text" id="bulk-update-value" class="office-input" placeholder="New value...">
+                                        <button class="office-btn" id="bulk-update-btn">Apply</button>
+                                    </div>
+                                </div>
+                                <div class="bulk-action-item danger-zone">
+                                    <div class="action-info">
+                                        <h4>Delete Selected</h4>
+                                        <p>Permanently remove selected audiobooks from library</p>
+                                    </div>
+                                    <button class="office-btn danger" id="bulk-delete-btn">
+                                        <span class="btn-icon">&#128465;</span> Delete Selected
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Status Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirm Action</h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="confirm-body">
+            </div>
+            <div class="modal-footer">
+                <button class="office-btn secondary" id="confirm-cancel">Cancel</button>
+                <button class="office-btn danger" id="confirm-action">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operation Progress Modal -->
+    <div class="modal" id="progress-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="progress-title">Operation in Progress</h2>
+            </div>
+            <div class="modal-body">
+                <div class="progress-indicator">
+                    <div class="progress-spinner"></div>
+                    <p id="progress-message">Processing...</p>
+                </div>
+                <div class="progress-output" id="progress-output"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utilities.js"></script>
+</body>
+</html>

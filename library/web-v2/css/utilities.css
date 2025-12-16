@@ -1,0 +1,955 @@
+/* The Back Office - Library Utilities
+ * Aesthetic: Vintage library back office / binding room
+ * - Worn wood, brass fixtures, green banker's lamp
+ * - Filing cabinets, card catalogs, ledgers
+ * - Muted greens, browns, aged paper tones
+ */
+
+:root {
+    /* Back Office Color Palette */
+    --office-dark: #1a1512;
+    --office-wood: #2d2118;
+    --office-desk: #3d2e1f;
+    --office-leather: #4a3728;
+    --brass: #b8860b;
+    --brass-light: #d4a84b;
+    --brass-dark: #8b6914;
+    --banker-green: #2d4a3e;
+    --banker-green-light: #3d6a54;
+    --banker-green-glow: rgba(61, 106, 84, 0.4);
+    --ledger-cream: #e8dcc8;
+    --ledger-line: #c9b896;
+    --ink: #1a1410;
+    --ink-faded: #3d352d;
+    --red-ink: #8b2500;
+    --filing-metal: #5a5a5a;
+    --filing-label: #f5f0e6;
+}
+
+/* Body Override for Back Office */
+body.back-office {
+    background: linear-gradient(180deg, var(--office-dark) 0%, var(--office-wood) 100%);
+    min-height: 100vh;
+}
+
+/* Office Header */
+.office-header {
+    background: linear-gradient(180deg, var(--office-desk) 0%, var(--office-leather) 100%);
+    border-bottom: 4px solid var(--brass);
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.5),
+        inset 0 -1px 0 var(--brass-dark);
+    padding: 1.5rem 2rem;
+}
+
+.office-header .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header-left, .header-right {
+    flex: 0 0 150px;
+}
+
+.header-center {
+    text-align: center;
+    flex: 1;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ledger-cream);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--brass-dark);
+    border-radius: 4px;
+    background: var(--office-dark);
+    transition: all 0.3s;
+}
+
+.back-link:hover {
+    background: var(--brass-dark);
+    color: var(--office-dark);
+    border-color: var(--brass);
+}
+
+.back-icon {
+    font-size: 1.2rem;
+}
+
+.office-title {
+    font-size: 2.2rem;
+    color: var(--brass-light);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    font-weight: normal;
+    letter-spacing: 3px;
+    margin-bottom: 0.25rem;
+}
+
+.office-subtitle {
+    color: var(--ledger-cream);
+    font-style: italic;
+    font-size: 0.95rem;
+    opacity: 0.8;
+}
+
+/* Banker's Lamp Decoration */
+.banker-lamp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lamp-shade {
+    width: 60px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--banker-green-light) 0%, var(--banker-green) 100%);
+    border-radius: 30px 30px 0 0;
+    box-shadow:
+        0 0 30px var(--banker-green-glow),
+        inset 0 -5px 10px rgba(0, 0, 0, 0.3);
+}
+
+.lamp-stem {
+    width: 8px;
+    height: 25px;
+    background: linear-gradient(90deg, var(--brass-dark) 0%, var(--brass-light) 50%, var(--brass-dark) 100%);
+    border-radius: 0 0 4px 4px;
+}
+
+/* Main Content Area */
+.office-main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Filing Cabinet Navigation */
+.filing-cabinet {
+    margin-bottom: 2rem;
+}
+
+.cabinet-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--filing-metal);
+    padding: 4px;
+    border-radius: 8px 8px 0 0;
+    box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.3),
+        0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cabinet-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 1rem 1.5rem;
+    background: var(--filing-label);
+    border: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    color: var(--ink);
+    transition: all 0.2s;
+    position: relative;
+    top: 2px;
+}
+
+.cabinet-tab:hover {
+    background: #fff;
+    top: 0;
+}
+
+.cabinet-tab.active {
+    background: var(--ledger-cream);
+    top: 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cabinet-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--ledger-cream);
+}
+
+.tab-icon {
+    font-size: 1.5rem;
+}
+
+.tab-label {
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Content Area */
+.office-content {
+    background: var(--ledger-cream);
+    border-radius: 0 0 8px 8px;
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    min-height: 600px;
+}
+
+.drawer-content {
+    display: none;
+    padding: 2rem;
+}
+
+.drawer-content.active {
+    display: block;
+    animation: drawerSlide 0.3s ease-out;
+}
+
+@keyframes drawerSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Section Header */
+.section-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--ledger-line);
+}
+
+.section-header h2 {
+    color: var(--ink);
+    font-size: 1.8rem;
+    font-weight: normal;
+    margin-bottom: 0.25rem;
+}
+
+.section-desc {
+    color: var(--ink-faded);
+    font-style: italic;
+}
+
+/* Card Catalog */
+.card-catalog {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.catalog-card {
+    background: #fff;
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    box-shadow:
+        2px 2px 8px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.catalog-card.wide {
+    grid-column: 1 / -1;
+}
+
+.card-header {
+    background: linear-gradient(180deg, var(--office-leather) 0%, var(--office-desk) 100%);
+    color: var(--ledger-cream);
+    padding: 0.75rem 1rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+.card-footer {
+    padding: 1rem 1.25rem;
+    background: var(--filing-label);
+    border-top: 1px solid var(--ledger-line);
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+/* Stats Grid */
+.stat-grid {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px dotted var(--ledger-line);
+}
+
+.stat-row:last-child {
+    border-bottom: none;
+}
+
+.stat-row .stat-label {
+    color: var(--ink-faded);
+}
+
+.stat-row .stat-value {
+    color: var(--ink);
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+/* Operation List */
+.operation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.operation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--filing-label);
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+}
+
+.operation-info h4 {
+    color: var(--ink);
+    margin-bottom: 0.25rem;
+}
+
+.operation-info p {
+    color: var(--ink-faded);
+    font-size: 0.85rem;
+}
+
+/* Office Buttons */
+.office-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    background: var(--office-leather);
+    color: var(--ledger-cream);
+    border: 2px solid var(--brass-dark);
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.office-btn:hover {
+    background: var(--brass-dark);
+    color: var(--office-dark);
+}
+
+.office-btn.primary {
+    background: var(--banker-green);
+    border-color: var(--banker-green-light);
+}
+
+.office-btn.primary:hover {
+    background: var(--banker-green-light);
+}
+
+.office-btn.secondary {
+    background: var(--filing-metal);
+    border-color: #777;
+}
+
+.office-btn.secondary:hover {
+    background: #777;
+}
+
+.office-btn.danger {
+    background: var(--red-ink);
+    border-color: #a03020;
+}
+
+.office-btn.danger:hover {
+    background: #a03020;
+}
+
+.office-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-icon {
+    font-size: 1.1rem;
+}
+
+/* Office Inputs */
+.office-input, .office-select {
+    padding: 0.6rem 1rem;
+    border: 2px solid var(--ledger-line);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--ink);
+    font-family: 'Georgia', serif;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.office-input:focus, .office-select:focus {
+    outline: none;
+    border-color: var(--brass);
+    box-shadow: 0 0 8px rgba(184, 134, 11, 0.2);
+}
+
+/* Search Row */
+.search-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.search-row .office-input {
+    flex: 1;
+}
+
+/* Search Results */
+.search-results {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+}
+
+.placeholder-text {
+    color: var(--ink-faded);
+    font-style: italic;
+    text-align: center;
+    padding: 2rem;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--ledger-line);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-result-item:hover {
+    background: var(--filing-label);
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.result-cover {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 2px;
+    background: var(--ledger-line);
+}
+
+.result-info {
+    flex: 1;
+}
+
+.result-title {
+    color: var(--ink);
+    font-weight: bold;
+}
+
+.result-meta {
+    color: var(--ink-faded);
+    font-size: 0.85rem;
+}
+
+/* Edit Form */
+.edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.form-row.two-col .form-group {
+    flex: 1;
+}
+
+.form-row.three-col .form-group {
+    flex: 1;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.form-group label {
+    color: var(--ink-faded);
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-group .office-input {
+    width: 100%;
+}
+
+.file-path {
+    padding: 0.6rem 1rem;
+    background: var(--filing-label);
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--ink-faded);
+    word-break: break-all;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ledger-line);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--ledger-cream);
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.close-btn:hover {
+    opacity: 1;
+}
+
+/* Duplicates Section */
+.detection-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--filing-label);
+    border: 2px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.radio-option:hover {
+    border-color: var(--brass);
+}
+
+.radio-option input[type="radio"] {
+    margin-top: 0.25rem;
+}
+
+.radio-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.radio-label strong {
+    color: var(--ink);
+}
+
+.radio-label small {
+    color: var(--ink-faded);
+}
+
+.badge {
+    background: var(--brass);
+    color: var(--office-dark);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.duplicates-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.duplicate-group {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.duplicate-group-header {
+    background: var(--office-leather);
+    color: var(--ledger-cream);
+    padding: 0.75rem 1rem;
+    font-weight: bold;
+}
+
+.duplicate-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--ledger-line);
+}
+
+.duplicate-item:last-child {
+    border-bottom: none;
+}
+
+.duplicate-item.keep {
+    background: rgba(45, 74, 62, 0.1);
+}
+
+.duplicate-item .keep-badge {
+    background: var(--banker-green);
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.duplicate-checkbox {
+    width: 18px;
+    height: 18px;
+}
+
+/* Bulk Operations */
+.bulk-filters {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    color: var(--ink-faded);
+    font-weight: bold;
+}
+
+.bulk-selection-bar {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 0.75rem 1rem;
+    background: var(--filing-label);
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.selection-count {
+    color: var(--ink-faded);
+    font-style: italic;
+}
+
+.bulk-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+}
+
+.bulk-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--ledger-line);
+}
+
+.bulk-item:nth-child(even) {
+    background: var(--filing-label);
+}
+
+.bulk-action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.bulk-action-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--filing-label);
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+}
+
+.bulk-action-item.danger-zone {
+    border-color: var(--red-ink);
+    background: rgba(139, 37, 0, 0.05);
+}
+
+.action-info h4 {
+    color: var(--ink);
+    margin-bottom: 0.25rem;
+}
+
+.action-info p {
+    color: var(--ink-faded);
+    font-size: 0.85rem;
+}
+
+.action-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.toast {
+    padding: 1rem 1.5rem;
+    background: var(--office-desk);
+    color: var(--ledger-cream);
+    border-left: 4px solid var(--brass);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: toastSlide 0.3s ease-out;
+}
+
+.toast.success {
+    border-left-color: var(--banker-green-light);
+}
+
+.toast.error {
+    border-left-color: var(--red-ink);
+}
+
+@keyframes toastSlide {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--ledger-cream);
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    background: var(--office-leather);
+    color: var(--ledger-cream);
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    font-size: 1.2rem;
+    font-weight: normal;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--ledger-cream);
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.modal-close:hover {
+    opacity: 1;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    color: var(--ink);
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    background: var(--filing-label);
+    border-top: 1px solid var(--ledger-line);
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+/* Progress Indicator */
+.progress-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+}
+
+.progress-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--ledger-line);
+    border-top-color: var(--brass);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.progress-output {
+    background: var(--office-dark);
+    color: var(--banker-green-light);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    padding: 1rem;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    width: 100%;
+    white-space: pre-wrap;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .office-header .header-content {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .header-left, .header-right {
+        flex: none;
+    }
+
+    .header-right {
+        display: none;
+    }
+
+    .cabinet-tabs {
+        flex-wrap: wrap;
+    }
+
+    .cabinet-tab {
+        flex: 1 1 45%;
+    }
+
+    .card-catalog {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row.two-col,
+    .form-row.three-col {
+        flex-direction: column;
+    }
+
+    .bulk-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .operation-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .bulk-action-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .action-controls {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}

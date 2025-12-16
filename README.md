@@ -169,7 +169,18 @@ python3 populate_genres.py --execute
 ```
 The script matches books by ASIN, exact title, or fuzzy title matching (85% threshold). This populates the genres table and enables collection-based filtering in the web UI.
 
-### Multi-Source Audiobooks
+### Multi-Source Audiobooks (Experimental - Phase Maybe)
+
+> **⚠️ ROUGHED IN, NOT FULLY TESTED**
+>
+> This feature exists but is not actively supported. The core purpose of audiobook-toolkit is managing Audible audiobooks - protecting a 15+ year investment in content that could disappear if Amazon loses licensing.
+>
+> Multi-source support was roughed in but moved to "Phase Maybe." The code works but isn't prioritized. PRs welcome if you want to finish it.
+> See: [Roadmap Discussion](https://github.com/greogory/audiobook-toolkit/discussions/2)
+
+<details>
+<summary>Multi-source scripts (click to expand)</summary>
+
 Import audiobooks from sources beyond Audible (Google Play, Librivox, Chirp, etc.):
 
 ```bash
@@ -195,6 +206,8 @@ The Google Play processor:
 - Enriches metadata from OpenLibrary (title, author, subjects)
 - Calculates SHA-256 hash automatically
 - Imports directly to database with `--import-db`
+
+</details>
 
 ### Populate Sort Fields
 Extract author/narrator names and series info for enhanced sorting:
