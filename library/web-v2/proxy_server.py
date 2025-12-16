@@ -51,11 +51,23 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error(405, "Method Not Allowed")
 
+    def do_PUT(self):
+        if self.path.startswith('/api/'):
+            self.proxy_to_api('PUT')
+        else:
+            self.send_error(405, "Method Not Allowed")
+
+    def do_DELETE(self):
+        if self.path.startswith('/api/'):
+            self.proxy_to_api('DELETE')
+        else:
+            self.send_error(405, "Method Not Allowed")
+
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(204)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Range')
         self.send_header('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length')
         self.end_headers()
@@ -71,9 +83,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 if header in self.headers:
                     headers[header] = self.headers[header]
 
-            # Read request body for POST
+            # Read request body for POST/PUT
             body = None
-            if method == 'POST':
+            if method in ('POST', 'PUT'):
                 content_length = int(self.headers.get('Content-Length', 0))
                 if content_length > 0:
                     body = self.rfile.read(content_length)

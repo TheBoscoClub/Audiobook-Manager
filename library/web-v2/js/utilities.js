@@ -3,9 +3,9 @@
  * JavaScript for database management, metadata editing, duplicates, and bulk operations
  */
 
-const API_BASE = window.location.hostname === 'localhost'
-    ? 'http://localhost:5001'
-    : `${window.location.protocol}//${window.location.hostname}:5001`;
+// Use empty string for API_BASE since fetch URLs already include /api/ prefix
+// This allows the proxy server to properly route requests
+const API_BASE = '';
 
 // State
 let currentSection = 'database';
