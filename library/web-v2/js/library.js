@@ -646,6 +646,21 @@ class AudiobookLibraryV2 {
         dropdown.classList.add('active');
     }
 
+    /**
+     * Get the last name from a single person's name (no commas)
+     */
+    extractLastName(singleName) {
+        // Strip role suffixes first
+        let clean = singleName
+            .replace(/\s*\([^)]*\)\s*/g, '')
+            .replace(/\s*-\s*(editor|translator|contributor|introduction|author|authoreditor|editorauthor)\s*/gi, '')
+            .trim();
+        if (!clean) clean = singleName.trim();
+
+        const parts = clean.split(/\s+/);
+        return parts.length > 1 ? parts[parts.length - 1] : clean;
+    }
+
     filterByLetterGroup(names, group) {
         if (group === 'all') return [...names];
 
@@ -659,7 +674,27 @@ class AudiobookLibraryV2 {
 
         const letters = ranges[group] || [];
         return names.filter(name => {
-            // Use the sort key to get consistent filtering
+            // For co-authored works, check if ANY author's last name matches
+            // This allows "Stephen King, Peter Straub" to appear under both K and S
+            if (name.includes(',')) {
+                const people = name.split(',').map(p => p.trim());
+                // Skip if it's an anthology (has contributors) - use editor only
+                const hasContributors = people.some(p => /\(contributor\)/i.test(p));
+                if (hasContributors) {
+                    const editor = people.find(p => /\(editor\)/i.test(p) || /- editor/i.test(p));
+                    if (editor) {
+                        const lastName = this.extractLastName(editor);
+                        return letters.includes(lastName.charAt(0).toUpperCase());
+                    }
+                }
+                // Co-authored: match if ANY author's last name is in the letter group
+                return people.some(person => {
+                    const lastName = this.extractLastName(person);
+                    return letters.includes(lastName.charAt(0).toUpperCase());
+                });
+            }
+
+            // Single author - use sort key
             const sortKey = this.getNameSortKey(name);
             const firstLetter = sortKey.charAt(0).toUpperCase();
             return letters.includes(firstLetter);
