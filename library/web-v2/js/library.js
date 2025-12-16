@@ -38,12 +38,30 @@ class AudiobookLibraryV2 {
 
     /**
      * Extract sort key from a name - returns "LastName, FirstName" format
-     * Handles various name formats: "First Last", "First Middle Last", etc.
+     * Handles:
+     * - Single narrator: "First Last" → "Last, First"
+     * - Multiple narrators: "First Last, Second Name, ..." → sort by first narrator's last name
+     * - Named groups: "Full Cast" → treat entire name as surname
      */
     getNameSortKey(name) {
         if (!name) return '';
+
+        // Check for comma-separated multiple narrators
+        if (name.includes(',')) {
+            // Get the first narrator only
+            const firstNarrator = name.split(',')[0].trim();
+            return this.getNameSortKey(firstNarrator);
+        }
+
+        // Known group names - treat entire name as surname (no first name)
+        const groupNames = ['full cast', 'various authors', 'various narrators', 'various', 'unknown narrator'];
+        if (groupNames.includes(name.toLowerCase().trim())) {
+            return name.toLowerCase();
+        }
+
         const parts = name.trim().split(/\s+/);
         if (parts.length === 1) return name.toLowerCase();
+
         // Last word is the last name, everything else is first/middle
         const lastName = parts[parts.length - 1];
         const firstName = parts.slice(0, -1).join(' ');
@@ -619,10 +637,9 @@ class AudiobookLibraryV2 {
 
         const letters = ranges[group] || [];
         return names.filter(name => {
-            // Get the last name (last word) for filtering
-            const parts = name.trim().split(/\s+/);
-            const lastName = parts.length > 1 ? parts[parts.length - 1] : name;
-            const firstLetter = lastName.charAt(0).toUpperCase();
+            // Use the sort key to get consistent filtering
+            const sortKey = this.getNameSortKey(name);
+            const firstLetter = sortKey.charAt(0).toUpperCase();
             return letters.includes(firstLetter);
         });
     }
