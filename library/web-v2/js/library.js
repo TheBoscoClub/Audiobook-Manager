@@ -606,8 +606,8 @@ class AudiobookLibraryV2 {
         dropdown.classList.add('active');
     }
 
-    filterByLetterGroup(narrators, group) {
-        if (group === 'all') return [...narrators];
+    filterByLetterGroup(names, group) {
+        if (group === 'all') return [...names];
 
         const ranges = {
             'a-e': ['A', 'B', 'C', 'D', 'E'],
@@ -618,8 +618,11 @@ class AudiobookLibraryV2 {
         };
 
         const letters = ranges[group] || [];
-        return narrators.filter(n => {
-            const firstLetter = n.charAt(0).toUpperCase();
+        return names.filter(name => {
+            // Get the last name (last word) for filtering
+            const parts = name.trim().split(/\s+/);
+            const lastName = parts.length > 1 ? parts[parts.length - 1] : name;
+            const firstLetter = lastName.charAt(0).toUpperCase();
             return letters.includes(firstLetter);
         });
     }
