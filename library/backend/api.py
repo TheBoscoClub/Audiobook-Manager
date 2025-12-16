@@ -258,6 +258,11 @@ def get_stats():
     cursor.execute("SELECT SUM(duration_hours) as total_hours FROM audiobooks")
     total_hours = cursor.fetchone()['total_hours'] or 0
 
+    # Total storage used (sum of file sizes in MB, convert to GB)
+    cursor.execute("SELECT SUM(file_size_mb) as total_size FROM audiobooks")
+    total_size_mb = cursor.fetchone()['total_size'] or 0
+    total_size_gb = total_size_mb / 1024
+
     # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
     cursor.execute("""
         SELECT COUNT(DISTINCT author) as count FROM audiobooks
@@ -283,10 +288,22 @@ def get_stats():
 
     conn.close()
 
+    # Get database file size
+    database_size_mb = 0
+    try:
+        import os
+        db_path = str(DATABASE_PATH)
+        if os.path.exists(db_path):
+            database_size_mb = os.path.getsize(db_path) / (1024 * 1024)
+    except Exception:
+        pass
+
     return jsonify({
         'total_audiobooks': total_books,
         'total_hours': round(total_hours),
         'total_days': round(total_hours / 24),
+        'total_size_gb': round(total_size_gb, 2),
+        'database_size_mb': round(database_size_mb, 2),
         'unique_authors': unique_authors,
         'unique_narrators': unique_narrators,
         'unique_publishers': unique_publishers,

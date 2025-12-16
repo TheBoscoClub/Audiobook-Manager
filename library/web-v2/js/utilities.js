@@ -80,17 +80,18 @@ async function loadDatabaseStats() {
         const stats = await statsRes.json();
         const hashStats = await hashRes.json();
 
-        // Update UI
-        document.getElementById('db-total-books').textContent = stats.total_books?.toLocaleString() || '-';
+        // Update UI - map API field names to display elements
+        document.getElementById('db-total-books').textContent = stats.total_audiobooks?.toLocaleString() || '-';
         document.getElementById('db-total-hours').textContent =
             stats.total_hours ? `${Math.round(stats.total_hours).toLocaleString()} hrs` : '-';
         document.getElementById('db-total-size').textContent =
             stats.total_size_gb ? `${stats.total_size_gb.toFixed(1)} GB` : '-';
-        document.getElementById('db-total-authors').textContent = stats.total_authors?.toLocaleString() || '-';
-        document.getElementById('db-total-narrators').textContent = stats.total_narrators?.toLocaleString() || '-';
+        document.getElementById('db-total-authors').textContent = stats.unique_authors?.toLocaleString() || '-';
+        document.getElementById('db-total-narrators').textContent = stats.unique_narrators?.toLocaleString() || '-';
         document.getElementById('db-hash-count').textContent =
-            hashStats.hashed_count ? `${hashStats.hashed_count} / ${hashStats.total_count}` : '-';
-        document.getElementById('db-duplicate-groups').textContent = hashStats.duplicate_groups || '-';
+            hashStats.hashed_count !== undefined ? `${hashStats.hashed_count} / ${hashStats.total_audiobooks}` : '-';
+        document.getElementById('db-duplicate-groups').textContent =
+            hashStats.duplicate_groups !== undefined ? hashStats.duplicate_groups : '-';
         document.getElementById('db-file-size').textContent = stats.database_size_mb
             ? `${stats.database_size_mb.toFixed(1)} MB` : '-';
 

@@ -134,26 +134,6 @@
             </select>
 
             <button id="refresh-btn" class="refresh-btn">↻ Refresh</button>
-
-            <!-- Find Duplicates Dropdown -->
-            <div class="dropdown" id="duplicates-dropdown">
-                <button class="dropdown-btn" id="duplicates-btn">Find Duplicates ▾</button>
-                <div class="dropdown-content" id="duplicates-menu">
-                    <div class="dropdown-header">Hash Generation</div>
-                    <a href="#" data-action="hash-stats">View Hash Statistics</a>
-                    <a href="#" data-action="hash-generate">Generate Hashes (CLI)</a>
-                    <a href="#" data-action="hash-verify">Verify Hashes (CLI)</a>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-header">Duplicate Detection</div>
-                    <a href="#" data-action="show-duplicates">View Duplicates</a>
-                    <a href="#" data-action="duplicates-report">Full Report (CLI)</a>
-                    <a href="#" data-action="duplicates-json">Export to JSON (CLI)</a>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-header">Duplicate Removal</div>
-                    <a href="#" data-action="duplicates-dryrun">Dry Run (CLI)</a>
-                    <a href="#" data-action="duplicates-execute" class="danger">Execute Removal (CLI)</a>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -208,85 +188,6 @@
     <div class="loading-overlay" id="loading-overlay">
         <div class="loading-spinner"></div>
         <p>Loading audiobooks...</p>
-    </div>
-
-    <!-- Hash Stats Modal -->
-    <div class="modal" id="hash-stats-modal">
-        <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h2>Hash Statistics</h2>
-                <button class="modal-close" data-modal="hash-stats-modal">&times;</button>
-            </div>
-            <div class="modal-body" id="hash-stats-content">
-                <div class="loading-spinner"></div>
-                <p>Loading statistics...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Duplicates Modal -->
-    <div class="modal" id="duplicates-modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h2>Duplicate Audiobooks</h2>
-                <button class="modal-close" data-modal="duplicates-modal">&times;</button>
-            </div>
-            <div class="duplicate-mode-tabs">
-                <button class="mode-tab active" data-mode="title">Same Title/Author/Narrator</button>
-                <button class="mode-tab" data-mode="hash">Exact Match (SHA-256)</button>
-            </div>
-            <div class="modal-toolbar">
-                <div class="toolbar-left">
-                    <span id="duplicates-summary">Loading...</span>
-                </div>
-                <div class="toolbar-right">
-                    <button class="btn btn-secondary" id="select-all-duplicates">Select All Duplicates</button>
-                    <button class="btn btn-secondary" id="deselect-all">Deselect All</button>
-                    <button class="btn btn-danger" id="delete-selected" disabled>Delete Selected (0)</button>
-                </div>
-            </div>
-            <div class="modal-body" id="duplicates-content">
-                <div class="loading-spinner"></div>
-                <p>Loading duplicates...</p>
-            </div>
-            <div class="modal-footer">
-                <p class="safety-note">
-                    <strong>Safety:</strong> The first file in each group (marked KEEP) is protected and cannot be deleted.
-                    This ensures you never lose the last copy of any audiobook.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- CLI Command Modal -->
-    <div class="modal" id="cli-modal">
-        <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h2>CLI Command</h2>
-                <button class="modal-close" data-modal="cli-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p id="cli-description"></p>
-                <pre class="cli-command" id="cli-command"></pre>
-                <button class="btn btn-primary" id="copy-cli-command">Copy to Clipboard</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirmation Modal -->
-    <div class="modal" id="confirm-modal">
-        <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h2>Confirm Deletion</h2>
-                <button class="modal-close" data-modal="confirm-modal">&times;</button>
-            </div>
-            <div class="modal-body" id="confirm-content">
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
-                <button class="btn btn-danger" id="confirm-delete">Delete Files</button>
-            </div>
-        </div>
     </div>
 
     <!-- Audio Player -->
