@@ -41,16 +41,29 @@ class AudiobookLibraryV2 {
      * Handles:
      * - Single name: "First Last" → "Last, First"
      * - Multiple names: "First Last, Second Name, ..." → sort by first person's last name
+     * - Anthologies: "Gaiman (contributor), Martin (editor)" → sort by editor (Martin)
      * - Named groups: "Full Cast" → treat entire name as surname
      * - Role suffixes: "Name (editor)", "Name - translator" → strip role, sort by name
      */
     getNameSortKey(name) {
         if (!name) return '';
 
-        // Check for comma-separated multiple names - use first person only
+        // Check for comma-separated multiple names
         if (name.includes(',')) {
-            const firstName = name.split(',')[0].trim();
-            return this.getNameSortKey(firstName);
+            const parts = name.split(',').map(p => p.trim());
+
+            // If there are "(contributor)" entries, this is an anthology - find the editor
+            const hasContributors = parts.some(p => /\(contributor\)/i.test(p));
+            if (hasContributors) {
+                // Find the editor - they're the "author of record" for anthologies
+                const editor = parts.find(p => /\(editor\)/i.test(p) || /- editor/i.test(p));
+                if (editor) {
+                    return this.getNameSortKey(editor);
+                }
+            }
+
+            // Otherwise use first person in the list
+            return this.getNameSortKey(parts[0]);
         }
 
         // Strip role suffixes: "(editor)", "(translator)", "- editor", etc.
