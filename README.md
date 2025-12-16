@@ -664,7 +664,22 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v2.9 (Current Development)
+### v3.0 (Current)
+- **The Back Office**: New utilities page with vintage library back-office aesthetic
+  - Database management: stats, vacuum, rescan, reimport, export (JSON/CSV/SQLite)
+  - Metadata editing: search, view, and edit audiobook metadata
+  - Duplicate management: find and remove duplicates by title/author or SHA-256 hash
+  - Bulk operations: select multiple audiobooks, bulk update fields, bulk delete
+- **API Enhancements**: PUT/DELETE endpoints for editing, storage size and database size in stats
+- **Smart Author/Narrator Sorting**: Sort by last name, first name
+  - Single author: "Stephen King" → sorts as "King, Stephen"
+  - Co-authored: "Stephen King, Peter Straub" → appears in both K and S letter groups
+  - Anthologies: "Gaiman (contributor), Martin (editor)" → sorts by editor (Martin)
+  - Role suffixes stripped: "(editor)", "(translator)", "- editor" handled correctly
+- **Proxy Server**: Added PUT/DELETE method support for utilities operations
+- **Removed**: Find Duplicates dropdown from main Library page (moved to Back Office)
+
+### v2.9
 - **Metadata Preservation**: Import now preserves manually-populated narrator and genre data from Audible exports, preventing data loss on reimport
 - **Improved Deduplication**: Scanner now intelligently deduplicates between main library and `/Library/Audiobook/` folder, preferring main library files while keeping unique entries
 - **Security**: Updated flask-cors from 4.0.0 to 6.0.0 (fixes CVE-2024-6839, CVE-2024-6844, CVE-2024-6866)
@@ -697,8 +712,8 @@ See [GitHub Releases](https://github.com/greogory/audiobook-toolkit/releases) fo
 |-------|------------|--------|
 | Browser security warning for self-signed SSL cert | Click "Advanced" → "Proceed to localhost" | By design |
 | Narrator/genre data must be re-synced after adding new books | Run `update_narrators_from_audible.py` and `populate_genres.py` after importing | Planned: Auto-sync on import |
-| No UI for duplicate management | Use CLI scripts (`find_duplicates.py --remove --execute`) | Planned: Web UI |
-| Limited metadata editing in webapp | Edit database directly or re-import | Planned: Edit modal |
+| ~No UI for duplicate management~ | ~~Use CLI scripts~~ | ✅ Fixed in v3.0 (Back Office) |
+| ~Limited metadata editing in webapp~ | ~~Edit database directly~~ | ✅ Fixed in v3.0 (Back Office) |
 
 ## Roadmap
 
