@@ -22,6 +22,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# Session files
+exit.*
+
 # Database (keep structure, ignore actual data)
 *.db
 !library/backend/schema.sql
