@@ -2,47 +2,54 @@
 
 ## 🚀 Launch the Library
 
+### Using Systemd (Recommended)
+
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
-./launch-v2.sh
+# Start all services
+systemctl --user start audiobooks.target
+
+# Or start individually
+systemctl --user start audiobooks-api audiobooks-proxy
 ```
 
-Your browser will automatically open to: **http://localhost:8090**
+### Manual Launch
+
+```bash
+cd /raid0/ClaudeCodeProjects/Audiobooks/library
+./launch-v3.sh
+```
+
+Your browser will open to: **https://localhost:8443**
 
 ---
 
 ## ✅ Verify It's Working
 
 You should see:
-- **"Personal Audiobook Library"** at the top
-- **2,702 volumes • 31,282 hours** in the statistics
+- **"The Library"** at the top
+- **Statistics** showing your collection size
 - **Book grid loading instantly** (not stuck on "Loading audiobooks...")
 - **Pagination controls** at the bottom
 
 ---
 
-## ⚠️ If You See "Loading audiobooks..." Forever
+## ⚠️ Browser Security Warning
 
-You're on the **old version**. Navigate to:
-```
-http://localhost:8090
-```
-
-NOT:
-```
-http://localhost:8090/web/       ← Old version
-http://localhost:8080/web/       ← Old version
-```
+You'll see a self-signed certificate warning. Click:
+- **Chrome**: Advanced → Proceed to localhost
+- **Firefox**: Advanced → Accept the Risk and Continue
+- **Safari**: Show Details → visit this website
 
 ---
 
 ## 🔍 Features
 
 - **Search** - Full-text search across all fields
-- **Filter** - By author, narrator, format
+- **Filter** - By author, narrator, collection
 - **Sort** - By title, author, duration, date added
 - **Pagination** - Browse 25/50/100/200 books per page
-- **Fast** - Loads in <500ms (vs 8-15 seconds before)
+- **Collections** - Browse by category (Fiction, Mystery, Sci-Fi, etc.)
+- **Back Office** - Database management, metadata editing, duplicate removal
 
 ---
 
@@ -54,9 +61,8 @@ http://localhost:8080/web/       ← Old version
 
 **Solution:**
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
-source venv/bin/activate
-python backend/api.py
+systemctl --user status audiobooks-api
+systemctl --user start audiobooks-api
 ```
 
 ### Page loads but no books appear
@@ -64,42 +70,44 @@ python backend/api.py
 **Problem:** Check browser console (F12) for errors
 
 **Solution:**
-1. Verify API is running: `curl http://localhost:5001/health`
+1. Verify API is running: `curl -sk https://localhost:8443/api/stats`
 2. Check browser console for JavaScript errors
-3. Restart: `./launch-v2.sh`
+3. Restart services: `systemctl --user restart audiobooks.target`
 
 ### Port already in use
 
-**Problem:** Port 5001 or 8090 in use
+**Problem:** Port 5001 or 8443 in use
 
 **Solution:**
 ```bash
-# Stop existing servers
-pkill -f "api.py"
-pkill -f "http.server"
+# Check what's using the ports
+ss -tlnp | grep -E "5001|8443"
+
+# Stop existing services
+systemctl --user stop audiobooks-api audiobooks-proxy
 
 # Restart
-./launch-v2.sh
+systemctl --user start audiobooks-api audiobooks-proxy
 ```
 
 ---
 
 ## 📊 API Endpoints
 
-The library includes a REST API on port 5001:
+The library includes a REST API (proxied through HTTPS on port 8443):
 
 ```bash
 # Get statistics
-curl http://localhost:5001/api/stats
+curl -sk https://localhost:8443/api/stats
 
 # Search audiobooks
-curl "http://localhost:5001/api/audiobooks?search=tolkien"
+curl -sk "https://localhost:8443/api/audiobooks?search=tolkien"
 
 # Filter by author
-curl "http://localhost:5001/api/audiobooks?author=sanderson"
+curl -sk "https://localhost:8443/api/audiobooks?author=sanderson"
 
 # Get all filters (authors, narrators, etc.)
-curl http://localhost:5001/api/filters
+curl -sk https://localhost:8443/api/filters
 ```
 
 ---
@@ -107,37 +115,50 @@ curl http://localhost:5001/api/filters
 ## 🔄 Update Library After Adding Audiobooks
 
 ```bash
-# 1. Scan new audiobooks
-cd /raid0/ClaudeCodeProjects/audiobook-library/scanner
+# Using systemctl (triggers database update)
+systemctl --user start audiobooks-library-update.service
+
+# Or manually
+cd /raid0/ClaudeCodeProjects/Audiobooks/library/scanner
 python3 scan_audiobooks.py
 
-# 2. Update database
-cd /raid0/ClaudeCodeProjects/audiobook-library
-source venv/bin/activate
-python backend/import_to_db.py
+cd ../backend
+python3 import_to_db.py
 
-# 3. Refresh browser (click "↻ Refresh" button)
+# Refresh browser (click "↻ Refresh" button)
 ```
+
+---
+
+## 📁 Service Architecture
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `audiobooks-api` | 5001 (localhost) | Flask REST API |
+| `audiobooks-proxy` | 8443 (public) | HTTPS reverse proxy |
+| `audiobooks-converter` | - | AAXC → OPUS conversion |
+| `audiobooks-mover` | - | Move files from tmpfs |
 
 ---
 
 ## 📁 File Locations
 
-- **Database:** `backend/audiobooks.db` (4 MB)
+- **Database:** `backend/audiobooks.db`
 - **API Server:** `backend/api.py` (port 5001)
-- **Web Interface:** `web-v2/` (port 8090)
-- **Launcher:** `launch-v2.sh`
+- **Proxy Server:** `web-v2/proxy_server.py` (port 8443)
+- **Web Interface:** `web-v2/`
 
 ---
 
 ## 📚 Documentation
 
-- `UPGRADE_GUIDE.md` - Full features and deployment guide
+- `INSTALL.md` - Full installation guide
+- `UPGRADE_GUIDE.md` - Features and deployment guide
 - `PERFORMANCE_REPORT.md` - Benchmarks and analysis
-- `backend/README.md` - API documentation
+- `../README.md` - Main project documentation
 
 ---
 
-**Enjoy your lightning-fast audiobook library! 📚⚡**
+**Enjoy your audiobook library! 📚**
 
 For issues or questions, check the documentation files listed above.

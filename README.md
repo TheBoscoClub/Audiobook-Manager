@@ -169,13 +169,21 @@ python3 populate_genres.py --execute
 ```
 The script matches books by ASIN, exact title, or fuzzy title matching (85% threshold). This populates the genres table and enables collection-based filtering in the web UI.
 
-### Multi-Source Audiobooks (Experimental - Phase Maybe)
+### Multi-Source Audiobooks (Experimental - Disabled by Default)
 
-> **⚠️ ROUGHED IN, NOT FULLY TESTED**
+> **⚠️ EXPERIMENTAL / NOT FULLY TESTED - USE AT YOUR OWN RISK**
 >
-> This feature exists but is not actively supported. The core purpose of audiobook-toolkit is managing Audible audiobooks - protecting a 15+ year investment in content that could disappear if Amazon loses licensing.
+> Multi-source audiobook support (Google Play, Chirp, Librivox, etc.) is **disabled by default**. The only fully tested and verified format is **Audible's AAXC**.
 >
-> Multi-source support was roughed in but moved to "Phase Maybe." The code works but isn't prioritized. PRs welcome if you want to finish it.
+> **Known Issues with non-AAXC formats:**
+> - Metadata extraction may be incomplete or incorrect
+> - Chapter detection/ordering may fail for some sources
+> - Cover art extraction is unreliable for many formats
+> - Multi-reader audiobooks (e.g., Librivox) may not be handled correctly
+>
+> The `audiobooks-multiformat` service and related scripts are disabled. To enable at your own risk, uncomment the watch directories in `watch-multiformat-sources.sh`.
+>
+> PRs welcome if you want to improve multi-source support.
 > See: [Roadmap Discussion](https://github.com/greogory/audiobook-toolkit/discussions/2)
 
 <details>
@@ -600,16 +608,42 @@ python3 import_to_db.py
 
 ## Systemd Services
 
+All services use the `audiobooks-*` naming convention for easy management.
+
+### Core Services
+
+| Service | Description | Type |
+|---------|-------------|------|
+| `audiobooks-api` | Flask REST API (Waitress) on localhost:5001 | always running |
+| `audiobooks-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
+| `audiobooks-converter` | AAXC → OPUS conversion | always running |
+| `audiobooks-mover` | Move converted files from tmpfs to storage | always running |
+| `audiobooks-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
+| `audiobooks-library-update.timer` | Update database with new audiobooks | timer |
+| `audiobooks-shutdown-saver` | Save staging files before shutdown | on shutdown |
+| `audiobooks-conversion-trigger.path` | Watch for new downloads | path watcher |
+| `audiobooks-database-trigger.path` | Watch for completed conversions | path watcher |
+
+### Experimental Services (Disabled by Default)
+
+| Service | Description |
+|---------|-------------|
+| `audiobooks-multiformat` | Non-AAXC format conversion (Google Play, Chirp, Librivox) |
+| `audiobooks-librivox.timer` | Download from Librivox wishlist |
+
 ### User Services
 ```bash
-# Enable services at login
-systemctl --user enable audiobooks-api audiobooks-web
+# Check all audiobooks services
+systemctl --user status 'audiobooks-*'
+
+# Enable core services at login
+systemctl --user enable audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover
 
 # Start services
 systemctl --user start audiobooks.target
 
 # Check status
-systemctl --user status audiobooks-api audiobooks-web
+systemctl --user status audiobooks-api audiobooks-proxy
 
 # View logs
 journalctl --user -u audiobooks-api -f
@@ -618,17 +652,13 @@ journalctl --user -u audiobooks-api -f
 loginctl enable-linger $USER
 ```
 
-### System Services
-```bash
-# Enable services at boot
-sudo systemctl enable audiobooks-api audiobooks-web
+### Conversion Priority
 
-# Start services
-sudo systemctl start audiobooks.target
+The converter service runs with low CPU and I/O priority to avoid impacting interactive use:
+- **CPU**: `nice -n 19` (lowest priority)
+- **I/O**: `ionice -c 2 -n 7` (best-effort, lowest priority within class)
 
-# Check status
-systemctl status audiobooks-api audiobooks-web
-```
+This ensures audiobook conversion happens in the background without affecting system responsiveness.
 
 ## Acknowledgments
 

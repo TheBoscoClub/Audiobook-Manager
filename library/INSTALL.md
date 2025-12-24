@@ -244,8 +244,8 @@ python3 import_to_db.py
 #### Using Systemd (Recommended)
 
 ```bash
-# Enable services at login
-systemctl --user enable audiobooks-api audiobooks-web
+# Enable core services at login
+systemctl --user enable audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover
 
 # Start services
 systemctl --user start audiobooks.target
@@ -274,7 +274,7 @@ audiobooks-web
 
 Open your browser and navigate to:
 ```
-https://localhost:8090
+https://localhost:8443
 ```
 
 **Note**: You'll see a browser warning about the self-signed certificate. Click "Advanced" → "Proceed to localhost" to continue.
@@ -282,8 +282,11 @@ https://localhost:8090
 ### Service Management
 
 ```bash
-# Check status
-systemctl --user status audiobooks-api audiobooks-web
+# Check all audiobooks services
+systemctl --user status 'audiobooks-*'
+
+# Check specific services
+systemctl --user status audiobooks-api audiobooks-proxy
 
 # Restart services
 systemctl --user restart audiobooks.target
@@ -293,7 +296,7 @@ systemctl --user stop audiobooks.target
 
 # View logs
 journalctl --user -u audiobooks-api -f
-journalctl --user -u audiobooks-web -f
+journalctl --user -u audiobooks-proxy -f
 ```
 
 ---
@@ -435,7 +438,7 @@ If you encounter issues not covered here:
 
 1. **Check Logs**: Look for error messages in:
    - `journalctl --user -u audiobooks-api`
-   - `journalctl --user -u audiobooks-web`
+   - `journalctl --user -u audiobooks-proxy`
    - Browser console (F12)
 
 2. **Verify Setup**:
@@ -465,7 +468,7 @@ After installation:
 1. **Scan Your Library**: Run `audiobooks-scan` to index your audiobooks
 2. **Import to Database**: Run `audiobooks-import` to build searchable database
 3. **Start Services**: Enable systemd services for automatic startup
-4. **Access Web Interface**: Open https://localhost:8090
+4. **Access Web Interface**: Open https://localhost:8443
 
 **Features to Explore**:
 - Full-text search
