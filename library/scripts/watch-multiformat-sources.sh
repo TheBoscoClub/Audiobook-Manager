@@ -8,17 +8,56 @@
 #   - Chirp (MP3 files, often single file or chapters)
 #   - Librivox (MP3 files from public domain)
 #   - Other (generic MP3/ZIP support)
+#
+# ==============================================================================
+# WARNING: EXPERIMENTAL / NOT FULLY TESTED
+# ==============================================================================
+# This script handles non-AAXC audiobook formats (ZIP, MP3, M4A, M4B).
+# These formats are NOT fully tested and may not work as expected.
+#
+# The ONLY fully tested and verified format is Audible's AAXC format,
+# which is handled by the main audiobook conversion pipeline
+# (convert-audiobooks-opus-parallel, download-new-audiobooks, etc.)
+#
+# TO ENABLE EXPERIMENTAL FORMAT SUPPORT AT YOUR OWN RISK:
+# 1. Uncomment the WATCH_DIRS array entries below
+# 2. Uncomment the function calls in scan_directory()
+# 3. Understand that metadata extraction, chapter detection, and conversion
+#    may fail or produce incorrect results for non-AAXC formats
+# ==============================================================================
 
 set -euo pipefail
 
 # Configuration
 AUDIOBOOKS_BASE="/raid0/Audiobooks"
+
+# ==============================================================================
+# DISABLED: Non-AAXC source directories (experimental, not fully tested)
+# ==============================================================================
+# These watch directories are disabled because the formats they handle
+# (Google Play ZIPs, Chirp MP3s, Librivox MP3s, generic MP3/ZIP) have not
+# been fully tested. Enable at your own risk by uncommenting.
+# ==============================================================================
 WATCH_DIRS=(
-    "$AUDIOBOOKS_BASE/Sources-GooglePlay"
-    "$AUDIOBOOKS_BASE/Sources-Chirp"
-    "$AUDIOBOOKS_BASE/Sources-Librivox"
-    "$AUDIOBOOKS_BASE/Sources-Other"
+    # EXPERIMENTAL - Google Play audiobook ZIPs with chapter MP3s
+    # Known issues: metadata extraction may be incomplete, chapter ordering
+    # may be incorrect for some releases
+    # "$AUDIOBOOKS_BASE/Sources-GooglePlay"
+
+    # EXPERIMENTAL - Chirp audiobook MP3s (single file or chapters)
+    # Known issues: often missing metadata, cover art extraction unreliable
+    # "$AUDIOBOOKS_BASE/Sources-Chirp"
+
+    # EXPERIMENTAL - Librivox public domain MP3s
+    # Known issues: inconsistent file naming, metadata often minimal,
+    # multiple readers/sections may not be handled correctly
+    # "$AUDIOBOOKS_BASE/Sources-Librivox"
+
+    # EXPERIMENTAL - Generic MP3/ZIP support for other sources
+    # Known issues: highly variable quality, no guaranteed metadata format
+    # "$AUDIOBOOKS_BASE/Sources-Other"
 )
+
 OUTPUT_DIR="$AUDIOBOOKS_BASE/Library"
 LOG_DIR="$AUDIOBOOKS_BASE/logs"
 PROCESSOR_SCRIPT="/raid0/ClaudeCodeProjects/Audiobooks/library/scripts/google_play_processor.py"
@@ -60,7 +99,12 @@ get_source_type() {
     esac
 }
 
-# Process a ZIP file
+# ==============================================================================
+# EXPERIMENTAL FUNCTION: Process a ZIP file
+# ==============================================================================
+# This function processes ZIP files containing chapter MP3s (e.g., Google Play).
+# NOT FULLY TESTED - metadata extraction and chapter ordering may be incorrect.
+# ==============================================================================
 process_zip() {
     local zip_file="$1"
     local source_type="$2"
@@ -99,7 +143,12 @@ process_zip() {
     fi
 }
 
-# Process a directory of MP3 files (chapters or single file)
+# ==============================================================================
+# EXPERIMENTAL FUNCTION: Process a directory of MP3 files
+# ==============================================================================
+# This function processes directories containing chapter MP3s.
+# NOT FULLY TESTED - chapter detection and metadata extraction may fail.
+# ==============================================================================
 process_mp3_directory() {
     local mp3_dir="$1"
     local source_type="$2"
@@ -146,7 +195,12 @@ process_mp3_directory() {
     fi
 }
 
-# Process a single MP3 file (convert directly to OPUS)
+# ==============================================================================
+# EXPERIMENTAL FUNCTION: Process a single MP3 file
+# ==============================================================================
+# This function processes single-file MP3 audiobooks.
+# NOT FULLY TESTED - metadata extraction is often incomplete for single files.
+# ==============================================================================
 process_single_mp3() {
     local mp3_file="$1"
     local source_type="$2"
@@ -192,42 +246,63 @@ scan_directory() {
     # Skip if directory doesn't exist
     [[ ! -d "$watch_dir" ]] && return 1
 
-    # Process ZIP files
-    while IFS= read -r -d '' zip_file; do
-        # Skip if currently being written (check if modified in last 10 seconds)
-        local mtime=$(stat -c %Y "$zip_file" 2>/dev/null || echo 0)
-        local now=$(date +%s)
-        if (( now - mtime < 10 )); then
-            log "WAIT: $zip_file still being written..."
-            continue
-        fi
+    # ==========================================================================
+    # DISABLED: ZIP file processing (experimental, not fully tested)
+    # ==========================================================================
+    # ZIP processing is disabled because metadata extraction and chapter
+    # ordering have not been fully tested across all source types.
+    # To enable at your own risk, uncomment the following block:
+    # ==========================================================================
+    # # Process ZIP files
+    # while IFS= read -r -d '' zip_file; do
+    #     # Skip if currently being written (check if modified in last 10 seconds)
+    #     local mtime=$(stat -c %Y "$zip_file" 2>/dev/null || echo 0)
+    #     local now=$(date +%s)
+    #     if (( now - mtime < 10 )); then
+    #         log "WAIT: $zip_file still being written..."
+    #         continue
+    #     fi
+    #
+    #     process_zip "$zip_file" "$source_type" && found_work=true
+    # done < <(find "$watch_dir" -maxdepth 1 -name "*.zip" -type f -print0 2>/dev/null)
 
-        process_zip "$zip_file" "$source_type" && found_work=true
-    done < <(find "$watch_dir" -maxdepth 1 -name "*.zip" -type f -print0 2>/dev/null)
+    # ==========================================================================
+    # DISABLED: MP3/M4A/M4B directory processing (experimental, not fully tested)
+    # ==========================================================================
+    # Directory processing for audio files is disabled because chapter detection
+    # and metadata extraction have not been fully tested.
+    # To enable at your own risk, uncomment the following block:
+    # ==========================================================================
+    # # Process directories containing audio files (MP3, M4A, M4B)
+    # while IFS= read -r -d '' subdir; do
+    #     # Skip the watch directory itself
+    #     [[ "$subdir" == "$watch_dir" ]] && continue
+    #
+    #     # Check if directory contains audio files
+    #     if find "$subdir" -maxdepth 1 \( -name "*.mp3" -o -name "*.MP3" -o -name "*.m4a" -o -name "*.M4A" -o -name "*.m4b" -o -name "*.M4B" \) -type f | grep -q .; then
+    #         process_mp3_directory "$subdir" "$source_type" && found_work=true
+    #     fi
+    # done < <(find "$watch_dir" -maxdepth 1 -type d -print0 2>/dev/null)
 
-    # Process directories containing audio files (MP3, M4A, M4B)
-    while IFS= read -r -d '' subdir; do
-        # Skip the watch directory itself
-        [[ "$subdir" == "$watch_dir" ]] && continue
-
-        # Check if directory contains audio files
-        if find "$subdir" -maxdepth 1 \( -name "*.mp3" -o -name "*.MP3" -o -name "*.m4a" -o -name "*.M4A" -o -name "*.m4b" -o -name "*.M4B" \) -type f | grep -q .; then
-            process_mp3_directory "$subdir" "$source_type" && found_work=true
-        fi
-    done < <(find "$watch_dir" -maxdepth 1 -type d -print0 2>/dev/null)
-
-    # Process loose audio files (single-file audiobooks)
-    while IFS= read -r -d '' audio_file; do
-        # Skip if currently being written
-        local mtime=$(stat -c %Y "$audio_file" 2>/dev/null || echo 0)
-        local now=$(date +%s)
-        if (( now - mtime < 10 )); then
-            log "WAIT: $audio_file still being written..."
-            continue
-        fi
-
-        process_single_mp3 "$audio_file" "$source_type" && found_work=true
-    done < <(find "$watch_dir" -maxdepth 1 \( -name "*.mp3" -o -name "*.MP3" -o -name "*.m4a" -o -name "*.M4A" -o -name "*.m4b" -o -name "*.M4B" \) -type f -print0 2>/dev/null)
+    # ==========================================================================
+    # DISABLED: Loose audio file processing (experimental, not fully tested)
+    # ==========================================================================
+    # Single-file audiobook processing is disabled because metadata extraction
+    # is often incomplete or incorrect for standalone files.
+    # To enable at your own risk, uncomment the following block:
+    # ==========================================================================
+    # # Process loose audio files (single-file audiobooks)
+    # while IFS= read -r -d '' audio_file; do
+    #     # Skip if currently being written
+    #     local mtime=$(stat -c %Y "$audio_file" 2>/dev/null || echo 0)
+    #     local now=$(date +%s)
+    #     if (( now - mtime < 10 )); then
+    #         log "WAIT: $audio_file still being written..."
+    #         continue
+    #     fi
+    #
+    #     process_single_mp3 "$audio_file" "$source_type" && found_work=true
+    # done < <(find "$watch_dir" -maxdepth 1 \( -name "*.mp3" -o -name "*.MP3" -o -name "*.m4a" -o -name "*.M4A" -o -name "*.m4b" -o -name "*.M4B" \) -type f -print0 2>/dev/null)
 
     $found_work && return 0 || return 1
 }
@@ -237,6 +312,27 @@ main() {
     log "========================================="
     log "MULTIFORMAT AUDIOBOOK CONVERTER STARTING"
     log "========================================="
+
+    # Check if any watch directories are enabled
+    if [[ ${#WATCH_DIRS[@]} -eq 0 ]]; then
+        log ""
+        log "WARNING: No watch directories are enabled!"
+        log ""
+        log "All non-AAXC format processing is currently DISABLED because these"
+        log "formats have not been fully tested and may not work as expected."
+        log ""
+        log "The ONLY fully tested format is Audible's AAXC format, which is"
+        log "handled by the main audiobook pipeline (convert-audiobooks-opus-parallel)."
+        log ""
+        log "To enable experimental format support at your own risk:"
+        log "  1. Edit this script: $0"
+        log "  2. Uncomment the desired WATCH_DIRS entries"
+        log "  3. Uncomment the processing blocks in scan_directory()"
+        log ""
+        log "Exiting - nothing to watch."
+        exit 0
+    fi
+
     log "Watch directories:"
     for dir in "${WATCH_DIRS[@]}"; do
         log "  - $dir"

@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 """
-EXPERIMENTAL - ROUGHED IN, NOT FULLY TESTED
-============================================
+================================================================================
+WARNING: EXPERIMENTAL / NOT FULLY TESTED - USE AT YOUR OWN RISK
+================================================================================
+This script processes non-AAXC audiobook formats (ZIP, MP3, M4A, M4B) into OPUS.
+These formats are NOT fully tested and may not work as expected.
+
+KNOWN ISSUES:
+- Metadata extraction may be incomplete or incorrect
+- Chapter detection/ordering may fail for some sources
+- Cover art extraction is unreliable for many formats
+- Multi-reader audiobooks (e.g., Librivox) may not be handled correctly
+
+The ONLY fully tested and verified format is Audible's AAXC format, which is
+handled by the main audiobook conversion pipeline (convert-audiobooks-opus-parallel,
+download-new-audiobooks, etc.)
+
 This script is part of the multi-source audiobook support feature which has been
 moved to "Phase Maybe" in the roadmap. The code exists and may work, but it is
 not actively supported or prioritized.
 
-The core purpose of audiobook-toolkit is managing Audible audiobooks. Multi-source
-support (Google Play, Librivox, etc.) was roughed in but is not the project's focus.
-
 If you want to use or finish this feature, you're welcome to - PRs accepted.
-See: https://github.com/greogory/audiobook-toolkit/discussions/2
-============================================
+================================================================================
 
 Process Google Play audiobook downloads into library-ready OPUS files.
 
