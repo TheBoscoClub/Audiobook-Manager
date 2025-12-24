@@ -287,8 +287,10 @@ def scan_audiobooks():
 
     audiobooks = []
 
+    total_files = len(audiobook_files)
     for idx, filepath in enumerate(audiobook_files, 1):
-        print(f"Processing {idx}/{len(audiobook_files)}: {filepath.name}")
+        pct = int(idx * 100 / total_files)
+        print(f"[{pct:3d}%] Processing {idx}/{total_files}: {filepath.name}")
 
         metadata = get_file_metadata(filepath)
         if not metadata:

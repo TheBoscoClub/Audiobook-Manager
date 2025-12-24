@@ -1709,7 +1709,7 @@ def rescan_library():
             ['python3', str(scanner_path)],
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=1800  # 30 minute timeout for large libraries
         )
 
         # Parse output to get file count
@@ -1729,7 +1729,7 @@ def rescan_library():
             'error': result.stderr if result.returncode != 0 else None
         })
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'Scan timed out after 5 minutes'}), 500
+        return jsonify({'success': False, 'error': 'Scan timed out after 30 minutes'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
