@@ -38,6 +38,14 @@ Usage:
 import sqlite3
 import subprocess
 import tempfile
+
+
+def _set_low_priority():
+    """Set low CPU and I/O priority for child processes."""
+    import os
+    os.nice(19)  # Lowest CPU priority
+
+
 import zipfile
 import shutil
 import base64
@@ -456,7 +464,8 @@ class GooglePlayProcessor:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                text=True
+                text=True,
+                preexec_fn=_set_low_priority
             )
 
             if result.returncode != 0:
