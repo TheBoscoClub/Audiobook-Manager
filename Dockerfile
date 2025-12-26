@@ -8,7 +8,7 @@ FROM python:3.11-slim
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"
-LABEL version="3.0"
+LABEL version="3.0.1"
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.source="https://github.com/greogory/audiobook-toolkit"
