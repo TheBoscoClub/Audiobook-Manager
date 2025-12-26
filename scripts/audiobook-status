@@ -1,0 +1,106 @@
+#!/bin/bash
+# =============================================================================
+# Audiobook Conversion System Status
+# =============================================================================
+# Shows the current state of all audiobook services and statistics
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+fi
+
+# Configuration
+SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/srv/audiobooks/Sources}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/srv/audiobooks/Library}"
+STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo -e "${CYAN}========================================${NC}"
+echo -e "${CYAN}   AUDIOBOOK CONVERSION STATUS${NC}"
+echo -e "${CYAN}========================================${NC}"
+echo ""
+
+# Check service status
+echo "Services:"
+
+# Try system services first, then user services
+for SERVICE in audiobooks-converter audiobooks-mover audiobooks-downloader audiobooks-api; do
+    if systemctl is-active "$SERVICE.service" &>/dev/null; then
+        STATUS=$(systemctl is-active "$SERVICE.service")
+    else
+        STATUS="not found"
+    fi
+
+    case "$STATUS" in
+        active)
+            echo -e "  $SERVICE: ${GREEN}●${NC} running"
+            ;;
+        inactive)
+            echo -e "  $SERVICE: ${YELLOW}○${NC} stopped"
+            ;;
+        failed)
+            echo -e "  $SERVICE: ${RED}✗${NC} failed"
+            ;;
+        *)
+            echo -e "  $SERVICE: ${YELLOW}?${NC} $STATUS"
+            ;;
+    esac
+done
+
+echo ""
+echo "Statistics:"
+
+# Count source files
+if [ -d "$SOURCES_DIR" ]; then
+    AAXC_COUNT=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | wc -l)
+    AAX_COUNT=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aax" -type f 2>/dev/null | wc -l)
+    echo "  Source AAXC files: $AAXC_COUNT"
+    [ "$AAX_COUNT" -gt 0 ] && echo "  Source AAX files: $AAX_COUNT"
+else
+    echo "  Source directory not found: $SOURCES_DIR"
+fi
+
+# Count staging files
+if [ -d "$STAGING_DIR" ]; then
+    STAGED_COUNT=$(find "$STAGING_DIR" -name "*.opus" -type f 2>/dev/null | wc -l)
+    STAGED_SIZE=$(du -sh "$STAGING_DIR" 2>/dev/null | cut -f1)
+    echo "  Staged opus files: $STAGED_COUNT ($STAGED_SIZE)"
+else
+    echo "  Staging directory not found"
+fi
+
+# Count library files
+if [ -d "$LIBRARY_DIR" ]; then
+    LIBRARY_COUNT=$(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | wc -l)
+    LIBRARY_SIZE=$(du -sh "$LIBRARY_DIR" 2>/dev/null | cut -f1)
+    echo "  Library opus files: $LIBRARY_COUNT ($LIBRARY_SIZE)"
+else
+    echo "  Library directory not found: $LIBRARY_DIR"
+fi
+
+echo ""
+echo "tmpfs usage:"
+df -h /tmp | tail -1 | awk '{printf "  Used: %s / %s (%s)\n", $3, $2, $5}'
+
+echo ""
+
+# Show active conversions
+FFMPEG_COUNT=$(pgrep -c ffmpeg 2>/dev/null || echo 0)
+if [ "$FFMPEG_COUNT" -gt 0 ]; then
+    echo -e "${GREEN}Active conversions: $FFMPEG_COUNT${NC}"
+else
+    echo "No active conversions"
+fi
+
+echo -e "${CYAN}========================================${NC}"

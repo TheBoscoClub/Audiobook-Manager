@@ -1,0 +1,30 @@
+#!/bin/bash
+# =============================================================================
+# Start Audiobook Conversion Services
+# =============================================================================
+
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}Starting audiobook conversion services...${NC}"
+echo ""
+
+# Start conversion
+systemctl start audiobooks-converter.service
+sleep 1
+
+# Start mover
+systemctl start audiobooks-mover.service
+sleep 1
+
+# Show status
+echo ""
+systemctl status audiobooks-converter.service --no-pager -l 2>&1 | head -5
+echo ""
+systemctl status audiobooks-mover.service --no-pager -l 2>&1 | head -5
+
+echo ""
+echo -e "${GREEN}✓ Services started${NC}"
+echo ""
+echo "Use 'audiobook-status' to check progress"

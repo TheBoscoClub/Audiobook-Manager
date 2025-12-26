@@ -1,0 +1,19 @@
+[Unit]
+Description=Audiobook Download Timer (check for new audiobooks)
+PartOf=audiobooks.target
+
+[Timer]
+# Run 30 minutes after boot
+OnBootSec=30min
+
+# Then run every 6 hours
+OnUnitActiveSec=6h
+
+# Add randomized delay to avoid thundering herd
+RandomizedDelaySec=5min
+
+# Persist timer across reboots
+Persistent=true
+
+[Install]
+WantedBy=audiobooks.target timers.target

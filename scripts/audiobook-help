@@ -1,0 +1,47 @@
+#!/bin/bash
+# =============================================================================
+# Audiobook Conversion System - Quick Reference Guide
+# =============================================================================
+
+cat << 'EOF'
+╔════════════════════════════════════════════════════════════╗
+║         AUDIOBOOK CONVERSION SYSTEM - QUICK GUIDE          ║
+╚════════════════════════════════════════════════════════════╝
+
+📊 MONITORING & STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  audiobook-status              Full system status
+  monitor-audiobook-conversion  Live progress monitor (auto-refresh)
+
+🎮 CONTROL COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  audiobook-start               Start conversion manually
+  audiobook-stop                Stop conversion
+  audiobook-enable              Enable auto-start on boot
+  audiobook-disable             Disable auto-start
+
+💾 DATA MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  audiobook-save-staging        Save staged files before reboot
+  audiobooks-download           Download new audiobooks from Audible
+
+📁 DIRECTORIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Sources:    $AUDIOBOOKS_SOURCES   (AAXC files from Audible)
+  Staging:    /tmp/audiobook-staging   (tmpfs, fast conversion)
+  Library:    $AUDIOBOOKS_LIBRARY   (final converted files)
+
+⚙️ SERVICES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  audiobooks-converter    Converts AAXC to Opus (8 parallel jobs)
+  audiobooks-mover        Moves completed files to library
+  audiobooks-downloader   Downloads new audiobooks periodically
+  audiobooks-api          Web API for library browsing
+
+📖 MORE INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Configuration:  /etc/audiobooks/audiobooks.conf
+  Logs:           $AUDIOBOOKS_LOGS
+  Project:        $AUDIOBOOKS_HOME
+
+EOF

@@ -1,0 +1,85 @@
+#!/bin/bash
+# =============================================================================
+# Audiobook Metadata Copier
+# =============================================================================
+# Copy companion files (chapters, metadata) to converted audiobook directories
+# Matches files intelligently and copies chapters.json, cover art, PDFs, etc.
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+else
+    echo "ERROR: Cannot find audiobooks-config.sh" >&2
+    exit 1
+fi
+
+# Configuration
+SOURCES_DIR="${AUDIOBOOKS_SOURCES}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY}"
+LOG_DIR="${AUDIOBOOKS_LOGS}"
+LOG_FILE="${LOG_DIR}/metadata_copy.log"
+
+mkdir -p "$LOG_DIR"
+
+# Color codes
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo "=========================================" | tee "$LOG_FILE"
+echo -e "${CYAN}AUDIOBOOK METADATA COPIER${NC}" | tee -a "$LOG_FILE"
+echo "=========================================" | tee -a "$LOG_FILE"
+date | tee -a "$LOG_FILE"
+echo "" | tee -a "$LOG_FILE"
+
+# Find all audiobook directories in library
+COPIED=0
+SKIPPED=0
+
+while IFS= read -r AUDIOBOOK_DIR; do
+    # Get the audiobook name from directory
+    BOOK_NAME=$(basename "$AUDIOBOOK_DIR")
+    AUTHOR_DIR=$(dirname "$AUDIOBOOK_DIR")
+    AUTHOR_NAME=$(basename "$AUTHOR_DIR")
+
+    # Try to find matching source files
+    # First try to find by ASIN in the opus filename
+    OPUS_FILE=$(find "$AUDIOBOOK_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | head -1)
+
+    if [ -z "$OPUS_FILE" ]; then
+        continue
+    fi
+
+    OPUS_BASENAME=$(basename "$OPUS_FILE" .opus)
+
+    # Look for chapters.json file
+    CHAPTERS_FILE=$(find "$SOURCES_DIR" -name "*${OPUS_BASENAME}*-chapters.json" -o -name "*-chapters.json" 2>/dev/null | head -1)
+
+    if [ -n "$CHAPTERS_FILE" ] && [ ! -f "$AUDIOBOOK_DIR/chapters.json" ]; then
+        cp "$CHAPTERS_FILE" "$AUDIOBOOK_DIR/chapters.json"
+        echo -e "${GREEN}✓${NC} Copied chapters: $BOOK_NAME" | tee -a "$LOG_FILE"
+        ((COPIED++))
+    fi
+
+    # Look for cover art
+    COVER_FILE=$(find "$SOURCES_DIR" -name "*${OPUS_BASENAME}*.jpg" -o -name "*${OPUS_BASENAME}*.png" 2>/dev/null | head -1)
+
+    if [ -n "$COVER_FILE" ] && [ ! -f "$AUDIOBOOK_DIR/cover.jpg" ]; then
+        cp "$COVER_FILE" "$AUDIOBOOK_DIR/cover.jpg"
+        echo -e "${GREEN}✓${NC} Copied cover: $BOOK_NAME" | tee -a "$LOG_FILE"
+        ((COPIED++))
+    fi
+
+done < <(find "$LIBRARY_DIR" -mindepth 2 -maxdepth 2 -type d 2>/dev/null)
+
+echo "" | tee -a "$LOG_FILE"
+echo "=========================================" | tee -a "$LOG_FILE"
+echo "Copied: $COPIED files" | tee -a "$LOG_FILE"
+echo "=========================================" | tee -a "$LOG_FILE"

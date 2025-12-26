@@ -1,0 +1,94 @@
+#!/bin/bash
+# =============================================================================
+# Pre-reboot Script: Save Staging Files
+# =============================================================================
+# Move all staged files from tmpfs to permanent storage
+# Run this before rebooting to avoid losing work in progress
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+else
+    echo "ERROR: Cannot find audiobooks-config.sh" >&2
+    exit 1
+fi
+
+# Configuration
+STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY}"
+LOG_DIR="${AUDIOBOOKS_LOGS}"
+LOG_FILE="${LOG_DIR}/staging_save.log"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+mkdir -p "$LOG_DIR"
+
+echo -e "${CYAN}========================================${NC}"
+echo -e "${CYAN}   SAVE STAGING FILES TO LIBRARY${NC}"
+echo -e "${CYAN}========================================${NC}"
+echo ""
+
+# Check if staging directory exists
+if [ ! -d "$STAGING_DIR" ]; then
+    echo -e "${YELLOW}No staging directory found at $STAGING_DIR${NC}"
+    exit 0
+fi
+
+# Count files in staging
+STAGED_COUNT=$(find "$STAGING_DIR" -name "*.opus" -type f 2>/dev/null | wc -l)
+
+if [ "$STAGED_COUNT" -eq 0 ]; then
+    echo -e "${GREEN}✓ No staged files to save${NC}"
+    exit 0
+fi
+
+echo -e "${YELLOW}Found $STAGED_COUNT opus files in staging${NC}"
+echo ""
+
+# Stop conversion services if running
+echo "Stopping conversion services..."
+systemctl stop audiobooks-converter.service 2>/dev/null || true
+systemctl stop audiobooks-mover.service 2>/dev/null || true
+sleep 2
+
+# Move all files
+echo "Moving files to library..."
+MOVED=0
+FAILED=0
+
+while IFS= read -r DIR; do
+    DIR_NAME=$(basename "$DIR")
+    DEST="$LIBRARY_DIR/$DIR_NAME"
+
+    echo -n "  Moving: $DIR_NAME... "
+
+    mkdir -p "$DEST"
+    if rsync -a --remove-source-files "$DIR/" "$DEST/" 2>/dev/null; then
+        find "$DIR" -type d -empty -delete 2>/dev/null
+        echo -e "${GREEN}✓${NC}"
+        ((MOVED++))
+    else
+        echo -e "${RED}✗${NC}"
+        ((FAILED++))
+    fi
+done < <(find "$STAGING_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+
+echo ""
+echo -e "${CYAN}========================================${NC}"
+echo -e "${GREEN}Moved: $MOVED directories${NC}"
+if [ $FAILED -gt 0 ]; then
+    echo -e "${RED}Failed: $FAILED directories${NC}"
+fi
+echo -e "${CYAN}========================================${NC}"
+echo ""
+echo "You can now safely reboot."

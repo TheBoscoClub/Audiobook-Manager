@@ -1,0 +1,21 @@
+[Unit]
+Description=Audiobook Staging Saver (save tmpfs before shutdown)
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+
+# Load configuration
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+
+# Save staging files before shutdown
+ExecStart=/usr/local/bin/audiobooks-save-staging
+
+# Run only at shutdown
+RemainAfterExit=yes
+
+[Install]
+WantedBy=halt.target reboot.target shutdown.target

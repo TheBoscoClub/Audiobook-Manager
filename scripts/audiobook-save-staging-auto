@@ -1,0 +1,76 @@
+#!/bin/bash
+# =============================================================================
+# Automatic Staging Save on Shutdown/Reboot
+# =============================================================================
+# This is called by systemd, so it runs non-interactively
+# Opus format only
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+else
+    echo "ERROR: Cannot find audiobooks-config.sh" >&2
+    exit 1
+fi
+
+# Configuration
+STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY}"
+LOG_DIR="${AUDIOBOOKS_LOGS}"
+LOG_FILE="${LOG_DIR}/shutdown_save.log"
+
+mkdir -p "$LOG_DIR"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "=========================================="
+log "SHUTDOWN TRIGGERED - Auto-saving staging"
+log "=========================================="
+
+# Check if staging directory exists and has files
+if [ ! -d "$STAGING_DIR" ]; then
+    log "No staging directory found"
+    exit 0
+fi
+
+# Count opus files
+STAGED_COUNT=$(find "$STAGING_DIR" -name "*.opus" -type f 2>/dev/null | wc -l)
+
+if [ "$STAGED_COUNT" -eq 0 ]; then
+    log "No staged files to save"
+    exit 0
+fi
+
+log "Found $STAGED_COUNT opus files in staging"
+
+# Move all directories with opus files
+MOVED=0
+FAILED=0
+
+while IFS= read -r DIR; do
+    DIR_NAME=$(basename "$DIR")
+    DEST="$LIBRARY_DIR/$DIR_NAME"
+
+    mkdir -p "$DEST"
+
+    if rsync -a --remove-source-files "$DIR/" "$DEST/" 2>/dev/null; then
+        find "$DIR" -type d -empty -delete 2>/dev/null
+        log "✓ Saved: $DIR_NAME"
+        ((MOVED++))
+    else
+        log "✗ Failed: $DIR_NAME"
+        ((FAILED++))
+    fi
+done < <(find "$STAGING_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+
+log "=========================================="
+log "Shutdown save complete: $MOVED saved, $FAILED failed"
+log "=========================================="

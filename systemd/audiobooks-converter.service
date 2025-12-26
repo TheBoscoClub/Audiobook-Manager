@@ -1,0 +1,33 @@
+[Unit]
+Description=Audiobook Continuous Converter (AAXC to Opus)
+After=network.target audiobooks-mover.service
+PartOf=audiobooks.target
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+
+# Load configuration
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+Environment=HOME=/var/lib/audiobooks
+
+# Create runtime directories
+RuntimeDirectory=audiobooks
+RuntimeDirectoryMode=0755
+
+# Main script
+ExecStart=/usr/local/bin/audiobooks-convert
+
+# Restart on failure
+Restart=always
+RestartSec=30
+
+# Nice value for lower priority
+Nice=5
+
+# Allow time for in-progress conversions to finish
+TimeoutStopSec=60
+
+[Install]
+WantedBy=audiobooks.target multi-user.target

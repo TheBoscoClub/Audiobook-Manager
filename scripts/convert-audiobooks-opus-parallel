@@ -1,0 +1,219 @@
+#!/bin/bash
+# =============================================================================
+# Parallel Audiobook AAXC to Opus Converter
+# =============================================================================
+# Runs continuously, watching for new audiobooks to convert
+# Waits if downloads are in progress
+# Uses GNU parallel for multi-core conversion
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+else
+    echo "ERROR: Cannot find audiobooks-config.sh" >&2
+    exit 1
+fi
+
+# Configuration (use config values or defaults)
+SOURCES_DIR="${AUDIOBOOKS_SOURCES}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY}"
+OUTPUT_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+CONVERTER_PATH="${AUDIOBOOKS_CONVERTER}"
+LOG_DIR="${AUDIOBOOKS_LOGS}"
+OPUS_LEVEL="${AUDIOBOOKS_OPUS_LEVEL:-10}"
+DOWNLOADER_LOCK="${AUDIOBOOKS_DOWNLOADER_LOCK:-/tmp/audiobook-downloader.lock}"
+
+# Number of parallel conversions (adjust based on CPU cores)
+PARALLEL_JOBS="${AUDIOBOOKS_PARALLEL_JOBS:-8}"
+
+# Sleep time between scans when no work found (5 minutes)
+SLEEP_INTERVAL="${AUDIOBOOKS_SCAN_INTERVAL:-300}"
+
+# tmpfs usage threshold (pause conversions if /tmp exceeds this)
+TMPFS_MAX_USAGE="${AUDIOBOOKS_TMPFS_THRESHOLD:-85}"
+
+mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Check tmpfs usage and wait if too high
+check_tmpfs_space() {
+    local USAGE=$(df /tmp | tail -1 | awk '{print int($5)}')
+
+    if [ "$USAGE" -ge "$TMPFS_MAX_USAGE" ]; then
+        log "tmpfs usage at ${USAGE}% (threshold: ${TMPFS_MAX_USAGE}%) - waiting for mover to free space..."
+        echo -e "${YELLOW}⏸ PAUSED${NC}: tmpfs at ${USAGE}% - waiting for space..."
+
+        # Wait until usage drops below threshold
+        while [ "$USAGE" -ge "$TMPFS_MAX_USAGE" ]; do
+            sleep 30
+            USAGE=$(df /tmp | tail -1 | awk '{print int($5)}')
+        done
+
+        log "tmpfs usage now at ${USAGE}% - resuming conversions"
+        echo -e "${GREEN}▶ RESUMED${NC}: tmpfs at ${USAGE}%"
+        return 0
+    fi
+
+    return 0
+}
+
+echo "========================================="
+echo -e "${CYAN}PARALLEL OPUS CONVERTER (CONTINUOUS)${NC}"
+echo "========================================="
+echo "Parallel jobs: $PARALLEL_JOBS"
+echo "Source: $SOURCES_DIR"
+echo "Output: $OUTPUT_DIR"
+echo "Library: $LIBRARY_DIR"
+echo "Scan interval: ${SLEEP_INTERVAL}s when idle"
+echo ""
+
+# Function to convert a single file
+convert_file() {
+    local AAXC_FILE="$1"
+    local BASENAME=$(basename "$AAXC_FILE" .aaxc)
+    local LOG_FILE="$LOG_DIR/conversion_${BASENAME}.log"
+
+    # Extract a search pattern from the basename (remove AAX format suffix and convert underscores)
+    # e.g., "Book_Title-AAX_22_64" -> search for "*Book*Title*"
+    local SEARCH_PATTERN=$(echo "$BASENAME" | sed 's/-AAX_[0-9]*_[0-9]*$//' | sed 's/_/*/g')
+
+    # Check if already exists (in staging or final location)
+    # First check for exact basename match (fast)
+    if find "$OUTPUT_DIR" -name "${BASENAME}.opus" -type f 2>/dev/null | grep -q . || \
+       find "$LIBRARY_DIR" -name "${BASENAME}.opus" -type f 2>/dev/null | grep -q .; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (exists - exact match)"
+        return 0
+    fi
+
+    # Then check for fuzzy match in destination (catches renamed files with spaces/punctuation)
+    # Use -ipath for case-insensitive matching that handles apostrophes and punctuation
+    if find "$LIBRARY_DIR" -type f -name "*.opus" ! -name "*.cover.opus" -ipath "*${SEARCH_PATTERN}*" 2>/dev/null | grep -q .; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (exists - fuzzy match)"
+        return 0
+    fi
+
+    # Check if file is still being downloaded (modified in last 2 minutes)
+    if find "$AAXC_FILE" -mmin -2 2>/dev/null | grep -q .; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (still downloading - modified recently)"
+        return 0
+    fi
+
+    # Also check file size stability (file should not be growing)
+    local SIZE1=$(stat -c%s "$AAXC_FILE" 2>/dev/null)
+    sleep 2
+    local SIZE2=$(stat -c%s "$AAXC_FILE" 2>/dev/null)
+    if [ "$SIZE1" != "$SIZE2" ]; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (file size changing - download in progress)"
+        return 0
+    fi
+
+    echo -e "${CYAN}▶ START${NC}: $BASENAME"
+
+    # Record start time for finding newly created output files
+    local START_TIME=$(date +%s)
+
+    # Get converter directory
+    local CONVERTER_DIR=$(dirname "$CONVERTER_PATH")
+
+    # Convert using audible-cli voucher data (required for AAXC files)
+    if cd "$CONVERTER_DIR" && \
+       bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
+           --use-audible-cli-data \
+           --target_dir "$OUTPUT_DIR" \
+           --loglevel 0 \
+           "$AAXC_FILE" > "$LOG_FILE" 2>&1; then
+
+        # Find newly created opus file (AAXtoMP3 renames to actual book title)
+        # Look for .opus files created after conversion started, excluding cover files
+        local OUTPUT_FILE=$(find "$OUTPUT_DIR" -name "*.opus" -type f ! -name "*.cover.opus" -newermt "@$START_TIME" 2>/dev/null | head -1)
+        if [ -n "$OUTPUT_FILE" ]; then
+            local FILE_SIZE=$(stat -c%s "$OUTPUT_FILE" 2>/dev/null || echo "0")
+
+            # Check if file is larger than 100KB (minimum valid audiobook size)
+            if [ "$FILE_SIZE" -lt 102400 ]; then
+                echo -e "${RED}✗ CORRUPT${NC}: $BASENAME (output only ${FILE_SIZE} bytes - removing)"
+                rm -f "$OUTPUT_FILE"
+
+                # Also check if source AAXC is corrupted
+                local SOURCE_SIZE=$(stat -c%s "$AAXC_FILE" 2>/dev/null || echo "0")
+                if [ "$SOURCE_SIZE" -lt 102400 ]; then
+                    echo -e "${RED}  Source file also corrupted (${SOURCE_SIZE} bytes)${NC}"
+                    echo "[$(date '+%Y-%m-%d %H:%M:%S')] CORRUPTED SOURCE: $AAXC_FILE (${SOURCE_SIZE} bytes)" >> "$LOG_DIR/corrupted_sources.log"
+                fi
+                return 1
+            fi
+
+            local SIZE=$(du -h "$OUTPUT_FILE" 2>/dev/null | cut -f1)
+            echo -e "${GREEN}✓ DONE${NC}: $BASENAME ($SIZE)"
+        else
+            echo -e "${RED}✗ FAIL${NC}: $BASENAME (output file not found)"
+            return 1
+        fi
+    else
+        echo -e "${RED}✗ FAIL${NC}: $BASENAME (see $LOG_FILE)"
+        return 1
+    fi
+}
+
+export -f convert_file check_tmpfs_space
+export OUTPUT_DIR CONVERTER_PATH LOG_DIR OPUS_LEVEL LIBRARY_DIR
+export RED GREEN YELLOW CYAN NC DOWNLOADER_LOCK TMPFS_MAX_USAGE
+
+# Continuous loop - keep scanning for new files
+while true; do
+    # Check tmpfs space before proceeding
+    check_tmpfs_space
+
+    # Check if downloader is active
+    if [ -f "$DOWNLOADER_LOCK" ] && flock -n "$DOWNLOADER_LOCK" true 2>/dev/null; then
+        # Lock exists but is not held - stale lock, safe to proceed
+        :
+    elif [ -f "$DOWNLOADER_LOCK" ]; then
+        # Lock is held - downloader is active
+        log "Download in progress - waiting for completion..."
+        sleep 30
+        continue
+    fi
+
+    # Find unconverted AAXC files (in Sources directory)
+    AAXC_FILES=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f)
+
+    if [ -z "$AAXC_FILES" ]; then
+        log "No AAXC files found - waiting ${SLEEP_INTERVAL}s..."
+        sleep "$SLEEP_INTERVAL"
+        continue
+    fi
+
+    # Count files to process
+    TOTAL_AAXC=$(echo "$AAXC_FILES" | wc -l)
+    log "Found $TOTAL_AAXC AAXC files, checking which need conversion..."
+
+    # Process files in parallel
+    echo "$AAXC_FILES" | parallel -j "$PARALLEL_JOBS" --bar convert_file {}
+
+    echo ""
+    echo "========================================="
+    COMPLETED=$(find "$OUTPUT_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | wc -l)
+    FINAL=$(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | wc -l)
+    echo -e "${GREEN}In staging: $COMPLETED | In library: $FINAL${NC}"
+    echo "========================================="
+
+    log "Scan complete - waiting ${SLEEP_INTERVAL}s before next scan..."
+    sleep "$SLEEP_INTERVAL"
+done

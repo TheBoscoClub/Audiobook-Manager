@@ -1,0 +1,136 @@
+#!/bin/bash
+# =============================================================================
+# Audiobook Staging Mover
+# =============================================================================
+# Background process to move completed audiobooks from tmpfs staging to final storage
+# Runs every 5 minutes to keep tmpfs from filling up
+# Opus format only
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+else
+    echo "ERROR: Cannot find audiobooks-config.sh" >&2
+    exit 1
+fi
+
+# Configuration
+STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY}"
+LOG_DIR="${AUDIOBOOKS_LOGS}"
+LOG_FILE="${LOG_DIR}/audiobook_mover.log"
+TRIGGER_DIR="${AUDIOBOOKS_TRIGGERS:-/tmp/audiobook-triggers}"
+
+mkdir -p "$LOG_DIR" "$LIBRARY_DIR" "$TRIGGER_DIR"
+
+# Color codes
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "=========================================="
+log "Audiobook Staging Mover Started"
+log "Staging: $STAGING_DIR (tmpfs)"
+log "Destination: $LIBRARY_DIR"
+log "=========================================="
+
+while true; do
+    # Check if staging directory exists and has files
+    if [ -d "$STAGING_DIR" ]; then
+        # Find completed audiobook directories (contain .opus files)
+        DIRS_TO_MOVE=$(find "$STAGING_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+
+        if [ -n "$DIRS_TO_MOVE" ]; then
+            MOVED_COUNT=0
+
+            while IFS= read -r DIR; do
+                DIR_NAME=$(basename "$DIR")
+
+                # Check for completed Opus files (not actively being written)
+                # Wait for files older than 5 minutes (should be done converting)
+                OPUS_FILES=$(find "$DIR" -name "*.opus" -type f -mmin +5 2>/dev/null)
+
+                if [ -n "$OPUS_FILES" ]; then
+                    # Verify files are not corrupted (check size)
+                    CORRUPTED_COUNT=0
+                    while IFS= read -r FILE; do
+                        FILE_SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
+                        if [ "$FILE_SIZE" -lt 102400 ]; then
+                            log "${YELLOW}⚠ Removing corrupted:${NC} $(basename "$FILE") (${FILE_SIZE} bytes)"
+                            rm -f "$FILE"
+                            ((CORRUPTED_COUNT++))
+                        fi
+                    done <<< "$OPUS_FILES"
+
+                    # Recount valid files after removing corrupted ones
+                    OPUS_FILES=$(find "$DIR" -name "*.opus" -type f -mmin +5 -size +100k 2>/dev/null)
+
+                    if [ "$CORRUPTED_COUNT" -gt 0 ]; then
+                        log "Removed $CORRUPTED_COUNT corrupted files from $DIR_NAME"
+                    fi
+
+                    # Only proceed if we still have valid files
+                    if [ -z "$OPUS_FILES" ]; then
+                        # All files were corrupted, skip this directory
+                        rmdir "$DIR" 2>/dev/null
+                        continue
+                    fi
+
+                    FILE_COUNT=$(echo "$OPUS_FILES" | wc -l)
+                    DEST="$LIBRARY_DIR/$DIR_NAME"
+
+                    log "${CYAN}Moving:${NC} $DIR_NAME ($FILE_COUNT Opus files)"
+
+                    # Create destination if it doesn't exist
+                    mkdir -p "$DEST"
+
+                    # Copy files (ignore remove errors - files may still be in use)
+                    if rsync -a --ignore-errors --remove-source-files "$DIR/" "$DEST/" 2>/dev/null; then
+                        # Remove empty subdirectories and source directory
+                        find "$DIR" -type d -empty -delete 2>/dev/null
+
+                        # Count remaining audiobook files
+                        REMAINING=$(find "$DIR" -name "*.opus" -type f 2>/dev/null | wc -l)
+                        SIZE=$(du -sh "$DEST" 2>/dev/null | cut -f1)
+
+                        if [ $REMAINING -eq 0 ]; then
+                            log "${GREEN}✓ Moved:${NC} $DIR_NAME ($SIZE total)"
+                        else
+                            log "${YELLOW}✓ Partial:${NC} $DIR_NAME ($REMAINING files still in use)"
+                        fi
+                        ((MOVED_COUNT++))
+                    else
+                        log "${YELLOW}⚠ Failed:${NC} $DIR_NAME (will retry)"
+                    fi
+                fi
+            done <<< "$DIRS_TO_MOVE"
+
+            if [ $MOVED_COUNT -gt 0 ]; then
+                log "Batch complete: Moved $MOVED_COUNT directories"
+
+                # Check tmpfs usage
+                TMPFS_USED=$(df -h /tmp | tail -1 | awk '{print $5}')
+                TMPFS_AVAIL=$(df -h /tmp | tail -1 | awk '{print $4}')
+                log "tmpfs status: $TMPFS_USED used, $TMPFS_AVAIL available"
+
+                # Signal database updater that new files are ready
+                touch "${TRIGGER_DIR}/conversion-complete"
+                log "Signaled database updater (new files ready)"
+            fi
+        fi
+    fi
+
+    # Wait 5 minutes before next check
+    sleep 300
+done

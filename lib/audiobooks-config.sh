@@ -102,6 +102,23 @@ else
     : "${AUDIOBOOKS_CONVERTER:=/usr/local/bin/AAXtoMP3}"
 fi
 
+# Conversion settings
+: "${AUDIOBOOKS_STAGING:=/tmp/audiobook-staging}"  # tmpfs staging directory
+: "${AUDIOBOOKS_PARALLEL_JOBS:=8}"                 # Number of parallel conversions
+: "${AUDIOBOOKS_SCAN_INTERVAL:=300}"               # Seconds between scans when idle
+: "${AUDIOBOOKS_TMPFS_THRESHOLD:=85}"              # Pause if tmpfs exceeds this %
+: "${AUDIOBOOKS_OPUS_LEVEL:=10}"                   # Opus compression level (0-10)
+: "${AUDIOBOOKS_DOWNLOAD_DELAY:=30}"               # Seconds between downloads
+
+# Runtime directories
+: "${AUDIOBOOKS_RUN_DIR:=/run/audiobooks}"         # Runtime data (locks, temp)
+: "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"     # Persistent state data
+: "${AUDIOBOOKS_TRIGGERS:=/tmp/audiobook-triggers}" # Trigger files for service coordination
+: "${AUDIOBOOKS_DOWNLOADER_LOCK:=/tmp/audiobook-downloader.lock}"
+
+# External tools
+: "${AUDIOBOOKS_AUDIBLE_CMD:=/usr/bin/audible}"    # Path to audible-cli
+
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
 : "${AUDIOBOOKS_WEB_PORT:=8443}"  # HTTPS port (changed from 8090)
@@ -114,6 +131,10 @@ fi
 export AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY AUDIOBOOKS_SOURCES AUDIOBOOKS_SUPPLEMENTS
 export AUDIOBOOKS_HOME AUDIOBOOKS_DATABASE AUDIOBOOKS_COVERS AUDIOBOOKS_CERTS
 export AUDIOBOOKS_LOGS AUDIOBOOKS_VENV AUDIOBOOKS_CONVERTER
+export AUDIOBOOKS_STAGING AUDIOBOOKS_PARALLEL_JOBS AUDIOBOOKS_SCAN_INTERVAL
+export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELAY
+export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
+export AUDIOBOOKS_AUDIBLE_CMD
 export AUDIOBOOKS_API_PORT AUDIOBOOKS_WEB_PORT AUDIOBOOKS_HTTP_REDIRECT_PORT AUDIOBOOKS_BIND_ADDRESS AUDIOBOOKS_HTTPS_ENABLED AUDIOBOOKS_USE_WAITRESS
 
 # -----------------------------------------------------------------------------

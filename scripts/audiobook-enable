@@ -1,0 +1,24 @@
+#!/bin/bash
+# =============================================================================
+# Enable Audiobook Conversion Auto-start on Boot
+# =============================================================================
+
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}Enabling audiobook conversion auto-start...${NC}"
+echo ""
+
+# Reload systemd
+systemctl daemon-reload
+
+# Enable services
+systemctl enable audiobooks-converter.service
+systemctl enable audiobooks-mover.service
+
+echo ""
+echo -e "${GREEN}✓ Auto-start enabled${NC}"
+echo ""
+echo "Services will start automatically on boot."
+echo "Start now with: audiobook-start"
