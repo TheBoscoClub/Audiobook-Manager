@@ -60,7 +60,7 @@ All tests **PASSED** ✓
 
 ### Test 1: Launch Script Standalone
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /path/to/audiobook-library  # Your project directory
 ./launch.sh
 ```
 **Result**: ✓ PASSED
@@ -82,7 +82,7 @@ curl http://localhost:8090/data/audiobooks.json
 ### Test 3: Desktop Launcher Simulation
 ```bash
 # Simulated desktop launcher environment
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /path/to/audiobook-library  # Your project directory
 ./launch.sh
 ```
 **Result**: ✓ PASSED
@@ -109,7 +109,7 @@ cd /raid0/ClaudeCodeProjects/audiobook-library
 
 ### From Command Line
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /path/to/audiobook-library  # Your project directory
 ./launch.sh
 ```
 
@@ -147,9 +147,9 @@ DEBUG=1 ./launch.sh
 
 ## Next Steps
 
-To scan your full audiobook collection (1,756 books):
+To scan your full audiobook collection:
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /path/to/audiobook-library  # Your project directory
 ./setup.sh
 ```
 

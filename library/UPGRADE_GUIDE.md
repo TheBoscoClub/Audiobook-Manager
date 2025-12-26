@@ -39,7 +39,7 @@ Version 2 is a **complete rewrite** with a database backend for dramatically imp
 ### 1. Create Database (One-time)
 
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /path/to/audiobook-library  # Your project directory
 
 # Create virtual environment and install dependencies
 python -m venv venv
@@ -186,11 +186,11 @@ When new audiobooks are added to your collection:
 
 ```bash
 # 1. Re-scan audiobooks (creates new JSON)
-cd /raid0/ClaudeCodeProjects/audiobook-library/scanner
+cd /path/to/audiobook-library/scanner  # Your project directory
 python3 scan_audiobooks.py
 
 # 2. Re-import to database
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /path/to/audiobook-library
 source venv/bin/activate
 python backend/import_to_db.py
 
@@ -204,12 +204,12 @@ You can integrate database updates into your existing automation:
 
 **Update conversion script** to rebuild database after conversions:
 ```bash
-# Add to ~/.local/bin/convert-audiobooks-opus-parallel
+# Add to your conversion script
 # After conversion completes:
-cd /raid0/ClaudeCodeProjects/audiobook-library/scanner
+cd "$AUDIOBOOKS_HOME/library/scanner"  # Uses config variable
 python3 scan_audiobooks.py
 
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd "$AUDIOBOOKS_HOME/library"
 source venv/bin/activate
 python backend/import_to_db.py
 ```
@@ -282,7 +282,7 @@ python backend/export_static.py
 **Problem:** Flask API server not running
 **Solution:**
 ```bash
-cd /raid0/ClaudeCodeProjects/audiobook-library
+cd /path/to/audiobook-library  # Your project directory
 source venv/bin/activate
 python backend/api.py
 ```

@@ -42,8 +42,8 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Configure audiobook directory in scanner/scan_audiobooks.py
-# Default: /raid0/Audiobooks
+# 3. Configure audiobook directory (via environment or config file)
+# Default: /srv/audiobooks (system) or ~/Audiobooks (user)
 
 # 4. Scan your collection
 cd scanner && python3 scan_audiobooks.py
@@ -108,11 +108,16 @@ All audiobooks are standardized to **OPUS** format for optimal compression and q
 
 ## Data Source
 
-Default audiobook directory: `/raid0/Audiobooks`
+Default audiobook directory: `/srv/audiobooks` (system install) or `~/Audiobooks` (user install)
 
-Configure in `scanner/scan_audiobooks.py`:
-```python
-AUDIOBOOKS_DIR = Path("/your/path/to/audiobooks")
+Configure via environment variable or config file:
+```bash
+# Environment variable
+export AUDIOBOOKS_LIBRARY=/your/path/to/audiobooks
+
+# Or edit config file
+# System: /etc/audiobooks/audiobooks.conf
+# User: ~/.config/audiobooks/audiobooks.conf
 ```
 
 ## Documentation

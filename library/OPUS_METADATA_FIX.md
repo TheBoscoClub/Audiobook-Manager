@@ -31,7 +31,8 @@ format: {
 
 **How:** OPUS files are organized as:
 ```
-/raid0/Audiobooks/Library/[Author Name]/[Book Title]/[Book Title].opus
+$AUDIOBOOKS_LIBRARY/[Author Name]/[Book Title]/[Book Title].opus
+# Example: /srv/audiobooks/Library/Author Name/Book Title/Book Title.opus
 ```
 
 The scanner now extracts `[Author Name]` from the path.
@@ -69,7 +70,7 @@ metadata = {
 
 The AAXtoMP3 tool needs to be modified to preserve metadata during OPUS conversion.
 
-**Location:** `/raid0/ClaudeCodeProjects/Audiobooks/AAXtoMP3`
+**Location:** `$AUDIOBOOKS_HOME/converter/AAXtoMP3`
 
 **Required Changes:**
 1. Extract metadata from source AAXC file before conversion
@@ -90,7 +91,7 @@ ffmpeg -i input.opus \
 
 Add metadata embedding as a post-processing step in the conversion script:
 
-**File to Modify:** `~/.local/bin/convert-audiobooks-opus-parallel`
+**File to Modify:** Your conversion script (e.g., `audiobooks-convert` or custom script)
 
 **Add after line 116 (after successful conversion):**
 ```bash
@@ -134,7 +135,7 @@ For the 2,229 existing OPUS files without metadata, you can run a batch fix scri
 
 **Usage:**
 ```bash
-cd /raid0/ClaudeCodeProjects/Audiobooks/library
+cd "$AUDIOBOOKS_HOME/library"  # Your project directory
 ./scripts/fix_opus_metadata.sh
 ```
 
@@ -172,7 +173,7 @@ tail -f /tmp/rescan.log
 
 ### Step 2: Re-import Database
 ```bash
-cd /raid0/ClaudeCodeProjects/Audiobooks/library
+cd "$AUDIOBOOKS_HOME/library"  # Your project directory
 source venv/bin/activate
 python backend/import_to_db.py
 ```
@@ -184,13 +185,13 @@ Open http://localhost:8090 and click the "↻ Refresh" button.
 
 ### Step 4 (Optional): Update Conversion Script for Future Books
 
-Edit `~/.local/bin/convert-audiobooks-opus-parallel` to add metadata embedding (see Option B above).
+Edit your conversion script to add metadata embedding (see Option B above).
 
 ### Step 5 (Optional): Fix Existing OPUS Files
 
 If you want narrator information and full metadata in existing OPUS files:
 ```bash
-cd /raid0/ClaudeCodeProjects/Audiobooks/library
+cd "$AUDIOBOOKS_HOME/library"  # Your project directory
 ./scripts/fix_opus_metadata.sh
 ```
 
@@ -202,7 +203,7 @@ Then repeat Steps 1-3.
 
 After the directory reorganization, the new structure is:
 ```
-/raid0/Audiobooks/
+$AUDIOBOOKS_DATA/      # Default: /srv/audiobooks
 ├── Sources/           # Original AAXC files + vouchers
 │   ├── *.aaxc        # Encrypted Audible audiobooks
 │   ├── *.voucher     # Decryption keys

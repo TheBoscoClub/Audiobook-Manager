@@ -55,7 +55,7 @@ def fix_audiobook_authors(dry_run=True):
 
     for entry_id, title, author, file_path in entries:
         # Extract author from path
-        # Path: /raid0/Audiobooks/Library/Audiobook/Real Author/Book Title/file.opus
+        # Path: $AUDIOBOOKS_LIBRARY/Audiobook/Real Author/Book Title/file.opus
         path = Path(file_path)
         parts = path.parts
 

@@ -9,7 +9,7 @@ Navigate to: http://localhost:8090
 The OLD version (slow JSON-based) is in ../web/ and should not be used.
 
 To launch the library:
-  cd /raid0/ClaudeCodeProjects/audiobook-library
+  cd /path/to/audiobook-library  # Your project directory
   ./launch-v2.sh
 
 Features:
