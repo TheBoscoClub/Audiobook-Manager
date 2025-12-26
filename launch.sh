@@ -63,14 +63,14 @@ export API_PORT
 export WEB_PORT
 
 echo "Starting API server on port $API_PORT..."
-cd "$LIBRARY_DIR/backend"
+cd "$LIBRARY_DIR/backend" || exit 1
 python3 api.py &
 API_PID=$!
 
 sleep 2
 
 echo "Starting web server on port $WEB_PORT..."
-cd "$LIBRARY_DIR/web-v2"
+cd "$LIBRARY_DIR/web-v2" || exit 1
 python3 -m http.server $WEB_PORT &
 WEB_PID=$!
 
@@ -91,6 +91,7 @@ if command -v xdg-open &> /dev/null; then
 fi
 
 # Wait for Ctrl+C
+# shellcheck disable=SC2064  # We want $API_PID and $WEB_PID expanded at trap definition time
 trap "echo 'Shutting down...'; kill $API_PID $WEB_PID 2>/dev/null; exit 0" INT TERM
 
 wait

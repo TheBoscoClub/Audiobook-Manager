@@ -4,15 +4,19 @@ Audiobook Library API - Flask Backend
 Provides fast, paginated API for audiobook queries
 """
 
-from flask import Flask, jsonify, request, send_from_directory, send_file
+from flask import Flask, Response, jsonify, request, send_from_directory, send_file
 import sqlite3
 from pathlib import Path
 import os
 import sys
+from typing import Union
+
+# Type alias for Flask route return types
+FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, COVER_DIR, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
+from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
 
 app = Flask(__name__)
 
@@ -22,7 +26,7 @@ app = Flask(__name__)
 # =============================================================================
 
 @app.after_request
-def add_cors_headers(response):
+def add_cors_headers(response: Response) -> Response:
     """
     Add CORS headers to all responses.
     This is a simple implementation suitable for localhost/personal use.
@@ -37,7 +41,7 @@ def add_cors_headers(response):
 
 @app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
 @app.route('/<path:path>', methods=['OPTIONS'])
-def handle_options(path):
+def handle_options(path: str) -> tuple[str, int]:
     """Handle CORS preflight requests"""
     return '', 204
 
@@ -45,7 +49,7 @@ DB_PATH = DATABASE_PATH
 PROJECT_ROOT = PROJECT_DIR / "library"
 
 
-def get_db():
+def get_db() -> sqlite3.Connection:
     """Get database connection"""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
@@ -57,7 +61,7 @@ def get_db():
 # ============================================
 
 # Helper to create genre-based query (uses junction table)
-def genre_query(genre_pattern):
+def genre_query(genre_pattern: str) -> str:
     """Create a query for books matching a genre pattern."""
     return f"""id IN (
         SELECT ag.audiobook_id FROM audiobook_genres ag
@@ -65,7 +69,7 @@ def genre_query(genre_pattern):
         WHERE g.name LIKE '{genre_pattern}'
     )"""
 
-def multi_genre_query(genre_patterns):
+def multi_genre_query(genre_patterns: list[str]) -> str:
     """Create a query for books matching any of the genre patterns."""
     conditions = " OR ".join([f"g.name LIKE '{p}'" for p in genre_patterns])
     return f"""id IN (
@@ -187,7 +191,7 @@ COLLECTIONS = {
 # EDITION DETECTION HELPERS
 # ============================================
 
-def has_edition_marker(title):
+def has_edition_marker(title: str | None) -> bool:
     """Check if a title contains edition markers indicating it's a specific edition"""
     if not title:
         return False
@@ -214,7 +218,7 @@ def has_edition_marker(title):
     return any(marker in title_lower for marker in edition_markers)
 
 
-def normalize_base_title(title):
+def normalize_base_title(title: str | None) -> str:
     """
     Normalize title by removing edition markers and common suffixes.
     This creates a base title for matching different editions.
@@ -245,7 +249,7 @@ def normalize_base_title(title):
 
 
 @app.route('/api/stats', methods=['GET'])
-def get_stats():
+def get_stats() -> Response:
     """Get library statistics"""
     conn = get_db()
     cursor = conn.cursor()
@@ -312,7 +316,7 @@ def get_stats():
 
 
 @app.route('/api/audiobooks', methods=['GET'])
-def get_audiobooks():
+def get_audiobooks() -> Response:
     """
     Get paginated audiobooks with optional filtering
     Query params:
@@ -525,7 +529,7 @@ def get_audiobooks():
 
 
 @app.route('/api/filters', methods=['GET'])
-def get_filters():
+def get_filters() -> Response:
     """Get all available filter options"""
     conn = get_db()
     cursor = conn.cursor()
@@ -588,7 +592,7 @@ def get_filters():
 
 
 @app.route('/api/narrator-counts', methods=['GET'])
-def get_narrator_counts():
+def get_narrator_counts() -> Response:
     """Get narrator book counts for autocomplete"""
     conn = get_db()
     cursor = conn.cursor()
@@ -610,7 +614,7 @@ def get_narrator_counts():
 
 
 @app.route('/api/collections', methods=['GET'])
-def get_collections():
+def get_collections() -> Response:
     """Get available collections with counts, grouped by category"""
     conn = get_db()
     cursor = conn.cursor()
@@ -652,7 +656,7 @@ def get_collections():
 
 
 @app.route('/api/audiobooks/<int:audiobook_id>', methods=['GET'])
-def get_audiobook(audiobook_id):
+def get_audiobook(audiobook_id: int) -> FlaskResponse:
     """Get single audiobook details"""
     conn = get_db()
     cursor = conn.cursor()
@@ -696,14 +700,14 @@ def get_audiobook(audiobook_id):
 
 
 @app.route('/covers/<path:filename>')
-def serve_cover(filename):
+def serve_cover(filename: str) -> Response:
     """Serve cover images"""
     covers_dir = PROJECT_ROOT / 'web' / 'covers'
     return send_from_directory(covers_dir, filename)
 
 
 @app.route('/api/stream/<int:audiobook_id>')
-def stream_audiobook(audiobook_id):
+def stream_audiobook(audiobook_id: int) -> FlaskResponse:
     """Stream audiobook file"""
     conn = get_db()
     cursor = conn.cursor()
@@ -740,7 +744,7 @@ def stream_audiobook(audiobook_id):
 
 
 @app.route('/health')
-def health():
+def health() -> Response:
     """Health check endpoint"""
     return jsonify({'status': 'ok', 'database': str(DB_PATH.exists())})
 
@@ -750,7 +754,7 @@ def health():
 # ============================================
 
 @app.route('/api/hash-stats', methods=['GET'])
-def get_hash_stats():
+def get_hash_stats() -> Response:
     """Get hash generation statistics"""
     conn = get_db()
     cursor = conn.cursor()
@@ -798,7 +802,7 @@ def get_hash_stats():
 
 
 @app.route('/api/duplicates', methods=['GET'])
-def get_duplicates():
+def get_duplicates() -> FlaskResponse:
     """Get all duplicate audiobook groups"""
     conn = get_db()
     cursor = conn.cursor()
@@ -868,7 +872,7 @@ def get_duplicates():
 
 
 @app.route('/api/duplicates/by-title', methods=['GET'])
-def get_duplicates_by_title():
+def get_duplicates_by_title() -> Response:
     """
     Get duplicate audiobooks based on normalized title and REAL author.
     This finds "same book, different version/format" entries.
@@ -907,7 +911,6 @@ def get_duplicates_by_title():
         norm_title = group['norm_title']
         norm_author = group['norm_author']
         duration_group = group['duration_group']
-        count = group['count']
 
         # Get all files in this group (including any with "Audiobook" author that match)
         cursor.execute("""
@@ -974,7 +977,7 @@ def get_duplicates_by_title():
 
 
 @app.route('/api/audiobooks/<int:book_id>/editions', methods=['GET'])
-def get_book_editions(book_id):
+def get_book_editions(book_id: int) -> FlaskResponse:
     """
     Get all editions of a specific audiobook.
     Only returns books that are truly different editions (with edition markers in title).
@@ -1061,7 +1064,7 @@ def get_book_editions(book_id):
 
 
 @app.route('/api/duplicates/delete', methods=['POST'])
-def delete_duplicates():
+def delete_duplicates() -> FlaskResponse:
     """
     Delete selected duplicate audiobooks.
     SAFETY: Will NEVER delete the last remaining copy of any audiobook.
@@ -1223,7 +1226,7 @@ def delete_duplicates():
 
 
 @app.route('/api/duplicates/verify', methods=['POST'])
-def verify_deletion_safe():
+def verify_deletion_safe() -> FlaskResponse:
     """
     Verify that a list of IDs can be safely deleted.
     Returns which IDs are safe and which would delete the last copy.
@@ -1296,7 +1299,7 @@ def verify_deletion_safe():
 
 
 @app.route('/api/supplements', methods=['GET'])
-def get_all_supplements():
+def get_all_supplements() -> Response:
     """Get all supplements in the library"""
     conn = get_db()
     cursor = conn.cursor()
@@ -1318,7 +1321,7 @@ def get_all_supplements():
 
 
 @app.route('/api/supplements/stats', methods=['GET'])
-def get_supplement_stats():
+def get_supplement_stats() -> Response:
     """Get supplement statistics"""
     conn = get_db()
     cursor = conn.cursor()
@@ -1347,7 +1350,7 @@ def get_supplement_stats():
 
 
 @app.route('/api/audiobooks/<int:audiobook_id>/supplements', methods=['GET'])
-def get_audiobook_supplements(audiobook_id):
+def get_audiobook_supplements(audiobook_id: int) -> Response:
     """Get supplements for a specific audiobook"""
     conn = get_db()
     cursor = conn.cursor()
@@ -1368,7 +1371,7 @@ def get_audiobook_supplements(audiobook_id):
 
 
 @app.route('/api/supplements/<int:supplement_id>/download', methods=['GET'])
-def download_supplement(supplement_id):
+def download_supplement(supplement_id: int) -> FlaskResponse:
     """Download/serve a supplement file"""
     conn = get_db()
     cursor = conn.cursor()
@@ -1406,7 +1409,7 @@ def download_supplement(supplement_id):
 
 
 @app.route('/api/supplements/scan', methods=['POST'])
-def scan_supplements():
+def scan_supplements() -> FlaskResponse:
     """
     Scan the supplements directory and update the database.
     Links supplements to audiobooks by matching filenames to titles.
@@ -1491,7 +1494,7 @@ def scan_supplements():
 # ============================================
 
 @app.route('/api/audiobooks/<int:id>', methods=['PUT'])
-def update_audiobook(id):
+def update_audiobook(id: int) -> FlaskResponse:
     """Update audiobook metadata"""
     data = request.get_json()
 
@@ -1535,7 +1538,7 @@ def update_audiobook(id):
 
 
 @app.route('/api/audiobooks/<int:id>', methods=['DELETE'])
-def delete_audiobook(id):
+def delete_audiobook(id: int) -> FlaskResponse:
     """Delete audiobook from database (does not delete file)"""
     conn = get_db()
     cursor = conn.cursor()
@@ -1563,7 +1566,7 @@ def delete_audiobook(id):
 
 
 @app.route('/api/audiobooks/bulk-update', methods=['POST'])
-def bulk_update_audiobooks():
+def bulk_update_audiobooks() -> FlaskResponse:
     """Update a field for multiple audiobooks"""
     data = request.get_json()
 
@@ -1600,7 +1603,7 @@ def bulk_update_audiobooks():
 
 
 @app.route('/api/audiobooks/bulk-delete', methods=['POST'])
-def bulk_delete_audiobooks():
+def bulk_delete_audiobooks() -> FlaskResponse:
     """Delete multiple audiobooks"""
     data = request.get_json()
 
@@ -1655,7 +1658,7 @@ def bulk_delete_audiobooks():
 
 
 @app.route('/api/audiobooks/missing-narrator', methods=['GET'])
-def get_audiobooks_missing_narrator():
+def get_audiobooks_missing_narrator() -> Response:
     """Get audiobooks without narrator information"""
     conn = get_db()
     cursor = conn.cursor()
@@ -1675,7 +1678,7 @@ def get_audiobooks_missing_narrator():
 
 
 @app.route('/api/audiobooks/missing-hash', methods=['GET'])
-def get_audiobooks_missing_hash():
+def get_audiobooks_missing_hash() -> Response:
     """Get audiobooks without SHA-256 hash"""
     conn = get_db()
     cursor = conn.cursor()
@@ -1695,7 +1698,7 @@ def get_audiobooks_missing_hash():
 
 
 @app.route('/api/utilities/rescan', methods=['POST'])
-def rescan_library():
+def rescan_library() -> FlaskResponse:
     """Trigger a library rescan"""
     import subprocess
 
@@ -1719,7 +1722,7 @@ def rescan_library():
             if 'Total audiobook files:' in line:
                 try:
                     files_found = int(line.split(':')[1].strip())
-                except:
+                except (ValueError, IndexError):
                     pass
 
         return jsonify({
@@ -1735,7 +1738,7 @@ def rescan_library():
 
 
 @app.route('/api/utilities/reimport', methods=['POST'])
-def reimport_database():
+def reimport_database() -> FlaskResponse:
     """Reimport audiobooks to database"""
     import subprocess
 
@@ -1764,7 +1767,7 @@ def reimport_database():
                         if part == 'Imported' and i + 1 < len(parts):
                             imported_count = int(parts[i + 1])
                             break
-                except:
+                except (ValueError, IndexError):
                     pass
 
         return jsonify({
@@ -1780,7 +1783,7 @@ def reimport_database():
 
 
 @app.route('/api/utilities/generate-hashes', methods=['POST'])
-def generate_hashes():
+def generate_hashes() -> FlaskResponse:
     """Generate SHA-256 hashes for audiobooks"""
     import subprocess
 
@@ -1808,7 +1811,7 @@ def generate_hashes():
                     numbers = re.findall(r'\d+', line)
                     if numbers:
                         hashes_generated = int(numbers[0])
-                except:
+                except ValueError:
                     pass
 
         return jsonify({
@@ -1824,7 +1827,7 @@ def generate_hashes():
 
 
 @app.route('/api/utilities/vacuum', methods=['POST'])
-def vacuum_database():
+def vacuum_database() -> FlaskResponse:
     """Vacuum the SQLite database to reclaim space"""
     conn = get_db()
 
@@ -1851,7 +1854,7 @@ def vacuum_database():
 
 
 @app.route('/api/utilities/export-db', methods=['GET'])
-def export_database():
+def export_database() -> FlaskResponse:
     """Download the SQLite database file"""
     if DB_PATH.exists():
         return send_file(
@@ -1865,7 +1868,7 @@ def export_database():
 
 
 @app.route('/api/utilities/export-json', methods=['GET'])
-def export_json():
+def export_json() -> Response:
     """Export library as JSON"""
     import json
     from datetime import datetime
@@ -1900,7 +1903,7 @@ def export_json():
 
 
 @app.route('/api/utilities/export-csv', methods=['GET'])
-def export_csv():
+def export_csv() -> Response:
     """Export library as CSV"""
     import csv
     import io
@@ -1947,23 +1950,23 @@ if __name__ == '__main__':
         print("Please run: python3 backend/import_to_db.py")
         exit(1)
 
-    print(f"Starting Audiobook Library API...")
+    print("Starting Audiobook Library API...")
     print(f"Database: {DB_PATH}")
-    print(f"\nEndpoints:")
-    print(f"  GET /api/stats - Library statistics")
-    print(f"  GET /api/audiobooks - Paginated audiobooks")
-    print(f"  GET /api/audiobooks/<id> - Single audiobook")
-    print(f"  GET /api/filters - Available filter options")
-    print(f"  GET /api/stream/<id> - Stream audiobook file")
-    print(f"  GET /api/supplements - All supplements")
-    print(f"  GET /api/supplements/stats - Supplement statistics")
-    print(f"  GET /api/audiobooks/<id>/supplements - Supplements for audiobook")
-    print(f"  POST /api/supplements/scan - Scan and import supplements")
-    print(f"  GET /covers/<filename> - Cover images")
-    print(f"\nExample queries:")
-    print(f"  /api/audiobooks?page=1&per_page=50")
-    print(f"  /api/audiobooks?search=tolkien")
-    print(f"  /api/audiobooks?author=sanderson&sort=duration_hours&order=desc")
+    print("\nEndpoints:")
+    print("  GET /api/stats - Library statistics")
+    print("  GET /api/audiobooks - Paginated audiobooks")
+    print("  GET /api/audiobooks/<id> - Single audiobook")
+    print("  GET /api/filters - Available filter options")
+    print("  GET /api/stream/<id> - Stream audiobook file")
+    print("  GET /api/supplements - All supplements")
+    print("  GET /api/supplements/stats - Supplement statistics")
+    print("  GET /api/audiobooks/<id>/supplements - Supplements for audiobook")
+    print("  POST /api/supplements/scan - Scan and import supplements")
+    print("  GET /covers/<filename> - Cover images")
+    print("\nExample queries:")
+    print("  /api/audiobooks?page=1&per_page=50")
+    print("  /api/audiobooks?search=tolkien")
+    print("  /api/audiobooks?author=sanderson&sort=duration_hours&order=desc")
     print()
 
     # Check if running with waitress (production mode)
@@ -1973,7 +1976,7 @@ if __name__ == '__main__':
         try:
             from waitress import serve
             bind_address = os.environ.get('AUDIOBOOKS_BIND_ADDRESS', '127.0.0.1')
-            print(f"Running in production mode (waitress)")
+            print("Running in production mode (waitress)")
             print(f"Listening on: http://{bind_address}:{API_PORT}")
             print()
             serve(app, host=bind_address, port=API_PORT, threads=4)
@@ -1985,7 +1988,7 @@ if __name__ == '__main__':
             app.run(debug=True, host='0.0.0.0', port=API_PORT)
     else:
         # Development mode (Flask dev server)
-        print(f"Running in development mode (Flask dev server)")
+        print("Running in development mode (Flask dev server)")
         print(f"API running on: http://0.0.0.0:{API_PORT}")
         print()
         app.run(debug=True, host='0.0.0.0', port=API_PORT)

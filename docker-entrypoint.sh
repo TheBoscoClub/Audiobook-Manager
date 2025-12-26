@@ -283,6 +283,7 @@ echo ""
 # Handle shutdown gracefully
 PIDS="$API_PID $PROXY_PID"
 [ -n "$REDIRECT_PID" ] && PIDS="$PIDS $REDIRECT_PID"
+# shellcheck disable=SC2064  # We want $PIDS expanded at trap definition time
 trap "echo 'Shutting down...'; kill $PIDS 2>/dev/null; exit 0" SIGTERM SIGINT
 
 # Keep container running and wait for processes

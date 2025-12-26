@@ -1,0 +1,18 @@
+# ShellCheck configuration
+# See: https://www.shellcheck.net/wiki/
+
+# Disable SC2155: Declare and assign separately to avoid masking return values
+# This is a style preference, not a bug. The scripts work correctly.
+disable=SC2155
+
+# Disable SC1090: ShellCheck can't follow non-constant source
+# We dynamically source config files which is intentional
+disable=SC1090
+
+# Disable SC1091: Not following sourced files
+# Similar to SC1090 - we source files dynamically
+disable=SC1091
+
+# Disable SC2034: Variable appears unused
+# Some variables are used by sourced scripts or exported
+disable=SC2034

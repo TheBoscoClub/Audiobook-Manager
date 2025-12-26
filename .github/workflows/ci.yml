@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  shellcheck:
+    name: Shell Script Linting
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install ShellCheck
+      run: sudo apt-get install -y shellcheck
+
+    - name: Run ShellCheck on main scripts
+      run: |
+        echo "Running ShellCheck on shell scripts..."
+
+        # Find all shell scripts and run shellcheck
+        find . -name "*.sh" -type f ! -path "./library/venv/*" ! -path "./.git/*" -print0 | \
+          xargs -0 shellcheck --severity=warning --format=tty || {
+            echo "ShellCheck found issues in .sh files"
+            exit 1
+          }
+
+        echo "✅ All .sh scripts pass ShellCheck"
+
+    - name: Run ShellCheck on scripts without extension
+      run: |
+        echo "Running ShellCheck on scripts without .sh extension..."
+
+        # Check scripts in scripts/ directory that don't have .sh extension
+        for script in scripts/audiobook-*; do
+          if [ -f "$script" ] && head -1 "$script" | grep -q "^#!.*bash"; then
+            echo "Checking $script..."
+            shellcheck --severity=warning "$script" || {
+              echo "ShellCheck found issues in $script"
+              exit 1
+            }
+          fi
+        done
+
+        # Check other bash scripts without .sh extension
+        for script in scripts/convert-audiobooks-opus-parallel scripts/copy-audiobook-metadata \
+                      scripts/download-new-audiobooks scripts/monitor-audiobook-conversion \
+                      scripts/move-staged-audiobooks; do
+          if [ -f "$script" ] && head -1 "$script" | grep -q "^#!.*bash"; then
+            echo "Checking $script..."
+            shellcheck --severity=warning "$script" || {
+              echo "ShellCheck found issues in $script"
+              exit 1
+            }
+          fi
+        done
+
+        echo "✅ All scripts pass ShellCheck"
+
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        cd library
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Run pytest
+      run: |
+        cd library
+        pytest tests/ -v --tb=short
+
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Validate Dockerfile
+      run: |
+        docker buildx build --check -f Dockerfile .
+        echo "✅ Dockerfile is valid"
+
+    - name: Build Docker image (no push)
+      run: |
+        docker buildx build --load -t audiobooks:test -f Dockerfile .
+        echo "✅ Docker image builds successfully"
+
+  yaml-lint:
+    name: YAML Validation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate docker-compose.yml
+      run: |
+        python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"
+        echo "✅ docker-compose.yml is valid YAML"
+
+    - name: Validate GitHub Actions workflows
+      run: |
+        for f in .github/workflows/*.yml; do
+          python3 -c "import yaml; yaml.safe_load(open('$f'))"
+          echo "✅ $f is valid YAML"
+        done

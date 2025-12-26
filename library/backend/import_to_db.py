@@ -8,7 +8,6 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
-from datetime import datetime
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -185,7 +184,7 @@ def import_audiobooks(conn):
     cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
     hashed_count = cursor.fetchone()[0]
 
-    print(f"\n=== Database Statistics ===")
+    print("\n=== Database Statistics ===")
     print(f"Total audiobooks: {total:,}")
     print(f"Total hours: {int(total_hours):,} ({int(total_hours/24):,} days)")
     print(f"Unique authors: {unique_authors}")

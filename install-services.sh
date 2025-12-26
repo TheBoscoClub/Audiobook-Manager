@@ -257,19 +257,19 @@ if [[ "$START_NOW" != "n" && "$START_NOW" != "N" ]]; then
     # Stop any existing processes on the ports
     if lsof -i:5001 >/dev/null 2>&1; then
         echo "  Stopping existing process on port 5001..."
-        kill $(lsof -t -i:5001) 2>/dev/null || true
+        kill "$(lsof -t -i:5001)" 2>/dev/null || true
         sleep 1
     fi
 
     if lsof -i:8443 >/dev/null 2>&1; then
         echo "  Stopping existing process on port 8443..."
-        kill $(lsof -t -i:8443) 2>/dev/null || true
+        kill "$(lsof -t -i:8443)" 2>/dev/null || true
         sleep 1
     fi
 
     if lsof -i:8080 >/dev/null 2>&1; then
         echo "  Stopping existing process on port 8080..."
-        kill $(lsof -t -i:8080) 2>/dev/null || true
+        kill "$(lsof -t -i:8080)" 2>/dev/null || true
         sleep 1
     fi
 

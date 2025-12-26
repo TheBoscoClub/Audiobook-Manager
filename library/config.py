@@ -20,7 +20,7 @@ from typing import Optional
 # Configuration Loading
 # =============================================================================
 
-def _load_config_file(filepath: Path) -> dict:
+def _load_config_file(filepath: Path) -> dict[str, str]:
     """Load configuration from a shell-style config file."""
     config = {}
     if not filepath.exists():
@@ -154,7 +154,7 @@ API_PORT = int(os.environ.get('API_PORT', str(AUDIOBOOKS_API_PORT)))
 # Utility Functions
 # =============================================================================
 
-def print_config():
+def print_config() -> None:
     """Print current configuration for debugging."""
     print("Audiobook Library Configuration")
     print("=" * 50)
