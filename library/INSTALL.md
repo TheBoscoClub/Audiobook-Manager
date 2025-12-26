@@ -244,14 +244,12 @@ python3 import_to_db.py
 #### Using Systemd (Recommended)
 
 ```bash
-# Enable core services at login
-systemctl --user enable audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover
+# Enable core services at boot
+sudo systemctl enable audiobooks-api audiobooks-proxy audiobooks-redirect \
+  audiobooks-converter audiobooks-mover audiobooks-downloader.timer
 
 # Start services
-systemctl --user start audiobooks.target
-
-# Enable lingering (services start at boot without login)
-loginctl enable-linger $USER
+sudo systemctl start audiobooks.target
 ```
 
 #### Using Launch Script
@@ -283,20 +281,20 @@ https://localhost:8443
 
 ```bash
 # Check all audiobooks services
-systemctl --user status 'audiobooks-*'
+sudo systemctl status 'audiobooks-*'
 
 # Check specific services
-systemctl --user status audiobooks-api audiobooks-proxy
+sudo systemctl status audiobooks-api audiobooks-proxy
 
 # Restart services
-systemctl --user restart audiobooks.target
+sudo systemctl restart audiobooks.target
 
 # Stop services
-systemctl --user stop audiobooks.target
+sudo systemctl stop audiobooks.target
 
 # View logs
-journalctl --user -u audiobooks-api -f
-journalctl --user -u audiobooks-proxy -f
+journalctl -u audiobooks-api -f
+journalctl -u audiobooks-proxy -f
 ```
 
 ---

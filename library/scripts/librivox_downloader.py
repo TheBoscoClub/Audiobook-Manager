@@ -60,13 +60,14 @@ import subprocess
 # Add parent directory for config
 sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
-    from config import AUDIOBOOKS_DATA
-    DEFAULT_OUTPUT = Path(AUDIOBOOKS_DATA).parent / "Sources-Librivox"
+    from config import AUDIOBOOKS_DATA, AUDIOBOOKS_LOGS
+    DEFAULT_OUTPUT = AUDIOBOOKS_DATA / "Sources-Librivox"
+    LOG_DIR = AUDIOBOOKS_LOGS
 except ImportError:
-    DEFAULT_OUTPUT = Path("/raid0/Audiobooks/Sources-Librivox")
+    DEFAULT_OUTPUT = Path("/srv/audiobooks/Sources-Librivox")
+    LOG_DIR = Path("/srv/audiobooks/logs")
 
 LIBRIVOX_API = "https://librivox.org/api/feed/audiobooks"
-LOG_DIR = Path("/raid0/Audiobooks/logs")
 
 
 @dataclass

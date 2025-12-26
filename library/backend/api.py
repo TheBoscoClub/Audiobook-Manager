@@ -12,7 +12,7 @@ import sys
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, COVER_DIR, API_PORT, PROJECT_DIR
+from config import DATABASE_PATH, COVER_DIR, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
 
 app = Flask(__name__)
 
@@ -1292,7 +1292,7 @@ def verify_deletion_safe():
 # SUPPLEMENT ENDPOINTS
 # ============================================
 
-SUPPLEMENTS_DIR = Path('/raid0/Audiobooks/Supplements')
+# SUPPLEMENTS_DIR imported from config
 
 
 @app.route('/api/supplements', methods=['GET'])

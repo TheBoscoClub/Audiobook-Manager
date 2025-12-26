@@ -16,10 +16,10 @@ from argparse import ArgumentParser
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH
+from config import DATABASE_PATH, AUDIOBOOKS_DATA
 
 DB_PATH = DATABASE_PATH
-AUDIBLE_EXPORT = Path('/raid0/Audiobooks/library_metadata.json')
+AUDIBLE_EXPORT = AUDIOBOOKS_DATA / 'library_metadata.json'
 
 
 def normalize_title(title):
@@ -46,7 +46,7 @@ def populate_genres(dry_run=True):
     """Populate genres from Audible export."""
     if not AUDIBLE_EXPORT.exists():
         print(f"Error: Audible export not found at {AUDIBLE_EXPORT}")
-        print("Run: audible library export -f json -o /raid0/Audiobooks/library_metadata.json")
+        print(f"Run: audible library export -f json -o {AUDIBLE_EXPORT}")
         sys.exit(1)
 
     if not DB_PATH.exists():

@@ -15,13 +15,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from config import DATABASE_PATH, PROJECT_DIR
+    from config import DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
+    DEFAULT_SUPPLEMENTS_DIR = SUPPLEMENTS_DIR
 except ImportError:
     DATABASE_PATH = Path('/app/data/audiobooks.db')
     PROJECT_DIR = Path('/app')
-
-# Default supplements directory
-DEFAULT_SUPPLEMENTS_DIR = Path('/raid0/Audiobooks/Supplements')
+    DEFAULT_SUPPLEMENTS_DIR = Path('/srv/audiobooks/Supplements')
 
 
 def get_db():

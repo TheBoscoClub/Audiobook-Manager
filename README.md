@@ -73,7 +73,7 @@ cd library
 ./launch-v3.sh
 
 # Opens https://localhost:8443 in your browser
-# HTTP requests to port 8080 are automatically redirected to HTTPS
+# HTTP requests to port 8081 are automatically redirected to HTTPS
 # Uses Waitress WSGI server for production-ready performance
 
 # Or use legacy launcher (development mode)
@@ -299,7 +299,7 @@ Configuration is loaded from multiple sources in priority order:
 | `AUDIOBOOKS_LOGS` | Log files directory |
 | `AUDIOBOOKS_API_PORT` | API server port (default: 5001) |
 | `AUDIOBOOKS_WEB_PORT` | HTTPS web server port (default: 8443) |
-| `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8080) |
+| `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8081) |
 | `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
 
 ### Override via Environment
@@ -631,25 +631,26 @@ All services use the `audiobooks-*` naming convention for easy management.
 | `audiobooks-multiformat` | Non-AAXC format conversion (Google Play, Chirp, Librivox) |
 | `audiobooks-librivox.timer` | Download from Librivox wishlist |
 
-### User Services
+### System Services (Recommended)
+
+System services run at boot without requiring login:
+
 ```bash
 # Check all audiobooks services
-systemctl --user status 'audiobooks-*'
+sudo systemctl status 'audiobooks-*'
 
-# Enable core services at login
-systemctl --user enable audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover
+# Enable core services at boot
+sudo systemctl enable audiobooks-api audiobooks-proxy audiobooks-redirect \
+  audiobooks-converter audiobooks-mover audiobooks-downloader.timer
 
 # Start services
-systemctl --user start audiobooks.target
+sudo systemctl start audiobooks.target
 
 # Check status
-systemctl --user status audiobooks-api audiobooks-proxy
+sudo systemctl status audiobooks-api audiobooks-proxy
 
 # View logs
-journalctl --user -u audiobooks-api -f
-
-# Enable lingering (services start at boot without login)
-loginctl enable-linger $USER
+journalctl -u audiobooks-api -f
 ```
 
 ### Conversion Priority
@@ -746,6 +747,18 @@ See [GitHub Releases](https://github.com/greogory/audiobook-toolkit/releases) fo
 | ~Limited metadata editing in webapp~ | ~~Edit database directly~~ | ✅ Fixed in v3.0 (Back Office) |
 
 ## Roadmap
+
+### Next Phase: Secure by Design
+
+The next major focus is hardening the application with security as a first-class design principle:
+
+- **Certificate Authority Integration**: Support for Let's Encrypt and other trusted CAs (currently uses self-signed certificates)
+- **Authentication & Authorization**: Optional user authentication for multi-user deployments
+- **Audit Logging**: Track all operations for security compliance
+- **Input Validation**: Comprehensive input sanitization across all endpoints
+- **Secrets Management**: Secure credential storage for Audible API keys and service accounts
+- **Container Hardening**: Read-only filesystems, non-root execution, minimal base images
+- **Network Security**: Rate limiting, CORS policies, CSP headers
 
 ### Planned Features
 

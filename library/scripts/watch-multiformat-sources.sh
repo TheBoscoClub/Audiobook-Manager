@@ -28,8 +28,16 @@
 
 set -euo pipefail
 
-# Configuration
-AUDIOBOOKS_BASE="/raid0/Audiobooks"
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source /usr/local/lib/audiobooks/audiobooks-config.sh
+elif [[ -f "$SCRIPT_DIR/../../lib/audiobooks-config.sh" ]]; then
+    source "$SCRIPT_DIR/../../lib/audiobooks-config.sh"
+fi
+
+# Configuration - use environment or defaults
+AUDIOBOOKS_BASE="${AUDIOBOOKS_DATA:-/srv/audiobooks}"
 
 # ==============================================================================
 # DISABLED: Non-AAXC source directories (experimental, not fully tested)
@@ -58,10 +66,10 @@ WATCH_DIRS=(
     # "$AUDIOBOOKS_BASE/Sources-Other"
 )
 
-OUTPUT_DIR="$AUDIOBOOKS_BASE/Library"
-LOG_DIR="$AUDIOBOOKS_BASE/logs"
-PROCESSOR_SCRIPT="/raid0/ClaudeCodeProjects/Audiobooks/library/scripts/google_play_processor.py"
-VENV_PYTHON="/raid0/ClaudeCodeProjects/Audiobooks/library/venv/bin/python"
+OUTPUT_DIR="${AUDIOBOOKS_LIBRARY:-$AUDIOBOOKS_BASE/Library}"
+LOG_DIR="${AUDIOBOOKS_LOGS:-$AUDIOBOOKS_BASE/logs}"
+PROCESSOR_SCRIPT="${AUDIOBOOKS_HOME:-/opt/audiobooks}/library/scripts/google_play_processor.py"
+VENV_PYTHON="${AUDIOBOOKS_VENV:-${AUDIOBOOKS_HOME:-/opt/audiobooks}/library/venv}/bin/python"
 TRIGGER_DIR="/tmp/audiobook-triggers"
 PROCESSING_LOCK="/tmp/multiformat-converter.lock"
 

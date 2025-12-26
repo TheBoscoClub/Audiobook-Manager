@@ -13,9 +13,13 @@ import re
 from pathlib import Path
 from difflib import SequenceMatcher
 
-# Paths
-DB_PATH = Path("/raid0/ClaudeCodeProjects/Audiobooks/library/backend/audiobooks.db")
-SOURCES_DIR = Path("/raid0/Audiobooks/Sources")
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import DATABASE_PATH, AUDIOBOOKS_SOURCES
+
+# Paths - use config
+DB_PATH = DATABASE_PATH
+SOURCES_DIR = AUDIOBOOKS_SOURCES
 
 def normalize_title(title):
     """Normalize title for matching (remove special chars, lowercase, etc.)"""

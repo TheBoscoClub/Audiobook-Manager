@@ -125,7 +125,7 @@ AUDIOBOOKS_CONVERTER = Path(get_config('AUDIOBOOKS_CONVERTER',
 # Server settings
 AUDIOBOOKS_API_PORT = int(get_config('AUDIOBOOKS_API_PORT', '5001'))
 AUDIOBOOKS_WEB_PORT = int(get_config('AUDIOBOOKS_WEB_PORT', '8443'))  # Changed from 8090 to 8443 (HTTPS)
-AUDIOBOOKS_HTTP_REDIRECT_PORT = int(get_config('AUDIOBOOKS_HTTP_REDIRECT_PORT', '8080'))  # Changed from 8081 to 8080
+AUDIOBOOKS_HTTP_REDIRECT_PORT = int(get_config('AUDIOBOOKS_HTTP_REDIRECT_PORT', '8081'))  # Default 8081 (8080 often used by other services)
 AUDIOBOOKS_BIND_ADDRESS = get_config('AUDIOBOOKS_BIND_ADDRESS', '0.0.0.0')
 AUDIOBOOKS_HTTPS_ENABLED = get_config('AUDIOBOOKS_HTTPS_ENABLED', 'true').lower() in ('true', '1', 'yes')
 AUDIOBOOKS_HTTP_REDIRECT_ENABLED = get_config('AUDIOBOOKS_HTTP_REDIRECT_ENABLED', 'true').lower() in ('true', '1', 'yes')

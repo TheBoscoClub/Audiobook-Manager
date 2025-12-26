@@ -10,9 +10,12 @@ import sys
 from pathlib import Path
 from difflib import SequenceMatcher
 
-# Paths
-AUDIBLE_TSV = Path("/tmp/audible_library.json")  # Actually TSV despite extension
-DATABASE_PATH = Path("/raid0/ClaudeCodeProjects/Audiobooks/library/backend/audiobooks.db")
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import DATABASE_PATH, AUDIOBOOKS_DATA
+
+# Paths - use config or environment
+AUDIBLE_TSV = AUDIOBOOKS_DATA / 'audible_library.tsv'
 
 def similarity(a, b):
     """Calculate string similarity ratio"""

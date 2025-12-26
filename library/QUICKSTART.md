@@ -6,16 +6,16 @@
 
 ```bash
 # Start all services
-systemctl --user start audiobooks.target
+sudo systemctl start audiobooks.target
 
 # Or start individually
-systemctl --user start audiobooks-api audiobooks-proxy
+sudo systemctl start audiobooks-api audiobooks-proxy audiobooks-redirect
 ```
 
 ### Manual Launch
 
 ```bash
-cd /raid0/ClaudeCodeProjects/Audiobooks/library
+cd /opt/audiobooks/library
 ./launch-v3.sh
 ```
 
@@ -61,8 +61,8 @@ You'll see a self-signed certificate warning. Click:
 
 **Solution:**
 ```bash
-systemctl --user status audiobooks-api
-systemctl --user start audiobooks-api
+sudo systemctl status audiobooks-api
+sudo systemctl start audiobooks-api
 ```
 
 ### Page loads but no books appear
@@ -72,7 +72,7 @@ systemctl --user start audiobooks-api
 **Solution:**
 1. Verify API is running: `curl -sk https://localhost:8443/api/stats`
 2. Check browser console for JavaScript errors
-3. Restart services: `systemctl --user restart audiobooks.target`
+3. Restart services: `sudo systemctl restart audiobooks.target`
 
 ### Port already in use
 
@@ -84,10 +84,10 @@ systemctl --user start audiobooks-api
 ss -tlnp | grep -E "5001|8443"
 
 # Stop existing services
-systemctl --user stop audiobooks-api audiobooks-proxy
+sudo systemctl stop audiobooks-api audiobooks-proxy
 
 # Restart
-systemctl --user start audiobooks-api audiobooks-proxy
+sudo systemctl start audiobooks-api audiobooks-proxy
 ```
 
 ---
@@ -116,10 +116,10 @@ curl -sk https://localhost:8443/api/filters
 
 ```bash
 # Using systemctl (triggers database update)
-systemctl --user start audiobooks-library-update.service
+sudo systemctl start audiobooks-library-update.service
 
 # Or manually
-cd /raid0/ClaudeCodeProjects/Audiobooks/library/scanner
+cd /opt/audiobooks/library/scanner
 python3 scan_audiobooks.py
 
 cd ../backend
