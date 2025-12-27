@@ -819,7 +819,7 @@ do
     # This is the main work horse command.  This is the primary transcoder.
     # This is the primary transcode. All the heavy lifting is here.
     debug '"$FFMPEG" -loglevel error -stats ${decrypt_param} -i "${aax_file}" -vn -codec:a "${codec}" -ab ${bitrate} -map_metadata -1 -metadata title="${title}" -metadata artist="${artist}" -metadata album_artist="${album_artist}" -metadata album="${album}" -metadata date="${album_date}" -metadata track="1/1" -metadata genre="${genre}" -metadata copyright="${copyright}" "${output_file}"'
-    </dev/null "$FFMPEG" -loglevel error \
+    </dev/null "$FFMPEG" -y -loglevel error \
       -stats \
       ${decrypt_param} \
       -i "${aax_file}" \
@@ -862,7 +862,7 @@ do
       if [ "$((${loglevel} > 1))" == "1" ]; then
         log "Extracting cover into ${cover_file}..."
       fi
-      </dev/null "$FFMPEG" -loglevel error ${decrypt_param} -i "${aax_file}" -an -codec:v copy "${cover_file}"
+      </dev/null "$FFMPEG" -y -loglevel error ${decrypt_param} -i "${aax_file}" -an -codec:v copy "${cover_file}"
     fi
   fi
 
@@ -969,7 +969,7 @@ do
           if [ "$((${loglevel} > 1))" == "1" ]; then
             log "Splitting chapter ${chapternum}/${chaptercount} start:${chapter_start%?}(s) end:${chapter_end}(s)"
           fi
-          </dev/null "$FFMPEG" -loglevel quiet \
+          </dev/null "$FFMPEG" -y -loglevel quiet \
             -nostats \
             ${split_input} \
             -i "${output_file}" \
@@ -1048,7 +1048,7 @@ do
       # Create temporary output file name - ensure extention matches previous appropriate output file to keep ffmpeg happy
       cover_output_file="${output_file%.*}.cover.${output_file##*.}"
       # Copy audio stream from current output, and video stream from cover file, setting appropriate metadata
-      </dev/null "$FFMPEG" -loglevel quiet \
+      </dev/null "$FFMPEG" -y -loglevel quiet \
         -nostats \
         -i "${output_file}" \
         -i "${cover_file}" \
