@@ -15,8 +15,6 @@
 # Note: Browser will show security warning (self-signed certificate)
 #       Click 'Advanced' -> 'Proceed to localhost' to continue
 
-version: '3.8'
-
 services:
   audiobooks:
     # Option 1: Pull from GHCR (recommended)
