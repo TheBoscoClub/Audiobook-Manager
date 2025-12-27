@@ -1,0 +1,34 @@
+[Unit]
+Description=Audiobooks Library API Server (Waitress)
+Documentation=https://github.com/greogory/audiobook-toolkit
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/audiobooks/library/backend
+
+# Load configuration from /etc/audiobooks/audiobooks.conf
+EnvironmentFile=/etc/audiobooks/audiobooks.conf
+Environment=PYTHONUNBUFFERED=1
+
+# Only start if port is not already in use
+ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
+ExecStart=/opt/audiobooks/library/venv/bin/python api.py
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/raid0/Audiobooks/logs/api.log
+StandardError=append:/raid0/Audiobooks/logs/api-error.log
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks/logs
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

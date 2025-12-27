@@ -1,0 +1,35 @@
+[Unit]
+Description=Audiobooks Library HTTP to HTTPS Redirect
+Documentation=https://github.com/greogory/audiobook-toolkit
+After=network-online.target audiobooks-proxy.service
+Wants=audiobooks-proxy.service network-online.target
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/audiobooks/library/web-v2
+
+# Load configuration from /etc/audiobooks/audiobooks.conf
+EnvironmentFile=/etc/audiobooks/audiobooks.conf
+Environment=PYTHONUNBUFFERED=1
+
+# Only start if port is not already in use
+ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_HTTP_REDIRECT_PORT} >/dev/null 2>&1'
+ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/redirect_server.py
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/raid0/Audiobooks/logs/redirect.log
+StandardError=append:/raid0/Audiobooks/logs/redirect-error.log
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadOnlyPaths=/etc/audiobooks /opt/audiobooks
+ReadWritePaths=/raid0/Audiobooks/logs
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

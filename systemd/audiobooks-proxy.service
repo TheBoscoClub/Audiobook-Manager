@@ -1,0 +1,36 @@
+[Unit]
+Description=Audiobooks Library HTTPS Reverse Proxy
+Documentation=https://github.com/greogory/audiobook-toolkit
+After=network-online.target audiobooks-api.service
+Requires=audiobooks-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/audiobooks/library/web-v2
+
+# Load configuration from /etc/audiobooks/audiobooks.conf
+EnvironmentFile=/etc/audiobooks/audiobooks.conf
+Environment=PYTHONUNBUFFERED=1
+
+# Only start if port is not already in use
+ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_WEB_PORT} >/dev/null 2>&1'
+ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/proxy_server.py
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/raid0/Audiobooks/logs/proxy.log
+StandardError=append:/raid0/Audiobooks/logs/proxy-error.log
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadOnlyPaths=/etc/audiobooks /opt/audiobooks /raid0/Audiobooks/Library /raid0/Audiobooks/Supplements
+ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks/logs
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
