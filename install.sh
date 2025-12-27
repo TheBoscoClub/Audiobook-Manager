@@ -11,6 +11,8 @@
 #   --system           Skip menu, perform system installation
 #   --user             Skip menu, perform user installation
 #   --data-dir PATH    Audiobook data directory
+#   --modular          Use modular Flask Blueprint architecture
+#   --monolithic       Use single-file architecture (default)
 #   --uninstall        Remove installation
 #   --no-services      Skip systemd service installation
 #   --help             Show this help message
@@ -35,6 +37,7 @@ INSTALL_MODE=""
 DATA_DIR=""
 INSTALL_SERVICES=true
 UNINSTALL=false
+API_ARCHITECTURE="monolithic"  # monolithic (api.py) or modular (api_modular/)
 
 # -----------------------------------------------------------------------------
 # Helper Functions
@@ -67,6 +70,65 @@ print_menu() {
     echo ""
     echo -e "  ${GREEN}3)${NC} Exit"
     echo ""
+}
+
+prompt_architecture_choice() {
+    # Prompt user to select API architecture
+    # Sets global API_ARCHITECTURE variable
+
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}API Architecture Selection${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo "The API can be installed in two architectures:"
+    echo ""
+    echo -e "  ${GREEN}1)${NC} ${BOLD}Monolithic${NC} (Recommended for most users)"
+    echo "     A single Python file that handles everything."
+    echo "     • Simple and proven stable"
+    echo "     • Best if you just want the app to work"
+    echo "     • No code modifications planned"
+    echo ""
+    echo -e "  ${GREEN}2)${NC} ${BOLD}Modular${NC} (For developers and contributors)"
+    echo "     Split into multiple focused modules."
+    echo "     • Easier to navigate and modify"
+    echo "     • Better for understanding the code"
+    echo "     • Best if you plan to fix bugs or add features"
+    echo ""
+    echo -e "${DIM}Both provide identical functionality. You can switch later with:${NC}"
+    echo -e "${DIM}  ./migrate-api.sh --to-modular  or  --to-monolithic${NC}"
+    echo ""
+
+    while true; do
+        read -r -p "Choose architecture [1-2, default=1]: " arch_choice
+        arch_choice="${arch_choice:-1}"
+
+        case "$arch_choice" in
+            1)
+                API_ARCHITECTURE="monolithic"
+                echo -e "${GREEN}Selected: Monolithic architecture${NC}"
+                break
+                ;;
+            2)
+                API_ARCHITECTURE="modular"
+                echo -e "${BLUE}Selected: Modular architecture${NC}"
+                break
+                ;;
+            *)
+                echo -e "${RED}Invalid choice. Please enter 1 or 2.${NC}"
+                ;;
+        esac
+    done
+    echo ""
+}
+
+get_api_entry_point() {
+    # Returns the API entry point based on selected architecture
+    if [[ "$API_ARCHITECTURE" == "modular" ]]; then
+        echo "api_server.py"
+    else
+        echo "api.py"
+    fi
 }
 
 wait_for_keypress() {
@@ -684,12 +746,16 @@ EOF
     # Create wrapper scripts
     echo -e "${BLUE}Creating executable wrappers...${NC}"
 
+    # Determine API entry point based on architecture choice
+    local api_entry=$(get_api_entry_point)
+    echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
+
     # API server wrapper
-    sudo tee "${BIN_DIR}/audiobooks-api" > /dev/null << 'EOF'
+    sudo tee "${BIN_DIR}/audiobooks-api" > /dev/null << EOF
 #!/bin/bash
 # Audiobook Library API Server
 source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/api.py" "$@"
+exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-api"
 
@@ -1111,12 +1177,16 @@ EOF
     # Create wrapper scripts
     echo -e "${BLUE}Creating executable wrappers...${NC}"
 
+    # Determine API entry point based on architecture choice
+    local api_entry=$(get_api_entry_point)
+    echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
+
     # API server wrapper
     cat > "${BIN_DIR}/audiobooks-api" << EOF
 #!/bin/bash
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/audiobooks-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/api.py" "\$@"
+exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
 EOF
     chmod 755 "${BIN_DIR}/audiobooks-api"
 
@@ -1471,6 +1541,14 @@ while [[ $# -gt 0 ]]; do
             DATA_DIR="$2"
             shift 2
             ;;
+        --modular)
+            API_ARCHITECTURE="modular"
+            shift
+            ;;
+        --monolithic)
+            API_ARCHITECTURE="monolithic"
+            shift
+            ;;
         --uninstall)
             UNINSTALL=true
             shift
@@ -1481,6 +1559,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --help|-h)
             head -25 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
+            echo ""
+            echo "Architecture options:"
+            echo "  --modular          Use modular Flask Blueprint architecture"
+            echo "  --monolithic       Use single-file architecture (default)"
             exit 0
             ;;
         *)
@@ -1562,6 +1644,11 @@ while true; do
                 DATA_DIR="${input_dir:-/srv/audiobooks}"
             fi
 
+            # Prompt for API architecture choice
+            if [[ "$UNINSTALL" != "true" ]]; then
+                prompt_architecture_choice
+            fi
+
             if [[ "$UNINSTALL" == "true" ]]; then
                 do_system_uninstall
             else
@@ -1579,6 +1666,11 @@ while true; do
                 echo ""
                 read -r -p "Audiobook data directory [$HOME/Audiobooks]: " input_dir
                 DATA_DIR="${input_dir:-$HOME/Audiobooks}"
+            fi
+
+            # Prompt for API architecture choice
+            if [[ "$UNINSTALL" != "true" ]]; then
+                prompt_architecture_choice
             fi
 
             if [[ "$UNINSTALL" == "true" ]]; then
