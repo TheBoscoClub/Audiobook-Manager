@@ -1,6 +1,6 @@
 [Unit]
 Description=Audiobook Downloader (Audible sync)
-After=network-online.target
+After=network-online.target local-fs.target
 Wants=network-online.target
 PartOf=audiobooks.target
 

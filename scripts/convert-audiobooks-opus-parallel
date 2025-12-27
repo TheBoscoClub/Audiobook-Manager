@@ -205,7 +205,12 @@ while true; do
     log "Found $TOTAL_AAXC AAXC files, checking which need conversion..."
 
     # Process files in parallel
-    echo "$AAXC_FILES" | parallel -j "$PARALLEL_JOBS" --bar convert_file {}
+    # Use --bar for progress only when running interactively (TTY available)
+    if [[ -t 1 ]]; then
+        echo "$AAXC_FILES" | parallel -j "$PARALLEL_JOBS" --bar convert_file {}
+    else
+        echo "$AAXC_FILES" | parallel -j "$PARALLEL_JOBS" convert_file {}
+    fi
 
     echo ""
     echo "========================================="

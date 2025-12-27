@@ -25,6 +25,9 @@ Thumbs.db
 # Session files
 exit.*
 
+# Claude Code instructions (local only)
+CLAUDE.md
+
 # Database (keep structure, ignore actual data)
 *.db
 !library/backend/schema.sql
