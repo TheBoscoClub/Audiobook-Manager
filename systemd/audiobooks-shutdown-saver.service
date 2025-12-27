@@ -12,8 +12,8 @@ Group=root
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
 
 # Handle stdout at shutdown (journal may be unavailable)
-StandardOutput=journal+console
-StandardError=journal+console
+StandardOutput=journal
+StandardError=journal
 
 # Save staging files before shutdown
 ExecStart=/usr/local/bin/audiobooks-save-staging
