@@ -1,0 +1,219 @@
+{
+  "name": "audiobooks",
+  "version": "1.0.0",
+  "description": "Audiobook library management with Audible sync, conversion, and web interface",
+  "install_type": "system",
+
+  "binaries": [
+    {
+      "name": "audiobooks-api",
+      "paths": ["/usr/local/bin/audiobooks-api"],
+      "description": "Start the API server"
+    },
+    {
+      "name": "audiobooks-web",
+      "paths": ["/usr/local/bin/audiobooks-web"],
+      "description": "Start the web interface"
+    },
+    {
+      "name": "audiobooks-scan",
+      "paths": ["/usr/local/bin/audiobooks-scan"],
+      "description": "Scan library for new audiobooks"
+    },
+    {
+      "name": "audiobooks-import",
+      "paths": ["/usr/local/bin/audiobooks-import"],
+      "description": "Import audiobooks from sources"
+    },
+    {
+      "name": "audiobooks-config",
+      "paths": ["/usr/local/bin/audiobooks-config"],
+      "description": "Manage configuration"
+    },
+    {
+      "name": "audiobooks-convert",
+      "paths": ["/usr/local/bin/audiobooks-convert"],
+      "description": "Convert AAXC to Opus"
+    },
+    {
+      "name": "audiobooks-download",
+      "paths": ["/usr/local/bin/audiobooks-download"],
+      "description": "Download from Audible"
+    },
+    {
+      "name": "audiobooks-move-staged",
+      "paths": ["/usr/local/bin/audiobooks-move-staged"],
+      "description": "Move staged files to permanent storage"
+    },
+    {
+      "name": "audiobooks-save-staging",
+      "paths": ["/usr/local/bin/audiobooks-save-staging"],
+      "description": "Save staging area before shutdown"
+    }
+  ],
+
+  "services": [
+    {
+      "name": "audiobooks-api.service",
+      "type": "system",
+      "expected_state": "active",
+      "description": "API server (Waitress)",
+      "health_endpoint": "http://localhost:${AUDIOBOOKS_API_PORT:-5001}/api/health"
+    },
+    {
+      "name": "audiobooks-proxy.service",
+      "type": "system",
+      "expected_state": "active",
+      "description": "HTTPS reverse proxy for web interface"
+    },
+    {
+      "name": "audiobooks-redirect.service",
+      "type": "system",
+      "expected_state": "active",
+      "description": "HTTP to HTTPS redirect"
+    },
+    {
+      "name": "audiobooks-converter.service",
+      "type": "system",
+      "expected_state": "active",
+      "description": "Continuous AAXC to Opus converter"
+    },
+    {
+      "name": "audiobooks-downloader.service",
+      "type": "system",
+      "expected_state": "inactive",
+      "description": "Audible sync (triggered by timer)"
+    },
+    {
+      "name": "audiobooks-downloader.timer",
+      "type": "system",
+      "expected_state": "active",
+      "description": "Timer for Audible sync"
+    },
+    {
+      "name": "audiobooks-mover.service",
+      "type": "system",
+      "expected_state": "inactive",
+      "description": "Staging mover (runs on-demand)"
+    },
+    {
+      "name": "audiobooks-shutdown-saver.service",
+      "type": "system",
+      "expected_state": "inactive",
+      "description": "Shutdown hook to save staging"
+    },
+    {
+      "name": "audiobooks.target",
+      "type": "system",
+      "expected_state": "active",
+      "description": "Target grouping all audiobook services"
+    }
+  ],
+
+  "config_files": [
+    {
+      "path": "/etc/audiobooks/config.env",
+      "required": true,
+      "description": "Main configuration file"
+    },
+    {
+      "path": "/opt/audiobooks/library/backend/audiobooks.db",
+      "required": true,
+      "description": "SQLite database"
+    }
+  ],
+
+  "data_directories": [
+    {
+      "path": "/opt/audiobooks",
+      "required": true,
+      "min_permissions": "755",
+      "description": "Application installation directory"
+    },
+    {
+      "path": "/opt/audiobooks/library",
+      "required": true,
+      "min_permissions": "755",
+      "description": "Library code"
+    },
+    {
+      "path": "/srv/audiobooks",
+      "required": true,
+      "min_permissions": "755",
+      "description": "Audiobook data storage"
+    },
+    {
+      "path": "/srv/audiobooks/Library",
+      "required": true,
+      "min_permissions": "755",
+      "description": "Converted audiobooks (Opus)"
+    },
+    {
+      "path": "/srv/audiobooks/Sources",
+      "required": true,
+      "min_permissions": "755",
+      "description": "Source audiobooks (AAXC)"
+    }
+  ],
+
+  "environment": {
+    "required_vars": [
+      "AUDIOBOOKS_DATA",
+      "AUDIOBOOKS_LIBRARY",
+      "AUDIOBOOKS_DATABASE"
+    ],
+    "optional_vars": [
+      "AUDIOBOOKS_API_PORT",
+      "AUDIOBOOKS_WEB_PORT",
+      "AUDIOBOOKS_HTTPS_ENABLED",
+      "AUDIOBOOKS_DEV_MODE"
+    ]
+  },
+
+  "ports": [
+    {
+      "port": 5001,
+      "protocol": "tcp",
+      "service": "audiobooks-api.service",
+      "description": "REST API (default, configurable via AUDIOBOOKS_API_PORT)",
+      "env_override": "AUDIOBOOKS_API_PORT"
+    },
+    {
+      "port": 8443,
+      "protocol": "tcp",
+      "service": "audiobooks-proxy.service",
+      "description": "HTTPS web interface (default, configurable via AUDIOBOOKS_WEB_PORT)",
+      "env_override": "AUDIOBOOKS_WEB_PORT"
+    },
+    {
+      "port": 8081,
+      "protocol": "tcp",
+      "service": "audiobooks-redirect.service",
+      "description": "HTTP redirect (default, configurable via AUDIOBOOKS_HTTP_REDIRECT_PORT)",
+      "env_override": "AUDIOBOOKS_HTTP_REDIRECT_PORT"
+    }
+  ],
+
+  "health_checks": [
+    {
+      "name": "API health endpoint",
+      "command": "curl -sf http://localhost:${AUDIOBOOKS_API_PORT:-5001}/api/health || curl -sf http://localhost:${AUDIOBOOKS_API_PORT:-5001}/health",
+      "timeout": 10
+    },
+    {
+      "name": "Web interface accessible",
+      "command": "curl -sfk https://localhost:${AUDIOBOOKS_WEB_PORT:-8443}/ -o /dev/null",
+      "timeout": 10
+    },
+    {
+      "name": "Database accessible",
+      "command": "test -f /opt/audiobooks/library/backend/audiobooks.db && sqlite3 /opt/audiobooks/library/backend/audiobooks.db 'SELECT 1'",
+      "timeout": 5
+    },
+    {
+      "name": "Library directory readable",
+      "command": "test -d /srv/audiobooks/Library && ls /srv/audiobooks/Library >/dev/null",
+      "timeout": 5
+    }
+  ]
+}
