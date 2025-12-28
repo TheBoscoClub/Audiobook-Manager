@@ -18,21 +18,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH, AUDIOBOOKS_DATA
 
 DB_PATH = DATABASE_PATH
-AUDIBLE_EXPORT = AUDIOBOOKS_DATA / 'library_metadata.json'
+AUDIBLE_EXPORT = AUDIOBOOKS_DATA / "library_metadata.json"
 
 
 def normalize_title(title):
     """Normalize title for matching."""
     if not title:
-        return ''
+        return ""
     # Remove common suffixes
-    title = re.sub(r'\s*\(Unabridged\)\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*\[Unabridged\]\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*:\s*A Novel\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*:\s*A Memoir\s*$', '', title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\(Unabridged\)\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\[Unabridged\]\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*:\s*A Novel\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*:\s*A Memoir\s*$", "", title, flags=re.IGNORECASE)
     # Remove punctuation and lowercase
-    title = re.sub(r'[^\w\s]', '', title)
-    title = ' '.join(title.lower().split())
+    title = re.sub(r"[^\w\s]", "", title)
+    title = " ".join(title.lower().split())
     return title
 
 
@@ -62,27 +62,29 @@ def update_narrators(dry_run=True):
     audible_by_title = {}
     audible_by_asin = {}
     for item in audible_library:
-        title = item.get('title', '')
-        asin = item.get('asin', '')
-        narrators = item.get('narrators', '')
+        title = item.get("title", "")
+        asin = item.get("asin", "")
+        narrators = item.get("narrators", "")
 
         if narrators:
             norm_title = normalize_title(title)
             if norm_title:
                 audible_by_title[norm_title] = {
-                    'title': title,
-                    'narrators': narrators,
-                    'authors': item.get('authors', ''),
-                    'asin': asin
+                    "title": title,
+                    "narrators": narrators,
+                    "authors": item.get("authors", ""),
+                    "asin": asin,
                 }
             if asin:
                 audible_by_asin[asin] = {
-                    'title': title,
-                    'narrators': narrators,
-                    'authors': item.get('authors', '')
+                    "title": title,
+                    "narrators": narrators,
+                    "authors": item.get("authors", ""),
                 }
 
-    print(f"Built lookup with {len(audible_by_title)} titles, {len(audible_by_asin)} ASINs")
+    print(
+        f"Built lookup with {len(audible_by_title)} titles, {len(audible_by_asin)} ASINs"
+    )
 
     # Connect to database
     conn = sqlite3.connect(DB_PATH)
@@ -104,9 +106,9 @@ def update_narrators(dry_run=True):
     no_match = []
 
     for book in unknown_narrator_books:
-        book_id = book['id']
-        book_title = book['title']
-        book_asin = book['asin']
+        book_id = book["id"]
+        book_title = book["title"]
+        book_asin = book["asin"]
 
         match = None
         match_method = None
@@ -114,35 +116,37 @@ def update_narrators(dry_run=True):
         # Try ASIN match first (most reliable)
         if book_asin and book_asin in audible_by_asin:
             match = audible_by_asin[book_asin]
-            match_method = 'ASIN'
+            match_method = "ASIN"
         else:
             # Try exact normalized title match
             norm_title = normalize_title(book_title)
             if norm_title in audible_by_title:
                 match = audible_by_title[norm_title]
-                match_method = 'exact title'
+                match_method = "exact title"
             else:
                 # Try fuzzy title match
                 best_ratio = 0
                 best_match = None
                 for aud_title, aud_data in audible_by_title.items():
-                    ratio = similarity(book_title, aud_data['title'])
+                    ratio = similarity(book_title, aud_data["title"])
                     if ratio > best_ratio and ratio >= 0.85:  # 85% threshold
                         best_ratio = ratio
                         best_match = aud_data
 
                 if best_match:
                     match = best_match
-                    match_method = f'fuzzy ({best_ratio:.0%})'
+                    match_method = f"fuzzy ({best_ratio:.0%})"
 
         if match:
-            updates.append({
-                'id': book_id,
-                'title': book_title,
-                'narrator': match['narrators'],
-                'method': match_method,
-                'matched_title': match['title']
-            })
+            updates.append(
+                {
+                    "id": book_id,
+                    "title": book_title,
+                    "narrator": match["narrators"],
+                    "method": match_method,
+                    "matched_title": match["title"],
+                }
+            )
         else:
             no_match.append(book_title)
 
@@ -180,7 +184,7 @@ def update_narrators(dry_run=True):
         for update in updates:
             cursor.execute(
                 "UPDATE audiobooks SET narrator = ? WHERE id = ?",
-                (update['narrator'], update['id'])
+                (update["narrator"], update["id"]),
             )
 
         conn.commit()
@@ -197,9 +201,14 @@ def update_narrators(dry_run=True):
 
 
 def main():
-    parser = ArgumentParser(description="Update narrator info from Audible library export")
-    parser.add_argument('--execute', action='store_true',
-                        help='Actually apply changes (default is dry run)')
+    parser = ArgumentParser(
+        description="Update narrator info from Audible library export"
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually apply changes (default is dry run)",
+    )
     args = parser.parse_args()
     update_narrators(dry_run=not args.execute)
 

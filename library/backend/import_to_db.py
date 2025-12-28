@@ -43,7 +43,7 @@ def import_audiobooks(conn):
     with open(JSON_PATH) as f:
         data = json.load(f)
 
-    audiobooks = data['audiobooks']
+    audiobooks = data["audiobooks"]
     print(f"Found {len(audiobooks)} audiobooks")
 
     cursor = conn.cursor()
@@ -54,7 +54,9 @@ def import_audiobooks(conn):
 
     # Save narrator data (keyed by file_path)
     preserved_narrators = {}
-    cursor.execute("SELECT file_path, narrator FROM audiobooks WHERE narrator IS NOT NULL AND narrator != 'Unknown Narrator' AND narrator != ''")
+    cursor.execute(
+        "SELECT file_path, narrator FROM audiobooks WHERE narrator IS NOT NULL AND narrator != 'Unknown Narrator' AND narrator != ''"
+    )
     for row in cursor.fetchall():
         preserved_narrators[row[0]] = row[1]
     print(f"  Preserved {len(preserved_narrators)} narrator records")
@@ -70,7 +72,7 @@ def import_audiobooks(conn):
     """)
     for row in cursor.fetchall():
         if row[1]:
-            preserved_genres[row[0]] = row[1].split('|||')
+            preserved_genres[row[0]] = row[1].split("|||")
     print(f"  Preserved genre data for {len(preserved_genres)} audiobooks")
 
     # Clear existing data
@@ -94,39 +96,42 @@ def import_audiobooks(conn):
             print(f"  Processed {idx}/{len(audiobooks)} audiobooks...")
 
         # Use preserved narrator if available, otherwise use JSON value
-        file_path = book.get('file_path')
-        narrator = preserved_narrators.get(file_path, book.get('narrator'))
+        file_path = book.get("file_path")
+        narrator = preserved_narrators.get(file_path, book.get("narrator"))
 
         # Insert audiobook
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO audiobooks (
                 title, author, narrator, publisher, series,
                 duration_hours, duration_formatted, file_size_mb,
                 file_path, cover_path, format, quality, description,
                 sha256_hash, hash_verified_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            book.get('title'),
-            book.get('author'),
-            narrator,
-            book.get('publisher'),
-            book.get('series'),
-            book.get('duration_hours'),
-            book.get('duration_formatted'),
-            book.get('file_size_mb'),
-            file_path,
-            book.get('cover_path'),
-            book.get('format'),
-            book.get('quality'),
-            book.get('description', ''),
-            book.get('sha256_hash'),
-            book.get('hash_verified_at')
-        ))
+        """,
+            (
+                book.get("title"),
+                book.get("author"),
+                narrator,
+                book.get("publisher"),
+                book.get("series"),
+                book.get("duration_hours"),
+                book.get("duration_formatted"),
+                book.get("file_size_mb"),
+                file_path,
+                book.get("cover_path"),
+                book.get("format"),
+                book.get("quality"),
+                book.get("description", ""),
+                book.get("sha256_hash"),
+                book.get("hash_verified_at"),
+            ),
+        )
 
         audiobook_id = cursor.lastrowid
 
         # Handle genres - use preserved genres if available, otherwise use JSON
-        genre_list = preserved_genres.get(file_path, book.get('genres', []))
+        genre_list = preserved_genres.get(file_path, book.get("genres", []))
         for genre_name in genre_list:
             if genre_name not in genres_map:
                 cursor.execute("INSERT INTO genres (name) VALUES (?)", (genre_name,))
@@ -134,29 +139,29 @@ def import_audiobooks(conn):
 
             cursor.execute(
                 "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-                (audiobook_id, genres_map[genre_name])
+                (audiobook_id, genres_map[genre_name]),
             )
 
         # Handle eras
-        for era_name in book.get('eras', []):
+        for era_name in book.get("eras", []):
             if era_name not in eras_map:
                 cursor.execute("INSERT INTO eras (name) VALUES (?)", (era_name,))
                 eras_map[era_name] = cursor.lastrowid
 
             cursor.execute(
                 "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-                (audiobook_id, eras_map[era_name])
+                (audiobook_id, eras_map[era_name]),
             )
 
         # Handle topics
-        for topic_name in book.get('topics', []):
+        for topic_name in book.get("topics", []):
             if topic_name not in topics_map:
                 cursor.execute("INSERT INTO topics (name) VALUES (?)", (topic_name,))
                 topics_map[topic_name] = cursor.lastrowid
 
             cursor.execute(
                 "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
-                (audiobook_id, topics_map[topic_name])
+                (audiobook_id, topics_map[topic_name]),
             )
 
     conn.commit()
@@ -175,10 +180,14 @@ def import_audiobooks(conn):
     cursor.execute("SELECT SUM(duration_hours) FROM audiobooks")
     total_hours = cursor.fetchone()[0] or 0
 
-    cursor.execute("SELECT COUNT(DISTINCT author) FROM audiobooks WHERE author IS NOT NULL")
+    cursor.execute(
+        "SELECT COUNT(DISTINCT author) FROM audiobooks WHERE author IS NOT NULL"
+    )
     unique_authors = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(DISTINCT narrator) FROM audiobooks WHERE narrator IS NOT NULL")
+    cursor.execute(
+        "SELECT COUNT(DISTINCT narrator) FROM audiobooks WHERE narrator IS NOT NULL"
+    )
     unique_narrators = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
@@ -186,7 +195,7 @@ def import_audiobooks(conn):
 
     print("\n=== Database Statistics ===")
     print(f"Total audiobooks: {total:,}")
-    print(f"Total hours: {int(total_hours):,} ({int(total_hours/24):,} days)")
+    print(f"Total hours: {int(total_hours):,} ({int(total_hours / 24):,} days)")
     print(f"Unique authors: {unique_authors}")
     print(f"Unique narrators: {unique_narrators}")
     print(f"Unique genres: {len(genres_map)}")
@@ -215,6 +224,7 @@ def main():
     except Exception as e:
         print(f"\n✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:

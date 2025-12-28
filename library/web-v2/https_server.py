@@ -14,15 +14,15 @@ from config import (
     AUDIOBOOKS_WEB_PORT,
     AUDIOBOOKS_HTTP_REDIRECT_PORT,
     AUDIOBOOKS_HTTP_REDIRECT_ENABLED,
-    AUDIOBOOKS_CERTS
+    AUDIOBOOKS_CERTS,
 )
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 HTTP_PORT = AUDIOBOOKS_HTTP_REDIRECT_PORT
 HTTP_REDIRECT_ENABLED = AUDIOBOOKS_HTTP_REDIRECT_ENABLED
 CERT_DIR = AUDIOBOOKS_CERTS
-CERT_FILE = CERT_DIR / 'server.crt'
-KEY_FILE = CERT_DIR / 'server.key'
+CERT_FILE = CERT_DIR / "server.crt"
+KEY_FILE = CERT_DIR / "server.key"
 
 
 class HTTPToHTTPSRedirectHandler(http.server.BaseHTTPRequestHandler):
@@ -40,15 +40,15 @@ class HTTPToHTTPSRedirectHandler(http.server.BaseHTTPRequestHandler):
     def send_redirect(self):
         """Send 301 redirect to HTTPS version of the URL."""
         # Get the host from the request, default to localhost
-        host = self.headers.get('Host', 'localhost')
+        host = self.headers.get("Host", "localhost")
         # Remove port if present
-        if ':' in host:
-            host = host.split(':')[0]
+        if ":" in host:
+            host = host.split(":")[0]
 
         https_url = f"https://{host}:{HTTPS_PORT}{self.path}"
         self.send_response(301)
-        self.send_header('Location', https_url)
-        self.send_header('Content-Type', 'text/html')
+        self.send_header("Location", https_url)
+        self.send_header("Content-Type", "text/html")
         self.end_headers()
         body = f'''<!DOCTYPE html>
 <html>
@@ -67,8 +67,12 @@ class HTTPToHTTPSRedirectHandler(http.server.BaseHTTPRequestHandler):
 def run_http_redirect_server():
     """Run HTTP server that redirects to HTTPS."""
     try:
-        server = http.server.HTTPServer(('0.0.0.0', HTTP_PORT), HTTPToHTTPSRedirectHandler)
-        print(f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/")
+        server = http.server.HTTPServer(
+            ("0.0.0.0", HTTP_PORT), HTTPToHTTPSRedirectHandler
+        )
+        print(
+            f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/"
+        )
         server.serve_forever()
     except Exception as e:
         print(f"HTTP redirect server error: {e}")
@@ -97,7 +101,7 @@ def main():
     context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
     # Create HTTPS server
-    server = http.server.HTTPServer(('0.0.0.0', HTTPS_PORT), handler)
+    server = http.server.HTTPServer(("0.0.0.0", HTTPS_PORT), handler)
     server.socket = context.wrap_socket(server.socket, server_side=True)
 
     print(f"Serving HTTPS on https://0.0.0.0:{HTTPS_PORT}/ ...")
@@ -110,5 +114,6 @@ def main():
         print("\nShutting down...")
         server.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

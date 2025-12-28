@@ -18,7 +18,6 @@ SAFETY:
 
 import sqlite3
 import sys
-import os
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -31,7 +30,7 @@ DB_PATH = DATABASE_PATH
 
 def format_size(size_bytes: float) -> str:
     """Format bytes into human-readable size"""
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
         if size_bytes < 1024:
             return f"{size_bytes:.1f}{unit}"
         size_bytes /= 1024
@@ -69,35 +68,42 @@ def find_audiobook_folder_duplicates(conn):
         duration_group = entry[7]
 
         # Check if there's a matching entry with real author (not in /Audiobook/ folder)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, file_path
             FROM audiobooks
             WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
               AND ROUND(duration_hours, 1) = ?
               AND file_path NOT LIKE '%/Library/Audiobook/%'
               AND LOWER(TRIM(author)) != 'audiobook'
-        """, (norm_title, duration_group))
+        """,
+            (norm_title, duration_group),
+        )
 
         matching_real_entry = cursor.fetchone()
 
         if matching_real_entry:
-            duplicates_to_remove.append({
-                'id': entry_id,
-                'title': title,
-                'author': author,
-                'file_path': file_path,
-                'file_size_mb': file_size_mb,
-                'real_author': matching_real_entry[2],
-                'real_path': matching_real_entry[3]
-            })
+            duplicates_to_remove.append(
+                {
+                    "id": entry_id,
+                    "title": title,
+                    "author": author,
+                    "file_path": file_path,
+                    "file_size_mb": file_size_mb,
+                    "real_author": matching_real_entry[2],
+                    "real_path": matching_real_entry[3],
+                }
+            )
         else:
             # No matching entry - this is the only copy, keep it
-            protected_entries.append({
-                'id': entry_id,
-                'title': title,
-                'author': author,
-                'file_path': file_path
-            })
+            protected_entries.append(
+                {
+                    "id": entry_id,
+                    "title": title,
+                    "author": author,
+                    "file_path": file_path,
+                }
+            )
 
     return duplicates_to_remove, protected_entries
 
@@ -122,7 +128,7 @@ def cleanup_duplicates(dry_run=True, delete_files=False):
 
     duplicates, protected = find_audiobook_folder_duplicates(conn)
 
-    total_space = sum(d['file_size_mb'] for d in duplicates)
+    total_space = sum(d["file_size_mb"] for d in duplicates)
 
     print(f"Found {len(duplicates)} duplicate entries in /Library/Audiobook/")
     print(f"Protected entries (no matching real author): {len(protected)}")
@@ -171,20 +177,26 @@ def cleanup_duplicates(dry_run=True, delete_files=False):
     for dup in duplicates:
         try:
             # Delete from related tables first
-            cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (dup['id'],))
-            cursor.execute("DELETE FROM audiobook_eras WHERE audiobook_id = ?", (dup['id'],))
-            cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (dup['id'],))
-            cursor.execute("DELETE FROM audiobooks WHERE id = ?", (dup['id'],))
+            cursor.execute(
+                "DELETE FROM audiobook_topics WHERE audiobook_id = ?", (dup["id"],)
+            )
+            cursor.execute(
+                "DELETE FROM audiobook_eras WHERE audiobook_id = ?", (dup["id"],)
+            )
+            cursor.execute(
+                "DELETE FROM audiobook_genres WHERE audiobook_id = ?", (dup["id"],)
+            )
+            cursor.execute("DELETE FROM audiobooks WHERE id = ?", (dup["id"],))
 
             removed_count += 1
 
             # Optionally delete the physical file
             if delete_files:
-                file_path = Path(dup['file_path'])
+                file_path = Path(dup["file_path"])
                 if file_path.exists():
                     file_path.unlink()
                     deleted_files += 1
-                    space_freed += dup['file_size_mb']
+                    space_freed += dup["file_size_mb"]
 
                     # Try to remove empty parent directories
                     try:
@@ -197,7 +209,7 @@ def cleanup_duplicates(dry_run=True, delete_files=False):
                 print(f"  Processed {removed_count}/{len(duplicates)}...")
 
         except Exception as e:
-            errors.append({'id': dup['id'], 'title': dup['title'], 'error': str(e)})
+            errors.append({"id": dup["id"], "title": dup["title"], "error": str(e)})
 
     conn.commit()
     conn.close()
@@ -220,11 +232,19 @@ def cleanup_duplicates(dry_run=True, delete_files=False):
 
 
 def main():
-    parser = ArgumentParser(description="Clean up duplicate audiobook entries from /Library/Audiobook/ folder")
-    parser.add_argument('--execute', action='store_true',
-                        help='Actually remove duplicates (default is dry run)')
-    parser.add_argument('--delete-files', action='store_true',
-                        help='Also delete the physical files (DESTRUCTIVE)')
+    parser = ArgumentParser(
+        description="Clean up duplicate audiobook entries from /Library/Audiobook/ folder"
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually remove duplicates (default is dry run)",
+    )
+    parser.add_argument(
+        "--delete-files",
+        action="store_true",
+        help="Also delete the physical files (DESTRUCTIVE)",
+    )
 
     args = parser.parse_args()
 

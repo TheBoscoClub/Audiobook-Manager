@@ -19,21 +19,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH, AUDIOBOOKS_DATA
 
 DB_PATH = DATABASE_PATH
-AUDIBLE_EXPORT = AUDIOBOOKS_DATA / 'library_metadata.json'
+AUDIBLE_EXPORT = AUDIOBOOKS_DATA / "library_metadata.json"
 
 
 def normalize_title(title):
     """Normalize title for matching."""
     if not title:
-        return ''
+        return ""
     # Remove common suffixes
-    title = re.sub(r'\s*\(Unabridged\)\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*\[Unabridged\]\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*:\s*A Novel\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*:\s*A Memoir\s*$', '', title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\(Unabridged\)\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\[Unabridged\]\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*:\s*A Novel\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*:\s*A Memoir\s*$", "", title, flags=re.IGNORECASE)
     # Remove punctuation and lowercase
-    title = re.sub(r'[^\w\s]', '', title)
-    title = ' '.join(title.lower().split())
+    title = re.sub(r"[^\w\s]", "", title)
+    title = " ".join(title.lower().split())
     return title
 
 
@@ -64,27 +64,26 @@ def populate_genres(dry_run=True):
     audible_by_title = {}
 
     for item in audible_library:
-        asin = item.get('asin', '')
-        title = item.get('title', '')
-        genres = item.get('genres', '')
+        asin = item.get("asin", "")
+        title = item.get("title", "")
+        genres = item.get("genres", "")
 
         if genres:
-            genre_list = [g.strip() for g in genres.split(',') if g.strip()]
+            genre_list = [g.strip() for g in genres.split(",") if g.strip()]
             if asin:
-                audible_by_asin[asin] = {
-                    'title': title,
-                    'genres': genre_list
-                }
+                audible_by_asin[asin] = {"title": title, "genres": genre_list}
             if title:
                 norm_title = normalize_title(title)
                 if norm_title:
                     audible_by_title[norm_title] = {
-                        'title': title,
-                        'genres': genre_list,
-                        'asin': asin
+                        "title": title,
+                        "genres": genre_list,
+                        "asin": asin,
                     }
 
-    print(f"Built lookup with {len(audible_by_asin)} ASINs, {len(audible_by_title)} titles")
+    print(
+        f"Built lookup with {len(audible_by_asin)} ASINs, {len(audible_by_title)} titles"
+    )
 
     # Connect to database
     conn = sqlite3.connect(DB_PATH)
@@ -102,9 +101,9 @@ def populate_genres(dry_run=True):
     all_genres = set()
 
     for book in all_books:
-        book_id = book['id']
-        book_title = book['title']
-        book_asin = book['asin']
+        book_id = book["id"]
+        book_title = book["title"]
+        book_asin = book["asin"]
 
         match = None
         match_method = None
@@ -112,35 +111,37 @@ def populate_genres(dry_run=True):
         # Try ASIN match first
         if book_asin and book_asin in audible_by_asin:
             match = audible_by_asin[book_asin]
-            match_method = 'ASIN'
+            match_method = "ASIN"
         else:
             # Try exact normalized title match
             norm_title = normalize_title(book_title)
             if norm_title in audible_by_title:
                 match = audible_by_title[norm_title]
-                match_method = 'exact title'
+                match_method = "exact title"
             else:
                 # Try fuzzy title match
                 best_ratio = 0
                 best_match = None
                 for aud_title, aud_data in audible_by_title.items():
-                    ratio = similarity(book_title, aud_data['title'])
+                    ratio = similarity(book_title, aud_data["title"])
                     if ratio > best_ratio and ratio >= 0.85:
                         best_ratio = ratio
                         best_match = aud_data
 
                 if best_match:
                     match = best_match
-                    match_method = f'fuzzy ({best_ratio:.0%})'
+                    match_method = f"fuzzy ({best_ratio:.0%})"
 
-        if match and match['genres']:
-            matches.append({
-                'id': book_id,
-                'title': book_title,
-                'genres': match['genres'],
-                'method': match_method
-            })
-            all_genres.update(match['genres'])
+        if match and match["genres"]:
+            matches.append(
+                {
+                    "id": book_id,
+                    "title": book_title,
+                    "genres": match["genres"],
+                    "method": match_method,
+                }
+            )
+            all_genres.update(match["genres"])
         else:
             no_match.append(book_title)
 
@@ -194,11 +195,11 @@ def populate_genres(dry_run=True):
         for m in matches:
             # Deduplicate genres for this book
             seen_genres = set()
-            for genre in m['genres']:
+            for genre in m["genres"]:
                 if genre in genre_id_map and genre not in seen_genres:
                     cursor.execute(
                         "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-                        (m['id'], genre_id_map[genre])
+                        (m["id"], genre_id_map[genre]),
                     )
                     association_count += 1
                     seen_genres.add(genre)
@@ -223,7 +224,7 @@ def populate_genres(dry_run=True):
 
     genre_counts = {}
     for m in matches:
-        for g in m['genres']:
+        for g in m["genres"]:
             genre_counts[g] = genre_counts.get(g, 0) + 1
 
     for genre, count in sorted(genre_counts.items(), key=lambda x: -x[1])[:20]:
@@ -232,8 +233,11 @@ def populate_genres(dry_run=True):
 
 def main():
     parser = ArgumentParser(description="Populate genres from Audible library export")
-    parser.add_argument('--execute', action='store_true',
-                        help='Actually apply changes (default is dry run)')
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually apply changes (default is dry run)",
+    )
     args = parser.parse_args()
     populate_genres(dry_run=not args.execute)
 

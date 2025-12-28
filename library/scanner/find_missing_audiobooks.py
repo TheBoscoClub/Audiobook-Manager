@@ -15,12 +15,13 @@ from config import AUDIOBOOK_DIR
 OUTPUT_CSV = Path("missing_audiobooks.csv")
 OUTPUT_TXT = Path("missing_audiobooks.txt")
 
+
 def find_corrupted_files():
     """Find all empty or corrupted audiobook files"""
     corrupted = []
 
     # Find all audiobook files
-    for ext in ['.m4b', '.opus', '.m4a', '.mp3', '.aaxc']:
+    for ext in [".m4b", ".opus", ".m4a", ".mp3", ".aaxc"]:
         for filepath in AUDIOBOOK_DIR.rglob(f"*{ext}"):
             # Check if file is empty (0 bytes)
             if filepath.stat().st_size == 0:
@@ -28,21 +29,29 @@ def find_corrupted_files():
                 title = filepath.stem
 
                 # Try to clean up the title
-                title_clean = title.replace('_', ' ')
+                title_clean = title.replace("_", " ")
 
                 # Remove quality indicators
-                for quality in ['-AAX 44 128', '-AAX 22 64', '-AAX_44_128', '-AAX_22_64']:
-                    title_clean = title_clean.replace(quality, '')
+                for quality in [
+                    "-AAX 44 128",
+                    "-AAX 22 64",
+                    "-AAX_44_128",
+                    "-AAX_22_64",
+                ]:
+                    title_clean = title_clean.replace(quality, "")
 
-                corrupted.append({
-                    'title': title_clean.strip(),
-                    'filename': filepath.name,
-                    'path': str(filepath.relative_to(AUDIOBOOK_DIR.parent)),
-                    'directory': filepath.parent.name,
-                    'extension': ext
-                })
+                corrupted.append(
+                    {
+                        "title": title_clean.strip(),
+                        "filename": filepath.name,
+                        "path": str(filepath.relative_to(AUDIOBOOK_DIR.parent)),
+                        "directory": filepath.parent.name,
+                        "extension": ext,
+                    }
+                )
 
     return corrupted
+
 
 def main():
     print("Scanning for corrupted/empty audiobook files...")
@@ -55,7 +64,7 @@ def main():
         return
 
     # Sort by title
-    corrupted.sort(key=lambda x: x['title'].lower())
+    corrupted.sort(key=lambda x: x["title"].lower())
 
     print(f"Found {len(corrupted)} corrupted/empty audiobook files")
     print()
@@ -63,7 +72,7 @@ def main():
     # Group by directory
     by_directory = {}
     for item in corrupted:
-        dir_name = item['directory']
+        dir_name = item["directory"]
         if dir_name not in by_directory:
             by_directory[dir_name] = []
         by_directory[dir_name].append(item)
@@ -75,14 +84,16 @@ def main():
 
     # Save to CSV
     print(f"Saving list to {OUTPUT_CSV}...")
-    with open(OUTPUT_CSV, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=['title', 'filename', 'directory', 'extension', 'path'])
+    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f, fieldnames=["title", "filename", "directory", "extension", "path"]
+        )
         writer.writeheader()
         writer.writerows(corrupted)
 
     # Save to text file (easier to read)
     print(f"Saving list to {OUTPUT_TXT}...")
-    with open(OUTPUT_TXT, 'w', encoding='utf-8') as f:
+    with open(OUTPUT_TXT, "w", encoding="utf-8") as f:
         f.write("MISSING/CORRUPTED AUDIOBOOKS\n")
         f.write("=" * 80 + "\n\n")
         f.write(f"Total: {len(corrupted)} audiobooks need to be re-downloaded\n\n")
@@ -130,5 +141,6 @@ def main():
     print("     which audiobooks you've re-downloaded.")
     print()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

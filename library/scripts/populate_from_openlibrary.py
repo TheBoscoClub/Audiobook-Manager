@@ -41,7 +41,7 @@ import re
 from pathlib import Path
 from argparse import ArgumentParser
 from difflib import SequenceMatcher
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, List
 from dataclasses import dataclass
 
 # Add parent directory to path for config import
@@ -49,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH
 
 # Import OpenLibrary client
-from utils.openlibrary_client import OpenLibraryClient, OpenLibraryWork
+from utils.openlibrary_client import OpenLibraryClient
 
 DB_PATH = DATABASE_PATH
 FUZZY_THRESHOLD = 0.85
@@ -58,6 +58,7 @@ FUZZY_THRESHOLD = 0.85
 @dataclass
 class EnrichmentResult:
     """Result of enriching a single audiobook."""
+
     audiobook_id: int
     title: str
     match_method: str  # 'isbn', 'exact_title', 'fuzzy_title', 'no_match'
@@ -79,23 +80,19 @@ def normalize_title(title: str) -> str:
     - Lowercase and collapse whitespace
     """
     if not title:
-        return ''
-    title = re.sub(r'\s*\(Unabridged\)\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*\[Unabridged\]\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*:\s*A Novel\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*:\s*A Memoir\s*$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'[^\w\s]', '', title)
-    title = ' '.join(title.lower().split())
+        return ""
+    title = re.sub(r"\s*\(Unabridged\)\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\[Unabridged\]\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*:\s*A Novel\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*:\s*A Memoir\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"[^\w\s]", "", title)
+    title = " ".join(title.lower().split())
     return title
 
 
 def similarity(a: str, b: str) -> float:
     """Calculate normalized similarity ratio."""
-    return SequenceMatcher(
-        None,
-        normalize_title(a),
-        normalize_title(b)
-    ).ratio()
+    return SequenceMatcher(None, normalize_title(a), normalize_title(b)).ratio()
 
 
 def populate_from_openlibrary(
@@ -105,7 +102,7 @@ def populate_from_openlibrary(
     only_non_audible: bool = False,
     audiobook_id: Optional[int] = None,
     rate_limit: float = 0.6,
-    verbose: bool = False
+    verbose: bool = False,
 ):
     """
     Enrich audiobooks with metadata from OpenLibrary.
@@ -170,10 +167,10 @@ def populate_from_openlibrary(
     all_subjects = set()
 
     for i, book in enumerate(candidates, 1):
-        book_id = book['id']
-        book_title = book['title']
-        book_author = book['author'] or ''
-        book_isbn = book['isbn']
+        book_id = book["id"]
+        book_title = book["title"]
+        book_author = book["author"] or ""
+        book_isbn = book["isbn"]
 
         if verbose:
             print(f"\n[{i}/{len(candidates)}] Processing: {book_title[:50]}")
@@ -190,23 +187,25 @@ def populate_from_openlibrary(
                     result = EnrichmentResult(
                         audiobook_id=book_id,
                         title=book_title,
-                        match_method='isbn',
+                        match_method="isbn",
                         subjects_found=work.subjects,
                         publication_year=work.first_publish_year,
                         isbn_found=book_isbn,
-                        work_id=work.work_id
+                        work_id=work.work_id,
                     )
 
         # Tier 2 & 3: Title/Author search with matching
         if not result:
-            search_results = client.search(title=book_title, author=book_author, limit=5)
+            search_results = client.search(
+                title=book_title, author=book_author, limit=5
+            )
 
             best_match = None
             best_ratio = 0
-            best_method = 'no_match'
+            best_method = "no_match"
 
             for sr in search_results:
-                sr_title = sr.get('title', '')
+                sr_title = sr.get("title", "")
                 ratio = similarity(book_title, sr_title)
 
                 # Exact normalized match
@@ -214,20 +213,20 @@ def populate_from_openlibrary(
                     if ratio > best_ratio:
                         best_match = sr
                         best_ratio = ratio
-                        best_method = 'exact_title'
+                        best_method = "exact_title"
                 # Fuzzy match above threshold
                 elif ratio >= FUZZY_THRESHOLD and ratio > best_ratio:
                     best_match = sr
                     best_ratio = ratio
-                    best_method = f'fuzzy ({ratio:.0%})'
+                    best_method = f"fuzzy ({ratio:.0%})"
 
             if best_match:
-                work_key = best_match.get('key', '')
+                work_key = best_match.get("key", "")
                 if work_key:
                     work = client.get_work(work_key)
                     if work and work.subjects:
                         # Try to get ISBN from search result
-                        isbn_list = best_match.get('isbn', [])
+                        isbn_list = best_match.get("isbn", [])
                         found_isbn = isbn_list[0] if isbn_list else None
 
                         result = EnrichmentResult(
@@ -235,10 +234,11 @@ def populate_from_openlibrary(
                             title=book_title,
                             match_method=best_method,
                             subjects_found=work.subjects,
-                            publication_year=work.first_publish_year or best_match.get('first_publish_year'),
+                            publication_year=work.first_publish_year
+                            or best_match.get("first_publish_year"),
                             isbn_found=found_isbn,
                             work_id=work.work_id,
-                            similarity=best_ratio if 'fuzzy' in best_method else None
+                            similarity=best_ratio if "fuzzy" in best_method else None,
                         )
 
         if result:
@@ -291,7 +291,7 @@ def populate_from_openlibrary(
         # Get existing genres
         cursor.execute("SELECT id, name FROM genres")
         for row in cursor.fetchall():
-            genre_id_map[row['name']] = row['id']
+            genre_id_map[row["name"]] = row["id"]
 
         # Insert new genres
         new_genres = all_subjects - set(genre_id_map.keys())
@@ -311,7 +311,7 @@ def populate_from_openlibrary(
             if result.isbn_found:
                 cursor.execute(
                     "UPDATE audiobooks SET isbn = ? WHERE id = ? AND (isbn IS NULL OR isbn = '')",
-                    (result.isbn_found, result.audiobook_id)
+                    (result.isbn_found, result.audiobook_id),
                 )
                 if cursor.rowcount > 0:
                     isbn_updates += 1
@@ -320,7 +320,7 @@ def populate_from_openlibrary(
             if result.publication_year:
                 cursor.execute(
                     "UPDATE audiobooks SET published_year = ? WHERE id = ? AND (published_year IS NULL OR published_year = 0)",
-                    (result.publication_year, result.audiobook_id)
+                    (result.publication_year, result.audiobook_id),
                 )
                 if cursor.rowcount > 0:
                     year_updates += 1
@@ -332,12 +332,12 @@ def populate_from_openlibrary(
                     # Check if association already exists
                     cursor.execute(
                         "SELECT 1 FROM audiobook_genres WHERE audiobook_id = ? AND genre_id = ?",
-                        (result.audiobook_id, genre_id_map[subject])
+                        (result.audiobook_id, genre_id_map[subject]),
                     )
                     if not cursor.fetchone():
                         cursor.execute(
                             "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-                            (result.audiobook_id, genre_id_map[subject])
+                            (result.audiobook_id, genre_id_map[subject]),
                         )
                         association_count += 1
                     seen_genres.add(subject)
@@ -373,25 +373,41 @@ def populate_from_openlibrary(
 
 
 def main():
-    parser = ArgumentParser(
-        description="Enrich audiobook metadata from OpenLibrary"
+    parser = ArgumentParser(description="Enrich audiobook metadata from OpenLibrary")
+    parser.add_argument(
+        "--limit", "-n", type=int, default=None, help="Maximum audiobooks to process"
     )
-    parser.add_argument('--limit', '-n', type=int, default=None,
-                        help='Maximum audiobooks to process')
-    parser.add_argument('--only-missing', action='store_true', default=True,
-                        help='Only process books without genre data (default)')
-    parser.add_argument('--all', action='store_true',
-                        help='Process all audiobooks (refresh existing data)')
-    parser.add_argument('--non-audible', action='store_true',
-                        help='Only process books without ASIN')
-    parser.add_argument('--id', type=int, default=None,
-                        help='Process single audiobook by ID')
-    parser.add_argument('--rate-limit', type=float, default=0.6,
-                        help='Seconds between API requests (default: 0.6)')
-    parser.add_argument('--execute', action='store_true',
-                        help='Actually apply changes (default is dry run)')
-    parser.add_argument('--verbose', '-v', action='store_true',
-                        help='Show verbose output')
+    parser.add_argument(
+        "--only-missing",
+        action="store_true",
+        default=True,
+        help="Only process books without genre data (default)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Process all audiobooks (refresh existing data)",
+    )
+    parser.add_argument(
+        "--non-audible", action="store_true", help="Only process books without ASIN"
+    )
+    parser.add_argument(
+        "--id", type=int, default=None, help="Process single audiobook by ID"
+    )
+    parser.add_argument(
+        "--rate-limit",
+        type=float,
+        default=0.6,
+        help="Seconds between API requests (default: 0.6)",
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually apply changes (default is dry run)",
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show verbose output"
+    )
 
     args = parser.parse_args()
 
@@ -402,7 +418,7 @@ def main():
         only_non_audible=args.non_audible,
         audiobook_id=args.id,
         rate_limit=args.rate_limit,
-        verbose=args.verbose
+        verbose=args.verbose,
     )
 
 

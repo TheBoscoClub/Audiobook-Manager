@@ -24,8 +24,10 @@ def add_cors_headers(response: Response) -> Response:
     This is a simple implementation suitable for localhost/personal use.
     Replaces flask-cors which has multiple CVEs (CVE-2024-6221, etc.)
     """
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Range'
-    response.headers['Access-Control-Expose-Headers'] = 'Content-Range, Accept-Ranges, Content-Length'
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range"
+    response.headers["Access-Control-Expose-Headers"] = (
+        "Content-Range, Accept-Ranges, Content-Length"
+    )
     return response

@@ -27,14 +27,26 @@ from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
 
 from .core import get_db as _get_db_with_path, add_cors_headers
 from .audiobooks import audiobooks_bp, init_audiobooks_routes
-from .collections import collections_bp, init_collections_routes, COLLECTIONS, genre_query, multi_genre_query
-from .editions import editions_bp, init_editions_routes, has_edition_marker, normalize_base_title
+from .collections import (
+    collections_bp,
+    init_collections_routes,
+    COLLECTIONS,
+    genre_query,
+    multi_genre_query,
+)
+from .editions import (
+    editions_bp,
+    init_editions_routes,
+    has_edition_marker,
+    normalize_base_title,
+)
 from .duplicates import duplicates_bp, init_duplicates_routes
 from .supplements import supplements_bp, init_supplements_routes
 from .utilities import utilities_bp, init_utilities_routes
 
 # Type alias for Flask route return types (backward compatibility)
 from typing import Union
+
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
 # Backward compatibility: Global database path and project root
@@ -47,8 +59,12 @@ def get_db():
     return _get_db_with_path(DB_PATH)
 
 
-def create_app(database_path: Path = None, project_dir: Path = None,
-               supplements_dir: Path = None, api_port: int = None):
+def create_app(
+    database_path: Path = None,
+    project_dir: Path = None,
+    supplements_dir: Path = None,
+    api_port: int = None,
+):
     """
     Create and configure the Flask application.
 
@@ -70,10 +86,10 @@ def create_app(database_path: Path = None, project_dir: Path = None,
     flask_app = Flask(__name__)
 
     # Store configuration
-    flask_app.config['DATABASE_PATH'] = database_path
-    flask_app.config['PROJECT_DIR'] = project_dir
-    flask_app.config['SUPPLEMENTS_DIR'] = supplements_dir
-    flask_app.config['API_PORT'] = api_port
+    flask_app.config["DATABASE_PATH"] = database_path
+    flask_app.config["PROJECT_DIR"] = project_dir
+    flask_app.config["SUPPLEMENTS_DIR"] = supplements_dir
+    flask_app.config["API_PORT"] = api_port
 
     project_root = project_dir / "library"
 
@@ -83,11 +99,11 @@ def create_app(database_path: Path = None, project_dir: Path = None,
         return add_cors_headers(response)
 
     # Handle OPTIONS preflight requests
-    @flask_app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
-    @flask_app.route('/<path:path>', methods=['OPTIONS'])
+    @flask_app.route("/", defaults={"path": ""}, methods=["OPTIONS"])
+    @flask_app.route("/<path:path>", methods=["OPTIONS"])
     def handle_options(path: str) -> tuple[str, int]:
         """Handle CORS preflight requests"""
-        return '', 204
+        return "", 204
 
     # Initialize all route modules with their dependencies
     init_audiobooks_routes(database_path, project_root, database_path)
@@ -112,8 +128,12 @@ def create_app(database_path: Path = None, project_dir: Path = None,
 app = create_app()
 
 
-def run_server(flask_app: Flask = None, port: int = None, debug: bool = False,
-               use_waitress: bool = False):
+def run_server(
+    flask_app: Flask = None,
+    port: int = None,
+    debug: bool = False,
+    use_waitress: bool = False,
+):
     """
     Run the Flask application.
 
@@ -152,7 +172,8 @@ def run_server(flask_app: Flask = None, port: int = None, debug: bool = False,
     if use_waitress:
         try:
             from waitress import serve
-            bind_address = os.environ.get('AUDIOBOOKS_BIND_ADDRESS', '127.0.0.1')
+
+            bind_address = os.environ.get("AUDIOBOOKS_BIND_ADDRESS", "127.0.0.1")
             print("Running in production mode (waitress)")
             print(f"Listening on: http://{bind_address}:{port}")
             print()
@@ -162,38 +183,38 @@ def run_server(flask_app: Flask = None, port: int = None, debug: bool = False,
             print("Falling back to Flask development server...")
             print(f"API running on: http://0.0.0.0:{port}")
             print()
-            flask_app.run(debug=debug, host='0.0.0.0', port=port)
+            flask_app.run(debug=debug, host="0.0.0.0", port=port)
     else:
         # Development mode (Flask dev server)
         print("Running in development mode (Flask dev server)")
         print(f"API running on: http://0.0.0.0:{port}")
         print()
-        flask_app.run(debug=debug, host='0.0.0.0', port=port)
+        flask_app.run(debug=debug, host="0.0.0.0", port=port)
 
 
 # Export public API - including backward-compatible names
 __all__ = [
     # Factory functions
-    'create_app',
-    'run_server',
+    "create_app",
+    "run_server",
     # Global instances (backward compatibility)
-    'app',
-    'get_db',
-    'DB_PATH',
-    'PROJECT_ROOT',
-    'FlaskResponse',
+    "app",
+    "get_db",
+    "DB_PATH",
+    "PROJECT_ROOT",
+    "FlaskResponse",
     # Helper functions (backward compatibility)
-    'has_edition_marker',
-    'normalize_base_title',
-    'genre_query',
-    'multi_genre_query',
+    "has_edition_marker",
+    "normalize_base_title",
+    "genre_query",
+    "multi_genre_query",
     # Constants
-    'COLLECTIONS',
+    "COLLECTIONS",
     # Blueprints
-    'audiobooks_bp',
-    'collections_bp',
-    'editions_bp',
-    'duplicates_bp',
-    'supplements_bp',
-    'utilities_bp',
+    "audiobooks_bp",
+    "collections_bp",
+    "editions_bp",
+    "duplicates_bp",
+    "supplements_bp",
+    "utilities_bp",
 ]

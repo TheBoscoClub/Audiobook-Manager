@@ -60,31 +60,32 @@ def fix_audiobook_authors(dry_run=True):
         parts = path.parts
 
         real_author = None
-        if 'Library' in parts:
-            library_idx = parts.index('Library')
+        if "Library" in parts:
+            library_idx = parts.index("Library")
             # Check for /Library/Audiobook/Author/ pattern
-            if len(parts) > library_idx + 2 and parts[library_idx + 1].lower() == 'audiobook':
+            if (
+                len(parts) > library_idx + 2
+                and parts[library_idx + 1].lower() == "audiobook"
+            ):
                 real_author = parts[library_idx + 2]
             elif len(parts) > library_idx + 1:
                 # Fallback: /Library/Author/ pattern
                 potential = parts[library_idx + 1]
-                if potential.lower() != 'audiobook':
+                if potential.lower() != "audiobook":
                     real_author = potential
 
-        if real_author and real_author.lower() != 'audiobook':
-            updates.append({
-                'id': entry_id,
-                'title': title,
-                'old_author': author,
-                'new_author': real_author,
-                'file_path': file_path
-            })
+        if real_author and real_author.lower() != "audiobook":
+            updates.append(
+                {
+                    "id": entry_id,
+                    "title": title,
+                    "old_author": author,
+                    "new_author": real_author,
+                    "file_path": file_path,
+                }
+            )
         else:
-            cannot_fix.append({
-                'id': entry_id,
-                'title': title,
-                'file_path': file_path
-            })
+            cannot_fix.append({"id": entry_id, "title": title, "file_path": file_path})
 
     print(f"Can fix: {len(updates)}")
     print(f"Cannot fix (need manual review): {len(cannot_fix)}")
@@ -131,7 +132,7 @@ def fix_audiobook_authors(dry_run=True):
     for upd in updates:
         cursor.execute(
             "UPDATE audiobooks SET author = ? WHERE id = ?",
-            (upd['new_author'], upd['id'])
+            (upd["new_author"], upd["id"]),
         )
         updated += 1
 
@@ -151,9 +152,14 @@ def fix_audiobook_authors(dry_run=True):
 
 
 def main():
-    parser = ArgumentParser(description="Fix author metadata for audiobooks with author='Audiobook'")
-    parser.add_argument('--execute', action='store_true',
-                        help='Actually apply changes (default is dry run)')
+    parser = ArgumentParser(
+        description="Fix author metadata for audiobooks with author='Audiobook'"
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually apply changes (default is dry run)",
+    )
 
     args = parser.parse_args()
     fix_audiobook_authors(dry_run=not args.execute)

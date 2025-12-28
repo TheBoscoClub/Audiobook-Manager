@@ -2,12 +2,12 @@
 Tests for the import_to_db module.
 Tests database creation and audiobook import functionality.
 """
+
 import json
 import sqlite3
 import sys
-import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -55,7 +55,7 @@ def temp_json_path(tmp_path):
                 "eras": ["21st Century"],
                 "topics": ["Technology"],
                 "sha256_hash": "abc123def456",
-                "hash_verified_at": "2025-01-01 00:00:00"
+                "hash_verified_at": "2025-01-01 00:00:00",
             },
             {
                 "title": "Another Book",
@@ -73,8 +73,8 @@ def temp_json_path(tmp_path):
                 "description": "",
                 "genres": [],
                 "eras": [],
-                "topics": []
-            }
+                "topics": [],
+            },
         ]
     }
     json_path.write_text(json.dumps(sample_data))
@@ -87,26 +87,28 @@ def many_audiobooks_json(tmp_path):
     json_path = tmp_path / "many_audiobooks.json"
     audiobooks = []
     for i in range(150):
-        audiobooks.append({
-            "title": f"Book {i}",
-            "author": f"Author {i % 10}",
-            "narrator": f"Narrator {i % 5}",
-            "publisher": "Publisher",
-            "series": f"Series {i % 3}" if i % 3 == 0 else None,
-            "duration_hours": 5.0 + (i % 10),
-            "duration_formatted": f"{5 + i % 10}:00:00",
-            "file_size_mb": 100.0 + i,
-            "file_path": f"/test/path/book_{i}.opus",
-            "cover_path": f"/test/covers/book_{i}.jpg",
-            "format": "opus",
-            "quality": "64kbps",
-            "description": f"Description for book {i}",
-            "genres": ["Fiction"] if i % 2 == 0 else ["Nonfiction"],
-            "eras": ["Modern"],
-            "topics": ["Topic A", "Topic B"],
-            "sha256_hash": f"hash_{i:06d}",
-            "hash_verified_at": "2025-01-01 00:00:00"
-        })
+        audiobooks.append(
+            {
+                "title": f"Book {i}",
+                "author": f"Author {i % 10}",
+                "narrator": f"Narrator {i % 5}",
+                "publisher": "Publisher",
+                "series": f"Series {i % 3}" if i % 3 == 0 else None,
+                "duration_hours": 5.0 + (i % 10),
+                "duration_formatted": f"{5 + i % 10}:00:00",
+                "file_size_mb": 100.0 + i,
+                "file_path": f"/test/path/book_{i}.opus",
+                "cover_path": f"/test/covers/book_{i}.jpg",
+                "format": "opus",
+                "quality": "64kbps",
+                "description": f"Description for book {i}",
+                "genres": ["Fiction"] if i % 2 == 0 else ["Nonfiction"],
+                "eras": ["Modern"],
+                "topics": ["Topic A", "Topic B"],
+                "sha256_hash": f"hash_{i:06d}",
+                "hash_verified_at": "2025-01-01 00:00:00",
+            }
+        )
     sample_data = {"audiobooks": audiobooks}
     json_path.write_text(json.dumps(sample_data))
     return json_path
@@ -120,8 +122,10 @@ class TestCreateDatabase:
         from backend import import_to_db
 
         # Patch the module-level paths
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+        ):
             conn = import_to_db.create_database()
             conn.close()
 
@@ -131,8 +135,10 @@ class TestCreateDatabase:
         """Test that create_database creates all required tables."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+        ):
             conn = import_to_db.create_database()
 
         cursor = conn.cursor()
@@ -141,13 +147,13 @@ class TestCreateDatabase:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
 
-        assert 'audiobooks' in tables
-        assert 'genres' in tables
-        assert 'audiobook_genres' in tables
-        assert 'eras' in tables
-        assert 'audiobook_eras' in tables
-        assert 'topics' in tables
-        assert 'audiobook_topics' in tables
+        assert "audiobooks" in tables
+        assert "genres" in tables
+        assert "audiobook_genres" in tables
+        assert "eras" in tables
+        assert "audiobook_eras" in tables
+        assert "topics" in tables
+        assert "audiobook_topics" in tables
 
         conn.close()
 
@@ -155,8 +161,10 @@ class TestCreateDatabase:
         """Test that create_database returns a valid connection."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+        ):
             conn = import_to_db.create_database()
 
         assert isinstance(conn, sqlite3.Connection)
@@ -172,13 +180,17 @@ class TestCreateDatabase:
 class TestImportAudiobooks:
     """Test audiobook import functionality."""
 
-    def test_import_audiobooks_basic(self, temp_db_path, temp_schema_path, temp_json_path):
+    def test_import_audiobooks_basic(
+        self, temp_db_path, temp_schema_path, temp_json_path
+    ):
         """Test basic audiobook import."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -189,18 +201,24 @@ class TestImportAudiobooks:
         assert count == 2
         conn.close()
 
-    def test_import_audiobooks_stores_metadata(self, temp_db_path, temp_schema_path, temp_json_path):
+    def test_import_audiobooks_stores_metadata(
+        self, temp_db_path, temp_schema_path, temp_json_path
+    ):
         """Test that import stores all metadata correctly."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
         cursor = conn.cursor()
-        cursor.execute("SELECT title, author, narrator, duration_hours FROM audiobooks WHERE title = 'The Great Test'")
+        cursor.execute(
+            "SELECT title, author, narrator, duration_hours FROM audiobooks WHERE title = 'The Great Test'"
+        )
         row = cursor.fetchone()
 
         assert row[0] == "The Great Test"
@@ -210,13 +228,17 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_handles_genres(self, temp_db_path, temp_schema_path, temp_json_path):
+    def test_import_audiobooks_handles_genres(
+        self, temp_db_path, temp_schema_path, temp_json_path
+    ):
         """Test that import handles genres correctly."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -240,13 +262,17 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_handles_eras(self, temp_db_path, temp_schema_path, temp_json_path):
+    def test_import_audiobooks_handles_eras(
+        self, temp_db_path, temp_schema_path, temp_json_path
+    ):
         """Test that import handles eras correctly."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -257,13 +283,17 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_handles_topics(self, temp_db_path, temp_schema_path, temp_json_path):
+    def test_import_audiobooks_handles_topics(
+        self, temp_db_path, temp_schema_path, temp_json_path
+    ):
         """Test that import handles topics correctly."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -274,18 +304,24 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_handles_null_values(self, temp_db_path, temp_schema_path, temp_json_path):
+    def test_import_audiobooks_handles_null_values(
+        self, temp_db_path, temp_schema_path, temp_json_path
+    ):
         """Test that import handles null/missing values correctly."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
         cursor = conn.cursor()
-        cursor.execute("SELECT narrator, publisher, series FROM audiobooks WHERE title = 'Another Book'")
+        cursor.execute(
+            "SELECT narrator, publisher, series FROM audiobooks WHERE title = 'Another Book'"
+        )
         row = cursor.fetchone()
 
         assert row[0] is None  # narrator
@@ -299,7 +335,6 @@ class TestImportAudiobooks:
 
         Tests the narrator preservation logic without full schema (avoids FTS5 issues).
         """
-        from backend import import_to_db
 
         # Create a minimal database without FTS5 (causes tmp filesystem issues)
         db_path = tmp_path / "test.db"
@@ -348,8 +383,8 @@ class TestImportAudiobooks:
         preserved = {row[0]: row[1] for row in cursor.fetchall()}
 
         # Verify our narrator is in the preserved set
-        assert '/test/path/book2.opus' in preserved
-        assert preserved['/test/path/book2.opus'] == 'Manually Set Narrator'
+        assert "/test/path/book2.opus" in preserved
+        assert preserved["/test/path/book2.opus"] == "Manually Set Narrator"
 
         conn.close()
 
@@ -394,7 +429,7 @@ class TestImportAudiobooks:
         genre_id = cursor.lastrowid
         cursor.execute(
             "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-            (book_id, genre_id)
+            (book_id, genre_id),
         )
         conn.commit()
 
@@ -409,21 +444,25 @@ class TestImportAudiobooks:
         preserved = {}
         for row in cursor.fetchall():
             if row[1]:
-                preserved[row[0]] = row[1].split('|||')
+                preserved[row[0]] = row[1].split("|||")
 
         # Verify our genre is in the preserved set
-        assert '/test/book.opus' in preserved
-        assert 'Manual Genre' in preserved['/test/book.opus']
+        assert "/test/book.opus" in preserved
+        assert "Manual Genre" in preserved["/test/book.opus"]
 
         conn.close()
 
-    def test_import_audiobooks_progress_reporting(self, temp_db_path, temp_schema_path, many_audiobooks_json, capsys):
+    def test_import_audiobooks_progress_reporting(
+        self, temp_db_path, temp_schema_path, many_audiobooks_json, capsys
+    ):
         """Test that import reports progress for large imports."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', many_audiobooks_json):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", many_audiobooks_json),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -434,13 +473,17 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_statistics(self, temp_db_path, temp_schema_path, temp_json_path, capsys):
+    def test_import_audiobooks_statistics(
+        self, temp_db_path, temp_schema_path, temp_json_path, capsys
+    ):
         """Test that import reports statistics."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -461,9 +504,11 @@ class TestMain:
         """Test successful main execution."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             import_to_db.main()
 
         captured = capsys.readouterr()
@@ -476,9 +521,11 @@ class TestMain:
 
         missing_json = tmp_path / "nonexistent.json"
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', missing_json):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", missing_json),
+        ):
             with pytest.raises(SystemExit) as exc_info:
                 import_to_db.main()
 
@@ -486,13 +533,17 @@ class TestMain:
         captured = capsys.readouterr()
         assert "Error: JSON file not found" in captured.out
 
-    def test_main_reports_db_size(self, temp_db_path, temp_schema_path, temp_json_path, capsys):
+    def test_main_reports_db_size(
+        self, temp_db_path, temp_schema_path, temp_json_path, capsys
+    ):
         """Test that main reports database size."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             import_to_db.main()
 
         captured = capsys.readouterr()
@@ -503,13 +554,17 @@ class TestMain:
 class TestDatabaseOptimization:
     """Test database optimization."""
 
-    def test_vacuum_and_analyze(self, temp_db_path, temp_schema_path, temp_json_path, capsys):
+    def test_vacuum_and_analyze(
+        self, temp_db_path, temp_schema_path, temp_json_path, capsys
+    ):
         """Test that VACUUM and ANALYZE are run."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -530,9 +585,11 @@ class TestEdgeCases:
         empty_json = tmp_path / "empty.json"
         empty_json.write_text(json.dumps({"audiobooks": []}))
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', empty_json):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", empty_json),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -543,26 +600,36 @@ class TestEdgeCases:
         assert count == 0
         conn.close()
 
-    def test_audiobook_with_empty_genres(self, temp_db_path, temp_schema_path, tmp_path):
+    def test_audiobook_with_empty_genres(
+        self, temp_db_path, temp_schema_path, tmp_path
+    ):
         """Test import with audiobook that has empty genres list."""
         from backend import import_to_db
 
         json_path = tmp_path / "audiobooks.json"
-        json_path.write_text(json.dumps({
-            "audiobooks": [{
-                "title": "No Genres Book",
-                "author": "Author",
-                "narrator": "Narrator",
-                "file_path": "/test/book.opus",
-                "genres": [],
-                "eras": [],
-                "topics": []
-            }]
-        }))
+        json_path.write_text(
+            json.dumps(
+                {
+                    "audiobooks": [
+                        {
+                            "title": "No Genres Book",
+                            "author": "Author",
+                            "narrator": "Narrator",
+                            "file_path": "/test/book.opus",
+                            "genres": [],
+                            "eras": [],
+                            "topics": [],
+                        }
+                    ]
+                }
+            )
+        )
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -573,31 +640,39 @@ class TestEdgeCases:
         assert count == 0
         conn.close()
 
-    def test_duplicate_genres_across_books(self, temp_db_path, temp_schema_path, tmp_path):
+    def test_duplicate_genres_across_books(
+        self, temp_db_path, temp_schema_path, tmp_path
+    ):
         """Test that duplicate genres are not created."""
         from backend import import_to_db
 
         json_path = tmp_path / "audiobooks.json"
-        json_path.write_text(json.dumps({
-            "audiobooks": [
+        json_path.write_text(
+            json.dumps(
                 {
-                    "title": "Book 1",
-                    "author": "Author",
-                    "file_path": "/test/book1.opus",
-                    "genres": ["Fiction", "Mystery"]
-                },
-                {
-                    "title": "Book 2",
-                    "author": "Author",
-                    "file_path": "/test/book2.opus",
-                    "genres": ["Fiction", "Thriller"]  # Fiction is duplicate
+                    "audiobooks": [
+                        {
+                            "title": "Book 1",
+                            "author": "Author",
+                            "file_path": "/test/book1.opus",
+                            "genres": ["Fiction", "Mystery"],
+                        },
+                        {
+                            "title": "Book 2",
+                            "author": "Author",
+                            "file_path": "/test/book2.opus",
+                            "genres": ["Fiction", "Thriller"],  # Fiction is duplicate
+                        },
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -618,25 +693,35 @@ class TestEdgeCases:
 
         conn.close()
 
-    def test_special_characters_in_metadata(self, temp_db_path, temp_schema_path, tmp_path):
+    def test_special_characters_in_metadata(
+        self, temp_db_path, temp_schema_path, tmp_path
+    ):
         """Test import with special characters in metadata."""
         from backend import import_to_db
 
         json_path = tmp_path / "audiobooks.json"
-        json_path.write_text(json.dumps({
-            "audiobooks": [{
-                "title": "Book with 'quotes' and \"double quotes\"",
-                "author": "Author O'Brien",
-                "narrator": "Narrator & Co.",
-                "description": "Description with <html> and 日本語",
-                "file_path": "/test/special.opus",
-                "genres": ["Sci-Fi & Fantasy"]
-            }]
-        }))
+        json_path.write_text(
+            json.dumps(
+                {
+                    "audiobooks": [
+                        {
+                            "title": "Book with 'quotes' and \"double quotes\"",
+                            "author": "Author O'Brien",
+                            "narrator": "Narrator & Co.",
+                            "description": "Description with <html> and 日本語",
+                            "file_path": "/test/special.opus",
+                            "genres": ["Sci-Fi & Fantasy"],
+                        }
+                    ]
+                }
+            )
+        )
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
@@ -655,14 +740,18 @@ class TestEdgeCases:
         """Test that SHA-256 hashes are stored correctly."""
         from backend import import_to_db
 
-        with patch.object(import_to_db, 'DB_PATH', temp_db_path), \
-             patch.object(import_to_db, 'SCHEMA_PATH', temp_schema_path), \
-             patch.object(import_to_db, 'JSON_PATH', temp_json_path):
+        with (
+            patch.object(import_to_db, "DB_PATH", temp_db_path),
+            patch.object(import_to_db, "SCHEMA_PATH", temp_schema_path),
+            patch.object(import_to_db, "JSON_PATH", temp_json_path),
+        ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
         cursor = conn.cursor()
-        cursor.execute("SELECT sha256_hash FROM audiobooks WHERE title = 'The Great Test'")
+        cursor.execute(
+            "SELECT sha256_hash FROM audiobooks WHERE title = 'The Great Test'"
+        )
         row = cursor.fetchone()
 
         assert row[0] == "abc123def456"

@@ -47,7 +47,6 @@ API Documentation: https://librivox.org/api/info
 
 import requests
 import sys
-import os
 import re
 import time
 from pathlib import Path
@@ -55,12 +54,12 @@ from argparse import ArgumentParser
 from typing import Optional, List, Dict
 from dataclasses import dataclass
 from xml.etree import ElementTree
-import subprocess
 
 # Add parent directory for config
 sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     from config import AUDIOBOOKS_DATA, AUDIOBOOKS_LOGS
+
     DEFAULT_OUTPUT = AUDIOBOOKS_DATA / "Sources-Librivox"
     LOG_DIR = AUDIOBOOKS_LOGS
 except ImportError:
@@ -73,6 +72,7 @@ LIBRIVOX_API = "https://librivox.org/api/feed/audiobooks"
 @dataclass
 class LibrivoxBook:
     """Represents a Librivox audiobook."""
+
     id: str
     title: str
     author: str
@@ -94,20 +94,17 @@ class LibrivoxBook:
 class LibrivoxDownloader:
     """Download audiobooks from Librivox."""
 
-    def __init__(self,
-                 output_dir: Path = DEFAULT_OUTPUT,
-                 verbose: bool = False):
+    def __init__(self, output_dir: Path = DEFAULT_OUTPUT, verbose: bool = False):
         self.output_dir = Path(output_dir)
         self.verbose = verbose
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'AudiobookLibrary/1.0 (personal audiobook manager)'
-        })
+        self.session.headers.update(
+            {"User-Agent": "AudiobookLibrary/1.0 (personal audiobook manager)"}
+        )
 
-    def search(self,
-               title: Optional[str] = None,
-               author: Optional[str] = None,
-               limit: int = 10) -> List[LibrivoxBook]:
+    def search(
+        self, title: Optional[str] = None, author: Optional[str] = None, limit: int = 10
+    ) -> List[LibrivoxBook]:
         """
         Search Librivox for audiobooks.
 
@@ -119,28 +116,25 @@ class LibrivoxDownloader:
         Returns:
             List of matching LibrivoxBook objects
         """
-        params = {
-            'format': 'json',
-            'limit': limit
-        }
+        params = {"format": "json", "limit": limit}
 
         # Librivox API uses ^ for exact match prefix, but often fails
         # Use simple search terms instead
         if title:
-            params['title'] = title
+            params["title"] = title
         if author:
-            params['author'] = author
+            params["author"] = author
 
         try:
             response = self.session.get(LIBRIVOX_API, params=params, timeout=30)
             response.raise_for_status()
             data = response.json()
 
-            if 'books' not in data:
+            if "books" not in data:
                 return []
 
             books = []
-            for book_data in data['books']:
+            for book_data in data["books"]:
                 books.append(self._parse_book(book_data))
 
             return books
@@ -151,21 +145,17 @@ class LibrivoxDownloader:
 
     def get_recent(self, limit: int = 20) -> List[LibrivoxBook]:
         """Get recently added audiobooks."""
-        params = {
-            'format': 'json',
-            'limit': limit,
-            'sort': 'release_date'
-        }
+        params = {"format": "json", "limit": limit, "sort": "release_date"}
 
         try:
             response = self.session.get(LIBRIVOX_API, params=params, timeout=30)
             response.raise_for_status()
             data = response.json()
 
-            if 'books' not in data:
+            if "books" not in data:
                 return []
 
-            return [self._parse_book(b) for b in data['books']]
+            return [self._parse_book(b) for b in data["books"]]
 
         except requests.RequestException as e:
             print(f"API error: {e}")
@@ -173,20 +163,17 @@ class LibrivoxDownloader:
 
     def get_by_id(self, book_id: str) -> Optional[LibrivoxBook]:
         """Get audiobook by Librivox ID."""
-        params = {
-            'format': 'json',
-            'id': book_id
-        }
+        params = {"format": "json", "id": book_id}
 
         try:
             response = self.session.get(LIBRIVOX_API, params=params, timeout=30)
             response.raise_for_status()
             data = response.json()
 
-            if 'books' not in data or not data['books']:
+            if "books" not in data or not data["books"]:
                 return None
 
-            return self._parse_book(data['books'][0])
+            return self._parse_book(data["books"][0])
 
         except requests.RequestException as e:
             print(f"API error: {e}")
@@ -225,7 +212,8 @@ class LibrivoxDownloader:
                 # Extract ZIP
                 try:
                     import zipfile
-                    with zipfile.ZipFile(zip_path, 'r') as zf:
+
+                    with zipfile.ZipFile(zip_path, "r") as zf:
                         zf.extractall(book_dir)
                     zip_path.unlink()  # Remove ZIP after extraction
                     print(f"Downloaded and extracted: {book_dir}")
@@ -247,16 +235,16 @@ class LibrivoxDownloader:
             response = self.session.get(url, stream=True, timeout=300)
             response.raise_for_status()
 
-            total_size = int(response.headers.get('content-length', 0))
+            total_size = int(response.headers.get("content-length", 0))
             downloaded = 0
 
-            with open(output_path, 'wb') as f:
+            with open(output_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
                     downloaded += len(chunk)
                     if total_size and self.verbose:
                         pct = (downloaded / total_size) * 100
-                        print(f"\r  Downloading: {pct:.1f}%", end='', flush=True)
+                        print(f"\r  Downloading: {pct:.1f}%", end="", flush=True)
 
             if self.verbose:
                 print()
@@ -278,8 +266,8 @@ class LibrivoxDownloader:
 
         success_count = 0
         for i, section in enumerate(book.sections, 1):
-            url = section.get('url')
-            title = section.get('title', f'Section {i:02d}')
+            url = section.get("url")
+            title = section.get("title", f"Section {i:02d}")
             safe_title = self._sanitize_filename(title)
 
             output_file = output_dir / f"{i:02d} - {safe_title}.mp3"
@@ -307,16 +295,18 @@ class LibrivoxDownloader:
             root = ElementTree.fromstring(response.content)
             sections = []
 
-            for item in root.findall('.//item'):
-                title_elem = item.find('title')
-                enclosure = item.find('enclosure')
+            for item in root.findall(".//item"):
+                title_elem = item.find("title")
+                enclosure = item.find("enclosure")
 
                 if enclosure is not None:
-                    sections.append({
-                        'title': title_elem.text if title_elem is not None else '',
-                        'url': enclosure.get('url', ''),
-                        'length': enclosure.get('length', 0)
-                    })
+                    sections.append(
+                        {
+                            "title": title_elem.text if title_elem is not None else "",
+                            "url": enclosure.get("url", ""),
+                            "length": enclosure.get("length", 0),
+                        }
+                    )
 
             return sections
 
@@ -327,36 +317,36 @@ class LibrivoxDownloader:
     def _parse_book(self, data: Dict) -> LibrivoxBook:
         """Parse API response into LibrivoxBook."""
         return LibrivoxBook(
-            id=data.get('id', ''),
-            title=data.get('title', 'Unknown Title'),
-            author=self._extract_authors(data.get('authors', [])),
-            description=data.get('description', ''),
-            url_librivox=data.get('url_librivox', ''),
-            url_rss=data.get('url_rss', ''),
-            url_zip=data.get('url_zip_file'),
-            language=data.get('language', 'English'),
-            copyright_year=self._parse_year(data.get('copyright_year')),
-            num_sections=int(data.get('num_sections', 0)),
-            total_time=data.get('totaltime', '')
+            id=data.get("id", ""),
+            title=data.get("title", "Unknown Title"),
+            author=self._extract_authors(data.get("authors", [])),
+            description=data.get("description", ""),
+            url_librivox=data.get("url_librivox", ""),
+            url_rss=data.get("url_rss", ""),
+            url_zip=data.get("url_zip_file"),
+            language=data.get("language", "English"),
+            copyright_year=self._parse_year(data.get("copyright_year")),
+            num_sections=int(data.get("num_sections", 0)),
+            total_time=data.get("totaltime", ""),
         )
 
     def _extract_authors(self, authors_data: List) -> str:
         """Extract author names from API response."""
         if not authors_data:
-            return 'Unknown Author'
+            return "Unknown Author"
 
         names = []
         for author in authors_data:
             if isinstance(author, dict):
-                first = author.get('first_name', '')
-                last = author.get('last_name', '')
+                first = author.get("first_name", "")
+                last = author.get("last_name", "")
                 name = f"{first} {last}".strip()
                 if name:
                     names.append(name)
             elif isinstance(author, str):
                 names.append(author)
 
-        return ', '.join(names) if names else 'Unknown Author'
+        return ", ".join(names) if names else "Unknown Author"
 
     def _parse_year(self, year_str) -> Optional[int]:
         """Parse year from string."""
@@ -364,7 +354,7 @@ class LibrivoxDownloader:
             return None
         try:
             # Handle ranges like "1813-1814"
-            match = re.match(r'(\d{4})', str(year_str))
+            match = re.match(r"(\d{4})", str(year_str))
             if match:
                 return int(match.group(1))
         except ValueError:
@@ -374,15 +364,15 @@ class LibrivoxDownloader:
     def _sanitize_filename(self, name: str) -> str:
         """Sanitize string for filename."""
         if not name:
-            return 'Unknown'
-        name = re.sub(r'[<>:"/\\|?*]', '', name)
-        name = name.strip('. ')
-        return name[:100] or 'Unknown'  # Limit length
+            return "Unknown"
+        name = re.sub(r'[<>:"/\\|?*]', "", name)
+        name = name.strip(". ")
+        return name[:100] or "Unknown"  # Limit length
 
     def _save_metadata(self, book: LibrivoxBook, output_dir: Path):
         """Save book metadata to file."""
-        metadata_file = output_dir / 'librivox_metadata.txt'
-        with open(metadata_file, 'w') as f:
+        metadata_file = output_dir / "librivox_metadata.txt"
+        with open(metadata_file, "w") as f:
             f.write(f"Title: {book.title}\n")
             f.write(f"Author: {book.author}\n")
             f.write(f"Librivox ID: {book.id}\n")
@@ -414,7 +404,7 @@ def interactive_search(downloader: LibrivoxDownloader, query: str):
     print("\n" + "-" * 60)
     choice = input("Enter number to download (or 'q' to quit): ").strip()
 
-    if choice.lower() == 'q':
+    if choice.lower() == "q":
         return
 
     try:
@@ -432,32 +422,40 @@ def interactive_search(downloader: LibrivoxDownloader, query: str):
 
 
 def main():
-    parser = ArgumentParser(
-        description="Download free audiobooks from Librivox"
+    parser = ArgumentParser(description="Download free audiobooks from Librivox")
+    parser.add_argument(
+        "--search", "-s", type=str, help="Search for audiobook by title"
     )
-    parser.add_argument('--search', '-s', type=str,
-                        help='Search for audiobook by title')
-    parser.add_argument('--author', '-a', type=str,
-                        help='Filter by author (use with --search)')
-    parser.add_argument('--id', type=str,
-                        help='Download specific audiobook by Librivox ID')
-    parser.add_argument('--recent', action='store_true',
-                        help='List recent audiobooks')
-    parser.add_argument('--wishlist', '-w', type=Path,
-                        help='Download from wishlist file (one title per line)')
-    parser.add_argument('--output-dir', '-o', type=Path, default=DEFAULT_OUTPUT,
-                        help=f'Output directory (default: {DEFAULT_OUTPUT})')
-    parser.add_argument('--individual', action='store_true',
-                        help='Download individual MP3s instead of ZIP')
-    parser.add_argument('--verbose', '-v', action='store_true',
-                        help='Verbose output')
+    parser.add_argument(
+        "--author", "-a", type=str, help="Filter by author (use with --search)"
+    )
+    parser.add_argument(
+        "--id", type=str, help="Download specific audiobook by Librivox ID"
+    )
+    parser.add_argument("--recent", action="store_true", help="List recent audiobooks")
+    parser.add_argument(
+        "--wishlist",
+        "-w",
+        type=Path,
+        help="Download from wishlist file (one title per line)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        type=Path,
+        default=DEFAULT_OUTPUT,
+        help=f"Output directory (default: {DEFAULT_OUTPUT})",
+    )
+    parser.add_argument(
+        "--individual",
+        action="store_true",
+        help="Download individual MP3s instead of ZIP",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
-    downloader = LibrivoxDownloader(
-        output_dir=args.output_dir,
-        verbose=args.verbose
-    )
+    downloader = LibrivoxDownloader(output_dir=args.output_dir, verbose=args.verbose)
 
     # Ensure output directory exists
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -492,7 +490,9 @@ def main():
             sys.exit(1)
 
         with open(args.wishlist) as f:
-            titles = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            titles = [
+                line.strip() for line in f if line.strip() and not line.startswith("#")
+            ]
 
         print(f"Processing wishlist with {len(titles)} titles...")
         for title in titles:

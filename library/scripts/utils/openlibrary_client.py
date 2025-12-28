@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 @dataclass
 class OpenLibraryWork:
     """Parsed work data from OpenLibrary."""
+
     work_id: str
     title: str
     authors: List[str] = field(default_factory=list)
@@ -45,6 +46,7 @@ class OpenLibraryWork:
 @dataclass
 class OpenLibraryEdition:
     """Parsed edition data from OpenLibrary."""
+
     key: str
     title: str
     authors: List[str] = field(default_factory=list)
@@ -57,6 +59,7 @@ class OpenLibraryEdition:
 
 class RateLimitError(Exception):
     """Raised when API rate limit is hit."""
+
     pass
 
 
@@ -65,10 +68,9 @@ class OpenLibraryClient:
 
     BASE_URL = "https://openlibrary.org"
 
-    def __init__(self,
-                 rate_limit_delay: float = 0.6,
-                 timeout: int = 30,
-                 max_retries: int = 3):
+    def __init__(
+        self, rate_limit_delay: float = 0.6, timeout: int = 30, max_retries: int = 3
+    ):
         """
         Initialize the client.
 
@@ -82,9 +84,11 @@ class OpenLibraryClient:
         self.max_retries = max_retries
         self.last_request_time = 0
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'AudiobookLibrary/1.0 (personal audiobook manager; https://github.com/greogory/audiobook-toolkit)'
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "AudiobookLibrary/1.0 (personal audiobook manager; https://github.com/greogory/audiobook-toolkit)"
+            }
+        )
 
     def _rate_limit(self):
         """Enforce rate limiting between requests."""
@@ -142,7 +146,7 @@ class OpenLibraryClient:
             OpenLibraryEdition or None if not found
         """
         # Clean ISBN (remove hyphens, spaces)
-        isbn = isbn.replace('-', '').replace(' ', '')
+        isbn = isbn.replace("-", "").replace(" ", "")
 
         url = f"{self.BASE_URL}/isbn/{isbn}.json"
         data = self._get(url)
@@ -152,11 +156,13 @@ class OpenLibraryClient:
 
         return self._parse_edition(data)
 
-    def search(self,
-               title: Optional[str] = None,
-               author: Optional[str] = None,
-               isbn: Optional[str] = None,
-               limit: int = 5) -> List[Dict]:
+    def search(
+        self,
+        title: Optional[str] = None,
+        author: Optional[str] = None,
+        isbn: Optional[str] = None,
+        limit: int = 5,
+    ) -> List[Dict]:
         """
         Search OpenLibrary by title and/or author.
 
@@ -185,10 +191,10 @@ class OpenLibraryClient:
         url = f"{self.BASE_URL}/search.json?{'&'.join(params)}"
         data = self._get(url)
 
-        if not data or 'docs' not in data:
+        if not data or "docs" not in data:
             return []
 
-        return data['docs'][:limit]
+        return data["docs"][:limit]
 
     def get_work(self, work_id: str) -> Optional[OpenLibraryWork]:
         """
@@ -201,8 +207,8 @@ class OpenLibraryClient:
             OpenLibraryWork or None if not found
         """
         # Normalize work ID
-        if work_id.startswith('/works/'):
-            work_id = work_id.replace('/works/', '')
+        if work_id.startswith("/works/"):
+            work_id = work_id.replace("/works/", "")
 
         url = f"{self.BASE_URL}/works/{work_id}.json"
         data = self._get(url)
@@ -222,8 +228,8 @@ class OpenLibraryClient:
         Returns:
             Author data dict or None if not found
         """
-        if author_id.startswith('/authors/'):
-            author_id = author_id.replace('/authors/', '')
+        if author_id.startswith("/authors/"):
+            author_id = author_id.replace("/authors/", "")
 
         url = f"{self.BASE_URL}/authors/{author_id}.json"
         return self._get(url)
@@ -232,68 +238,76 @@ class OpenLibraryClient:
         """Parse edition JSON into OpenLibraryEdition."""
         # Extract work ID from works list
         work_id = None
-        if 'works' in data and data['works']:
-            work_key = data['works'][0].get('key', '')
-            work_id = work_key.replace('/works/', '')
+        if "works" in data and data["works"]:
+            work_key = data["works"][0].get("key", "")
+            work_id = work_key.replace("/works/", "")
 
         # Extract ISBNs
         isbn_10 = None
         isbn_13 = None
-        if data.get('isbn_10'):
-            isbn_10 = data['isbn_10'][0] if isinstance(data['isbn_10'], list) else data['isbn_10']
-        if data.get('isbn_13'):
-            isbn_13 = data['isbn_13'][0] if isinstance(data['isbn_13'], list) else data['isbn_13']
+        if data.get("isbn_10"):
+            isbn_10 = (
+                data["isbn_10"][0]
+                if isinstance(data["isbn_10"], list)
+                else data["isbn_10"]
+            )
+        if data.get("isbn_13"):
+            isbn_13 = (
+                data["isbn_13"][0]
+                if isinstance(data["isbn_13"], list)
+                else data["isbn_13"]
+            )
 
         return OpenLibraryEdition(
-            key=data.get('key', ''),
-            title=data.get('title', ''),
+            key=data.get("key", ""),
+            title=data.get("title", ""),
             authors=[],  # Would need additional lookup via author keys
             isbn_10=isbn_10,
             isbn_13=isbn_13,
-            publish_date=data.get('publish_date'),
-            publishers=data.get('publishers', []),
-            work_id=work_id
+            publish_date=data.get("publish_date"),
+            publishers=data.get("publishers", []),
+            work_id=work_id,
         )
 
     def _parse_work(self, data: Dict) -> OpenLibraryWork:
         """Parse work JSON into OpenLibraryWork."""
         # Extract subjects (can be list of strings or dicts)
         subjects = []
-        for subj in data.get('subjects', []):
+        for subj in data.get("subjects", []):
             if isinstance(subj, str):
                 subjects.append(subj)
             elif isinstance(subj, dict):
-                name = subj.get('name', '')
+                name = subj.get("name", "")
                 if name:
                     subjects.append(name)
 
         # Extract description
         description = None
-        desc_data = data.get('description')
+        desc_data = data.get("description")
         if isinstance(desc_data, str):
             description = desc_data
         elif isinstance(desc_data, dict):
-            description = desc_data.get('value', '')
+            description = desc_data.get("value", "")
 
         # Extract author names (requires additional lookups in real use)
         authors = []
-        for author_ref in data.get('authors', []):
+        for author_ref in data.get("authors", []):
             if isinstance(author_ref, dict):
-                author_key = author_ref.get('author', {}).get('key', '')
+                author_key = author_ref.get("author", {}).get("key", "")
                 if author_key:
                     authors.append(author_key)  # Just the key for now
 
         return OpenLibraryWork(
-            work_id=data.get('key', '').replace('/works/', ''),
-            title=data.get('title', ''),
+            work_id=data.get("key", "").replace("/works/", ""),
+            title=data.get("title", ""),
             authors=authors,
             subjects=subjects,
-            first_publish_year=data.get('first_publish_year'),
+            first_publish_year=data.get("first_publish_year"),
             description=description,
-            covers=data.get('covers', [])
+            covers=data.get("covers", []),
         )
 
-    def get_cover_url(self, cover_id: int, size: str = 'M') -> str:
+    def get_cover_url(self, cover_id: int, size: str = "M") -> str:
         """
         Get URL for a cover image.
 
@@ -308,12 +322,12 @@ class OpenLibraryClient:
 
 
 # Simple test if run directly
-if __name__ == '__main__':
+if __name__ == "__main__":
     client = OpenLibraryClient()
 
     # Test ISBN lookup
     print("Testing ISBN lookup...")
-    edition = client.lookup_isbn('9780261103573')
+    edition = client.lookup_isbn("9780261103573")
     if edition:
         print(f"  Found: {edition.title}")
         print(f"  Work ID: {edition.work_id}")
@@ -328,6 +342,6 @@ if __name__ == '__main__':
 
     # Test search
     print("\nTesting search...")
-    results = client.search(title='The Hobbit', author='Tolkien', limit=3)
+    results = client.search(title="The Hobbit", author="Tolkien", limit=3)
     for r in results:
         print(f"  - {r.get('title')} by {', '.join(r.get('author_name', ['Unknown']))}")

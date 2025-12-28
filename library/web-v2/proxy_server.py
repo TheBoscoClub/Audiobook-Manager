@@ -24,14 +24,14 @@ from config import (
     AUDIOBOOKS_WEB_PORT,
     AUDIOBOOKS_API_PORT,
     AUDIOBOOKS_CERTS,
-    AUDIOBOOKS_BIND_ADDRESS
+    AUDIOBOOKS_BIND_ADDRESS,
 )
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 API_PORT = AUDIOBOOKS_API_PORT
 CERT_DIR = AUDIOBOOKS_CERTS
-CERT_FILE = CERT_DIR / 'server.crt'
-KEY_FILE = CERT_DIR / 'server.key'
+CERT_FILE = CERT_DIR / "server.crt"
+KEY_FILE = CERT_DIR / "server.key"
 BIND_ADDRESS = AUDIOBOOKS_BIND_ADDRESS
 
 
@@ -39,63 +39,65 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     """Handler that proxies API requests and serves static files."""
 
     def do_GET(self):
-        if self.path.startswith('/api/'):
-            self.proxy_to_api('GET')
+        if self.path.startswith("/api/"):
+            self.proxy_to_api("GET")
         else:
             # Serve static files
             super().do_GET()
 
     def do_POST(self):
-        if self.path.startswith('/api/'):
-            self.proxy_to_api('POST')
+        if self.path.startswith("/api/"):
+            self.proxy_to_api("POST")
         else:
             self.send_error(405, "Method Not Allowed")
 
     def do_PUT(self):
-        if self.path.startswith('/api/'):
-            self.proxy_to_api('PUT')
+        if self.path.startswith("/api/"):
+            self.proxy_to_api("PUT")
         else:
             self.send_error(405, "Method Not Allowed")
 
     def do_DELETE(self):
-        if self.path.startswith('/api/'):
-            self.proxy_to_api('DELETE')
+        if self.path.startswith("/api/"):
+            self.proxy_to_api("DELETE")
         else:
             self.send_error(405, "Method Not Allowed")
 
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Range')
-        self.send_header('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header(
+            "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"
+        )
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Range")
+        self.send_header(
+            "Access-Control-Expose-Headers",
+            "Content-Range, Accept-Ranges, Content-Length",
+        )
         self.end_headers()
 
-    def proxy_to_api(self, method='GET'):
+    def proxy_to_api(self, method="GET"):
         """Proxy request to Flask API backend."""
         api_url = f"http://localhost:{API_PORT}{self.path}"
 
         try:
             # Prepare headers
             headers = {}
-            for header in ['Content-Type', 'Range', 'Accept']:
+            for header in ["Content-Type", "Range", "Accept"]:
                 if header in self.headers:
                     headers[header] = self.headers[header]
 
             # Read request body for POST/PUT
             body = None
-            if method in ('POST', 'PUT'):
-                content_length = int(self.headers.get('Content-Length', 0))
+            if method in ("POST", "PUT"):
+                content_length = int(self.headers.get("Content-Length", 0))
                 if content_length > 0:
                     body = self.rfile.read(content_length)
 
             # Make request to API
             req = urllib.request.Request(
-                api_url,
-                data=body,
-                headers=headers,
-                method=method
+                api_url, data=body, headers=headers, method=method
             )
 
             with urllib.request.urlopen(req, timeout=30) as response:
@@ -107,7 +109,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_header(header, value)
 
                 # Add CORS headers
-                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
 
                 # Stream response body
@@ -120,40 +122,38 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         except urllib.error.HTTPError as e:
             # Forward HTTP errors from API
             self.send_response(e.code)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            error_body = json.dumps({
-                'error': e.reason,
-                'code': e.code,
-                'message': f'API error: {e.reason}'
-            }).encode()
+            error_body = json.dumps(
+                {"error": e.reason, "code": e.code, "message": f"API error: {e.reason}"}
+            ).encode()
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:
             # API server not reachable
             self.send_response(503)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            error_body = json.dumps({
-                'error': 'Service Unavailable',
-                'code': 503,
-                'message': f'API server not reachable: {str(e.reason)}'
-            }).encode()
+            error_body = json.dumps(
+                {
+                    "error": "Service Unavailable",
+                    "code": 503,
+                    "message": f"API server not reachable: {str(e.reason)}",
+                }
+            ).encode()
             self.wfile.write(error_body)
 
         except Exception as e:
             # Unexpected error
             self.send_response(500)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            error_body = json.dumps({
-                'error': 'Internal Server Error',
-                'code': 500,
-                'message': str(e)
-            }).encode()
+            error_body = json.dumps(
+                {"error": "Internal Server Error", "code": 500, "message": str(e)}
+            ).encode()
             self.wfile.write(error_body)
 
     def log_message(self, format, *args):
@@ -163,8 +163,10 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
 class ReuseHTTPServer(http.server.HTTPServer):
     """HTTPServer with socket reuse enabled."""
+
     def server_bind(self):
         import socket
+
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         super().server_bind()
 
@@ -178,10 +180,10 @@ def main():
         print()
         print("Generate certificates with:")
         print(f"  mkdir -p {CERT_DIR}")
-        print(f"  openssl req -x509 -newkey rsa:4096 -nodes \\")
+        print("  openssl req -x509 -newkey rsa:4096 -nodes \\")
         print(f"    -keyout {KEY_FILE} \\")
         print(f"    -out {CERT_FILE} \\")
-        print(f"    -days 365 -subj '/CN=localhost'")
+        print("    -days 365 -subj '/CN=localhost'")
         sys.exit(1)
 
     # Change to web directory to serve static files
@@ -197,8 +199,8 @@ def main():
     httpd = ReuseHTTPServer(server_address, ReverseProxyHandler)
     httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
 
-    print(f"Audiobooks Library Reverse Proxy (HTTPS)")
-    print(f"=========================================")
+    print("Audiobooks Library Reverse Proxy (HTTPS)")
+    print("=========================================")
     print(f"Listening on: https://{BIND_ADDRESS}:{HTTPS_PORT}/")
     print(f"API backend:  http://localhost:{API_PORT}/")
     print(f"Certificate:  {CERT_FILE}")
@@ -214,5 +216,5 @@ def main():
         httpd.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

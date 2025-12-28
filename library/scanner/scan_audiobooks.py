@@ -5,48 +5,35 @@ Scans audiobook directory and extracts metadata from various audio formats
 Supports: .m4b, .opus, .m4a, .mp3
 """
 
+import hashlib
 import json
 import subprocess
-import os
 import sys
 from pathlib import Path
 from datetime import datetime
-import base64
-import hashlib
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
+from utils import calculate_sha256
 
 # Configuration
 OUTPUT_FILE = DATA_DIR / "audiobooks.json"
-SUPPORTED_FORMATS = ['.m4b', '.opus', '.m4a', '.mp3']
-HASH_CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks for hashing
-
-
-def calculate_sha256(filepath):
-    """Calculate SHA-256 hash of a file."""
-    sha256 = hashlib.sha256()
-    try:
-        with open(filepath, 'rb') as f:
-            while chunk := f.read(HASH_CHUNK_SIZE):
-                sha256.update(chunk)
-        return sha256.hexdigest()
-    except (IOError, OSError) as e:
-        print(f"Error calculating hash for {filepath}: {e}", file=sys.stderr)
-        return None
+SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 
 
 def get_file_metadata(filepath, calculate_hash=True):
     """Extract metadata from audiobook file using ffprobe"""
     try:
         cmd = [
-            'ffprobe',
-            '-v', 'quiet',
-            '-print_format', 'json',
-            '-show_format',
-            '-show_streams',
-            str(filepath)
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            str(filepath),
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -57,14 +44,14 @@ def get_file_metadata(filepath, calculate_hash=True):
         data = json.loads(result.stdout)
 
         # Extract relevant metadata
-        format_data = data.get('format', {})
-        tags = format_data.get('tags', {})
+        format_data = data.get("format", {})
+        tags = format_data.get("tags", {})
 
         # Normalize tag keys (handle case variations)
         tags_normalized = {k.lower(): v for k, v in tags.items()}
 
         # Calculate duration
-        duration_sec = float(format_data.get('duration', 0))
+        duration_sec = float(format_data.get("duration", 0))
         duration_hours = duration_sec / 3600
 
         # Extract author from folder structure for all audio files
@@ -73,30 +60,37 @@ def get_file_metadata(filepath, calculate_hash=True):
         narrator_from_path = None
         parts = filepath.parts
 
-        if 'Library' in parts:
-            library_idx = parts.index('Library')
+        if "Library" in parts:
+            library_idx = parts.index("Library")
             if len(parts) > library_idx + 1:
                 potential_author = parts[library_idx + 1]
                 # Skip "Audiobook" folder - use next level if present
-                if potential_author.lower() == 'audiobook':
+                if potential_author.lower() == "audiobook":
                     if len(parts) > library_idx + 2:
                         author_from_path = parts[library_idx + 2]
                 else:
                     author_from_path = potential_author
 
         # Try multiple metadata fields for author (in priority order)
-        author_fields = ['artist', 'album_artist', 'author', 'writer', 'creator']
+        author_fields = ["artist", "album_artist", "author", "writer", "creator"]
         author = None
         for field in author_fields:
             if field in tags_normalized and tags_normalized[field]:
                 author = tags_normalized[field]
                 break
         if not author:
-            author = author_from_path or 'Unknown Author'
+            author = author_from_path or "Unknown Author"
 
         # Try multiple metadata fields for narrator (in priority order)
         # Audiobooks often store narrator in various fields
-        narrator_fields = ['narrator', 'composer', 'performer', 'read_by', 'narrated_by', 'reader']
+        narrator_fields = [
+            "narrator",
+            "composer",
+            "performer",
+            "read_by",
+            "narrated_by",
+            "reader",
+        ]
         narrator = None
         for field in narrator_fields:
             if field in tags_normalized and tags_normalized[field]:
@@ -106,7 +100,7 @@ def get_file_metadata(filepath, calculate_hash=True):
                     narrator = val
                     break
         if not narrator:
-            narrator = 'Unknown Narrator'
+            narrator = "Unknown Narrator"
 
         # Calculate SHA-256 hash if requested
         file_hash = None
@@ -118,22 +112,28 @@ def get_file_metadata(filepath, calculate_hash=True):
 
         # Extract metadata
         metadata = {
-            'title': tags_normalized.get('title', tags_normalized.get('album', filepath.stem)),
-            'author': author,
-            'narrator': narrator,
-            'publisher': tags_normalized.get('publisher', tags_normalized.get('label', 'Unknown Publisher')),
-            'genre': tags_normalized.get('genre', 'Uncategorized'),
-            'year': tags_normalized.get('date', tags_normalized.get('year', '')),
-            'description': tags_normalized.get('comment', tags_normalized.get('description', '')),
-            'duration_hours': round(duration_hours, 2),
-            'duration_formatted': f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m",
-            'file_size_mb': round(filepath.stat().st_size / (1024 * 1024), 2),
-            'file_path': str(filepath),
-            'relative_path': str(filepath.relative_to(AUDIOBOOK_DIR)),
-            'series': tags_normalized.get('series', ''),
-            'series_part': tags_normalized.get('series-part', ''),
-            'sha256_hash': file_hash,
-            'hash_verified_at': hash_verified_at,
+            "title": tags_normalized.get(
+                "title", tags_normalized.get("album", filepath.stem)
+            ),
+            "author": author,
+            "narrator": narrator,
+            "publisher": tags_normalized.get(
+                "publisher", tags_normalized.get("label", "Unknown Publisher")
+            ),
+            "genre": tags_normalized.get("genre", "Uncategorized"),
+            "year": tags_normalized.get("date", tags_normalized.get("year", "")),
+            "description": tags_normalized.get(
+                "comment", tags_normalized.get("description", "")
+            ),
+            "duration_hours": round(duration_hours, 2),
+            "duration_formatted": f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m",
+            "file_size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
+            "file_path": str(filepath),
+            "relative_path": str(filepath.relative_to(AUDIOBOOK_DIR)),
+            "series": tags_normalized.get("series", ""),
+            "series_part": tags_normalized.get("series-part", ""),
+            "sha256_hash": file_hash,
+            "hash_verified_at": hash_verified_at,
         }
 
         return metadata
@@ -155,12 +155,15 @@ def extract_cover_art(filepath, output_dir):
             return cover_path.name
 
         cmd = [
-            'ffmpeg',
-            '-v', 'quiet',
-            '-i', str(filepath),
-            '-an',  # No audio
-            '-vcodec', 'copy',
-            str(cover_path)
+            "ffmpeg",
+            "-v",
+            "quiet",
+            "-i",
+            str(filepath),
+            "-an",  # No audio
+            "-vcodec",
+            "copy",
+            str(cover_path),
         ]
 
         result = subprocess.run(cmd, capture_output=True)
@@ -180,39 +183,44 @@ def categorize_genre(genre):
 
     # Genre taxonomy
     categories = {
-        'fiction': {
-            'mystery & thriller': ['mystery', 'thriller', 'crime', 'detective', 'noir', 'suspense'],
-            'science fiction': ['science fiction', 'sci-fi', 'scifi', 'cyberpunk', 'space opera'],
-            'fantasy': ['fantasy', 'epic fantasy', 'urban fantasy', 'magical realism'],
-            'literary fiction': ['literary', 'contemporary', 'historical fiction'],
-            'horror': ['horror', 'supernatural', 'gothic'],
-            'romance': ['romance', 'romantic'],
+        "fiction": {
+            "mystery & thriller": [
+                "mystery",
+                "thriller",
+                "crime",
+                "detective",
+                "noir",
+                "suspense",
+            ],
+            "science fiction": [
+                "science fiction",
+                "sci-fi",
+                "scifi",
+                "cyberpunk",
+                "space opera",
+            ],
+            "fantasy": ["fantasy", "epic fantasy", "urban fantasy", "magical realism"],
+            "literary fiction": ["literary", "contemporary", "historical fiction"],
+            "horror": ["horror", "supernatural", "gothic"],
+            "romance": ["romance", "romantic"],
         },
-        'non-fiction': {
-            'biography & memoir': ['biography', 'memoir', 'autobiography'],
-            'history': ['history', 'historical'],
-            'science': ['science', 'physics', 'biology', 'chemistry', 'astronomy'],
-            'philosophy': ['philosophy', 'ethics'],
-            'self-help': ['self-help', 'personal development', 'psychology'],
-            'business': ['business', 'economics', 'entrepreneurship'],
-            'true crime': ['true crime'],
-        }
+        "non-fiction": {
+            "biography & memoir": ["biography", "memoir", "autobiography"],
+            "history": ["history", "historical"],
+            "science": ["science", "physics", "biology", "chemistry", "astronomy"],
+            "philosophy": ["philosophy", "ethics"],
+            "self-help": ["self-help", "personal development", "psychology"],
+            "business": ["business", "economics", "entrepreneurship"],
+            "true crime": ["true crime"],
+        },
     }
 
     for main_cat, subcats in categories.items():
         for subcat, keywords in subcats.items():
             if any(keyword in genre_lower for keyword in keywords):
-                return {
-                    'main': main_cat,
-                    'sub': subcat,
-                    'original': genre
-                }
+                return {"main": main_cat, "sub": subcat, "original": genre}
 
-    return {
-        'main': 'uncategorized',
-        'sub': 'general',
-        'original': genre
-    }
+    return {"main": "uncategorized", "sub": "general", "original": genre}
 
 
 def determine_literary_era(year_str):
@@ -221,24 +229,24 @@ def determine_literary_era(year_str):
         year = int(year_str[:4]) if year_str else 0
 
         if year == 0:
-            return 'Unknown Era'
+            return "Unknown Era"
         elif year < 1800:
-            return 'Classical (Pre-1800)'
+            return "Classical (Pre-1800)"
         elif 1800 <= year < 1900:
-            return '19th Century (1800-1899)'
+            return "19th Century (1800-1899)"
         elif 1900 <= year < 1950:
-            return 'Early 20th Century (1900-1949)'
+            return "Early 20th Century (1900-1949)"
         elif 1950 <= year < 2000:
-            return 'Late 20th Century (1950-1999)'
+            return "Late 20th Century (1950-1999)"
         elif 2000 <= year < 2010:
-            return '21st Century - Early (2000-2009)'
+            return "21st Century - Early (2000-2009)"
         elif 2010 <= year < 2020:
-            return '21st Century - Modern (2010-2019)'
+            return "21st Century - Modern (2010-2019)"
         else:
-            return '21st Century - Contemporary (2020+)'
+            return "21st Century - Contemporary (2020+)"
 
     except:
-        return 'Unknown Era'
+        return "Unknown Era"
 
 
 def scan_audiobooks():
@@ -260,27 +268,35 @@ def scan_audiobooks():
 
     # Filter out cover art files (*.cover.opus, *.cover.m4b, etc.)
     original_count = len(audiobook_files)
-    audiobook_files = [f for f in audiobook_files if '.cover.' not in f.name.lower()]
+    audiobook_files = [f for f in audiobook_files if ".cover." not in f.name.lower()]
     filtered_count = original_count - len(audiobook_files)
     if filtered_count > 0:
         print(f"  Filtered out {filtered_count} cover art files")
 
     # Deduplicate: prefer files from main Library over /Library/Audiobook/ (which may have duplicates)
-    main_library_files = [f for f in audiobook_files if '/Library/Audiobook/' not in str(f)]
-    audiobook_folder_files = [f for f in audiobook_files if '/Library/Audiobook/' in str(f)]
+    main_library_files = [
+        f for f in audiobook_files if "/Library/Audiobook/" not in str(f)
+    ]
+    audiobook_folder_files = [
+        f for f in audiobook_files if "/Library/Audiobook/" in str(f)
+    ]
 
     # Get titles from main library
     main_titles = {f.stem for f in main_library_files}
 
     # Add Audiobook/ files only if title doesn't exist in main library
-    unique_audiobook_files = [f for f in audiobook_folder_files if f.stem not in main_titles]
+    unique_audiobook_files = [
+        f for f in audiobook_folder_files if f.stem not in main_titles
+    ]
 
     # Combine: main library + unique from Audiobook/
     audiobook_files = main_library_files + unique_audiobook_files
 
     if len(audiobook_folder_files) > len(unique_audiobook_files):
         dup_count = len(audiobook_folder_files) - len(unique_audiobook_files)
-        print(f"  Deduplicated {dup_count} files from /Library/Audiobook/ (keeping {len(unique_audiobook_files)} unique)")
+        print(
+            f"  Deduplicated {dup_count} files from /Library/Audiobook/ (keeping {len(unique_audiobook_files)} unique)"
+        )
 
     print(f"\nTotal audiobook files: {len(audiobook_files)}")
     print()
@@ -299,73 +315,80 @@ def scan_audiobooks():
         # Extract cover art
         cover_path = extract_cover_art(filepath, COVER_DIR)
         if cover_path:
-            metadata['cover_path'] = str(cover_path)
+            metadata["cover_path"] = str(cover_path)
         else:
-            metadata['cover_path'] = None
+            metadata["cover_path"] = None
 
         # Add file format
-        metadata['format'] = filepath.suffix.lower().replace('.', '')
+        metadata["format"] = filepath.suffix.lower().replace(".", "")
 
         # Add categorization
-        genre_cat = categorize_genre(metadata['genre'])
-        metadata['genre_category'] = genre_cat['main']
-        metadata['genre_subcategory'] = genre_cat['sub']
-        metadata['genre_original'] = genre_cat['original']
+        genre_cat = categorize_genre(metadata["genre"])
+        metadata["genre_category"] = genre_cat["main"]
+        metadata["genre_subcategory"] = genre_cat["sub"]
+        metadata["genre_original"] = genre_cat["original"]
 
         # Add literary era
-        metadata['literary_era'] = determine_literary_era(metadata['year'])
+        metadata["literary_era"] = determine_literary_era(metadata["year"])
 
         # Extract topics from description (simple keyword extraction)
-        description_lower = metadata['description'].lower()
+        description_lower = metadata["description"].lower()
         topics = []
 
         topic_keywords = {
-            'war': ['war', 'battle', 'military', 'conflict'],
-            'adventure': ['adventure', 'journey', 'quest', 'expedition'],
-            'technology': ['technology', 'computer', 'ai', 'artificial intelligence'],
-            'politics': ['politics', 'political', 'government', 'election'],
-            'religion': ['religion', 'faith', 'spiritual', 'god'],
-            'family': ['family', 'parent', 'child', 'marriage'],
-            'society': ['society', 'social', 'culture', 'community'],
+            "war": ["war", "battle", "military", "conflict"],
+            "adventure": ["adventure", "journey", "quest", "expedition"],
+            "technology": ["technology", "computer", "ai", "artificial intelligence"],
+            "politics": ["politics", "political", "government", "election"],
+            "religion": ["religion", "faith", "spiritual", "god"],
+            "family": ["family", "parent", "child", "marriage"],
+            "society": ["society", "social", "culture", "community"],
         }
 
         for topic, keywords in topic_keywords.items():
             if any(kw in description_lower for kw in keywords):
                 topics.append(topic)
 
-        metadata['topics'] = topics if topics else ['general']
+        metadata["topics"] = topics if topics else ["general"]
 
         audiobooks.append(metadata)
 
     # Save to JSON
     print(f"\nSaving metadata to {OUTPUT_FILE}...")
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-        json.dump({
-            'generated_at': datetime.now().isoformat(),
-            'total_audiobooks': len(audiobooks),
-            'audiobooks': audiobooks
-        }, f, indent=2, ensure_ascii=False)
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "generated_at": datetime.now().isoformat(),
+                "total_audiobooks": len(audiobooks),
+                "audiobooks": audiobooks,
+            },
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
 
     # Generate statistics
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SCAN COMPLETE")
-    print("="*60)
+    print("=" * 60)
     print(f"Total audiobooks: {len(audiobooks)}")
     print(f"Output file: {OUTPUT_FILE}")
     print(f"Cover images: {COVER_DIR}")
 
     # Show some statistics
-    authors = set(ab['author'] for ab in audiobooks)
-    genres = set(ab['genre_subcategory'] for ab in audiobooks)
-    publishers = set(ab['publisher'] for ab in audiobooks)
+    authors = set(ab["author"] for ab in audiobooks)
+    genres = set(ab["genre_subcategory"] for ab in audiobooks)
+    publishers = set(ab["publisher"] for ab in audiobooks)
 
     print(f"\nUnique authors: {len(authors)}")
     print(f"Unique genres: {len(genres)}")
     print(f"Unique publishers: {len(publishers)}")
 
-    total_hours = sum(ab['duration_hours'] for ab in audiobooks)
-    print(f"\nTotal listening time: {int(total_hours)} hours ({int(total_hours/24)} days)")
+    total_hours = sum(ab["duration_hours"] for ab in audiobooks)
+    print(
+        f"\nTotal listening time: {int(total_hours)} hours ({int(total_hours / 24)} days)"
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     scan_audiobooks()

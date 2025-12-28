@@ -2,4 +2,4 @@
 
 from .openlibrary_client import OpenLibraryClient, OpenLibraryWork, OpenLibraryEdition
 
-__all__ = ['OpenLibraryClient', 'OpenLibraryWork', 'OpenLibraryEdition']
+__all__ = ["OpenLibraryClient", "OpenLibraryWork", "OpenLibraryEdition"]

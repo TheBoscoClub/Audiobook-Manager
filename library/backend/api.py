@@ -25,6 +25,7 @@ app = Flask(__name__)
 # CORS Implementation (replaces flask-cors to eliminate CVE vulnerabilities)
 # =============================================================================
 
+
 @app.after_request
 def add_cors_headers(response: Response) -> Response:
     """
@@ -32,18 +33,21 @@ def add_cors_headers(response: Response) -> Response:
     This is a simple implementation suitable for localhost/personal use.
     Replaces flask-cors which has multiple CVEs (CVE-2024-6221, etc.)
     """
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Range'
-    response.headers['Access-Control-Expose-Headers'] = 'Content-Range, Accept-Ranges, Content-Length'
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range"
+    response.headers["Access-Control-Expose-Headers"] = (
+        "Content-Range, Accept-Ranges, Content-Length"
+    )
     return response
 
 
-@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
-@app.route('/<path:path>', methods=['OPTIONS'])
+@app.route("/", defaults={"path": ""}, methods=["OPTIONS"])
+@app.route("/<path:path>", methods=["OPTIONS"])
 def handle_options(path: str) -> tuple[str, int]:
     """Handle CORS preflight requests"""
-    return '', 204
+    return "", 204
+
 
 DB_PATH = DATABASE_PATH
 PROJECT_ROOT = PROJECT_DIR / "library"
@@ -60,129 +64,164 @@ def get_db() -> sqlite3.Connection:
 # COLLECTIONS - Predefined groups of audiobooks
 # ============================================
 
+
 # Helper to create genre-based query (uses junction table)
+def _escape_like_pattern(pattern: str) -> str:
+    """Escape special characters in LIKE patterns to prevent SQL injection."""
+    # Escape SQL special characters for LIKE: % _ ' \
+    pattern = pattern.replace("'", "''")  # Escape single quotes
+    return pattern
+
+
 def genre_query(genre_pattern: str) -> str:
     """Create a query for books matching a genre pattern."""
+    safe_pattern = _escape_like_pattern(genre_pattern)
     return f"""id IN (
         SELECT ag.audiobook_id FROM audiobook_genres ag
         JOIN genres g ON ag.genre_id = g.id
-        WHERE g.name LIKE '{genre_pattern}'
+        WHERE g.name LIKE '{safe_pattern}'
     )"""
+
 
 def multi_genre_query(genre_patterns: list[str]) -> str:
     """Create a query for books matching any of the genre patterns."""
-    conditions = " OR ".join([f"g.name LIKE '{p}'" for p in genre_patterns])
+    conditions = " OR ".join(
+        [f"g.name LIKE '{_escape_like_pattern(p)}'" for p in genre_patterns]
+    )
     return f"""id IN (
         SELECT DISTINCT ag.audiobook_id FROM audiobook_genres ag
         JOIN genres g ON ag.genre_id = g.id
         WHERE {conditions}
     )"""
 
+
 COLLECTIONS = {
     # === SPECIAL COLLECTIONS ===
-    'great-courses': {
-        'name': 'The Great Courses',
-        'description': 'Educational lecture series from The Teaching Company',
-        'query': "author LIKE '%The Great Courses%'",
-        'icon': '🎓',
-        'category': 'special'
+    "great-courses": {
+        "name": "The Great Courses",
+        "description": "Educational lecture series from The Teaching Company",
+        "query": "author LIKE '%The Great Courses%'",
+        "icon": "🎓",
+        "category": "special",
     },
-
     # === MAIN GENRES ===
-    'fiction': {
-        'name': 'Fiction',
-        'description': 'Literary fiction, genre fiction, and novels',
-        'query': multi_genre_query(['Literature & Fiction', 'Literary Fiction', 'Genre Fiction']),
-        'icon': '📖',
-        'category': 'main'
+    "fiction": {
+        "name": "Fiction",
+        "description": "Literary fiction, genre fiction, and novels",
+        "query": multi_genre_query(
+            ["Literature & Fiction", "Literary Fiction", "Genre Fiction"]
+        ),
+        "icon": "📖",
+        "category": "main",
     },
-    'mystery-thriller': {
-        'name': 'Mystery & Thriller',
-        'description': 'Mystery, suspense, and thriller novels',
-        'query': multi_genre_query(['Mystery', 'Thriller & Suspense', 'Suspense', 'Crime Fiction', 'Crime Thrillers']),
-        'icon': '🔍',
-        'category': 'main'
+    "mystery-thriller": {
+        "name": "Mystery & Thriller",
+        "description": "Mystery, suspense, and thriller novels",
+        "query": multi_genre_query(
+            [
+                "Mystery",
+                "Thriller & Suspense",
+                "Suspense",
+                "Crime Fiction",
+                "Crime Thrillers",
+            ]
+        ),
+        "icon": "🔍",
+        "category": "main",
     },
-    'scifi-fantasy': {
-        'name': 'Sci-Fi & Fantasy',
-        'description': 'Science fiction and fantasy',
-        'query': multi_genre_query(['Science Fiction & Fantasy', 'Science Fiction', 'Fantasy']),
-        'icon': '🚀',
-        'category': 'main'
+    "scifi-fantasy": {
+        "name": "Sci-Fi & Fantasy",
+        "description": "Science fiction and fantasy",
+        "query": multi_genre_query(
+            ["Science Fiction & Fantasy", "Science Fiction", "Fantasy"]
+        ),
+        "icon": "🚀",
+        "category": "main",
     },
-    'horror': {
-        'name': 'Horror',
-        'description': 'Horror and supernatural fiction',
-        'query': multi_genre_query(['Horror', 'Ghosts', 'Paranormal & Urban', 'Occult']),
-        'icon': '👻',
-        'category': 'main'
+    "horror": {
+        "name": "Horror",
+        "description": "Horror and supernatural fiction",
+        "query": multi_genre_query(
+            ["Horror", "Ghosts", "Paranormal & Urban", "Occult"]
+        ),
+        "icon": "👻",
+        "category": "main",
     },
-    'classics': {
-        'name': 'Classics',
-        'description': 'Classic literature and timeless stories',
-        'query': genre_query('Classics'),
-        'icon': '📜',
-        'category': 'main'
+    "classics": {
+        "name": "Classics",
+        "description": "Classic literature and timeless stories",
+        "query": genre_query("Classics"),
+        "icon": "📜",
+        "category": "main",
     },
-    'comedy': {
-        'name': 'Comedy & Humor',
-        'description': 'Funny books and comedy',
-        'query': genre_query('Comedy & Humor'),
-        'icon': '😂',
-        'category': 'main'
+    "comedy": {
+        "name": "Comedy & Humor",
+        "description": "Funny books and comedy",
+        "query": genre_query("Comedy & Humor"),
+        "icon": "😂",
+        "category": "main",
     },
-
     # === NONFICTION ===
-    'biography-memoir': {
-        'name': 'Biography & Memoir',
-        'description': 'Biographies, autobiographies, and memoirs',
-        'query': multi_genre_query(['Biographies & Memoirs', 'Memoirs', 'Biographical Fiction']),
-        'icon': '👤',
-        'category': 'nonfiction'
+    "biography-memoir": {
+        "name": "Biography & Memoir",
+        "description": "Biographies, autobiographies, and memoirs",
+        "query": multi_genre_query(
+            ["Biographies & Memoirs", "Memoirs", "Biographical Fiction"]
+        ),
+        "icon": "👤",
+        "category": "nonfiction",
     },
-    'history': {
-        'name': 'History',
-        'description': 'Historical nonfiction and world history',
-        'query': multi_genre_query(['History', 'Historical', 'World']),
-        'icon': '🏛️',
-        'category': 'nonfiction'
+    "history": {
+        "name": "History",
+        "description": "Historical nonfiction and world history",
+        "query": multi_genre_query(["History", "Historical", "World"]),
+        "icon": "🏛️",
+        "category": "nonfiction",
     },
-    'science': {
-        'name': 'Science & Technology',
-        'description': 'Science, technology, and nature',
-        'query': multi_genre_query(['Science', 'Science & Engineering', 'Biological Sciences', 'Technothrillers']),
-        'icon': '🔬',
-        'category': 'nonfiction'
+    "science": {
+        "name": "Science & Technology",
+        "description": "Science, technology, and nature",
+        "query": multi_genre_query(
+            [
+                "Science",
+                "Science & Engineering",
+                "Biological Sciences",
+                "Technothrillers",
+            ]
+        ),
+        "icon": "🔬",
+        "category": "nonfiction",
     },
-    'health-wellness': {
-        'name': 'Health & Wellness',
-        'description': 'Health, psychology, and self-improvement',
-        'query': multi_genre_query(['Health & Wellness', 'Psychology', 'Self-Help', 'Personal Development']),
-        'icon': '🧘',
-        'category': 'nonfiction'
+    "health-wellness": {
+        "name": "Health & Wellness",
+        "description": "Health, psychology, and self-improvement",
+        "query": multi_genre_query(
+            ["Health & Wellness", "Psychology", "Self-Help", "Personal Development"]
+        ),
+        "icon": "🧘",
+        "category": "nonfiction",
     },
-
     # === SUBGENRES ===
-    'historical-fiction': {
-        'name': 'Historical Fiction',
-        'description': 'Fiction set in historical periods',
-        'query': genre_query('Historical Fiction'),
-        'icon': '⚔️',
-        'category': 'subgenre'
+    "historical-fiction": {
+        "name": "Historical Fiction",
+        "description": "Fiction set in historical periods",
+        "query": genre_query("Historical Fiction"),
+        "icon": "⚔️",
+        "category": "subgenre",
     },
-    'action-adventure': {
-        'name': 'Action & Adventure',
-        'description': 'Action-packed adventure stories',
-        'query': multi_genre_query(['Action & Adventure', 'Adventure']),
-        'icon': '🗺️',
-        'category': 'subgenre'
+    "action-adventure": {
+        "name": "Action & Adventure",
+        "description": "Action-packed adventure stories",
+        "query": multi_genre_query(["Action & Adventure", "Adventure"]),
+        "icon": "🗺️",
+        "category": "subgenre",
     },
-    'anthologies': {
-        'name': 'Short Stories',
-        'description': 'Anthologies and short story collections',
-        'query': genre_query('Anthologies & Short Stories'),
-        'icon': '📚',
-        'category': 'subgenre'
+    "anthologies": {
+        "name": "Short Stories",
+        "description": "Anthologies and short story collections",
+        "query": genre_query("Anthologies & Short Stories"),
+        "icon": "📚",
+        "category": "subgenre",
     },
 }
 
@@ -190,6 +229,7 @@ COLLECTIONS = {
 # ============================================
 # EDITION DETECTION HELPERS
 # ============================================
+
 
 def has_edition_marker(title: str | None) -> bool:
     """Check if a title contains edition markers indicating it's a specific edition"""
@@ -200,19 +240,19 @@ def has_edition_marker(title: str | None) -> bool:
 
     # Edition keywords
     edition_markers = [
-        'edition',           # 2nd edition, revised edition, etc.
-        'anniversary',       # 20th anniversary, etc.
-        'revised',          # revised version
-        'updated',          # updated version
-        'unabridged',       # unabridged vs abridged
-        'abridged',
-        'complete',         # complete edition
-        'expanded',         # expanded edition
-        'deluxe',           # deluxe edition
-        'special',          # special edition
-        'collectors',       # collector's edition
-        'annotated',        # annotated edition
-        'illustrated',      # illustrated edition
+        "edition",  # 2nd edition, revised edition, etc.
+        "anniversary",  # 20th anniversary, etc.
+        "revised",  # revised version
+        "updated",  # updated version
+        "unabridged",  # unabridged vs abridged
+        "abridged",
+        "complete",  # complete edition
+        "expanded",  # expanded edition
+        "deluxe",  # deluxe edition
+        "special",  # special edition
+        "collectors",  # collector's edition
+        "annotated",  # annotated edition
+        "illustrated",  # illustrated edition
     ]
 
     return any(marker in title_lower for marker in edition_markers)
@@ -231,24 +271,31 @@ def normalize_base_title(title: str | None) -> str:
     base = title.lower().strip()
 
     # Remove edition markers and surrounding text
-    base = re.sub(r'\s*\([^)]*edition[^)]*\)', '', base, flags=re.IGNORECASE)
-    base = re.sub(r'\s*\([^)]*anniversary[^)]*\)', '', base, flags=re.IGNORECASE)
-    base = re.sub(r'\s*-\s*\d+(st|nd|rd|th)\s+edition.*$', '', base, flags=re.IGNORECASE)
-    base = re.sub(r'\s*:\s*(unabridged|abridged|complete|expanded).*$', '', base, flags=re.IGNORECASE)
+    base = re.sub(r"\s*\([^)]*edition[^)]*\)", "", base, flags=re.IGNORECASE)
+    base = re.sub(r"\s*\([^)]*anniversary[^)]*\)", "", base, flags=re.IGNORECASE)
+    base = re.sub(
+        r"\s*-\s*\d+(st|nd|rd|th)\s+edition.*$", "", base, flags=re.IGNORECASE
+    )
+    base = re.sub(
+        r"\s*:\s*(unabridged|abridged|complete|expanded).*$",
+        "",
+        base,
+        flags=re.IGNORECASE,
+    )
 
     # Remove "(Unabridged)" or similar at the end
-    base = re.sub(r'\s*\((un)?abridged\)', '', base, flags=re.IGNORECASE)
+    base = re.sub(r"\s*\((un)?abridged\)", "", base, flags=re.IGNORECASE)
 
     # Remove year in parentheses at the end like "(2024)"
-    base = re.sub(r'\s*\(\d{4}\)\s*$', '', base)
+    base = re.sub(r"\s*\(\d{4}\)\s*$", "", base)
 
     # Normalize punctuation
-    base = base.replace(':', '').replace('-', ' ').replace('  ', ' ')
+    base = base.replace(":", "").replace("-", " ").replace("  ", " ")
 
     return base.strip()
 
 
-@app.route('/api/stats', methods=['GET'])
+@app.route("/api/stats", methods=["GET"])
 def get_stats() -> Response:
     """Get library statistics"""
     conn = get_db()
@@ -256,15 +303,15 @@ def get_stats() -> Response:
 
     # Total audiobooks
     cursor.execute("SELECT COUNT(*) as total FROM audiobooks")
-    total_books = cursor.fetchone()['total']
+    total_books = cursor.fetchone()["total"]
 
     # Total hours
     cursor.execute("SELECT SUM(duration_hours) as total_hours FROM audiobooks")
-    total_hours = cursor.fetchone()['total_hours'] or 0
+    total_hours = cursor.fetchone()["total_hours"] or 0
 
     # Total storage used (sum of file sizes in MB, convert to GB)
     cursor.execute("SELECT SUM(file_size_mb) as total_size FROM audiobooks")
-    total_size_mb = cursor.fetchone()['total_size'] or 0
+    total_size_mb = cursor.fetchone()["total_size"] or 0
     total_size_gb = total_size_mb / 1024
 
     # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
@@ -274,7 +321,7 @@ def get_stats() -> Response:
           AND LOWER(TRIM(author)) != 'audiobook'
           AND LOWER(TRIM(author)) != 'unknown author'
     """)
-    unique_authors = cursor.fetchone()['count']
+    unique_authors = cursor.fetchone()["count"]
 
     cursor.execute("""
         SELECT COUNT(DISTINCT narrator) as count FROM audiobooks
@@ -282,13 +329,15 @@ def get_stats() -> Response:
           AND LOWER(TRIM(narrator)) != 'unknown narrator'
           AND LOWER(TRIM(narrator)) != ''
     """)
-    unique_narrators = cursor.fetchone()['count']
+    unique_narrators = cursor.fetchone()["count"]
 
-    cursor.execute("SELECT COUNT(DISTINCT publisher) as count FROM audiobooks WHERE publisher IS NOT NULL")
-    unique_publishers = cursor.fetchone()['count']
+    cursor.execute(
+        "SELECT COUNT(DISTINCT publisher) as count FROM audiobooks WHERE publisher IS NOT NULL"
+    )
+    unique_publishers = cursor.fetchone()["count"]
 
     cursor.execute("SELECT COUNT(*) as count FROM genres")
-    unique_genres = cursor.fetchone()['count']
+    unique_genres = cursor.fetchone()["count"]
 
     conn.close()
 
@@ -296,26 +345,29 @@ def get_stats() -> Response:
     database_size_mb = 0
     try:
         import os
+
         db_path = str(DATABASE_PATH)
         if os.path.exists(db_path):
             database_size_mb = os.path.getsize(db_path) / (1024 * 1024)
     except Exception:
         pass
 
-    return jsonify({
-        'total_audiobooks': total_books,
-        'total_hours': round(total_hours),
-        'total_days': round(total_hours / 24),
-        'total_size_gb': round(total_size_gb, 2),
-        'database_size_mb': round(database_size_mb, 2),
-        'unique_authors': unique_authors,
-        'unique_narrators': unique_narrators,
-        'unique_publishers': unique_publishers,
-        'unique_genres': unique_genres
-    })
+    return jsonify(
+        {
+            "total_audiobooks": total_books,
+            "total_hours": round(total_hours),
+            "total_days": round(total_hours / 24),
+            "total_size_gb": round(total_size_gb, 2),
+            "database_size_mb": round(database_size_mb, 2),
+            "unique_authors": unique_authors,
+            "unique_narrators": unique_narrators,
+            "unique_publishers": unique_publishers,
+            "unique_genres": unique_genres,
+        }
+    )
 
 
-@app.route('/api/audiobooks', methods=['GET'])
+@app.route("/api/audiobooks", methods=["GET"])
 def get_audiobooks() -> Response:
     """
     Get paginated audiobooks with optional filtering
@@ -333,48 +385,48 @@ def get_audiobooks() -> Response:
     - order: Sort order (asc, desc)
     """
     # Parse parameters
-    page = max(1, int(request.args.get('page', 1)))
-    per_page = min(200, max(1, int(request.args.get('per_page', 50))))
-    search = request.args.get('search', '').strip()
-    author = request.args.get('author', '').strip()
-    narrator = request.args.get('narrator', '').strip()
-    publisher = request.args.get('publisher', '').strip()
-    genre = request.args.get('genre', '').strip()
-    format_filter = request.args.get('format', '').strip()
-    collection = request.args.get('collection', '').strip()
-    sort_field = request.args.get('sort', 'title')
-    sort_order = request.args.get('order', 'asc').lower()
+    page = max(1, int(request.args.get("page", 1)))
+    per_page = min(200, max(1, int(request.args.get("per_page", 50))))
+    search = request.args.get("search", "").strip()
+    author = request.args.get("author", "").strip()
+    narrator = request.args.get("narrator", "").strip()
+    publisher = request.args.get("publisher", "").strip()
+    genre = request.args.get("genre", "").strip()
+    format_filter = request.args.get("format", "").strip()
+    collection = request.args.get("collection", "").strip()
+    sort_field = request.args.get("sort", "title")
+    sort_order = request.args.get("order", "asc").lower()
 
     # Map user-friendly sort names to SQL expressions
     sort_mappings = {
-        'title': 'title',
-        'author': 'author',
-        'author_last': 'author_last_name',
-        'author_first': 'author_first_name',
-        'narrator': 'narrator',
-        'narrator_last': 'narrator_last_name',
-        'narrator_first': 'narrator_first_name',
-        'duration_hours': 'duration_hours',
-        'created_at': 'created_at',
-        'acquired_date': 'acquired_date',
-        'published_year': 'published_year',
-        'published_date': 'published_date',
-        'file_size_mb': 'file_size_mb',
-        'series': 'series, series_sequence',  # Sort by series name, then sequence
-        'asin': 'asin',
-        'edition': 'edition',
+        "title": "title",
+        "author": "author",
+        "author_last": "author_last_name",
+        "author_first": "author_first_name",
+        "narrator": "narrator",
+        "narrator_last": "narrator_last_name",
+        "narrator_first": "narrator_first_name",
+        "duration_hours": "duration_hours",
+        "created_at": "created_at",
+        "acquired_date": "acquired_date",
+        "published_year": "published_year",
+        "published_date": "published_date",
+        "file_size_mb": "file_size_mb",
+        "series": "series, series_sequence",  # Sort by series name, then sequence
+        "asin": "asin",
+        "edition": "edition",
     }
 
     # Get SQL sort expression
     if sort_field in sort_mappings:
         sort_sql = sort_mappings[sort_field]
     else:
-        sort_sql = 'title'
-        sort_field = 'title'
+        sort_sql = "title"
+        sort_field = "title"
 
     # Validate sort order
-    if sort_order not in ['asc', 'desc']:
-        sort_order = 'asc'
+    if sort_order not in ["asc", "desc"]:
+        sort_order = "asc"
 
     conn = get_db()
     cursor = conn.cursor()
@@ -385,7 +437,9 @@ def get_audiobooks() -> Response:
 
     if search:
         # Full-text search
-        where_clauses.append("id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)")
+        where_clauses.append(
+            "id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)"
+        )
         params.append(search)
 
     if author:
@@ -425,7 +479,7 @@ def get_audiobooks() -> Response:
     # Count total matching audiobooks
     count_query = f"SELECT COUNT(*) as total FROM audiobooks {where_sql}"
     cursor.execute(count_query, params)
-    total_count = cursor.fetchone()['total']
+    total_count = cursor.fetchone()["total"]
 
     # Get paginated audiobooks
     offset = (page - 1) * per_page
@@ -453,60 +507,75 @@ def get_audiobooks() -> Response:
         book = dict(row)
 
         # Get genres, eras, topics
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT g.name FROM genres g
             JOIN audiobook_genres ag ON g.id = ag.genre_id
             WHERE ag.audiobook_id = ?
-        """, (book['id'],))
-        book['genres'] = [r['name'] for r in cursor.fetchall()]
+        """,
+            (book["id"],),
+        )
+        book["genres"] = [r["name"] for r in cursor.fetchall()]
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT e.name FROM eras e
             JOIN audiobook_eras ae ON e.id = ae.era_id
             WHERE ae.audiobook_id = ?
-        """, (book['id'],))
-        book['eras'] = [r['name'] for r in cursor.fetchall()]
+        """,
+            (book["id"],),
+        )
+        book["eras"] = [r["name"] for r in cursor.fetchall()]
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT t.name FROM topics t
             JOIN audiobook_topics at ON t.id = at.topic_id
             WHERE at.audiobook_id = ?
-        """, (book['id'],))
-        book['topics'] = [r['name'] for r in cursor.fetchall()]
+        """,
+            (book["id"],),
+        )
+        book["topics"] = [r["name"] for r in cursor.fetchall()]
 
         # Get supplement count for this audiobook
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) as count FROM supplements
             WHERE audiobook_id = ?
-        """, (book['id'],))
+        """,
+            (book["id"],),
+        )
         result = cursor.fetchone()
-        book['supplement_count'] = result['count'] if result else 0
+        book["supplement_count"] = result["count"] if result else 0
 
         # Get edition count (only count if book has edition markers)
         # First check if this book or any related books have edition markers
-        base_title = normalize_base_title(book['title'])
+        base_title = normalize_base_title(book["title"])
 
         # Find books with same author
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT title
             FROM audiobooks
             WHERE author = ?
-        """, (book['author'],))
+        """,
+            (book["author"],),
+        )
 
         related_books = cursor.fetchall()
         matching_editions = []
 
         for related in related_books:
-            related_base = normalize_base_title(related['title'])
+            related_base = normalize_base_title(related["title"])
             if related_base == base_title:
-                matching_editions.append(related['title'])
+                matching_editions.append(related["title"])
 
         # Only set edition_count > 1 if there are multiple matches AND at least one has markers
         has_markers = any(has_edition_marker(title) for title in matching_editions)
         if len(matching_editions) > 1 and has_markers:
-            book['edition_count'] = len(matching_editions)
+            book["edition_count"] = len(matching_editions)
         else:
-            book['edition_count'] = 1
+            book["edition_count"] = 1
 
         audiobooks.append(book)
 
@@ -515,20 +584,22 @@ def get_audiobooks() -> Response:
     # Calculate pagination metadata
     total_pages = (total_count + per_page - 1) // per_page
 
-    return jsonify({
-        'audiobooks': audiobooks,
-        'pagination': {
-            'page': page,
-            'per_page': per_page,
-            'total_count': total_count,
-            'total_pages': total_pages,
-            'has_next': page < total_pages,
-            'has_prev': page > 1
+    return jsonify(
+        {
+            "audiobooks": audiobooks,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1,
+            },
         }
-    })
+    )
 
 
-@app.route('/api/filters', methods=['GET'])
+@app.route("/api/filters", methods=["GET"])
 def get_filters() -> Response:
     """Get all available filter options"""
     conn = get_db()
@@ -540,7 +611,7 @@ def get_filters() -> Response:
         WHERE author IS NOT NULL
         ORDER BY author
     """)
-    authors = [row['author'] for row in cursor.fetchall()]
+    authors = [row["author"] for row in cursor.fetchall()]
 
     # Get unique narrators
     cursor.execute("""
@@ -548,7 +619,7 @@ def get_filters() -> Response:
         WHERE narrator IS NOT NULL
         ORDER BY narrator
     """)
-    narrators = [row['narrator'] for row in cursor.fetchall()]
+    narrators = [row["narrator"] for row in cursor.fetchall()]
 
     # Get unique publishers
     cursor.execute("""
@@ -556,19 +627,19 @@ def get_filters() -> Response:
         WHERE publisher IS NOT NULL
         ORDER BY publisher
     """)
-    publishers = [row['publisher'] for row in cursor.fetchall()]
+    publishers = [row["publisher"] for row in cursor.fetchall()]
 
     # Get genres
     cursor.execute("SELECT name FROM genres ORDER BY name")
-    genres = [row['name'] for row in cursor.fetchall()]
+    genres = [row["name"] for row in cursor.fetchall()]
 
     # Get eras
     cursor.execute("SELECT name FROM eras ORDER BY name")
-    eras = [row['name'] for row in cursor.fetchall()]
+    eras = [row["name"] for row in cursor.fetchall()]
 
     # Get topics
     cursor.execute("SELECT name FROM topics ORDER BY name")
-    topics = [row['name'] for row in cursor.fetchall()]
+    topics = [row["name"] for row in cursor.fetchall()]
 
     # Get formats
     cursor.execute("""
@@ -576,22 +647,24 @@ def get_filters() -> Response:
         WHERE format IS NOT NULL
         ORDER BY format
     """)
-    formats = [row['format'] for row in cursor.fetchall()]
+    formats = [row["format"] for row in cursor.fetchall()]
 
     conn.close()
 
-    return jsonify({
-        'authors': authors,
-        'narrators': narrators,
-        'publishers': publishers,
-        'genres': genres,
-        'eras': eras,
-        'topics': topics,
-        'formats': formats
-    })
+    return jsonify(
+        {
+            "authors": authors,
+            "narrators": narrators,
+            "publishers": publishers,
+            "genres": genres,
+            "eras": eras,
+            "topics": topics,
+            "formats": formats,
+        }
+    )
 
 
-@app.route('/api/narrator-counts', methods=['GET'])
+@app.route("/api/narrator-counts", methods=["GET"])
 def get_narrator_counts() -> Response:
     """Get narrator book counts for autocomplete"""
     conn = get_db()
@@ -607,47 +680,57 @@ def get_narrator_counts() -> Response:
         ORDER BY narrator
     """)
 
-    counts = {row['narrator']: row['count'] for row in cursor.fetchall()}
+    counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}
     conn.close()
 
     return jsonify(counts)
 
 
-@app.route('/api/collections', methods=['GET'])
+@app.route("/api/collections", methods=["GET"])
 def get_collections() -> Response:
     """Get available collections with counts, grouped by category"""
     conn = get_db()
     cursor = conn.cursor()
 
     # Define category order and labels
-    category_order = ['special', 'main', 'nonfiction', 'subgenre']
+    category_order = ["special", "main", "nonfiction", "subgenre"]
     category_labels = {
-        'special': 'Special Collections',
-        'main': 'Main Genres',
-        'nonfiction': 'Nonfiction',
-        'subgenre': 'Subgenres'
+        "special": "Special Collections",
+        "main": "Main Genres",
+        "nonfiction": "Nonfiction",
+        "subgenre": "Subgenres",
     }
 
     result = []
     for collection_id, collection in COLLECTIONS.items():
         # Get count for this collection
-        cursor.execute(f"SELECT COUNT(*) as count FROM audiobooks WHERE {collection['query']}")
-        count = cursor.fetchone()['count']
+        cursor.execute(
+            f"SELECT COUNT(*) as count FROM audiobooks WHERE {collection['query']}"
+        )
+        count = cursor.fetchone()["count"]
 
-        result.append({
-            'id': collection_id,
-            'name': collection['name'],
-            'description': collection['description'],
-            'icon': collection['icon'],
-            'count': count,
-            'category': collection.get('category', 'main'),
-            'category_label': category_labels.get(collection.get('category', 'main'), 'Other')
-        })
+        result.append(
+            {
+                "id": collection_id,
+                "name": collection["name"],
+                "description": collection["description"],
+                "icon": collection["icon"],
+                "count": count,
+                "category": collection.get("category", "main"),
+                "category_label": category_labels.get(
+                    collection.get("category", "main"), "Other"
+                ),
+            }
+        )
 
     # Sort by category order, then by name within category
     def sort_key(item):
-        cat_idx = category_order.index(item['category']) if item['category'] in category_order else 99
-        return (cat_idx, item['name'])
+        cat_idx = (
+            category_order.index(item["category"])
+            if item["category"] in category_order
+            else 99
+        )
+        return (cat_idx, item["name"])
 
     result.sort(key=sort_key)
 
@@ -655,105 +738,120 @@ def get_collections() -> Response:
     return jsonify(result)
 
 
-@app.route('/api/audiobooks/<int:audiobook_id>', methods=['GET'])
+@app.route("/api/audiobooks/<int:audiobook_id>", methods=["GET"])
 def get_audiobook(audiobook_id: int) -> FlaskResponse:
     """Get single audiobook details"""
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT * FROM audiobooks WHERE id = ?
-    """, (audiobook_id,))
+    """,
+        (audiobook_id,),
+    )
 
     row = cursor.fetchone()
     if not row:
         conn.close()
-        return jsonify({'error': 'Audiobook not found'}), 404
+        return jsonify({"error": "Audiobook not found"}), 404
 
     book = dict(row)
 
     # Get related data
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT g.name FROM genres g
         JOIN audiobook_genres ag ON g.id = ag.genre_id
         WHERE ag.audiobook_id = ?
-    """, (audiobook_id,))
-    book['genres'] = [r['name'] for r in cursor.fetchall()]
+    """,
+        (audiobook_id,),
+    )
+    book["genres"] = [r["name"] for r in cursor.fetchall()]
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT e.name FROM eras e
         JOIN audiobook_eras ae ON e.id = ae.era_id
         WHERE ae.audiobook_id = ?
-    """, (audiobook_id,))
-    book['eras'] = [r['name'] for r in cursor.fetchall()]
+    """,
+        (audiobook_id,),
+    )
+    book["eras"] = [r["name"] for r in cursor.fetchall()]
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT t.name FROM topics t
         JOIN audiobook_topics at ON t.id = at.topic_id
         WHERE at.audiobook_id = ?
-    """, (audiobook_id,))
-    book['topics'] = [r['name'] for r in cursor.fetchall()]
+    """,
+        (audiobook_id,),
+    )
+    book["topics"] = [r["name"] for r in cursor.fetchall()]
 
     conn.close()
 
     return jsonify(book)
 
 
-@app.route('/covers/<path:filename>')
+@app.route("/covers/<path:filename>")
 def serve_cover(filename: str) -> Response:
     """Serve cover images"""
-    covers_dir = PROJECT_ROOT / 'web' / 'covers'
+    covers_dir = PROJECT_ROOT / "web" / "covers"
     return send_from_directory(covers_dir, filename)
 
 
-@app.route('/api/stream/<int:audiobook_id>')
+@app.route("/api/stream/<int:audiobook_id>")
 def stream_audiobook(audiobook_id: int) -> FlaskResponse:
     """Stream audiobook file"""
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,))
+    cursor.execute(
+        "SELECT file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,)
+    )
     row = cursor.fetchone()
     conn.close()
 
     if not row:
-        return jsonify({'error': 'Audiobook not found'}), 404
+        return jsonify({"error": "Audiobook not found"}), 404
 
-    file_path = Path(row['file_path'])
+    file_path = Path(row["file_path"])
     if not file_path.exists():
-        return jsonify({'error': 'File not found on disk'}), 404
+        return jsonify({"error": "File not found on disk"}), 404
 
     # Map file formats to MIME types
     mime_types = {
-        'opus': 'audio/ogg',
-        'm4b': 'audio/mp4',
-        'm4a': 'audio/mp4',
-        'mp3': 'audio/mpeg',
+        "opus": "audio/ogg",
+        "m4b": "audio/mp4",
+        "m4a": "audio/mp4",
+        "mp3": "audio/mpeg",
     }
 
-    file_format = row['format'] or file_path.suffix.lower().lstrip('.')
-    mimetype = mime_types.get(file_format, 'application/octet-stream')
+    file_format = row["format"] or file_path.suffix.lower().lstrip(".")
+    mimetype = mime_types.get(file_format, "application/octet-stream")
 
     # Use send_file directly for better handling of special characters in paths
     return send_file(
         file_path,
         mimetype=mimetype,
         as_attachment=False,
-        conditional=True  # Enable range requests for seeking
+        conditional=True,  # Enable range requests for seeking
     )
 
 
-@app.route('/health')
+@app.route("/health")
 def health() -> Response:
     """Health check endpoint"""
-    return jsonify({'status': 'ok', 'database': str(DB_PATH.exists())})
+    return jsonify({"status": "ok", "database": str(DB_PATH.exists())})
 
 
 # ============================================
 # DUPLICATE DETECTION ENDPOINTS
 # ============================================
 
-@app.route('/api/hash-stats', methods=['GET'])
+
+@app.route("/api/hash-stats", methods=["GET"])
 def get_hash_stats() -> Response:
     """Get hash generation statistics"""
     conn = get_db()
@@ -761,23 +859,27 @@ def get_hash_stats() -> Response:
 
     # Check if sha256_hash column exists
     cursor.execute("PRAGMA table_info(audiobooks)")
-    columns = [row['name'] for row in cursor.fetchall()]
+    columns = [row["name"] for row in cursor.fetchall()]
 
-    if 'sha256_hash' not in columns:
+    if "sha256_hash" not in columns:
         conn.close()
-        return jsonify({
-            'hash_column_exists': False,
-            'total_audiobooks': 0,
-            'hashed_count': 0,
-            'unhashed_count': 0,
-            'duplicate_groups': 0
-        })
+        return jsonify(
+            {
+                "hash_column_exists": False,
+                "total_audiobooks": 0,
+                "hashed_count": 0,
+                "unhashed_count": 0,
+                "duplicate_groups": 0,
+            }
+        )
 
     cursor.execute("SELECT COUNT(*) as total FROM audiobooks")
-    total = cursor.fetchone()['total']
+    total = cursor.fetchone()["total"]
 
-    cursor.execute("SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash IS NOT NULL")
-    hashed = cursor.fetchone()['count']
+    cursor.execute(
+        "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash IS NOT NULL"
+    )
+    hashed = cursor.fetchone()["count"]
 
     cursor.execute("""
         SELECT COUNT(*) as count FROM (
@@ -787,21 +889,23 @@ def get_hash_stats() -> Response:
             HAVING COUNT(*) > 1
         )
     """)
-    duplicate_groups = cursor.fetchone()['count']
+    duplicate_groups = cursor.fetchone()["count"]
 
     conn.close()
 
-    return jsonify({
-        'hash_column_exists': True,
-        'total_audiobooks': total,
-        'hashed_count': hashed,
-        'unhashed_count': total - hashed,
-        'hashed_percentage': round(hashed * 100 / total, 1) if total > 0 else 0,
-        'duplicate_groups': duplicate_groups
-    })
+    return jsonify(
+        {
+            "hash_column_exists": True,
+            "total_audiobooks": total,
+            "hashed_count": hashed,
+            "unhashed_count": total - hashed,
+            "hashed_percentage": round(hashed * 100 / total, 1) if total > 0 else 0,
+            "duplicate_groups": duplicate_groups,
+        }
+    )
 
 
-@app.route('/api/duplicates', methods=['GET'])
+@app.route("/api/duplicates", methods=["GET"])
 def get_duplicates() -> FlaskResponse:
     """Get all duplicate audiobook groups"""
     conn = get_db()
@@ -809,11 +913,13 @@ def get_duplicates() -> FlaskResponse:
 
     # Check if sha256_hash column exists
     cursor.execute("PRAGMA table_info(audiobooks)")
-    columns = [row['name'] for row in cursor.fetchall()]
+    columns = [row["name"] for row in cursor.fetchall()]
 
-    if 'sha256_hash' not in columns:
+    if "sha256_hash" not in columns:
         conn.close()
-        return jsonify({'error': 'Hash column not found. Run hash generation first.'}), 400
+        return jsonify(
+            {"error": "Hash column not found. Run hash generation first."}
+        ), 400
 
     # Get all duplicate groups
     cursor.execute("""
@@ -830,48 +936,55 @@ def get_duplicates() -> FlaskResponse:
     total_wasted_space = 0
 
     for group in groups:
-        hash_val = group['sha256_hash']
-        count = group['count']
+        hash_val = group["sha256_hash"]
+        count = group["count"]
 
         # Get all files in this group
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, narrator, file_path, file_size_mb,
                    format, duration_formatted, cover_path
             FROM audiobooks
             WHERE sha256_hash = ?
             ORDER BY id ASC
-        """, (hash_val,))
+        """,
+            (hash_val,),
+        )
 
         files = [dict(row) for row in cursor.fetchall()]
 
         # First file (by ID) is the "keeper"
         for i, f in enumerate(files):
-            f['is_keeper'] = (i == 0)
-            f['is_duplicate'] = (i > 0)
+            f["is_keeper"] = i == 0
+            f["is_duplicate"] = i > 0
 
-        file_size = files[0]['file_size_mb'] if files else 0
+        file_size = files[0]["file_size_mb"] if files else 0
         wasted = file_size * (count - 1)
         total_wasted_space += wasted
 
-        duplicate_groups.append({
-            'hash': hash_val,
-            'count': count,
-            'file_size_mb': file_size,
-            'wasted_mb': round(wasted, 2),
-            'files': files
-        })
+        duplicate_groups.append(
+            {
+                "hash": hash_val,
+                "count": count,
+                "file_size_mb": file_size,
+                "wasted_mb": round(wasted, 2),
+                "files": files,
+            }
+        )
 
     conn.close()
 
-    return jsonify({
-        'duplicate_groups': duplicate_groups,
-        'total_groups': len(duplicate_groups),
-        'total_wasted_mb': round(total_wasted_space, 2),
-        'total_duplicate_files': sum(g['count'] - 1 for g in duplicate_groups)
-    })
+    return jsonify(
+        {
+            "duplicate_groups": duplicate_groups,
+            "total_groups": len(duplicate_groups),
+            "total_wasted_mb": round(total_wasted_space, 2),
+            "total_duplicate_files": sum(g["count"] - 1 for g in duplicate_groups),
+        }
+    )
 
 
-@app.route('/api/duplicates/by-title', methods=['GET'])
+@app.route("/api/duplicates/by-title", methods=["GET"])
 def get_duplicates_by_title() -> Response:
     """
     Get duplicate audiobooks based on normalized title and REAL author.
@@ -908,12 +1021,13 @@ def get_duplicates_by_title() -> Response:
     total_potential_savings = 0
 
     for group in groups:
-        norm_title = group['norm_title']
-        norm_author = group['norm_author']
-        duration_group = group['duration_group']
+        norm_title = group["norm_title"]
+        norm_author = group["norm_author"]
+        duration_group = group["duration_group"]
 
         # Get all files in this group (including any with "Audiobook" author that match)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, narrator, file_path, file_size_mb,
                    format, duration_formatted, duration_hours, cover_path, sha256_hash
             FROM audiobooks
@@ -932,7 +1046,9 @@ def get_duplicates_by_title() -> Response:
                 END,
                 file_size_mb DESC,
                 id ASC
-        """, (norm_title, norm_author, duration_group))
+        """,
+            (norm_title, norm_author, duration_group),
+        )
 
         files = [dict(row) for row in cursor.fetchall()]
 
@@ -941,42 +1057,46 @@ def get_duplicates_by_title() -> Response:
 
         # First file (with real author, preferred format) is the "keeper"
         for i, f in enumerate(files):
-            f['is_keeper'] = (i == 0)
-            f['is_duplicate'] = (i > 0)
+            f["is_keeper"] = i == 0
+            f["is_duplicate"] = i > 0
 
         # Calculate potential savings (sum of all but the largest file)
-        sizes = sorted([f['file_size_mb'] for f in files], reverse=True)
+        sizes = sorted([f["file_size_mb"] for f in files], reverse=True)
         potential_savings = sum(sizes[1:])  # All except the largest
         total_potential_savings += potential_savings
 
         # Use the real author (first file has real author due to ORDER BY)
-        display_author = files[0]['author']
-        if display_author.lower() == 'audiobook':
+        display_author = files[0]["author"]
+        if display_author.lower() == "audiobook":
             # Fallback: find real author from the group
             for f in files:
-                if f['author'].lower() != 'audiobook':
-                    display_author = f['author']
+                if f["author"].lower() != "audiobook":
+                    display_author = f["author"]
                     break
 
-        duplicate_groups.append({
-            'title': files[0]['title'],
-            'author': display_author,
-            'count': len(files),
-            'potential_savings_mb': round(potential_savings, 2),
-            'files': files
-        })
+        duplicate_groups.append(
+            {
+                "title": files[0]["title"],
+                "author": display_author,
+                "count": len(files),
+                "potential_savings_mb": round(potential_savings, 2),
+                "files": files,
+            }
+        )
 
     conn.close()
 
-    return jsonify({
-        'duplicate_groups': duplicate_groups,
-        'total_groups': len(duplicate_groups),
-        'total_potential_savings_mb': round(total_potential_savings, 2),
-        'total_duplicate_files': sum(g['count'] - 1 for g in duplicate_groups)
-    })
+    return jsonify(
+        {
+            "duplicate_groups": duplicate_groups,
+            "total_groups": len(duplicate_groups),
+            "total_potential_savings_mb": round(total_potential_savings, 2),
+            "total_duplicate_files": sum(g["count"] - 1 for g in duplicate_groups),
+        }
+    )
 
 
-@app.route('/api/audiobooks/<int:book_id>/editions', methods=['GET'])
+@app.route("/api/audiobooks/<int:book_id>/editions", methods=["GET"])
 def get_book_editions(book_id: int) -> FlaskResponse:
     """
     Get all editions of a specific audiobook.
@@ -986,24 +1106,28 @@ def get_book_editions(book_id: int) -> FlaskResponse:
     cursor = conn.cursor()
 
     # First, get the book to find its title and author
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT title, author FROM audiobooks WHERE id = ?
-    """, (book_id,))
+    """,
+        (book_id,),
+    )
     result = cursor.fetchone()
 
     if not result:
         conn.close()
-        return jsonify({'error': 'Book not found'}), 404
+        return jsonify({"error": "Book not found"}), 404
 
-    title = result['title']
-    author = result['author']
+    title = result["title"]
+    author = result["author"]
 
     # Check if this book or related books have edition markers
     # Get the base title for matching
     base_title = normalize_base_title(title)
 
     # Find all books with similar base title + same author
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT
             id, title, author, narrator, publisher, series,
             duration_hours, duration_formatted, file_size_mb,
@@ -1011,14 +1135,16 @@ def get_book_editions(book_id: int) -> FlaskResponse:
         FROM audiobooks
         WHERE author = ?
         ORDER BY title ASC, id ASC
-    """, (author,))
+    """,
+        (author,),
+    )
 
     # Filter to books with matching base title
     all_books = cursor.fetchall()
     editions = []
 
     for row in all_books:
-        book_title = row['title']
+        book_title = row["title"]
         book_base = normalize_base_title(book_title)
 
         # Match if base titles are similar
@@ -1026,44 +1152,52 @@ def get_book_editions(book_id: int) -> FlaskResponse:
             editions.append(dict(row))
 
     # Only return if multiple editions exist OR if any title has edition markers
-    has_markers = any(has_edition_marker(ed['title']) for ed in editions)
+    has_markers = any(has_edition_marker(ed["title"]) for ed in editions)
 
     if len(editions) <= 1 and not has_markers:
         # Not a true multi-edition book
-        editions = [dict(row) for row in all_books if row['id'] == book_id]
+        editions = [dict(row) for row in all_books if row["id"] == book_id]
 
     # Get additional metadata for each edition
     final_editions = []
     for edition in editions:
         # Get genres
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT g.name FROM genres g
             JOIN audiobook_genres ag ON g.id = ag.genre_id
             WHERE ag.audiobook_id = ?
-        """, (edition['id'],))
-        edition['genres'] = [r['name'] for r in cursor.fetchall()]
+        """,
+            (edition["id"],),
+        )
+        edition["genres"] = [r["name"] for r in cursor.fetchall()]
 
         # Get supplement count
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) as count FROM supplements
             WHERE audiobook_id = ?
-        """, (edition['id'],))
+        """,
+            (edition["id"],),
+        )
         result = cursor.fetchone()
-        edition['supplement_count'] = result['count'] if result else 0
+        edition["supplement_count"] = result["count"] if result else 0
 
         final_editions.append(edition)
 
     conn.close()
 
-    return jsonify({
-        'title': title,
-        'author': author,
-        'edition_count': len(final_editions),
-        'editions': final_editions
-    })
+    return jsonify(
+        {
+            "title": title,
+            "author": author,
+            "edition_count": len(final_editions),
+            "editions": final_editions,
+        }
+    )
 
 
-@app.route('/api/duplicates/delete', methods=['POST'])
+@app.route("/api/duplicates/delete", methods=["POST"])
 def delete_duplicates() -> FlaskResponse:
     """
     Delete selected duplicate audiobooks.
@@ -1081,39 +1215,42 @@ def delete_duplicates() -> FlaskResponse:
     - Prefers keeping entries with real author over "Audiobook" entries
     """
     data = request.get_json()
-    if not data or 'audiobook_ids' not in data:
-        return jsonify({'error': 'Missing audiobook_ids'}), 400
+    if not data or "audiobook_ids" not in data:
+        return jsonify({"error": "Missing audiobook_ids"}), 400
 
-    ids_to_delete = data['audiobook_ids']
+    ids_to_delete = data["audiobook_ids"]
     if not ids_to_delete:
-        return jsonify({'error': 'No audiobook IDs provided'}), 400
+        return jsonify({"error": "No audiobook IDs provided"}), 400
 
-    mode = data.get('mode', 'title')  # Default to title mode
+    mode = data.get("mode", "title")  # Default to title mode
 
     conn = get_db()
     cursor = conn.cursor()
 
     # Get all audiobooks to be deleted with their grouping keys
-    placeholders = ','.join('?' * len(ids_to_delete))
-    cursor.execute(f"""
+    placeholders = ",".join("?" * len(ids_to_delete))
+    cursor.execute(
+        f"""
         SELECT id, sha256_hash, title, author, file_path, duration_hours, file_size_mb,
                LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
                LOWER(TRIM(author)) as norm_author,
                ROUND(duration_hours, 1) as duration_group
         FROM audiobooks
         WHERE id IN ({placeholders})
-    """, ids_to_delete)
+    """,
+        ids_to_delete,
+    )
 
     to_delete = [dict(row) for row in cursor.fetchall()]
 
     blocked_ids = []
     safe_to_delete = []
 
-    if mode == 'title':
+    if mode == "title":
         # Group by normalized title + duration (duration distinguishes different books with same title)
         title_groups = {}
         for item in to_delete:
-            key = (item['norm_title'], item['duration_group'])
+            key = (item["norm_title"], item["duration_group"])
             if key not in title_groups:
                 title_groups[key] = []
             title_groups[key].append(item)
@@ -1121,12 +1258,15 @@ def delete_duplicates() -> FlaskResponse:
         # For each title group, verify at least one copy will remain
         for (norm_title, duration_group), items in title_groups.items():
             # Count total copies with this title + similar duration
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) as count FROM audiobooks
                 WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
                   AND ROUND(duration_hours, 1) = ?
-            """, (norm_title, duration_group))
-            total_copies = cursor.fetchone()['count']
+            """,
+                (norm_title, duration_group),
+            )
+            total_copies = cursor.fetchone()["count"]
 
             deleting_count = len(items)
 
@@ -1135,57 +1275,62 @@ def delete_duplicates() -> FlaskResponse:
                 # Sort: prefer real author, then preferred format, then by ID
                 def sort_key(x):
                     # Prefer real author over "Audiobook"
-                    author_priority = 1 if x['norm_author'] == 'audiobook' else 0
-                    fmt_order = {'opus': 1, 'm4b': 2, 'm4a': 3, 'mp3': 4}
-                    ext = Path(x['file_path']).suffix.lower().lstrip('.')
-                    return (author_priority, fmt_order.get(ext, 5), x['id'])
+                    author_priority = 1 if x["norm_author"] == "audiobook" else 0
+                    fmt_order = {"opus": 1, "m4b": 2, "m4a": 3, "mp3": 4}
+                    ext = Path(x["file_path"]).suffix.lower().lstrip(".")
+                    return (author_priority, fmt_order.get(ext, 5), x["id"])
 
                 items_sorted = sorted(items, key=sort_key)
-                blocked_ids.append(items_sorted[0]['id'])
-                safe_to_delete.extend([i['id'] for i in items_sorted[1:]])
+                blocked_ids.append(items_sorted[0]["id"])
+                safe_to_delete.extend([i["id"] for i in items_sorted[1:]])
             else:
-                safe_to_delete.extend([i['id'] for i in items])
+                safe_to_delete.extend([i["id"] for i in items])
     else:
         # Hash-based mode (original logic)
         hash_groups = {}
         for item in to_delete:
-            h = item['sha256_hash']
+            h = item["sha256_hash"]
             if h not in hash_groups:
                 hash_groups[h] = []
             hash_groups[h].append(item)
 
         for hash_val, items in hash_groups.items():
             if hash_val is None:
-                blocked_ids.extend([i['id'] for i in items])
+                blocked_ids.extend([i["id"] for i in items])
                 continue
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ?
-            """, (hash_val,))
-            total_copies = cursor.fetchone()['count']
+            """,
+                (hash_val,),
+            )
+            total_copies = cursor.fetchone()["count"]
 
             deleting_count = len(items)
 
             if deleting_count >= total_copies:
-                items_sorted = sorted(items, key=lambda x: x['id'])
-                blocked_ids.append(items_sorted[0]['id'])
-                safe_to_delete.extend([i['id'] for i in items_sorted[1:]])
+                items_sorted = sorted(items, key=lambda x: x["id"])
+                blocked_ids.append(items_sorted[0]["id"])
+                safe_to_delete.extend([i["id"] for i in items_sorted[1:]])
             else:
-                safe_to_delete.extend([i['id'] for i in items])
+                safe_to_delete.extend([i["id"] for i in items])
 
     # Now perform the actual deletions
     deleted_files = []
     errors = []
 
     for audiobook_id in safe_to_delete:
-        cursor.execute("SELECT file_path, title FROM audiobooks WHERE id = ?", (audiobook_id,))
+        cursor.execute(
+            "SELECT file_path, title FROM audiobooks WHERE id = ?", (audiobook_id,)
+        )
         row = cursor.fetchone()
 
         if not row:
             continue
 
-        file_path = Path(row['file_path'])
-        title = row['title']
+        file_path = Path(row["file_path"])
+        title = row["title"]
 
         try:
             # Delete the physical file
@@ -1193,66 +1338,71 @@ def delete_duplicates() -> FlaskResponse:
                 file_path.unlink()
 
             # Delete from database
-            cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (audiobook_id,))
-            cursor.execute("DELETE FROM audiobook_eras WHERE audiobook_id = ?", (audiobook_id,))
-            cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (audiobook_id,))
+            cursor.execute(
+                "DELETE FROM audiobook_topics WHERE audiobook_id = ?", (audiobook_id,)
+            )
+            cursor.execute(
+                "DELETE FROM audiobook_eras WHERE audiobook_id = ?", (audiobook_id,)
+            )
+            cursor.execute(
+                "DELETE FROM audiobook_genres WHERE audiobook_id = ?", (audiobook_id,)
+            )
             cursor.execute("DELETE FROM audiobooks WHERE id = ?", (audiobook_id,))
 
-            deleted_files.append({
-                'id': audiobook_id,
-                'title': title,
-                'path': str(file_path)
-            })
+            deleted_files.append(
+                {"id": audiobook_id, "title": title, "path": str(file_path)}
+            )
 
         except Exception as e:
-            errors.append({
-                'id': audiobook_id,
-                'title': title,
-                'error': str(e)
-            })
+            errors.append({"id": audiobook_id, "title": title, "error": str(e)})
 
     conn.commit()
     conn.close()
 
-    return jsonify({
-        'success': True,
-        'deleted_count': len(deleted_files),
-        'deleted_files': deleted_files,
-        'blocked_count': len(blocked_ids),
-        'blocked_ids': blocked_ids,
-        'blocked_reason': 'These IDs were blocked to prevent deleting the last copy',
-        'errors': errors
-    })
+    return jsonify(
+        {
+            "success": True,
+            "deleted_count": len(deleted_files),
+            "deleted_files": deleted_files,
+            "blocked_count": len(blocked_ids),
+            "blocked_ids": blocked_ids,
+            "blocked_reason": "These IDs were blocked to prevent deleting the last copy",
+            "errors": errors,
+        }
+    )
 
 
-@app.route('/api/duplicates/verify', methods=['POST'])
+@app.route("/api/duplicates/verify", methods=["POST"])
 def verify_deletion_safe() -> FlaskResponse:
     """
     Verify that a list of IDs can be safely deleted.
     Returns which IDs are safe and which would delete the last copy.
     """
     data = request.get_json()
-    if not data or 'audiobook_ids' not in data:
-        return jsonify({'error': 'Missing audiobook_ids'}), 400
+    if not data or "audiobook_ids" not in data:
+        return jsonify({"error": "Missing audiobook_ids"}), 400
 
-    ids_to_check = data['audiobook_ids']
+    ids_to_check = data["audiobook_ids"]
 
     conn = get_db()
     cursor = conn.cursor()
 
-    placeholders = ','.join('?' * len(ids_to_check))
-    cursor.execute(f"""
+    placeholders = ",".join("?" * len(ids_to_check))
+    cursor.execute(
+        f"""
         SELECT id, sha256_hash, title
         FROM audiobooks
         WHERE id IN ({placeholders})
-    """, ids_to_check)
+    """,
+        ids_to_check,
+    )
 
     items = [dict(row) for row in cursor.fetchall()]
 
     # Group by hash
     hash_groups = {}
     for item in items:
-        h = item['sha256_hash']
+        h = item["sha256_hash"]
         if h not in hash_groups:
             hash_groups[h] = []
         hash_groups[h].append(item)
@@ -1263,32 +1413,48 @@ def verify_deletion_safe() -> FlaskResponse:
     for hash_val, group_items in hash_groups.items():
         if hash_val is None:
             # No hash - can't verify safety
-            unsafe_ids.extend([{'id': i['id'], 'title': i['title'], 'reason': 'No hash - cannot verify duplicates'} for i in group_items])
+            unsafe_ids.extend(
+                [
+                    {
+                        "id": i["id"],
+                        "title": i["title"],
+                        "reason": "No hash - cannot verify duplicates",
+                    }
+                    for i in group_items
+                ]
+            )
             continue
 
-        cursor.execute("SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ?", (hash_val,))
-        total_copies = cursor.fetchone()['count']
+        cursor.execute(
+            "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ?",
+            (hash_val,),
+        )
+        total_copies = cursor.fetchone()["count"]
 
         if len(group_items) >= total_copies:
             # Would delete all - block the first one (keeper)
-            sorted_items = sorted(group_items, key=lambda x: x['id'])
-            unsafe_ids.append({
-                'id': sorted_items[0]['id'],
-                'title': sorted_items[0]['title'],
-                'reason': 'Last remaining copy - protected from deletion'
-            })
-            safe_ids.extend([i['id'] for i in sorted_items[1:]])
+            sorted_items = sorted(group_items, key=lambda x: x["id"])
+            unsafe_ids.append(
+                {
+                    "id": sorted_items[0]["id"],
+                    "title": sorted_items[0]["title"],
+                    "reason": "Last remaining copy - protected from deletion",
+                }
+            )
+            safe_ids.extend([i["id"] for i in sorted_items[1:]])
         else:
-            safe_ids.extend([i['id'] for i in group_items])
+            safe_ids.extend([i["id"] for i in group_items])
 
     conn.close()
 
-    return jsonify({
-        'safe_ids': safe_ids,
-        'unsafe_ids': unsafe_ids,
-        'safe_count': len(safe_ids),
-        'unsafe_count': len(unsafe_ids)
-    })
+    return jsonify(
+        {
+            "safe_ids": safe_ids,
+            "unsafe_ids": unsafe_ids,
+            "safe_count": len(safe_ids),
+            "unsafe_count": len(unsafe_ids),
+        }
+    )
 
 
 # ============================================
@@ -1298,7 +1464,7 @@ def verify_deletion_safe() -> FlaskResponse:
 # SUPPLEMENTS_DIR imported from config
 
 
-@app.route('/api/supplements', methods=['GET'])
+@app.route("/api/supplements", methods=["GET"])
 def get_all_supplements() -> Response:
     """Get all supplements in the library"""
     conn = get_db()
@@ -1314,63 +1480,69 @@ def get_all_supplements() -> Response:
     supplements = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
-    return jsonify({
-        'supplements': supplements,
-        'total': len(supplements)
-    })
+    return jsonify({"supplements": supplements, "total": len(supplements)})
 
 
-@app.route('/api/supplements/stats', methods=['GET'])
+@app.route("/api/supplements/stats", methods=["GET"])
 def get_supplement_stats() -> Response:
     """Get supplement statistics"""
     conn = get_db()
     cursor = conn.cursor()
 
     cursor.execute("SELECT COUNT(*) as total FROM supplements")
-    total = cursor.fetchone()['total']
+    total = cursor.fetchone()["total"]
 
-    cursor.execute("SELECT COUNT(*) as linked FROM supplements WHERE audiobook_id IS NOT NULL")
-    linked = cursor.fetchone()['linked']
+    cursor.execute(
+        "SELECT COUNT(*) as linked FROM supplements WHERE audiobook_id IS NOT NULL"
+    )
+    linked = cursor.fetchone()["linked"]
 
     cursor.execute("SELECT SUM(file_size_mb) as total_size FROM supplements")
-    total_size = cursor.fetchone()['total_size'] or 0
+    total_size = cursor.fetchone()["total_size"] or 0
 
     cursor.execute("SELECT type, COUNT(*) as count FROM supplements GROUP BY type")
-    by_type = {row['type']: row['count'] for row in cursor.fetchall()}
+    by_type = {row["type"]: row["count"] for row in cursor.fetchall()}
 
     conn.close()
 
-    return jsonify({
-        'total_supplements': total,
-        'linked_to_audiobooks': linked,
-        'unlinked': total - linked,
-        'total_size_mb': round(total_size, 2),
-        'by_type': by_type
-    })
+    return jsonify(
+        {
+            "total_supplements": total,
+            "linked_to_audiobooks": linked,
+            "unlinked": total - linked,
+            "total_size_mb": round(total_size, 2),
+            "by_type": by_type,
+        }
+    )
 
 
-@app.route('/api/audiobooks/<int:audiobook_id>/supplements', methods=['GET'])
+@app.route("/api/audiobooks/<int:audiobook_id>/supplements", methods=["GET"])
 def get_audiobook_supplements(audiobook_id: int) -> Response:
     """Get supplements for a specific audiobook"""
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT * FROM supplements WHERE audiobook_id = ?
         ORDER BY type, filename
-    """, (audiobook_id,))
+    """,
+        (audiobook_id,),
+    )
 
     supplements = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
-    return jsonify({
-        'audiobook_id': audiobook_id,
-        'supplements': supplements,
-        'count': len(supplements)
-    })
+    return jsonify(
+        {
+            "audiobook_id": audiobook_id,
+            "supplements": supplements,
+            "count": len(supplements),
+        }
+    )
 
 
-@app.route('/api/supplements/<int:supplement_id>/download', methods=['GET'])
+@app.route("/api/supplements/<int:supplement_id>/download", methods=["GET"])
 def download_supplement(supplement_id: int) -> FlaskResponse:
     """Download/serve a supplement file"""
     conn = get_db()
@@ -1381,48 +1553,45 @@ def download_supplement(supplement_id: int) -> FlaskResponse:
     conn.close()
 
     if not row:
-        return jsonify({'error': 'Supplement not found'}), 404
+        return jsonify({"error": "Supplement not found"}), 404
 
-    file_path = Path(row['file_path'])
+    file_path = Path(row["file_path"])
     if not file_path.exists():
-        return jsonify({'error': 'File not found on disk'}), 404
+        return jsonify({"error": "File not found on disk"}), 404
 
     # Map file types to MIME types
     mime_types = {
-        'pdf': 'application/pdf',
-        'epub': 'application/epub+zip',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'mp3': 'audio/mpeg',
+        "pdf": "application/pdf",
+        "epub": "application/epub+zip",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "mp3": "audio/mpeg",
     }
 
-    ext = file_path.suffix.lower().lstrip('.')
-    mimetype = mime_types.get(ext, 'application/octet-stream')
+    ext = file_path.suffix.lower().lstrip(".")
+    mimetype = mime_types.get(ext, "application/octet-stream")
 
     return send_file(
-        file_path,
-        mimetype=mimetype,
-        as_attachment=False,
-        download_name=row['filename']
+        file_path, mimetype=mimetype, as_attachment=False, download_name=row["filename"]
     )
 
 
-@app.route('/api/supplements/scan', methods=['POST'])
+@app.route("/api/supplements/scan", methods=["POST"])
 def scan_supplements() -> FlaskResponse:
     """
     Scan the supplements directory and update the database.
     Links supplements to audiobooks by matching filenames to titles.
     """
     if not SUPPLEMENTS_DIR.exists():
-        return jsonify({'error': 'Supplements directory not found'}), 404
+        return jsonify({"error": "Supplements directory not found"}), 404
 
     conn = get_db()
     cursor = conn.cursor()
 
     # Get existing supplements to avoid duplicates
     cursor.execute("SELECT file_path FROM supplements")
-    existing_paths = {row['file_path'] for row in cursor.fetchall()}
+    existing_paths = {row["file_path"] for row in cursor.fetchall()}
 
     added = []
     updated = []
@@ -1431,82 +1600,104 @@ def scan_supplements() -> FlaskResponse:
         if file_path.is_file():
             path_str = str(file_path)
             filename = file_path.name
-            ext = file_path.suffix.lower().lstrip('.')
+            ext = file_path.suffix.lower().lstrip(".")
             file_size = file_path.stat().st_size / (1024 * 1024)  # MB
 
             # Determine type
             type_map = {
-                'pdf': 'pdf',
-                'epub': 'ebook',
-                'mobi': 'ebook',
-                'jpg': 'image',
-                'jpeg': 'image',
-                'png': 'image',
-                'mp3': 'audio',
-                'wav': 'audio',
+                "pdf": "pdf",
+                "epub": "ebook",
+                "mobi": "ebook",
+                "jpg": "image",
+                "jpeg": "image",
+                "png": "image",
+                "mp3": "audio",
+                "wav": "audio",
             }
-            supplement_type = type_map.get(ext, 'other')
+            supplement_type = type_map.get(ext, "other")
 
             # Try to match to an audiobook by title
             # Clean filename for matching (remove extension, replace underscores)
-            clean_name = file_path.stem.replace('_', ' ').replace('-', ' ')
+            clean_name = file_path.stem.replace("_", " ").replace("-", " ")
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, title FROM audiobooks
                 WHERE LOWER(title) LIKE ?
                 OR LOWER(REPLACE(REPLACE(title, ':', ''), '-', '')) LIKE ?
                 LIMIT 1
-            """, (f"%{clean_name[:30].lower()}%", f"%{clean_name[:30].lower()}%"))
+            """,
+                (f"%{clean_name[:30].lower()}%", f"%{clean_name[:30].lower()}%"),
+            )
 
             match = cursor.fetchone()
-            audiobook_id = match['id'] if match else None
+            audiobook_id = match["id"] if match else None
 
             if path_str in existing_paths:
                 # Update existing record
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE supplements
                     SET audiobook_id = ?, file_size_mb = ?, type = ?
                     WHERE file_path = ?
-                """, (audiobook_id, file_size, supplement_type, path_str))
+                """,
+                    (audiobook_id, file_size, supplement_type, path_str),
+                )
                 updated.append(filename)
             else:
                 # Insert new record
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO supplements (audiobook_id, type, filename, file_path, file_size_mb)
                     VALUES (?, ?, ?, ?, ?)
-                """, (audiobook_id, supplement_type, filename, path_str, file_size))
+                """,
+                    (audiobook_id, supplement_type, filename, path_str, file_size),
+                )
                 added.append(filename)
 
     conn.commit()
     conn.close()
 
-    return jsonify({
-        'success': True,
-        'added': len(added),
-        'updated': len(updated),
-        'added_files': added[:20],  # Limit response size
-        'updated_files': updated[:20]
-    })
+    return jsonify(
+        {
+            "success": True,
+            "added": len(added),
+            "updated": len(updated),
+            "added_files": added[:20],  # Limit response size
+            "updated_files": updated[:20],
+        }
+    )
 
 
 # ============================================
 # UTILITIES - Library Administration
 # ============================================
 
-@app.route('/api/audiobooks/<int:id>', methods=['PUT'])
+
+@app.route("/api/audiobooks/<int:id>", methods=["PUT"])
 def update_audiobook(id: int) -> FlaskResponse:
     """Update audiobook metadata"""
     data = request.get_json()
 
     if not data:
-        return jsonify({'success': False, 'error': 'No data provided'}), 400
+        return jsonify({"success": False, "error": "No data provided"}), 400
 
     conn = get_db()
     cursor = conn.cursor()
 
     # Build update query dynamically based on provided fields
-    allowed_fields = ['title', 'author', 'narrator', 'publisher', 'series',
-                      'series_sequence', 'published_year', 'asin', 'isbn', 'description']
+    allowed_fields = [
+        "title",
+        "author",
+        "narrator",
+        "publisher",
+        "series",
+        "series_sequence",
+        "published_year",
+        "asin",
+        "isbn",
+        "description",
+    ]
     updates = []
     values = []
 
@@ -1517,7 +1708,7 @@ def update_audiobook(id: int) -> FlaskResponse:
 
     if not updates:
         conn.close()
-        return jsonify({'success': False, 'error': 'No valid fields to update'}), 400
+        return jsonify({"success": False, "error": "No valid fields to update"}), 400
 
     values.append(id)
     query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"
@@ -1529,15 +1720,15 @@ def update_audiobook(id: int) -> FlaskResponse:
         conn.close()
 
         if rows_affected > 0:
-            return jsonify({'success': True, 'updated': rows_affected})
+            return jsonify({"success": True, "updated": rows_affected})
         else:
-            return jsonify({'success': False, 'error': 'Audiobook not found'}), 404
+            return jsonify({"success": False, "error": "Audiobook not found"}), 404
     except Exception as e:
         conn.close()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/audiobooks/<int:id>', methods=['DELETE'])
+@app.route("/api/audiobooks/<int:id>", methods=["DELETE"])
 def delete_audiobook(id: int) -> FlaskResponse:
     """Delete audiobook from database (does not delete file)"""
     conn = get_db()
@@ -1557,64 +1748,68 @@ def delete_audiobook(id: int) -> FlaskResponse:
         conn.close()
 
         if rows_affected > 0:
-            return jsonify({'success': True, 'deleted': rows_affected})
+            return jsonify({"success": True, "deleted": rows_affected})
         else:
-            return jsonify({'success': False, 'error': 'Audiobook not found'}), 404
+            return jsonify({"success": False, "error": "Audiobook not found"}), 404
     except Exception as e:
         conn.close()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/audiobooks/bulk-update', methods=['POST'])
+@app.route("/api/audiobooks/bulk-update", methods=["POST"])
 def bulk_update_audiobooks() -> FlaskResponse:
     """Update a field for multiple audiobooks"""
     data = request.get_json()
 
-    if not data or 'ids' not in data or 'field' not in data:
-        return jsonify({'success': False, 'error': 'Missing required fields: ids, field, value'}), 400
+    if not data or "ids" not in data or "field" not in data:
+        return jsonify(
+            {"success": False, "error": "Missing required fields: ids, field, value"}
+        ), 400
 
-    ids = data['ids']
-    field = data['field']
-    value = data.get('value')
+    ids = data["ids"]
+    field = data["field"]
+    value = data.get("value")
 
     # Whitelist allowed fields for bulk update
-    allowed_fields = ['narrator', 'series', 'publisher', 'published_year']
+    allowed_fields = ["narrator", "series", "publisher", "published_year"]
     if field not in allowed_fields:
-        return jsonify({'success': False, 'error': f'Field not allowed for bulk update: {field}'}), 400
+        return jsonify(
+            {"success": False, "error": f"Field not allowed for bulk update: {field}"}
+        ), 400
 
     if not ids:
-        return jsonify({'success': False, 'error': 'No audiobook IDs provided'}), 400
+        return jsonify({"success": False, "error": "No audiobook IDs provided"}), 400
 
     conn = get_db()
     cursor = conn.cursor()
 
     try:
-        placeholders = ','.join('?' * len(ids))
+        placeholders = ",".join("?" * len(ids))
         query = f"UPDATE audiobooks SET {field} = ? WHERE id IN ({placeholders})"
         cursor.execute(query, [value] + ids)
         conn.commit()
         updated_count = cursor.rowcount
         conn.close()
 
-        return jsonify({'success': True, 'updated_count': updated_count})
+        return jsonify({"success": True, "updated_count": updated_count})
     except Exception as e:
         conn.close()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/audiobooks/bulk-delete', methods=['POST'])
+@app.route("/api/audiobooks/bulk-delete", methods=["POST"])
 def bulk_delete_audiobooks() -> FlaskResponse:
     """Delete multiple audiobooks"""
     data = request.get_json()
 
-    if not data or 'ids' not in data:
-        return jsonify({'success': False, 'error': 'Missing required field: ids'}), 400
+    if not data or "ids" not in data:
+        return jsonify({"success": False, "error": "Missing required field: ids"}), 400
 
-    ids = data['ids']
-    delete_files = data.get('delete_files', False)
+    ids = data["ids"]
+    delete_files = data.get("delete_files", False)
 
     if not ids:
-        return jsonify({'success': False, 'error': 'No audiobook IDs provided'}), 400
+        return jsonify({"success": False, "error": "No audiobook IDs provided"}), 400
 
     conn = get_db()
     cursor = conn.cursor()
@@ -1623,10 +1818,13 @@ def bulk_delete_audiobooks() -> FlaskResponse:
         # Get file paths if we need to delete files
         deleted_files = []
         if delete_files:
-            placeholders = ','.join('?' * len(ids))
-            cursor.execute(f"SELECT id, file_path FROM audiobooks WHERE id IN ({placeholders})", ids)
+            placeholders = ",".join("?" * len(ids))
+            cursor.execute(
+                f"SELECT id, file_path FROM audiobooks WHERE id IN ({placeholders})",
+                ids,
+            )
             for row in cursor.fetchall():
-                file_path = Path(row['file_path'])
+                file_path = Path(row["file_path"])
                 if file_path.exists():
                     try:
                         file_path.unlink()
@@ -1635,11 +1833,19 @@ def bulk_delete_audiobooks() -> FlaskResponse:
                         print(f"Warning: Could not delete file {file_path}: {e}")
 
         # Delete related records
-        placeholders = ','.join('?' * len(ids))
-        cursor.execute(f"DELETE FROM audiobook_genres WHERE audiobook_id IN ({placeholders})", ids)
-        cursor.execute(f"DELETE FROM audiobook_topics WHERE audiobook_id IN ({placeholders})", ids)
-        cursor.execute(f"DELETE FROM audiobook_eras WHERE audiobook_id IN ({placeholders})", ids)
-        cursor.execute(f"DELETE FROM supplements WHERE audiobook_id IN ({placeholders})", ids)
+        placeholders = ",".join("?" * len(ids))
+        cursor.execute(
+            f"DELETE FROM audiobook_genres WHERE audiobook_id IN ({placeholders})", ids
+        )
+        cursor.execute(
+            f"DELETE FROM audiobook_topics WHERE audiobook_id IN ({placeholders})", ids
+        )
+        cursor.execute(
+            f"DELETE FROM audiobook_eras WHERE audiobook_id IN ({placeholders})", ids
+        )
+        cursor.execute(
+            f"DELETE FROM supplements WHERE audiobook_id IN ({placeholders})", ids
+        )
 
         # Delete audiobooks
         cursor.execute(f"DELETE FROM audiobooks WHERE id IN ({placeholders})", ids)
@@ -1647,17 +1853,19 @@ def bulk_delete_audiobooks() -> FlaskResponse:
         conn.commit()
         conn.close()
 
-        return jsonify({
-            'success': True,
-            'deleted_count': deleted_count,
-            'files_deleted': len(deleted_files) if delete_files else 0
-        })
+        return jsonify(
+            {
+                "success": True,
+                "deleted_count": deleted_count,
+                "files_deleted": len(deleted_files) if delete_files else 0,
+            }
+        )
     except Exception as e:
         conn.close()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/audiobooks/missing-narrator', methods=['GET'])
+@app.route("/api/audiobooks/missing-narrator", methods=["GET"])
 def get_audiobooks_missing_narrator() -> Response:
     """Get audiobooks without narrator information"""
     conn = get_db()
@@ -1677,7 +1885,7 @@ def get_audiobooks_missing_narrator() -> Response:
     return jsonify(audiobooks)
 
 
-@app.route('/api/audiobooks/missing-hash', methods=['GET'])
+@app.route("/api/audiobooks/missing-hash", methods=["GET"])
 def get_audiobooks_missing_hash() -> Response:
     """Get audiobooks without SHA-256 hash"""
     conn = get_db()
@@ -1697,7 +1905,7 @@ def get_audiobooks_missing_hash() -> Response:
     return jsonify(audiobooks)
 
 
-@app.route('/api/utilities/rescan', methods=['POST'])
+@app.route("/api/utilities/rescan", methods=["POST"])
 def rescan_library() -> FlaskResponse:
     """Trigger a library rescan"""
     import subprocess
@@ -1705,39 +1913,45 @@ def rescan_library() -> FlaskResponse:
     scanner_path = PROJECT_ROOT / "scanner" / "scan_audiobooks.py"
 
     if not scanner_path.exists():
-        return jsonify({'success': False, 'error': 'Scanner script not found'}), 500
+        return jsonify({"success": False, "error": "Scanner script not found"}), 500
 
     try:
         result = subprocess.run(
-            ['python3', str(scanner_path)],
+            ["python3", str(scanner_path)],
             capture_output=True,
             text=True,
-            timeout=1800  # 30 minute timeout for large libraries
+            timeout=1800,  # 30 minute timeout for large libraries
         )
 
         # Parse output to get file count
         output = result.stdout
         files_found = 0
-        for line in output.split('\n'):
-            if 'Total audiobook files:' in line:
+        for line in output.split("\n"):
+            if "Total audiobook files:" in line:
                 try:
-                    files_found = int(line.split(':')[1].strip())
+                    files_found = int(line.split(":")[1].strip())
                 except (ValueError, IndexError):
                     pass
 
-        return jsonify({
-            'success': result.returncode == 0,
-            'files_found': files_found,
-            'output': output[-2000:] if len(output) > 2000 else output,  # Limit output size
-            'error': result.stderr if result.returncode != 0 else None
-        })
+        return jsonify(
+            {
+                "success": result.returncode == 0,
+                "files_found": files_found,
+                "output": output[-2000:]
+                if len(output) > 2000
+                else output,  # Limit output size
+                "error": result.stderr if result.returncode != 0 else None,
+            }
+        )
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'Scan timed out after 30 minutes'}), 500
+        return jsonify(
+            {"success": False, "error": "Scan timed out after 30 minutes"}
+        ), 500
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/utilities/reimport', methods=['POST'])
+@app.route("/api/utilities/reimport", methods=["POST"])
 def reimport_database() -> FlaskResponse:
     """Reimport audiobooks to database"""
     import subprocess
@@ -1745,44 +1959,48 @@ def reimport_database() -> FlaskResponse:
     import_path = PROJECT_ROOT / "backend" / "import_to_db.py"
 
     if not import_path.exists():
-        return jsonify({'success': False, 'error': 'Import script not found'}), 500
+        return jsonify({"success": False, "error": "Import script not found"}), 500
 
     try:
         result = subprocess.run(
-            ['python3', str(import_path)],
+            ["python3", str(import_path)],
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=300,  # 5 minute timeout
         )
 
         # Parse output to get import count
         output = result.stdout
         imported_count = 0
-        for line in output.split('\n'):
-            if 'Imported' in line and 'audiobooks' in line:
+        for line in output.split("\n"):
+            if "Imported" in line and "audiobooks" in line:
                 try:
                     # Extract number from lines like "✓ Imported 500 audiobooks"
                     parts = line.split()
                     for i, part in enumerate(parts):
-                        if part == 'Imported' and i + 1 < len(parts):
+                        if part == "Imported" and i + 1 < len(parts):
                             imported_count = int(parts[i + 1])
                             break
                 except (ValueError, IndexError):
                     pass
 
-        return jsonify({
-            'success': result.returncode == 0,
-            'imported_count': imported_count,
-            'output': output[-2000:] if len(output) > 2000 else output,
-            'error': result.stderr if result.returncode != 0 else None
-        })
+        return jsonify(
+            {
+                "success": result.returncode == 0,
+                "imported_count": imported_count,
+                "output": output[-2000:] if len(output) > 2000 else output,
+                "error": result.stderr if result.returncode != 0 else None,
+            }
+        )
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'Import timed out after 5 minutes'}), 500
+        return jsonify(
+            {"success": False, "error": "Import timed out after 5 minutes"}
+        ), 500
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/utilities/generate-hashes', methods=['POST'])
+@app.route("/api/utilities/generate-hashes", methods=["POST"])
 def generate_hashes() -> FlaskResponse:
     """Generate SHA-256 hashes for audiobooks"""
     import subprocess
@@ -1790,43 +2008,50 @@ def generate_hashes() -> FlaskResponse:
     hash_script = PROJECT_ROOT / "scripts" / "generate_hashes.py"
 
     if not hash_script.exists():
-        return jsonify({'success': False, 'error': 'Hash generation script not found'}), 500
+        return jsonify(
+            {"success": False, "error": "Hash generation script not found"}
+        ), 500
 
     try:
         result = subprocess.run(
-            ['python3', str(hash_script), '--parallel'],
+            ["python3", str(hash_script), "--parallel"],
             capture_output=True,
             text=True,
-            timeout=1800  # 30 minute timeout for large libraries
+            timeout=1800,  # 30 minute timeout for large libraries
         )
 
         # Parse output to get hash count
         output = result.stdout
         hashes_generated = 0
-        for line in output.split('\n'):
-            if 'Generated' in line or 'hashes' in line.lower():
+        for line in output.split("\n"):
+            if "Generated" in line or "hashes" in line.lower():
                 try:
                     # Extract numbers from output
                     import re
-                    numbers = re.findall(r'\d+', line)
+
+                    numbers = re.findall(r"\d+", line)
                     if numbers:
                         hashes_generated = int(numbers[0])
                 except ValueError:
                     pass
 
-        return jsonify({
-            'success': result.returncode == 0,
-            'hashes_generated': hashes_generated,
-            'output': output[-2000:] if len(output) > 2000 else output,
-            'error': result.stderr if result.returncode != 0 else None
-        })
+        return jsonify(
+            {
+                "success": result.returncode == 0,
+                "hashes_generated": hashes_generated,
+                "output": output[-2000:] if len(output) > 2000 else output,
+                "error": result.stderr if result.returncode != 0 else None,
+            }
+        )
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'Hash generation timed out after 30 minutes'}), 500
+        return jsonify(
+            {"success": False, "error": "Hash generation timed out after 30 minutes"}
+        ), 500
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/utilities/vacuum', methods=['POST'])
+@app.route("/api/utilities/vacuum", methods=["POST"])
 def vacuum_database() -> FlaskResponse:
     """Vacuum the SQLite database to reclaim space"""
     conn = get_db()
@@ -1843,31 +2068,33 @@ def vacuum_database() -> FlaskResponse:
         size_after = DB_PATH.stat().st_size
         space_reclaimed = (size_before - size_after) / (1024 * 1024)  # Convert to MB
 
-        return jsonify({
-            'success': True,
-            'size_before_mb': size_before / (1024 * 1024),
-            'size_after_mb': size_after / (1024 * 1024),
-            'space_reclaimed_mb': max(0, space_reclaimed)
-        })
+        return jsonify(
+            {
+                "success": True,
+                "size_before_mb": size_before / (1024 * 1024),
+                "size_after_mb": size_after / (1024 * 1024),
+                "space_reclaimed_mb": max(0, space_reclaimed),
+            }
+        )
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/utilities/export-db', methods=['GET'])
+@app.route("/api/utilities/export-db", methods=["GET"])
 def export_database() -> FlaskResponse:
     """Download the SQLite database file"""
     if DB_PATH.exists():
         return send_file(
             DB_PATH,
-            mimetype='application/x-sqlite3',
+            mimetype="application/x-sqlite3",
             as_attachment=True,
-            download_name='audiobooks.db'
+            download_name="audiobooks.db",
         )
     else:
-        return jsonify({'error': 'Database not found'}), 404
+        return jsonify({"error": "Database not found"}), 404
 
 
-@app.route('/api/utilities/export-json', methods=['GET'])
+@app.route("/api/utilities/export-json", methods=["GET"])
 def export_json() -> Response:
     """Export library as JSON"""
     import json
@@ -1888,21 +2115,23 @@ def export_json() -> Response:
 
     # Create response with JSON file
     export_data = {
-        'exported_at': datetime.now().isoformat(),
-        'total_count': len(audiobooks),
-        'audiobooks': audiobooks
+        "exported_at": datetime.now().isoformat(),
+        "total_count": len(audiobooks),
+        "audiobooks": audiobooks,
     }
 
     response = app.response_class(
         response=json.dumps(export_data, indent=2),
         status=200,
-        mimetype='application/json'
+        mimetype="application/json",
     )
-    response.headers['Content-Disposition'] = 'attachment; filename=audiobooks_export.json'
+    response.headers["Content-Disposition"] = (
+        "attachment; filename=audiobooks_export.json"
+    )
     return response
 
 
-@app.route('/api/utilities/export-csv', methods=['GET'])
+@app.route("/api/utilities/export-csv", methods=["GET"])
 def export_csv() -> Response:
     """Export library as CSV"""
     import csv
@@ -1927,8 +2156,24 @@ def export_csv() -> Response:
     writer = csv.writer(output)
 
     # Write header
-    writer.writerow(['ID', 'Title', 'Author', 'Narrator', 'Publisher', 'Series', 'Series #',
-                     'Duration (hours)', 'Duration', 'Size (MB)', 'Year', 'ASIN', 'ISBN', 'File Path'])
+    writer.writerow(
+        [
+            "ID",
+            "Title",
+            "Author",
+            "Narrator",
+            "Publisher",
+            "Series",
+            "Series #",
+            "Duration (hours)",
+            "Duration",
+            "Size (MB)",
+            "Year",
+            "ASIN",
+            "ISBN",
+            "File Path",
+        ]
+    )
 
     # Write data
     for book in audiobooks:
@@ -1936,15 +2181,15 @@ def export_csv() -> Response:
 
     # Create response
     response = app.response_class(
-        response=output.getvalue(),
-        status=200,
-        mimetype='text/csv'
+        response=output.getvalue(), status=200, mimetype="text/csv"
     )
-    response.headers['Content-Disposition'] = f'attachment; filename=audiobooks_export_{datetime.now().strftime("%Y%m%d")}.csv'
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=audiobooks_export_{datetime.now().strftime('%Y%m%d')}.csv"
+    )
     return response
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if not DB_PATH.exists():
         print(f"Error: Database not found at {DB_PATH}")
         print("Please run: python3 backend/import_to_db.py")
@@ -1970,12 +2215,17 @@ if __name__ == '__main__':
     print()
 
     # Check if running with waitress (production mode)
-    use_waitress = os.environ.get('AUDIOBOOKS_USE_WAITRESS', 'false').lower() in ('true', '1', 'yes')
+    use_waitress = os.environ.get("AUDIOBOOKS_USE_WAITRESS", "false").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
 
     if use_waitress:
         try:
             from waitress import serve
-            bind_address = os.environ.get('AUDIOBOOKS_BIND_ADDRESS', '127.0.0.1')
+
+            bind_address = os.environ.get("AUDIOBOOKS_BIND_ADDRESS", "127.0.0.1")
             print("Running in production mode (waitress)")
             print(f"Listening on: http://{bind_address}:{API_PORT}")
             print()
@@ -1985,10 +2235,10 @@ if __name__ == '__main__':
             print("Falling back to Flask development server...")
             print(f"API running on: http://0.0.0.0:{API_PORT}")
             print()
-            app.run(debug=True, host='0.0.0.0', port=API_PORT)
+            app.run(debug=True, host="0.0.0.0", port=API_PORT)
     else:
         # Development mode (Flask dev server)
         print("Running in development mode (Flask dev server)")
         print(f"API running on: http://0.0.0.0:{API_PORT}")
         print()
-        app.run(debug=True, host='0.0.0.0', port=API_PORT)
+        app.run(debug=True, host="0.0.0.0", port=API_PORT)

@@ -15,36 +15,46 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH, AUDIOBOOKS_DATA
 
 # Paths - use config or environment
-AUDIBLE_TSV = AUDIOBOOKS_DATA / 'audible_library.tsv'
+AUDIBLE_TSV = AUDIOBOOKS_DATA / "audible_library.tsv"
+
 
 def similarity(a, b):
     """Calculate string similarity ratio"""
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
+
 def normalize_title(title):
     """Normalize title for matching"""
     # Remove common suffixes
-    for suffix in [': A Novel', ' (Unabridged)', ' [Unabridged]', ' [Tantor]', ' (Audible Audio Edition)']:
-        title = title.replace(suffix, '')
+    for suffix in [
+        ": A Novel",
+        " (Unabridged)",
+        " [Unabridged]",
+        " [Tantor]",
+        " (Audible Audio Edition)",
+    ]:
+        title = title.replace(suffix, "")
     return title.strip()
+
 
 def load_audible_library(tsv_path):
     """Load Audible library from TSV export"""
     library = {}
-    with open(tsv_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f, delimiter='\t')
+    with open(tsv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
-            title = row.get('title', '')
+            title = row.get("title", "")
             if title:
                 library[normalize_title(title)] = {
-                    'title': title,
-                    'authors': row.get('authors', ''),
-                    'narrators': row.get('narrators', ''),
-                    'series_title': row.get('series_title', ''),
-                    'series_sequence': row.get('series_sequence', ''),
-                    'genres': row.get('genres', ''),
+                    "title": title,
+                    "authors": row.get("authors", ""),
+                    "narrators": row.get("narrators", ""),
+                    "series_title": row.get("series_title", ""),
+                    "series_sequence": row.get("series_sequence", ""),
+                    "genres": row.get("genres", ""),
                 }
     return library
+
 
 def find_best_match(db_title, audible_library, threshold=0.7):
     """Find best matching title in Audible library"""
@@ -64,6 +74,7 @@ def find_best_match(db_title, audible_library, threshold=0.7):
             best_match = data
 
     return best_match
+
 
 def main():
     print("=== Fix Metadata from Audible Library ===")
@@ -92,14 +103,14 @@ def main():
         match = find_best_match(title, audible_library)
 
         if match:
-            new_author = match['authors'] or current_author
-            new_narrator = match['narrators'] or current_narrator
+            new_author = match["authors"] or current_author
+            new_narrator = match["narrators"] or current_narrator
 
             # Only update if different
             if new_author != current_author or new_narrator != current_narrator:
                 cursor.execute(
                     "UPDATE audiobooks SET author = ?, narrator = ? WHERE id = ?",
-                    (new_author, new_narrator, ab_id)
+                    (new_author, new_narrator, ab_id),
                 )
                 updated += 1
                 if updated <= 10:
@@ -117,7 +128,7 @@ def main():
     conn.commit()
 
     # Show statistics
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     print(f"Updated: {updated}")
     print(f"Already correct: {already_correct}")
     print(f"No match found: {not_found}")
@@ -142,5 +153,6 @@ def main():
     conn.close()
     print("\nDone!")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

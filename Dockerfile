@@ -4,7 +4,7 @@
 # Build: docker build -t audiobooks .
 # Run:   docker-compose up -d
 
-FROM python:3.11-slim
+FROM python:3.11.11-slim
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"
@@ -70,20 +70,29 @@ ENV DATABASE_PATH=/app/data/audiobooks.db
 ENV COVER_DIR=/app/covers
 ENV DATA_DIR=/app/data
 ENV SUPPLEMENTS_DIR=/supplements
-ENV WEB_PORT=8090
+ENV WEB_PORT=8443
 ENV API_PORT=5001
 
 # Expose ports
 # 5001: Flask REST API
-# 8090: Web interface (static files)
-EXPOSE 5001 8090
+# 8443: HTTPS Web interface
+# 8080: HTTP redirect to HTTPS
+EXPOSE 5001 8443 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:5001/api/audiobooks?limit=1 || exit 1
 
+# Create non-root user for security
+RUN groupadd --gid 1000 audiobooks && \
+    useradd --uid 1000 --gid audiobooks --shell /bin/bash --create-home audiobooks && \
+    chown -R audiobooks:audiobooks /app
+
 # Copy and set entrypoint
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+
+# Switch to non-root user
+USER audiobooks
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

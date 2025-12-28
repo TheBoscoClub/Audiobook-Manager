@@ -29,16 +29,20 @@ def main():
         database_path=DATABASE_PATH,
         project_dir=PROJECT_DIR,
         supplements_dir=SUPPLEMENTS_DIR,
-        api_port=API_PORT
+        api_port=API_PORT,
     )
 
     # Check if running with waitress (production mode)
-    use_waitress = os.environ.get('AUDIOBOOKS_USE_WAITRESS', 'false').lower() in ('true', '1', 'yes')
-    debug = os.environ.get('FLASK_DEBUG', 'true').lower() in ('true', '1', 'yes')
+    use_waitress = os.environ.get("AUDIOBOOKS_USE_WAITRESS", "false").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    debug = os.environ.get("FLASK_DEBUG", "true").lower() in ("true", "1", "yes")
 
     # Run the server
     run_server(app, port=API_PORT, debug=debug, use_waitress=use_waitress)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

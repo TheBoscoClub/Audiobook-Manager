@@ -1,11 +1,10 @@
 """
 Pytest configuration and shared fixtures for Audiobooks Library tests.
 """
-import os
+
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -39,13 +38,13 @@ AUDIOBOOKS_API_PORT=5001
 def sample_audiobook_data():
     """Sample audiobook data for testing."""
     return {
-        'id': 1,
-        'title': 'Test Audiobook',
-        'author': 'Test Author',
-        'narrator': 'Test Narrator',
-        'duration_hours': 10.5,
-        'file_path': '/test/path/audiobook.opus',
-        'asin': 'B00TEST123',
+        "id": 1,
+        "title": "Test Audiobook",
+        "author": "Test Author",
+        "narrator": "Test Narrator",
+        "duration_hours": 10.5,
+        "file_path": "/test/path/audiobook.opus",
+        "asin": "B00TEST123",
     }
 
 
@@ -53,6 +52,7 @@ def sample_audiobook_data():
 def app_client():
     """Create a test client for the Flask API."""
     from backend.api import app
-    app.config['TESTING'] = True
+
+    app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
