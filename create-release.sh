@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# create-release.sh - Build release tarballs for audiobook-toolkit
+# create-release.sh - Build release tarballs for Audiobook-Manager
 # =============================================================================
 # Creates a distributable tarball containing all files needed for installation.
 # The tarball can be uploaded to GitHub releases for standalone installation.
@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
 # GitHub repository info
-GITHUB_REPO="greogory/audiobook-toolkit"
+GITHUB_REPO="greogory/Audiobook-Manager"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}"
 
 # -----------------------------------------------------------------------------
@@ -238,7 +238,7 @@ show_help() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Build release tarballs for audiobook-toolkit.
+Build release tarballs for Audiobook-Manager.
 
 Options:
   --dry-run    Show what would be included without building

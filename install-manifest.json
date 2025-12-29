@@ -5,9 +5,9 @@
   "install_type": "system",
 
   "github": {
-    "repo": "greogory/audiobook-toolkit",
-    "api": "https://api.github.com/repos/greogory/audiobook-toolkit",
-    "releases": "https://github.com/greogory/audiobook-toolkit/releases"
+    "repo": "greogory/Audiobook-Manager",
+    "api": "https://api.github.com/repos/greogory/Audiobook-Manager",
+    "releases": "https://github.com/greogory/Audiobook-Manager/releases"
   },
 
   "management_scripts": [

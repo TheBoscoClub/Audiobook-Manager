@@ -1,6 +1,6 @@
 [Unit]
 Description=Audiobooks Library HTTP to HTTPS Redirect
-Documentation=https://github.com/greogory/audiobook-toolkit
+Documentation=https://github.com/greogory/Audiobook-Manager
 After=network-online.target audiobooks-proxy.service
 Wants=audiobooks-proxy.service network-online.target
 

@@ -62,8 +62,8 @@ UPGRADE_SOURCE="project"  # "project" or "github"
 REQUESTED_VERSION=""  # Specific version to install, or empty for latest
 
 # GitHub configuration (loaded from .release-info or defaults)
-GITHUB_REPO="greogory/audiobook-toolkit"
-GITHUB_API="https://api.github.com/repos/greogory/audiobook-toolkit"
+GITHUB_REPO="greogory/Audiobook-Manager"
+GITHUB_API="https://api.github.com/repos/greogory/Audiobook-Manager"
 
 # -----------------------------------------------------------------------------
 # Helper Functions

@@ -184,7 +184,7 @@ The script matches books by ASIN, exact title, or fuzzy title matching (85% thre
 > The `audiobooks-multiformat` service and related scripts are disabled. To enable at your own risk, uncomment the watch directories in `watch-multiformat-sources.sh`.
 >
 > PRs welcome if you want to improve multi-source support.
-> See: [Roadmap Discussion](https://github.com/greogory/audiobook-toolkit/discussions/2)
+> See: [Roadmap Discussion](https://github.com/greogory/Audiobook-Manager/discussions/2)
 
 <details>
 <summary>Multi-source scripts (click to expand)</summary>
@@ -243,10 +243,10 @@ Install the latest release without cloning the repository:
 
 ```bash
 # One-line installer
-curl -sSL https://github.com/greogory/audiobook-toolkit/raw/main/bootstrap-install.sh | bash
+curl -sSL https://github.com/greogory/Audiobook-Manager/raw/main/bootstrap-install.sh | bash
 
 # Or download and install manually
-wget https://github.com/greogory/audiobook-toolkit/releases/latest/download/audiobooks-*.tar.gz
+wget https://github.com/greogory/Audiobook-Manager/releases/latest/download/audiobooks-*.tar.gz
 tar -xzf audiobooks-*.tar.gz
 cd audiobooks-*
 ./install.sh
@@ -257,8 +257,8 @@ cd audiobooks-*
 Clone the repository and run the interactive installer:
 
 ```bash
-git clone https://github.com/greogory/audiobook-toolkit.git
-cd audiobook-toolkit
+git clone https://github.com/greogory/Audiobook-Manager.git
+cd Audiobook-Manager
 ./install.sh
 ```
 
@@ -309,9 +309,9 @@ docker-compose pull
 docker-compose up -d
 
 # Or with docker directly
-docker pull greogory/audiobook-toolkit:latest
+docker pull greogory/Audiobook-Manager:latest
 docker stop audiobooks && docker rm audiobooks
-docker run -d --name audiobooks ... greogory/audiobook-toolkit:latest
+docker run -d --name audiobooks ... greogory/Audiobook-Manager:latest
 
 # Check running version
 docker exec audiobooks cat /app/VERSION
@@ -564,7 +564,7 @@ docker run -d \
   -v /path/to/your/audiobooks:/audiobooks:ro \
   -v audiobooks_data:/app/data \
   -v audiobooks_covers:/app/covers \
-  ghcr.io/greogory/audiobook-toolkit:latest
+  ghcr.io/greogory/Audiobook-Manager:latest
 
 # Access the web interface
 open https://localhost:8443
@@ -819,7 +819,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - Portable configuration system
 - Production-ready HTTPS server with Waitress
 
-See [GitHub Releases](https://github.com/greogory/audiobook-toolkit/releases) for full version history.
+See [GitHub Releases](https://github.com/greogory/Audiobook-Manager/releases) for full version history.
 
 ## Known Issues
 
@@ -891,7 +891,7 @@ A new "Utilities" or "Library Management" section in the webapp for:
 
 ### Contributing
 
-Feature requests and pull requests welcome! See the [GitHub Issues](https://github.com/greogory/audiobook-toolkit/issues) page.
+Feature requests and pull requests welcome! See the [GitHub Issues](https://github.com/greogory/Audiobook-Manager/issues) page.
 
 ## License
 

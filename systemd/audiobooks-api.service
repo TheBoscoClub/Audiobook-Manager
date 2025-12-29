@@ -1,6 +1,6 @@
 [Unit]
 Description=Audiobooks Library API Server (Waitress)
-Documentation=https://github.com/greogory/audiobook-toolkit
+Documentation=https://github.com/greogory/Audiobook-Manager
 After=network-online.target
 Wants=network-online.target
 

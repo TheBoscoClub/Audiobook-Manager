@@ -14,7 +14,7 @@ LABEL description="Web-based audiobook library with search, playback, cover art,
 LABEL version="${APP_VERSION}"
 
 # OCI labels for GitHub Container Registry
-LABEL org.opencontainers.image.source="https://github.com/greogory/audiobook-toolkit"
+LABEL org.opencontainers.image.source="https://github.com/greogory/Audiobook-Manager"
 LABEL org.opencontainers.image.description="Web-based audiobook library browser with search, playback, and PDF supplements"
 LABEL org.opencontainers.image.licenses="MIT"
 
@@ -62,8 +62,8 @@ COPY VERSION /app/VERSION
 # Create .release-info for version identification
 # Note: Docker upgrades via image pulls, not upgrade.sh
 RUN echo '{\n\
-  "github_repo": "greogory/audiobook-toolkit",\n\
-  "github_api": "https://api.github.com/repos/greogory/audiobook-toolkit",\n\
+  "github_repo": "greogory/Audiobook-Manager",\n\
+  "github_api": "https://api.github.com/repos/greogory/Audiobook-Manager",\n\
   "version": "'$(cat /app/VERSION | tr -d '[:space:]')'",\n\
   "install_type": "docker",\n\
   "install_date": "'$(date -Iseconds)'"\n\

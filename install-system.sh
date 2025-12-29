@@ -245,7 +245,7 @@ if [[ "$INSTALL_SERVICES" == "true" ]]; then
     cat > "${SYSTEMD_DIR}/audiobooks-api.service" << EOF
 [Unit]
 Description=Audiobooks Library API Server
-Documentation=https://github.com/greogory/audiobook-toolkit
+Documentation=https://github.com/greogory/Audiobook-Manager
 After=network.target
 
 [Service]
@@ -264,7 +264,7 @@ EOF
     cat > "${SYSTEMD_DIR}/audiobooks-web.service" << EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
-Documentation=https://github.com/greogory/audiobook-toolkit
+Documentation=https://github.com/greogory/Audiobook-Manager
 After=audiobooks-api.service
 Wants=audiobooks-api.service
 
@@ -284,7 +284,7 @@ EOF
     cat > "${SYSTEMD_DIR}/audiobooks.target" << EOF
 [Unit]
 Description=Audiobooks Library Services
-Documentation=https://github.com/greogory/audiobook-toolkit
+Documentation=https://github.com/greogory/Audiobook-Manager
 Wants=audiobooks-api.service audiobooks-web.service
 
 [Install]

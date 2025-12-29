@@ -1,6 +1,6 @@
 [Unit]
 Description=Audiobooks Library HTTPS Reverse Proxy
-Documentation=https://github.com/greogory/audiobook-toolkit
+Documentation=https://github.com/greogory/Audiobook-Manager
 After=network-online.target audiobooks-api.service
 Requires=audiobooks-api.service
 Wants=network-online.target
