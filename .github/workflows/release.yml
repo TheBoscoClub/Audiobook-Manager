@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   build-release:
@@ -72,3 +73,64 @@ jobs:
         draft: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get version from tag
+      id: version
+      env:
+        REF: ${{ github.ref }}
+      run: |
+        VERSION="${REF#refs/tags/v}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Docker image version: $VERSION"
+
+    - name: Validate version tag matches VERSION file
+      run: |
+        TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+        FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
+        if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+          echo "❌ Tag version ($TAG_VERSION) does not match VERSION file ($FILE_VERSION)"
+          exit 1
+        fi
+        echo "✅ Version $TAG_VERSION validated"
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
