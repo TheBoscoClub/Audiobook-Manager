@@ -13,7 +13,7 @@ import pytest
 @pytest.fixture
 def db_with_hash_duplicates(app_client):
     """Insert duplicate audiobooks with the same hash for testing."""
-    from backend.api import get_db
+    from backend.api_modular import get_db
 
     conn = get_db()
     cursor = conn.cursor()
@@ -60,7 +60,7 @@ def db_with_hash_duplicates(app_client):
 @pytest.fixture
 def db_with_title_duplicates(app_client):
     """Insert duplicate audiobooks with the same normalized title for testing."""
-    from backend.api import get_db
+    from backend.api_modular import get_db
 
     conn = get_db()
     cursor = conn.cursor()
@@ -1102,7 +1102,7 @@ class TestDuplicatesTitleAuthorLogic:
 
     def test_duplicates_excludes_audiobook_author(self, app_client):
         """Test that 'Audiobook' as author is excluded from grouping."""
-        from backend.api import get_db
+        from backend.api_modular import get_db
 
         conn = get_db()
         cursor = conn.cursor()
@@ -1152,7 +1152,7 @@ class TestDuplicatesHashNullHandling:
 
     def test_delete_with_null_hash(self, app_client):
         """Test delete duplicates with null sha256_hash is blocked."""
-        from backend.api import get_db
+        from backend.api_modular import get_db
 
         conn = get_db()
         cursor = conn.cursor()
