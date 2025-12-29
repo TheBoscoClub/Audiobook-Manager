@@ -124,8 +124,10 @@ def create_app(
     return flask_app
 
 
-# Create the global app instance for backward compatibility
-app = create_app()
+# Note: Global app instance removed to prevent double-registration issues
+# when api_server.py calls create_app(). For backward compatibility,
+# callers should use create_app() directly.
+app = None  # Placeholder for backward compatibility checks
 
 
 def run_server(
