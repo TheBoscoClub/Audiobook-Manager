@@ -45,7 +45,7 @@ from .supplements import supplements_bp, init_supplements_routes
 from .utilities import utilities_bp, init_utilities_routes
 
 # Type alias for Flask route return types (backward compatibility)
-from typing import Union
+from typing import Optional, Union
 
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
@@ -60,10 +60,10 @@ def get_db():
 
 
 def create_app(
-    database_path: Path = None,
-    project_dir: Path = None,
-    supplements_dir: Path = None,
-    api_port: int = None,
+    database_path: Optional[Path] = None,
+    project_dir: Optional[Path] = None,
+    supplements_dir: Optional[Path] = None,
+    api_port: Optional[int] = None,
 ):
     """
     Create and configure the Flask application.
@@ -129,8 +129,8 @@ app = create_app()
 
 
 def run_server(
-    flask_app: Flask = None,
-    port: int = None,
+    flask_app: Optional[Flask] = None,
+    port: Optional[int] = None,
     debug: bool = False,
     use_waitress: bool = False,
 ):

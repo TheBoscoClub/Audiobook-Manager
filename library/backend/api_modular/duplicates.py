@@ -2,6 +2,7 @@
 Duplicate detection endpoints - hash-based and title-based duplicate finding.
 """
 
+from typing import Any
 from flask import Blueprint, Response, jsonify, request
 from pathlib import Path
 
@@ -306,7 +307,7 @@ def init_duplicates_routes(db_path):
 
         if mode == "title":
             # Group by normalized title + duration (duration distinguishes different books with same title)
-            title_groups = {}
+            title_groups: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
             for item in to_delete:
                 key = (item["norm_title"], item["duration_group"])
                 if key not in title_groups:
@@ -345,7 +346,7 @@ def init_duplicates_routes(db_path):
                     safe_to_delete.extend([i["id"] for i in items])
         else:
             # Hash-based mode (original logic)
-            hash_groups = {}
+            hash_groups: dict[str | None, list[dict[str, Any]]] = {}
             for item in to_delete:
                 h = item["sha256_hash"]
                 if h not in hash_groups:
@@ -459,7 +460,7 @@ def init_duplicates_routes(db_path):
         items = [dict(row) for row in cursor.fetchall()]
 
         # Group by hash
-        hash_groups = {}
+        hash_groups: dict[str | None, list[dict[str, Any]]] = {}
         for item in items:
             h = item["sha256_hash"]
             if h not in hash_groups:

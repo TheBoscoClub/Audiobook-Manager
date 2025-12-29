@@ -62,7 +62,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         conn.close()
 
         # Get database file size
-        database_size_mb = 0
+        database_size_mb: float = 0.0
         try:
             import os
 

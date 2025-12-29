@@ -9,7 +9,7 @@ import sqlite3
 from pathlib import Path
 import os
 import sys
-from typing import Union
+from typing import Any, Union
 
 # Type alias for Flask route return types
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
@@ -342,7 +342,7 @@ def get_stats() -> Response:
     conn.close()
 
     # Get database file size
-    database_size_mb = 0
+    database_size_mb: float = 0.0
     try:
         import os
 
@@ -1248,7 +1248,7 @@ def delete_duplicates() -> FlaskResponse:
 
     if mode == "title":
         # Group by normalized title + duration (duration distinguishes different books with same title)
-        title_groups = {}
+        title_groups: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
         for item in to_delete:
             key = (item["norm_title"], item["duration_group"])
             if key not in title_groups:
@@ -1287,7 +1287,7 @@ def delete_duplicates() -> FlaskResponse:
                 safe_to_delete.extend([i["id"] for i in items])
     else:
         # Hash-based mode (original logic)
-        hash_groups = {}
+        hash_groups: dict[str | None, list[dict[str, Any]]] = {}
         for item in to_delete:
             h = item["sha256_hash"]
             if h not in hash_groups:
@@ -1400,7 +1400,7 @@ def verify_deletion_safe() -> FlaskResponse:
     items = [dict(row) for row in cursor.fetchall()]
 
     # Group by hash
-    hash_groups = {}
+    hash_groups: dict[str | None, list[dict[str, Any]]] = {}
     for item in items:
         h = item["sha256_hash"]
         if h not in hash_groups:

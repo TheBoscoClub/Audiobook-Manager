@@ -14,7 +14,7 @@ Configuration priority (later overrides earlier):
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, overload
 
 # =============================================================================
 # Configuration Loading
@@ -23,7 +23,7 @@ from typing import Optional
 
 def _load_config_file(filepath: Path) -> dict[str, str]:
     """Load configuration from a shell-style config file."""
-    config = {}
+    config: dict[str, str] = {}
     if not filepath.exists():
         return config
 
@@ -89,7 +89,15 @@ if _project_root:
     _config.update(_load_config_file(_project_root / "config.env"))
 
 
-def get_config(key: str, default: str = None) -> str:
+@overload
+def get_config(key: str) -> Optional[str]: ...
+
+
+@overload
+def get_config(key: str, default: str) -> str: ...
+
+
+def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
     """Get configuration value with environment override."""
     return os.environ.get(key, _config.get(key, default))
 
