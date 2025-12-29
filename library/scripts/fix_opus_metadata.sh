@@ -125,7 +125,7 @@ while IFS= read -r OPUS_FILE; do
     COVER_PATH="$COVER_DIR/${FILE_HASH}.jpg"
 
     if [ ! -f "$COVER_PATH" ]; then
-        ffmpeg -v quiet -i "$AAXC_FILE" -an -vcodec copy "$COVER_PATH" 2>/dev/null
+        ffmpeg -nostdin -v quiet -i "$AAXC_FILE" -an -vcodec copy "$COVER_PATH" 2>/dev/null
     fi
 
     # Create temp file for metadata update
@@ -146,7 +146,7 @@ while IFS= read -r OPUS_FILE; do
     # Copy file and add metadata
     # Redirect to temp file first to avoid path corruption in error messages
     FFMPEG_LOG=$(mktemp)
-    ffmpeg -v warning -i "$OPUS_FILE" \
+    ffmpeg -nostdin -v warning -i "$OPUS_FILE" \
         "${METADATA_ARGS[@]}" \
         -codec copy \
         "$TEMP_FILE" 2>&1 | tee "$FFMPEG_LOG" | grep -v "Guessed Channel" >> "$LOG_FILE"
@@ -159,10 +159,12 @@ while IFS= read -r OPUS_FILE; do
 
     if [ -f "$TEMP_FILE" ] && [ -s "$TEMP_FILE" ]; then
         mv "$TEMP_FILE" "$OPUS_FILE"
-        echo "✓ FIXED: $BASENAME" >> "$LOG_FILE"
-        echo "    Author: $AUTHOR" >> "$LOG_FILE"
-        echo "    Narrator: $NARRATOR" >> "$LOG_FILE"
-        echo "    Publisher: $PUBLISHER" >> "$LOG_FILE"
+        {
+            echo "✓ FIXED: $BASENAME"
+            echo "    Author: $AUTHOR"
+            echo "    Narrator: $NARRATOR"
+            echo "    Publisher: $PUBLISHER"
+        } >> "$LOG_FILE"
         ((FIXED++))
     else
         echo "✗ FAIL: $BASENAME (ffmpeg error)" >> "$LOG_FILE"

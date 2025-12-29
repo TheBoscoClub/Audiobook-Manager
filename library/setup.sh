@@ -76,13 +76,13 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
     echo "Starting scan..."
     echo "========================================="
-    cd "$SCRIPT_DIR/scanner"
+    cd "$SCRIPT_DIR/scanner" || { echo "Error: Failed to cd to scanner directory"; exit 1; }
     python3 scan_audiobooks.py
 
     if [ $? -eq 0 ]; then
         echo ""
         echo "Importing to database..."
-        cd "$SCRIPT_DIR/backend"
+        cd "$SCRIPT_DIR/backend" || { echo "Error: Failed to cd to backend directory"; exit 1; }
         python3 import_to_db.py
 
         echo ""

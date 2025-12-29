@@ -329,21 +329,23 @@ do_upgrade() {
         if [[ "$DRY_RUN" == "true" ]]; then
             echo "  [DRY-RUN] Would sync library/ (excluding venv, db, cache)"
         else
-            local rsync_cmd="rsync -av --delete"
-            rsync_cmd+=" --exclude='venv'"
-            rsync_cmd+=" --exclude='__pycache__'"
-            rsync_cmd+=" --exclude='*.pyc'"
-            rsync_cmd+=" --exclude='.pytest_cache'"
-            rsync_cmd+=" --exclude='.coverage'"
-            rsync_cmd+=" --exclude='audiobooks.db'"
-            rsync_cmd+=" --exclude='audiobooks-dev.db'"
-            rsync_cmd+=" --exclude='testdata'"
-            rsync_cmd+=" --exclude='certs'"
+            local rsync_args=(
+                -av --delete
+                --exclude='venv'
+                --exclude='__pycache__'
+                --exclude='*.pyc'
+                --exclude='.pytest_cache'
+                --exclude='.coverage'
+                --exclude='audiobooks.db'
+                --exclude='audiobooks-dev.db'
+                --exclude='testdata'
+                --exclude='certs'
+            )
 
             if [[ -n "$use_sudo" ]]; then
-                sudo $rsync_cmd "${project}/library/" "$target/library/"
+                sudo rsync "${rsync_args[@]}" "${project}/library/" "$target/library/"
             else
-                $rsync_cmd "${project}/library/" "$target/library/"
+                rsync "${rsync_args[@]}" "${project}/library/" "$target/library/"
             fi
         fi
     fi
@@ -354,11 +356,11 @@ do_upgrade() {
         if [[ "$DRY_RUN" == "true" ]]; then
             echo "  [DRY-RUN] Would sync converter/"
         else
-            local rsync_cmd="rsync -av --delete --exclude='__pycache__'"
+            local rsync_args=(-av --delete --exclude='__pycache__')
             if [[ -n "$use_sudo" ]]; then
-                sudo $rsync_cmd "${project}/converter/" "$target/converter/"
+                sudo rsync "${rsync_args[@]}" "${project}/converter/" "$target/converter/"
             else
-                $rsync_cmd "${project}/converter/" "$target/converter/"
+                rsync "${rsync_args[@]}" "${project}/converter/" "$target/converter/"
             fi
         fi
     fi

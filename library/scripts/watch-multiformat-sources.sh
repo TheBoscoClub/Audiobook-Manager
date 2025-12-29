@@ -351,7 +351,7 @@ main() {
 
     # Create lock file
     echo $$ > "$PROCESSING_LOCK"
-    trap "rm -f $PROCESSING_LOCK" EXIT
+    trap 'rm -f "$PROCESSING_LOCK"' EXIT
 
     while true; do
         local found_any=false

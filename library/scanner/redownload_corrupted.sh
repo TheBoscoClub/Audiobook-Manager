@@ -67,8 +67,8 @@ TOTAL_CORRUPTED=$(wc -l < "$TEMP_DIR/corrupted_titles.txt")
 log "Found $TOTAL_CORRUPTED corrupted audiobooks in priority list"
 
 # Match titles to ASINs
-> "$TEMP_DIR/asins_to_redownload.txt"
-> "$TEMP_DIR/match_log.txt"
+: > "$TEMP_DIR/asins_to_redownload.txt"
+: > "$TEMP_DIR/match_log.txt"
 
 while IFS= read -r TITLE; do
     # Clean the title (remove format indicators like "(OPUS)", "(M4B)", etc.)
