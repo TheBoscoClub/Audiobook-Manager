@@ -5,7 +5,7 @@
 # Deploys the project source code to the installed application location.
 #
 # CRITICAL ARCHITECTURE:
-# - PROJECT:     /raid0/ClaudeCodeProjects/Audiobooks (or wherever you clone)
+# - PROJECT:     Git clone of Audiobook-Manager (wherever you clone it)
 # - APPLICATION: Installed copy that runs independently of the project
 #
 # The APPLICATION must work even if the PROJECT directory is deleted.

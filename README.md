@@ -670,7 +670,7 @@ docker restart audiobooks
 
 - Python 3.8+
 - ffmpeg 4.4+ (with ffprobe)
-- Flask, flask-cors
+- Flask (CORS handled natively since v3.2.0)
 - openssl (for SSL certificate generation)
 
 ### First-time setup
@@ -779,7 +779,32 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.0 (Current)
+### v3.2.0 (Current)
+- **GitHub Releases**: Standalone installation via `bootstrap-install.sh`
+- **Upgrade System**: GitHub-based upgrades with `audiobooks-upgrade --from-github`
+- **Release Automation**: CI/CD workflow and release tarball builder
+- **Repository Renamed**: `audiobook-toolkit` → `Audiobook-Manager`
+- **Removed Flask-CORS**: CORS now handled natively by the application
+- **Cleanup**: Removed legacy `api.py` (2,244 lines) and `web.legacy/` directory
+- **Security**: Fixed SQL injection in `generate_hashes.py`, Flask blueprint registration
+
+### v3.1.1
+- **Fix**: RuntimeDirectoryMode changed from 0755 to 0775 for group write access
+
+### v3.1.0
+- **Install Manifest**: `install-manifest.json` for production validation
+- **API Migration**: Tools for switching between monolithic and modular architectures
+- **Modular API**: Flask Blueprint architecture (`api_modular/`)
+- **Testing**: Fixed 7 hanging tests, resolved mock path issues
+- **Quality**: Fixed 13 shellcheck warnings, 18 mypy type errors
+
+### v3.0.5
+- **Security**: SQL injection fix in genre queries, non-root Docker user
+- **Docker**: Pinned base image to `python:3.11.11-slim`
+- **Ports**: Standardized to 8443 (HTTPS), 8080 (HTTP redirect)
+- **Documentation**: Added LICENSE, CONTRIBUTING.md, CHANGELOG.md
+
+### v3.0.0
 - **The Back Office**: New utilities page with vintage library back-office aesthetic
   - Database management: stats, vacuum, rescan, reimport, export (JSON/CSV/SQLite)
   - Metadata editing: search, view, and edit audiobook metadata

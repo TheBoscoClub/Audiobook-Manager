@@ -366,11 +366,14 @@ def show_stats(conn: sqlite3.Connection):
             # Show each file - use parameterized query
             id_list = [int(i) for i in ids.split(",")]
             placeholders = ",".join("?" * len(id_list))
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT id, title, file_path
                 FROM audiobooks
                 WHERE id IN ({placeholders})
-            """, id_list)
+            """,
+                id_list,
+            )
             for row in cursor.fetchall():
                 print(f"  - [{row[0]}] {row[1][:50]}")
                 print(f"    {row[2]}")

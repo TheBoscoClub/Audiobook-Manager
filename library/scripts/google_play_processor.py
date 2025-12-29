@@ -69,6 +69,7 @@ def _set_low_priority():
     """Set low CPU and I/O priority for child processes."""
     os.nice(19)  # Lowest CPU priority
 
+
 # Try to import mutagen for metadata handling
 try:
     from mutagen.mp3 import MP3

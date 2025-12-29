@@ -31,7 +31,7 @@
 #   audiobooks-upgrade --version 3.2.0
 #
 #   # From local project directory:
-#   ./upgrade.sh --from-project /raid0/ClaudeCodeProjects/Audiobooks --target /opt/audiobooks
+#   ./upgrade.sh --from-project /path/to/Audiobook-Manager --target /opt/audiobooks
 # =============================================================================
 
 set -e
@@ -109,8 +109,8 @@ find_project_dir() {
     # Try to find the project directory
     local candidates=(
         "$SCRIPT_DIR"
-        "/raid0/ClaudeCodeProjects/Audiobooks"
-        "$HOME/Projects/Audiobooks"
+        "/raid0/ClaudeCodeProjects/Audiobook-Manager"
+        "$HOME/Projects/Audiobook-Manager"
         "$HOME/audiobooks-project"
     )
 
@@ -423,13 +423,38 @@ verify_installation_permissions() {
     local issues_found=0
 
     echo ""
-    echo -e "${BLUE}Verifying installation permissions...${NC}"
+    echo -e "${BLUE}Verifying installation permissions and ownership...${NC}"
 
     # Determine if this is a system or user installation
     local is_system=false
     [[ "$target_dir" == /opt/* ]] || [[ "$target_dir" == /usr/* ]] && is_system=true
 
-    # Check directory permissions (should be 755)
+    # For system installations, verify ownership is audiobooks:audiobooks
+    if [[ "$is_system" == "true" ]]; then
+        echo -n "  Checking ownership (audiobooks:audiobooks)... "
+        # Check for files not owned by audiobooks user in library and converter dirs
+        local wrong_owner=0
+        for subdir in library converter; do
+            if [[ -d "$target_dir/$subdir" ]]; then
+                local count=$(find "$target_dir/$subdir" \( ! -user audiobooks -o ! -group audiobooks \) 2>/dev/null | wc -l)
+                wrong_owner=$((wrong_owner + count))
+            fi
+        done
+
+        if [[ "$wrong_owner" -gt 0 ]]; then
+            echo -e "${YELLOW}fixing $wrong_owner files/dirs${NC}"
+            for subdir in library converter; do
+                if [[ -d "$target_dir/$subdir" ]]; then
+                    sudo chown -R audiobooks:audiobooks "$target_dir/$subdir"
+                fi
+            done
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+    fi
+
+    # Check directory permissions (should be 755, not 700)
     echo -n "  Checking directory permissions... "
     local bad_dirs=$(find "$target_dir" -type d -perm 700 2>/dev/null | wc -l)
     if [[ "$bad_dirs" -gt 0 ]]; then
@@ -444,15 +469,30 @@ verify_installation_permissions() {
         echo -e "${GREEN}OK${NC}"
     fi
 
-    # Check file permissions (should be 644 for .py, .html, .css, .js)
+    # Check file permissions (should be 644 for .py, .html, .css, .js, .sql, .json, .txt)
     echo -n "  Checking file permissions... "
-    local bad_files=$(find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) 2>/dev/null | wc -l)
+    local bad_files=$(find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.sql" -o -name "*.json" -o -name "*.txt" \) \( -perm 600 -o -perm 700 -o -perm 711 \) 2>/dev/null | wc -l)
     if [[ "$bad_files" -gt 0 ]]; then
         echo -e "${YELLOW}fixing $bad_files files${NC}"
         if [[ "$is_system" == "true" ]]; then
-            sudo find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
+            sudo find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.sql" -o -name "*.json" -o -name "*.txt" \) \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
         else
-            find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
+            find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.sql" -o -name "*.json" -o -name "*.txt" \) \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
+        fi
+        ((issues_found++))
+    else
+        echo -e "${GREEN}OK${NC}"
+    fi
+
+    # Check executable permissions for shell scripts
+    echo -n "  Checking executable permissions (.sh)... "
+    local non_exec_scripts=$(find "$target_dir" -name "*.sh" ! -perm -u+x 2>/dev/null | wc -l)
+    if [[ "$non_exec_scripts" -gt 0 ]]; then
+        echo -e "${YELLOW}fixing $non_exec_scripts scripts${NC}"
+        if [[ "$is_system" == "true" ]]; then
+            sudo find "$target_dir" -name "*.sh" ! -perm -u+x -exec chmod +x {} \;
+        else
+            find "$target_dir" -name "*.sh" ! -perm -u+x -exec chmod +x {} \;
         fi
         ((issues_found++))
     else
@@ -470,9 +510,9 @@ verify_installation_permissions() {
     fi
 
     if [[ "$issues_found" -gt 0 ]]; then
-        echo -e "${YELLOW}  Fixed $issues_found permission issues.${NC}"
+        echo -e "${YELLOW}  Fixed $issues_found permission/ownership issues.${NC}"
     else
-        echo -e "${GREEN}  All permissions verified.${NC}"
+        echo -e "${GREEN}  All permissions and ownership verified.${NC}"
     fi
 }
 
@@ -577,27 +617,28 @@ download_and_extract_release() {
     local temp_dir="$2"
     local tarball="${temp_dir}/release.tar.gz"
 
-    echo -e "${BLUE}Downloading release...${NC}"
-    echo "  URL: $url"
+    # Status messages go to stderr so they don't pollute the return value
+    echo -e "${BLUE}Downloading release...${NC}" >&2
+    echo "  URL: $url" >&2
 
     if ! curl -sL --connect-timeout 30 -o "$tarball" "$url"; then
-        echo -e "${RED}Failed to download release${NC}"
+        echo -e "${RED}Failed to download release${NC}" >&2
         return 1
     fi
 
     # Verify download
     if [[ ! -s "$tarball" ]]; then
-        echo -e "${RED}Downloaded file is empty${NC}"
+        echo -e "${RED}Downloaded file is empty${NC}" >&2
         return 1
     fi
 
     local size
     size=$(du -h "$tarball" | cut -f1)
-    echo "  Downloaded: $size"
+    echo "  Downloaded: $size" >&2
 
-    echo -e "${BLUE}Extracting...${NC}"
+    echo -e "${BLUE}Extracting...${NC}" >&2
     if ! tar -xzf "$tarball" -C "$temp_dir"; then
-        echo -e "${RED}Failed to extract tarball${NC}"
+        echo -e "${RED}Failed to extract tarball${NC}" >&2
         return 1
     fi
 
@@ -606,10 +647,11 @@ download_and_extract_release() {
     extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "audiobooks-*" | head -1)
 
     if [[ -z "$extract_dir" ]] || [[ ! -d "$extract_dir" ]]; then
-        echo -e "${RED}Could not find extracted directory${NC}"
+        echo -e "${RED}Could not find extracted directory${NC}" >&2
         return 1
     fi
 
+    # Only the path goes to stdout (for capture)
     echo "$extract_dir"
 }
 
