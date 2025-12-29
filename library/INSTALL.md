@@ -74,7 +74,6 @@ Install the following using your system's package manager:
 All Python dependencies are listed in `requirements.txt`:
 
 - **Flask** (>=3.0.0) - Web framework for API server
-- **flask-cors** (>=4.0.0) - CORS support for API
 
 ---
 
@@ -327,10 +326,10 @@ lsof -i :5001
 
 **Problem**: CORS errors in browser console
 ```bash
-# Ensure flask-cors is installed
-pip install flask-cors
-
+# CORS is handled natively by the API (no flask-cors needed)
 # Verify API is running on the correct host/port
+curl -I http://localhost:5001/api/audiobooks
+# Check for Access-Control-Allow-Origin header in response
 ```
 
 ### Web Interface Issues
@@ -451,7 +450,7 @@ If you encounter issues not covered here:
    audiobooks-config
 
    # Check Python packages
-   pip list | grep -E "Flask|flask-cors"
+   pip list | grep Flask
    ```
 
 3. **GitHub Issues**: Report bugs or ask questions at:

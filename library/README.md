@@ -65,7 +65,8 @@ The launcher script will:
 ```
 audiobook-library/
 ├── backend/              # Flask API and database
-│   ├── api.py           # REST API server
+│   ├── api_modular/     # Modular REST API (replaces monolithic api.py)
+│   ├── api_server.py    # API server launcher
 │   ├── schema.sql       # Database schema
 │   ├── import_to_db.py  # JSON to SQLite importer
 │   └── audiobooks.db    # SQLite database (generated)
@@ -77,8 +78,6 @@ audiobook-library/
 │   │   └── library.css
 │   └── js/
 │       └── library.js   # Frontend + audio player
-├── web/                 # Legacy web interface
-│   └── covers/          # Extracted cover art
 ├── scripts/             # Maintenance scripts
 │   ├── fix_opus_metadata.sh
 │   └── fix_all_opus_metadata.sh
@@ -95,7 +94,6 @@ audiobook-library/
 - **Python**: 3.8 or higher
 - **ffmpeg**: 4.0 or higher (with ffprobe)
 - **Flask**: 3.0.0+
-- **flask-cors**: 4.0.0+
 - **Web Browser**: Modern browser with HTML5 audio support
 
 ## Audio Format

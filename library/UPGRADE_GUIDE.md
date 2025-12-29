@@ -44,7 +44,7 @@ cd /path/to/audiobook-library  # Your project directory
 # Create virtual environment and install dependencies
 python -m venv venv
 source venv/bin/activate
-pip install Flask flask-cors
+pip install Flask
 
 # Import audiobooks into database
 python backend/import_to_db.py

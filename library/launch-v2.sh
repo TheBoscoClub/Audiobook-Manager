@@ -37,7 +37,7 @@ if [ ! -d "venv" ]; then
     echo -e "${YELLOW}Setting up virtual environment...${NC}"
     python -m venv venv
     source venv/bin/activate
-    pip install -q Flask flask-cors
+    pip install -q Flask
 else
     source venv/bin/activate
 fi
@@ -47,7 +47,7 @@ if ss -tln | grep -q ":5001 "; then
     echo -e "${YELLOW}API server already running on port 5001${NC}"
 else
     echo -e "${GREEN}Starting Flask API server...${NC}"
-    python backend/api.py &
+    python backend/api_server.py &
     API_PID=$!
     echo -e "${GREEN}✓ API server started (PID: $API_PID)${NC}"
 

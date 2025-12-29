@@ -1,4 +1,4 @@
-# Audiobooks
+# Audiobook-Manager
 
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 

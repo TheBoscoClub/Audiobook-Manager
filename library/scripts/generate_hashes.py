@@ -363,12 +363,14 @@ def show_stats(conn: sqlite3.Connection):
                 f"  Count: {count} files | Wasted space: {format_size(wasted * 1024 * 1024)}"
             )
 
-            # Show each file
+            # Show each file - use parameterized query
+            id_list = [int(i) for i in ids.split(",")]
+            placeholders = ",".join("?" * len(id_list))
             cursor.execute(f"""
                 SELECT id, title, file_path
                 FROM audiobooks
-                WHERE id IN ({ids})
-            """)
+                WHERE id IN ({placeholders})
+            """, id_list)
             for row in cursor.fetchall():
                 print(f"  - [{row[0]}] {row[1][:50]}")
                 print(f"    {row[2]}")
