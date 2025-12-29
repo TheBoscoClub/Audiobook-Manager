@@ -6,9 +6,12 @@
 
 FROM python:3.11.11-slim
 
+# Read version from VERSION file during build
+ARG APP_VERSION=3.2.0
+
 LABEL maintainer="Audiobooks Project"
 LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"
-LABEL version="3.0.1"
+LABEL version="${APP_VERSION}"
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.source="https://github.com/greogory/audiobook-toolkit"
@@ -53,6 +56,19 @@ COPY converter /app/converter
 # Copy documentation for reference inside container
 COPY README.md /app/README.md
 
+# Copy version and release information
+COPY VERSION /app/VERSION
+
+# Create .release-info for version identification
+# Note: Docker upgrades via image pulls, not upgrade.sh
+RUN echo '{\n\
+  "github_repo": "greogory/audiobook-toolkit",\n\
+  "github_api": "https://api.github.com/repos/greogory/audiobook-toolkit",\n\
+  "version": "'$(cat /app/VERSION | tr -d '[:space:]')'",\n\
+  "install_type": "docker",\n\
+  "install_date": "'$(date -Iseconds)'"\n\
+}' > /app/.release-info
+
 # Create directories for data persistence
 # Covers and supplements will be populated at runtime or mounted as volumes
 RUN mkdir -p /app/data /app/covers /app/supplements
@@ -88,9 +104,9 @@ RUN groupadd --gid 1000 audiobooks && \
     useradd --uid 1000 --gid audiobooks --shell /bin/bash --create-home audiobooks && \
     chown -R audiobooks:audiobooks /app
 
-# Copy and set entrypoint
+# Copy and set entrypoint (755 = readable and executable by all)
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN chmod 755 /docker-entrypoint.sh
 
 # Switch to non-root user
 USER audiobooks

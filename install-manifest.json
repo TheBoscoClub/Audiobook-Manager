@@ -1,8 +1,29 @@
 {
   "name": "audiobooks",
-  "version": "1.0.0",
+  "version": "3.2.0",
   "description": "Audiobook library management with Audible sync, conversion, and web interface",
   "install_type": "system",
+
+  "github": {
+    "repo": "greogory/audiobook-toolkit",
+    "api": "https://api.github.com/repos/greogory/audiobook-toolkit",
+    "releases": "https://github.com/greogory/audiobook-toolkit/releases"
+  },
+
+  "management_scripts": [
+    {
+      "name": "upgrade.sh",
+      "install_path": "/opt/audiobooks/scripts/upgrade.sh",
+      "wrapper": "audiobooks-upgrade",
+      "description": "Upgrade from GitHub releases or local project"
+    },
+    {
+      "name": "migrate-api.sh",
+      "install_path": "/opt/audiobooks/scripts/migrate-api.sh",
+      "wrapper": "audiobooks-migrate",
+      "description": "Switch between API architectures"
+    }
+  ],
 
   "binaries": [
     {
@@ -49,6 +70,16 @@
       "name": "audiobooks-save-staging",
       "paths": ["/usr/local/bin/audiobooks-save-staging"],
       "description": "Save staging area before shutdown"
+    },
+    {
+      "name": "audiobooks-upgrade",
+      "paths": ["/usr/local/bin/audiobooks-upgrade"],
+      "description": "Upgrade from GitHub releases"
+    },
+    {
+      "name": "audiobooks-migrate",
+      "paths": ["/usr/local/bin/audiobooks-migrate"],
+      "description": "Switch API architecture"
     }
   ],
 
@@ -135,6 +166,12 @@
       "required": true,
       "min_permissions": "755",
       "description": "Library code"
+    },
+    {
+      "path": "/opt/audiobooks/scripts",
+      "required": true,
+      "min_permissions": "755",
+      "description": "Management scripts (upgrade, migrate)"
     },
     {
       "path": "/raid0/Audiobooks",

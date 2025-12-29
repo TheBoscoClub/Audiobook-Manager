@@ -12,7 +12,8 @@
 #
 # Options:
 #   --from-project PATH   Upgrade from local project directory
-#   --from-github         Upgrade from latest GitHub release (not implemented)
+#   --from-github         Upgrade from latest GitHub release
+#   --version VERSION     Install specific version (with --from-github)
 #   --check               Check for available updates without upgrading
 #   --backup              Create backup before upgrading
 #   --target PATH         Target installation to upgrade
@@ -22,10 +23,14 @@
 #   --help                Show this help message
 #
 # Examples:
-#   # From within the project directory:
-#   ./upgrade.sh --target /raid0/Audiobooks
+#   # Upgrade from GitHub (recommended for standalone installations):
+#   audiobooks-upgrade
+#   ./upgrade.sh --from-github --target /opt/audiobooks
 #
-#   # From anywhere, specifying project:
+#   # Upgrade to specific version:
+#   audiobooks-upgrade --version 3.2.0
+#
+#   # From local project directory:
 #   ./upgrade.sh --from-project /raid0/ClaudeCodeProjects/Audiobooks --target /opt/audiobooks
 # =============================================================================
 
@@ -53,6 +58,12 @@ DRY_RUN=false
 CHECK_ONLY=false
 CREATE_BACKUP=false
 SWITCH_ARCHITECTURE=""  # modular or monolithic
+UPGRADE_SOURCE="project"  # "project" or "github"
+REQUESTED_VERSION=""  # Specific version to install, or empty for latest
+
+# GitHub configuration (loaded from .release-info or defaults)
+GITHUB_REPO="greogory/audiobook-toolkit"
+GITHUB_API="https://api.github.com/repos/greogory/audiobook-toolkit"
 
 # -----------------------------------------------------------------------------
 # Helper Functions
@@ -466,6 +477,252 @@ verify_installation_permissions() {
 }
 
 # -----------------------------------------------------------------------------
+# GitHub Release Functions
+# -----------------------------------------------------------------------------
+
+load_release_info() {
+    # Load GitHub configuration from installation's .release-info file
+    local target="$1"
+
+    # Try multiple possible locations
+    local info_file=""
+    for loc in "$target/.release-info" "$target/../.release-info" "/opt/audiobooks/.release-info"; do
+        if [[ -f "$loc" ]]; then
+            info_file="$loc"
+            break
+        fi
+    done
+
+    if [[ -z "$info_file" ]]; then
+        echo -e "${YELLOW}No .release-info found, using defaults${NC}"
+        return 0
+    fi
+
+    # Parse JSON (jq if available, grep/sed fallback)
+    if command -v jq &>/dev/null; then
+        local repo=$(jq -r '.github_repo // empty' "$info_file" 2>/dev/null)
+        local api=$(jq -r '.github_api // empty' "$info_file" 2>/dev/null)
+        [[ -n "$repo" ]] && GITHUB_REPO="$repo"
+        [[ -n "$api" ]] && GITHUB_API="$api"
+    else
+        # Fallback parsing without jq
+        local repo=$(grep '"github_repo"' "$info_file" | sed 's/.*: *"\([^"]*\)".*/\1/')
+        local api=$(grep '"github_api"' "$info_file" | sed 's/.*: *"\([^"]*\)".*/\1/')
+        [[ -n "$repo" ]] && GITHUB_REPO="$repo"
+        [[ -n "$api" ]] && GITHUB_API="$api"
+    fi
+
+    echo -e "${DIM:-}GitHub repo: ${GITHUB_REPO}${NC}"
+}
+
+get_latest_release() {
+    # Query GitHub API for the latest release version
+    local url="${GITHUB_API}/releases/latest"
+    local response
+
+    response=$(curl -sL --connect-timeout 10 "$url") || {
+        echo -e "${RED}Failed to connect to GitHub API${NC}" >&2
+        return 1
+    }
+
+    local version
+    if command -v jq &>/dev/null; then
+        version=$(echo "$response" | jq -r '.tag_name // empty' 2>/dev/null)
+    else
+        version=$(echo "$response" | grep '"tag_name"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+    fi
+
+    # Remove 'v' prefix if present
+    version="${version#v}"
+
+    if [[ -z "$version" ]]; then
+        echo -e "${RED}Could not determine latest version from GitHub${NC}" >&2
+        return 1
+    fi
+
+    echo "$version"
+}
+
+get_release_tarball_url() {
+    # Get download URL for a specific release version
+    local version="$1"
+
+    # Try with 'v' prefix first (v3.1.0), then without (3.1.0)
+    for tag in "v${version}" "${version}"; do
+        local url="${GITHUB_API}/releases/tags/${tag}"
+        local response
+        response=$(curl -sL --connect-timeout 10 "$url") || continue
+
+        local tarball_url
+        if command -v jq &>/dev/null; then
+            tarball_url=$(echo "$response" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' 2>/dev/null | head -1)
+        else
+            # Fallback: construct URL from expected pattern
+            tarball_url="https://github.com/${GITHUB_REPO}/releases/download/${tag}/audiobooks-${version}.tar.gz"
+        fi
+
+        if [[ -n "$tarball_url" ]]; then
+            echo "$tarball_url"
+            return 0
+        fi
+    done
+
+    echo -e "${RED}Could not find release tarball for version ${version}${NC}" >&2
+    return 1
+}
+
+download_and_extract_release() {
+    # Download release tarball and extract to temp directory
+    local url="$1"
+    local temp_dir="$2"
+    local tarball="${temp_dir}/release.tar.gz"
+
+    echo -e "${BLUE}Downloading release...${NC}"
+    echo "  URL: $url"
+
+    if ! curl -sL --connect-timeout 30 -o "$tarball" "$url"; then
+        echo -e "${RED}Failed to download release${NC}"
+        return 1
+    fi
+
+    # Verify download
+    if [[ ! -s "$tarball" ]]; then
+        echo -e "${RED}Downloaded file is empty${NC}"
+        return 1
+    fi
+
+    local size
+    size=$(du -h "$tarball" | cut -f1)
+    echo "  Downloaded: $size"
+
+    echo -e "${BLUE}Extracting...${NC}"
+    if ! tar -xzf "$tarball" -C "$temp_dir"; then
+        echo -e "${RED}Failed to extract tarball${NC}"
+        return 1
+    fi
+
+    # Find the extracted directory
+    local extract_dir
+    extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "audiobooks-*" | head -1)
+
+    if [[ -z "$extract_dir" ]] || [[ ! -d "$extract_dir" ]]; then
+        echo -e "${RED}Could not find extracted directory${NC}"
+        return 1
+    fi
+
+    echo "$extract_dir"
+}
+
+do_github_upgrade() {
+    # Perform upgrade from GitHub release
+    local target="$1"
+    local version="${REQUESTED_VERSION:-latest}"
+
+    echo -e "${BLUE}=== GitHub Upgrade Mode ===${NC}"
+    echo ""
+
+    # Load GitHub configuration from target installation
+    load_release_info "$target"
+    echo ""
+
+    # Get current version
+    local current_version
+    current_version=$(get_version "$target")
+    echo "Current version: $current_version"
+
+    # Determine version to install
+    local install_version
+    if [[ "$version" == "latest" ]] || [[ -z "$version" ]]; then
+        echo -e "${BLUE}Fetching latest version from GitHub...${NC}"
+        install_version=$(get_latest_release) || {
+            echo -e "${RED}Failed to get latest version${NC}"
+            return 1
+        }
+        echo "Latest version:  $install_version"
+    else
+        install_version="$version"
+        echo "Target version:  $install_version"
+    fi
+
+    # Check if upgrade needed
+    if [[ "$current_version" == "$install_version" ]]; then
+        echo ""
+        echo -e "${GREEN}Already at version $install_version - no upgrade needed.${NC}"
+        return 0
+    fi
+
+    # Version comparison
+    set +e
+    compare_versions "$current_version" "$install_version"
+    local cmp_result=$?
+    set -e
+
+    if [[ $cmp_result -eq 1 ]]; then
+        echo -e "${YELLOW}Warning: Target version ($install_version) is older than current ($current_version)${NC}"
+        echo -n "Continue with downgrade? [y/N]: "
+        read -r confirm
+        if [[ "${confirm,,}" != "y" ]]; then
+            echo "Cancelled."
+            return 0
+        fi
+    fi
+
+    echo ""
+
+    # Check only mode
+    if [[ "$CHECK_ONLY" == "true" ]]; then
+        echo -e "${GREEN}Update available: $current_version → $install_version${NC}"
+        return 0
+    fi
+
+    # Get download URL
+    echo -e "${BLUE}Getting release information...${NC}"
+    local tarball_url
+    tarball_url=$(get_release_tarball_url "$install_version") || {
+        echo -e "${RED}Failed to find release tarball${NC}"
+        return 1
+    }
+
+    # Create temp directory
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    # shellcheck disable=SC2064
+    trap "rm -rf '$temp_dir'" EXIT
+
+    # Download and extract
+    local release_dir
+    release_dir=$(download_and_extract_release "$tarball_url" "$temp_dir") || {
+        echo -e "${RED}Failed to download/extract release${NC}"
+        return 1
+    }
+
+    echo ""
+    [[ "$DRY_RUN" == "true" ]] && echo -e "${YELLOW}=== DRY RUN MODE ===${NC}" && echo ""
+
+    # Confirm upgrade
+    if [[ "$DRY_RUN" == "false" ]]; then
+        read -r -p "Upgrade from $current_version to $install_version? [y/N]: " confirm
+        if [[ "${confirm,,}" != "y" ]] && [[ "${confirm,,}" != "yes" ]]; then
+            echo "Upgrade cancelled."
+            return 0
+        fi
+        echo ""
+    fi
+
+    # Create backup if requested
+    if [[ "$CREATE_BACKUP" == "true" ]]; then
+        create_backup "$target"
+        echo ""
+    fi
+
+    # Use the existing do_upgrade function with the extracted release
+    do_upgrade "$release_dir" "$target"
+
+    echo ""
+    echo -e "${GREEN}Successfully upgraded to version $install_version${NC}"
+}
+
+# -----------------------------------------------------------------------------
 # Parse Command Line Arguments
 # -----------------------------------------------------------------------------
 
@@ -476,8 +733,12 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --from-github)
-            echo -e "${RED}GitHub releases not yet implemented${NC}"
-            exit 1
+            UPGRADE_SOURCE="github"
+            shift
+            ;;
+        --version)
+            REQUESTED_VERSION="$2"
+            shift 2
             ;;
         --target)
             TARGET_DIR="$2"
@@ -521,12 +782,39 @@ done
 
 print_header
 
+# GitHub upgrade mode - different flow
+if [[ "$UPGRADE_SOURCE" == "github" ]]; then
+    # Find target installation
+    if [[ -z "$TARGET_DIR" ]]; then
+        echo -e "${BLUE}Looking for installed application...${NC}"
+        TARGET_DIR=$(find_installed_dir) || {
+            echo -e "${RED}Error: Cannot find installed application${NC}"
+            echo "Please specify with --target PATH"
+            exit 1
+        }
+    fi
+
+    if [[ ! -d "$TARGET_DIR" ]]; then
+        echo -e "${RED}Error: Invalid target directory: $TARGET_DIR${NC}"
+        exit 1
+    fi
+
+    echo "Target: $TARGET_DIR"
+    echo ""
+
+    # Perform GitHub upgrade
+    do_github_upgrade "$TARGET_DIR"
+    exit $?
+fi
+
+# Project-based upgrade mode (original behavior)
+
 # Find project directory
 if [[ -z "$PROJECT_DIR" ]]; then
     echo -e "${BLUE}Looking for project directory...${NC}"
     PROJECT_DIR=$(find_project_dir) || {
         echo -e "${RED}Error: Cannot find project directory${NC}"
-        echo "Please specify with --from-project PATH"
+        echo "Please specify with --from-project PATH or use --from-github"
         exit 1
     }
 fi

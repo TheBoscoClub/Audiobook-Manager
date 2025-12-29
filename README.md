@@ -237,8 +237,28 @@ This extracts:
 
 ## Installation
 
-Run the interactive installer:
+### Quick Install (From GitHub Releases)
+
+Install the latest release without cloning the repository:
+
 ```bash
+# One-line installer
+curl -sSL https://github.com/greogory/audiobook-toolkit/raw/main/bootstrap-install.sh | bash
+
+# Or download and install manually
+wget https://github.com/greogory/audiobook-toolkit/releases/latest/download/audiobooks-*.tar.gz
+tar -xzf audiobooks-*.tar.gz
+cd audiobooks-*
+./install.sh
+```
+
+### From Source
+
+Clone the repository and run the interactive installer:
+
+```bash
+git clone https://github.com/greogory/audiobook-toolkit.git
+cd audiobook-toolkit
 ./install.sh
 ```
 
@@ -275,6 +295,70 @@ audiobooks-web      # Start web server (HTTPS)
 audiobooks-scan     # Scan audiobook library
 audiobooks-import   # Import to database
 audiobooks-config   # Show configuration
+```
+
+## Upgrading
+
+### Docker
+
+Docker installations upgrade by pulling a new image:
+
+```bash
+# Pull latest image and recreate container
+docker-compose pull
+docker-compose up -d
+
+# Or with docker directly
+docker pull greogory/audiobook-toolkit:latest
+docker stop audiobooks && docker rm audiobooks
+docker run -d --name audiobooks ... greogory/audiobook-toolkit:latest
+
+# Check running version
+docker exec audiobooks cat /app/VERSION
+```
+
+Your data persists in mounted volumes (`/audiobooks`, `/app/data`).
+
+### Standalone Installation (From GitHub)
+
+Upgrade your installation directly from GitHub releases:
+
+```bash
+# Upgrade to latest version
+audiobooks-upgrade
+
+# Upgrade to specific version
+audiobooks-upgrade --version 3.2.0
+
+# Check for updates without installing
+audiobooks-upgrade --check
+```
+
+### From Local Project
+
+If you have the repository cloned locally:
+
+```bash
+# From within the project directory
+./upgrade.sh --target /opt/audiobooks
+
+# Or specify both source and target
+./upgrade.sh --from-project /path/to/repo --target /opt/audiobooks
+```
+
+### API Architecture Migration
+
+Switch between monolithic and modular Flask architectures:
+
+```bash
+# Check current architecture
+audiobooks-migrate --check
+
+# Switch to modular (Flask Blueprints)
+audiobooks-migrate --to modular
+
+# Switch to monolithic (single file)
+audiobooks-migrate --to monolithic
 ```
 
 ## Configuration

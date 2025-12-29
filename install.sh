@@ -980,6 +980,58 @@ EOF
         done
     fi
 
+    # Install management scripts to /opt/audiobooks/scripts/
+    echo -e "${BLUE}Installing management scripts...${NC}"
+    local APP_SCRIPTS_DIR="/opt/audiobooks/scripts"
+    sudo mkdir -p "${APP_SCRIPTS_DIR}"
+
+    # Copy upgrade and migrate scripts
+    for script in upgrade.sh migrate-api.sh; do
+        if [[ -f "${SCRIPT_DIR}/${script}" ]]; then
+            sudo cp "${SCRIPT_DIR}/${script}" "${APP_SCRIPTS_DIR}/"
+            sudo chmod 755 "${APP_SCRIPTS_DIR}/${script}"
+            echo "  Installed: ${APP_SCRIPTS_DIR}/${script}"
+        fi
+    done
+
+    # Store release info for GitHub-based upgrades
+    echo -e "${BLUE}Storing release metadata...${NC}"
+    if [[ -f "${SCRIPT_DIR}/.release-info" ]]; then
+        sudo cp "${SCRIPT_DIR}/.release-info" "/opt/audiobooks/"
+    else
+        # Create default release info
+        sudo tee "/opt/audiobooks/.release-info" > /dev/null << EOF
+{
+  "github_repo": "greogory/audiobook-toolkit",
+  "github_api": "https://api.github.com/repos/greogory/audiobook-toolkit",
+  "version": "$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "unknown")",
+  "install_date": "$(date -Iseconds)",
+  "install_type": "system"
+}
+EOF
+    fi
+    sudo chmod 644 "/opt/audiobooks/.release-info"
+
+    # Create upgrade wrapper
+    sudo tee "${BIN_DIR}/audiobooks-upgrade" > /dev/null << 'EOF'
+#!/bin/bash
+# Audiobook Toolkit Upgrade Script
+# Fetches and applies updates from GitHub releases
+exec /opt/audiobooks/scripts/upgrade.sh --target /opt/audiobooks "$@"
+EOF
+    sudo chmod 755 "${BIN_DIR}/audiobooks-upgrade"
+    echo "  Installed: audiobooks-upgrade"
+
+    # Create migrate wrapper
+    sudo tee "${BIN_DIR}/audiobooks-migrate" > /dev/null << 'EOF'
+#!/bin/bash
+# Audiobook Toolkit API Migration Script
+# Switch between monolithic and modular API architectures
+exec /opt/audiobooks/scripts/migrate-api.sh --target /opt/audiobooks "$@"
+EOF
+    sudo chmod 755 "${BIN_DIR}/audiobooks-migrate"
+    echo "  Installed: audiobooks-migrate"
+
     # Setup Python virtual environment if needed
     if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
         echo -e "${BLUE}Setting up Python virtual environment...${NC}"
@@ -1413,6 +1465,58 @@ EOF
             fi
         done
     fi
+
+    # Install management scripts to user's scripts directory
+    echo -e "${BLUE}Installing management scripts...${NC}"
+    local APP_SCRIPTS_DIR="${LIB_DIR}/scripts"
+    mkdir -p "${APP_SCRIPTS_DIR}"
+
+    # Copy upgrade and migrate scripts
+    for script in upgrade.sh migrate-api.sh; do
+        if [[ -f "${SCRIPT_DIR}/${script}" ]]; then
+            cp "${SCRIPT_DIR}/${script}" "${APP_SCRIPTS_DIR}/"
+            chmod 755 "${APP_SCRIPTS_DIR}/${script}"
+            echo "  Installed: ${APP_SCRIPTS_DIR}/${script}"
+        fi
+    done
+
+    # Store release info for GitHub-based upgrades
+    echo -e "${BLUE}Storing release metadata...${NC}"
+    if [[ -f "${SCRIPT_DIR}/.release-info" ]]; then
+        cp "${SCRIPT_DIR}/.release-info" "${LIB_DIR}/"
+    else
+        # Create default release info
+        cat > "${LIB_DIR}/.release-info" << EOF
+{
+  "github_repo": "greogory/audiobook-toolkit",
+  "github_api": "https://api.github.com/repos/greogory/audiobook-toolkit",
+  "version": "$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "unknown")",
+  "install_date": "$(date -Iseconds)",
+  "install_type": "user"
+}
+EOF
+    fi
+    chmod 644 "${LIB_DIR}/.release-info"
+
+    # Create upgrade wrapper
+    cat > "${BIN_DIR}/audiobooks-upgrade" << EOF
+#!/bin/bash
+# Audiobook Toolkit Upgrade Script
+# Fetches and applies updates from GitHub releases
+exec "${LIB_DIR}/scripts/upgrade.sh" --target "${LIB_DIR}" "\$@"
+EOF
+    chmod 755 "${BIN_DIR}/audiobooks-upgrade"
+    echo "  Installed: audiobooks-upgrade"
+
+    # Create migrate wrapper
+    cat > "${BIN_DIR}/audiobooks-migrate" << EOF
+#!/bin/bash
+# Audiobook Toolkit API Migration Script
+# Switch between monolithic and modular API architectures
+exec "${LIB_DIR}/scripts/migrate-api.sh" --target "${LIB_DIR}" "\$@"
+EOF
+    chmod 755 "${BIN_DIR}/audiobooks-migrate"
+    echo "  Installed: audiobooks-migrate"
 
     # Setup Python virtual environment if needed
     if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
