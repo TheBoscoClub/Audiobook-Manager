@@ -16,7 +16,7 @@ FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
+from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR  # noqa: E402
 
 app = Flask(__name__)
 

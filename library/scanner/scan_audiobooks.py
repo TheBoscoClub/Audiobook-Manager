@@ -57,7 +57,6 @@ def get_file_metadata(filepath, calculate_hash=True):
         # Extract author from folder structure for all audio files
         # Path structure: .../Library/Author Name/Book Title/Book Title.opus
         author_from_path = None
-        narrator_from_path = None
         parts = filepath.parts
 
         if "Library" in parts:
@@ -245,7 +244,7 @@ def determine_literary_era(year_str):
         else:
             return "21st Century - Contemporary (2020+)"
 
-    except:
+    except (ValueError, TypeError, AttributeError):
         return "Unknown Era"
 
 

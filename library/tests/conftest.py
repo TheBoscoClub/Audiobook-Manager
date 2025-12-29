@@ -51,7 +51,7 @@ def sample_audiobook_data():
 @pytest.fixture
 def app_client():
     """Create a test client for the Flask API."""
-    from backend.api import app
+    from backend.api_modular import app
 
     app.config["TESTING"] = True
     with app.test_client() as client:

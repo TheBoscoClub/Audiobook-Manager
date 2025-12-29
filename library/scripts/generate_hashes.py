@@ -364,8 +364,6 @@ def show_stats(conn: sqlite3.Connection):
             )
 
             # Show each file
-            id_list = ids.split(",")
-            title_list = titles.split(" | ")
             cursor.execute(f"""
                 SELECT id, title, file_path
                 FROM audiobooks

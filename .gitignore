@@ -34,7 +34,10 @@ CLAUDE.md
 
 # Generated data
 library/data/audiobooks.json
-library/web/covers/
+library/covers/
+
+# Legacy archived directories
+library/web.legacy/
 
 # Logs
 *.log

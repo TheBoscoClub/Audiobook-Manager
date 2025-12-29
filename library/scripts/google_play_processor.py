@@ -45,37 +45,34 @@ Usage:
     python3 google_play_processor.py /path/to/chapters/ --execute
 """
 
+import base64
+import hashlib
+import os
+import re
+import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
+import zipfile
+from argparse import ArgumentParser
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import AUDIOBOOKS_COVERS, AUDIOBOOKS_LIBRARY, DATABASE_PATH  # noqa: E402
 
 
 def _set_low_priority():
     """Set low CPU and I/O priority for child processes."""
-    import os
-
     os.nice(19)  # Lowest CPU priority
-
-
-import zipfile
-import shutil
-import base64
-import re
-import sys
-import hashlib
-from pathlib import Path
-from argparse import ArgumentParser
-from typing import Optional, Dict, List, Tuple
-from datetime import datetime
-
-# Add parent directory to path for config import
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, AUDIOBOOKS_LIBRARY, AUDIOBOOKS_COVERS
 
 # Try to import mutagen for metadata handling
 try:
     from mutagen.mp3 import MP3
-    from mutagen.id3 import ID3, APIC
+    from mutagen.id3 import APIC
     from mutagen.oggopus import OggOpus
     from mutagen.flac import Picture
 

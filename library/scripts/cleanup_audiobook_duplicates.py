@@ -63,7 +63,7 @@ def find_audiobook_folder_duplicates(conn):
         author = entry[2]
         file_path = entry[3]
         file_size_mb = entry[4]
-        duration_hours = entry[5]
+        # entry[5] is duration_hours (unused in this context)
         norm_title = entry[6]
         duration_group = entry[7]
 
