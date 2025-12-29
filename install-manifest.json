@@ -3,6 +3,9 @@
   "version": "3.2.0",
   "description": "Audiobook library management with Audible sync, conversion, and web interface",
   "install_type": "system",
+  "install_dir": "/opt/audiobooks",
+  "service_user": "audiobooks",
+  "service_group": "audiobooks",
 
   "github": {
     "repo": "greogory/Audiobook-Manager",

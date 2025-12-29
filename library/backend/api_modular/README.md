@@ -142,7 +142,12 @@ run_server(app, port=5000, debug=False, use_waitress=True)
 Use `api_server.py` as the main entry point:
 
 ```bash
-cd /raid0/ClaudeCodeProjects/Audiobooks/library/backend
+# Development (from project directory)
+cd library/backend
+python api_server.py
+
+# Production (system installation)
+cd /opt/audiobooks/library/backend
 python api_server.py
 ```
 

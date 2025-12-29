@@ -26,7 +26,8 @@ Before migrating, ensure:
 ### Verify Current State
 
 ```bash
-cd /raid0/ClaudeCodeProjects/Audiobooks
+# From project root directory
+cd <project-root>
 
 # Run all tests
 pytest library/ -v
@@ -88,7 +89,7 @@ Test running directly:
 ```python
 # Python REPL test
 >>> import sys
->>> sys.path.insert(0, '/raid0/ClaudeCodeProjects/Audiobooks/library')
+>>> sys.path.insert(0, '<project-root>/library')  # e.g., /opt/audiobooks/library
 >>> from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
 >>> from backend.api_modular import create_app
 >>> app = create_app(DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR, API_PORT)
@@ -308,13 +309,13 @@ ModuleNotFoundError: No module named 'api_modular'
 **Solution:**
 ```python
 import sys
-sys.path.insert(0, '/raid0/ClaudeCodeProjects/Audiobooks/library/backend')
+sys.path.insert(0, '<install-dir>/library/backend')  # e.g., /opt/audiobooks/library/backend
 from api_modular import create_app
 ```
 
 Or set PYTHONPATH:
 ```bash
-export PYTHONPATH=/raid0/ClaudeCodeProjects/Audiobooks/library/backend:$PYTHONPATH
+export PYTHONPATH=<install-dir>/library/backend:$PYTHONPATH  # e.g., /opt/audiobooks/library/backend
 ```
 
 ### Error: Database Not Found
