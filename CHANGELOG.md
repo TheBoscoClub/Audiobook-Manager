@@ -13,6 +13,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.2.0] - 2025-12-29
+
+### Added
+- Standalone installation via GitHub releases (`bootstrap-install.sh`)
+- GitHub-based upgrade system (`audiobooks-upgrade --from-github`)
+- Release automation workflow (`.github/workflows/release.yml`)
+- Release tarball builder (`create-release.sh`)
+
+### Changed
+- Renamed repository from `audiobook-toolkit` to `Audiobook-Manager`
+- Removed Flask-CORS dependency (CORS now handled natively)
+- Updated all documentation to reflect new repository name
+
+### Removed
+- Deleted monolithic `api.py` (2,244 lines) - superseded by `api_modular/`
+- Deleted legacy `web.legacy/` directory - superseded by `web-v2/`
+
+### Fixed
+- Flask blueprint double-registration error in `api_modular`
+- SQL injection vulnerability in `generate_hashes.py`
+- Configuration path mismatch after repository rename
+
 ## [3.1.1] - 2025-12-29
 
 ### Fixed
