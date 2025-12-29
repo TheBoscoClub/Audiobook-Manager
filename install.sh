@@ -20,6 +20,10 @@
 
 set -e
 
+# Ensure files are created with proper permissions (readable by group/others)
+# This prevents the "permission denied" issues when services run as different user
+umask 022
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -455,6 +459,122 @@ prompt_delete_data() {
     else
         echo -e "${GREEN}No data selected for deletion. All files preserved.${NC}"
     fi
+}
+
+# -----------------------------------------------------------------------------
+# Post-Install Verification
+# -----------------------------------------------------------------------------
+
+verify_installation_permissions() {
+    # Verify that installed files have correct permissions and ownership
+    # for the audiobooks service user to access them
+    local install_type="$1"  # "system" or "user"
+    local issues_found=0
+
+    echo ""
+    echo -e "${BLUE}Verifying installation permissions...${NC}"
+
+    if [[ "$install_type" == "system" ]]; then
+        local APP_DIR="/opt/audiobooks"
+        local SERVICE_USER="audiobooks"
+        local SERVICE_GROUP="audiobooks"
+
+        # Check directory permissions (should be 755)
+        echo -n "  Checking directory permissions... "
+        local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2>/dev/null | wc -l)
+        if [[ "$bad_dirs" -gt 0 ]]; then
+            echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
+            sudo find "$APP_DIR" -type d -perm 700 -exec chmod 755 {} \;
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+
+        # Check Python file permissions (should be 644, readable)
+        echo -n "  Checking .py file permissions... "
+        local bad_py=$(find "$APP_DIR" -name "*.py" \( -perm 600 -o -perm 700 -o -perm 711 \) 2>/dev/null | wc -l)
+        if [[ "$bad_py" -gt 0 ]]; then
+            echo -e "${YELLOW}fixing $bad_py files${NC}"
+            sudo find "$APP_DIR" -name "*.py" \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+
+        # Check HTML/CSS/JS permissions (should be 644)
+        echo -n "  Checking web file permissions... "
+        local bad_web=$(find "$APP_DIR" \( -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 \) 2>/dev/null | wc -l)
+        if [[ "$bad_web" -gt 0 ]]; then
+            echo -e "${YELLOW}fixing $bad_web files${NC}"
+            sudo find "$APP_DIR" \( -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 \) -exec chmod 644 {} \;
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+
+        # Check critical directories have audiobooks group access
+        echo -n "  Checking group ownership... "
+        local critical_dirs=("$APP_DIR" "$APP_DIR/library" "/var/lib/audiobooks")
+        local group_issues=0
+        for dir in "${critical_dirs[@]}"; do
+            if [[ -d "$dir" ]]; then
+                local current_group=$(stat -c "%G" "$dir" 2>/dev/null)
+                if [[ "$current_group" != "$SERVICE_GROUP" && "$current_group" != "root" ]]; then
+                    sudo chgrp "$SERVICE_GROUP" "$dir" 2>/dev/null
+                    ((group_issues++))
+                fi
+            fi
+        done
+        if [[ "$group_issues" -gt 0 ]]; then
+            echo -e "${YELLOW}fixed $group_issues directories${NC}"
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+
+        # Verify no symlinks point to project source directory
+        echo -n "  Checking for project source dependencies... "
+        local project_links=$(find /usr/local/bin -name "audiobooks-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
+        if [[ "$project_links" -gt 0 ]]; then
+            echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
+            echo -e "         Production should be independent of source repo."
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK (independent)${NC}"
+        fi
+
+    else
+        # User installation checks
+        local APP_DIR="$HOME/.local/share/audiobooks"
+
+        echo -n "  Checking directory permissions... "
+        local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2>/dev/null | wc -l)
+        if [[ "$bad_dirs" -gt 0 ]]; then
+            echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
+            find "$APP_DIR" -type d -perm 700 -exec chmod 755 {} \;
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+
+        echo -n "  Checking file permissions... "
+        local bad_files=$(find "$APP_DIR" -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) -perm 600 2>/dev/null | wc -l)
+        if [[ "$bad_files" -gt 0 ]]; then
+            echo -e "${YELLOW}fixing $bad_files files${NC}"
+            find "$APP_DIR" -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) -perm 600 -exec chmod 644 {} \;
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+    fi
+
+    if [[ "$issues_found" -gt 0 ]]; then
+        echo -e "${YELLOW}  Fixed $issues_found permission issues.${NC}"
+    else
+        echo -e "${GREEN}  All permissions verified.${NC}"
+    fi
+
+    return 0
 }
 
 # -----------------------------------------------------------------------------
@@ -1005,6 +1125,9 @@ EOF
     echo "  audiobooks-help            - Quick reference guide"
     echo ""
     echo "Access the library at: https://localhost:${WEB_PORT}"
+
+    # Verify permissions after installation
+    verify_installation_permissions "system"
 }
 
 do_system_uninstall() {
@@ -1443,6 +1566,9 @@ EOF
     echo ""
     echo "NOTE: Your browser will show a security warning for the self-signed"
     echo "certificate. Click 'Advanced' -> 'Proceed to localhost' to continue."
+
+    # Verify permissions after installation
+    verify_installation_permissions "user"
 }
 
 do_user_uninstall() {

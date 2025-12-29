@@ -112,14 +112,14 @@
 
   "config_files": [
     {
-      "path": "/etc/audiobooks/config.env",
+      "path": "/etc/audiobooks/audiobooks.conf",
       "required": true,
       "description": "Main configuration file"
     },
     {
-      "path": "/opt/audiobooks/library/backend/audiobooks.db",
+      "path": "/var/lib/audiobooks/audiobooks.db",
       "required": true,
-      "description": "SQLite database"
+      "description": "SQLite database (canonical, on NVMe)"
     }
   ],
 
@@ -137,19 +137,19 @@
       "description": "Library code"
     },
     {
-      "path": "/srv/audiobooks",
+      "path": "/raid0/Audiobooks",
       "required": true,
       "min_permissions": "755",
-      "description": "Audiobook data storage"
+      "description": "Audiobook data storage (HDD RAID for bulk storage)"
     },
     {
-      "path": "/srv/audiobooks/Library",
+      "path": "/raid0/Audiobooks/Library",
       "required": true,
       "min_permissions": "755",
       "description": "Converted audiobooks (Opus)"
     },
     {
-      "path": "/srv/audiobooks/Sources",
+      "path": "/raid0/Audiobooks/Sources",
       "required": true,
       "min_permissions": "755",
       "description": "Source audiobooks (AAXC)"
@@ -197,7 +197,7 @@
   "health_checks": [
     {
       "name": "API health endpoint",
-      "command": "curl -sf http://localhost:${AUDIOBOOKS_API_PORT:-5001}/api/health || curl -sf http://localhost:${AUDIOBOOKS_API_PORT:-5001}/health",
+      "command": "curl -sf http://localhost:${AUDIOBOOKS_API_PORT:-5001}/health",
       "timeout": 10
     },
     {
@@ -207,12 +207,12 @@
     },
     {
       "name": "Database accessible",
-      "command": "test -f /opt/audiobooks/library/backend/audiobooks.db && sqlite3 /opt/audiobooks/library/backend/audiobooks.db 'SELECT 1'",
+      "command": "test -f /var/lib/audiobooks/audiobooks.db && sqlite3 /var/lib/audiobooks/audiobooks.db 'SELECT 1'",
       "timeout": 5
     },
     {
       "name": "Library directory readable",
-      "command": "test -d /srv/audiobooks/Library && ls /srv/audiobooks/Library >/dev/null",
+      "command": "test -d /raid0/Audiobooks/Library && ls /raid0/Audiobooks/Library >/dev/null",
       "timeout": 5
     }
   ]

@@ -24,6 +24,9 @@
 
 set -e
 
+# Ensure files are created with proper permissions (readable by group/others)
+umask 022
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -401,6 +404,9 @@ migrate_to_modular() {
         echo ""
         echo "To switch back to monolithic:"
         echo "  ./migrate-api.sh --to-monolithic"
+
+        # Verify permissions after migration
+        verify_installation_permissions "$target"
     fi
 }
 
@@ -477,6 +483,62 @@ migrate_to_monolithic() {
         echo ""
         echo "To switch to modular:"
         echo "  ./migrate-api.sh --to-modular"
+
+        # Verify permissions after migration
+        verify_installation_permissions "$target"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Post-Migration Verification
+# -----------------------------------------------------------------------------
+
+verify_installation_permissions() {
+    # Verify that installed files have correct permissions and ownership
+    local target_dir="$1"
+    local issues_found=0
+
+    echo ""
+    echo -e "${BLUE}Verifying installation permissions...${NC}"
+
+    # Determine if this is a system or user installation
+    local is_system=false
+    [[ "$target_dir" == /opt/* ]] || [[ "$target_dir" == /usr/* ]] && is_system=true
+
+    # Check directory permissions (should be 755)
+    echo -n "  Checking directory permissions... "
+    local bad_dirs=$(find "$target_dir" -type d -perm 700 2>/dev/null | wc -l)
+    if [[ "$bad_dirs" -gt 0 ]]; then
+        echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
+        if [[ "$is_system" == "true" ]]; then
+            sudo find "$target_dir" -type d -perm 700 -exec chmod 755 {} \;
+        else
+            find "$target_dir" -type d -perm 700 -exec chmod 755 {} \;
+        fi
+        ((issues_found++))
+    else
+        echo -e "${GREEN}OK${NC}"
+    fi
+
+    # Check file permissions (should be 644 for .py, .html, .css, .js)
+    echo -n "  Checking file permissions... "
+    local bad_files=$(find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) 2>/dev/null | wc -l)
+    if [[ "$bad_files" -gt 0 ]]; then
+        echo -e "${YELLOW}fixing $bad_files files${NC}"
+        if [[ "$is_system" == "true" ]]; then
+            sudo find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
+        else
+            find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
+        fi
+        ((issues_found++))
+    else
+        echo -e "${GREEN}OK${NC}"
+    fi
+
+    if [[ "$issues_found" -gt 0 ]]; then
+        echo -e "${YELLOW}  Fixed $issues_found permission issues.${NC}"
+    else
+        echo -e "${GREEN}  All permissions verified.${NC}"
     fi
 }
 
