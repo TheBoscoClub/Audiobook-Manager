@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+## [3.1.0] - 2025-12-29
+
+### Added
+- Install manifest (`install-manifest.json`) for production validation
+- API architecture selection and migration tools (`migrate-api.sh`)
+- Modular Flask Blueprint architecture (`api_modular/`)
+- Deployment infrastructure with dev configuration
+- Post-install permission verification with umask 022
+
+### Changed
+- Refactored codebase with linting fixes and test migration to api_modular
+
+### Fixed
+- Resolved 7 hanging tests by correcting mock paths in test suite
+- Fixed 13 shellcheck warnings across shell scripts
+- Resolved 18 mypy type errors across Python modules
+- Addressed security vulnerabilities and code quality issues
+
 ## [3.0.5] - 2025-12-27
 
 ### Security
