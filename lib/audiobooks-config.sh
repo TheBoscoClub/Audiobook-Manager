@@ -104,7 +104,7 @@ fi
 
 # Conversion settings
 : "${AUDIOBOOKS_STAGING:=/tmp/audiobook-staging}"  # tmpfs staging directory
-: "${AUDIOBOOKS_PARALLEL_JOBS:=8}"                 # Number of parallel conversions
+: "${AUDIOBOOKS_PARALLEL_JOBS:=12}"                # Number of parallel conversions
 : "${AUDIOBOOKS_SCAN_INTERVAL:=300}"               # Seconds between scans when idle
 : "${AUDIOBOOKS_TMPFS_THRESHOLD:=85}"              # Pause if tmpfs exceeds this %
 : "${AUDIOBOOKS_OPUS_LEVEL:=10}"                   # Opus compression level (0-10)
