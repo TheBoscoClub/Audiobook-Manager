@@ -17,10 +17,10 @@ elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
 fi
 
 # Configuration
-LOG_DIR="${AUDIOBOOKS_LOGS:-/var/log/audiobooks}"
-STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
-LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/srv/audiobooks/Library}"
-SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/srv/audiobooks/Sources}"
+LOG_DIR="$AUDIOBOOKS_LOGS"
+STAGING_DIR="$AUDIOBOOKS_STAGING"
+LIBRARY_DIR="$AUDIOBOOKS_LIBRARY"
+SOURCES_DIR="$AUDIOBOOKS_SOURCES"
 
 # Ensure display environment for desktop notifications
 export DISPLAY="${DISPLAY:-:0}"

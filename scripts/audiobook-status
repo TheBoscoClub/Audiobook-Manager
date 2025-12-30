@@ -16,9 +16,9 @@ elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
 fi
 
 # Configuration
-SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/srv/audiobooks/Sources}"
-LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/srv/audiobooks/Library}"
-STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+SOURCES_DIR="$AUDIOBOOKS_SOURCES"
+LIBRARY_DIR="$AUDIOBOOKS_LIBRARY"
+STAGING_DIR="$AUDIOBOOKS_STAGING"
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
