@@ -261,7 +261,7 @@ def extract_topics(description: str) -> list[str]:
     return topics if topics else ["general"]
 
 
-def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: Optional[str]) -> int:
+def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: Optional[str]) -> Optional[int]:
     """Insert a single audiobook into the database. Returns the new ID."""
     cursor = conn.cursor()
 
@@ -364,7 +364,10 @@ def add_new_audiobooks(
     Returns:
         dict with results: {added: int, skipped: int, errors: int, new_files: list}
     """
-    results = {"added": 0, "skipped": 0, "errors": 0, "new_files": []}
+    added_count = 0
+    skipped_count = 0
+    errors_count = 0
+    new_files_list: list[dict] = []
 
     # Get existing paths
     if progress_callback:
@@ -383,7 +386,7 @@ def add_new_audiobooks(
     if not new_files:
         if progress_callback:
             progress_callback(100, 100, "No new audiobooks found")
-        return results
+        return {"added": added_count, "skipped": skipped_count, "errors": errors_count, "new_files": new_files_list}
 
     # Ensure cover directory exists
     cover_dir.mkdir(parents=True, exist_ok=True)
@@ -406,7 +409,7 @@ def add_new_audiobooks(
             # Extract metadata
             metadata = get_file_metadata(filepath, calculate_hash=calculate_hashes)
             if not metadata:
-                results["errors"] += 1
+                errors_count += 1
                 continue
 
             # Extract cover art
@@ -417,31 +420,31 @@ def add_new_audiobooks(
                 audiobook_id = insert_audiobook(conn, metadata, cover_path)
                 conn.commit()
 
-                results["added"] += 1
-                results["new_files"].append({
+                added_count += 1
+                new_files_list.append({
                     "id": audiobook_id,
                     "title": metadata.get("title"),
                     "author": metadata.get("author"),
                     "file_path": str(filepath),
                 })
 
-            except sqlite3.IntegrityError as e:
+            except sqlite3.IntegrityError:
                 # File path already exists (race condition or duplicate)
                 print(f"  Skipped (already exists): {filepath.name}")
-                results["skipped"] += 1
+                skipped_count += 1
                 conn.rollback()
             except Exception as e:
                 print(f"  Error inserting: {e}")
-                results["errors"] += 1
+                errors_count += 1
                 conn.rollback()
 
         if progress_callback:
-            progress_callback(100, 100, f"Complete: Added {results['added']} audiobooks")
+            progress_callback(100, 100, f"Complete: Added {added_count} audiobooks")
 
     finally:
         conn.close()
 
-    return results
+    return {"added": added_count, "skipped": skipped_count, "errors": errors_count, "new_files": new_files_list}
 
 
 def main():

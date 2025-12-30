@@ -494,20 +494,74 @@ Two modes available via "Find Duplicates" dropdown:
 
 The library exposes a REST API on port 5001:
 
+### Core Endpoints
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/audiobooks` | GET | List audiobooks with pagination, search, filtering, sorting |
 | `/api/audiobooks/<id>` | GET | Get single audiobook details |
+| `/api/audiobooks/<id>` | PUT | Update audiobook metadata |
+| `/api/audiobooks/<id>` | DELETE | Delete audiobook from library |
 | `/api/collections` | GET | List available collections with book counts |
 | `/api/stats` | GET | Library statistics (counts, total hours) |
 | `/api/filters` | GET | Available filter options (authors, narrators, genres) |
 | `/api/narrator-counts` | GET | Narrator names with book counts |
-| `/api/duplicates/by-title` | GET | Find duplicates by title/author/narrator |
-| `/api/duplicates/by-hash` | GET | Find exact duplicates by SHA-256 hash |
-| `/api/hash-stats` | GET | Hash generation statistics |
 | `/api/stream/<id>` | GET | Stream audio file (supports range requests) |
-| `/api/covers/<filename>` | GET | Get cover art image |
+| `/covers/<filename>` | GET | Get cover art image |
+| `/health` | GET | API health check |
+
+### Duplicate Management
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/duplicates` | GET | List all duplicates |
+| `/api/duplicates/by-title` | GET | Find duplicates by title/author/narrator |
+| `/api/duplicates/delete` | POST | Delete duplicate files |
+| `/api/duplicates/verify` | POST | Verify duplicate detection |
+| `/api/hash-stats` | GET | Hash generation statistics |
+
+### Supplements
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/supplements` | GET | List all supplements |
+| `/api/supplements/stats` | GET | Supplement statistics |
 | `/api/supplements/<id>/download` | GET | Download PDF supplement |
+| `/api/supplements/scan` | POST | Scan for new supplements |
+
+### Bulk Operations
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/audiobooks/bulk-update` | POST | Update multiple audiobooks |
+| `/api/audiobooks/bulk-delete` | POST | Delete multiple audiobooks |
+| `/api/audiobooks/missing-narrator` | GET | List books without narrator |
+| `/api/audiobooks/missing-hash` | GET | List books without hash |
+
+### Utilities (Back Office)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/utilities/add-new` | POST | Add new audiobooks (incremental scan) |
+| `/api/utilities/rescan` | POST | Full library rescan |
+| `/api/utilities/rescan-async` | POST | Async full library rescan |
+| `/api/utilities/reimport` | POST | Reimport metadata to database |
+| `/api/utilities/reimport-async` | POST | Async reimport metadata |
+| `/api/utilities/generate-hashes` | POST | Generate SHA-256 hashes |
+| `/api/utilities/generate-hashes-async` | POST | Async hash generation |
+| `/api/utilities/vacuum` | POST | Vacuum database |
+| `/api/utilities/export-db` | GET | Export SQLite database |
+| `/api/utilities/export-json` | GET | Export as JSON |
+| `/api/utilities/export-csv` | GET | Export as CSV |
+
+### Operation Status (Long-running tasks)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/operations/status/<id>` | GET | Get operation status |
+| `/api/operations/active` | GET | List active operations |
+| `/api/operations/all` | GET | List all operations |
+| `/api/operations/cancel/<id>` | POST | Cancel running operation |
 
 ### Query Parameters for `/api/audiobooks`
 - `page` - Page number (default: 1)
@@ -779,7 +833,12 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.2.0 (Current)
+### v3.2.1 (Current)
+- **Docker Build**: Added Docker build job to release workflow for automated container builds
+- **Performance**: Increased default parallel conversion jobs from 8 to 12
+- **Cleanup**: Removed redundant config fallbacks from scripts (single source of truth)
+
+### v3.2.0
 - **GitHub Releases**: Standalone installation via `bootstrap-install.sh`
 - **Upgrade System**: GitHub-based upgrades with `audiobooks-upgrade --from-github`
 - **Release Automation**: CI/CD workflow and release tarball builder

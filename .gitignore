@@ -64,6 +64,12 @@ library/certs/
 *.temp
 .cache/
 
+# Testing/Coverage
+.coverage
+coverage.json
+htmlcov/
+.pytest_cache/
+
 # Audible auth codes (sensitive)
 *.authcode
 library/backend/audiobooks.db-journal

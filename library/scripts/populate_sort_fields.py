@@ -44,8 +44,6 @@ def extract_name_parts(full_name):
         return (None, None)
 
     # Remove role suffixes like "(editor)", "(translator)", "(contributor)", etc.
-    import re
-
     full_name = re.sub(r"\s*\([^)]*\)\s*$", "", full_name).strip()
 
     # Handle multiple authors - use first one

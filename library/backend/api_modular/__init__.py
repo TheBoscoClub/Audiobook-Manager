@@ -145,7 +145,10 @@ def run_server(
         debug: Enable debug mode
         use_waitress: Use waitress production server instead of Flask dev server
     """
-    flask_app = flask_app or app
+    if flask_app is None:
+        flask_app = app
+    if flask_app is None:
+        raise RuntimeError("No Flask application provided and global app is not initialized. Call create_app() first.")
     port = port or API_PORT
 
     print("Starting Audiobook Library API...")
