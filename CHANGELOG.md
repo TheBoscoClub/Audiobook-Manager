@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.2.1] - 2025-12-30
+
+### Added
+- Docker build job to release workflow for automated container builds
+
+### Changed
+- Increased default parallel conversion jobs from 8 to 12
+- Removed redundant config fallbacks from scripts (single source of truth in audiobooks-config.sh)
+
+### Fixed
+- Updated documentation to v3.2.0 and fixed obsolete paths
+
 ## [3.2.0] - 2025-12-29
 
 ### Added
