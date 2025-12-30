@@ -13,6 +13,8 @@ let editingAudiobook = null;
 let duplicatesData = [];
 let bulkSelection = new Set();
 let duplicateSelection = new Set();
+let activeOperationId = null;
+let pollingInterval = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,9 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initDuplicatesSection();
     initBulkSection();
     initModals();
+    initOperationStatus();
 
     // Load initial stats
     loadDatabaseStats();
+
+    // Check for any active operations on page load
+    checkActiveOperations();
 });
 
 // ============================================
@@ -60,9 +66,10 @@ function switchSection(section) {
 
 function initDatabaseSection() {
     document.getElementById('refresh-stats')?.addEventListener('click', loadDatabaseStats);
-    document.getElementById('rescan-library')?.addEventListener('click', rescanLibrary);
-    document.getElementById('reimport-db')?.addEventListener('click', reimportDatabase);
-    document.getElementById('generate-hashes')?.addEventListener('click', generateHashes);
+    document.getElementById('add-new-audiobooks')?.addEventListener('click', addNewAudiobooks);
+    document.getElementById('rescan-library')?.addEventListener('click', rescanLibraryAsync);
+    document.getElementById('reimport-db')?.addEventListener('click', reimportDatabaseAsync);
+    document.getElementById('generate-hashes')?.addEventListener('click', generateHashesAsync);
     document.getElementById('vacuum-db')?.addEventListener('click', vacuumDatabase);
     document.getElementById('export-db')?.addEventListener('click', exportDatabase);
     document.getElementById('export-json')?.addEventListener('click', exportJson);
@@ -739,4 +746,327 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ============================================
+// Operation Status Tracking & Polling
+// ============================================
+
+function initOperationStatus() {
+    // Cancel button in status banner
+    document.getElementById('status-cancel-btn')?.addEventListener('click', cancelActiveOperation);
+
+    // Close button in progress modal
+    document.getElementById('modal-close-progress')?.addEventListener('click', hideProgressModal);
+}
+
+async function checkActiveOperations() {
+    try {
+        const res = await fetch(`${API_BASE}/api/operations/active`);
+        const data = await res.json();
+
+        if (data.operations && data.operations.length > 0) {
+            // Resume tracking the first active operation
+            const op = data.operations[0];
+            activeOperationId = op.id;
+            showStatusBanner(op);
+            startOperationPolling();
+        }
+    } catch (error) {
+        console.error('Failed to check active operations:', error);
+    }
+}
+
+function startOperationPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+
+    pollingInterval = setInterval(pollOperationStatus, 500);
+}
+
+function stopOperationPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+}
+
+async function pollOperationStatus() {
+    if (!activeOperationId) {
+        stopOperationPolling();
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/operations/status/${activeOperationId}`);
+        const status = await res.json();
+
+        updateStatusDisplay(status);
+
+        // Check if operation completed
+        if (status.state !== 'running' && status.state !== 'pending') {
+            stopOperationPolling();
+            handleOperationComplete(status);
+        }
+    } catch (error) {
+        console.error('Polling error:', error);
+    }
+}
+
+function updateStatusDisplay(status) {
+    // Update banner
+    document.getElementById('status-operation-name').textContent =
+        status.description || `${status.type} operation`;
+    document.getElementById('status-progress-fill').style.width = `${status.progress}%`;
+    document.getElementById('status-progress-percent').textContent = `${status.progress}%`;
+    document.getElementById('status-message').textContent = status.message || 'Processing...';
+
+    // Update modal if visible
+    const modal = document.getElementById('progress-modal');
+    if (modal.classList.contains('active')) {
+        document.getElementById('modal-progress-fill').style.width = `${status.progress}%`;
+        document.getElementById('modal-progress-percent').textContent = `${status.progress}%`;
+        document.getElementById('progress-message').textContent = status.message || 'Processing...';
+
+        if (status.elapsed_seconds) {
+            const elapsed = Math.round(status.elapsed_seconds);
+            document.getElementById('modal-progress-elapsed').textContent =
+                `Elapsed: ${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
+        }
+
+        document.getElementById('modal-operation-id').textContent = `ID: ${status.id}`;
+    }
+}
+
+function handleOperationComplete(status) {
+    activeOperationId = null;
+    hideStatusBanner();
+
+    // Show modal close button
+    document.getElementById('modal-close-progress')?.style.setProperty('display', 'inline-block');
+
+    // Update modal with final status
+    const modal = document.getElementById('progress-modal');
+    if (modal.classList.contains('active')) {
+        document.getElementById('progress-spinner')?.classList.add('hidden');
+
+        if (status.state === 'completed') {
+            document.getElementById('progress-message').textContent = 'Operation completed successfully!';
+            document.getElementById('modal-progress-fill').style.backgroundColor = '#2e7d32';
+
+            // Show result details
+            if (status.result) {
+                const output = document.getElementById('progress-output');
+                let resultText = '';
+                if (status.result.added !== undefined) {
+                    resultText = `Added: ${status.result.added} audiobooks`;
+                    if (status.result.skipped) resultText += ` | Skipped: ${status.result.skipped}`;
+                    if (status.result.errors) resultText += ` | Errors: ${status.result.errors}`;
+                } else if (status.result.files_found !== undefined) {
+                    resultText = `Files found: ${status.result.files_found}`;
+                } else if (status.result.imported_count !== undefined) {
+                    resultText = `Imported: ${status.result.imported_count} audiobooks`;
+                } else if (status.result.hashes_generated !== undefined) {
+                    resultText = `Hashes generated: ${status.result.hashes_generated}`;
+                }
+                output.textContent = resultText;
+            }
+
+            showToast('Operation completed successfully', 'success');
+        } else if (status.state === 'failed') {
+            document.getElementById('progress-message').textContent = 'Operation failed';
+            document.getElementById('modal-progress-fill').style.backgroundColor = '#c62828';
+            document.getElementById('progress-output').textContent = status.error || 'Unknown error';
+            showToast(`Operation failed: ${status.error}`, 'error');
+        } else if (status.state === 'cancelled') {
+            document.getElementById('progress-message').textContent = 'Operation cancelled';
+            showToast('Operation cancelled', 'info');
+        }
+    } else {
+        // Modal not visible, just show toast
+        if (status.state === 'completed') {
+            showToast('Background operation completed', 'success');
+        } else if (status.state === 'failed') {
+            showToast(`Background operation failed: ${status.error}`, 'error');
+        }
+    }
+
+    // Refresh stats
+    loadDatabaseStats();
+}
+
+function showStatusBanner(status) {
+    const banner = document.getElementById('operation-status-banner');
+    banner.style.display = 'block';
+    updateStatusDisplay(status);
+}
+
+function hideStatusBanner() {
+    document.getElementById('operation-status-banner').style.display = 'none';
+}
+
+function hideProgressModal() {
+    document.getElementById('progress-modal').classList.remove('active');
+    // Reset modal state
+    document.getElementById('modal-progress-fill').style.width = '0%';
+    document.getElementById('modal-progress-fill').style.backgroundColor = '';
+    document.getElementById('modal-close-progress').style.display = 'none';
+    document.getElementById('progress-output').textContent = '';
+    document.getElementById('modal-progress-elapsed').textContent = '';
+}
+
+async function cancelActiveOperation() {
+    if (!activeOperationId) return;
+
+    try {
+        await fetch(`${API_BASE}/api/operations/cancel/${activeOperationId}`, { method: 'POST' });
+        showToast('Cancellation requested', 'info');
+    } catch (error) {
+        showToast('Failed to cancel operation', 'error');
+    }
+}
+
+// ============================================
+// Async Operations with Progress Tracking
+// ============================================
+
+async function addNewAudiobooks() {
+    // Check if already running
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    showProgressModal('Adding New Audiobooks', 'Scanning for new files...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/add-new`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ calculate_hashes: true })
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Adding new audiobooks', progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            if (result.operation_id) {
+                // Already running
+                activeOperationId = result.operation_id;
+                showStatusBanner({ id: result.operation_id, description: 'Adding new audiobooks', progress: 0 });
+                startOperationPolling();
+                showToast('Operation already in progress', 'info');
+            } else {
+                showToast(result.error || 'Failed to start operation', 'error');
+            }
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start add operation: ' + error.message, 'error');
+    }
+}
+
+async function rescanLibraryAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    if (!await confirmAction('Full Library Rescan',
+        'This will scan ALL files in the library, which can take a long time for large libraries.\n\nFor adding new books only, use "Add New" instead.\n\nContinue with full rescan?')) {
+        return;
+    }
+
+    showProgressModal('Scanning Library', 'Starting full library scan...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/rescan-async`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Full library scan', progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start scan', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start scan: ' + error.message, 'error');
+    }
+}
+
+async function reimportDatabaseAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    if (!await confirmAction('Reimport Database',
+        'This will rebuild the database from scan results. Existing narrator and genre data will be preserved. Continue?')) {
+        return;
+    }
+
+    showProgressModal('Reimporting Database', 'Starting database import...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/reimport-async`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Database import', progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start import', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start import: ' + error.message, 'error');
+    }
+}
+
+async function generateHashesAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    showProgressModal('Generating Hashes', 'Calculating SHA-256 hashes...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/generate-hashes-async`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Hash generation', progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start hash generation', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start hash generation: ' + error.message, 'error');
+    }
+}
+
+function showProgressModal(title, message) {
+    document.getElementById('progress-title').textContent = title;
+    document.getElementById('progress-message').textContent = message;
+    document.getElementById('progress-output').textContent = '';
+    document.getElementById('modal-progress-fill').style.width = '0%';
+    document.getElementById('modal-progress-fill').style.backgroundColor = '';
+    document.getElementById('modal-progress-percent').textContent = '0%';
+    document.getElementById('modal-progress-elapsed').textContent = '';
+    document.getElementById('modal-close-progress').style.display = 'none';
+    document.getElementById('progress-modal').classList.add('active');
 }
