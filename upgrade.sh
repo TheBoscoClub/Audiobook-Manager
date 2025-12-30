@@ -405,6 +405,16 @@ do_upgrade() {
         fi
     fi
 
+    # Fix ownership of entire installation (cp/rsync don't set correct owner)
+    if [[ -n "$use_sudo" ]]; then
+        echo -e "${BLUE}Setting ownership to audiobooks:audiobooks...${NC}"
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo "  [DRY-RUN] Would run: chown -R audiobooks:audiobooks $target"
+        else
+            sudo chown -R audiobooks:audiobooks "$target"
+        fi
+    fi
+
     echo ""
     echo -e "${GREEN}=== Upgrade Complete ===${NC}"
     echo "New version: $(get_version "$project")"
@@ -429,25 +439,16 @@ verify_installation_permissions() {
     local is_system=false
     [[ "$target_dir" == /opt/* ]] || [[ "$target_dir" == /usr/* ]] && is_system=true
 
-    # For system installations, verify ownership is audiobooks:audiobooks
+    # For system installations, verify ownership is audiobooks:audiobooks for ENTIRE installation
     if [[ "$is_system" == "true" ]]; then
         echo -n "  Checking ownership (audiobooks:audiobooks)... "
-        # Check for files not owned by audiobooks user in library and converter dirs
-        local wrong_owner=0
-        for subdir in library converter; do
-            if [[ -d "$target_dir/$subdir" ]]; then
-                local count=$(find "$target_dir/$subdir" \( ! -user audiobooks -o ! -group audiobooks \) 2>/dev/null | wc -l)
-                wrong_owner=$((wrong_owner + count))
-            fi
-        done
+        # Check for files not owned by audiobooks user in the entire installation
+        local wrong_owner
+        wrong_owner=$(find "$target_dir" \( ! -user audiobooks -o ! -group audiobooks \) 2>/dev/null | wc -l)
 
         if [[ "$wrong_owner" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $wrong_owner files/dirs${NC}"
-            for subdir in library converter; do
-                if [[ -d "$target_dir/$subdir" ]]; then
-                    sudo chown -R audiobooks:audiobooks "$target_dir/$subdir"
-                fi
-            done
+            sudo chown -R audiobooks:audiobooks "$target_dir"
             ((issues_found++))
         else
             echo -e "${GREEN}OK${NC}"
