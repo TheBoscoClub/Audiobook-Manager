@@ -499,11 +499,26 @@ verify_installation_permissions() {
     local issues_found=0
 
     echo ""
-    echo -e "${BLUE}Verifying installation permissions...${NC}"
+    echo -e "${BLUE}Verifying installation permissions and ownership...${NC}"
 
     # Determine if this is a system or user installation
     local is_system=false
     [[ "$target_dir" == /opt/* ]] || [[ "$target_dir" == /usr/* ]] && is_system=true
+
+    # For system installations, verify ownership is audiobooks:audiobooks
+    if [[ "$is_system" == "true" ]]; then
+        echo -n "  Checking ownership (audiobooks:audiobooks)... "
+        local wrong_owner
+        wrong_owner=$(find "$target_dir" \( ! -user audiobooks -o ! -group audiobooks \) 2>/dev/null | wc -l)
+
+        if [[ "$wrong_owner" -gt 0 ]]; then
+            echo -e "${YELLOW}fixing $wrong_owner files/dirs${NC}"
+            sudo chown -R audiobooks:audiobooks "$target_dir"
+            ((issues_found++))
+        else
+            echo -e "${GREEN}OK${NC}"
+        fi
+    fi
 
     # Check directory permissions (should be 755)
     echo -n "  Checking directory permissions... "
@@ -536,9 +551,9 @@ verify_installation_permissions() {
     fi
 
     if [[ "$issues_found" -gt 0 ]]; then
-        echo -e "${YELLOW}  Fixed $issues_found permission issues.${NC}"
+        echo -e "${YELLOW}  Fixed $issues_found permission/ownership issues.${NC}"
     else
-        echo -e "${GREEN}  All permissions verified.${NC}"
+        echo -e "${GREEN}  All permissions and ownership verified.${NC}"
     fi
 }
 
