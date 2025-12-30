@@ -20,20 +20,16 @@ else
 fi
 
 # Configuration
-DOWNLOAD_DIR="${AUDIOBOOKS_SOURCES}"
-LIBRARY_DIR="${AUDIOBOOKS_LIBRARY}"
-LOG_DIR="${AUDIOBOOKS_LOGS}"
+DOWNLOAD_DIR="$AUDIOBOOKS_SOURCES"
+LIBRARY_DIR="$AUDIOBOOKS_LIBRARY"
+LOG_DIR="$AUDIOBOOKS_LOGS"
 LOG_FILE="${LOG_DIR}/audiobook_downloader.log"
-LOCK_FILE="${AUDIOBOOKS_RUN_DIR:-/run/audiobooks}/downloader.lock"
-TEMP_DIR="${AUDIOBOOKS_RUN_DIR:-/run/audiobooks}/download-temp"
-SKIP_LIST="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/audiobook-skip-list.txt"
-AUDIBLE_CMD="${AUDIOBOOKS_AUDIBLE_CMD:-/usr/bin/audible}"
-
-# Rate limiting: seconds between downloads
-DOWNLOAD_DELAY="${AUDIOBOOKS_DOWNLOAD_DELAY:-30}"
-
-# tmpfs usage threshold (pause downloads if /tmp exceeds this)
-TMPFS_MAX_USAGE="${AUDIOBOOKS_TMPFS_THRESHOLD:-85}"
+LOCK_FILE="$AUDIOBOOKS_RUN_DIR/downloader.lock"
+TEMP_DIR="$AUDIOBOOKS_RUN_DIR/download-temp"
+SKIP_LIST="$AUDIOBOOKS_VAR_DIR/audiobook-skip-list.txt"
+AUDIBLE_CMD="$AUDIOBOOKS_AUDIBLE_CMD"
+DOWNLOAD_DELAY="$AUDIOBOOKS_DOWNLOAD_DELAY"
+TMPFS_MAX_USAGE="$AUDIOBOOKS_TMPFS_THRESHOLD"
 
 # Color codes for terminal
 GREEN='\033[0;32m'

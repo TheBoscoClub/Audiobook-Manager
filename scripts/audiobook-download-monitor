@@ -19,7 +19,7 @@ fi
 export DISPLAY="${DISPLAY:-:0}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
 
-LOG_FILE="${AUDIOBOOKS_LOGS:-/var/log/audiobooks}/audiobook_downloader.log"
+LOG_FILE="$AUDIOBOOKS_LOGS/audiobook_downloader.log"
 DBUS_REF=""
 
 cleanup() {
