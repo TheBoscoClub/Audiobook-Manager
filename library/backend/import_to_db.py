@@ -208,12 +208,53 @@ def import_audiobooks(conn):
     print("✓ Database optimized")
 
 
+def validate_json_source(json_path: Path) -> bool:
+    """
+    Validate that the JSON source is production data, not test fixtures.
+    Returns True if safe to import, exits with error if test data detected.
+    """
+    with open(json_path) as f:
+        data = json.load(f)
+
+    audiobooks = data.get("audiobooks", [])
+
+    # Safety check 1: Very few audiobooks might indicate test data
+    if len(audiobooks) < 20:
+        print(f"\n⚠️  WARNING: JSON file contains only {len(audiobooks)} audiobooks!")
+        print(f"   Source: {json_path}")
+        print("   This looks like test data, not a production library.")
+        print("\n   If this is intentional, set SKIP_IMPORT_VALIDATION=1")
+        print("   If not, ensure DATA_DIR points to production data.\n")
+
+        import os
+        if os.environ.get("SKIP_IMPORT_VALIDATION") != "1":
+            sys.exit(1)
+
+    # Safety check 2: Test audiobook titles
+    test_titles = [b.get("title", "") for b in audiobooks if "Test Audiobook" in b.get("title", "")]
+    if test_titles:
+        print(f"\n⚠️  WARNING: JSON file contains test audiobook titles!")
+        print(f"   Found: {test_titles[:5]}")
+        print(f"   Source: {json_path}")
+        print("\n   This is test data and should NOT be imported to production.")
+        print("   If this is intentional, set SKIP_IMPORT_VALIDATION=1\n")
+
+        import os
+        if os.environ.get("SKIP_IMPORT_VALIDATION") != "1":
+            sys.exit(1)
+
+    return True
+
+
 def main():
     """Main import process"""
     if not JSON_PATH.exists():
         print(f"Error: JSON file not found: {JSON_PATH}")
         print("Please run the scanner first: python3 scanner/scan_audiobooks.py")
         sys.exit(1)
+
+    # Validate JSON source before importing
+    validate_json_source(JSON_PATH)
 
     conn = create_database()
 
