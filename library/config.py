@@ -183,10 +183,9 @@ LIBRARY_DIR = PROJECT_DIR / "library" if PROJECT_DIR else Path(".")
 AUDIOBOOK_DIR = Path(os.environ.get("AUDIOBOOK_DIR", str(AUDIOBOOKS_LIBRARY)))
 DATABASE_PATH = Path(os.environ.get("DATABASE_PATH", str(AUDIOBOOKS_DATABASE)))
 COVER_DIR = Path(os.environ.get("COVER_DIR", str(AUDIOBOOKS_COVERS)))
+# DATA_DIR: uses get_config() to read from config files, not just env vars
 DATA_DIR = Path(
-    os.environ.get(
-        "DATA_DIR", str(PROJECT_DIR / "library" / "data" if PROJECT_DIR else Path("."))
-    )
+    get_config("DATA_DIR", str(PROJECT_DIR / "library" / "data" if PROJECT_DIR else "."))
 )
 SOURCES_DIR = AUDIOBOOKS_SOURCES
 SUPPLEMENTS_DIR = Path(os.environ.get("SUPPLEMENTS_DIR", str(AUDIOBOOKS_SUPPLEMENTS)))

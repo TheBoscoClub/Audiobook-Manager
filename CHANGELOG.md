@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- **CRITICAL**: Fixed `DATA_DIR` config not reading from `/etc/audiobooks/audiobooks.conf`, which caused "Reimport Database" to read from test fixtures instead of production data
+- Added test data validation in `import_to_db.py` to prevent importing test fixtures (<20 books or "Test Audiobook" titles)
 
 ## [3.3.1] - 2026-01-01
 
