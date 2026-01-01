@@ -9,6 +9,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -20,6 +21,109 @@ from utils import calculate_sha256
 # Configuration
 OUTPUT_FILE = DATA_DIR / "audiobooks.json"
 SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
+
+
+class ProgressTracker:
+    """Track progress with visual progress bar, rate calculation, and ETA."""
+
+    # ANSI color codes
+    CYAN = '\033[0;36m'
+    GREEN = '\033[0;32m'
+    YELLOW = '\033[1;33m'
+    BOLD = '\033[1m'
+    NC = '\033[0m'  # No Color
+
+    def __init__(self, total: int, bar_width: int = 40):
+        self.total = total
+        self.bar_width = bar_width
+        self.start_time = time.time()
+        self.current = 0
+        self.last_rate_update = self.start_time
+        self.last_count = 0
+        self.rate = 0.0  # files per minute
+
+    def draw_progress_bar(self, percent: int) -> str:
+        """Draw a visual progress bar using Unicode block characters."""
+        filled = int(percent * self.bar_width / 100)
+        empty = self.bar_width - filled
+        return '█' * filled + '░' * empty
+
+    def calculate_rate_and_eta(self) -> tuple:
+        """Calculate processing rate and ETA."""
+        now = time.time()
+        elapsed = now - self.last_rate_update
+
+        # Update rate every 5 seconds minimum
+        if elapsed >= 5 and self.current > self.last_count:
+            delta = self.current - self.last_count
+            self.rate = (delta * 60) / elapsed  # files per minute
+            self.last_rate_update = now
+            self.last_count = self.current
+
+        remaining = self.total - self.current
+        if self.rate > 0:
+            eta_mins = remaining / self.rate
+            if eta_mins < 1:
+                eta_str = f"{int(eta_mins * 60)}s"
+            elif eta_mins < 60:
+                eta_str = f"{int(eta_mins)}m"
+            else:
+                eta_str = f"{int(eta_mins // 60)}h {int(eta_mins % 60)}m"
+        else:
+            eta_str = "calculating..."
+
+        return self.rate, eta_str
+
+    def update(self, current: int, current_file: str = ""):
+        """Update progress display."""
+        self.current = current
+        percent = int(current * 100 / self.total) if self.total > 0 else 0
+        rate, eta = self.calculate_rate_and_eta()
+
+        # Build progress line
+        bar = self.draw_progress_bar(percent)
+        rate_str = f"{rate:.1f}" if rate > 0 else "..."
+
+        # Truncate filename for display
+        if current_file:
+            name = current_file[:50] + "..." if len(current_file) > 50 else current_file
+        else:
+            name = ""
+
+        # Print progress with carriage return for in-place update
+        print(
+            f"\r{self.BOLD}Progress:{self.NC} [{self.GREEN}{bar}{self.NC}] "
+            f"{self.BOLD}{percent:3d}%{self.NC} | "
+            f"{current}/{self.total} | "
+            f"{self.CYAN}{rate_str}{self.NC} files/min | "
+            f"ETA: {self.YELLOW}{eta}{self.NC}",
+            end="",
+            flush=True
+        )
+
+        # Print current file on next line if provided
+        if name:
+            # Clear line and print file info
+            print(f"\n  → {name}", end="\033[A", flush=True)
+
+    def finish(self):
+        """Print final statistics."""
+        elapsed = time.time() - self.start_time
+        if elapsed < 60:
+            elapsed_str = f"{elapsed:.1f}s"
+        elif elapsed < 3600:
+            elapsed_str = f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
+        else:
+            elapsed_str = f"{int(elapsed // 3600)}h {int((elapsed % 3600) // 60)}m"
+
+        avg_rate = (self.total * 60 / elapsed) if elapsed > 0 else 0
+
+        print()  # New line after progress bar
+        print()
+        print(f"{self.GREEN}{self.BOLD}✓ Scan complete!{self.NC}")
+        print(f"  Total files: {self.total}")
+        print(f"  Time elapsed: {elapsed_str}")
+        print(f"  Average rate: {avg_rate:.1f} files/min")
 
 
 def get_file_metadata(filepath, calculate_hash=True):
@@ -297,15 +401,17 @@ def scan_audiobooks():
             f"  Deduplicated {dup_count} files from /Library/Audiobook/ (keeping {len(unique_audiobook_files)} unique)"
         )
 
-    print(f"\nTotal audiobook files: {len(audiobook_files)}")
+    total_files = len(audiobook_files)
+    print(f"\nTotal audiobook files: {total_files}")
     print()
 
     audiobooks = []
 
-    total_files = len(audiobook_files)
+    # Initialize progress tracker
+    progress = ProgressTracker(total_files)
+
     for idx, filepath in enumerate(audiobook_files, 1):
-        pct = int(idx * 100 / total_files)
-        print(f"[{pct:3d}%] Processing {idx}/{total_files}: {filepath.name}")
+        progress.update(idx, filepath.name)
 
         metadata = get_file_metadata(filepath)
         if not metadata:
@@ -351,6 +457,9 @@ def scan_audiobooks():
         metadata["topics"] = topics if topics else ["general"]
 
         audiobooks.append(metadata)
+
+    # Finish progress display
+    progress.finish()
 
     # Save to JSON
     print(f"\nSaving metadata to {OUTPUT_FILE}...")

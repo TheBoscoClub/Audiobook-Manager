@@ -57,6 +57,10 @@
                     <span class="tab-icon">&#128451;</span>
                     <span class="tab-label">Database</span>
                 </button>
+                <button class="cabinet-tab" data-section="conversion">
+                    <span class="tab-icon">&#127925;</span>
+                    <span class="tab-label">Conversion</span>
+                </button>
                 <button class="cabinet-tab" data-section="audiobooks">
                     <span class="tab-icon">&#128214;</span>
                     <span class="tab-label">Audiobooks</span>
@@ -216,6 +220,122 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- Conversion Monitor Section -->
+            <section class="drawer-content" id="conversion-section">
+                <div class="section-header">
+                    <h2>Conversion Monitor</h2>
+                    <p class="section-desc">Track audiobook conversion progress from AAXC to Opus</p>
+                </div>
+
+                <div class="card-catalog">
+                    <!-- Main Progress Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Conversion Progress</span>
+                            <span class="badge" id="conv-active-count">0 active</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Progress Bar -->
+                            <div class="conversion-progress-container">
+                                <div class="conversion-progress-bar">
+                                    <div class="conversion-progress-fill" id="conv-progress-fill" style="width: 0%"></div>
+                                </div>
+                                <div class="conversion-progress-info">
+                                    <span class="progress-percent" id="conv-percent">0%</span>
+                                    <span class="progress-eta" id="conv-eta">Calculating...</span>
+                                </div>
+                            </div>
+
+                            <!-- Stats Grid -->
+                            <div class="stat-grid conversion-stats">
+                                <div class="stat-row">
+                                    <span class="stat-label">Source Files (.aaxc)</span>
+                                    <span class="stat-value" id="conv-source-count">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">In Library</span>
+                                    <span class="stat-value success" id="conv-library-count">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">In Staging</span>
+                                    <span class="stat-value warning" id="conv-staged-count">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Remaining</span>
+                                    <span class="stat-value info" id="conv-remaining-count">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Queue Size</span>
+                                    <span class="stat-value" id="conv-queue-count">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Conversion Rate</span>
+                                    <span class="stat-value rate" id="conv-rate">- books/min</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <span class="last-updated" id="conv-last-updated">Never updated</span>
+                            <button class="office-btn" id="conv-refresh">
+                                <span class="btn-icon">&#8635;</span> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- System Stats Card -->
+                    <div class="catalog-card">
+                        <div class="card-header">System Resources</div>
+                        <div class="card-body">
+                            <div class="stat-grid">
+                                <div class="stat-row">
+                                    <span class="stat-label">Active FFmpeg Processes</span>
+                                    <span class="stat-value" id="conv-ffmpeg-count">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Process Nice Value</span>
+                                    <span class="stat-value" id="conv-ffmpeg-nice">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">System Load</span>
+                                    <span class="stat-value" id="conv-load-avg">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">tmpfs Usage</span>
+                                    <span class="stat-value" id="conv-tmpfs-usage">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">tmpfs Available</span>
+                                    <span class="stat-value" id="conv-tmpfs-avail">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Conversions Card -->
+                    <div class="catalog-card">
+                        <div class="card-header">Active Conversions</div>
+                        <div class="card-body">
+                            <div class="active-conversions-list" id="conv-active-list">
+                                <p class="placeholder-text">No active conversions</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Auto-refresh controls -->
+                <div class="conversion-controls">
+                    <label class="checkbox-option">
+                        <input type="checkbox" id="conv-auto-refresh" checked>
+                        <span>Auto-refresh every <select id="conv-refresh-interval" class="office-select small">
+                            <option value="5">5s</option>
+                            <option value="10" selected>10s</option>
+                            <option value="30">30s</option>
+                            <option value="60">60s</option>
+                        </select></span>
+                    </label>
                 </div>
             </section>
 

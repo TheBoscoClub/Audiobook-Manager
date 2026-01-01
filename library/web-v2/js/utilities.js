@@ -20,6 +20,7 @@ let pollingInterval = null;
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initDatabaseSection();
+    initConversionSection();
     initAudiobooksSection();
     initDuplicatesSection();
     initBulkSection();
@@ -1069,4 +1070,188 @@ function showProgressModal(title, message) {
     document.getElementById('modal-progress-elapsed').textContent = '';
     document.getElementById('modal-close-progress').style.display = 'none';
     document.getElementById('progress-modal').classList.add('active');
+}
+
+// ============================================
+// Conversion Monitor Section
+// ============================================
+
+let conversionRefreshInterval = null;
+let conversionRateTracker = {
+    prevCount: 0,
+    prevTime: Date.now(),
+    rate: 0
+};
+
+function initConversionSection() {
+    // Refresh button
+    document.getElementById('conv-refresh')?.addEventListener('click', loadConversionStatus);
+
+    // Auto-refresh toggle
+    document.getElementById('conv-auto-refresh')?.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            startConversionAutoRefresh();
+        } else {
+            stopConversionAutoRefresh();
+        }
+    });
+
+    // Refresh interval change
+    document.getElementById('conv-refresh-interval')?.addEventListener('change', () => {
+        if (document.getElementById('conv-auto-refresh')?.checked) {
+            stopConversionAutoRefresh();
+            startConversionAutoRefresh();
+        }
+    });
+
+    // Start auto-refresh if checkbox is checked
+    if (document.getElementById('conv-auto-refresh')?.checked) {
+        startConversionAutoRefresh();
+    }
+}
+
+function startConversionAutoRefresh() {
+    stopConversionAutoRefresh();
+    const intervalSec = parseInt(document.getElementById('conv-refresh-interval')?.value || '10');
+    loadConversionStatus();
+    conversionRefreshInterval = setInterval(loadConversionStatus, intervalSec * 1000);
+}
+
+function stopConversionAutoRefresh() {
+    if (conversionRefreshInterval) {
+        clearInterval(conversionRefreshInterval);
+        conversionRefreshInterval = null;
+    }
+}
+
+async function loadConversionStatus() {
+    try {
+        const res = await fetch(`${API_BASE}/api/conversion/status`);
+        const data = await res.json();
+
+        if (!data.success) {
+            console.error('Failed to load conversion status:', data.error);
+            return;
+        }
+
+        const status = data.status;
+        const processes = data.processes;
+        const system = data.system;
+
+        // Update progress bar
+        const progressFill = document.getElementById('conv-progress-fill');
+        const percentDisplay = document.getElementById('conv-percent');
+        if (progressFill && percentDisplay) {
+            progressFill.style.width = `${status.percent_complete}%`;
+            percentDisplay.textContent = `${status.percent_complete}%`;
+
+            // Add complete class if done
+            const container = progressFill.closest('.conversion-progress-container');
+            if (container) {
+                container.classList.toggle('conversion-complete', status.is_complete);
+            }
+        }
+
+        // Calculate rate and ETA
+        const now = Date.now();
+        const elapsed = (now - conversionRateTracker.prevTime) / 1000;
+
+        if (elapsed >= 5 && status.total_converted > conversionRateTracker.prevCount) {
+            const delta = status.total_converted - conversionRateTracker.prevCount;
+            conversionRateTracker.rate = (delta * 60) / elapsed;
+            conversionRateTracker.prevCount = status.total_converted;
+            conversionRateTracker.prevTime = now;
+        } else if (conversionRateTracker.prevCount === 0) {
+            conversionRateTracker.prevCount = status.total_converted;
+            conversionRateTracker.prevTime = now;
+        }
+
+        // Display rate
+        const rateDisplay = document.getElementById('conv-rate');
+        if (rateDisplay) {
+            if (conversionRateTracker.rate > 0) {
+                rateDisplay.textContent = `${conversionRateTracker.rate.toFixed(1)} books/min`;
+            } else {
+                rateDisplay.textContent = 'measuring...';
+            }
+        }
+
+        // Calculate and display ETA
+        const etaDisplay = document.getElementById('conv-eta');
+        if (etaDisplay) {
+            if (status.is_complete) {
+                etaDisplay.textContent = 'Complete!';
+            } else if (conversionRateTracker.rate > 0 && status.remaining > 0) {
+                const etaMins = status.remaining / conversionRateTracker.rate;
+                if (etaMins < 1) {
+                    etaDisplay.textContent = `ETA: ${Math.round(etaMins * 60)}s`;
+                } else if (etaMins < 60) {
+                    etaDisplay.textContent = `ETA: ${Math.round(etaMins)}m`;
+                } else {
+                    const hours = Math.floor(etaMins / 60);
+                    const mins = Math.round(etaMins % 60);
+                    etaDisplay.textContent = `ETA: ${hours}h ${mins}m`;
+                }
+            } else {
+                etaDisplay.textContent = 'Calculating...';
+            }
+        }
+
+        // Update file counts
+        document.getElementById('conv-source-count').textContent = status.source_count.toLocaleString();
+        document.getElementById('conv-library-count').textContent = status.library_count.toLocaleString();
+        document.getElementById('conv-staged-count').textContent = status.staged_count.toLocaleString();
+        document.getElementById('conv-remaining-count').textContent = status.remaining.toLocaleString();
+        document.getElementById('conv-queue-count').textContent = status.queue_count.toLocaleString();
+
+        // Update system stats
+        document.getElementById('conv-ffmpeg-count').textContent = processes.ffmpeg_count || '0';
+        document.getElementById('conv-ffmpeg-nice').textContent = processes.ffmpeg_nice || '-';
+        document.getElementById('conv-load-avg').textContent = system.load_avg || '-';
+        document.getElementById('conv-tmpfs-usage').textContent = system.tmpfs_usage || '-';
+        document.getElementById('conv-tmpfs-avail').textContent = system.tmpfs_avail || '-';
+
+        // Update active badge
+        const activeBadge = document.getElementById('conv-active-count');
+        if (activeBadge) {
+            activeBadge.textContent = `${processes.ffmpeg_count} active`;
+        }
+
+        // Update active conversions list using safe DOM methods
+        const activeList = document.getElementById('conv-active-list');
+        if (activeList) {
+            // Clear existing content safely
+            while (activeList.firstChild) {
+                activeList.removeChild(activeList.firstChild);
+            }
+
+            if (processes.active_conversions && processes.active_conversions.length > 0) {
+                processes.active_conversions.forEach(filename => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'active-conversion-item';
+
+                    const filenameSpan = document.createElement('span');
+                    filenameSpan.className = 'filename';
+                    filenameSpan.textContent = filename;
+
+                    itemDiv.appendChild(filenameSpan);
+                    activeList.appendChild(itemDiv);
+                });
+            } else {
+                const placeholder = document.createElement('p');
+                placeholder.className = 'placeholder-text';
+                placeholder.textContent = 'No active conversions';
+                activeList.appendChild(placeholder);
+            }
+        }
+
+        // Update last updated timestamp
+        const lastUpdated = document.getElementById('conv-last-updated');
+        if (lastUpdated) {
+            lastUpdated.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+        }
+
+    } catch (error) {
+        console.error('Failed to load conversion status:', error);
+    }
 }

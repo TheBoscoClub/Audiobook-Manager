@@ -1145,3 +1145,167 @@ body.back-office {
         width: calc(100% - 40px);
     }
 }
+
+/* ============================================
+ * Conversion Monitor Section
+ * ============================================ */
+
+/* Progress Bar Container */
+.conversion-progress-container {
+    margin-bottom: 1.5rem;
+}
+
+.conversion-progress-bar {
+    height: 28px;
+    background: var(--office-dark);
+    border-radius: 4px;
+    border: 2px solid var(--brass-dark);
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.conversion-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--banker-green) 0%, var(--banker-green-light) 100%);
+    border-radius: 2px;
+    transition: width 0.5s ease-out;
+    box-shadow:
+        0 0 10px var(--banker-green-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.conversion-progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    padding: 0 0.25rem;
+}
+
+.conversion-progress-info .progress-percent {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--brass-light);
+}
+
+.conversion-progress-info .progress-eta {
+    font-size: 0.9rem;
+    color: var(--ledger-cream);
+    opacity: 0.8;
+}
+
+/* Conversion Stats Grid */
+.conversion-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.conversion-stats .stat-value.success {
+    color: var(--banker-green-light);
+}
+
+.conversion-stats .stat-value.warning {
+    color: var(--brass-light);
+}
+
+.conversion-stats .stat-value.info {
+    color: #6ca6cd;
+}
+
+.conversion-stats .stat-value.rate {
+    color: var(--brass-light);
+    font-family: 'Courier New', monospace;
+}
+
+/* Active Conversions List */
+.active-conversions-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.active-conversion-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--office-dark);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid var(--banker-green);
+}
+
+.active-conversion-item::before {
+    content: '●';
+    color: var(--banker-green-light);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.active-conversion-item .filename {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--ledger-cream);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Conversion Controls */
+.conversion-controls {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--office-desk);
+    border-radius: 4px;
+    border: 1px solid var(--brass-dark);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.conversion-controls .checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ledger-cream);
+}
+
+.conversion-controls .office-select.small {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    min-width: auto;
+}
+
+/* Last Updated */
+.card-footer .last-updated {
+    font-size: 0.8rem;
+    color: var(--ink-faded);
+    font-style: italic;
+}
+
+/* Completion State */
+.conversion-complete .conversion-progress-fill {
+    background: linear-gradient(90deg, var(--banker-green-light) 0%, #4a8a62 100%);
+}
+
+.conversion-complete .progress-percent {
+    color: var(--banker-green-light);
+}
+
+/* No Conversions State */
+.no-conversions {
+    text-align: center;
+    padding: 2rem;
+    color: var(--ink-faded);
+}
+
+.no-conversions-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}

@@ -834,4 +834,164 @@ def init_utilities_routes(db_path, project_root):
             "operation_id": operation_id
         })
 
+    # =========================================================================
+    # Conversion Monitor Status Endpoint
+    # =========================================================================
+
+    @utilities_bp.route("/api/conversion/status", methods=["GET"])
+    def get_conversion_status() -> FlaskResponse:
+        """
+        Get current audiobook conversion status.
+        Returns file counts, active processes, and statistics for the monitor.
+        """
+        import os
+
+        # Import config paths
+        sys.path.insert(0, str(project_root))
+        from config import (
+            AUDIOBOOKS_SOURCES,
+            AUDIOBOOKS_LIBRARY,
+            AUDIOBOOKS_DATA,
+        )
+
+        staging_dir = AUDIOBOOKS_DATA / "Staging"
+        index_dir = AUDIOBOOKS_DATA / ".index"
+        queue_file = index_dir / "queue.txt"
+
+        try:
+            # Count source AAXC files
+            sources_dir = AUDIOBOOKS_SOURCES
+            aaxc_count = len(list(sources_dir.glob("*.aaxc"))) if sources_dir.exists() else 0
+
+            # Count staged opus files (excluding covers)
+            staged_count = 0
+            if staging_dir.exists():
+                for f in staging_dir.glob("*.opus"):
+                    if not f.name.endswith(".cover.opus"):
+                        staged_count += 1
+
+            # Count library opus files (excluding covers)
+            library_count = 0
+            if AUDIOBOOKS_LIBRARY.exists():
+                for f in AUDIOBOOKS_LIBRARY.rglob("*.opus"):
+                    if not f.name.endswith(".cover.opus"):
+                        library_count += 1
+
+            # Total converted
+            total_converted = library_count + staged_count
+
+            # Queue count (files pending conversion)
+            queue_count = 0
+            if queue_file.exists():
+                with open(queue_file) as f:
+                    queue_count = sum(1 for line in f if line.strip())
+
+            # Remaining calculation
+            remaining = max(0, aaxc_count - total_converted)
+
+            # Get active ffmpeg opus conversion processes
+            ffmpeg_count = 0
+            ffmpeg_nice = None
+            active_conversions = []
+            try:
+                result = subprocess.run(
+                    ["pgrep", "-c", "-f", "ffmpeg.*libopus"],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0:
+                    ffmpeg_count = int(result.stdout.strip())
+
+                # Get nice value
+                ps_result = subprocess.run(
+                    ["ps", "-eo", "ni,comm"],
+                    capture_output=True,
+                    text=True
+                )
+                for line in ps_result.stdout.split("\n"):
+                    if "ffmpeg" in line:
+                        parts = line.strip().split()
+                        if parts:
+                            ffmpeg_nice = parts[0]
+                            break
+
+                # Get active conversion file names
+                ps_aux = subprocess.run(
+                    ["ps", "aux"],
+                    capture_output=True,
+                    text=True
+                )
+                for line in ps_aux.stdout.split("\n"):
+                    if "ffmpeg" in line and "libopus" in line:
+                        # Extract output filename from -f ogg "filename"
+                        import re
+                        match = re.search(r'-f ogg "([^"]+)"', line)
+                        if match:
+                            filename = Path(match.group(1)).name
+                            if len(filename) > 50:
+                                filename = filename[:47] + "..."
+                            active_conversions.append(filename)
+            except Exception:
+                pass
+
+            # System stats
+            cpu_idle = None
+            load_avg = None
+            tmpfs_usage = None
+            tmpfs_avail = None
+
+            try:
+                # CPU idle from /proc/stat
+                with open("/proc/loadavg") as f:
+                    load_avg = f.read().strip().split()[0]
+
+                # tmpfs usage
+                df_result = subprocess.run(
+                    ["df", "-h", "/tmp"],
+                    capture_output=True,
+                    text=True
+                )
+                if df_result.returncode == 0:
+                    lines = df_result.stdout.strip().split("\n")
+                    if len(lines) > 1:
+                        parts = lines[1].split()
+                        if len(parts) >= 5:
+                            tmpfs_usage = parts[4]  # e.g., "15%"
+                            tmpfs_avail = parts[3]  # e.g., "7.5G"
+            except Exception:
+                pass
+
+            # Calculate completion percentage
+            percent = int(total_converted * 100 / aaxc_count) if aaxc_count > 0 else 0
+
+            return jsonify({
+                "success": True,
+                "status": {
+                    "source_count": aaxc_count,
+                    "library_count": library_count,
+                    "staged_count": staged_count,
+                    "total_converted": total_converted,
+                    "queue_count": queue_count,
+                    "remaining": remaining,
+                    "percent_complete": percent,
+                    "is_complete": remaining == 0 and aaxc_count > 0,
+                },
+                "processes": {
+                    "ffmpeg_count": ffmpeg_count,
+                    "ffmpeg_nice": ffmpeg_nice,
+                    "active_conversions": active_conversions[:6],  # Limit to 6
+                },
+                "system": {
+                    "load_avg": load_avg,
+                    "tmpfs_usage": tmpfs_usage,
+                    "tmpfs_avail": tmpfs_avail,
+                }
+            })
+
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+
     return utilities_bp
