@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.3.1] - 2026-01-01
+
+### Changed
+- Upgrade script now automatically stops services before upgrade and restarts them after
+- Removed manual "Remember to restart services" reminder (now handled automatically)
+- Service status summary displayed after upgrade completes
+
 ## [3.3.0] - 2026-01-01
 
 ### Added
