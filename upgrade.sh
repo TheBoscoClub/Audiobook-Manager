@@ -427,6 +427,96 @@ do_upgrade() {
 # Post-Upgrade Verification
 # -----------------------------------------------------------------------------
 
+stop_services() {
+    # Stop audiobook services before upgrade
+    local use_sudo="$1"
+
+    echo -e "${BLUE}Stopping audiobook services...${NC}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "  [DRY-RUN] Would stop audiobooks services"
+        return 0
+    fi
+
+    # Check if systemd services exist
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+        # System-level services
+        if [[ -n "$use_sudo" ]]; then
+            sudo systemctl stop audiobooks.target 2>/dev/null || true
+            # Also stop individual services in case target doesn't exist
+            for svc in audiobooks-api audiobooks-proxy audiobooks-redirect audiobooks-converter audiobooks-mover; do
+                sudo systemctl stop "$svc" 2>/dev/null || true
+            done
+        fi
+        echo -e "${GREEN}  Services stopped${NC}"
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+        # User-level services
+        systemctl --user stop audiobooks.target 2>/dev/null || true
+        for svc in audiobooks-api audiobooks-proxy audiobooks-redirect; do
+            systemctl --user stop "$svc" 2>/dev/null || true
+        done
+        echo -e "${GREEN}  User services stopped${NC}"
+    else
+        echo "  No active audiobook services found"
+    fi
+}
+
+start_services() {
+    # Start audiobook services after upgrade
+    local use_sudo="$1"
+
+    echo -e "${BLUE}Starting audiobook services...${NC}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "  [DRY-RUN] Would start audiobooks services"
+        return 0
+    fi
+
+    # Reload systemd to pick up any service file changes
+    if [[ -n "$use_sudo" ]]; then
+        sudo systemctl daemon-reload
+    else
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+
+    # Check if systemd services exist
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+        # System-level services
+        if [[ -n "$use_sudo" ]]; then
+            sudo systemctl start audiobooks.target 2>/dev/null || {
+                # Fallback: start individual services
+                for svc in audiobooks-api audiobooks-proxy audiobooks-redirect audiobooks-converter audiobooks-mover; do
+                    sudo systemctl start "$svc" 2>/dev/null || true
+                done
+            }
+        fi
+        echo -e "${GREEN}  Services started${NC}"
+
+        # Show service status summary
+        echo ""
+        echo -e "${BLUE}Service status:${NC}"
+        for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+            local status
+            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            if [[ "$status" == "active" ]]; then
+                echo -e "  $svc: ${GREEN}$status${NC}"
+            else
+                echo -e "  $svc: ${YELLOW}$status${NC}"
+            fi
+        done
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+        # User-level services
+        systemctl --user start audiobooks.target 2>/dev/null || {
+            for svc in audiobooks-api audiobooks-proxy audiobooks-redirect; do
+                systemctl --user start "$svc" 2>/dev/null || true
+            done
+        }
+        echo -e "${GREEN}  User services started${NC}"
+    else
+        echo "  No audiobook services to start"
+    fi
+}
+
 verify_installation_permissions() {
     # Verify that installed files have correct permissions and ownership
     local target_dir="$1"
@@ -758,8 +848,23 @@ do_github_upgrade() {
         echo ""
     fi
 
+    # Determine if we need sudo
+    local use_sudo=""
+    if [[ ! -w "$target" ]]; then
+        use_sudo="sudo"
+    fi
+
+    # Stop services before upgrade
+    stop_services "$use_sudo"
+    echo ""
+
     # Use the existing do_upgrade function with the extracted release
     do_upgrade "$release_dir" "$target"
+
+    echo ""
+
+    # Start services after upgrade
+    start_services "$use_sudo"
 
     echo ""
     echo -e "${GREEN}Successfully upgraded to version $install_version${NC}"
@@ -917,17 +1022,26 @@ if [[ "$CREATE_BACKUP" == "true" ]]; then
     echo ""
 fi
 
+# Determine if we need sudo for service operations
+use_sudo=""
+if [[ ! -w "$TARGET_DIR" ]]; then
+    use_sudo="true"
+fi
+
+# Stop services before upgrade
+stop_services "$use_sudo"
+echo ""
+
 # Perform upgrade
 do_upgrade "$PROJECT_DIR" "$TARGET_DIR"
+
+# Start services after upgrade
+echo ""
+start_services "$use_sudo"
 
 # Handle architecture switching if requested
 if [[ -n "$SWITCH_ARCHITECTURE" ]]; then
     echo ""
-    # Determine if we need sudo
-    use_sudo=""
-    if [[ ! -w "$TARGET_DIR" ]]; then
-        use_sudo="true"
-    fi
     switch_architecture "$TARGET_DIR" "$SWITCH_ARCHITECTURE" "$use_sudo"
 fi
 
@@ -936,11 +1050,4 @@ echo ""
 current_arch=$(detect_architecture "$TARGET_DIR")
 echo -e "${BLUE}API Architecture:${NC} $current_arch"
 echo ""
-echo -e "${CYAN}Remember to restart services after upgrading:${NC}"
-echo "  For system installation:"
-echo "    sudo systemctl daemon-reload"
-echo "    sudo systemctl restart audiobooks.target"
-echo ""
-echo "  For user installation:"
-echo "    systemctl --user daemon-reload"
-echo "    systemctl --user restart audiobooks.target"
+echo -e "${GREEN}Upgrade complete!${NC}"
