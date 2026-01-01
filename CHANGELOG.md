@@ -13,6 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.3.0] - 2026-01-01
+
+### Added
+- Conversion Monitor in Back Office web UI with real-time progress bar, rate calculation, and ETA
+- `/api/conversion/status` endpoint returning file counts, active ffmpeg processes, and system stats
+- ProgressTracker class in scanner with visual progress bar (█░), rate, and ETA display
+- `build-conversion-queue` script for index-based queue building with ASIN + unique non-ASIN support
+- `find-duplicate-sources` script for identifying duplicate .aaxc files
+- Incremental audiobook scanner with progress tracking UI
+- Ananicy rules for ffmpeg priority tuning during conversions
+
+### Changed
+- Scanner now shows visual progress bar instead of simple percentage output
+- Conversion queue includes unique non-ASIN files that have no ASIN equivalent
+
+### Fixed
+- Type safety improvements across codebase
+- Version sync between project files
+- Duplicate file handling in source directory
+
 ## [3.2.1] - 2025-12-30
 
 ### Added
