@@ -1,0 +1,17 @@
+# Audiobook conversion rules
+# Custom priority for batch media processing
+# More aggressive than default Heavy_CPU (nice=9) but still respects interactive use
+#
+# Options to try (uncomment one):
+#
+# OPTION 1: Moderate boost (nice=5, ionice=5)
+# { "name": "ffmpeg", "cmdargs": "libopus", "nice": 5, "ioclass": "best-effort", "ionice": 5, "latency_nice": 5 }
+
+# OPTION 2: Significant boost (nice=3, ionice=4) - ACTIVE
+{ "name": "ffmpeg", "cmdargs": "libopus", "nice": 3, "ioclass": "best-effort", "ionice": 4, "latency_nice": 3 }
+
+# OPTION 3: Near-normal priority (nice=0, ionice=4) - Maximum conversion speed
+# { "name": "ffmpeg", "cmdargs": "libopus", "nice": 0, "ioclass": "best-effort", "ionice": 4, "latency_nice": 0 }
+
+# Note: cmdargs="libopus" ensures this only affects audiobook opus conversions,
+# not other ffmpeg uses (like OBS, video editing, etc.)
