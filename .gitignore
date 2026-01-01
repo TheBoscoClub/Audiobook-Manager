@@ -74,3 +74,6 @@ htmlcov/
 *.authcode
 library/backend/audiobooks.db-journal
 library/scripts/nohup.out
+
+# Database snapshots
+.snapshots/
