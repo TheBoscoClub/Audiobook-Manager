@@ -1,0 +1,120 @@
+#!/bin/bash
+# =============================================================================
+# Find Duplicate Source Files
+# =============================================================================
+# Identifies duplicate .aaxc files (same book with/without ASIN prefix)
+# and generates a cleanup script.
+#
+# Usage: find-duplicate-sources [--dry-run] [--remove]
+# =============================================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+fi
+
+SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/raid0/Audiobooks/Sources}"
+DRY_RUN=true
+REMOVE=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --remove) REMOVE=true; DRY_RUN=false; shift ;;
+        --dry-run) DRY_RUN=true; shift ;;
+        *) shift ;;
+    esac
+done
+
+# Normalize function (same as build-conversion-queue)
+normalize_title() {
+    echo "$1" |
+        sed -E 's/^[A-Z0-9]{10}_//' |
+        sed -E 's/-AAX_[0-9]+_[0-9]+$//' |
+        tr '_' ' ' |
+        tr -cd '[:alnum:] ' |
+        tr -s ' ' |
+        tr '[:upper:]' '[:lower:]' |
+        sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
+echo "Scanning for duplicates in: $SOURCES_DIR"
+echo ""
+
+# Build associative array: normalized_title -> list of files
+declare -A title_files
+declare -a duplicates_to_remove
+
+for aaxc in "$SOURCES_DIR"/*.aaxc; do
+    [[ -f "$aaxc" ]] || continue
+    basename=$(basename "$aaxc" .aaxc)
+    normalized=$(normalize_title "$basename")
+
+    if [[ -n "${title_files[$normalized]:-}" ]]; then
+        # Duplicate found
+        existing="${title_files[$normalized]}"
+        existing_base=$(basename "$existing")
+
+        # Prefer ASIN-prefixed version (more metadata)
+        if [[ "$basename" =~ ^[A-Z0-9]{10}_ ]]; then
+            # New file has ASIN, keep it, remove old
+            duplicates_to_remove+=("$existing")
+            title_files[$normalized]="$aaxc"
+        else
+            # Old file has ASIN (or both don't), remove new
+            duplicates_to_remove+=("$aaxc")
+        fi
+    else
+        title_files[$normalized]="$aaxc"
+    fi
+done
+
+echo "=== Summary ==="
+echo "Total source files: $(ls -1 "$SOURCES_DIR"/*.aaxc 2>/dev/null | wc -l)"
+echo "Unique titles: ${#title_files[@]}"
+echo "Duplicates found: ${#duplicates_to_remove[@]}"
+echo ""
+
+if [[ ${#duplicates_to_remove[@]} -eq 0 ]]; then
+    echo "No duplicates found."
+    exit 0
+fi
+
+# Calculate space savings
+total_size=0
+for dup in "${duplicates_to_remove[@]}"; do
+    size=$(stat -c%s "$dup" 2>/dev/null || echo 0)
+    total_size=$((total_size + size))
+done
+human_size=$(numfmt --to=iec-i --suffix=B $total_size 2>/dev/null || echo "${total_size} bytes")
+
+echo "Space to recover: $human_size"
+echo ""
+
+if $DRY_RUN; then
+    echo "=== Duplicates to remove (dry-run) ==="
+    for dup in "${duplicates_to_remove[@]}"; do
+        echo "  $(basename "$dup")"
+    done | head -30
+
+    if [[ ${#duplicates_to_remove[@]} -gt 30 ]]; then
+        echo "  ... and $((${#duplicates_to_remove[@]} - 30)) more"
+    fi
+
+    echo ""
+    echo "Run with --remove to delete these files"
+else
+    echo "=== Removing duplicates ==="
+    removed=0
+    for dup in "${duplicates_to_remove[@]}"; do
+        if rm -f "$dup"; then
+            echo "  Removed: $(basename "$dup")"
+            ((removed++))
+        fi
+    done
+    echo ""
+    echo "Removed $removed duplicate files, recovered $human_size"
+fi

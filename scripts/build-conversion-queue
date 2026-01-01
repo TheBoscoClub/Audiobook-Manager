@@ -1,0 +1,217 @@
+#!/bin/bash
+# =============================================================================
+# Build Conversion Queue
+# =============================================================================
+# Builds a list of audiobooks that need conversion by comparing source files
+# against already-converted files using normalized title matching.
+#
+# Output: List of .aaxc files that don't have corresponding .opus files
+# Usage: build-conversion-queue [--rebuild] [--verbose]
+# =============================================================================
+
+set -euo pipefail
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+fi
+
+# Configuration
+SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/raid0/Audiobooks/Sources}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/raid0/Audiobooks/Library}"
+STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+INDEX_DIR="${AUDIOBOOKS_DATA:-/raid0/Audiobooks}/.index"
+VERBOSE=false
+REBUILD=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --rebuild) REBUILD=true; shift ;;
+        --verbose|-v) VERBOSE=true; shift ;;
+        *) shift ;;
+    esac
+done
+
+mkdir -p "$INDEX_DIR"
+
+log() {
+    $VERBOSE && echo "[$(date '+%H:%M:%S')] $1" >&2
+}
+
+# Normalize a title for comparison
+# Removes: ASIN prefix, format suffix, underscores, punctuation, case
+normalize_title() {
+    local input="$1"
+    echo "$input" |
+        # Remove ASIN prefix (e.g., "B002UZJTXM_" or "1234567890_")
+        sed -E 's/^[A-Z0-9]{10}_//' |
+        # Remove AAX format suffix (e.g., "-AAX_22_64" or "-AAX_44_128")
+        sed -E 's/-AAX_[0-9]+_[0-9]+$//' |
+        # Remove file extension
+        sed -E 's/\.(aaxc|opus)$//' |
+        # Convert underscores to spaces
+        tr '_' ' ' |
+        # Remove punctuation except spaces
+        tr -cd '[:alnum:] ' |
+        # Collapse multiple spaces
+        tr -s ' ' |
+        # Lowercase
+        tr '[:upper:]' '[:lower:]' |
+        # Trim whitespace
+        sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
+# Build source index: normalized_title -> original_path
+# Includes:
+#   1. All ASIN-prefixed files
+#   2. Non-ASIN files that have NO ASIN equivalent (unique content)
+build_source_index() {
+    log "Building source index..."
+    local index_file="$INDEX_DIR/sources.idx"
+    local temp_file="$INDEX_DIR/sources.idx.tmp"
+    local asin_titles_file="$INDEX_DIR/asin_titles.tmp"
+
+    > "$temp_file"
+    > "$asin_titles_file"
+
+    # First pass: Index all ASIN-prefixed files and collect their normalized titles
+    log "  Pass 1: Indexing ASIN-prefixed files..."
+    local asin_count=0
+    find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | while read -r aaxc_file; do
+        local basename=$(basename "$aaxc_file" .aaxc)
+
+        if [[ "$basename" =~ ^[A-Z0-9]{10}_ ]]; then
+            local normalized=$(normalize_title "$basename")
+            echo "${normalized}|${aaxc_file}" >> "$temp_file"
+            echo "$normalized" >> "$asin_titles_file"
+        fi
+    done
+
+    # Sort ASIN titles for lookup
+    sort -u "$asin_titles_file" -o "$asin_titles_file"
+    asin_count=$(wc -l < "$asin_titles_file")
+    log "  Found $asin_count ASIN-prefixed files"
+
+    # Second pass: Add non-ASIN files that have NO ASIN equivalent
+    log "  Pass 2: Finding unique non-ASIN files..."
+    local unique_count=0
+    find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | while read -r aaxc_file; do
+        local basename=$(basename "$aaxc_file" .aaxc)
+
+        # Skip ASIN-prefixed files (already indexed)
+        [[ "$basename" =~ ^[A-Z0-9]{10}_ ]] && continue
+
+        local normalized=$(normalize_title "$basename")
+
+        # Only add if no ASIN equivalent exists
+        if ! grep -qFx "$normalized" "$asin_titles_file" 2>/dev/null; then
+            echo "${normalized}|${aaxc_file}" >> "$temp_file"
+            log "  Including unique non-ASIN: $basename"
+        else
+            log "  Skipping (has ASIN equivalent): $basename"
+        fi
+    done
+
+    # Sort for efficient lookup
+    sort -t'|' -k1,1 "$temp_file" > "$index_file"
+    rm -f "$temp_file" "$asin_titles_file"
+
+    local count=$(wc -l < "$index_file")
+    log "Source index: $count total files (ASIN + unique non-ASIN)"
+}
+
+# Build converted index: normalized_title (from both library and staging)
+build_converted_index() {
+    log "Building converted index..."
+    local index_file="$INDEX_DIR/converted.idx"
+    local temp_file="$INDEX_DIR/converted.idx.tmp"
+
+    > "$temp_file"
+
+    # Index library files
+    find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | while read -r opus_file; do
+        local basename=$(basename "$opus_file" .opus)
+        local normalized=$(normalize_title "$basename")
+        echo "$normalized" >> "$temp_file"
+    done
+
+    # Index staging files
+    find "$STAGING_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | while read -r opus_file; do
+        local basename=$(basename "$opus_file" .opus)
+        local normalized=$(normalize_title "$basename")
+        echo "$normalized" >> "$temp_file"
+    done
+
+    # Sort and deduplicate
+    sort -u "$temp_file" > "$index_file"
+    rm -f "$temp_file"
+
+    local count=$(wc -l < "$index_file")
+    log "Converted index: $count unique titles"
+}
+
+# Find files needing conversion
+build_queue() {
+    log "Building conversion queue..."
+    local queue_file="$INDEX_DIR/queue.txt"
+    local source_idx="$INDEX_DIR/sources.idx"
+    local converted_idx="$INDEX_DIR/converted.idx"
+
+    > "$queue_file"
+
+    while IFS='|' read -r normalized path; do
+        # Check if this normalized title exists in converted index
+        if ! grep -qFx "$normalized" "$converted_idx" 2>/dev/null; then
+            # Not yet converted - add to queue
+            echo "$path" >> "$queue_file"
+        fi
+    done < "$source_idx"
+
+    local count=$(wc -l < "$queue_file")
+    log "Queue: $count files need conversion"
+    echo "$count"
+}
+
+# Check if indexes are stale (source dir modified after index)
+indexes_current() {
+    local source_idx="$INDEX_DIR/sources.idx"
+    local converted_idx="$INDEX_DIR/converted.idx"
+
+    [[ -f "$source_idx" ]] && [[ -f "$converted_idx" ]] || return 1
+
+    # Check if any new aaxc files are newer than the index
+    local newest_source=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f -newer "$source_idx" 2>/dev/null | head -1)
+    [[ -z "$newest_source" ]] || return 1
+
+    return 0
+}
+
+# Main
+main() {
+    if $REBUILD || ! indexes_current; then
+        log "Rebuilding indexes..."
+        build_source_index
+        build_converted_index
+    else
+        log "Indexes are current"
+    fi
+
+    local queue_count=$(build_queue)
+    local queue_file="$INDEX_DIR/queue.txt"
+
+    if [[ "$queue_count" -eq 0 ]]; then
+        echo "No files need conversion" >&2
+        exit 0
+    fi
+
+    # Output the queue (for piping to parallel)
+    cat "$queue_file"
+}
+
+main "$@"
