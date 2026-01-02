@@ -897,7 +897,13 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.4.1 (Current)
+### v3.4.2 (Current)
+- **Refactoring**: Split utilities.py (1067 lines) into 4 focused sub-modules with reduced complexity
+- **Scanner**: New shared `metadata_utils.py` module, complexity D(24) → A(3)
+- **Quality**: Average cyclomatic complexity reduced from D to A (3.7)
+- **Fixes**: Conversion progress accuracy, queue count sync, code cleanup
+
+### v3.4.1
 - **Architecture**: Comprehensive ARCHITECTURE.md guide with install/upgrade/migrate workflows
 - **Install**: Fixed to use `/opt/audiobooks` as canonical location with auto-service start
 - **Migrate**: Added service stop/start lifecycle to `migrate-api.sh`
