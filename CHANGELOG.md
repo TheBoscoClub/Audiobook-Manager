@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.4.1] - 2026-01-02
+
+### Added
+- Comprehensive ARCHITECTURE.md guide with:
+  - System component diagrams and symlink architecture
+  - Install, upgrade, and migrate workflow diagrams
+  - Storage tier recommendations by component type
+  - Filesystem recommendations (ext4, XFS, Btrfs, ZFS, F2FS)
+  - Kernel compatibility matrix (LTS through rolling release)
+  - I/O scheduler recommendations
+- Installed directory structure documentation in README.md
+
+### Fixed
+- Fixed `install.sh` to create symlinks in `/usr/local/bin/` instead of copying scripts
+- Fixed proxy server to forward `/covers/` requests to API backend
+
 ## [3.4.0] - 2026-01-02
 
 ### Added
