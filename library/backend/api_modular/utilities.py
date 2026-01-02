@@ -849,13 +849,10 @@ def init_utilities_routes(db_path, project_root):
         from config import (
             AUDIOBOOKS_SOURCES,
             AUDIOBOOKS_LIBRARY,
-            AUDIOBOOKS_DATA,
             AUDIOBOOKS_STAGING,
         )
 
         staging_dir = AUDIOBOOKS_STAGING
-        index_dir = AUDIOBOOKS_DATA / ".index"
-        queue_file = index_dir / "queue.txt"
 
         try:
             # Count source AAXC files
@@ -881,10 +878,6 @@ def init_utilities_routes(db_path, project_root):
 
             # Remaining calculation (actual files left to convert)
             remaining = max(0, aaxc_count - total_converted)
-
-            # Queue count = remaining (the queue IS the unconverted files)
-            # The queue.txt file may be stale, so we use calculated remaining instead
-            queue_count = remaining
 
             # Get active ffmpeg opus conversion processes with per-job stats
             ffmpeg_count = 0

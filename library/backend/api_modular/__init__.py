@@ -23,7 +23,7 @@ from flask import Flask, Response
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR, AUDIOBOOKS_STAGING
+from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
 
 from .core import get_db as _get_db_with_path, add_cors_headers
 from .audiobooks import audiobooks_bp, init_audiobooks_routes

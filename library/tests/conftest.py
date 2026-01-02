@@ -83,31 +83,3 @@ def temp_dir():
     """Create a temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
-
-
-@pytest.fixture
-def mock_config_env(temp_dir):
-    """Create a mock config.env file."""
-    config_file = temp_dir / "config.env"
-    config_file.write_text("""
-# Test configuration
-AUDIOBOOKS_DATA=/test/audiobooks
-AUDIOBOOKS_LIBRARY=/test/audiobooks/Library
-AUDIOBOOKS_SOURCES=/test/audiobooks/Sources
-AUDIOBOOKS_API_PORT=5001
-""")
-    return config_file
-
-
-@pytest.fixture
-def sample_audiobook_data():
-    """Sample audiobook data for testing."""
-    return {
-        "id": 1,
-        "title": "Test Audiobook",
-        "author": "Test Author",
-        "narrator": "Test Narrator",
-        "duration_hours": 10.5,
-        "file_path": "/test/path/audiobook.opus",
-        "asin": "B00TEST123",
-    }
