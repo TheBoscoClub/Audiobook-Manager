@@ -938,9 +938,13 @@ def init_utilities_routes(db_path, project_root):
                 )
                 for line in ps_aux.stdout.split("\n"):
                     if "ffmpeg" in line and "libopus" in line:
-                        # Extract output filename from -f ogg "filename"
+                        # Extract output filename from -f ogg path (quoted or unquoted)
                         import re
+                        # Try quoted first, then unquoted (capture to end of line)
                         match = re.search(r'-f ogg "([^"]+)"', line)
+                        if not match:
+                            # Unquoted path - capture everything after -f ogg to end
+                            match = re.search(r'-f ogg (.+\.opus)$', line)
                         if match:
                             filename = Path(match.group(1)).name
                             if len(filename) > 50:

@@ -1202,8 +1202,8 @@ async function loadConversionStatus() {
             } else if (conversionRateTracker.rate > 0) {
                 rateDisplay.textContent = `${conversionRateTracker.rate.toFixed(1)} books/min`;
             } else if (isActivelyConverting) {
-                // FFmpeg processes running but no completions yet
-                rateDisplay.textContent = 'measuring...';
+                // FFmpeg processes running - show count as indicator
+                rateDisplay.textContent = `${processes.ffmpeg_count} active`;
             } else if (conversionRateTracker.stableTime > 10) {
                 // No active processes and no completions for a while
                 rateDisplay.textContent = 'idle';
