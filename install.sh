@@ -915,82 +915,65 @@ audiobooks_print_config
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-config"
 
-    # Install conversion and management scripts from scripts/ directory
-    echo -e "${BLUE}Installing audiobook management scripts...${NC}"
-    if [[ -d "${SCRIPT_DIR}/scripts" ]]; then
-        for script in "${SCRIPT_DIR}/scripts/"*; do
-            if [[ -f "$script" ]]; then
-                local script_name=$(basename "$script")
-                # Map script names to consistent audiobooks- prefix
-                local target_name
-                case "$script_name" in
-                    convert-audiobooks-opus-parallel)
-                        target_name="audiobooks-convert"
-                        ;;
-                    move-staged-audiobooks)
-                        target_name="audiobooks-move-staged"
-                        ;;
-                    download-new-audiobooks)
-                        target_name="audiobooks-download"
-                        ;;
-                    audiobook-save-staging)
-                        target_name="audiobooks-save-staging"
-                        ;;
-                    audiobook-save-staging-auto)
-                        target_name="audiobooks-save-staging-auto"
-                        ;;
-                    audiobook-status)
-                        target_name="audiobooks-status"
-                        ;;
-                    audiobook-start)
-                        target_name="audiobooks-start"
-                        ;;
-                    audiobook-stop)
-                        target_name="audiobooks-stop"
-                        ;;
-                    audiobook-enable)
-                        target_name="audiobooks-enable"
-                        ;;
-                    audiobook-disable)
-                        target_name="audiobooks-disable"
-                        ;;
-                    audiobook-help)
-                        target_name="audiobooks-help"
-                        ;;
-                    monitor-audiobook-conversion)
-                        target_name="audiobooks-monitor"
-                        ;;
-                    copy-audiobook-metadata)
-                        target_name="audiobooks-copy-metadata"
-                        ;;
-                    audiobook-download-monitor)
-                        target_name="audiobooks-download-monitor"
-                        ;;
-                    embed-cover-art.py)
-                        target_name="audiobooks-embed-cover"
-                        ;;
-                    *)
-                        target_name="audiobooks-${script_name}"
-                        ;;
-                esac
-                sudo cp "$script" "${BIN_DIR}/${target_name}"
-                sudo chmod 755 "${BIN_DIR}/${target_name}"
-                echo "  Installed: ${target_name}"
-            fi
-        done
-    fi
-
-    # Install management scripts to /opt/audiobooks/scripts/
+    # Install management scripts to /opt/audiobooks/scripts/ (canonical location)
+    # Then create symlinks in /usr/local/bin/ for PATH accessibility
     echo -e "${BLUE}Installing management scripts...${NC}"
     local APP_SCRIPTS_DIR="/opt/audiobooks/scripts"
     sudo mkdir -p "${APP_SCRIPTS_DIR}"
 
-    # Copy upgrade and migrate scripts
+    # Copy all scripts from scripts/ directory to canonical location
+    if [[ -d "${SCRIPT_DIR}/scripts" ]]; then
+        for script in "${SCRIPT_DIR}/scripts/"*; do
+            if [[ -f "$script" ]]; then
+                local script_name=$(basename "$script")
+                sudo cp "$script" "${APP_SCRIPTS_DIR}/"
+                sudo chmod 755 "${APP_SCRIPTS_DIR}/${script_name}"
+                echo "  Installed: ${APP_SCRIPTS_DIR}/${script_name}"
+            fi
+        done
+    fi
+
+    # Copy upgrade and migrate scripts to canonical location
     for script in upgrade.sh migrate-api.sh; do
         if [[ -f "${SCRIPT_DIR}/${script}" ]]; then
             sudo cp "${SCRIPT_DIR}/${script}" "${APP_SCRIPTS_DIR}/"
             sudo chmod 755 "${APP_SCRIPTS_DIR}/${script}"
             echo "  Installed: ${APP_SCRIPTS_DIR}/${script}"
+        fi
+    done
+
+    # Create symlinks in /usr/local/bin/ pointing to canonical scripts
+    echo -e "${BLUE}Creating symlinks in ${BIN_DIR}...${NC}"
+    # Map original script names to user-friendly command names
+    declare -A SCRIPT_ALIASES=(
+        ["convert-audiobooks-opus-parallel"]="audiobooks-convert"
+        ["move-staged-audiobooks"]="audiobooks-move-staged"
+        ["download-new-audiobooks"]="audiobooks-download"
+        ["audiobook-save-staging"]="audiobooks-save-staging"
+        ["audiobook-save-staging-auto"]="audiobooks-save-staging-auto"
+        ["audiobook-status"]="audiobooks-status"
+        ["audiobook-start"]="audiobooks-start"
+        ["audiobook-stop"]="audiobooks-stop"
+        ["audiobook-enable"]="audiobooks-enable"
+        ["audiobook-disable"]="audiobooks-disable"
+        ["audiobook-help"]="audiobooks-help"
+        ["monitor-audiobook-conversion"]="audiobooks-monitor"
+        ["copy-audiobook-metadata"]="audiobooks-copy-metadata"
+        ["audiobook-download-monitor"]="audiobooks-download-monitor"
+        ["embed-cover-art.py"]="audiobooks-embed-cover"
+        ["build-conversion-queue"]="audiobooks-build-queue"
+        ["upgrade.sh"]="audiobooks-upgrade"
+        ["migrate-api.sh"]="audiobooks-migrate"
+    )
+
+    for script_name in "${!SCRIPT_ALIASES[@]}"; do
+        local target_name="${SCRIPT_ALIASES[$script_name]}"
+        local source_path="${APP_SCRIPTS_DIR}/${script_name}"
+        local link_path="${BIN_DIR}/${target_name}"
+        if [[ -f "$source_path" ]]; then
+            sudo rm -f "$link_path"
+            sudo ln -s "$source_path" "$link_path"
+            echo "  Linked: ${target_name} -> ${source_path}"
         fi
     done
 

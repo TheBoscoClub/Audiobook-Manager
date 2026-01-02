@@ -1,6 +1,6 @@
 {
   "name": "audiobooks",
-  "version": "3.2.1",
+  "version": "3.4.0",
   "description": "Audiobook library management with Audible sync, conversion, and web interface",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
@@ -193,6 +193,12 @@
       "required": true,
       "min_permissions": "755",
       "description": "Source audiobooks (AAXC)"
+    },
+    {
+      "path": "${AUDIOBOOKS_DATA}/.covers",
+      "required": false,
+      "min_permissions": "755",
+      "description": "Cover art cache (created as needed)"
     }
   ],
 
@@ -206,7 +212,8 @@
       "AUDIOBOOKS_API_PORT",
       "AUDIOBOOKS_WEB_PORT",
       "AUDIOBOOKS_HTTPS_ENABLED",
-      "AUDIOBOOKS_DEV_MODE"
+      "AUDIOBOOKS_DEV_MODE",
+      "AUDIOBOOKS_COVERS"
     ]
   },
 
