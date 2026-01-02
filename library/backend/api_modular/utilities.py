@@ -891,14 +891,31 @@ def init_utilities_routes(db_path, project_root):
             ffmpeg_count = 0
             ffmpeg_nice = None
             active_conversions = []
+            ffmpeg_pids = []
+            total_read_bytes = 0
+            total_write_bytes = 0
             try:
+                # Get FFmpeg PIDs
                 result = subprocess.run(
-                    ["pgrep", "-c", "-f", "ffmpeg.*libopus"],
+                    ["pgrep", "-f", "ffmpeg.*libopus"],
                     capture_output=True,
                     text=True
                 )
                 if result.returncode == 0:
-                    ffmpeg_count = int(result.stdout.strip())
+                    ffmpeg_pids = [int(p) for p in result.stdout.strip().split("\n") if p.strip()]
+                    ffmpeg_count = len(ffmpeg_pids)
+
+                # Get I/O stats from /proc/<pid>/io for each FFmpeg process
+                for pid in ffmpeg_pids:
+                    try:
+                        with open(f"/proc/{pid}/io", "r") as f:
+                            for line in f:
+                                if line.startswith("read_bytes:"):
+                                    total_read_bytes += int(line.split(":")[1].strip())
+                                elif line.startswith("write_bytes:"):
+                                    total_write_bytes += int(line.split(":")[1].strip())
+                    except (FileNotFoundError, PermissionError):
+                        pass  # Process may have ended
 
                 # Get nice value
                 ps_result = subprocess.run(
@@ -976,7 +993,9 @@ def init_utilities_routes(db_path, project_root):
                 "processes": {
                     "ffmpeg_count": ffmpeg_count,
                     "ffmpeg_nice": ffmpeg_nice,
-                    "active_conversions": active_conversions[:6],  # Limit to 6
+                    "active_conversions": active_conversions[:12],  # Limit to 12
+                    "io_read_bytes": total_read_bytes,
+                    "io_write_bytes": total_write_bytes,
                 },
                 "system": {
                     "load_avg": load_avg,

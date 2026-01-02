@@ -271,9 +271,59 @@
                                     <span class="stat-label">Queue Size</span>
                                     <span class="stat-value" id="conv-queue-count">-</span>
                                 </div>
-                                <div class="stat-row">
-                                    <span class="stat-label">Conversion Rate</span>
+                                <div class="stat-row clickable" id="conv-rate-toggle" title="Click for detailed stats">
+                                    <span class="stat-label">Conversion Rate <span class="expand-icon">▼</span></span>
                                     <span class="stat-value rate" id="conv-rate">- books/min</span>
+                                </div>
+                            </div>
+
+                            <!-- Expandable Detailed Stats Panel -->
+                            <div class="conversion-details-panel" id="conv-details-panel">
+                                <div class="details-header">Detailed Conversion Statistics</div>
+                                <div class="details-grid">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Read Throughput</span>
+                                        <span class="detail-value" id="conv-read-throughput">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Write Throughput</span>
+                                        <span class="detail-value" id="conv-write-throughput">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Total Read</span>
+                                        <span class="detail-value" id="conv-total-read">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Total Written</span>
+                                        <span class="detail-value" id="conv-total-write">-</span>
+                                    </div>
+                                </div>
+                                <div class="details-section">
+                                    <div class="details-subheader">Queue Breakdown</div>
+                                    <div class="queue-breakdown">
+                                        <div class="breakdown-item">
+                                            <span class="breakdown-label">Active conversions</span>
+                                            <span class="breakdown-value" id="conv-active-detail">-</span>
+                                        </div>
+                                        <div class="breakdown-item">
+                                            <span class="breakdown-label">Waiting in queue</span>
+                                            <span class="breakdown-value" id="conv-queued-detail">-</span>
+                                        </div>
+                                        <div class="breakdown-item">
+                                            <span class="breakdown-label">In staging</span>
+                                            <span class="breakdown-value" id="conv-staging-detail">-</span>
+                                        </div>
+                                        <div class="breakdown-item">
+                                            <span class="breakdown-label">Not yet queued</span>
+                                            <span class="breakdown-value" id="conv-unqueued-detail">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="details-section" id="active-files-section">
+                                    <div class="details-subheader">Currently Converting</div>
+                                    <div class="active-files-list" id="conv-active-files">
+                                        <span class="no-files">No active conversions</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

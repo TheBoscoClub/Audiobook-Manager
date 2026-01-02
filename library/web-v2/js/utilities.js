@@ -1078,9 +1078,14 @@ function showProgressModal(title, message) {
 
 let conversionRefreshInterval = null;
 let conversionRateTracker = {
-    prevCount: 0,
+    prevCount: null,  // null = not yet initialized
     prevTime: Date.now(),
-    rate: 0
+    rate: 0,
+    stableTime: 0,  // track how long count has been unchanged
+    prevReadBytes: 0,
+    prevWriteBytes: 0,
+    readThroughput: 0,  // bytes per second
+    writeThroughput: 0
 };
 
 function initConversionSection() {
@@ -1107,6 +1112,16 @@ function initConversionSection() {
     // Start auto-refresh if checkbox is checked
     if (document.getElementById('conv-auto-refresh')?.checked) {
         startConversionAutoRefresh();
+    }
+
+    // Expandable details panel toggle
+    const rateToggle = document.getElementById('conv-rate-toggle');
+    const detailsPanel = document.getElementById('conv-details-panel');
+    if (rateToggle && detailsPanel) {
+        rateToggle.addEventListener('click', () => {
+            rateToggle.classList.toggle('expanded');
+            detailsPanel.classList.toggle('expanded');
+        });
     }
 }
 
@@ -1156,21 +1171,42 @@ async function loadConversionStatus() {
         const now = Date.now();
         const elapsed = (now - conversionRateTracker.prevTime) / 1000;
 
-        if (elapsed >= 5 && status.total_converted > conversionRateTracker.prevCount) {
+        if (conversionRateTracker.prevCount === null) {
+            // First observation - initialize baseline
+            conversionRateTracker.prevCount = status.total_converted;
+            conversionRateTracker.prevTime = now;
+            conversionRateTracker.stableTime = 0;
+        } else if (status.total_converted > conversionRateTracker.prevCount) {
+            // Conversions happened - calculate rate
             const delta = status.total_converted - conversionRateTracker.prevCount;
             conversionRateTracker.rate = (delta * 60) / elapsed;
             conversionRateTracker.prevCount = status.total_converted;
             conversionRateTracker.prevTime = now;
-        } else if (conversionRateTracker.prevCount === 0) {
-            conversionRateTracker.prevCount = status.total_converted;
+            conversionRateTracker.stableTime = 0;
+        } else {
+            // No new conversions - track stable time
+            conversionRateTracker.stableTime += elapsed;
             conversionRateTracker.prevTime = now;
+            // Decay rate toward 0 if idle for a while
+            if (conversionRateTracker.stableTime > 30) {
+                conversionRateTracker.rate = 0;
+            }
         }
 
         // Display rate
         const rateDisplay = document.getElementById('conv-rate');
+        const isActivelyConverting = processes.ffmpeg_count > 0;
         if (rateDisplay) {
-            if (conversionRateTracker.rate > 0) {
+            if (status.is_complete) {
+                rateDisplay.textContent = 'complete';
+            } else if (conversionRateTracker.rate > 0) {
                 rateDisplay.textContent = `${conversionRateTracker.rate.toFixed(1)} books/min`;
+            } else if (isActivelyConverting) {
+                // FFmpeg processes running but no completions yet
+                rateDisplay.textContent = 'measuring...';
+            } else if (conversionRateTracker.stableTime > 10) {
+                // No active processes and no completions for a while
+                rateDisplay.textContent = 'idle';
             } else {
                 rateDisplay.textContent = 'measuring...';
             }
@@ -1242,6 +1278,97 @@ async function loadConversionStatus() {
                 placeholder.className = 'placeholder-text';
                 placeholder.textContent = 'No active conversions';
                 activeList.appendChild(placeholder);
+            }
+        }
+
+        // Calculate I/O throughput (using 'elapsed' calculated before prevTime was updated)
+        const currentReadBytes = processes.io_read_bytes || 0;
+        const currentWriteBytes = processes.io_write_bytes || 0;
+
+        if (conversionRateTracker.prevReadBytes > 0 && elapsed > 0) {
+            const readDelta = currentReadBytes - conversionRateTracker.prevReadBytes;
+            const writeDelta = currentWriteBytes - conversionRateTracker.prevWriteBytes;
+            // Only update if positive (handles process restart)
+            if (readDelta >= 0) {
+                conversionRateTracker.readThroughput = readDelta / elapsed;
+            }
+            if (writeDelta >= 0) {
+                conversionRateTracker.writeThroughput = writeDelta / elapsed;
+            }
+        }
+        conversionRateTracker.prevReadBytes = currentReadBytes;
+        conversionRateTracker.prevWriteBytes = currentWriteBytes;
+
+        // Helper function to format bytes
+        const formatBytes = (bytes, decimals = 1) => {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+        };
+
+        // Update detailed stats panel
+        const readThroughputEl = document.getElementById('conv-read-throughput');
+        const writeThroughputEl = document.getElementById('conv-write-throughput');
+        const totalReadEl = document.getElementById('conv-total-read');
+        const totalWriteEl = document.getElementById('conv-total-write');
+
+        if (readThroughputEl) {
+            readThroughputEl.textContent = processes.ffmpeg_count > 0
+                ? `${formatBytes(conversionRateTracker.readThroughput)}/s`
+                : 'idle';
+        }
+        if (writeThroughputEl) {
+            writeThroughputEl.textContent = processes.ffmpeg_count > 0
+                ? `${formatBytes(conversionRateTracker.writeThroughput)}/s`
+                : 'idle';
+        }
+        if (totalReadEl) {
+            totalReadEl.textContent = formatBytes(currentReadBytes);
+        }
+        if (totalWriteEl) {
+            totalWriteEl.textContent = formatBytes(currentWriteBytes);
+        }
+
+        // Update queue breakdown
+        const waitingInQueue = Math.max(0, status.queue_count - processes.ffmpeg_count);
+        const notYetQueued = Math.max(0, status.remaining - status.queue_count - status.staged_count);
+
+        const activeDetailEl = document.getElementById('conv-active-detail');
+        const queuedDetailEl = document.getElementById('conv-queued-detail');
+        const stagingDetailEl = document.getElementById('conv-staging-detail');
+        const unqueuedDetailEl = document.getElementById('conv-unqueued-detail');
+
+        if (activeDetailEl) activeDetailEl.textContent = processes.ffmpeg_count;
+        if (queuedDetailEl) queuedDetailEl.textContent = waitingInQueue;
+        if (stagingDetailEl) stagingDetailEl.textContent = status.staged_count;
+        if (unqueuedDetailEl) unqueuedDetailEl.textContent = notYetQueued;
+
+        // Update active files list in details panel
+        const activeFilesEl = document.getElementById('conv-active-files');
+        if (activeFilesEl) {
+            while (activeFilesEl.firstChild) {
+                activeFilesEl.removeChild(activeFilesEl.firstChild);
+            }
+
+            if (processes.active_conversions && processes.active_conversions.length > 0) {
+                processes.active_conversions.forEach(filename => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'active-file-item';
+
+                    const filenameSpan = document.createElement('span');
+                    filenameSpan.className = 'filename';
+                    filenameSpan.textContent = filename;
+
+                    itemDiv.appendChild(filenameSpan);
+                    activeFilesEl.appendChild(itemDiv);
+                });
+            } else {
+                const noFiles = document.createElement('span');
+                noFiles.className = 'no-files';
+                noFiles.textContent = 'No active conversions';
+                activeFilesEl.appendChild(noFiles);
             }
         }
 
