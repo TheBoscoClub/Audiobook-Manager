@@ -1190,8 +1190,7 @@ body.back-office {
 
 .conversion-progress-info .progress-eta {
     font-size: 0.9rem;
-    color: var(--ledger-cream);
-    opacity: 0.8;
+    color: var(--ink-faded);
 }
 
 /* Conversion Stats Grid */
@@ -1225,15 +1224,15 @@ body.back-office {
 }
 
 .conversion-stats .stat-value.warning {
-    color: var(--brass-light);
+    color: var(--brass-dark);
 }
 
 .conversion-stats .stat-value.info {
-    color: #6ca6cd;
+    color: #2a7ab0;
 }
 
 .conversion-stats .stat-value.rate {
-    color: var(--brass-light);
+    color: var(--brass-dark);
     font-family: 'Courier New', monospace;
 }
 
@@ -1286,7 +1285,7 @@ body.back-office {
 
 .details-header {
     font-weight: bold;
-    color: var(--ledger-cream);
+    color: var(--ink);
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--ledger-line);
@@ -1400,7 +1399,7 @@ body.back-office {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--ledger-cream);
+    color: #1a1a1a;
     font-family: 'Courier New', monospace;
 }
 

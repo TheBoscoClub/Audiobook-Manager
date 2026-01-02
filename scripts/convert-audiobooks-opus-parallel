@@ -127,8 +127,9 @@ convert_file() {
 
     # Convert using audible-cli voucher data (required for AAXC files)
     # Use -D to skip genre level (avoid nested Audiobook/Author/Title structure)
+    # ionice -c2 -n0: best-effort class, highest priority (0) for faster I/O
     if cd "$CONVERTER_DIR" && \
-       bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
+       ionice -c2 -n0 bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
            --use-audible-cli-data \
            --target_dir "$OUTPUT_DIR" \
            -D '$artist/$title' \
