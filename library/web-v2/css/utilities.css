@@ -1414,17 +1414,18 @@ body.back-office {
     flex-direction: column;
     gap: 0.25rem;
     padding: 0.5rem 0.75rem;
-    background: #2a2a2a;
+    background: #f5f5f0;
     border-radius: 4px;
     margin-bottom: 0.5rem;
     border-left: 3px solid var(--banker-green);
+    border: 1px solid #d0d0c8;
 }
 
 .active-conversion-item .filename {
     font-family: 'Courier New', monospace;
     font-size: 0.85rem;
-    color: #ffffff;
-    font-weight: 500;
+    color: #1a1a1a;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1435,7 +1436,7 @@ body.back-office {
 
 .active-conversion-item .filename::before {
     content: '●';
-    color: #4ade80;
+    color: #16a34a;
     font-size: 0.6rem;
     animation: pulse-dot 1.5s ease-in-out infinite;
 }
@@ -1454,13 +1455,13 @@ body.back-office {
 }
 
 .active-conversion-item .job-percent {
-    color: #4ade80;
-    font-weight: 600;
+    color: #16a34a;
+    font-weight: 700;
     min-width: 3rem;
 }
 
 .active-conversion-item .job-read {
-    color: #a0a0a0;
+    color: #555555;
     font-family: 'Courier New', monospace;
 }
 
