@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- Refactored utilities.py (1067 lines) into 4 focused sub-modules:
+  - `utilities_crud.py`: CRUD operations (259 lines)
+  - `utilities_db.py`: Database maintenance (291 lines)
+  - `utilities_ops.py`: Async operations with progress tracking (322 lines)
+  - `utilities_conversion.py`: Conversion monitoring with extracted helpers (294 lines)
+- Reduced average cyclomatic complexity from D (high) to A (3.7)
+- Extracted helper functions (`get_ffmpeg_processes`, `parse_job_io`, `get_system_stats`) for testability
 
 ### Fixed
 - Fixed conversion progress showing "100% Complete" while active FFmpeg processes still running
