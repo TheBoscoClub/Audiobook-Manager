@@ -10,12 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
-- `install.sh` now uses `/opt/audiobooks` as canonical install location instead of `/usr/local/lib/audiobooks`
-- Wrapper scripts now source from `/opt/audiobooks/lib/audiobooks-config.sh` (canonical path)
-- Added backward-compatibility symlink `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
-- `install.sh` now automatically enables and starts services after installation (no manual step needed)
-- `migrate-api.sh` now stops services before migration and starts them after (proper lifecycle management)
-- `/etc/profile.d/audiobooks.sh` now sources from canonical `/opt/audiobooks/lib/` path
 
 ### Fixed
 
@@ -30,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Kernel compatibility matrix (LTS through rolling release)
   - I/O scheduler recommendations
 - Installed directory structure documentation in README.md
+
+### Changed
+- `install.sh` now uses `/opt/audiobooks` as canonical install location instead of `/usr/local/lib/audiobooks`
+- Wrapper scripts now source from `/opt/audiobooks/lib/audiobooks-config.sh` (canonical path)
+- Added backward-compatibility symlink `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
+- `install.sh` now automatically enables and starts services after installation (no manual step needed)
+- `migrate-api.sh` now stops services before migration and starts them after (proper lifecycle management)
+- `/etc/profile.d/audiobooks.sh` now sources from canonical `/opt/audiobooks/lib/` path
 
 ### Fixed
 - Fixed `install.sh` to create symlinks in `/usr/local/bin/` instead of copying scripts
