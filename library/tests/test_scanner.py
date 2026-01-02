@@ -25,7 +25,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_simple_file(self, temp_dir):
         """Test hashing a simple file."""
-        from scanner.scan_audiobooks import calculate_sha256
+        from utils import calculate_sha256
 
         test_file = temp_dir / "test.txt"
         test_file.write_text("Hello, World!")
@@ -39,7 +39,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_consistent(self, temp_dir):
         """Test that same content produces same hash."""
-        from scanner.scan_audiobooks import calculate_sha256
+        from utils import calculate_sha256
 
         test_file = temp_dir / "test.txt"
         content = "Consistent content for hashing"
@@ -52,7 +52,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_different_content(self, temp_dir):
         """Test that different content produces different hash."""
-        from scanner.scan_audiobooks import calculate_sha256
+        from utils import calculate_sha256
 
         file1 = temp_dir / "file1.txt"
         file2 = temp_dir / "file2.txt"
@@ -66,7 +66,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_nonexistent_file(self, temp_dir):
         """Test hashing a file that doesn't exist."""
-        from scanner.scan_audiobooks import calculate_sha256
+        from utils import calculate_sha256
 
         nonexistent = temp_dir / "nonexistent.txt"
         result = calculate_sha256(nonexistent)
@@ -75,7 +75,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_empty_file(self, temp_dir):
         """Test hashing an empty file."""
-        from scanner.scan_audiobooks import calculate_sha256
+        from utils import calculate_sha256
 
         empty_file = temp_dir / "empty.txt"
         empty_file.write_text("")
@@ -265,8 +265,8 @@ class TestDetermineLiteraryEra:
 class TestGetFileMetadata:
     """Test metadata extraction from audio files."""
 
-    @patch("scanner.scan_audiobooks.subprocess.run")
-    @patch("scanner.scan_audiobooks.calculate_sha256")
+    @patch("scanner.metadata_utils.subprocess.run")
+    @patch("scanner.metadata_utils.calculate_sha256")
     def test_get_file_metadata_success(self, mock_hash, mock_run, temp_dir):
         """Test successful metadata extraction."""
         from scanner.scan_audiobooks import get_file_metadata
@@ -310,7 +310,7 @@ class TestGetFileMetadata:
         assert result["genre"] == "Science Fiction"
         assert result["duration_hours"] == 10.0
 
-    @patch("scanner.scan_audiobooks.subprocess.run")
+    @patch("scanner.metadata_utils.subprocess.run")
     def test_get_file_metadata_ffprobe_failure(self, mock_run, temp_dir):
         """Test metadata extraction when ffprobe fails."""
         from scanner.scan_audiobooks import get_file_metadata
@@ -325,8 +325,8 @@ class TestGetFileMetadata:
 
         assert result is None
 
-    @patch("scanner.scan_audiobooks.subprocess.run")
-    @patch("scanner.scan_audiobooks.calculate_sha256")
+    @patch("scanner.metadata_utils.subprocess.run")
+    @patch("scanner.metadata_utils.calculate_sha256")
     def test_get_file_metadata_missing_tags(self, mock_hash, mock_run, temp_dir):
         """Test metadata extraction with missing tags."""
         from scanner.scan_audiobooks import get_file_metadata
@@ -363,10 +363,10 @@ class TestGetFileMetadata:
 class TestExtractCoverArt:
     """Test cover art extraction."""
 
-    @patch("scanner.scan_audiobooks.subprocess.run")
+    @patch("scanner.metadata_utils.subprocess.run")
     def test_extract_cover_art_success(self, mock_run, temp_dir):
         """Test successful cover art extraction."""
-        from scanner.scan_audiobooks import extract_cover_art
+        from scanner.metadata_utils import extract_cover_art
 
         test_file = temp_dir / "audiobook.opus"
         test_file.write_bytes(b"fake audio")
@@ -389,10 +389,10 @@ class TestExtractCoverArt:
         assert result is not None
         assert result.endswith(".jpg")
 
-    @patch("scanner.scan_audiobooks.subprocess.run")
+    @patch("scanner.metadata_utils.subprocess.run")
     def test_extract_cover_art_failure(self, mock_run, temp_dir):
         """Test cover art extraction when ffmpeg fails."""
-        from scanner.scan_audiobooks import extract_cover_art
+        from scanner.metadata_utils import extract_cover_art
 
         test_file = temp_dir / "audiobook.opus"
         test_file.write_bytes(b"fake audio")
@@ -407,7 +407,7 @@ class TestExtractCoverArt:
 
     def test_extract_cover_art_already_exists(self, temp_dir):
         """Test that existing cover art is reused."""
-        from scanner.scan_audiobooks import extract_cover_art
+        from scanner.metadata_utils import extract_cover_art
 
         test_file = temp_dir / "audiobook.opus"
         test_file.write_bytes(b"fake audio")

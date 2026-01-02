@@ -16,19 +16,23 @@ This script:
 3. Inserts directly into SQLite
 """
 
-import hashlib
-import json
 import sqlite3
-import subprocess
 import sys
 from pathlib import Path
-from datetime import datetime
 from typing import Optional, Callable
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
-from utils import calculate_sha256
+
+# Import shared utilities from scanner package
+from scanner.metadata_utils import (
+    get_file_metadata,
+    extract_cover_art,
+    categorize_genre,
+    determine_literary_era,
+    extract_topics,
+)
 
 SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 
@@ -70,198 +74,25 @@ def find_new_audiobooks(library_dir: Path, existing_paths: set[str]) -> list[Pat
     return new_files
 
 
-def get_file_metadata(filepath: Path, calculate_hash: bool = True) -> Optional[dict]:
-    """Extract metadata from audiobook file using ffprobe."""
-    try:
-        cmd = [
-            "ffprobe", "-v", "quiet", "-print_format", "json",
-            "-show_format", "-show_streams", str(filepath),
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode != 0:
-            print(f"  Warning: Could not read {filepath.name}", file=sys.stderr)
-            return None
-
-        data = json.loads(result.stdout)
-        format_data = data.get("format", {})
-        tags = format_data.get("tags", {})
-        tags_normalized = {k.lower(): v for k, v in tags.items()}
-
-        # Duration
-        duration_sec = float(format_data.get("duration", 0))
-        duration_hours = duration_sec / 3600
-
-        # Extract author from folder structure
-        author_from_path = None
-        parts = filepath.parts
-        if "Library" in parts:
-            library_idx = parts.index("Library")
-            if len(parts) > library_idx + 1:
-                potential_author = parts[library_idx + 1]
-                if potential_author.lower() == "audiobook":
-                    if len(parts) > library_idx + 2:
-                        author_from_path = parts[library_idx + 2]
-                else:
-                    author_from_path = potential_author
-
-        # Author (priority order)
-        author = None
-        for field in ["artist", "album_artist", "author", "writer", "creator"]:
-            if field in tags_normalized and tags_normalized[field]:
-                author = tags_normalized[field]
-                break
-        if not author:
-            author = author_from_path or "Unknown Author"
-
-        # Narrator (priority order)
-        narrator = None
-        for field in ["narrator", "composer", "performer", "read_by", "narrated_by", "reader"]:
-            if field in tags_normalized and tags_normalized[field]:
-                val = tags_normalized[field]
-                if val.lower() != author.lower():
-                    narrator = val
-                    break
-        if not narrator:
-            narrator = "Unknown Narrator"
-
-        # SHA-256 hash
-        file_hash = None
-        hash_verified_at = None
-        if calculate_hash:
-            file_hash = calculate_sha256(filepath)
-            if file_hash:
-                hash_verified_at = datetime.now().isoformat()
-
-        return {
-            "title": tags_normalized.get("title", tags_normalized.get("album", filepath.stem)),
-            "author": author,
-            "narrator": narrator,
-            "publisher": tags_normalized.get("publisher", tags_normalized.get("label", "Unknown Publisher")),
-            "genre": tags_normalized.get("genre", "Uncategorized"),
-            "year": tags_normalized.get("date", tags_normalized.get("year", "")),
-            "description": tags_normalized.get("comment", tags_normalized.get("description", "")),
-            "duration_hours": round(duration_hours, 2),
-            "duration_formatted": f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m",
-            "file_size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
-            "file_path": str(filepath),
-            "series": tags_normalized.get("series", ""),
-            "series_part": tags_normalized.get("series-part", ""),
-            "sha256_hash": file_hash,
-            "hash_verified_at": hash_verified_at,
-            "format": filepath.suffix.lower().replace(".", ""),
-        }
-
-    except subprocess.TimeoutExpired:
-        print(f"  Warning: Timeout reading {filepath.name}", file=sys.stderr)
-        return None
-    except Exception as e:
-        print(f"  Error processing {filepath.name}: {e}", file=sys.stderr)
-        return None
+def get_or_create_lookup_id(
+    cursor: sqlite3.Cursor,
+    table: str,
+    name: str
+) -> int:
+    """Get or create an ID in a lookup table (genres, eras, topics)."""
+    cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+    cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (name,))
+    return cursor.lastrowid
 
 
-def extract_cover_art(filepath: Path, output_dir: Path) -> Optional[str]:
-    """Extract cover art from audiobook file."""
-    try:
-        file_hash = hashlib.md5(str(filepath).encode()).hexdigest()
-        cover_path = output_dir / f"{file_hash}.jpg"
-
-        if cover_path.exists():
-            return cover_path.name
-
-        cmd = [
-            "ffmpeg", "-v", "quiet", "-i", str(filepath),
-            "-an", "-vcodec", "copy", str(cover_path),
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, timeout=30)
-        if result.returncode == 0 and cover_path.exists():
-            return cover_path.name
-        return None
-    except Exception:
-        return None
-
-
-def categorize_genre(genre: str) -> dict:
-    """Categorize genre into main/sub categories."""
-    genre_lower = genre.lower()
-
-    categories = {
-        "fiction": {
-            "mystery & thriller": ["mystery", "thriller", "crime", "detective", "noir", "suspense"],
-            "science fiction": ["science fiction", "sci-fi", "scifi", "cyberpunk", "space opera"],
-            "fantasy": ["fantasy", "epic fantasy", "urban fantasy", "magical realism"],
-            "literary fiction": ["literary", "contemporary", "historical fiction"],
-            "horror": ["horror", "supernatural", "gothic"],
-            "romance": ["romance", "romantic"],
-        },
-        "non-fiction": {
-            "biography & memoir": ["biography", "memoir", "autobiography"],
-            "history": ["history", "historical"],
-            "science": ["science", "physics", "biology", "chemistry", "astronomy"],
-            "philosophy": ["philosophy", "ethics"],
-            "self-help": ["self-help", "personal development", "psychology"],
-            "business": ["business", "economics", "entrepreneurship"],
-            "true crime": ["true crime"],
-        },
-    }
-
-    for main_cat, subcats in categories.items():
-        for subcat, keywords in subcats.items():
-            if any(keyword in genre_lower for keyword in keywords):
-                return {"main": main_cat, "sub": subcat, "original": genre}
-
-    return {"main": "uncategorized", "sub": "general", "original": genre}
-
-
-def determine_literary_era(year_str: str) -> str:
-    """Determine literary era from publication year."""
-    try:
-        year = int(year_str[:4]) if year_str else 0
-
-        if year == 0:
-            return "Unknown Era"
-        elif year < 1800:
-            return "Classical (Pre-1800)"
-        elif year < 1900:
-            return "19th Century (1800-1899)"
-        elif year < 1950:
-            return "Early 20th Century (1900-1949)"
-        elif year < 2000:
-            return "Late 20th Century (1950-1999)"
-        elif year < 2010:
-            return "21st Century - Early (2000-2009)"
-        elif year < 2020:
-            return "21st Century - Modern (2010-2019)"
-        else:
-            return "21st Century - Contemporary (2020+)"
-    except (ValueError, TypeError):
-        return "Unknown Era"
-
-
-def extract_topics(description: str) -> list[str]:
-    """Extract topics from description."""
-    description_lower = description.lower()
-    topics = []
-
-    topic_keywords = {
-        "war": ["war", "battle", "military", "conflict"],
-        "adventure": ["adventure", "journey", "quest", "expedition"],
-        "technology": ["technology", "computer", "ai", "artificial intelligence"],
-        "politics": ["politics", "political", "government", "election"],
-        "religion": ["religion", "faith", "spiritual", "god"],
-        "family": ["family", "parent", "child", "marriage"],
-        "society": ["society", "social", "culture", "community"],
-    }
-
-    for topic, keywords in topic_keywords.items():
-        if any(kw in description_lower for kw in keywords):
-            topics.append(topic)
-
-    return topics if topics else ["general"]
-
-
-def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: Optional[str]) -> Optional[int]:
+def insert_audiobook(
+    conn: sqlite3.Connection,
+    metadata: dict,
+    cover_path: Optional[str]
+) -> Optional[int]:
     """Insert a single audiobook into the database. Returns the new ID."""
     cursor = conn.cursor()
 
@@ -295,16 +126,7 @@ def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: Optio
     # Insert genre
     genre = metadata.get("genre", "Uncategorized")
     genre_cat = categorize_genre(genre)
-
-    # Get or create genre
-    cursor.execute("SELECT id FROM genres WHERE name = ?", (genre_cat["sub"],))
-    row = cursor.fetchone()
-    if row:
-        genre_id = row[0]
-    else:
-        cursor.execute("INSERT INTO genres (name) VALUES (?)", (genre_cat["sub"],))
-        genre_id = cursor.lastrowid
-
+    genre_id = get_or_create_lookup_id(cursor, "genres", genre_cat["sub"])
     cursor.execute(
         "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
         (audiobook_id, genre_id)
@@ -312,14 +134,7 @@ def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: Optio
 
     # Insert era
     era = determine_literary_era(metadata.get("year", ""))
-    cursor.execute("SELECT id FROM eras WHERE name = ?", (era,))
-    row = cursor.fetchone()
-    if row:
-        era_id = row[0]
-    else:
-        cursor.execute("INSERT INTO eras (name) VALUES (?)", (era,))
-        era_id = cursor.lastrowid
-
+    era_id = get_or_create_lookup_id(cursor, "eras", era)
     cursor.execute(
         "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
         (audiobook_id, era_id)
@@ -328,14 +143,7 @@ def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: Optio
     # Insert topics
     topics = extract_topics(metadata.get("description", ""))
     for topic_name in topics:
-        cursor.execute("SELECT id FROM topics WHERE name = ?", (topic_name,))
-        row = cursor.fetchone()
-        if row:
-            topic_id = row[0]
-        else:
-            cursor.execute("INSERT INTO topics (name) VALUES (?)", (topic_name,))
-            topic_id = cursor.lastrowid
-
+        topic_id = get_or_create_lookup_id(cursor, "topics", topic_name)
         cursor.execute(
             "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
             (audiobook_id, topic_id)
@@ -386,7 +194,12 @@ def add_new_audiobooks(
     if not new_files:
         if progress_callback:
             progress_callback(100, 100, "No new audiobooks found")
-        return {"added": added_count, "skipped": skipped_count, "errors": errors_count, "new_files": new_files_list}
+        return {
+            "added": added_count,
+            "skipped": skipped_count,
+            "errors": errors_count,
+            "new_files": new_files_list
+        }
 
     # Ensure cover directory exists
     cover_dir.mkdir(parents=True, exist_ok=True)
@@ -406,8 +219,12 @@ def add_new_audiobooks(
 
             print(f"[{idx:3d}/{total}] Adding: {filepath.name}")
 
-            # Extract metadata
-            metadata = get_file_metadata(filepath, calculate_hash=calculate_hashes)
+            # Extract metadata using shared utility
+            metadata = get_file_metadata(
+                filepath,
+                audiobook_dir=library_dir,
+                calculate_hash=calculate_hashes
+            )
             if not metadata:
                 errors_count += 1
                 continue
@@ -444,7 +261,12 @@ def add_new_audiobooks(
     finally:
         conn.close()
 
-    return {"added": added_count, "skipped": skipped_count, "errors": errors_count, "new_files": new_files_list}
+    return {
+        "added": added_count,
+        "skipped": skipped_count,
+        "errors": errors_count,
+        "new_files": new_files_list
+    }
 
 
 def main():
