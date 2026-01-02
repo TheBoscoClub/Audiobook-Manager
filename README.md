@@ -263,7 +263,7 @@ cd Audiobook-Manager
 ```
 
 You'll be presented with a menu to choose:
-- **System Installation** - Installs to `/usr/local/bin` and `/etc/audiobooks` (requires sudo)
+- **System Installation** - Installs application to `/opt/audiobooks`, commands to `/usr/local/bin`, config to `/etc/audiobooks` (requires sudo). Services are automatically enabled and started.
 - **User Installation** - Installs to `~/.local/bin` and `~/.config/audiobooks` (no root required)
 - **Exit** - Exit without changes
 
@@ -352,14 +352,19 @@ Switch between monolithic and modular Flask architectures:
 
 ```bash
 # Check current architecture
-audiobooks-migrate --check
+./migrate-api.sh --status
 
 # Switch to modular (Flask Blueprints)
-audiobooks-migrate --to modular
+./migrate-api.sh --to-modular --target /opt/audiobooks
 
 # Switch to monolithic (single file)
-audiobooks-migrate --to monolithic
+./migrate-api.sh --to-monolithic --target /opt/audiobooks
+
+# Dry run (show what would be done)
+./migrate-api.sh --to-modular --dry-run
 ```
+
+**Note:** Migration automatically stops services before switching and restarts them after.
 
 ## Configuration
 
@@ -499,8 +504,11 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 **Architecture Notes:**
 - Scripts are installed to `/opt/audiobooks/scripts/` (canonical location)
 - Symlinks in `/usr/local/bin/` point to canonical scripts, so upgrades automatically update commands
+- Wrapper scripts source from `/opt/audiobooks/lib/audiobooks-config.sh` (canonical path)
+- Backward-compat symlink: `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
 - User data (`${AUDIOBOOKS_DATA}`) is separate from application code (`/opt/audiobooks/`)
 - Database is placed in `/var/lib/` for fast storage (NVMe/SSD recommended)
+- Services are automatically enabled and started after installation
 
 ## Web Interface Features
 
@@ -889,7 +897,22 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.2.1 (Current)
+### v3.4.1 (Current)
+- **Architecture**: Comprehensive ARCHITECTURE.md guide with install/upgrade/migrate workflows
+- **Install**: Fixed to use `/opt/audiobooks` as canonical location with auto-service start
+- **Migrate**: Added service stop/start lifecycle to `migrate-api.sh`
+- **Symlinks**: Wrapper scripts now source from canonical `/opt/audiobooks/lib/` path
+
+### v3.4.0
+- **Collections**: Per-job conversion stats, sortable active conversions, text-search based genres
+- **Config**: Fixed critical DATA_DIR config reading issue
+- **Covers**: Cover art now stored in data directory (`${AUDIOBOOKS_DATA}/.covers`)
+
+### v3.3.x
+- **Conversion Monitor**: Real-time progress bar, rate calculation, ETA in Back Office
+- **Upgrade**: Auto stop/start services during upgrade
+
+### v3.2.1
 - **Docker Build**: Added Docker build job to release workflow for automated container builds
 - **Performance**: Increased default parallel conversion jobs from 8 to 12
 - **Cleanup**: Removed redundant config fallbacks from scripts (single source of truth)

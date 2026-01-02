@@ -181,10 +181,31 @@ Audiobook-Manager consists of four logical component groups:
                     └───────────────────────────────┘
                                   │
                                   ▼
+                    ┌───────────────────────────────┐
+                    │   Create backward-compat      │
+                    │   symlink:                    │
+                    │   /usr/local/lib/audiobooks   │
+                    │        ↓ symlink ↓            │
+                    │   /opt/audiobooks/lib/        │
+                    └───────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────────┐
+                    │   Enable & start services     │
+                    │   • systemctl enable          │
+                    │     audiobooks.target         │
+                    │   • systemctl start           │
+                    │     audiobooks.target         │
+                    │   • Verify services running   │
+                    └───────────────────────────────┘
+                                  │
+                                  ▼
                          ┌───────────────┐
                          │   COMPLETE    │
                          └───────────────┘
 ```
+
+**Note:** Wrapper scripts in `/usr/local/bin/` source configuration from `/opt/audiobooks/lib/audiobooks-config.sh` (canonical path). The backward-compat symlink at `/usr/local/lib/audiobooks` ensures older scripts continue to work.
 
 ### User Installation Flow
 

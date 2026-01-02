@@ -223,6 +223,23 @@ Consider the modular approach when:
 | `utilities.py` | ~450 | Admin operations |
 | `__init__.py` | ~200 | Package init/exports |
 
+## Switching Architectures
+
+Use `migrate-api.sh` to switch between monolithic and modular architectures:
+
+```bash
+# Check current architecture
+./migrate-api.sh --status
+
+# Switch to modular
+./migrate-api.sh --to-modular --target /opt/audiobooks
+
+# Switch back to monolithic
+./migrate-api.sh --to-monolithic --target /opt/audiobooks
+```
+
+**Note:** Migration automatically stops services, updates wrapper scripts, and restarts services.
+
 ## See Also
 
 - [MIGRATION.md](./MIGRATION.md) - Detailed migration instructions
