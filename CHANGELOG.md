@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **CRITICAL**: Fixed `DATA_DIR` config not reading from `/etc/audiobooks/audiobooks.conf`, which caused "Reimport Database" to read from test fixtures instead of production data
 - Added test data validation in `import_to_db.py` to prevent importing test fixtures (<20 books or "Test Audiobook" titles)
+- Fixed Docker entrypoint paths: `api.py` → `api_server.py`, `web-v2` → `web`
+- Fixed 3 ruff linting errors: unused `os` import, unused `cpu_idle` variable, f-string without placeholders
+- Fixed test failures for `test_main_success` and `test_main_reports_db_size` (added `SKIP_IMPORT_VALIDATION` for test fixtures)
 
 ## [3.3.1] - 2026-01-01
 

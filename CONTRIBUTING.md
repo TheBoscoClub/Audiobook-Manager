@@ -47,7 +47,7 @@ pytest tests/ -v
 pytest tests/ --cov=backend --cov=scanner --cov-report=term-missing
 
 # Run specific test file
-pytest tests/test_api.py -v
+pytest tests/test_api_modular.py -v
 ```
 
 ### Project Structure
@@ -56,8 +56,8 @@ pytest tests/test_api.py -v
 audiobooks/
 ├── library/              # Main application
 │   ├── backend/          # Flask API
-│   │   ├── api.py        # Legacy monolithic API
-│   │   └── api_modular/  # New modular blueprints
+│   │   ├── api_server.py # Server launcher
+│   │   └── api_modular/  # Modular Flask Blueprints
 │   ├── scanner/          # Audiobook scanning
 │   ├── scripts/          # Utility scripts
 │   ├── web-v2/           # Web interface

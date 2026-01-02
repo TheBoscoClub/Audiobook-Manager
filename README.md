@@ -415,9 +415,18 @@ Audiobooks/
 ├── library/                     # Web library interface
 │   ├── config.py                # Python configuration module
 │   ├── backend/
-│   │   ├── api.py               # Flask REST API
+│   │   ├── api_server.py        # Flask server launcher
+│   │   ├── api_modular/         # Modular Flask Blueprints
+│   │   │   ├── __init__.py
+│   │   │   ├── audiobooks.py    # Audiobook endpoints
+│   │   │   ├── metadata.py      # Metadata endpoints
+│   │   │   ├── search.py        # Search endpoints
+│   │   │   ├── stats.py         # Statistics endpoints
+│   │   │   ├── operations.py    # Background operations
+│   │   │   └── utilities.py     # Utility endpoints
+│   │   ├── import_to_db.py      # Database importer
 │   │   ├── schema.sql           # Database schema
-│   │   └── audiobooks.db        # SQLite database
+│   │   └── operation_status.py  # Operation tracking
 │   ├── scanner/
 │   │   └── scan_audiobooks.py   # Metadata extraction from audio files
 │   ├── scripts/
@@ -434,13 +443,12 @@ Audiobooks/
 │   │   ├── fix_audiobook_authors.py     # Author metadata repair
 │   │   └── utils/
 │   │       └── openlibrary_client.py    # OpenLibrary API client
-│   ├── web-v2/
-│   │   ├── index.html           # Main web interface
-│   │   ├── js/library.js        # Frontend JavaScript
-│   │   ├── css/library.css      # Vintage library styling
-│   │   ├── proxy_server.py      # HTTPS reverse proxy
-│   │   └── redirect_server.py   # HTTP→HTTPS redirect
-│   └── web/                     # Legacy interface + cover storage
+│   └── web-v2/
+│       ├── index.html           # Main web interface
+│       ├── js/library.js        # Frontend JavaScript
+│       ├── css/library.css      # Vintage library styling
+│       ├── proxy_server.py      # HTTPS reverse proxy
+│       └── redirect_server.py   # HTTP→HTTPS redirect
 ├── Dockerfile                   # Docker build file
 ├── docker-compose.yml           # Docker Compose config
 └── README.md

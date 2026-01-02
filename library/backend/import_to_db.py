@@ -233,7 +233,7 @@ def validate_json_source(json_path: Path) -> bool:
     # Safety check 2: Test audiobook titles
     test_titles = [b.get("title", "") for b in audiobooks if "Test Audiobook" in b.get("title", "")]
     if test_titles:
-        print(f"\n⚠️  WARNING: JSON file contains test audiobook titles!")
+        print("\n⚠️  WARNING: JSON file contains test audiobook titles!")
         print(f"   Found: {test_titles[:5]}")
         print(f"   Source: {json_path}")
         print("\n   This is test data and should NOT be imported to production.")

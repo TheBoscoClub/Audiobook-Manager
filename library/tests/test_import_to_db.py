@@ -500,9 +500,12 @@ class TestImportAudiobooks:
 class TestMain:
     """Test the main function."""
 
-    def test_main_success(self, temp_db_path, temp_schema_path, temp_json_path, capsys):
+    def test_main_success(self, temp_db_path, temp_schema_path, temp_json_path, capsys, monkeypatch):
         """Test successful main execution."""
         from backend import import_to_db
+
+        # Skip validation for test data (small dataset)
+        monkeypatch.setenv("SKIP_IMPORT_VALIDATION", "1")
 
         with (
             patch.object(import_to_db, "DB_PATH", temp_db_path),
@@ -534,10 +537,13 @@ class TestMain:
         assert "Error: JSON file not found" in captured.out
 
     def test_main_reports_db_size(
-        self, temp_db_path, temp_schema_path, temp_json_path, capsys
+        self, temp_db_path, temp_schema_path, temp_json_path, capsys, monkeypatch
     ):
         """Test that main reports database size."""
         from backend import import_to_db
+
+        # Skip validation for test data (small dataset)
+        monkeypatch.setenv("SKIP_IMPORT_VALIDATION", "1")
 
         with (
             patch.object(import_to_db, "DB_PATH", temp_db_path),
