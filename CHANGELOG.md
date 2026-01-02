@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed conversion progress showing "100% Complete" while active FFmpeg processes still running
 - Fixed REMAINING and QUEUE SIZE showing 0 when conversions are in-progress (now shows active count)
+- Removed unused imports and variables (code cleanup)
+- Removed orphaned test fixtures from conftest.py
+- Updated Dockerfile version default to match current VERSION
 
 ## [3.4.1] - 2026-01-02
 
