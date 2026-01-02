@@ -333,15 +333,11 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stderr = ""
 
         with patch(
-            "backend.api_modular.utilities.subprocess.run", return_value=mock_result
+            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
         ):
-            with patch("backend.api_modular.utilities.Path") as MockPath:
-                mock_scanner = MagicMock()
-                mock_scanner.exists.return_value = True
-                MockPath.return_value = mock_scanner
-
-                response = app_client.post("/api/utilities/rescan")
-                assert response.status_code in (200, 500)
+            response = app_client.post("/api/utilities/rescan")
+            # 200 if scanner exists and succeeds, 500 if scanner not found
+            assert response.status_code in (200, 500)
 
     def test_rescan_library_failure(self, app_client):
         """Test rescan library failure handling."""
@@ -351,7 +347,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stderr = "Script failed"
 
         with patch(
-            "backend.api_modular.utilities.subprocess.run", return_value=mock_result
+            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
         ):
             response = app_client.post("/api/utilities/rescan")
             # Should return success with returncode info or 500
@@ -360,7 +356,7 @@ class TestUtilityEndpointsWithMocks:
     def test_rescan_library_timeout(self, app_client):
         """Test rescan library timeout handling."""
         with patch(
-            "backend.api_modular.utilities.subprocess.run",
+            "backend.api_modular.utilities_db.subprocess.run",
             side_effect=subprocess.TimeoutExpired("cmd", 1800),
         ):
             response = app_client.post("/api/utilities/rescan")
@@ -374,7 +370,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stderr = ""
 
         with patch(
-            "backend.api_modular.utilities.subprocess.run", return_value=mock_result
+            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
         ):
             response = app_client.post("/api/utilities/reimport")
             assert response.status_code in (200, 500)
@@ -387,7 +383,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stderr = "Import failed"
 
         with patch(
-            "backend.api_modular.utilities.subprocess.run", return_value=mock_result
+            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
         ):
             response = app_client.post("/api/utilities/reimport")
             # Should return with failure info
@@ -401,7 +397,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stderr = ""
 
         with patch(
-            "backend.api_modular.utilities.subprocess.run", return_value=mock_result
+            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
         ):
             response = app_client.post("/api/utilities/generate-hashes")
             assert response.status_code in (200, 500)
@@ -414,7 +410,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stderr = "Hash generation failed"
 
         with patch(
-            "backend.api_modular.utilities.subprocess.run", return_value=mock_result
+            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
         ):
             response = app_client.post("/api/utilities/generate-hashes")
             # Should return with failure info
