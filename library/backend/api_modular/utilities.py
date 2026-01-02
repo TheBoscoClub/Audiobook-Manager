@@ -1022,6 +1022,15 @@ def init_utilities_routes(db_path, project_root):
             # Calculate completion percentage
             percent = int(total_converted * 100 / aaxc_count) if aaxc_count > 0 else 0
 
+            # Effective remaining: if FFmpeg is actively converting, those files
+            # haven't been written to staging yet, so count them as remaining
+            effective_remaining = max(remaining, ffmpeg_count)
+
+            # Only complete when no remaining AND no active conversions
+            is_complete = (
+                remaining == 0 and ffmpeg_count == 0 and aaxc_count > 0
+            )
+
             return jsonify({
                 "success": True,
                 "status": {
@@ -1029,10 +1038,10 @@ def init_utilities_routes(db_path, project_root):
                     "library_count": library_count,
                     "staged_count": staged_count,
                     "total_converted": total_converted,
-                    "queue_count": queue_count,
-                    "remaining": remaining,
+                    "queue_count": effective_remaining,  # Use effective for consistency
+                    "remaining": effective_remaining,
                     "percent_complete": percent,
-                    "is_complete": remaining == 0 and aaxc_count > 0,
+                    "is_complete": is_complete,
                 },
                 "processes": {
                     "ffmpeg_count": ffmpeg_count,

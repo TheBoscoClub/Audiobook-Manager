@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Fixed conversion progress showing "100% Complete" while active FFmpeg processes still running
+- Fixed REMAINING and QUEUE SIZE showing 0 when conversions are in-progress (now shows active count)
 
 ## [3.4.1] - 2026-01-02
 
