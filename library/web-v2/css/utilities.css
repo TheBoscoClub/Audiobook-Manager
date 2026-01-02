@@ -1403,6 +1403,48 @@ body.back-office {
     font-family: 'Courier New', monospace;
 }
 
+/* Sort Controls */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.sort-label {
+    font-size: 0.7rem;
+    color: #666;
+    margin-right: 0.25rem;
+}
+
+.sort-btn {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem;
+    background: #e8e8e0;
+    border: 1px solid #c0c0b8;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #555;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.sort-btn:hover {
+    background: #d8d8d0;
+    border-color: #a0a098;
+}
+
+.sort-btn.active {
+    background: var(--banker-green);
+    color: white;
+    border-color: var(--banker-green-dark);
+}
+
 /* Active Conversions List */
 .active-conversions-list {
     max-height: 200px;
@@ -1457,7 +1499,13 @@ body.back-office {
 .active-conversion-item .job-percent {
     color: #16a34a;
     font-weight: 700;
-    min-width: 3rem;
+    min-width: 2.5rem;
+}
+
+.active-conversion-item .job-throughput {
+    color: #0066cc;
+    font-weight: 600;
+    min-width: 5rem;
 }
 
 .active-conversion-item .job-read {

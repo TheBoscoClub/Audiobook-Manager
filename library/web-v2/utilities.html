@@ -366,7 +366,15 @@
 
                     <!-- Active Conversions Card -->
                     <div class="catalog-card">
-                        <div class="card-header">Active Conversions</div>
+                        <div class="card-header">
+                            <span>Active Conversions</span>
+                            <div class="sort-controls">
+                                <span class="sort-label">Sort:</span>
+                                <button class="sort-btn active" data-sort="percent" title="Sort by percent complete">%</button>
+                                <button class="sort-btn" data-sort="throughput" title="Sort by throughput">MiB/s</button>
+                                <button class="sort-btn" data-sort="name" title="Sort by name">A-Z</button>
+                            </div>
+                        </div>
                         <div class="card-body">
                             <div class="active-conversions-list" id="conv-active-list">
                                 <p class="placeholder-text">No active conversions</p>

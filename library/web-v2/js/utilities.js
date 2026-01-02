@@ -1088,6 +1088,10 @@ let conversionRateTracker = {
     writeThroughput: 0
 };
 
+// Per-job throughput tracking
+let jobThroughputTracker = {};  // pid -> { prevReadBytes, throughput }
+let conversionSortBy = 'percent';  // 'percent', 'throughput', 'name'
+
 function initConversionSection() {
     // Refresh button
     document.getElementById('conv-refresh')?.addEventListener('click', loadConversionStatus);
@@ -1123,6 +1127,21 @@ function initConversionSection() {
             detailsPanel.classList.toggle('expanded');
         });
     }
+
+    // Sort button handlers
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sortBy = btn.dataset.sort;
+            if (sortBy) {
+                conversionSortBy = sortBy;
+                // Update active state
+                document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                // Refresh to apply sort
+                loadConversionStatus();
+            }
+        });
+    });
 }
 
 function startConversionAutoRefresh() {
@@ -1262,8 +1281,43 @@ async function loadConversionStatus() {
             }
 
             // Use conversion_jobs for detailed info, fallback to active_conversions
-            const jobs = processes.conversion_jobs || [];
+            let jobs = processes.conversion_jobs || [];
             if (jobs.length > 0) {
+                // Calculate per-job throughput
+                const newTracker = {};
+                jobs.forEach(job => {
+                    const pid = job.pid;
+                    const currentReadBytes = job.read_bytes || 0;
+
+                    if (jobThroughputTracker[pid] && elapsed > 0) {
+                        const delta = currentReadBytes - jobThroughputTracker[pid].prevReadBytes;
+                        if (delta >= 0) {
+                            job.throughput = delta / elapsed;  // bytes per second
+                        } else {
+                            job.throughput = 0;
+                        }
+                    } else {
+                        job.throughput = 0;
+                    }
+
+                    newTracker[pid] = { prevReadBytes: currentReadBytes };
+                });
+                jobThroughputTracker = newTracker;
+
+                // Sort jobs based on selected criteria
+                jobs = [...jobs].sort((a, b) => {
+                    switch (conversionSortBy) {
+                        case 'percent':
+                            return (b.percent || 0) - (a.percent || 0);  // Highest first
+                        case 'throughput':
+                            return (b.throughput || 0) - (a.throughput || 0);  // Highest first
+                        case 'name':
+                            return (a.filename || '').localeCompare(b.filename || '');
+                        default:
+                            return 0;
+                    }
+                });
+
                 jobs.forEach(job => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'active-conversion-item';
@@ -1283,6 +1337,13 @@ async function loadConversionStatus() {
                     percentSpan.className = 'job-percent';
                     percentSpan.textContent = `${job.percent || 0}%`;
                     statsDiv.appendChild(percentSpan);
+
+                    // Throughput
+                    const throughputSpan = document.createElement('span');
+                    throughputSpan.className = 'job-throughput';
+                    const throughputMiB = (job.throughput || 0) / 1048576;
+                    throughputSpan.textContent = throughputMiB > 0.1 ? `${throughputMiB.toFixed(1)} MiB/s` : '—';
+                    statsDiv.appendChild(throughputSpan);
 
                     // Read progress (MiB)
                     const readSpan = document.createElement('span');
