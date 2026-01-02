@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `utilities_db.py`: Database maintenance (291 lines)
   - `utilities_ops.py`: Async operations with progress tracking (322 lines)
   - `utilities_conversion.py`: Conversion monitoring with extracted helpers (294 lines)
+- Refactored scanner modules with new shared `metadata_utils.py`:
+  - Extracted genre taxonomy, topic keywords, and metadata extraction helpers
+  - `scan_audiobooks.py`: D(24) → A(3) complexity on main function
+  - `add_new_audiobooks.py`: D(21) → C(13) max complexity
+  - Average scanner complexity now B(5.2)
 - Reduced average cyclomatic complexity from D (high) to A (3.7)
 - Extracted helper functions (`get_ffmpeg_processes`, `parse_job_io`, `get_system_stats`) for testability
 
