@@ -1253,7 +1253,7 @@ async function loadConversionStatus() {
             activeBadge.textContent = `${processes.ffmpeg_count} active`;
         }
 
-        // Update active conversions list using safe DOM methods
+        // Update active conversions list using safe DOM methods with per-job stats
         const activeList = document.getElementById('conv-active-list');
         if (activeList) {
             // Clear existing content safely
@@ -1261,15 +1261,48 @@ async function loadConversionStatus() {
                 activeList.removeChild(activeList.firstChild);
             }
 
-            if (processes.active_conversions && processes.active_conversions.length > 0) {
-                processes.active_conversions.forEach(filename => {
+            // Use conversion_jobs for detailed info, fallback to active_conversions
+            const jobs = processes.conversion_jobs || [];
+            if (jobs.length > 0) {
+                jobs.forEach(job => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'active-conversion-item';
 
+                    // Filename
+                    const filenameSpan = document.createElement('span');
+                    filenameSpan.className = 'filename';
+                    filenameSpan.textContent = job.display_name || job.filename || 'unknown';
+                    itemDiv.appendChild(filenameSpan);
+
+                    // Stats row
+                    const statsDiv = document.createElement('div');
+                    statsDiv.className = 'job-stats';
+
+                    // Percent complete
+                    const percentSpan = document.createElement('span');
+                    percentSpan.className = 'job-percent';
+                    percentSpan.textContent = `${job.percent || 0}%`;
+                    statsDiv.appendChild(percentSpan);
+
+                    // Read progress (MiB)
+                    const readSpan = document.createElement('span');
+                    readSpan.className = 'job-read';
+                    const readMiB = (job.read_bytes || 0) / 1048576;
+                    const sourceMiB = (job.source_size || 0) / 1048576;
+                    readSpan.textContent = `${readMiB.toFixed(0)}/${sourceMiB.toFixed(0)} MiB`;
+                    statsDiv.appendChild(readSpan);
+
+                    itemDiv.appendChild(statsDiv);
+                    activeList.appendChild(itemDiv);
+                });
+            } else if (processes.active_conversions && processes.active_conversions.length > 0) {
+                // Fallback to legacy format
+                processes.active_conversions.forEach(filename => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'active-conversion-item';
                     const filenameSpan = document.createElement('span');
                     filenameSpan.className = 'filename';
                     filenameSpan.textContent = filename;
-
                     itemDiv.appendChild(filenameSpan);
                     activeList.appendChild(itemDiv);
                 });

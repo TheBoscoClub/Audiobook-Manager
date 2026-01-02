@@ -1411,18 +1411,32 @@ body.back-office {
 
 .active-conversion-item {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.25rem;
     padding: 0.5rem 0.75rem;
-    background: var(--office-dark);
+    background: #2a2a2a;
     border-radius: 4px;
     margin-bottom: 0.5rem;
     border-left: 3px solid var(--banker-green);
 }
 
-.active-conversion-item::before {
+.active-conversion-item .filename {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #ffffff;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.active-conversion-item .filename::before {
     content: '●';
-    color: var(--banker-green-light);
+    color: #4ade80;
+    font-size: 0.6rem;
     animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
@@ -1431,14 +1445,23 @@ body.back-office {
     50% { opacity: 0.4; }
 }
 
-.active-conversion-item .filename {
-    flex: 1;
+/* Per-job stats row */
+.active-conversion-item .job-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    padding-left: 1rem;
+}
+
+.active-conversion-item .job-percent {
+    color: #4ade80;
+    font-weight: 600;
+    min-width: 3rem;
+}
+
+.active-conversion-item .job-read {
+    color: #a0a0a0;
     font-family: 'Courier New', monospace;
-    font-size: 0.85rem;
-    color: var(--ledger-cream);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 /* Conversion Controls */

@@ -850,9 +850,10 @@ def init_utilities_routes(db_path, project_root):
             AUDIOBOOKS_SOURCES,
             AUDIOBOOKS_LIBRARY,
             AUDIOBOOKS_DATA,
+            AUDIOBOOKS_STAGING,
         )
 
-        staging_dir = AUDIOBOOKS_DATA / "Staging"
+        staging_dir = AUDIOBOOKS_STAGING
         index_dir = AUDIOBOOKS_DATA / ".index"
         queue_file = index_dir / "queue.txt"
 
@@ -861,10 +862,10 @@ def init_utilities_routes(db_path, project_root):
             sources_dir = AUDIOBOOKS_SOURCES
             aaxc_count = len(list(sources_dir.glob("*.aaxc"))) if sources_dir.exists() else 0
 
-            # Count staged opus files (excluding covers)
+            # Count staged opus files (excluding covers) - recursively search subdirs
             staged_count = 0
             if staging_dir.exists():
-                for f in staging_dir.glob("*.opus"):
+                for f in staging_dir.rglob("*.opus"):
                     if not f.name.endswith(".cover.opus"):
                         staged_count += 1
 
@@ -887,69 +888,110 @@ def init_utilities_routes(db_path, project_root):
             # Remaining calculation
             remaining = max(0, aaxc_count - total_converted)
 
-            # Get active ffmpeg opus conversion processes
+            # Get active ffmpeg opus conversion processes with per-job stats
             ffmpeg_count = 0
             ffmpeg_nice = None
-            active_conversions = []
+            active_conversions = []  # Legacy: just filenames for backward compat
+            conversion_jobs = []     # Detailed per-job info
             ffmpeg_pids = []
             total_read_bytes = 0
             total_write_bytes = 0
+            import re
             try:
-                # Get FFmpeg PIDs
-                result = subprocess.run(
-                    ["pgrep", "-f", "ffmpeg.*libopus"],
+                # Get FFmpeg command lines with PIDs
+                ps_aux = subprocess.run(
+                    ["ps", "aux"],
                     capture_output=True,
                     text=True
                 )
-                if result.returncode == 0:
-                    ffmpeg_pids = [int(p) for p in result.stdout.strip().split("\n") if p.strip()]
-                    ffmpeg_count = len(ffmpeg_pids)
 
-                # Get I/O stats from /proc/<pid>/io for each FFmpeg process
-                for pid in ffmpeg_pids:
-                    try:
-                        with open(f"/proc/{pid}/io", "r") as f:
-                            for line in f:
-                                if line.startswith("read_bytes:"):
-                                    total_read_bytes += int(line.split(":")[1].strip())
-                                elif line.startswith("write_bytes:"):
-                                    total_write_bytes += int(line.split(":")[1].strip())
-                    except (FileNotFoundError, PermissionError):
-                        pass  # Process may have ended
+                pid_cmdlines = {}  # pid -> command line
+                for line in ps_aux.stdout.split("\n"):
+                    if "ffmpeg" in line and "libopus" in line:
+                        parts = line.split(None, 10)  # Split into at most 11 parts
+                        if len(parts) >= 11:
+                            try:
+                                pid = int(parts[1])
+                                ffmpeg_pids.append(pid)
+                                pid_cmdlines[pid] = parts[10]  # The command line
+                            except (ValueError, IndexError):
+                                pass
 
-                # Get nice value
-                ps_result = subprocess.run(
+                ffmpeg_count = len(ffmpeg_pids)
+
+                # Get nice value from first ffmpeg process
+                ps_ni = subprocess.run(
                     ["ps", "-eo", "ni,comm"],
                     capture_output=True,
                     text=True
                 )
-                for line in ps_result.stdout.split("\n"):
+                for line in ps_ni.stdout.split("\n"):
                     if "ffmpeg" in line:
                         parts = line.strip().split()
                         if parts:
                             ffmpeg_nice = parts[0]
                             break
 
-                # Get active conversion file names
-                ps_aux = subprocess.run(
-                    ["ps", "aux"],
-                    capture_output=True,
-                    text=True
-                )
-                for line in ps_aux.stdout.split("\n"):
-                    if "ffmpeg" in line and "libopus" in line:
-                        # Extract output filename from -f ogg path (quoted or unquoted)
-                        import re
-                        # Try quoted first, then unquoted (capture to end of line)
-                        match = re.search(r'-f ogg "([^"]+)"', line)
-                        if not match:
-                            # Unquoted path - capture everything after -f ogg to end
-                            match = re.search(r'-f ogg (.+\.opus)$', line)
-                        if match:
-                            filename = Path(match.group(1)).name
-                            if len(filename) > 50:
-                                filename = filename[:47] + "..."
-                            active_conversions.append(filename)
+                # Process each FFmpeg job
+                for pid in ffmpeg_pids:
+                    job_info = {
+                        "pid": pid,
+                        "filename": None,
+                        "percent": 0,
+                        "read_bytes": 0,
+                        "write_bytes": 0,
+                        "source_size": 0,
+                        "output_size": 0,
+                    }
+
+                    cmdline = pid_cmdlines.get(pid, "")
+
+                    # Extract source AAXC file path
+                    source_match = re.search(r'-i\s+(\S+\.aaxc)', cmdline)
+                    if source_match:
+                        source_path = Path(source_match.group(1))
+                        if source_path.exists():
+                            job_info["source_size"] = source_path.stat().st_size
+
+                    # Extract output opus file path (quoted or unquoted)
+                    output_match = re.search(r'-f ogg "([^"]+)"', cmdline)
+                    if not output_match:
+                        output_match = re.search(r'-f ogg (.+\.opus)$', cmdline)
+                    if output_match:
+                        output_path = Path(output_match.group(1))
+                        job_info["filename"] = output_path.name
+                        if output_path.exists():
+                            job_info["output_size"] = output_path.stat().st_size
+                            # Estimate completion: opus is ~1/10 size of source (128k vs ~128k AAC + overhead)
+                            # More accurate: compare read bytes to source size
+
+                    # Get per-process I/O stats
+                    try:
+                        with open(f"/proc/{pid}/io", "r") as f:
+                            for line in f:
+                                if line.startswith("read_bytes:"):
+                                    job_info["read_bytes"] = int(line.split(":")[1].strip())
+                                    total_read_bytes += job_info["read_bytes"]
+                                elif line.startswith("write_bytes:"):
+                                    job_info["write_bytes"] = int(line.split(":")[1].strip())
+                                    total_write_bytes += job_info["write_bytes"]
+                    except (FileNotFoundError, PermissionError):
+                        pass
+
+                    # Calculate percent complete based on bytes read vs source size
+                    if job_info["source_size"] > 0 and job_info["read_bytes"] > 0:
+                        job_info["percent"] = min(99, int(job_info["read_bytes"] * 100 / job_info["source_size"]))
+
+                    # Add to jobs list
+                    if job_info["filename"]:
+                        # Truncate filename for display
+                        display_name = job_info["filename"]
+                        if len(display_name) > 50:
+                            display_name = display_name[:47] + "..."
+                        active_conversions.append(display_name)
+                        job_info["display_name"] = display_name
+                        conversion_jobs.append(job_info)
+
             except Exception:
                 pass
 
@@ -997,7 +1039,8 @@ def init_utilities_routes(db_path, project_root):
                 "processes": {
                     "ffmpeg_count": ffmpeg_count,
                     "ffmpeg_nice": ffmpeg_nice,
-                    "active_conversions": active_conversions[:12],  # Limit to 12
+                    "active_conversions": active_conversions[:12],  # Limit to 12 (legacy)
+                    "conversion_jobs": conversion_jobs[:12],  # Detailed per-job info
                     "io_read_bytes": total_read_bytes,
                     "io_write_bytes": total_write_bytes,
                 },
