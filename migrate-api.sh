@@ -359,6 +359,10 @@ migrate_to_modular() {
         echo ""
     fi
 
+    # Stop services before migration
+    stop_services "$target" $DRY_RUN
+    echo ""
+
     # Update wrapper scripts
     echo -e "${BOLD}Updating wrapper scripts...${NC}"
     for wrapper in "$target/bin/audiobooks-api" \
@@ -382,16 +386,6 @@ migrate_to_modular() {
     echo ""
 
     if ! $DRY_RUN; then
-        # Reload systemd if needed
-        if [[ -f /etc/systemd/system/audiobooks-api.service ]]; then
-            echo -e "${BOLD}Reloading systemd...${NC}"
-            sudo systemctl daemon-reload
-        fi
-
-        if [[ -f "$HOME/.config/systemd/user/audiobooks-api.service" ]]; then
-            systemctl --user daemon-reload
-        fi
-
         echo ""
         echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${GREEN}║                    Migration Complete!                            ║${NC}"
@@ -399,14 +393,17 @@ migrate_to_modular() {
         echo ""
         echo "The API is now using the modular architecture."
         echo ""
-        echo "To restart the service:"
-        echo "  sudo systemctl restart audiobooks-api"
-        echo ""
-        echo "To switch back to monolithic:"
-        echo "  ./migrate-api.sh --to-monolithic"
 
         # Verify permissions after migration
         verify_installation_permissions "$target"
+
+        # Start services after migration
+        echo ""
+        start_services "$target" $DRY_RUN
+
+        echo ""
+        echo "To switch back to monolithic:"
+        echo "  ./migrate-api.sh --to-monolithic"
     fi
 }
 
@@ -438,6 +435,10 @@ migrate_to_monolithic() {
         echo ""
     fi
 
+    # Stop services before migration
+    stop_services "$target" $DRY_RUN
+    echo ""
+
     # Update wrapper scripts
     echo -e "${BOLD}Updating wrapper scripts...${NC}"
     for wrapper in "$target/bin/audiobooks-api" \
@@ -461,16 +462,6 @@ migrate_to_monolithic() {
     echo ""
 
     if ! $DRY_RUN; then
-        # Reload systemd if needed
-        if [[ -f /etc/systemd/system/audiobooks-api.service ]]; then
-            echo -e "${BOLD}Reloading systemd...${NC}"
-            sudo systemctl daemon-reload
-        fi
-
-        if [[ -f "$HOME/.config/systemd/user/audiobooks-api.service" ]]; then
-            systemctl --user daemon-reload
-        fi
-
         echo ""
         echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${GREEN}║                    Migration Complete!                            ║${NC}"
@@ -478,15 +469,124 @@ migrate_to_monolithic() {
         echo ""
         echo "The API is now using the monolithic architecture."
         echo ""
-        echo "To restart the service:"
-        echo "  sudo systemctl restart audiobooks-api"
-        echo ""
-        echo "To switch to modular:"
-        echo "  ./migrate-api.sh --to-modular"
 
         # Verify permissions after migration
         verify_installation_permissions "$target"
+
+        # Start services after migration
+        echo ""
+        start_services "$target" $DRY_RUN
+
+        echo ""
+        echo "To switch to modular:"
+        echo "  ./migrate-api.sh --to-modular"
     fi
+}
+
+# -----------------------------------------------------------------------------
+# Service Lifecycle Functions
+# -----------------------------------------------------------------------------
+
+stop_services() {
+    local target="$1"
+    local dry_run="$2"
+
+    echo -e "${BLUE}Stopping audiobook services...${NC}"
+
+    if $dry_run; then
+        echo -e "${DIM}[dry-run] Would stop audiobooks services${NC}"
+        return 0
+    fi
+
+    # Determine if system or user install
+    local is_system=false
+    [[ "$target" == /opt/* ]] || [[ "$target" == /usr/* ]] && is_system=true
+
+    if $is_system; then
+        # System-level services
+        sudo systemctl stop audiobooks.target 2>/dev/null || true
+        for svc in audiobooks-api audiobooks-proxy audiobooks-redirect audiobooks-converter audiobooks-mover; do
+            sudo systemctl stop "$svc" 2>/dev/null || true
+        done
+    else
+        # User-level services
+        systemctl --user stop audiobooks.target 2>/dev/null || true
+        for svc in audiobooks-api audiobooks-proxy audiobooks-redirect; do
+            systemctl --user stop "$svc" 2>/dev/null || true
+        done
+    fi
+
+    # Verify services stopped
+    sleep 1
+    local still_running=false
+    for svc in audiobooks-api audiobooks-proxy; do
+        local status
+        if $is_system; then
+            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+        else
+            status=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
+        fi
+        if [[ "$status" == "active" ]]; then
+            still_running=true
+            echo -e "${YELLOW}Warning: $svc still running${NC}"
+        fi
+    done
+
+    if $still_running; then
+        echo -e "${YELLOW}Some services still running - waiting...${NC}"
+        sleep 2
+    else
+        echo -e "${GREEN}Services stopped${NC}"
+    fi
+}
+
+start_services() {
+    local target="$1"
+    local dry_run="$2"
+
+    echo -e "${BLUE}Starting audiobook services...${NC}"
+
+    if $dry_run; then
+        echo -e "${DIM}[dry-run] Would start audiobooks services${NC}"
+        return 0
+    fi
+
+    # Determine if system or user install
+    local is_system=false
+    [[ "$target" == /opt/* ]] || [[ "$target" == /usr/* ]] && is_system=true
+
+    if $is_system; then
+        sudo systemctl daemon-reload
+        sudo systemctl start audiobooks.target 2>/dev/null || {
+            for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+                sudo systemctl start "$svc" 2>/dev/null || true
+            done
+        }
+    else
+        systemctl --user daemon-reload 2>/dev/null || true
+        systemctl --user start audiobooks.target 2>/dev/null || {
+            for svc in audiobooks-api audiobooks-proxy; do
+                systemctl --user start "$svc" 2>/dev/null || true
+            done
+        }
+    fi
+
+    # Verify services started
+    echo ""
+    echo -e "${BLUE}Service status:${NC}"
+    for svc in audiobooks-api audiobooks-proxy; do
+        local status
+        if $is_system; then
+            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+        else
+            status=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
+        fi
+        if [[ "$status" == "active" ]]; then
+            echo -e "  $svc: ${GREEN}$status${NC}"
+        else
+            echo -e "  $svc: ${YELLOW}$status${NC}"
+        fi
+    done
 }
 
 # -----------------------------------------------------------------------------
