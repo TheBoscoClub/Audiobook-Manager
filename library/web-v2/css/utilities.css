@@ -250,6 +250,7 @@ body.back-office {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 1.5rem;
+    align-items: start;  /* Allow cards to be different heights */
 }
 
 .catalog-card {
@@ -952,6 +953,33 @@ body.back-office {
         width: 100%;
         flex-wrap: wrap;
     }
+
+    /* Active Conversions - Mobile */
+    .active-conversions-card {
+        max-height: 50vh;
+    }
+}
+
+/* Large screens - maximize Active Conversions space */
+@media (min-width: 1200px) {
+    .active-conversions-card {
+        max-height: calc(100vh - 250px);
+    }
+
+    .active-conversions-list {
+        min-height: 200px;
+    }
+}
+
+/* Extra large screens */
+@media (min-width: 1600px) {
+    .active-conversions-card {
+        max-height: calc(100vh - 200px);
+    }
+
+    .active-conversions-list {
+        min-height: 300px;
+    }
 }
 
 /* ===========================================
@@ -1445,10 +1473,27 @@ body.back-office {
     border-color: var(--banker-green-dark);
 }
 
+/* Active Conversions Card - Full Height */
+.active-conversions-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 250px;
+    max-height: calc(100vh - 300px);  /* Leave room for header/nav */
+}
+
+.active-conversions-card .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;  /* Important for flex overflow */
+}
+
 /* Active Conversions List */
 .active-conversions-list {
-    max-height: 200px;
+    flex: 1;
     overflow-y: auto;
+    min-height: 150px;
 }
 
 .active-conversion-item {
