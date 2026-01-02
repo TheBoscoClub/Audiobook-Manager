@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+
+### Fixed
+
+## [3.4.2] - 2026-01-02
+
+### Changed
 - Refactored utilities.py (1067 lines) into 4 focused sub-modules:
   - `utilities_crud.py`: CRUD operations (259 lines)
   - `utilities_db.py`: Database maintenance (291 lines)
