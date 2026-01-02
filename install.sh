@@ -790,7 +790,7 @@ do_system_install() {
     # Paths for system installation
     local INSTALL_PREFIX="/usr/local"
     local CONFIG_DIR="/etc/audiobooks"
-    local LIB_DIR="${INSTALL_PREFIX}/lib/audiobooks"
+    local APP_DIR="/opt/audiobooks"        # Canonical application location
     local BIN_DIR="${INSTALL_PREFIX}/bin"
     local SYSTEMD_DIR="/etc/systemd/system"
 
@@ -799,7 +799,7 @@ do_system_install() {
     echo "Installation paths:"
     echo "  Executables:  ${BIN_DIR}/"
     echo "  Config:       ${CONFIG_DIR}/"
-    echo "  Library:      ${LIB_DIR}/"
+    echo "  Application:  ${APP_DIR}/"
     echo "  Services:     ${SYSTEMD_DIR}/"
     echo "  Data:         ${data_dir}/"
     echo ""
@@ -818,7 +818,7 @@ do_system_install() {
     # Create directories
     echo -e "${BLUE}Creating directories...${NC}"
     sudo mkdir -p "${CONFIG_DIR}"
-    sudo mkdir -p "${LIB_DIR}"
+    sudo mkdir -p "${APP_DIR}"
     sudo mkdir -p "${data_dir}/Library"
     sudo mkdir -p "${data_dir}/Sources"
     sudo mkdir -p "${data_dir}/Supplements"
@@ -827,9 +827,13 @@ do_system_install() {
 
     # Install library files
     echo -e "${BLUE}Installing library files...${NC}"
-    sudo cp -r "${SCRIPT_DIR}/library" "${LIB_DIR}/"
-    sudo cp -r "${SCRIPT_DIR}/lib" "${LIB_DIR}/"
-    [[ -d "${SCRIPT_DIR}/converter" ]] && sudo cp -r "${SCRIPT_DIR}/converter" "${LIB_DIR}/"
+    sudo cp -r "${SCRIPT_DIR}/library" "${APP_DIR}/"
+    sudo cp -r "${SCRIPT_DIR}/lib" "${APP_DIR}/"
+    [[ -d "${SCRIPT_DIR}/converter" ]] && sudo cp -r "${SCRIPT_DIR}/converter" "${APP_DIR}/"
+
+    # Create backward-compat symlink for any scripts that reference old path
+    sudo mkdir -p "/usr/local/lib"
+    sudo ln -sfn "${APP_DIR}/lib" "/usr/local/lib/audiobooks"
     sudo cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
 
     # Create config file if it doesn't exist
@@ -846,7 +850,7 @@ AUDIOBOOKS_SOURCES="\${AUDIOBOOKS_DATA}/Sources"
 AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
 
 # Application directories
-AUDIOBOOKS_HOME="${LIB_DIR}"
+AUDIOBOOKS_HOME="${APP_DIR}"
 AUDIOBOOKS_DATABASE="/var/lib/audiobooks/audiobooks.db"
 AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
 AUDIOBOOKS_CERTS="\${AUDIOBOOKS_HOME}/library/certs"
@@ -874,7 +878,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-api" > /dev/null << EOF
 #!/bin/bash
 # Audiobook Library API Server
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobooks-config.sh
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-api"
@@ -883,7 +887,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-web" > /dev/null << 'EOF'
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobooks-config.sh
 exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-web"
@@ -892,7 +896,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-scan" > /dev/null << 'EOF'
 #!/bin/bash
 # Audiobook Library Scanner
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobooks-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-scan"
@@ -901,7 +905,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-import" > /dev/null << 'EOF'
 #!/bin/bash
 # Audiobook Library Database Import
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobooks-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-import"
@@ -910,7 +914,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-config" > /dev/null << 'EOF'
 #!/bin/bash
 # Show audiobook library configuration
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobooks-config.sh
 audiobooks_print_config
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-config"
@@ -1110,16 +1114,43 @@ EOF
         # Reload systemd
         sudo systemctl daemon-reload
 
+        # Enable and start services
+        echo -e "${BLUE}Enabling and starting services...${NC}"
+        sudo systemctl enable audiobooks.target 2>/dev/null || true
+
+        # Start the target (which starts all wanted services)
+        sudo systemctl start audiobooks.target 2>/dev/null || {
+            # Fallback: start individual services
+            for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+                sudo systemctl start "$svc" 2>/dev/null || true
+            done
+        }
+
+        # Verify services started
         echo ""
-        echo -e "${YELLOW}To enable services at boot:${NC}"
-        echo "  sudo systemctl enable audiobooks.target"
+        echo -e "${BLUE}Service status:${NC}"
+        local all_ok=true
+        for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+            local status
+            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            if [[ "$status" == "active" ]]; then
+                echo -e "  $svc: ${GREEN}$status${NC}"
+            else
+                echo -e "  $svc: ${YELLOW}$status${NC}"
+                all_ok=false
+            fi
+        done
+
+        if [[ "$all_ok" == "true" ]]; then
+            echo -e "${GREEN}All services started successfully${NC}"
+        else
+            echo -e "${YELLOW}Some services not yet active (may need configuration first)${NC}"
+        fi
+
         echo ""
-        echo -e "${YELLOW}To start services now:${NC}"
-        echo "  sudo systemctl start audiobooks.target"
-        echo ""
-        echo -e "${YELLOW}Available services:${NC}"
+        echo -e "${DIM}Available services:${NC}"
         echo "  audiobooks-api          - API server"
-        echo "  audiobooks-web          - HTTPS web server"
+        echo "  audiobooks-proxy        - HTTPS proxy server"
         echo "  audiobooks-converter    - Continuous audiobook converter"
         echo "  audiobooks-mover        - Moves staged files to library"
         echo "  audiobooks-downloader   - Downloads new audiobooks (timer-triggered)"
@@ -1129,8 +1160,8 @@ EOF
     echo -e "${BLUE}Creating environment profile...${NC}"
     sudo tee /etc/profile.d/audiobooks.sh > /dev/null << 'EOF'
 # Audiobook Library Environment
-if [[ -f /usr/local/lib/audiobooks/lib/audiobooks-config.sh ]]; then
-    source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+if [[ -f /opt/audiobooks/lib/audiobooks-config.sh ]]; then
+    source /opt/audiobooks/lib/audiobooks-config.sh
 fi
 EOF
     sudo chmod 644 /etc/profile.d/audiobooks.sh
