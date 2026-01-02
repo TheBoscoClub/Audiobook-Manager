@@ -844,8 +844,6 @@ def init_utilities_routes(db_path, project_root):
         Get current audiobook conversion status.
         Returns file counts, active processes, and statistics for the monitor.
         """
-        import os
-
         # Import config paths
         sys.path.insert(0, str(project_root))
         from config import (
@@ -935,7 +933,6 @@ def init_utilities_routes(db_path, project_root):
                 pass
 
             # System stats
-            cpu_idle = None
             load_avg = None
             tmpfs_usage = None
             tmpfs_avail = None

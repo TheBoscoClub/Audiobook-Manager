@@ -203,7 +203,7 @@ echo ""
 # Start API server with waitress (production WSGI)
 echo -e "Starting API server (waitress) on port ${API_PORT}..."
 cd /app/backend
-AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS=127.0.0.1 python3 api.py &
+AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS=127.0.0.1 python3 api_server.py &
 API_PID=$!
 
 # Wait for API to start
@@ -234,7 +234,7 @@ done
 
 # Start HTTPS reverse proxy
 echo -e "Starting HTTPS proxy on port ${WEB_PORT}..."
-cd /app/web-v2
+cd /app/web
 python3 proxy_server.py &
 PROXY_PID=$!
 
@@ -248,7 +248,7 @@ fi
 # Start HTTP redirect (optional)
 if [ "${HTTP_REDIRECT_ENABLED:-true}" = "true" ]; then
     echo -e "Starting HTTP redirect on port ${HTTP_REDIRECT_PORT}..."
-    cd /app/web-v2
+    cd /app/web
     python3 redirect_server.py &
     REDIRECT_PID=$!
 
