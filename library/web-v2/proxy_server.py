@@ -39,7 +39,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     """Handler that proxies API requests and serves static files."""
 
     def do_GET(self):
-        if self.path.startswith("/api/"):
+        if self.path.startswith("/api/") or self.path.startswith("/covers/"):
             self.proxy_to_api("GET")
         else:
             # Serve static files
