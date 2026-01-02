@@ -26,17 +26,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Active conversions now use light background with dark text for better readability
 - Cover art now stored in data directory (`${AUDIOBOOKS_DATA}/.covers`) instead of application directory
 - Config template uses `${AUDIOBOOKS_DATA}` references for portability across installations
+- Scripts now installed to `/opt/audiobooks/scripts/` (canonical) with symlinks in `/usr/local/bin/`
+- Clear separation: `/opt/audiobooks/` (application), `${AUDIOBOOKS_DATA}/` (user data), `/var/lib/` (database)
 
 ### Fixed
 - **CRITICAL**: Fixed `DATA_DIR` config not reading from `/etc/audiobooks/audiobooks.conf`, which caused "Reimport Database" to read from test fixtures instead of production data
 - Fixed collection genre queries to match actual database genre names (Fiction, Sci-Fi & Fantasy, etc.)
 - Fixed queue count sync - now shows actual remaining files instead of stale queue.txt count
 - Fixed cover serving to use `COVER_DIR` from config instead of hardcoded path
+- Fixed proxy server to forward `/covers/` requests to API backend (was returning 404)
+- Fixed `install.sh` to create symlinks in `/usr/local/bin/` instead of copying scripts (upgrades now automatically update commands)
 - Removed false-positive Romance collection (was matching "Romantics" literary movement and "Neuromancer")
 - Added test data validation in `import_to_db.py` to prevent importing test fixtures
 - Fixed Docker entrypoint paths: `api.py` → `api_server.py`, `web-v2` → `web`
 - Fixed UI contrast and added ionice for faster conversions
 - Improved conversion details panel legibility and data display
+- Cleaned up obsolete scripts and symlinks from user data directory
 
 ## [3.3.1] - 2026-01-01
 

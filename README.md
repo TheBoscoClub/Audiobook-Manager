@@ -454,6 +454,54 @@ Audiobooks/
 └── README.md
 ```
 
+### Installed Directory Structure (System Installation)
+
+After system installation, files are organized as follows:
+
+```
+/opt/audiobooks/                    # Application installation (AUDIOBOOKS_HOME)
+├── scripts/                        # Canonical script location
+│   ├── convert-audiobooks-opus-parallel
+│   ├── download-new-audiobooks
+│   ├── move-staged-audiobooks
+│   ├── upgrade.sh
+│   └── ...
+├── library/                        # Python application
+│   ├── backend/                    # Flask API
+│   ├── scanner/                    # Metadata extraction
+│   ├── web-v2/                     # Web interface
+│   └── venv/                       # Python virtual environment
+├── converter/                      # AAXtoMP3
+└── VERSION
+
+/usr/local/bin/                     # Symlinks for PATH accessibility
+├── audiobooks-api                  # Wrapper script
+├── audiobooks-convert -> /opt/audiobooks/scripts/convert-audiobooks-opus-parallel
+├── audiobooks-download -> /opt/audiobooks/scripts/download-new-audiobooks
+├── audiobooks-move-staged -> /opt/audiobooks/scripts/move-staged-audiobooks
+└── ...
+
+${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks)
+├── Library/                        # Converted audiobooks (AUDIOBOOKS_LIBRARY)
+├── Sources/                        # Original AAXC files (AUDIOBOOKS_SOURCES)
+├── Supplements/                    # PDF supplements
+├── .covers/                        # Cover art cache (AUDIOBOOKS_COVERS)
+└── logs/                           # Application logs
+
+/var/lib/audiobooks/                # Database (on fast storage)
+└── audiobooks.db                   # SQLite database (AUDIOBOOKS_DATABASE)
+
+/etc/audiobooks/                    # System configuration
+├── audiobooks.conf                 # Main config file
+└── certs/                          # SSL certificates
+```
+
+**Architecture Notes:**
+- Scripts are installed to `/opt/audiobooks/scripts/` (canonical location)
+- Symlinks in `/usr/local/bin/` point to canonical scripts, so upgrades automatically update commands
+- User data (`${AUDIOBOOKS_DATA}`) is separate from application code (`/opt/audiobooks/`)
+- Database is placed in `/var/lib/` for fast storage (NVMe/SSD recommended)
+
 ## Web Interface Features
 
 ### Collections Sidebar

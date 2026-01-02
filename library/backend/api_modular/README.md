@@ -26,8 +26,10 @@ api_modular/
 - Common type definitions (`FlaskResponse`)
 
 ### `collections.py` - Genre Collections
-- 14 predefined genre collections (Classics, Horror, SciFi, etc.)
-- Dynamic SQL query generators for genres
+- Main genre collections matching database genres (Fiction, Sci-Fi & Fantasy, Mystery & Thriller, etc.)
+- Text-search subgenres (Short Stories & Anthologies, Action & Adventure, Historical Fiction)
+- Special collections (The Great Courses)
+- Dynamic SQL query generators with text pattern matching
 - Routes: `/api/collections`, `/api/collections/<name>`
 
 ### `editions.py` - Edition Detection
@@ -39,8 +41,8 @@ api_modular/
 - Main audiobook listing with pagination
 - Advanced filtering (genre, narrator, series, etc.)
 - Audio streaming with range request support
-- Cover image serving
-- Routes: `/api/audiobooks`, `/api/stats`, `/api/filters`, `/api/stream/<id>`
+- Cover image serving from configurable `COVER_DIR`
+- Routes: `/api/audiobooks`, `/api/stats`, `/api/filters`, `/api/stream/<id>`, `/covers/<filename>`
 
 ### `duplicates.py` - Duplicate Management
 - Hash-based duplicate detection
