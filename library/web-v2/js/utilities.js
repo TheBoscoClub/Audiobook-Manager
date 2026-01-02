@@ -1426,8 +1426,11 @@ async function loadConversionStatus() {
         }
 
         // Update queue breakdown
+        // queue_count now equals remaining (actual files left to convert)
+        // waitingInQueue = files waiting to start (remaining minus active)
+        // notYetQueued = 0 since all remaining files are considered "in queue"
         const waitingInQueue = Math.max(0, status.queue_count - processes.ffmpeg_count);
-        const notYetQueued = Math.max(0, status.remaining - status.queue_count - status.staged_count);
+        const notYetQueued = 0;  // All remaining files are in the effective queue
 
         const activeDetailEl = document.getElementById('conv-active-detail');
         const queuedDetailEl = document.getElementById('conv-queued-detail');

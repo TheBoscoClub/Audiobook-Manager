@@ -879,14 +879,12 @@ def init_utilities_routes(db_path, project_root):
             # Total converted
             total_converted = library_count + staged_count
 
-            # Queue count (files pending conversion)
-            queue_count = 0
-            if queue_file.exists():
-                with open(queue_file) as f:
-                    queue_count = sum(1 for line in f if line.strip())
-
-            # Remaining calculation
+            # Remaining calculation (actual files left to convert)
             remaining = max(0, aaxc_count - total_converted)
+
+            # Queue count = remaining (the queue IS the unconverted files)
+            # The queue.txt file may be stale, so we use calculated remaining instead
+            queue_count = remaining
 
             # Get active ffmpeg opus conversion processes with per-job stats
             ffmpeg_count = 0
