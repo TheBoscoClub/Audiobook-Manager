@@ -2,8 +2,13 @@
 Audiobook listing, filtering, streaming, and individual book routes.
 """
 
+import sys
 from flask import Blueprint, Response, jsonify, request, send_from_directory, send_file
 from pathlib import Path
+
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config import COVER_DIR
 
 from .core import get_db, FlaskResponse
 from .editions import has_edition_marker, normalize_base_title
@@ -458,9 +463,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
 
     @audiobooks_bp.route("/covers/<path:filename>")
     def serve_cover(filename: str) -> Response:
-        """Serve cover images"""
-        covers_dir = project_root / "web" / "covers"
-        return send_from_directory(covers_dir, filename)
+        """Serve cover images from configured COVER_DIR"""
+        return send_from_directory(COVER_DIR, filename)
 
     @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
     def stream_audiobook(audiobook_id: int) -> FlaskResponse:

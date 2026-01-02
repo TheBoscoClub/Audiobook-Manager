@@ -45,9 +45,9 @@ AUDIOBOOKS_HOME="/opt/audiobooks"
 #      or: ${AUDIOBOOKS_HOME}/library/backend/audiobooks.db (user)
 AUDIOBOOKS_DATABASE="/var/lib/audiobooks/audiobooks.db"
 
-# Cover art cache directory
-# Default: ${AUDIOBOOKS_HOME}/library/web-v2/covers
-AUDIOBOOKS_COVERS="${AUDIOBOOKS_HOME}/library/web-v2/covers"
+# Cover art cache directory (stored with audiobook data, not application)
+# Default: ${AUDIOBOOKS_DATA}/.covers
+AUDIOBOOKS_COVERS="${AUDIOBOOKS_DATA}/.covers"
 
 # SSL certificate directory (for HTTPS)
 # Default: ${AUDIOBOOKS_HOME}/library/certs

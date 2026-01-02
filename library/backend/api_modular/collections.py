@@ -28,6 +28,22 @@ def multi_genre_query(genre_patterns: list[str]) -> str:
     )"""
 
 
+def text_search_query(patterns: list[str], fields: list[str] = None) -> str:
+    """Create a query searching title and/or description for patterns.
+
+    Args:
+        patterns: List of LIKE patterns to match (e.g., '%short stor%')
+        fields: Fields to search. Defaults to ['title', 'description']
+    """
+    if fields is None:
+        fields = ["title", "description"]
+    conditions = []
+    for pattern in patterns:
+        field_conditions = [f"{field} LIKE '{pattern}'" for field in fields]
+        conditions.append(f"({' OR '.join(field_conditions)})")
+    return " OR ".join(conditions)
+
+
 # Predefined collection definitions
 COLLECTIONS = {
     # === SPECIAL COLLECTIONS ===
@@ -42,33 +58,21 @@ COLLECTIONS = {
     "fiction": {
         "name": "Fiction",
         "description": "Literary fiction, genre fiction, and novels",
-        "query": multi_genre_query(
-            ["Literature & Fiction", "Literary Fiction", "Genre Fiction"]
-        ),
+        "query": genre_query("Fiction"),  # Matches actual DB genre name
         "icon": "📖",
         "category": "main",
     },
     "mystery-thriller": {
         "name": "Mystery & Thriller",
         "description": "Mystery, suspense, and thriller novels",
-        "query": multi_genre_query(
-            [
-                "Mystery",
-                "Thriller & Suspense",
-                "Suspense",
-                "Crime Fiction",
-                "Crime Thrillers",
-            ]
-        ),
+        "query": genre_query("Mystery & Thriller"),  # Matches actual DB genre name
         "icon": "🔍",
         "category": "main",
     },
     "scifi-fantasy": {
         "name": "Sci-Fi & Fantasy",
         "description": "Science fiction and fantasy",
-        "query": multi_genre_query(
-            ["Science Fiction & Fantasy", "Science Fiction", "Fantasy"]
-        ),
+        "query": genre_query("Sci-Fi & Fantasy"),  # Matches actual DB genre name
         "icon": "🚀",
         "category": "main",
     },
@@ -99,62 +103,75 @@ COLLECTIONS = {
     "biography-memoir": {
         "name": "Biography & Memoir",
         "description": "Biographies, autobiographies, and memoirs",
-        "query": multi_genre_query(
-            ["Biographies & Memoirs", "Memoirs", "Biographical Fiction"]
-        ),
+        "query": genre_query("Biography & Memoir"),  # Matches actual DB genre name
         "icon": "👤",
         "category": "nonfiction",
     },
     "history": {
         "name": "History",
         "description": "Historical nonfiction and world history",
-        "query": multi_genre_query(["History", "Historical", "World"]),
+        "query": genre_query("History"),  # Matches actual DB genre name
         "icon": "🏛️",
         "category": "nonfiction",
     },
     "science": {
         "name": "Science & Technology",
         "description": "Science, technology, and nature",
-        "query": multi_genre_query(
-            [
-                "Science",
-                "Science & Engineering",
-                "Biological Sciences",
-                "Technothrillers",
-            ]
-        ),
+        "query": genre_query("Science & Technology"),  # Matches actual DB genre name
         "icon": "🔬",
         "category": "nonfiction",
     },
     "health-wellness": {
         "name": "Health & Wellness",
         "description": "Health, psychology, and self-improvement",
-        "query": multi_genre_query(
-            ["Health & Wellness", "Psychology", "Self-Help", "Personal Development"]
-        ),
+        "query": genre_query("Health & Wellness"),  # Matches actual DB genre name
         "icon": "🧘",
         "category": "nonfiction",
     },
-    # === SUBGENRES ===
-    "historical-fiction": {
-        "name": "Historical Fiction",
-        "description": "Fiction set in historical periods",
-        "query": genre_query("Historical Fiction"),
-        "icon": "⚔️",
+    "business": {
+        "name": "Business",
+        "description": "Business, finance, and economics",
+        "query": genre_query("Business"),  # Matches actual DB genre name
+        "icon": "💼",
+        "category": "nonfiction",
+    },
+    # === SUBGENRES (text-search based) ===
+    "short-stories": {
+        "name": "Short Stories & Anthologies",
+        "description": "Short story collections, anthologies, and compiled works",
+        "query": (
+            # Editor-curated anthologies (editor in author field)
+            "author LIKE '%editor%' OR "
+            # Title patterns for collections
+            "title LIKE '%short stor%' OR "
+            "title LIKE '%antholog%' OR "
+            "title LIKE '%folktale%' OR "
+            "title LIKE '%folk tale%' OR "
+            # "X: Stories" or "and Other Stories" pattern (common collection format)
+            "title LIKE '%: Stories%' OR "
+            "title LIKE '%Other Stories%' OR "
+            "title LIKE '%Ghost Stories%' OR "
+            # Complete/Collected works (stories, tales, fiction)
+            "(title LIKE '%complete%' AND (title LIKE '%stories%' OR title LIKE '%tales%' OR title LIKE '%fiction%' OR title LIKE '%ghost%')) OR "
+            "(title LIKE '%collected%' AND (title LIKE '%stories%' OR title LIKE '%tales%' OR title LIKE '%works%'))"
+        ),
+        "icon": "📑",
         "category": "subgenre",
     },
     "action-adventure": {
         "name": "Action & Adventure",
-        "description": "Action-packed adventure stories",
-        "query": multi_genre_query(["Action & Adventure", "Adventure"]),
-        "icon": "🗺️",
+        "description": "Action-packed and adventure stories",
+        "query": text_search_query(
+            ["%action%", "%adventure%", "%quest%", "%expedition%"]
+        ),
+        "icon": "⚔️",
         "category": "subgenre",
     },
-    "anthologies": {
-        "name": "Short Stories",
-        "description": "Anthologies and short story collections",
-        "query": genre_query("Anthologies & Short Stories"),
-        "icon": "📚",
+    "historical-fiction": {
+        "name": "Historical Fiction",
+        "description": "Fiction set in historical periods",
+        "query": f"({genre_query('Fiction')}) AND ({text_search_query(['%historical%', '%century%', '%war%', '%medieval%', '%ancient%', '%Victorian%', '%Renaissance%'])})",
+        "icon": "🏰",
         "category": "subgenre",
     },
 }

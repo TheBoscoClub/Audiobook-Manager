@@ -135,7 +135,7 @@ AUDIOBOOKS_DATABASE = Path(
 )
 AUDIOBOOKS_COVERS = Path(
     get_config(
-        "AUDIOBOOKS_COVERS", str(AUDIOBOOKS_HOME / "library" / "web-v2" / "covers")
+        "AUDIOBOOKS_COVERS", str(AUDIOBOOKS_DATA / ".covers")
     )
 )
 AUDIOBOOKS_CERTS = Path(
