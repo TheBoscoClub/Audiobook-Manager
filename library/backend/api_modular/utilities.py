@@ -925,15 +925,13 @@ def init_utilities_routes(db_path, project_root):
 
                 # Process each FFmpeg job
                 for pid in ffmpeg_pids:
-                    job_info = {
-                        "pid": pid,
-                        "filename": None,
-                        "percent": 0,
-                        "read_bytes": 0,
-                        "write_bytes": 0,
-                        "source_size": 0,
-                        "output_size": 0,
-                    }
+                    # Use typed local variables for clarity and type safety
+                    job_filename: str | None = None
+                    job_percent: int = 0
+                    job_read_bytes: int = 0
+                    job_write_bytes: int = 0
+                    job_source_size: int = 0
+                    job_output_size: int = 0
 
                     cmdline = pid_cmdlines.get(pid, "")
 
@@ -942,7 +940,7 @@ def init_utilities_routes(db_path, project_root):
                     if source_match:
                         source_path = Path(source_match.group(1))
                         if source_path.exists():
-                            job_info["source_size"] = source_path.stat().st_size
+                            job_source_size = source_path.stat().st_size
 
                     # Extract output opus file path (quoted or unquoted)
                     output_match = re.search(r'-f ogg "([^"]+)"', cmdline)
@@ -950,37 +948,46 @@ def init_utilities_routes(db_path, project_root):
                         output_match = re.search(r'-f ogg (.+\.opus)$', cmdline)
                     if output_match:
                         output_path = Path(output_match.group(1))
-                        job_info["filename"] = output_path.name
+                        job_filename = output_path.name
                         if output_path.exists():
-                            job_info["output_size"] = output_path.stat().st_size
-                            # Estimate completion: opus is ~1/10 size of source (128k vs ~128k AAC + overhead)
-                            # More accurate: compare read bytes to source size
+                            job_output_size = output_path.stat().st_size
 
                     # Get per-process I/O stats
                     try:
                         with open(f"/proc/{pid}/io", "r") as f:
                             for line in f:
                                 if line.startswith("read_bytes:"):
-                                    job_info["read_bytes"] = int(line.split(":")[1].strip())
-                                    total_read_bytes += job_info["read_bytes"]
+                                    job_read_bytes = int(line.split(":")[1].strip())
+                                    total_read_bytes += job_read_bytes
                                 elif line.startswith("write_bytes:"):
-                                    job_info["write_bytes"] = int(line.split(":")[1].strip())
-                                    total_write_bytes += job_info["write_bytes"]
+                                    job_write_bytes = int(line.split(":")[1].strip())
+                                    total_write_bytes += job_write_bytes
                     except (FileNotFoundError, PermissionError):
                         pass
 
                     # Calculate percent complete based on bytes read vs source size
-                    if job_info["source_size"] > 0 and job_info["read_bytes"] > 0:
-                        job_info["percent"] = min(99, int(job_info["read_bytes"] * 100 / job_info["source_size"]))
+                    if job_source_size > 0 and job_read_bytes > 0:
+                        job_percent = min(99, int(job_read_bytes * 100 / job_source_size))
 
                     # Add to jobs list
-                    if job_info["filename"]:
+                    if job_filename:
                         # Truncate filename for display
-                        display_name = job_info["filename"]
+                        display_name = job_filename
                         if len(display_name) > 50:
                             display_name = display_name[:47] + "..."
                         active_conversions.append(display_name)
-                        job_info["display_name"] = display_name
+
+                        # Build job_info dict for JSON response
+                        job_info = {
+                            "pid": pid,
+                            "filename": job_filename,
+                            "display_name": display_name,
+                            "percent": job_percent,
+                            "read_bytes": job_read_bytes,
+                            "write_bytes": job_write_bytes,
+                            "source_size": job_source_size,
+                            "output_size": job_output_size,
+                        }
                         conversion_jobs.append(job_info)
 
             except Exception:

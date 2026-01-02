@@ -28,7 +28,7 @@ def multi_genre_query(genre_patterns: list[str]) -> str:
     )"""
 
 
-def text_search_query(patterns: list[str], fields: list[str] = None) -> str:
+def text_search_query(patterns: list[str], fields: list[str] | None = None) -> str:
     """Create a query searching title and/or description for patterns.
 
     Args:
