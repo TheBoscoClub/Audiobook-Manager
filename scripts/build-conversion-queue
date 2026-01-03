@@ -28,12 +28,24 @@ STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
 INDEX_DIR="${AUDIOBOOKS_DATA:-/raid0/Audiobooks}/.index"
 VERBOSE=false
 REBUILD=false
+QUICK_UPDATE=false
+QUICK_SOURCE=""
+QUICK_OUTPUT=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --rebuild) REBUILD=true; shift ;;
         --verbose|-v) VERBOSE=true; shift ;;
+        --quick-update)
+            # Quick update mode: --quick-update SOURCE_AAXC OUTPUT_OPUS
+            QUICK_UPDATE=true
+            shift
+            QUICK_SOURCE="${1:-}"
+            shift
+            QUICK_OUTPUT="${1:-}"
+            shift
+            ;;
         *) shift ;;
     esac
 done
@@ -54,8 +66,10 @@ normalize_title() {
         sed -E 's/[[:space:]]*\([Aa]bridged\)//g' |
         sed -E 's/[[:space:]]+[Aa][[:space:]]+[Nn]ovel[[:space:]]*$//g' |
         sed -E 's/[[:space:]]+[Aa][[:space:]]+[Mm]emoir[[:space:]]*$//g' |
-        # Convert hyphens to spaces (before removing punctuation)
-        tr '-' ' ' |
+        # Convert underscores to spaces
+        tr '_' ' ' |
+        # Convert hyphens to spaces
+        tr -- '-' ' ' |
         # Transliterate accented characters to ASCII equivalents
         iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null |
         # Remove punctuation except spaces
@@ -64,6 +78,8 @@ normalize_title() {
         tr -s ' ' |
         # Lowercase
         tr '[:upper:]' '[:lower:]' |
+        # Remove leading articles (the, a, an)
+        sed -E 's/^(the|a|an) //' |
         # Trim whitespace
         sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
@@ -323,6 +339,32 @@ build_queue() {
                         break
                     fi
                 done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                # Try N-word prefix match
+                if ! $found; then
+                    local src_prefix=$(get_title_prefix "$normalized" 3)
+                    while IFS= read -r conv_title; do
+                        local conv_prefix=$(get_title_prefix "$conv_title" 3)
+                        if [[ "$src_prefix" == "$conv_prefix" ]]; then
+                            matched_title=$((matched_title + 1))
+                            log "  3-word prefix match (no ASIN): $src_prefix"
+                            found=true
+                            break
+                        fi
+                    done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                fi
+                # Try 2-word prefix match as last resort
+                if ! $found; then
+                    local src_prefix2=$(get_title_prefix "$normalized" 2)
+                    while IFS= read -r conv_title; do
+                        local conv_prefix2=$(get_title_prefix "$conv_title" 2)
+                        if [[ "$src_prefix2" == "$conv_prefix2" ]]; then
+                            matched_title=$((matched_title + 1))
+                            log "  2-word prefix match (no ASIN): $src_prefix2"
+                            found=true
+                            break
+                        fi
+                    done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                fi
                 if ! $found; then
                     echo "$path" >> "$queue_file"
                     queued=$((queued + 1))
@@ -364,6 +406,32 @@ build_queue() {
                             break
                         fi
                     done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                    # Try N-word prefix match (e.g., "dark tower i volume 1" matches "dark tower i the gunslinger")
+                    if ! $found; then
+                        local src_prefix=$(get_title_prefix "$normalized" 3)
+                        while IFS= read -r conv_title; do
+                            local conv_prefix=$(get_title_prefix "$conv_title" 3)
+                            if [[ "$src_prefix" == "$conv_prefix" ]]; then
+                                matched_title=$((matched_title + 1))
+                                log "  3-word prefix match: $src_prefix"
+                                found=true
+                                break
+                            fi
+                        done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                    fi
+                    # Try 2-word prefix match as last resort (e.g., "blue belle burke" matches "blue belle a burke")
+                    if ! $found; then
+                        local src_prefix2=$(get_title_prefix "$normalized" 2)
+                        while IFS= read -r conv_title; do
+                            local conv_prefix2=$(get_title_prefix "$conv_title" 2)
+                            if [[ "$src_prefix2" == "$conv_prefix2" ]]; then
+                                matched_title=$((matched_title + 1))
+                                log "  2-word prefix match: $src_prefix2"
+                                found=true
+                                break
+                            fi
+                        done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                    fi
                     if ! $found; then
                         echo "$path" >> "$queue_file"
                         queued=$((queued + 1))
@@ -414,8 +482,92 @@ indexes_current() {
     return 0
 }
 
+# Quick update indexes after a single file conversion
+# Usage: quick_update_indexes SOURCE_AAXC OUTPUT_OPUS
+# Thread-safe using flock for concurrent updates from parallel processes
+quick_update_indexes() {
+    local source_file="$1"
+    local output_file="$2"
+    local lock_file="$INDEX_DIR/.index.lock"
+    local queue_file="$INDEX_DIR/queue.txt"
+    local converted_idx="$INDEX_DIR/converted.idx"
+    local converted_asin_idx="$INDEX_DIR/converted_asins.idx"
+
+    # Validate inputs
+    [[ -n "$source_file" ]] || { echo "ERROR: Source file required" >&2; return 1; }
+    [[ -n "$output_file" ]] || { echo "ERROR: Output file required" >&2; return 1; }
+
+    # Get output directory (where chapters.json might be)
+    local output_dir=$(dirname "$output_file")
+    local output_basename=$(basename "$output_file" .opus)
+
+    # Normalize the output title for converted.idx
+    local normalized_title=$(normalize_title "$output_basename")
+
+    # Extract ASIN from source filename
+    local source_asin=$(extract_asin "$source_file")
+
+    # Try to get ASIN from chapters.json if it exists
+    local chapters_file=""
+    local chapters_asin=""
+    for cf in "$output_dir"/*-chapters.json; do
+        if [[ -f "$cf" ]]; then
+            chapters_file="$cf"
+            chapters_asin=$(extract_asin_from_chapters "$cf")
+            break
+        fi
+    done
+
+    # Use source ASIN if chapters.json doesn't have one
+    local asin="${chapters_asin:-$source_asin}"
+
+    # Acquire exclusive lock for atomic updates
+    (
+        flock -x 200
+
+        # 1. Remove source file from queue.txt (if present)
+        if [[ -f "$queue_file" ]]; then
+            # Use grep -v with fixed string matching for exact path removal
+            grep -vF "$source_file" "$queue_file" > "$queue_file.tmp" 2>/dev/null || true
+            mv "$queue_file.tmp" "$queue_file"
+        fi
+
+        # 2. Add normalized title to converted.idx (if not already present)
+        if [[ -f "$converted_idx" ]]; then
+            if ! grep -qxF "$normalized_title" "$converted_idx" 2>/dev/null; then
+                echo "$normalized_title" >> "$converted_idx"
+                # Keep sorted for binary search compatibility
+                sort -u "$converted_idx" -o "$converted_idx"
+            fi
+        else
+            echo "$normalized_title" > "$converted_idx"
+        fi
+
+        # 3. Add ASIN to converted_asins.idx (if present and not already there)
+        if [[ -n "$asin" ]] && [[ "$asin" != NOASIN_* ]]; then
+            if [[ -f "$converted_asin_idx" ]]; then
+                if ! grep -qxF "$asin" "$converted_asin_idx" 2>/dev/null; then
+                    echo "$asin" >> "$converted_asin_idx"
+                    sort -u "$converted_asin_idx" -o "$converted_asin_idx"
+                fi
+            else
+                echo "$asin" > "$converted_asin_idx"
+            fi
+        fi
+
+    ) 200>"$lock_file"
+
+    log "Updated indexes: removed '$source_file', added '$normalized_title'${asin:+ (ASIN: $asin)}"
+    return 0
+}
+
 # Main
 main() {
+    # Handle quick-update mode (called after each individual conversion)
+    if $QUICK_UPDATE; then
+        quick_update_indexes "$QUICK_SOURCE" "$QUICK_OUTPUT"
+        exit $?
+    fi
     if $REBUILD || ! indexes_current; then
         log "Rebuilding indexes..."
         build_source_asin_index
