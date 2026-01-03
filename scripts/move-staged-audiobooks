@@ -136,6 +136,11 @@ while true; do
                 # Signal database updater that new files are ready
                 touch "${TRIGGER_DIR}/conversion-complete"
                 log "Signaled database updater (new files ready)"
+
+                # Update queue index (so converter doesn't re-process moved books)
+                if [[ -x "${AUDIOBOOKS_HOME}/scripts/build-conversion-queue" ]]; then
+                    "${AUDIOBOOKS_HOME}/scripts/build-conversion-queue" --rebuild >/dev/null 2>&1 &
+                fi
             fi
         fi
     fi

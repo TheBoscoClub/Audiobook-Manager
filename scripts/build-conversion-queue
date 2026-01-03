@@ -83,15 +83,16 @@ build_source_index() {
     # First pass: Index all ASIN-prefixed files and collect their normalized titles
     log "  Pass 1: Indexing ASIN-prefixed files..."
     local asin_count=0
-    find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | while read -r aaxc_file; do
-        local basename=$(basename "$aaxc_file" .aaxc)
+    local bn normalized
+    while read -r aaxc_file; do
+        bn=$(basename "$aaxc_file" .aaxc)
 
-        if [[ "$basename" =~ ^[A-Z0-9]{10}_ ]]; then
-            local normalized=$(normalize_title "$basename")
+        if [[ "$bn" =~ ^[A-Z0-9]{10}_ ]]; then
+            normalized=$(normalize_title "$bn")
             echo "${normalized}|${aaxc_file}" >> "$temp_file"
             echo "$normalized" >> "$asin_titles_file"
         fi
-    done
+    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null)
 
     # Sort ASIN titles for lookup
     sort -u "$asin_titles_file" -o "$asin_titles_file"
@@ -101,22 +102,22 @@ build_source_index() {
     # Second pass: Add non-ASIN files that have NO ASIN equivalent
     log "  Pass 2: Finding unique non-ASIN files..."
     local unique_count=0
-    find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | while read -r aaxc_file; do
-        local basename=$(basename "$aaxc_file" .aaxc)
+    while read -r aaxc_file; do
+        bn=$(basename "$aaxc_file" .aaxc)
 
         # Skip ASIN-prefixed files (already indexed)
-        [[ "$basename" =~ ^[A-Z0-9]{10}_ ]] && continue
+        [[ "$bn" =~ ^[A-Z0-9]{10}_ ]] && continue
 
-        local normalized=$(normalize_title "$basename")
+        normalized=$(normalize_title "$bn")
 
         # Only add if no ASIN equivalent exists
         if ! grep -qFx "$normalized" "$asin_titles_file" 2>/dev/null; then
             echo "${normalized}|${aaxc_file}" >> "$temp_file"
-            log "  Including unique non-ASIN: $basename"
+            log "  Including unique non-ASIN: $bn"
         else
-            log "  Skipping (has ASIN equivalent): $basename"
+            log "  Skipping (has ASIN equivalent): $bn"
         fi
-    done
+    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null)
 
     # Sort for efficient lookup
     sort -t'|' -k1,1 "$temp_file" > "$index_file"
@@ -131,22 +132,23 @@ build_converted_index() {
     log "Building converted index..."
     local index_file="$INDEX_DIR/converted.idx"
     local temp_file="$INDEX_DIR/converted.idx.tmp"
+    local bn normalized
 
     > "$temp_file"
 
     # Index library files
-    find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | while read -r opus_file; do
-        local basename=$(basename "$opus_file" .opus)
-        local normalized=$(normalize_title "$basename")
+    while read -r opus_file; do
+        bn=$(basename "$opus_file" .opus)
+        normalized=$(normalize_title "$bn")
         echo "$normalized" >> "$temp_file"
-    done
+    done < <(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
 
     # Index staging files
-    find "$STAGING_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | while read -r opus_file; do
-        local basename=$(basename "$opus_file" .opus)
-        local normalized=$(normalize_title "$basename")
+    while read -r opus_file; do
+        bn=$(basename "$opus_file" .opus)
+        normalized=$(normalize_title "$bn")
         echo "$normalized" >> "$temp_file"
-    done
+    done < <(find "$STAGING_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
 
     # Sort and deduplicate
     sort -u "$temp_file" > "$index_file"
