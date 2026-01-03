@@ -130,19 +130,10 @@ body.back-office {
 }
 
 .header-version {
-    font-size: 1rem;
-    color: var(--ledger-line);
-    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    color: var(--ledger-cream);
+    font-style: italic;
     opacity: 0.8;
-    padding: 0.25rem 0.5rem;
-    border: 1px solid var(--brass-dark);
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.2);
-}
-
-.header-version:hover {
-    opacity: 1;
-    border-color: var(--brass);
 }
 
 /* Remaining Summary Box */
