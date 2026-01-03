@@ -122,81 +122,27 @@ body.back-office {
     border-radius: 0 0 4px 4px;
 }
 
-/* Header Indicators (version & queue) */
-.header-right {
+/* Header Version Display */
+.header-left {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
-    flex: 0 0 auto;
+    gap: 1rem;
 }
 
-.header-indicators {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.5rem;
-}
-
-.queue-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: var(--office-dark);
+.header-version {
+    font-size: 1rem;
+    color: var(--ledger-line);
+    font-family: 'Courier New', monospace;
+    opacity: 0.8;
+    padding: 0.25rem 0.5rem;
     border: 1px solid var(--brass-dark);
     border-radius: 4px;
-    padding: 0.3rem 0.6rem;
-    font-size: 0.85rem;
-    color: var(--ledger-cream);
-    transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.2);
 }
 
-.queue-indicator:hover {
-    border-color: var(--brass);
-    background: var(--office-wood);
-}
-
-.queue-indicator.has-items {
-    border-color: var(--banker-green);
-    background: rgba(45, 74, 62, 0.3);
-}
-
-.queue-indicator.has-items .queue-count {
-    color: var(--banker-green-light);
-    font-weight: bold;
-}
-
-.queue-icon {
-    font-size: 1rem;
-    opacity: 0.8;
-}
-
-.queue-count {
-    font-weight: bold;
-    color: var(--brass-light);
-    min-width: 2ch;
-    text-align: right;
-}
-
-.queue-label {
-    font-size: 0.75rem;
-    opacity: 0.7;
-}
-
-.version-badge {
-    display: flex;
-    align-items: center;
-    font-size: 0.75rem;
-    color: var(--ledger-line);
-    opacity: 0.7;
-    font-family: 'Courier New', monospace;
-}
-
-.version-badge:hover {
+.header-version:hover {
     opacity: 1;
-}
-
-.version-label {
-    opacity: 0.6;
+    border-color: var(--brass);
 }
 
 /* Main Content Area */

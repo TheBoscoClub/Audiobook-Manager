@@ -30,59 +30,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load initial stats
     loadDatabaseStats();
 
-    // Load version and initial queue status
+    // Load version display
     loadAppVersion();
-    loadHeaderQueueStatus();
 
     // Check for any active operations on page load
     checkActiveOperations();
 });
 
 // ============================================
-// Header Indicators (Version & Queue)
+// Header Version Display
 // ============================================
 
 async function loadAppVersion() {
     try {
         const res = await fetch(`${API_BASE}/health`);
         const data = await res.json();
-        const versionEl = document.getElementById('app-version');
+        const versionEl = document.getElementById('header-version');
         if (versionEl && data.version) {
-            versionEl.textContent = data.version;
+            versionEl.textContent = `v${data.version}`;
         }
     } catch (err) {
         console.warn('Could not load app version:', err);
-    }
-}
-
-async function loadHeaderQueueStatus() {
-    try {
-        const res = await fetch(`${API_BASE}/api/conversion/status`);
-        const data = await res.json();
-        if (data.success) {
-            updateHeaderQueueIndicator(data.status);
-        }
-    } catch (err) {
-        console.warn('Could not load queue status:', err);
-    }
-}
-
-function updateHeaderQueueIndicator(status) {
-    const queueEl = document.getElementById('queue-indicator');
-    const countEl = document.getElementById('queue-count');
-    if (!queueEl || !countEl) return;
-
-    // remaining = source files not yet in library (includes queue + staged + converting)
-    const remaining = status.remaining || 0;
-    countEl.textContent = remaining.toLocaleString();
-
-    // Visual feedback based on queue state
-    if (remaining > 0) {
-        queueEl.classList.add('has-items');
-        queueEl.title = `${remaining} books remaining to convert`;
-    } else {
-        queueEl.classList.remove('has-items');
-        queueEl.title = 'All books converted';
     }
 }
 
@@ -1310,9 +1278,6 @@ async function loadConversionStatus() {
         document.getElementById('conv-staged-count').textContent = status.staged_count.toLocaleString();
         document.getElementById('conv-remaining-count').textContent = status.remaining.toLocaleString();
         document.getElementById('conv-queue-count').textContent = status.queue_count.toLocaleString();
-
-        // Update header queue indicator (for real-time visibility)
-        updateHeaderQueueIndicator(status);
 
         // Update system stats
         document.getElementById('conv-ffmpeg-count').textContent = processes.ffmpeg_count || '0';
