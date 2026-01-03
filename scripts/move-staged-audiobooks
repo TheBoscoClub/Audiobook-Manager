@@ -106,6 +106,15 @@ while true; do
 
                         if [ $REMAINING -eq 0 ]; then
                             log "${GREEN}✓ Moved:${NC} $DIR_NAME ($SIZE total)"
+
+                            # Import to database immediately
+                            if python3 /opt/audiobooks/library/scanner/import_single.py "$DEST" 2>&1 | while read -r line; do
+                                log "  $line"
+                            done; then
+                                log "${GREEN}✓ Imported:${NC} $DIR_NAME"
+                            else
+                                log "${YELLOW}⚠ Import failed:${NC} $DIR_NAME (files saved, will retry on next scan)"
+                            fi
                         else
                             log "${YELLOW}✓ Partial:${NC} $DIR_NAME ($REMAINING files still in use)"
                         fi
