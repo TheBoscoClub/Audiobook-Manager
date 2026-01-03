@@ -145,6 +145,46 @@ body.back-office {
     border-color: var(--brass);
 }
 
+/* Remaining Summary Box */
+.remaining-summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.5rem;
+    background: linear-gradient(180deg, var(--office-desk) 0%, var(--office-leather) 100%);
+    border: 2px solid var(--brass);
+    border-radius: 8px;
+    padding: 1rem 2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.remaining-count {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: var(--brass-light);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.remaining-text {
+    font-size: 1.2rem;
+    color: var(--ledger-cream);
+}
+
+.remaining-text span {
+    color: var(--brass-light);
+    font-weight: bold;
+}
+
+.remaining-summary.complete {
+    border-color: var(--banker-green);
+    background: linear-gradient(180deg, var(--banker-green) 0%, #1d3a2e 100%);
+}
+
+.remaining-summary.complete .remaining-count {
+    color: var(--banker-green-light);
+}
+
 /* Main Content Area */
 .office-main {
     max-width: 1400px;

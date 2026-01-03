@@ -1279,6 +1279,19 @@ async function loadConversionStatus() {
         document.getElementById('conv-remaining-count').textContent = status.remaining.toLocaleString();
         document.getElementById('conv-queue-count').textContent = status.queue_count.toLocaleString();
 
+        // Update remaining summary box
+        const remainingTotal = document.getElementById('remaining-total');
+        const sourceTotal = document.getElementById('source-total');
+        const summaryBox = document.getElementById('remaining-summary');
+        if (remainingTotal && sourceTotal) {
+            remainingTotal.textContent = status.remaining.toLocaleString();
+            sourceTotal.textContent = status.source_count.toLocaleString();
+            // Add complete class when done
+            if (summaryBox) {
+                summaryBox.classList.toggle('complete', status.remaining === 0);
+            }
+        }
+
         // Update system stats
         document.getElementById('conv-ffmpeg-count').textContent = processes.ffmpeg_count || '0';
         document.getElementById('conv-ffmpeg-nice').textContent = processes.ffmpeg_nice || '-';
