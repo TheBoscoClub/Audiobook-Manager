@@ -3,7 +3,7 @@
 # Audiobook Staging Mover
 # =============================================================================
 # Background process to move completed audiobooks from tmpfs staging to final storage
-# Runs every 5 minutes to keep tmpfs from filling up
+# Runs every 30 seconds to keep tmpfs from filling up
 # Opus format only
 # =============================================================================
 
@@ -58,8 +58,8 @@ while true; do
                 DIR_NAME=$(basename "$DIR")
 
                 # Check for completed Opus files (not actively being written)
-                # Wait for files older than 5 minutes (should be done converting)
-                OPUS_FILES=$(find "$DIR" -name "*.opus" -type f -mmin +5 2>/dev/null)
+                # Wait for files older than 1 minute (tmpfs writes are instant, this is just safety margin)
+                OPUS_FILES=$(find "$DIR" -name "*.opus" -type f -mmin +1 2>/dev/null)
 
                 if [ -n "$OPUS_FILES" ]; then
                     # Verify files are not corrupted (check size)
@@ -74,7 +74,7 @@ while true; do
                     done <<< "$OPUS_FILES"
 
                     # Recount valid files after removing corrupted ones
-                    OPUS_FILES=$(find "$DIR" -name "*.opus" -type f -mmin +5 -size +100k 2>/dev/null)
+                    OPUS_FILES=$(find "$DIR" -name "*.opus" -type f -mmin +1 -size +100k 2>/dev/null)
 
                     if [ "$CORRUPTED_COUNT" -gt 0 ]; then
                         log "Removed $CORRUPTED_COUNT corrupted files from $DIR_NAME"
