@@ -506,7 +506,16 @@ def init_audiobooks_routes(db_path, project_root, database_path):
 
     @audiobooks_bp.route("/health")
     def health() -> Response:
-        """Health check endpoint"""
-        return jsonify({"status": "ok", "database": str(db_path.exists())})
+        """Health check endpoint with version info"""
+        version = "unknown"
+        # VERSION file is in project root (one level above library/)
+        version_file = project_root.parent / "VERSION"
+        if version_file.exists():
+            version = version_file.read_text().strip()
+        return jsonify({
+            "status": "ok",
+            "database": str(db_path.exists()),
+            "version": version
+        })
 
     return audiobooks_bp
