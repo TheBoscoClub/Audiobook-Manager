@@ -145,6 +145,6 @@ while true; do
         fi
     fi
 
-    # Wait 5 minutes before next check
-    sleep 300
+    # Wait 30 seconds before next check (staging is tmpfs/RAM, no need for long delays)
+    sleep 30
 done
