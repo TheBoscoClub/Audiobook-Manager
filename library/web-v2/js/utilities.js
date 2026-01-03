@@ -30,29 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load initial stats
     loadDatabaseStats();
 
-    // Load version display
-    loadAppVersion();
-
     // Check for any active operations on page load
     checkActiveOperations();
 });
-
-// ============================================
-// Header Version Display
-// ============================================
-
-async function loadAppVersion() {
-    try {
-        const res = await fetch(`${API_BASE}/health`);
-        const data = await res.json();
-        const versionEl = document.getElementById('header-version');
-        if (versionEl && data.version) {
-            versionEl.textContent = `· v${data.version}`;
-        }
-    } catch (err) {
-        console.warn('Could not load app version:', err);
-    }
-}
 
 // ============================================
 // Tab Navigation
