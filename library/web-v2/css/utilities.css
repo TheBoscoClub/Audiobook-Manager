@@ -122,20 +122,6 @@ body.back-office {
     border-radius: 0 0 4px 4px;
 }
 
-/* Header Version Display */
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.header-version {
-    font-size: 0.95rem;
-    color: var(--ledger-cream);
-    font-style: italic;
-    opacity: 0.8;
-}
-
 /* Remaining Summary Box */
 .remaining-summary {
     display: flex;

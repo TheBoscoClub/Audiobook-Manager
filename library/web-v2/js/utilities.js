@@ -47,7 +47,7 @@ async function loadAppVersion() {
         const data = await res.json();
         const versionEl = document.getElementById('header-version');
         if (versionEl && data.version) {
-            versionEl.textContent = `v${data.version}`;
+            versionEl.textContent = `· v${data.version}`;
         }
     } catch (err) {
         console.warn('Could not load app version:', err);
