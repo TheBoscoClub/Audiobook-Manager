@@ -2,10 +2,10 @@
 # =============================================================================
 # Build Conversion Queue
 # =============================================================================
-# Builds a list of audiobooks that need conversion by comparing source files
-# against already-converted files using normalized title matching.
+# Builds a list of audiobooks that need conversion by comparing source ASINs
+# against already-converted ASINs (from chapters.json metadata).
 #
-# Output: List of .aaxc files that don't have corresponding .opus files
+# Output: List of .aaxc files whose ASINs are not yet in the library
 # Usage: build-conversion-queue [--rebuild] [--verbose]
 # =============================================================================
 
@@ -68,43 +68,88 @@ normalize_title() {
         sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
-# Extract title from source filename (fast, no ffprobe needed)
-# Removes ASIN prefix and AAX format suffix
-get_filename_title() {
+# Extract ASIN from source filename
+# Filenames are like: B002UZJTXM_Title_Here-AAX_22_64.aaxc
+extract_asin() {
     local file="$1"
-    local bn=$(basename "$file")
-    bn="${bn%.aaxc}"
-    bn="${bn%.m4b}"
-    # Remove ASIN prefix (e.g., B002UZJTXM_) and AAX suffix (e.g., -AAX_22_64)
-    echo "$bn" | sed -E 's/^[A-Z0-9]{10}_//' | sed -E 's/-AAX_[0-9]+_[0-9]+$//' | tr '_' ' '
+    local bn=$(basename "$file" .aaxc)
+    # ASIN is the first 10 alphanumeric chars before underscore
+    if [[ "$bn" =~ ^([A-Z0-9]{10})_ ]]; then
+        echo "${BASH_REMATCH[1]}"
+    else
+        # Non-ASIN file (e.g., direct download without ASIN prefix)
+        echo ""
+    fi
 }
 
-# Build source index: normalized_title -> original_path
-# Indexes ALL source files - different ASINs are different books even with same title
-build_source_index() {
-    log "Building source index..."
-    local index_file="$INDEX_DIR/sources.idx"
-    local temp_file="$INDEX_DIR/sources.idx.tmp"
+# Extract ASIN from chapters.json file
+# Returns ASIN if found, empty string otherwise
+extract_asin_from_chapters() {
+    local chapters_file="$1"
+    grep -o '"asin": *"[^"]*"' "$chapters_file" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/'
+}
+
+# Build converted ASIN index from library chapters.json files
+build_converted_asin_index() {
+    log "Building converted ASIN index..."
+    local index_file="$INDEX_DIR/converted_asins.idx"
+    local temp_file="$INDEX_DIR/converted_asins.idx.tmp"
 
     > "$temp_file"
 
     local count=0
-    local title normalized
-    while read -r aaxc_file; do
-        title=$(get_filename_title "$aaxc_file")
-        normalized=$(normalize_title "$title")
+    # Scan library for chapters.json files (contain ASIN metadata)
+    while IFS= read -r chapters_file; do
+        local asin=$(extract_asin_from_chapters "$chapters_file")
+        if [[ -n "$asin" ]]; then
+            echo "$asin" >> "$temp_file"
+            count=$((count + 1))
+        fi
+    done < <(find "$LIBRARY_DIR" -name "*-chapters.json" -type f 2>/dev/null)
 
-        # Index ALL files - each ASIN is a unique book
-        # Even if titles normalize to the same string, they're different editions
-        echo "${normalized}|${aaxc_file}" >> "$temp_file"
-        count=$((count + 1))
-    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | sort)
+    # Also scan staging
+    while IFS= read -r chapters_file; do
+        local asin=$(extract_asin_from_chapters "$chapters_file")
+        if [[ -n "$asin" ]]; then
+            echo "$asin" >> "$temp_file"
+            count=$((count + 1))
+        fi
+    done < <(find "$STAGING_DIR" -name "*-chapters.json" -type f 2>/dev/null)
 
-    # Sort for efficient lookup
-    sort -t'|' -k1,1 "$temp_file" > "$index_file"
+    # Sort and deduplicate
+    sort -u "$temp_file" > "$index_file"
     rm -f "$temp_file"
 
-    log "Source index: $count files (all ASINs)"
+    local unique_count=$(wc -l < "$index_file")
+    log "Converted ASIN index: $unique_count unique ASINs"
+}
+
+# Build source ASIN index
+build_source_asin_index() {
+    log "Building source ASIN index..."
+    local index_file="$INDEX_DIR/source_asins.idx"
+    local temp_file="$INDEX_DIR/source_asins.idx.tmp"
+
+    > "$temp_file"
+
+    local count=0
+    while IFS= read -r aaxc_file; do
+        local asin=$(extract_asin "$aaxc_file")
+        if [[ -n "$asin" ]]; then
+            echo "${asin}|${aaxc_file}" >> "$temp_file"
+            count=$((count + 1))
+        else
+            # Non-ASIN file - use filename hash as identifier
+            local bn=$(basename "$aaxc_file" .aaxc)
+            echo "NOASIN_${bn}|${aaxc_file}" >> "$temp_file"
+            count=$((count + 1))
+        fi
+    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | sort)
+
+    sort "$temp_file" > "$index_file"
+    rm -f "$temp_file"
+
+    log "Source ASIN index: $count files"
 }
 
 # Build converted index: normalized_title (from both library and staging)
@@ -220,66 +265,151 @@ find_matching_converted() {
     done < "$converted_idx"
 }
 
-# Find files needing conversion
-# Handles multiple editions: if source has 2 copies and library has 1, queue 1
-# Uses prefix matching for subtitle variations
+# Extract title from source filename (for fallback matching)
+get_filename_title() {
+    local file="$1"
+    local bn=$(basename "$file")
+    bn="${bn%.aaxc}"
+    bn="${bn%.m4b}"
+    # Remove ASIN prefix (e.g., B002UZJTXM_) and AAX suffix (e.g., -AAX_22_64)
+    echo "$bn" | sed -E 's/^[A-Z0-9]{10}_//' | sed -E 's/-AAX_[0-9]+_[0-9]+$//' | tr '_' ' '
+}
+
+# Find files needing conversion using hybrid ASIN + title matching
+# Strategy:
+# 1. Try ASIN match first (most accurate)
+# 2. If no ASIN match, fall back to title matching (for older library entries without ASIN metadata)
+# 3. Non-ASIN files always use title matching
 build_queue() {
     log "Building conversion queue..."
     local queue_file="$INDEX_DIR/queue.txt"
-    local source_idx="$INDEX_DIR/sources.idx"
-    local converted_idx="$INDEX_DIR/converted.idx"
+    local source_asin_idx="$INDEX_DIR/source_asins.idx"
+    local converted_asin_idx="$INDEX_DIR/converted_asins.idx"
+    local converted_title_idx="$INDEX_DIR/converted.idx"
 
     > "$queue_file"
 
-    # First pass: count how many converted copies exist per title
-    # (normalized title -> remaining slots available)
-    declare -A converted_counts
-    while IFS= read -r title; do
-        converted_counts["$title"]=$((${converted_counts["$title"]:-0} + 1))
-    done < "$converted_idx"
-
     local checked=0
-    while IFS='|' read -r normalized path; do
+    local queued=0
+    local matched_asin=0
+    local matched_title=0
+
+    while IFS='|' read -r asin_or_id path; do
         checked=$((checked + 1))
 
-        # Find matching converted title (exact or prefix match)
-        local match=$(find_matching_converted "$normalized" "$converted_idx")
-        local available=0
+        if [[ "$asin_or_id" == NOASIN_* ]]; then
+            # Non-ASIN file: use title matching with prefix support
+            local title="${asin_or_id#NOASIN_}"
+            # Remove AAX suffix and convert underscores to spaces
+            title=$(echo "$title" | sed -E 's/-AAX_[0-9]+_[0-9]+$//' | tr '_' ' ')
+            local normalized=$(normalize_title "$title")
 
-        if [[ -n "$match" ]]; then
-            available=${converted_counts["$match"]:-0}
-        fi
-
-        if (( available > 0 )); then
-            # This edition is "covered" by a converted copy, decrement
-            converted_counts["$match"]=$((available - 1))
+            # Try exact match first
+            if grep -qFx "$normalized" "$converted_title_idx" 2>/dev/null; then
+                matched_title=$((matched_title + 1))
+                log "  Title match (no ASIN): $normalized"
+            # Try prefix match: source is shorter
+            elif grep -q "^${normalized} " "$converted_title_idx" 2>/dev/null; then
+                matched_title=$((matched_title + 1))
+                log "  Prefix match (no ASIN): $normalized"
+            # Try prefix match: source is longer
+            elif grep -q "^${normalized%% *}" "$converted_title_idx" 2>/dev/null; then
+                local found=false
+                while IFS= read -r conv_title; do
+                    if [[ "$normalized" == "$conv_title"* ]]; then
+                        matched_title=$((matched_title + 1))
+                        log "  Prefix match (no ASIN, source longer): $normalized"
+                        found=true
+                        break
+                    fi
+                done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                if ! $found; then
+                    echo "$path" >> "$queue_file"
+                    queued=$((queued + 1))
+                    log "  Need conversion (no ASIN): $title"
+                fi
+            else
+                echo "$path" >> "$queue_file"
+                queued=$((queued + 1))
+                log "  Need conversion (no ASIN): $title"
+            fi
         else
-            # No converted copy available for this edition - add to queue
-            echo "$path" >> "$queue_file"
-            log "  Need conversion: $normalized"
+            # ASIN file: try ASIN match first
+            if grep -qFx "$asin_or_id" "$converted_asin_idx" 2>/dev/null; then
+                matched_asin=$((matched_asin + 1))
+                log "  ASIN match: $asin_or_id"
+            else
+                # No ASIN match - fall back to title matching
+                # (for older library entries that don't have chapters.json with ASIN)
+                local title=$(get_filename_title "$path")
+                local normalized=$(normalize_title "$title")
+
+                # Try exact match first
+                if grep -qFx "$normalized" "$converted_title_idx" 2>/dev/null; then
+                    matched_title=$((matched_title + 1))
+                    log "  Title match (ASIN $asin_or_id not in index): $normalized"
+                # Try prefix match: source is shorter (e.g., "The Black Box" matches "The Black Box Harry Bosch Book 16")
+                elif grep -q "^${normalized} " "$converted_title_idx" 2>/dev/null; then
+                    matched_title=$((matched_title + 1))
+                    log "  Prefix match (ASIN $asin_or_id not in index): $normalized"
+                # Try prefix match: source is longer (source has subtitle)
+                elif grep -q "^${normalized%% *}" "$converted_title_idx" 2>/dev/null; then
+                    # Check if any converted title is a prefix of our source
+                    local found=false
+                    while IFS= read -r conv_title; do
+                        if [[ "$normalized" == "$conv_title"* ]]; then
+                            matched_title=$((matched_title + 1))
+                            log "  Prefix match (source longer): $normalized matches $conv_title"
+                            found=true
+                            break
+                        fi
+                    done < <(grep "^${normalized%% *}" "$converted_title_idx")
+                    if ! $found; then
+                        echo "$path" >> "$queue_file"
+                        queued=$((queued + 1))
+                        log "  Need conversion: ASIN $asin_or_id ($normalized)"
+                    fi
+                else
+                    echo "$path" >> "$queue_file"
+                    queued=$((queued + 1))
+                    log "  Need conversion: ASIN $asin_or_id ($normalized)"
+                fi
+            fi
         fi
 
         # Progress every 100 files
         if $VERBOSE && (( checked % 100 == 0 )); then
             log "  Checked $checked sources..."
         fi
-    done < "$source_idx"
+    done < "$source_asin_idx"
 
-    local count=$(wc -l < "$queue_file")
-    log "Queue: $count files need conversion (checked $checked sources)"
-    echo "$count"
+    log "Queue: $queued files need conversion"
+    log "  Matched by ASIN: $matched_asin"
+    log "  Matched by title (fallback): $matched_title"
+    log "  Total checked: $checked"
+    echo "$queued"
 }
 
 # Check if indexes are stale (source dir modified after index)
 indexes_current() {
-    local source_idx="$INDEX_DIR/sources.idx"
-    local converted_idx="$INDEX_DIR/converted.idx"
+    local source_asin_idx="$INDEX_DIR/source_asins.idx"
+    local converted_asin_idx="$INDEX_DIR/converted_asins.idx"
+    local converted_title_idx="$INDEX_DIR/converted.idx"
 
-    [[ -f "$source_idx" ]] && [[ -f "$converted_idx" ]] || return 1
+    # All three indexes must exist
+    [[ -f "$source_asin_idx" ]] && [[ -f "$converted_asin_idx" ]] && [[ -f "$converted_title_idx" ]] || return 1
 
-    # Check if any new aaxc files are newer than the index
-    local newest_source=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f -newer "$source_idx" 2>/dev/null | head -1)
+    # Check if any new aaxc files are newer than the source index
+    local newest_source=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f -newer "$source_asin_idx" 2>/dev/null | head -1)
     [[ -z "$newest_source" ]] || return 1
+
+    # Check if any new chapters.json files are newer than the converted ASIN index
+    local newest_chapters=$(find "$LIBRARY_DIR" -name "*-chapters.json" -type f -newer "$converted_asin_idx" 2>/dev/null | head -1)
+    [[ -z "$newest_chapters" ]] || return 1
+
+    # Check staging too
+    local newest_staging=$(find "$STAGING_DIR" -name "*-chapters.json" -type f -newer "$converted_asin_idx" 2>/dev/null | head -1)
+    [[ -z "$newest_staging" ]] || return 1
 
     return 0
 }
@@ -288,8 +418,9 @@ indexes_current() {
 main() {
     if $REBUILD || ! indexes_current; then
         log "Rebuilding indexes..."
-        build_source_index
-        build_converted_index
+        build_source_asin_index
+        build_converted_asin_index
+        build_converted_index  # Still needed for non-ASIN fallback
     else
         log "Indexes are current"
     fi
