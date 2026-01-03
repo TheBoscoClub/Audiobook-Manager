@@ -831,6 +831,13 @@ do_system_install() {
     sudo cp -r "${SCRIPT_DIR}/lib" "${APP_DIR}/"
     [[ -d "${SCRIPT_DIR}/converter" ]] && sudo cp -r "${SCRIPT_DIR}/converter" "${APP_DIR}/"
 
+    # Update version in utilities.html
+    local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
+    if [[ -n "$new_version" ]] && [[ -f "${APP_DIR}/library/web-v2/utilities.html" ]]; then
+        echo -e "${BLUE}Setting version to v${new_version} in utilities.html...${NC}"
+        sudo sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "${APP_DIR}/library/web-v2/utilities.html"
+    fi
+
     # Create backward-compat symlink for any scripts that reference old path
     sudo mkdir -p "/usr/local/lib"
     sudo ln -sfn "${APP_DIR}/lib" "/usr/local/lib/audiobooks"
@@ -1331,6 +1338,13 @@ do_user_install() {
     cp -r "${SCRIPT_DIR}/lib" "${LIB_DIR}/"
     [[ -d "${SCRIPT_DIR}/converter" ]] && cp -r "${SCRIPT_DIR}/converter" "${LIB_DIR}/"
     cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
+
+    # Update version in utilities.html
+    local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
+    if [[ -n "$new_version" ]] && [[ -f "${LIB_DIR}/library/web-v2/utilities.html" ]]; then
+        echo -e "${BLUE}Setting version to v${new_version} in utilities.html...${NC}"
+        sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "${LIB_DIR}/library/web-v2/utilities.html"
+    fi
 
     # Create config file if it doesn't exist
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then

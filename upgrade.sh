@@ -403,6 +403,17 @@ do_upgrade() {
         else
             cp "${project}/VERSION" "$target/" 2>/dev/null || true
         fi
+
+        # Update version in utilities.html
+        local new_version=$(cat "${project}/VERSION" 2>/dev/null)
+        if [[ -n "$new_version" ]] && [[ -f "$target/library/web-v2/utilities.html" ]]; then
+            echo -e "${BLUE}Updating version in utilities.html to v${new_version}...${NC}"
+            if [[ -n "$use_sudo" ]]; then
+                sudo sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "$target/library/web-v2/utilities.html"
+            else
+                sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "$target/library/web-v2/utilities.html"
+            fi
+        fi
     fi
 
     # Fix ownership of entire installation (cp/rsync don't set correct owner)
