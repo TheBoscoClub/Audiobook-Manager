@@ -147,6 +147,11 @@ convert_file() {
 
             local SIZE=$(du -h "$OUTPUT_FILE" 2>/dev/null | cut -f1)
             echo -e "${GREEN}✓ DONE${NC}: $BASENAME ($SIZE)"
+
+            # Update indexes immediately (real-time tracking)
+            if [[ -n "$QUEUE_BUILDER" ]] && [[ -x "$QUEUE_BUILDER" ]]; then
+                "$QUEUE_BUILDER" --quick-update "$AAXC_FILE" "$OUTPUT_FILE" 2>/dev/null || true
+            fi
         else
             echo -e "${RED}✗ FAIL${NC}: $BASENAME (output file not found)"
             return 1
@@ -157,8 +162,11 @@ convert_file() {
     fi
 }
 
+# Define queue builder path for export (used by convert_file for real-time index updates)
+QUEUE_BUILDER="${AUDIOBOOKS_HOME:-/opt/audiobooks}/scripts/build-conversion-queue"
+
 export -f convert_file check_tmpfs_space
-export OUTPUT_DIR CONVERTER_PATH LOG_DIR OPUS_LEVEL LIBRARY_DIR
+export OUTPUT_DIR CONVERTER_PATH LOG_DIR OPUS_LEVEL LIBRARY_DIR QUEUE_BUILDER
 export RED GREEN YELLOW CYAN NC DOWNLOADER_LOCK TMPFS_MAX_USAGE
 
 # Continuous loop - keep scanning for new files
