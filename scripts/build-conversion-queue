@@ -45,18 +45,19 @@ log() {
 }
 
 # Normalize a title for comparison
-# Removes: ASIN prefix, format suffix, underscores, punctuation, case
+# Removes common suffixes, punctuation, collapses spaces, lowercases
 normalize_title() {
     local input="$1"
     echo "$input" |
-        # Remove ASIN prefix (e.g., "B002UZJTXM_" or "1234567890_")
-        sed -E 's/^[A-Z0-9]{10}_//' |
-        # Remove AAX format suffix (e.g., "-AAX_22_64" or "-AAX_44_128")
-        sed -E 's/-AAX_[0-9]+_[0-9]+$//' |
-        # Remove file extension
-        sed -E 's/\.(aaxc|opus)$//' |
-        # Convert underscores to spaces
-        tr '_' ' ' |
+        # Remove common audiobook suffixes (case insensitive via later lowercase)
+        sed -E 's/[[:space:]]*\([Uu]nabridged\)//g' |
+        sed -E 's/[[:space:]]*\([Aa]bridged\)//g' |
+        sed -E 's/[[:space:]]+[Aa][[:space:]]+[Nn]ovel[[:space:]]*$//g' |
+        sed -E 's/[[:space:]]+[Aa][[:space:]]+[Mm]emoir[[:space:]]*$//g' |
+        # Convert hyphens to spaces (before removing punctuation)
+        tr '-' ' ' |
+        # Transliterate accented characters to ASCII equivalents
+        iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null |
         # Remove punctuation except spaces
         tr -cd '[:alnum:] ' |
         # Collapse multiple spaces
@@ -67,67 +68,47 @@ normalize_title() {
         sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
+# Extract title from source filename (fast, no ffprobe needed)
+# Removes ASIN prefix and AAX format suffix
+get_filename_title() {
+    local file="$1"
+    local bn=$(basename "$file")
+    bn="${bn%.aaxc}"
+    bn="${bn%.m4b}"
+    # Remove ASIN prefix (e.g., B002UZJTXM_) and AAX suffix (e.g., -AAX_22_64)
+    echo "$bn" | sed -E 's/^[A-Z0-9]{10}_//' | sed -E 's/-AAX_[0-9]+_[0-9]+$//' | tr '_' ' '
+}
+
 # Build source index: normalized_title -> original_path
-# Includes:
-#   1. All ASIN-prefixed files
-#   2. Non-ASIN files that have NO ASIN equivalent (unique content)
+# Indexes ALL source files - different ASINs are different books even with same title
 build_source_index() {
     log "Building source index..."
     local index_file="$INDEX_DIR/sources.idx"
     local temp_file="$INDEX_DIR/sources.idx.tmp"
-    local asin_titles_file="$INDEX_DIR/asin_titles.tmp"
 
     > "$temp_file"
-    > "$asin_titles_file"
 
-    # First pass: Index all ASIN-prefixed files and collect their normalized titles
-    log "  Pass 1: Indexing ASIN-prefixed files..."
-    local asin_count=0
-    local bn normalized
+    local count=0
+    local title normalized
     while read -r aaxc_file; do
-        bn=$(basename "$aaxc_file" .aaxc)
+        title=$(get_filename_title "$aaxc_file")
+        normalized=$(normalize_title "$title")
 
-        if [[ "$bn" =~ ^[A-Z0-9]{10}_ ]]; then
-            normalized=$(normalize_title "$bn")
-            echo "${normalized}|${aaxc_file}" >> "$temp_file"
-            echo "$normalized" >> "$asin_titles_file"
-        fi
-    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null)
-
-    # Sort ASIN titles for lookup
-    sort -u "$asin_titles_file" -o "$asin_titles_file"
-    asin_count=$(wc -l < "$asin_titles_file")
-    log "  Found $asin_count ASIN-prefixed files"
-
-    # Second pass: Add non-ASIN files that have NO ASIN equivalent
-    log "  Pass 2: Finding unique non-ASIN files..."
-    local unique_count=0
-    while read -r aaxc_file; do
-        bn=$(basename "$aaxc_file" .aaxc)
-
-        # Skip ASIN-prefixed files (already indexed)
-        [[ "$bn" =~ ^[A-Z0-9]{10}_ ]] && continue
-
-        normalized=$(normalize_title "$bn")
-
-        # Only add if no ASIN equivalent exists
-        if ! grep -qFx "$normalized" "$asin_titles_file" 2>/dev/null; then
-            echo "${normalized}|${aaxc_file}" >> "$temp_file"
-            log "  Including unique non-ASIN: $bn"
-        else
-            log "  Skipping (has ASIN equivalent): $bn"
-        fi
-    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null)
+        # Index ALL files - each ASIN is a unique book
+        # Even if titles normalize to the same string, they're different editions
+        echo "${normalized}|${aaxc_file}" >> "$temp_file"
+        count=$((count + 1))
+    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | sort)
 
     # Sort for efficient lookup
     sort -t'|' -k1,1 "$temp_file" > "$index_file"
-    rm -f "$temp_file" "$asin_titles_file"
+    rm -f "$temp_file"
 
-    local count=$(wc -l < "$index_file")
-    log "Source index: $count total files (ASIN + unique non-ASIN)"
+    log "Source index: $count files (all ASINs)"
 }
 
 # Build converted index: normalized_title (from both library and staging)
+# Uses opus filenames which ARE the metadata titles (AAXtoMP3 renames output)
 build_converted_index() {
     log "Building converted index..."
     local index_file="$INDEX_DIR/converted.idx"
@@ -136,7 +117,7 @@ build_converted_index() {
 
     > "$temp_file"
 
-    # Index library files
+    # Index library files (opus filename = metadata title from conversion)
     while read -r opus_file; do
         bn=$(basename "$opus_file" .opus)
         normalized=$(normalize_title "$bn")
@@ -158,7 +139,90 @@ build_converted_index() {
     log "Converted index: $count unique titles"
 }
 
+# Extract first N significant words from a title (for fuzzy matching)
+get_title_prefix() {
+    local title="$1"
+    local word_count="${2:-3}"
+    echo "$title" | awk -v n="$word_count" '{for(i=1;i<=n && i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ *$//'
+}
+
+# Count words in common between two titles (excluding common articles)
+words_in_common() {
+    local title1="$1"
+    local title2="$2"
+    local count=0
+    # Convert to arrays, excluding short words (articles)
+    for word in $title1; do
+        if [[ ${#word} -ge 3 ]] && [[ " $title2 " == *" $word "* ]]; then
+            count=$((count + 1))
+        fi
+    done
+    echo "$count"
+}
+
+# Get first significant word (4+ chars) from title
+get_first_significant_word() {
+    local title="$1"
+    for word in $title; do
+        if [[ ${#word} -ge 4 ]]; then
+            echo "$word"
+            return
+        fi
+    done
+    # Fallback to first word if none are 4+ chars
+    echo "${title%% *}"
+}
+
+# Check if a title is already converted using EXACT matching only
+# Different ASINs = different books, even with same title
+# Returns 0 (true) if converted, 1 (false) if not
+is_title_converted() {
+    local source_title="$1"
+    local converted_idx="$2"
+
+    # EXACT match only - no fuzzy/prefix matching
+    # This ensures different editions (ASINs) are treated as separate books
+    if grep -qFx "$source_title" "$converted_idx" 2>/dev/null; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Find the matching converted title for a source title
+# Returns the matched title (for exact or prefix match), or empty if no match
+# Prefix matching: "catching fire" matches "catching fire the hunger games"
+find_matching_converted() {
+    local source_title="$1"
+    local converted_idx="$2"
+
+    # Exact match first
+    if grep -qFx "$source_title" "$converted_idx" 2>/dev/null; then
+        echo "$source_title"
+        return
+    fi
+
+    # Prefix match: source is longer than converted (source has subtitle)
+    # e.g., source "catching fire the hunger games book 2" matches "catching fire"
+    while IFS= read -r conv_title; do
+        if [[ "$source_title" == "$conv_title"* ]]; then
+            echo "$conv_title"
+            return
+        fi
+    done < "$converted_idx"
+
+    # Prefix match: converted is longer than source (rare but possible)
+    while IFS= read -r conv_title; do
+        if [[ "$conv_title" == "$source_title"* ]]; then
+            echo "$conv_title"
+            return
+        fi
+    done < "$converted_idx"
+}
+
 # Find files needing conversion
+# Handles multiple editions: if source has 2 copies and library has 1, queue 1
+# Uses prefix matching for subtitle variations
 build_queue() {
     log "Building conversion queue..."
     local queue_file="$INDEX_DIR/queue.txt"
@@ -167,16 +231,42 @@ build_queue() {
 
     > "$queue_file"
 
+    # First pass: count how many converted copies exist per title
+    # (normalized title -> remaining slots available)
+    declare -A converted_counts
+    while IFS= read -r title; do
+        converted_counts["$title"]=$((${converted_counts["$title"]:-0} + 1))
+    done < "$converted_idx"
+
+    local checked=0
     while IFS='|' read -r normalized path; do
-        # Check if this normalized title exists in converted index
-        if ! grep -qFx "$normalized" "$converted_idx" 2>/dev/null; then
-            # Not yet converted - add to queue
+        checked=$((checked + 1))
+
+        # Find matching converted title (exact or prefix match)
+        local match=$(find_matching_converted "$normalized" "$converted_idx")
+        local available=0
+
+        if [[ -n "$match" ]]; then
+            available=${converted_counts["$match"]:-0}
+        fi
+
+        if (( available > 0 )); then
+            # This edition is "covered" by a converted copy, decrement
+            converted_counts["$match"]=$((available - 1))
+        else
+            # No converted copy available for this edition - add to queue
             echo "$path" >> "$queue_file"
+            log "  Need conversion: $normalized"
+        fi
+
+        # Progress every 100 files
+        if $VERBOSE && (( checked % 100 == 0 )); then
+            log "  Checked $checked sources..."
         fi
     done < "$source_idx"
 
     local count=$(wc -l < "$queue_file")
-    log "Queue: $count files need conversion"
+    log "Queue: $count files need conversion (checked $checked sources)"
     echo "$count"
 }
 

@@ -78,27 +78,16 @@ echo "Scan interval: ${SLEEP_INTERVAL}s when idle"
 echo ""
 
 # Function to convert a single file
+# Note: Queue file is authoritative - it already does normalized title matching
+# We only need to check for downloads in progress here
 convert_file() {
     local AAXC_FILE="$1"
     local BASENAME=$(basename "$AAXC_FILE" .aaxc)
     local LOG_FILE="$LOG_DIR/conversion_${BASENAME}.log"
 
-    # Extract a search pattern from the basename (remove AAX format suffix and convert underscores)
-    # e.g., "Book_Title-AAX_22_64" -> search for "*Book*Title*"
-    local SEARCH_PATTERN=$(echo "$BASENAME" | sed 's/-AAX_[0-9]*_[0-9]*$//' | sed 's/_/*/g')
-
-    # Check if already exists (in staging or final location)
-    # First check for exact basename match (fast)
-    if find "$OUTPUT_DIR" -name "${BASENAME}.opus" -type f 2>/dev/null | grep -q . || \
-       find "$LIBRARY_DIR" -name "${BASENAME}.opus" -type f 2>/dev/null | grep -q .; then
-        echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (exists - exact match)"
-        return 0
-    fi
-
-    # Then check for fuzzy match in destination (catches renamed files with spaces/punctuation)
-    # Use -ipath for case-insensitive matching that handles apostrophes and punctuation
-    if find "$LIBRARY_DIR" -type f -name "*.opus" ! -name "*.cover.opus" -ipath "*${SEARCH_PATTERN}*" 2>/dev/null | grep -q .; then
-        echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (exists - fuzzy match)"
+    # Check if source file still exists (queue might be stale)
+    if [[ ! -f "$AAXC_FILE" ]]; then
+        echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (source file missing)"
         return 0
     fi
 
@@ -188,18 +177,45 @@ while true; do
         continue
     fi
 
-    # Find unconverted AAXC files (in Sources directory)
-    AAXC_FILES=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f)
+    # Use queue file instead of finding all sources
+    # Queue contains only files that need conversion (sources - already converted)
+    # This is authoritative: queue builder does normalized title matching correctly
+    QUEUE_FILE="${AUDIOBOOKS_DATA:-/raid0/Audiobooks}/.index/queue.txt"
+    QUEUE_BUILDER="${AUDIOBOOKS_HOME:-/opt/audiobooks}/scripts/build-conversion-queue"
+
+    # Rebuild queue if missing, empty, or stale (older than 10 minutes)
+    REBUILD_QUEUE=false
+    if [[ ! -f "$QUEUE_FILE" ]]; then
+        log "Queue file missing - rebuilding..."
+        REBUILD_QUEUE=true
+    elif [[ ! -s "$QUEUE_FILE" ]]; then
+        # Queue exists but empty - check if it's stale
+        if [[ -n "$(find "$QUEUE_FILE" -mmin +10 2>/dev/null)" ]]; then
+            log "Queue empty and stale - rebuilding..."
+            REBUILD_QUEUE=true
+        fi
+    fi
+
+    if $REBUILD_QUEUE && [[ -x "$QUEUE_BUILDER" ]]; then
+        "$QUEUE_BUILDER" --rebuild >/dev/null 2>&1
+    fi
+
+    # Read queue (files that need conversion)
+    if [[ -f "$QUEUE_FILE" ]] && [[ -s "$QUEUE_FILE" ]]; then
+        AAXC_FILES=$(cat "$QUEUE_FILE")
+    else
+        AAXC_FILES=""
+    fi
 
     if [ -z "$AAXC_FILES" ]; then
-        log "No AAXC files found - waiting ${SLEEP_INTERVAL}s..."
+        log "Queue empty - all files converted. Waiting ${SLEEP_INTERVAL}s..."
         sleep "$SLEEP_INTERVAL"
         continue
     fi
 
     # Count files to process
     TOTAL_AAXC=$(echo "$AAXC_FILES" | wc -l)
-    log "Found $TOTAL_AAXC AAXC files, checking which need conversion..."
+    log "Queue has $TOTAL_AAXC files needing conversion..."
 
     # Process files in parallel
     # Use --bar for progress only when running interactively (TTY available)
@@ -216,6 +232,12 @@ while true; do
     echo -e "${GREEN}In staging: $COMPLETED | In library: $FINAL${NC}"
     echo "========================================="
 
-    log "Scan complete - waiting ${SLEEP_INTERVAL}s before next scan..."
+    # Rebuild queue after batch to remove newly converted files
+    # Run in background to not delay next scan
+    if [[ -x "$QUEUE_BUILDER" ]]; then
+        "$QUEUE_BUILDER" --rebuild >/dev/null 2>&1 &
+    fi
+
+    log "Batch complete - waiting ${SLEEP_INTERVAL}s before next scan..."
     sleep "$SLEEP_INTERVAL"
 done

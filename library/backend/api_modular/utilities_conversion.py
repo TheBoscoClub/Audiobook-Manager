@@ -223,8 +223,16 @@ def init_conversion_routes(project_root):
             # Total converted
             total_converted = library_count + staged_count
 
-            # Remaining calculation (actual files left to convert)
-            remaining = max(0, aaxc_count - total_converted)
+            # Remaining calculation - prefer queue file for accurate count
+            # The queue uses smart title matching to avoid false positives
+            queue_file = AUDIOBOOKS_SOURCES.parent / ".index" / "queue.txt"
+            if queue_file.exists():
+                with open(queue_file) as f:
+                    queue_lines = [line.strip() for line in f if line.strip()]
+                    remaining = len(queue_lines)
+            else:
+                # Fallback to simple arithmetic
+                remaining = max(0, aaxc_count - total_converted)
 
             # Get active ffmpeg opus conversion processes with per-job stats
             ffmpeg_pids, pid_cmdlines = get_ffmpeg_processes()
