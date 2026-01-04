@@ -60,7 +60,8 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 get_counts() {
-    AAXC_COUNT=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | wc -l)
+    # Recursive to handle nested download batches
+    AAXC_COUNT=$(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null | wc -l)
     STAGED_COUNT=$(find "$STAGING_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | wc -l)
     LIBRARY_COUNT=$(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | wc -l)
     TOTAL_CONVERTED=$((LIBRARY_COUNT + STAGED_COUNT))

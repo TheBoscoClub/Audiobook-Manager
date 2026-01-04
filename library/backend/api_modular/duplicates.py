@@ -2,6 +2,7 @@
 Duplicate detection endpoints - hash-based and title-based duplicate finding.
 """
 
+import os
 from typing import Any
 from flask import Blueprint, Response, jsonify, request
 from pathlib import Path
@@ -9,6 +10,45 @@ from pathlib import Path
 from .core import get_db, FlaskResponse
 
 duplicates_bp = Blueprint("duplicates", __name__)
+
+
+def remove_from_indexes(filepath: Path) -> dict:
+    """
+    Remove a file path from all checksum index files.
+    Called after a file is deleted to keep indexes clean.
+
+    Returns dict with counts of entries removed from each index.
+    """
+    index_dir = Path(os.environ.get("AUDIOBOOKS_DATA", "/raid0/Audiobooks")) / ".index"
+    filepath_str = str(filepath)
+
+    removed = {}
+    index_files = [
+        "source_checksums.idx",
+        "library_checksums.idx",
+        "source_asins.idx",
+        "sources.idx",
+    ]
+
+    for idx_name in index_files:
+        idx_path = index_dir / idx_name
+        if not idx_path.exists():
+            continue
+
+        try:
+            # Read all lines, filter out ones matching this filepath
+            lines = idx_path.read_text().splitlines()
+            original_count = len(lines)
+            filtered = [line for line in lines if filepath_str not in line]
+            new_count = len(filtered)
+
+            if new_count < original_count:
+                idx_path.write_text("\n".join(filtered) + "\n" if filtered else "")
+                removed[idx_name] = original_count - new_count
+        except Exception:
+            pass  # Silently continue if index update fails
+
+    return removed
 
 
 def init_duplicates_routes(db_path):
@@ -396,6 +436,9 @@ def init_duplicates_routes(db_path):
                 if file_path.exists():
                     file_path.unlink()
 
+                    # Remove from checksum indexes to keep them clean
+                    remove_from_indexes(file_path)
+
                 # Delete from database
                 cursor.execute(
                     "DELETE FROM audiobook_topics WHERE audiobook_id = ?",
@@ -431,6 +474,197 @@ def init_duplicates_routes(db_path):
                 "errors": errors,
             }
         )
+
+    @duplicates_bp.route("/api/duplicates/by-checksum", methods=["GET"])
+    def get_duplicates_by_checksum() -> Response:
+        """
+        Get duplicate files based on filesystem checksum indexes.
+
+        These checksums are generated from the actual file content (first 1MB),
+        making them authoritative for detecting true duplicates regardless of
+        filename, title, or ASIN differences.
+
+        Query params:
+            type: "sources" | "library" | "both" (default: "both")
+        """
+        import os
+
+        check_type = request.args.get("type", "both")
+        index_dir = os.environ.get("AUDIOBOOKS_DATA", "/raid0/Audiobooks") + "/.index"
+
+        result = {
+            "sources": None,
+            "library": None,
+        }
+
+        def find_duplicates_from_index(index_file: str) -> dict:
+            """Parse checksum index and find duplicates."""
+            if not os.path.exists(index_file):
+                return {
+                    "exists": False,
+                    "error": f"Index file not found: {index_file}",
+                    "duplicate_groups": [],
+                }
+
+            # Parse index: checksum|filepath
+            checksums: dict[str, list[str]] = {}
+            try:
+                with open(index_file, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if "|" in line:
+                            checksum, filepath = line.split("|", 1)
+                            if checksum not in checksums:
+                                checksums[checksum] = []
+                            checksums[checksum].append(filepath)
+            except Exception as e:
+                return {
+                    "exists": True,
+                    "error": str(e),
+                    "duplicate_groups": [],
+                }
+
+            # Find groups with >1 file (duplicates)
+            duplicate_groups = []
+            total_duplicate_files = 0
+            total_wasted_bytes = 0
+
+            for checksum, files in checksums.items():
+                if len(files) > 1:
+                    # Get file sizes
+                    file_infos = []
+                    for fpath in files:
+                        try:
+                            size = os.path.getsize(fpath) if os.path.exists(fpath) else 0
+                            basename = os.path.basename(fpath)
+                            # Extract ASIN if present (first 10 alphanumeric chars before _)
+                            asin = None
+                            if "_" in basename and len(basename) > 10:
+                                potential_asin = basename.split("_")[0]
+                                if len(potential_asin) == 10 and potential_asin.isalnum():
+                                    asin = potential_asin
+                            file_infos.append({
+                                "path": fpath,
+                                "basename": basename,
+                                "asin": asin,
+                                "size_bytes": size,
+                                "size_mb": round(size / 1048576, 2),
+                                "exists": os.path.exists(fpath),
+                            })
+                        except Exception:
+                            file_infos.append({
+                                "path": fpath,
+                                "basename": os.path.basename(fpath),
+                                "asin": None,
+                                "size_bytes": 0,
+                                "size_mb": 0,
+                                "exists": False,
+                            })
+
+                    # Sort by size descending (keep largest)
+                    file_infos.sort(key=lambda x: x["size_bytes"], reverse=True)
+
+                    # Mark keeper and duplicates
+                    for i, f in enumerate(file_infos):
+                        f["is_keeper"] = i == 0
+                        f["is_duplicate"] = i > 0
+
+                    # Calculate wasted space
+                    wasted = sum(f["size_bytes"] for f in file_infos[1:])
+                    total_wasted_bytes += wasted
+                    total_duplicate_files += len(files) - 1
+
+                    duplicate_groups.append({
+                        "checksum": checksum,
+                        "count": len(files),
+                        "wasted_mb": round(wasted / 1048576, 2),
+                        "files": file_infos,
+                    })
+
+            # Sort by count descending
+            duplicate_groups.sort(key=lambda x: x["count"], reverse=True)
+
+            return {
+                "exists": True,
+                "total_files": sum(len(files) for files in checksums.values()),
+                "unique_checksums": len(checksums),
+                "duplicate_groups": duplicate_groups,
+                "total_duplicate_groups": len(duplicate_groups),
+                "total_duplicate_files": total_duplicate_files,
+                "total_wasted_mb": round(total_wasted_bytes / 1048576, 2),
+            }
+
+        if check_type in ("sources", "both"):
+            result["sources"] = find_duplicates_from_index(
+                os.path.join(index_dir, "source_checksums.idx")
+            )
+
+        if check_type in ("library", "both"):
+            result["library"] = find_duplicates_from_index(
+                os.path.join(index_dir, "library_checksums.idx")
+            )
+
+        return jsonify(result)
+
+    @duplicates_bp.route("/api/duplicates/regenerate-checksums", methods=["POST"])
+    def regenerate_checksums() -> Response:
+        """
+        Regenerate checksum indexes for sources and/or library.
+
+        Request body:
+            type: "sources" | "library" | "both" (default: "both")
+
+        Note: This runs synchronously and may take several minutes for large collections.
+        """
+        import os
+        import subprocess
+
+        data = request.get_json() or {}
+        check_type = data.get("type", "both")
+
+        index_dir = os.environ.get("AUDIOBOOKS_DATA", "/raid0/Audiobooks") + "/.index"
+        sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/raid0/Audiobooks/Sources")
+        library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/raid0/Audiobooks/Library")
+
+        results = {}
+
+        def generate_checksums(scan_dir: str, output_file: str, pattern: str) -> dict:
+            """Generate checksums for files matching pattern."""
+            try:
+                # Use find + head + md5sum for efficiency
+                cmd = f'''
+                find "{scan_dir}" -name "{pattern}" -type f 2>/dev/null | sort | while read -r f; do
+                    checksum=$(head -c 1048576 "$f" 2>/dev/null | md5sum | cut -d" " -f1)
+                    echo "${{checksum}}|${{f}}"
+                done > "{output_file}"
+                '''
+                subprocess.run(["bash", "-c", cmd], check=True, timeout=600)
+
+                # Count results
+                with open(output_file, "r") as f:
+                    count = sum(1 for _ in f)
+
+                return {"success": True, "count": count, "file": output_file}
+            except subprocess.TimeoutExpired:
+                return {"success": False, "error": "Timeout after 10 minutes"}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        if check_type in ("sources", "both"):
+            results["sources"] = generate_checksums(
+                sources_dir,
+                os.path.join(index_dir, "source_checksums.idx"),
+                "*.aaxc"
+            )
+
+        if check_type in ("library", "both"):
+            results["library"] = generate_checksums(
+                library_dir,
+                os.path.join(index_dir, "library_checksums.idx"),
+                "*.opus"
+            )
+
+        return jsonify(results)
 
     @duplicates_bp.route("/api/duplicates/verify", methods=["POST"])
     def verify_deletion_safe() -> FlaskResponse:

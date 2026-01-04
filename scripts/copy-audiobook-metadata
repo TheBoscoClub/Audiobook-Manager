@@ -59,17 +59,37 @@ while IFS= read -r AUDIOBOOK_DIR; do
 
     OPUS_BASENAME=$(basename "$OPUS_FILE" .opus)
 
-    # Look for chapters.json file
-    CHAPTERS_FILE=$(find "$SOURCES_DIR" -name "*${OPUS_BASENAME}*-chapters.json" -o -name "*-chapters.json" 2>/dev/null | head -1)
+    # Convert spaces and colons to underscores for matching source filenames
+    OPUS_SEARCH=$(echo "$OPUS_BASENAME" | tr ' :' '_' | tr -s '_')
 
-    if [ -n "$CHAPTERS_FILE" ] && [ ! -f "$AUDIOBOOK_DIR/chapters.json" ]; then
-        cp "$CHAPTERS_FILE" "$AUDIOBOOK_DIR/chapters.json"
-        echo -e "${GREEN}✓${NC} Copied chapters: $BOOK_NAME" | tee -a "$LOG_FILE"
-        ((COPIED++))
+    # Look for chapters.json file - try multiple matching strategies
+    # 1. Direct match with underscores
+    # 2. Fuzzy match on first few words
+    # NO fallback to any chapters.json - that causes wrong file matching!
+    CHAPTERS_FILE=""
+
+    # Try direct match first (underscores)
+    CHAPTERS_FILE=$(find "$SOURCES_DIR" -name "*${OPUS_SEARCH}*-chapters.json" 2>/dev/null | head -1)
+
+    # If not found, try first 3 words (handles subtitle differences)
+    if [ -z "$CHAPTERS_FILE" ]; then
+        FIRST_WORDS=$(echo "$OPUS_SEARCH" | cut -d'_' -f1-3)
+        if [ -n "$FIRST_WORDS" ]; then
+            CHAPTERS_FILE=$(find "$SOURCES_DIR" -name "*${FIRST_WORDS}*-chapters.json" 2>/dev/null | head -1)
+        fi
     fi
 
-    # Look for cover art
-    COVER_FILE=$(find "$SOURCES_DIR" -name "*${OPUS_BASENAME}*.jpg" -o -name "*${OPUS_BASENAME}*.png" 2>/dev/null | head -1)
+    if [ -n "$CHAPTERS_FILE" ] && [ ! -f "$AUDIOBOOK_DIR/chapters.json" ]; then
+        # Verify the file isn't the wrong book by checking it has content
+        if [ -s "$CHAPTERS_FILE" ]; then
+            cp "$CHAPTERS_FILE" "$AUDIOBOOK_DIR/chapters.json"
+            echo -e "${GREEN}✓${NC} Copied chapters: $BOOK_NAME" | tee -a "$LOG_FILE"
+            ((COPIED++))
+        fi
+    fi
+
+    # Look for cover art - also use underscore matching
+    COVER_FILE=$(find "$SOURCES_DIR" -name "*${OPUS_SEARCH}*.jpg" -o -name "*${OPUS_SEARCH}*.png" 2>/dev/null | head -1)
 
     if [ -n "$COVER_FILE" ] && [ ! -f "$AUDIOBOOK_DIR/cover.jpg" ]; then
         cp "$COVER_FILE" "$AUDIOBOOK_DIR/cover.jpg"

@@ -39,6 +39,25 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# Generate and append checksum to library index
+generate_library_checksum() {
+    local filepath="$1"
+    local index_dir="${AUDIOBOOKS_DATA}/.index"
+    local index_file="${index_dir}/library_checksums.idx"
+
+    mkdir -p "$index_dir"
+
+    # Generate MD5 checksum of first 1MB (fast duplicate detection)
+    local checksum=$(head -c 1048576 "$filepath" 2>/dev/null | md5sum | cut -d' ' -f1)
+    if [ -n "$checksum" ]; then
+        # Append to index (thread-safe with flock)
+        (
+            flock -x 201
+            echo "${checksum}|${filepath}" >> "$index_file"
+        ) 201>"${index_file}.lock"
+    fi
+}
+
 log "=========================================="
 log "Audiobook Staging Mover Started"
 log "Staging: $STAGING_DIR (tmpfs)"
@@ -106,6 +125,11 @@ while true; do
 
                         if [ $REMAINING -eq 0 ]; then
                             log "${GREEN}✓ Moved:${NC} $DIR_NAME ($SIZE total)"
+
+                            # Generate checksums for moved opus files
+                            while IFS= read -r MOVED_FILE; do
+                                generate_library_checksum "$MOVED_FILE"
+                            done < <(find "$DEST" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
 
                             # Import to database immediately
                             if python3 /opt/audiobooks/library/scanner/import_single.py "$DEST" 2>&1 | while read -r line; do

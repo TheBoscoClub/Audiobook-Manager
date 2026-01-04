@@ -48,7 +48,8 @@ echo ""
 declare -A title_files
 declare -a duplicates_to_remove
 
-for aaxc in "$SOURCES_DIR"/*.aaxc; do
+# Recursive to handle nested download batches
+while IFS= read -r aaxc; do
     [[ -f "$aaxc" ]] || continue
     basename=$(basename "$aaxc" .aaxc)
     normalized=$(normalize_title "$basename")
@@ -70,10 +71,10 @@ for aaxc in "$SOURCES_DIR"/*.aaxc; do
     else
         title_files[$normalized]="$aaxc"
     fi
-done
+done < <(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null)
 
 echo "=== Summary ==="
-echo "Total source files: $(ls -1 "$SOURCES_DIR"/*.aaxc 2>/dev/null | wc -l)"
+echo "Total source files: $(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null | wc -l)"
 echo "Unique titles: ${#title_files[@]}"
 echo "Duplicates found: ${#duplicates_to_remove[@]}"
 echo ""

@@ -73,6 +73,10 @@
                     <span class="tab-icon">&#128230;</span>
                     <span class="tab-label">Bulk Ops</span>
                 </button>
+                <button class="cabinet-tab" data-section="system">
+                    <span class="tab-icon">&#9881;</span>
+                    <span class="tab-label">System</span>
+                </button>
             </div>
         </nav>
 
@@ -164,13 +168,22 @@
                                         <span class="btn-icon">&#128190;</span> Import
                                     </button>
                                 </div>
-                                <div class="operation-item">
+                                <div class="operation-item" title="Regenerates ALL SHA-256 hashes for Library files (.opus). Use for integrity verification and database duplicate detection. Replaces existing hashes.">
                                     <div class="operation-info">
-                                        <h4>Generate Hashes</h4>
-                                        <p>Calculate SHA-256 hashes for duplicate detection</p>
+                                        <h4>Generate Hashes (SHA-256)</h4>
+                                        <p>Full file hashes for Library - integrity verification</p>
                                     </div>
                                     <button class="office-btn" id="generate-hashes">
                                         <span class="btn-icon">&#128274;</span> Generate
+                                    </button>
+                                </div>
+                                <div class="operation-item" title="Regenerates ALL MD5 checksums for Sources (.aaxc) AND Library (.opus) files. Fast partial checksums (first 1MB) used for quick duplicate detection. Replaces existing index files.">
+                                    <div class="operation-info">
+                                        <h4>Generate Checksums (MD5)</h4>
+                                        <p>Quick checksums for Sources + Library - duplicate detection</p>
+                                    </div>
+                                    <button class="office-btn" id="generate-checksums">
+                                        <span class="btn-icon">&#128203;</span> Generate
                                     </button>
                                 </div>
                                 <div class="operation-item">
@@ -520,18 +533,32 @@
                         <div class="card-header">Detection Methods</div>
                         <div class="card-body">
                             <div class="detection-options">
-                                <label class="radio-option">
+                                <label class="radio-option" title="Compares title, author, narrator, and duration to find the same book in different editions or formats. May include files that are not byte-identical.">
                                     <input type="radio" name="dup-method" value="title" checked>
                                     <span class="radio-label">
                                         <strong>By Title/Author/Narrator</strong>
                                         <small>Find books with matching metadata (may be different files)</small>
                                     </span>
                                 </label>
-                                <label class="radio-option">
+                                <label class="radio-option" title="Uses full SHA-256 hash from the database. Only works for Library files (.opus) that have been imported. Finds byte-identical duplicates.">
                                     <input type="radio" name="dup-method" value="hash">
                                     <span class="radio-label">
                                         <strong>By SHA-256 Hash</strong>
-                                        <small>Find byte-identical files (exact duplicates)</small>
+                                        <small>Find byte-identical files in Library (from database)</small>
+                                    </span>
+                                </label>
+                                <label class="radio-option" title="Uses partial checksum (first 1MB) from index files. Scans Source folder (.aaxc files) to find duplicates before conversion. Works on files not yet in the database.">
+                                    <input type="radio" name="dup-method" value="source-checksum">
+                                    <span class="radio-label">
+                                        <strong>Source File Checksums</strong>
+                                        <small>Find duplicate .aaxc files in Sources folder</small>
+                                    </span>
+                                </label>
+                                <label class="radio-option" title="Uses partial checksum (first 1MB) from index files. Scans Library folder (.opus files) directly, catching duplicates even if database is out of sync.">
+                                    <input type="radio" name="dup-method" value="library-checksum">
+                                    <span class="radio-label">
+                                        <strong>Library File Checksums</strong>
+                                        <small>Find duplicate .opus files in Library folder</small>
                                     </span>
                                 </label>
                             </div>
@@ -640,6 +667,110 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- System Administration Section -->
+            <section class="drawer-content" id="system-section">
+                <div class="section-header">
+                    <h2>System Administration</h2>
+                    <p class="section-desc">Manage services and application upgrades</p>
+                </div>
+
+                <div class="card-catalog">
+                    <!-- Services Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Service Status</span>
+                            <span class="badge" id="services-status-badge">Loading...</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="services-grid" id="services-list">
+                                <!-- Services loaded dynamically -->
+                                <p class="placeholder-text">Loading services...</p>
+                            </div>
+                        </div>
+                        <div class="card-footer services-actions">
+                            <button class="office-btn" id="refresh-services">
+                                <span class="btn-icon">&#8635;</span> Refresh
+                            </button>
+                            <button class="office-btn success" id="start-all-services" title="Start all audiobook services (API, proxy, converter, mover, scanner)">
+                                <span class="btn-icon">&#9654;</span> Start All
+                            </button>
+                            <button class="office-btn danger" id="stop-all-services" title="Stop ALL services including API and proxy. You will lose web access.">
+                                <span class="btn-icon">&#9632;</span> Stop All
+                            </button>
+                            <button class="office-btn warning" id="stop-background-services" title="Stop only background processing (converter, mover, scanner). API and proxy stay running so you keep web access.">
+                                <span class="btn-icon">&#9632;</span> Stop Background
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Version Info Card -->
+                    <div class="catalog-card">
+                        <div class="card-header">Application Version</div>
+                        <div class="card-body">
+                            <div class="stat-grid">
+                                <div class="stat-row">
+                                    <span class="stat-label">Current Version</span>
+                                    <span class="stat-value version" id="current-version">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Install Path</span>
+                                    <span class="stat-value path" id="install-path">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upgrade Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">Upgrade Application</div>
+                        <div class="card-body">
+                            <div class="upgrade-notice">
+                                <span class="notice-icon">&#9888;</span>
+                                <span class="notice-text">Upgrade will stop services, apply updates, then restart. The browser will reload automatically when complete.</span>
+                            </div>
+
+                            <div class="upgrade-options">
+                                <label class="radio-option">
+                                    <input type="radio" name="upgrade-source" value="github" checked>
+                                    <span class="radio-label">
+                                        <strong>From GitHub</strong>
+                                        <small>Download latest release from GitHub repository</small>
+                                    </span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="upgrade-source" value="project">
+                                    <span class="radio-label">
+                                        <strong>From Project Directory</strong>
+                                        <small>Install from local development directory</small>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="project-selector" id="project-selector" style="display: none;">
+                                <div class="project-input-group">
+                                    <label>Project Directory:</label>
+                                    <div class="input-with-button">
+                                        <input type="text" id="project-path-input" class="office-input" placeholder="/raid0/ClaudeCodeProjects/Audiobook-Manager">
+                                        <button class="office-btn" id="browse-projects" title="Browse available projects">
+                                            <span class="btn-icon">&#128193;</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="project-list" id="available-projects" style="display: none;">
+                                    <!-- Available projects loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn primary" id="start-upgrade">
+                                <span class="btn-icon">&#8593;</span> Start Upgrade
+                            </button>
                         </div>
                     </div>
                 </div>

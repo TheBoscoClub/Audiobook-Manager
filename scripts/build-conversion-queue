@@ -105,7 +105,9 @@ extract_asin_from_chapters() {
     grep -o '"asin": *"[^"]*"' "$chapters_file" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/'
 }
 
-# Build converted ASIN index from library chapters.json files
+# Build converted ASIN index from library chapters.json files AND title matching
+# Note: chapters.json may be corrupted, so we also backfill by matching
+# library opus titles to source ASIN filenames
 build_converted_asin_index() {
     log "Building converted ASIN index..."
     local index_file="$INDEX_DIR/converted_asins.idx"
@@ -114,7 +116,7 @@ build_converted_asin_index() {
     > "$temp_file"
 
     local count=0
-    # Scan library for chapters.json files (contain ASIN metadata)
+    # Method 1: Scan library for chapters.json files (contain ASIN metadata)
     while IFS= read -r chapters_file; do
         local asin=$(extract_asin_from_chapters "$chapters_file")
         if [[ -n "$asin" ]]; then
@@ -132,12 +134,55 @@ build_converted_asin_index() {
         fi
     done < <(find "$STAGING_DIR" -name "*-chapters.json" -type f 2>/dev/null)
 
+    log "  From chapters.json: $count entries"
+
+    # Method 2: Backfill by matching library titles to source ASINs
+    # This handles cases where chapters.json is missing or corrupted
+    log "  Backfilling from title matching..."
+    local lib_titles_file="$INDEX_DIR/.lib_titles.tmp"
+    local backfill_file="$INDEX_DIR/.backfill_asins.tmp"
+
+    # Build normalized library title list
+    # Use explicit loop to ensure each title is on its own line
+    > "$lib_titles_file"
+    while IFS= read -r opus_file; do
+        bn=$(basename "$opus_file" .opus)
+        normalized=$(normalize_title "$bn")
+        echo "$normalized"
+    done < <(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null) >> "$lib_titles_file"
+    sort -u "$lib_titles_file" -o "$lib_titles_file"
+
+    # Match source ASINs to library titles
+    # Output ASINs whose normalized titles are in the library
+    > "$backfill_file"
+    while IFS= read -r aaxc_file; do
+        bn=$(basename "$aaxc_file" .aaxc)
+        # Check if file has ASIN prefix (10 alphanumeric before underscore)
+        if [[ "$bn" =~ ^([A-Z0-9]{10})_ ]]; then
+            asin="${BASH_REMATCH[1]}"
+            # Extract and normalize title
+            title=$(echo "$bn" | sed -E 's/^[A-Z0-9]{10}_//' | sed -E 's/-AAX_[0-9]+_[0-9]+$//' | tr '_' ' ')
+            normalized=$(normalize_title "$title")
+            # Check if this normalized title is in the library
+            if grep -qFx "$normalized" "$lib_titles_file" 2>/dev/null; then
+                echo "$asin"
+            fi
+        fi
+    done < <(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null) >> "$backfill_file"
+
+    # Append backfilled ASINs to temp file
+    cat "$backfill_file" >> "$temp_file"
+    local backfill_count=$(wc -l < "$backfill_file")
+    log "  Backfilled: $backfill_count ASINs from title matching"
+
+    rm -f "$lib_titles_file" "$backfill_file"
+
     # Sort and deduplicate
     sort -u "$temp_file" > "$index_file"
     rm -f "$temp_file"
 
     local unique_count=$(wc -l < "$index_file")
-    log "Converted ASIN index: $unique_count unique ASINs"
+    log "Converted ASIN index: $unique_count unique ASINs (after backfill)"
 }
 
 # Build source ASIN index
@@ -160,7 +205,7 @@ build_source_asin_index() {
             echo "NOASIN_${bn}|${aaxc_file}" >> "$temp_file"
             count=$((count + 1))
         fi
-    done < <(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | sort)
+    done < <(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null | sort)
 
     sort "$temp_file" > "$index_file"
     rm -f "$temp_file"
@@ -291,11 +336,70 @@ get_filename_title() {
     echo "$bn" | sed -E 's/^[A-Z0-9]{10}_//' | sed -E 's/-AAX_[0-9]+_[0-9]+$//' | tr '_' ' '
 }
 
+# Load checksum duplicate map to skip duplicate source files
+# Returns associative array where skipped files map to the "keeper" file
+load_checksum_duplicates() {
+    local checksum_idx="$INDEX_DIR/source_checksums.idx"
+    local dupe_map_file="$INDEX_DIR/.checksum_dupes.tmp"
+
+    > "$dupe_map_file"
+
+    if [[ ! -f "$checksum_idx" ]]; then
+        log "No checksum index found - skipping duplicate detection"
+        return
+    fi
+
+    log "Loading checksum duplicates..."
+    local skipped=0
+
+    # Group by checksum, keeping first file (with ASIN preference) as keeper
+    # Output: filepath of files to skip (not the keeper)
+    awk -F'|' '
+    {
+        checksum = $1
+        filepath = $2
+        if (!(checksum in first)) {
+            first[checksum] = filepath
+            # Check if this file has ASIN (starts with 10 alphanumeric before _)
+            bn = filepath
+            gsub(/.*\//, "", bn)  # basename
+            has_asin = (bn ~ /^[A-Z0-9]{10}_/)
+            first_has_asin[checksum] = has_asin
+        } else {
+            # Check if new file has ASIN and keeper does not
+            bn = filepath
+            gsub(/.*\//, "", bn)
+            has_asin = (bn ~ /^[A-Z0-9]{10}_/)
+            if (has_asin && !first_has_asin[checksum]) {
+                # Swap: new file becomes keeper, old becomes skip
+                print first[checksum]
+                first[checksum] = filepath
+                first_has_asin[checksum] = 1
+            } else {
+                # Skip this file (duplicate of keeper)
+                print filepath
+            }
+        }
+    }
+    ' "$checksum_idx" > "$dupe_map_file"
+
+    skipped=$(wc -l < "$dupe_map_file")
+    log "Checksum duplicates to skip: $skipped files"
+}
+
+# Check if a file should be skipped (is a checksum duplicate)
+is_checksum_duplicate() {
+    local filepath="$1"
+    local dupe_map_file="$INDEX_DIR/.checksum_dupes.tmp"
+    [[ -f "$dupe_map_file" ]] && grep -qFx "$filepath" "$dupe_map_file" 2>/dev/null
+}
+
 # Find files needing conversion using hybrid ASIN + title matching
 # Strategy:
-# 1. Try ASIN match first (most accurate)
-# 2. If no ASIN match, fall back to title matching (for older library entries without ASIN metadata)
-# 3. Non-ASIN files always use title matching
+# 1. Skip checksum duplicates (same audio content under different filenames)
+# 2. Try ASIN match first (most accurate)
+# 3. If no ASIN match, fall back to title matching (for older library entries without ASIN metadata)
+# 4. Non-ASIN files always use title matching
 build_queue() {
     log "Building conversion queue..."
     local queue_file="$INDEX_DIR/queue.txt"
@@ -303,15 +407,26 @@ build_queue() {
     local converted_asin_idx="$INDEX_DIR/converted_asins.idx"
     local converted_title_idx="$INDEX_DIR/converted.idx"
 
+    # Load checksum duplicates for filtering
+    load_checksum_duplicates
+
     > "$queue_file"
 
     local checked=0
     local queued=0
     local matched_asin=0
     local matched_title=0
+    local skipped_dupe=0
 
     while IFS='|' read -r asin_or_id path; do
         checked=$((checked + 1))
+
+        # Skip checksum duplicates (same audio content, different filename)
+        if is_checksum_duplicate "$path"; then
+            skipped_dupe=$((skipped_dupe + 1))
+            log "  SKIP (checksum dupe): $(basename "$path")"
+            continue
+        fi
 
         if [[ "$asin_or_id" == NOASIN_* ]]; then
             # Non-ASIN file: use title matching with prefix support
@@ -376,72 +491,17 @@ build_queue() {
                 log "  Need conversion (no ASIN): $title"
             fi
         else
-            # ASIN file: try ASIN match first
+            # ASIN file: ASIN-only matching (no title fallback)
+            # Different ASINs = different editions = different books
             if grep -qFx "$asin_or_id" "$converted_asin_idx" 2>/dev/null; then
                 matched_asin=$((matched_asin + 1))
                 log "  ASIN match: $asin_or_id"
             else
-                # No ASIN match - fall back to title matching
-                # (for older library entries that don't have chapters.json with ASIN)
-                local title=$(get_filename_title "$path")
-                local normalized=$(normalize_title "$title")
-
-                # Try exact match first
-                if grep -qFx "$normalized" "$converted_title_idx" 2>/dev/null; then
-                    matched_title=$((matched_title + 1))
-                    log "  Title match (ASIN $asin_or_id not in index): $normalized"
-                # Try prefix match: source is shorter (e.g., "The Black Box" matches "The Black Box Harry Bosch Book 16")
-                elif grep -q "^${normalized} " "$converted_title_idx" 2>/dev/null; then
-                    matched_title=$((matched_title + 1))
-                    log "  Prefix match (ASIN $asin_or_id not in index): $normalized"
-                # Try prefix match: source is longer (source has subtitle)
-                elif grep -q "^${normalized%% *}" "$converted_title_idx" 2>/dev/null; then
-                    # Check if any converted title is a prefix of our source
-                    local found=false
-                    while IFS= read -r conv_title; do
-                        if [[ "$normalized" == "$conv_title"* ]]; then
-                            matched_title=$((matched_title + 1))
-                            log "  Prefix match (source longer): $normalized matches $conv_title"
-                            found=true
-                            break
-                        fi
-                    done < <(grep "^${normalized%% *}" "$converted_title_idx")
-                    # Try N-word prefix match (e.g., "dark tower i volume 1" matches "dark tower i the gunslinger")
-                    if ! $found; then
-                        local src_prefix=$(get_title_prefix "$normalized" 3)
-                        while IFS= read -r conv_title; do
-                            local conv_prefix=$(get_title_prefix "$conv_title" 3)
-                            if [[ "$src_prefix" == "$conv_prefix" ]]; then
-                                matched_title=$((matched_title + 1))
-                                log "  3-word prefix match: $src_prefix"
-                                found=true
-                                break
-                            fi
-                        done < <(grep "^${normalized%% *}" "$converted_title_idx")
-                    fi
-                    # Try 2-word prefix match as last resort (e.g., "blue belle burke" matches "blue belle a burke")
-                    if ! $found; then
-                        local src_prefix2=$(get_title_prefix "$normalized" 2)
-                        while IFS= read -r conv_title; do
-                            local conv_prefix2=$(get_title_prefix "$conv_title" 2)
-                            if [[ "$src_prefix2" == "$conv_prefix2" ]]; then
-                                matched_title=$((matched_title + 1))
-                                log "  2-word prefix match: $src_prefix2"
-                                found=true
-                                break
-                            fi
-                        done < <(grep "^${normalized%% *}" "$converted_title_idx")
-                    fi
-                    if ! $found; then
-                        echo "$path" >> "$queue_file"
-                        queued=$((queued + 1))
-                        log "  Need conversion: ASIN $asin_or_id ($normalized)"
-                    fi
-                else
-                    echo "$path" >> "$queue_file"
-                    queued=$((queued + 1))
-                    log "  Need conversion: ASIN $asin_or_id ($normalized)"
-                fi
+                # ASIN not in converted index - needs conversion
+                # NO title fallback: different editions (different ASINs) should both be converted
+                echo "$path" >> "$queue_file"
+                queued=$((queued + 1))
+                log "  Need conversion: ASIN $asin_or_id not in library"
             fi
         fi
 
@@ -454,6 +514,7 @@ build_queue() {
     log "Queue: $queued files need conversion"
     log "  Matched by ASIN: $matched_asin"
     log "  Matched by title (fallback): $matched_title"
+    log "  Skipped (checksum duplicates): $skipped_dupe"
     log "  Total checked: $checked"
     echo "$queued"
 }
@@ -467,8 +528,8 @@ indexes_current() {
     # All three indexes must exist
     [[ -f "$source_asin_idx" ]] && [[ -f "$converted_asin_idx" ]] && [[ -f "$converted_title_idx" ]] || return 1
 
-    # Check if any new aaxc files are newer than the source index
-    local newest_source=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f -newer "$source_asin_idx" 2>/dev/null | head -1)
+    # Check if any new aaxc files are newer than the source index (recursive for nested downloads)
+    local newest_source=$(find "$SOURCES_DIR" -name "*.aaxc" -type f -newer "$source_asin_idx" 2>/dev/null | head -1)
     [[ -z "$newest_source" ]] || return 1
 
     # Check if any new chapters.json files are newer than the converted ASIN index

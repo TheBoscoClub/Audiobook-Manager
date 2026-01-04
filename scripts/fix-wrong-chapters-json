@@ -1,0 +1,107 @@
+#!/bin/bash
+# =============================================================================
+# Fix Wrong Chapters.json Files
+# =============================================================================
+# Removes incorrectly-named chapters.json files (named after wrong book)
+# and re-copies the correct ones from Sources/metadata.
+#
+# The bug: copy-audiobook-metadata had a fallback that copied the first
+# chapters.json found (alphabetically 11-22-63) when no match was found.
+# =============================================================================
+
+# Removed set -euo pipefail - causes issues with ((counter++)) when counter is 0
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+fi
+
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/raid0/Audiobooks/Library}"
+SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/raid0/Audiobooks/Sources}"
+METADATA_DIR="${SOURCES_DIR}/metadata"
+
+DRY_RUN=true
+VERBOSE=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --apply) DRY_RUN=false; shift ;;
+        --verbose|-v) VERBOSE=true; shift ;;
+        *) shift ;;
+    esac
+done
+
+echo "========================================="
+echo "  FIX WRONG CHAPTERS.JSON FILES"
+echo "========================================="
+echo ""
+
+# Find all wrong chapters.json files (named after 11-22-63)
+WRONG_FILES=()
+while IFS= read -r f; do
+    WRONG_FILES+=("$f")
+done < <(find "$LIBRARY_DIR" -name "11-22-63_A_Novel-chapters.json" -type f 2>/dev/null)
+
+echo "Wrong chapters.json files found: ${#WRONG_FILES[@]}"
+echo ""
+
+if [[ ${#WRONG_FILES[@]} -eq 0 ]]; then
+    echo "No wrong files to fix!"
+    exit 0
+fi
+
+FIXED=0
+SKIPPED=0
+
+for wrong_file in "${WRONG_FILES[@]}"; do
+    BOOK_DIR=$(dirname "$wrong_file")
+    BOOK_NAME=$(basename "$BOOK_DIR")
+
+    # Convert to search pattern (spaces and colons to underscores)
+    SEARCH_NAME=$(echo "$BOOK_NAME" | tr ' :' '_' | tr -s '_')
+
+    # Find correct chapters.json in metadata
+    CORRECT_FILE=""
+
+    # Try direct match
+    CORRECT_FILE=$(find "$METADATA_DIR" -name "*${SEARCH_NAME}*-chapters.json" 2>/dev/null | head -1)
+
+    # If not found, try first 3 words
+    if [[ -z "$CORRECT_FILE" ]]; then
+        FIRST_WORDS=$(echo "$SEARCH_NAME" | cut -d'_' -f1-3)
+        if [[ -n "$FIRST_WORDS" ]]; then
+            CORRECT_FILE=$(find "$METADATA_DIR" -name "*${FIRST_WORDS}*-chapters.json" 2>/dev/null | head -1)
+        fi
+    fi
+
+    if [[ -n "$CORRECT_FILE" && -f "$CORRECT_FILE" ]]; then
+        if $DRY_RUN; then
+            $VERBOSE && echo "WOULD FIX: $BOOK_NAME"
+            $VERBOSE && echo "        -> $(basename "$CORRECT_FILE")"
+        else
+            rm -f "$wrong_file"
+            cp "$CORRECT_FILE" "$BOOK_DIR/$(basename "$CORRECT_FILE")"
+            $VERBOSE && echo "FIXED: $BOOK_NAME"
+        fi
+        ((FIXED++))
+    else
+        $VERBOSE && echo "SKIP (no match): $BOOK_NAME"
+        ((SKIPPED++))
+    fi
+done
+
+echo ""
+echo "========================================="
+echo "Results:"
+if $DRY_RUN; then
+    echo "  Would fix: $FIXED"
+    echo "  No match:  $SKIPPED"
+    echo ""
+    echo "Run with --apply to make changes"
+else
+    echo "  Fixed:    $FIXED"
+    echo "  Skipped:  $SKIPPED"
+fi
+echo "========================================="

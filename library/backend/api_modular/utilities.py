@@ -6,6 +6,7 @@ This is the coordinator module that combines all utility sub-modules:
 - utilities_db: Database maintenance (rescan, reimport, vacuum, export)
 - utilities_ops: Async operations with progress tracking
 - utilities_conversion: Conversion monitoring
+- utilities_system: Service control and application upgrades
 
 Each sub-module defines focused functionality with smaller, testable functions.
 """
@@ -17,6 +18,7 @@ from .utilities_crud import utilities_crud_bp, init_crud_routes
 from .utilities_db import utilities_db_bp, init_db_routes
 from .utilities_ops import utilities_ops_bp, init_ops_routes
 from .utilities_conversion import utilities_conversion_bp, init_conversion_routes
+from .utilities_system import utilities_system_bp, init_system_routes
 
 # Main utilities blueprint - aggregates all sub-modules
 utilities_bp = Blueprint("utilities", __name__)
@@ -41,6 +43,7 @@ def init_utilities_routes(db_path, project_root):
     init_db_routes(db_path, project_root)
     init_ops_routes(db_path, project_root)
     init_conversion_routes(project_root)
+    init_system_routes(project_root)
 
     # Register sub-module blueprints under the main utilities blueprint
     # Using empty url_prefix since all routes already include /api/ prefix
@@ -48,5 +51,6 @@ def init_utilities_routes(db_path, project_root):
     utilities_bp.register_blueprint(utilities_db_bp)
     utilities_bp.register_blueprint(utilities_ops_bp)
     utilities_bp.register_blueprint(utilities_conversion_bp)
+    utilities_bp.register_blueprint(utilities_system_bp)
 
     return utilities_bp

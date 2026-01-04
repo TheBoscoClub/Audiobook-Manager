@@ -51,6 +51,26 @@ notify() {
     notify-send -a "Audiobook Downloader" -i "$icon" "$title" "$message" 2>/dev/null || true
 }
 
+# Generate and append checksum to index
+generate_source_checksum() {
+    local filepath="$1"
+    local index_dir="${AUDIOBOOKS_DATA}/.index"
+    local index_file="${index_dir}/source_checksums.idx"
+
+    mkdir -p "$index_dir"
+
+    # Generate MD5 checksum of first 1MB (fast duplicate detection)
+    local checksum=$(head -c 1048576 "$filepath" 2>/dev/null | md5sum | cut -d' ' -f1)
+    if [ -n "$checksum" ]; then
+        # Append to index (thread-safe with flock)
+        (
+            flock -x 201
+            echo "${checksum}|${filepath}" >> "$index_file"
+        ) 201>"${index_file}.lock"
+        log "Checksum: $checksum for $(basename "$filepath")"
+    fi
+}
+
 # Check tmpfs usage and wait if too high
 check_tmpfs_space() {
     local USAGE=$(df /tmp | tail -1 | awk '{print int($5)}')
@@ -220,9 +240,11 @@ while IFS=$'\t' read -r ASIN; do
         --ignore-errors \
         2>> "$LOG_FILE"
 
-    if find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit | grep -q .; then
+    DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
+    if [ -n "$DOWNLOADED_FILE" ]; then
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded: $DISPLAY_TITLE" >> "$LOG_FILE"
         echo -e "${GREEN}✓ Downloaded:${NC} $DISPLAY_TITLE"
+        generate_source_checksum "$DOWNLOADED_FILE"
         ((SUCCESS++))
     else
         echo "  Trying AAX fallback..." | tee -a "$LOG_FILE"
@@ -234,9 +256,11 @@ while IFS=$'\t' read -r ASIN; do
             --ignore-errors \
             2>> "$LOG_FILE"
 
-        if find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit | grep -q .; then
+        DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
+        if [ -n "$DOWNLOADED_FILE" ]; then
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded (AAX fallback): $DISPLAY_TITLE" >> "$LOG_FILE"
             echo -e "${GREEN}✓ Downloaded (AAX):${NC} $DISPLAY_TITLE"
+            generate_source_checksum "$DOWNLOADED_FILE"
             ((SUCCESS++))
         else
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ Failed (not downloadable): $DISPLAY_TITLE" >> "$LOG_FILE"

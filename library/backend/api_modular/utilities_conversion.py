@@ -202,9 +202,9 @@ def init_conversion_routes(project_root):
         staging_dir = AUDIOBOOKS_STAGING
 
         try:
-            # Count source AAXC files
+            # Count source AAXC files (recursive to handle nested download batches)
             sources_dir = AUDIOBOOKS_SOURCES
-            aaxc_count = len(list(sources_dir.glob("*.aaxc"))) if sources_dir.exists() else 0
+            aaxc_count = len(list(sources_dir.rglob("*.aaxc"))) if sources_dir.exists() else 0
 
             # Count staged opus files (excluding covers) - recursively search subdirs
             staged_count = 0

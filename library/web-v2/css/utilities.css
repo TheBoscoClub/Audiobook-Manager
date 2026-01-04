@@ -695,6 +695,30 @@ body.back-office {
     height: 18px;
 }
 
+/* Checksum duplicate badge */
+.duplicate-item .dup-badge {
+    background: var(--ledger-red);
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Info notice for checksum duplicates */
+.checksum-info-notice {
+    background: rgba(var(--ledger-blue-rgb, 60, 90, 120), 0.15);
+    border: 1px solid rgba(var(--ledger-blue-rgb, 60, 90, 120), 0.3);
+    color: var(--ink-faded);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
 /* Bulk Operations */
 .bulk-filters {
     display: flex;
@@ -1650,4 +1674,364 @@ body.back-office {
     font-size: 3rem;
     margin-bottom: 0.5rem;
     opacity: 0.5;
+}
+
+/* ============================================
+ * System Administration Section
+ * ============================================ */
+
+/* Services Grid */
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.service-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--filing-label);
+    border: 1px solid var(--ledger-line);
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.service-item:hover {
+    border-color: var(--brass);
+}
+
+.service-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.service-status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.service-status-indicator.active {
+    background: var(--banker-green-light);
+    box-shadow: 0 0 8px var(--banker-green-glow);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.service-status-indicator.inactive {
+    background: #888;
+}
+
+.service-status-indicator.error {
+    background: var(--red-ink);
+}
+
+.service-name {
+    font-weight: bold;
+    color: var(--ink);
+    font-size: 0.95rem;
+}
+
+.service-status-text {
+    font-size: 0.8rem;
+    color: var(--ink-faded);
+    margin-top: 0.15rem;
+}
+
+.service-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.service-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+    background: var(--office-desk);
+    border: 1px solid var(--brass-dark);
+    border-radius: 4px;
+    color: var(--ledger-cream);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.service-btn:hover {
+    background: var(--brass-dark);
+}
+
+.service-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.service-btn.start {
+    background: var(--banker-green);
+    border-color: var(--banker-green-light);
+}
+
+.service-btn.start:hover {
+    background: var(--banker-green-light);
+}
+
+.service-btn.stop {
+    background: var(--red-ink);
+    border-color: #a03020;
+}
+
+.service-btn.stop:hover {
+    background: #a03020;
+}
+
+.service-btn.restart {
+    background: var(--brass-dark);
+}
+
+.service-btn.restart:hover {
+    background: var(--brass);
+}
+
+/* Services Footer Actions */
+.services-actions {
+    gap: 0.75rem;
+}
+
+.office-btn.success {
+    background: var(--banker-green);
+    border-color: var(--banker-green-light);
+}
+
+.office-btn.success:hover {
+    background: var(--banker-green-light);
+}
+
+.office-btn.warning {
+    background: var(--brass-dark);
+    border-color: var(--brass);
+}
+
+.office-btn.warning:hover {
+    background: var(--brass);
+}
+
+/* Services Status Badge */
+#services-status-badge {
+    font-size: 0.8rem;
+}
+
+#services-status-badge.all-running {
+    background: var(--banker-green);
+}
+
+#services-status-badge.partial {
+    background: var(--brass-dark);
+}
+
+#services-status-badge.error {
+    background: var(--red-ink);
+}
+
+/* Version Card */
+.stat-value.version {
+    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    color: var(--brass);
+}
+
+.stat-value.path {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+/* Upgrade Section */
+.upgrade-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(184, 134, 11, 0.15);
+    border: 1px solid var(--brass-dark);
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.upgrade-notice .notice-icon {
+    font-size: 1.5rem;
+    color: var(--brass);
+    flex-shrink: 0;
+}
+
+.upgrade-notice .notice-text {
+    color: var(--ink);
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.upgrade-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Project Selector */
+.project-selector {
+    padding: 1rem;
+    background: var(--filing-label);
+    border: 1px solid var(--ledger-line);
+    border-radius: 6px;
+    margin-top: 1rem;
+}
+
+.project-input-group {
+    margin-bottom: 0.75rem;
+}
+
+.project-input-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--ink-faded);
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.input-with-button {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.input-with-button .office-input {
+    flex: 1;
+}
+
+/* Project List Dropdown */
+.project-list {
+    margin-top: 0.75rem;
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+}
+
+.project-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-bottom: 1px solid var(--ledger-line);
+}
+
+.project-option:last-child {
+    border-bottom: none;
+}
+
+.project-option:hover {
+    background: rgba(184, 134, 11, 0.1);
+}
+
+.project-option.selected {
+    background: rgba(45, 74, 62, 0.15);
+    border-color: var(--banker-green);
+}
+
+.project-option .project-name {
+    font-weight: bold;
+    color: var(--ink);
+}
+
+.project-option .project-version {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--brass);
+}
+
+.project-option .project-path {
+    font-size: 0.8rem;
+    color: var(--ink-faded);
+    font-family: 'Courier New', monospace;
+    margin-top: 0.25rem;
+}
+
+/* Upgrade Modal Enhancements */
+.upgrade-stage {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+}
+
+.upgrade-stage-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+.upgrade-stage-icon.pending {
+    background: var(--ledger-line);
+    color: var(--ink-faded);
+}
+
+.upgrade-stage-icon.active {
+    background: var(--brass);
+    color: white;
+    animation: spin 1s linear infinite;
+}
+
+.upgrade-stage-icon.complete {
+    background: var(--banker-green);
+    color: white;
+}
+
+.upgrade-stage-icon.error {
+    background: var(--red-ink);
+    color: white;
+}
+
+.upgrade-stage-text {
+    color: var(--ink);
+}
+
+.upgrade-stage.active .upgrade-stage-text {
+    font-weight: bold;
+}
+
+.upgrade-stage.complete .upgrade-stage-text {
+    color: var(--ink-faded);
+    text-decoration: line-through;
+}
+
+/* Responsive - System Section */
+@media (max-width: 768px) {
+    .services-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .service-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .service-controls {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .services-actions {
+        flex-wrap: wrap;
+    }
+
+    .upgrade-notice {
+        flex-direction: column;
+        text-align: center;
+    }
 }

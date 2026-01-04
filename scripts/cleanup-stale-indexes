@@ -1,0 +1,229 @@
+#!/bin/bash
+# =============================================================================
+# Cleanup Stale Index Entries
+# =============================================================================
+# Removes entries from all index files that reference non-existent files.
+# This ensures deleted audiobooks don't appear in any counts or lists.
+#
+# Usage:
+#   cleanup-stale-indexes [--dry-run] [--verbose]
+#
+# Options:
+#   --dry-run   Show what would be removed without making changes
+#   --verbose   Show detailed progress
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobooks-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/audiobooks-config.sh"
+else
+    echo "ERROR: Cannot find audiobooks-config.sh" >&2
+    exit 1
+fi
+
+INDEX_DIR="${AUDIOBOOKS_DATA}/.index"
+DRY_RUN=false
+VERBOSE=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        --verbose|-v) VERBOSE=true; shift ;;
+        *) shift ;;
+    esac
+done
+
+log() {
+    $VERBOSE && echo "$1"
+}
+
+# =============================================================================
+# Cleanup functions for different index formats
+# =============================================================================
+
+# Format: key|filepath (source_checksums.idx, library_checksums.idx, source_asins.idx, sources.idx)
+cleanup_pipe_delimited_index() {
+    local index_file="$1"
+    local index_name=$(basename "$index_file")
+
+    if [[ ! -f "$index_file" ]]; then
+        log "SKIP: $index_name (not found)"
+        return 0
+    fi
+
+    local total=$(wc -l < "$index_file" 2>/dev/null || echo 0)
+    local valid=0
+    local stale=0
+    local temp_file="${index_file}.cleanup.tmp"
+
+    # Process line by line
+    while IFS='|' read -r key filepath rest; do
+        # Skip empty lines
+        [[ -z "$filepath" ]] && continue
+
+        if [[ -f "$filepath" ]]; then
+            echo "${key}|${filepath}${rest:+|$rest}"
+            ((valid++))
+        else
+            log "  STALE: $filepath"
+            ((stale++))
+        fi
+    done < "$index_file" > "$temp_file"
+
+    if $DRY_RUN; then
+        echo "$index_name: $valid valid, $stale stale (dry-run, no changes)"
+        rm -f "$temp_file"
+    else
+        if [[ $stale -gt 0 ]]; then
+            mv "$temp_file" "$index_file"
+            echo "$index_name: $valid valid, $stale removed"
+        else
+            rm -f "$temp_file"
+            echo "$index_name: $valid valid, 0 stale"
+        fi
+    fi
+}
+
+# Format: one entry per line (converted.idx - titles, converted_asins.idx - ASINs)
+# These don't have filepath references, so we need different logic
+cleanup_converted_asins_index() {
+    local index_file="${INDEX_DIR}/converted_asins.idx"
+    local index_name="converted_asins.idx"
+
+    if [[ ! -f "$index_file" ]]; then
+        log "SKIP: $index_name (not found)"
+        return 0
+    fi
+
+    # Build set of valid ASINs from chapters.json files in Library
+    # ASINs are stored INSIDE the JSON content, not in the filename
+    local valid_asins_file="${INDEX_DIR}/.valid_asins.tmp"
+
+    # Extract ASINs from the content of all chapters.json files
+    find "${AUDIOBOOKS_LIBRARY}" -name "*-chapters.json" -type f 2>/dev/null | while read -r chapters_file; do
+        # Extract ASIN from JSON content using grep
+        grep -oP '"asin":\s*"[A-Z0-9]{10}"' "$chapters_file" 2>/dev/null | grep -oP '[A-Z0-9]{10}'
+    done | sort -u > "$valid_asins_file"
+
+    local total=$(wc -l < "$index_file" 2>/dev/null || echo 0)
+    local valid=0
+    local stale=0
+    local temp_file="${index_file}.cleanup.tmp"
+
+    while read -r asin; do
+        [[ -z "$asin" ]] && continue
+        if grep -qxF "$asin" "$valid_asins_file" 2>/dev/null; then
+            echo "$asin"
+            ((valid++))
+        else
+            log "  STALE ASIN: $asin"
+            ((stale++))
+        fi
+    done < "$index_file" > "$temp_file"
+
+    rm -f "$valid_asins_file"
+
+    if $DRY_RUN; then
+        echo "$index_name: $valid valid, $stale stale (dry-run, no changes)"
+        rm -f "$temp_file"
+    else
+        if [[ $stale -gt 0 ]]; then
+            mv "$temp_file" "$index_file"
+            echo "$index_name: $valid valid, $stale removed"
+        else
+            rm -f "$temp_file"
+            echo "$index_name: $valid valid, 0 stale"
+        fi
+    fi
+}
+
+# Cleanup converted.idx by checking if opus files still exist
+cleanup_converted_titles_index() {
+    local index_file="${INDEX_DIR}/converted.idx"
+    local index_name="converted.idx"
+
+    if [[ ! -f "$index_file" ]]; then
+        log "SKIP: $index_name (not found)"
+        return 0
+    fi
+
+    # Build set of valid normalized titles from existing Library opus files
+    local valid_titles_file="${INDEX_DIR}/.valid_titles.tmp"
+
+    find "${AUDIOBOOKS_LIBRARY}" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null | while read -r opus_file; do
+        local basename=$(basename "$opus_file" .opus)
+        # Normalize: remove ASIN prefix, lowercase, remove punctuation
+        local normalized=$(echo "$basename" | sed -E 's/^[A-Z0-9]{10}_//' | tr '[:upper:]' '[:lower:]' | tr '_-' ' ' | sed 's/[^a-z0-9 ]//g' | tr -s ' ')
+        echo "$normalized"
+    done | sort -u > "$valid_titles_file"
+
+    local total=$(wc -l < "$index_file" 2>/dev/null || echo 0)
+    local valid=0
+    local stale=0
+    local temp_file="${index_file}.cleanup.tmp"
+
+    while read -r title; do
+        [[ -z "$title" ]] && continue
+        if grep -qxF "$title" "$valid_titles_file" 2>/dev/null; then
+            echo "$title"
+            ((valid++))
+        else
+            log "  STALE TITLE: $title"
+            ((stale++))
+        fi
+    done < "$index_file" > "$temp_file"
+
+    rm -f "$valid_titles_file"
+
+    if $DRY_RUN; then
+        echo "$index_name: $valid valid, $stale stale (dry-run, no changes)"
+        rm -f "$temp_file"
+    else
+        if [[ $stale -gt 0 ]]; then
+            mv "$temp_file" "$index_file"
+            echo "$index_name: $valid valid, $stale removed"
+        else
+            rm -f "$temp_file"
+            echo "$index_name: $valid valid, 0 stale"
+        fi
+    fi
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+
+echo "========================================="
+echo "  CLEANUP STALE INDEX ENTRIES"
+echo "========================================="
+$DRY_RUN && echo "  (DRY RUN - no changes will be made)"
+echo ""
+
+# Ensure index directory exists
+if [[ ! -d "$INDEX_DIR" ]]; then
+    echo "ERROR: Index directory not found: $INDEX_DIR"
+    exit 1
+fi
+
+# Clean each index type
+echo "Cleaning pipe-delimited indexes..."
+cleanup_pipe_delimited_index "${INDEX_DIR}/source_checksums.idx"
+cleanup_pipe_delimited_index "${INDEX_DIR}/library_checksums.idx"
+cleanup_pipe_delimited_index "${INDEX_DIR}/source_asins.idx"
+cleanup_pipe_delimited_index "${INDEX_DIR}/sources.idx"
+
+echo ""
+echo "Cleaning ASIN/title indexes..."
+cleanup_converted_asins_index
+cleanup_converted_titles_index
+
+echo ""
+echo "========================================="
+echo "  CLEANUP COMPLETE"
+echo "========================================="

@@ -319,4 +319,115 @@ def init_ops_routes(db_path, project_root):
             "operation_id": operation_id
         })
 
+    @utilities_ops_bp.route("/api/utilities/generate-checksums-async", methods=["POST"])
+    def generate_checksums_async() -> FlaskResponse:
+        """Generate MD5 checksums for Sources and Library with progress tracking."""
+        tracker = get_tracker()
+
+        existing = tracker.is_operation_running("checksum")
+        if existing:
+            return jsonify({
+                "success": False,
+                "error": "Checksum generation already in progress",
+                "operation_id": existing
+            }), 409
+
+        operation_id = tracker.create_operation("checksum", "Generating MD5 checksums")
+
+        def run_checksum_gen():
+            tracker.start_operation(operation_id)
+            import os
+            import hashlib
+            from pathlib import Path
+
+            try:
+                # Get paths from environment or defaults
+                audiobooks_data = os.environ.get("AUDIOBOOKS_DATA", "/raid0/Audiobooks")
+                sources_dir = Path(audiobooks_data) / "Sources"
+                library_dir = Path(audiobooks_data) / "Library"
+                index_dir = Path(audiobooks_data) / ".index"
+
+                index_dir.mkdir(parents=True, exist_ok=True)
+
+                source_checksums = []
+                library_checksums = []
+
+                def checksum_first_mb(filepath):
+                    """Calculate MD5 of first 1MB of file."""
+                    try:
+                        with open(filepath, "rb") as f:
+                            data = f.read(1048576)  # 1MB
+                        return hashlib.md5(data).hexdigest()
+                    except (IOError, OSError):
+                        return None
+
+                # Count files first for progress
+                tracker.update_progress(operation_id, 5, "Counting files...")
+                source_files = list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
+                library_files = [f for f in library_dir.rglob("*.opus") if ".cover.opus" not in f.name] if library_dir.exists() else []
+                total_files = len(source_files) + len(library_files)
+
+                if total_files == 0:
+                    tracker.complete_operation(operation_id, {
+                        "source_checksums": 0,
+                        "library_checksums": 0,
+                        "message": "No files found to checksum"
+                    })
+                    return
+
+                processed = 0
+
+                # Process source files
+                tracker.update_progress(operation_id, 10, f"Processing {len(source_files)} source files...")
+                for filepath in source_files:
+                    checksum = checksum_first_mb(filepath)
+                    if checksum:
+                        source_checksums.append(f"{checksum}|{filepath}")
+                    processed += 1
+                    if processed % 50 == 0:
+                        pct = 10 + int((processed / total_files) * 80)
+                        tracker.update_progress(operation_id, pct, f"Processed {processed}/{total_files} files...")
+
+                # Process library files
+                tracker.update_progress(operation_id, 50, f"Processing {len(library_files)} library files...")
+                for filepath in library_files:
+                    checksum = checksum_first_mb(filepath)
+                    if checksum:
+                        library_checksums.append(f"{checksum}|{filepath}")
+                    processed += 1
+                    if processed % 50 == 0:
+                        pct = 10 + int((processed / total_files) * 80)
+                        tracker.update_progress(operation_id, pct, f"Processed {processed}/{total_files} files...")
+
+                # Write index files
+                tracker.update_progress(operation_id, 95, "Writing index files...")
+
+                source_idx_path = index_dir / "source_checksums.idx"
+                with open(source_idx_path, "w") as f:
+                    f.write("\n".join(source_checksums) + "\n" if source_checksums else "")
+
+                library_idx_path = index_dir / "library_checksums.idx"
+                with open(library_idx_path, "w") as f:
+                    f.write("\n".join(library_checksums) + "\n" if library_checksums else "")
+
+                tracker.complete_operation(operation_id, {
+                    "source_checksums": len(source_checksums),
+                    "library_checksums": len(library_checksums),
+                    "total_files": total_files
+                })
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                tracker.fail_operation(operation_id, str(e))
+
+        thread = threading.Thread(target=run_checksum_gen, daemon=True)
+        thread.start()
+
+        return jsonify({
+            "success": True,
+            "message": "Checksum generation started",
+            "operation_id": operation_id
+        })
+
     return utilities_ops_bp

@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.4.3] - 2026-01-03
+
+### Added
+- **Checksum tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations
+- **Generate Checksums button**: New Utilities maintenance feature for Sources AND Library with hover tooltips
+- **Index cleanup script**: `cleanup-stale-indexes` removes entries for deleted files from all indexes
+- Automatic index cleanup: Deleted files are removed from checksum indexes via delete operations
+
+### Fixed
+- Fixed chapters.json ASIN extraction in cleanup script (ASINs are in JSON content, not filename)
+
+### Changed
+- Updated "Generate Hashes" button tooltip to clarify it regenerates ALL hashes
+- Download and mover services now append checksums to index files in real-time
+
 ## [3.4.2] - 2026-01-02
 
 ### Changed

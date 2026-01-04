@@ -61,10 +61,10 @@ done
 echo ""
 echo "Statistics:"
 
-# Count source files
+# Count source files (recursive for nested downloads)
 if [ -d "$SOURCES_DIR" ]; then
-    AAXC_COUNT=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aaxc" -type f 2>/dev/null | wc -l)
-    AAX_COUNT=$(find "$SOURCES_DIR" -maxdepth 1 -name "*.aax" -type f 2>/dev/null | wc -l)
+    AAXC_COUNT=$(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null | wc -l)
+    AAX_COUNT=$(find "$SOURCES_DIR" -name "*.aax" -type f 2>/dev/null | wc -l)
     echo "  Source AAXC files: $AAXC_COUNT"
     [ "$AAX_COUNT" -gt 0 ] && echo "  Source AAX files: $AAX_COUNT"
 else

@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAudiobooksSection();
     initDuplicatesSection();
     initBulkSection();
+    initSystemSection();
     initModals();
     initOperationStatus();
 
@@ -71,6 +72,7 @@ function initDatabaseSection() {
     document.getElementById('rescan-library')?.addEventListener('click', rescanLibraryAsync);
     document.getElementById('reimport-db')?.addEventListener('click', reimportDatabaseAsync);
     document.getElementById('generate-hashes')?.addEventListener('click', generateHashesAsync);
+    document.getElementById('generate-checksums')?.addEventListener('click', generateChecksumsAsync);
     document.getElementById('vacuum-db')?.addEventListener('click', vacuumDatabase);
     document.getElementById('export-db')?.addEventListener('click', exportDatabase);
     document.getElementById('export-json')?.addEventListener('click', exportJson);
@@ -370,32 +372,96 @@ function initDuplicatesSection() {
     document.getElementById('delete-selected-dups')?.addEventListener('click', deleteSelectedDuplicates);
 }
 
+// Track current duplicate detection mode
+let currentDupMode = 'title';
+
 async function findDuplicates() {
     const method = document.querySelector('input[name="dup-method"]:checked').value;
-    const endpoint = method === 'hash' ? '/api/duplicates/by-hash' : '/api/duplicates/by-title';
+    currentDupMode = method;
+
+    let endpoint;
+    if (method === 'hash') {
+        endpoint = '/api/duplicates/by-hash';
+    } else if (method === 'source-checksum') {
+        endpoint = '/api/duplicates/by-checksum?type=sources';
+    } else if (method === 'library-checksum') {
+        endpoint = '/api/duplicates/by-checksum?type=library';
+    } else {
+        endpoint = '/api/duplicates/by-title';
+    }
 
     const listContainer = document.getElementById('duplicates-list');
-    listContainer.innerHTML = '<p class="placeholder-text">Searching for duplicates...</p>';
+    listContainer.textContent = '';
+    const loadingP = document.createElement('p');
+    loadingP.className = 'placeholder-text';
+    loadingP.textContent = 'Searching for duplicates...';
+    listContainer.appendChild(loadingP);
 
     try {
         const res = await fetch(`${API_BASE}${endpoint}`);
         const data = await res.json();
 
-        duplicatesData = data.duplicate_groups || [];
-        duplicateSelection.clear();
+        // Handle checksum-based responses (different structure)
+        if (method === 'source-checksum' || method === 'library-checksum') {
+            const checksumType = method === 'source-checksum' ? 'sources' : 'library';
+            const checksumData = data[checksumType];
 
-        document.getElementById('dup-group-count').textContent = duplicatesData.length;
+            if (!checksumData || !checksumData.exists) {
+                listContainer.textContent = '';
+                const errorP = document.createElement('p');
+                errorP.className = 'placeholder-text';
+                errorP.textContent = checksumData?.error || 'Checksum index not found. Generate checksums first from Database section.';
+                listContainer.appendChild(errorP);
+                document.getElementById('dup-actions').style.display = 'none';
+                return;
+            }
 
-        if (duplicatesData.length > 0) {
-            renderDuplicates();
-            document.getElementById('dup-actions').style.display = 'flex';
+            duplicatesData = checksumData.duplicate_groups || [];
+            duplicateSelection.clear();
+
+            document.getElementById('dup-group-count').textContent = duplicatesData.length;
+
+            if (duplicatesData.length > 0) {
+                renderChecksumDuplicates(checksumType);
+                // Hide delete actions for checksum mode (file-based, not DB-based)
+                document.getElementById('dup-actions').style.display = 'none';
+
+                // Show summary stats
+                showToast(`Found ${checksumData.total_duplicate_files} duplicate files (${checksumData.total_wasted_mb?.toFixed(1)} MB wasted)`, 'info');
+            } else {
+                listContainer.textContent = '';
+                const nodupeP = document.createElement('p');
+                nodupeP.className = 'placeholder-text';
+                nodupeP.textContent = `No duplicates found in ${checksumType} (${checksumData.unique_checksums} unique files)`;
+                listContainer.appendChild(nodupeP);
+                document.getElementById('dup-actions').style.display = 'none';
+            }
         } else {
-            listContainer.innerHTML = '<p class="placeholder-text">No duplicates found</p>';
-            document.getElementById('dup-actions').style.display = 'none';
+            // Standard title/hash mode
+            duplicatesData = data.duplicate_groups || [];
+            duplicateSelection.clear();
+
+            document.getElementById('dup-group-count').textContent = duplicatesData.length;
+
+            if (duplicatesData.length > 0) {
+                renderDuplicates();
+                document.getElementById('dup-actions').style.display = 'flex';
+            } else {
+                listContainer.textContent = '';
+                const nodupeP = document.createElement('p');
+                nodupeP.className = 'placeholder-text';
+                nodupeP.textContent = 'No duplicates found';
+                listContainer.appendChild(nodupeP);
+                document.getElementById('dup-actions').style.display = 'none';
+            }
         }
 
     } catch (error) {
-        listContainer.innerHTML = '<p class="placeholder-text">Failed to find duplicates</p>';
+        listContainer.textContent = '';
+        const errorP = document.createElement('p');
+        errorP.className = 'placeholder-text';
+        errorP.textContent = 'Failed to find duplicates';
+        listContainer.appendChild(errorP);
         showToast('Failed to find duplicates: ' + error.message, 'error');
     }
 }
@@ -434,6 +500,89 @@ function renderDuplicates() {
     listContainer.querySelectorAll('.duplicate-checkbox').forEach(cb => {
         cb.addEventListener('change', updateDuplicateSelection);
     });
+}
+
+/**
+ * Render checksum-based duplicates (file-based, not database-based)
+ * Uses safe DOM methods to avoid XSS vulnerabilities
+ */
+function renderChecksumDuplicates(checksumType) {
+    const listContainer = document.getElementById('duplicates-list');
+    listContainer.textContent = '';
+
+    duplicatesData.forEach((group, groupIdx) => {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'duplicate-group';
+
+        // Group header
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'duplicate-group-header';
+        const checksumLabel = group.checksum.substring(0, 12) + '...';
+        headerDiv.textContent = `${checksumLabel} (${group.count} copies, ${group.wasted_mb?.toFixed(1) || '?'} MB wasted)`;
+        groupDiv.appendChild(headerDiv);
+
+        // Files in this group
+        group.files.forEach((file, fileIdx) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'duplicate-item' + (file.is_keeper ? ' keep' : '');
+
+            // Badge or checkbox placeholder
+            if (file.is_keeper) {
+                const keepBadge = document.createElement('span');
+                keepBadge.className = 'keep-badge';
+                keepBadge.textContent = 'KEEP';
+                itemDiv.appendChild(keepBadge);
+            } else {
+                // Placeholder for potential future file deletion feature
+                const dupBadge = document.createElement('span');
+                dupBadge.className = 'dup-badge';
+                dupBadge.textContent = 'DUPE';
+                itemDiv.appendChild(dupBadge);
+            }
+
+            // File info
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'result-info';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'result-title';
+            titleDiv.textContent = file.basename;
+            infoDiv.appendChild(titleDiv);
+
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'result-meta';
+
+            // Extract author folder from path
+            const pathParts = file.path.split('/');
+            let authorFolder = '';
+            if (checksumType === 'sources') {
+                // Sources: /raid0/Audiobooks/Sources/filename.aaxc
+                authorFolder = pathParts[pathParts.length - 1]; // Just filename for sources
+            } else {
+                // Library: /raid0/Audiobooks/Library/Author/Book/file.opus
+                if (pathParts.length >= 3) {
+                    authorFolder = pathParts[pathParts.length - 3]; // Author folder
+                }
+            }
+
+            metaDiv.textContent = `${file.size_mb?.toFixed(1) || '?'} MB | ${file.asin || 'No ASIN'} | ${authorFolder}`;
+            infoDiv.appendChild(metaDiv);
+
+            // Full path on hover
+            itemDiv.title = file.path;
+
+            itemDiv.appendChild(infoDiv);
+            groupDiv.appendChild(itemDiv);
+        });
+
+        listContainer.appendChild(groupDiv);
+    });
+
+    // Add info message about manual deletion
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'checksum-info-notice';
+    infoDiv.textContent = 'Checksum duplicates are file-based. Use file manager or command line to delete duplicates.';
+    listContainer.insertBefore(infoDiv, listContainer.firstChild);
 }
 
 function updateDuplicateSelection() {
@@ -870,6 +1019,8 @@ function handleOperationComplete(status) {
                     resultText = `Imported: ${status.result.imported_count} audiobooks`;
                 } else if (status.result.hashes_generated !== undefined) {
                     resultText = `Hashes generated: ${status.result.hashes_generated}`;
+                } else if (status.result.source_checksums !== undefined) {
+                    resultText = `Sources: ${status.result.source_checksums} checksums | Library: ${status.result.library_checksums} checksums`;
                 }
                 output.textContent = resultText;
             }
@@ -1057,6 +1208,32 @@ async function generateHashesAsync() {
     } catch (error) {
         hideProgressModal();
         showToast('Failed to start hash generation: ' + error.message, 'error');
+    }
+}
+
+async function generateChecksumsAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    showProgressModal('Generating Checksums', 'Calculating MD5 checksums for Sources and Library...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/generate-checksums-async`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Checksum generation', progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start checksum generation', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start checksum generation: ' + error.message, 'error');
     }
 }
 
@@ -1491,4 +1668,526 @@ async function loadConversionStatus() {
     } catch (error) {
         console.error('Failed to load conversion status:', error);
     }
+}
+
+// ============================================
+// System Administration Section
+// ============================================
+
+let upgradePollingInterval = null;
+
+function initSystemSection() {
+    // Refresh services button
+    document.getElementById('refresh-services')?.addEventListener('click', loadServicesStatus);
+
+    // Start/Stop all buttons
+    document.getElementById('start-all-services')?.addEventListener('click', startAllServices);
+    document.getElementById('stop-all-services')?.addEventListener('click', stopAllServices);
+    document.getElementById('stop-background-services')?.addEventListener('click', stopBackgroundServices);
+
+    // Upgrade source toggle
+    document.querySelectorAll('input[name="upgrade-source"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const projectSelector = document.getElementById('project-selector');
+            if (projectSelector) {
+                projectSelector.style.display = e.target.value === 'project' ? 'block' : 'none';
+            }
+        });
+    });
+
+    // Browse projects button
+    document.getElementById('browse-projects')?.addEventListener('click', loadProjectsList);
+
+    // Start upgrade button
+    document.getElementById('start-upgrade')?.addEventListener('click', startUpgrade);
+
+    // Load initial data when System tab is shown
+    document.querySelector('.cabinet-tab[data-section="system"]')?.addEventListener('click', () => {
+        loadServicesStatus();
+        loadVersionInfo();
+    });
+}
+
+async function loadServicesStatus() {
+    const servicesList = document.getElementById('services-list');
+    const statusBadge = document.getElementById('services-status-badge');
+
+    if (!servicesList) return;
+
+    // Clear existing content safely
+    while (servicesList.firstChild) {
+        servicesList.removeChild(servicesList.firstChild);
+    }
+
+    const loadingP = document.createElement('p');
+    loadingP.className = 'placeholder-text';
+    loadingP.textContent = 'Loading services...';
+    servicesList.appendChild(loadingP);
+
+    try {
+        const res = await fetch(`${API_BASE}/api/system/services`);
+        const data = await res.json();
+
+        // Clear loading message
+        while (servicesList.firstChild) {
+            servicesList.removeChild(servicesList.firstChild);
+        }
+
+        if (!data.services) {
+            const errorP = document.createElement('p');
+            errorP.className = 'placeholder-text';
+            errorP.textContent = 'Failed to load services';
+            servicesList.appendChild(errorP);
+            return;
+        }
+
+        data.services.forEach(service => {
+            const serviceDiv = document.createElement('div');
+            serviceDiv.className = 'service-item';
+            serviceDiv.dataset.service = service.name;
+
+            // Service info section
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'service-info';
+
+            const indicator = document.createElement('span');
+            indicator.className = `service-status-indicator ${service.active ? 'active' : 'inactive'}`;
+            infoDiv.appendChild(indicator);
+
+            const textDiv = document.createElement('div');
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'service-name';
+            nameDiv.textContent = service.name;
+            textDiv.appendChild(nameDiv);
+
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'service-status-text';
+            statusDiv.textContent = service.status + (service.enabled ? ' (enabled)' : '');
+            textDiv.appendChild(statusDiv);
+
+            infoDiv.appendChild(textDiv);
+            serviceDiv.appendChild(infoDiv);
+
+            // Controls section
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'service-controls';
+
+            if (service.active) {
+                const stopBtn = document.createElement('button');
+                stopBtn.className = 'service-btn stop';
+                stopBtn.title = 'Stop';
+                stopBtn.textContent = '⏹';
+                stopBtn.addEventListener('click', () => stopService(service.name));
+                controlsDiv.appendChild(stopBtn);
+
+                const restartBtn = document.createElement('button');
+                restartBtn.className = 'service-btn restart';
+                restartBtn.title = 'Restart';
+                restartBtn.textContent = '↻';
+                restartBtn.addEventListener('click', () => restartService(service.name));
+                controlsDiv.appendChild(restartBtn);
+            } else {
+                const startBtn = document.createElement('button');
+                startBtn.className = 'service-btn start';
+                startBtn.title = 'Start';
+                startBtn.textContent = '▶';
+                startBtn.addEventListener('click', () => startService(service.name));
+                controlsDiv.appendChild(startBtn);
+            }
+
+            serviceDiv.appendChild(controlsDiv);
+            servicesList.appendChild(serviceDiv);
+        });
+
+        // Update status badge
+        if (statusBadge) {
+            const activeCount = data.services.filter(s => s.active).length;
+            const totalCount = data.services.length;
+
+            statusBadge.textContent = `${activeCount}/${totalCount} running`;
+            statusBadge.className = 'badge';
+
+            if (activeCount === totalCount) {
+                statusBadge.classList.add('all-running');
+            } else if (activeCount > 0) {
+                statusBadge.classList.add('partial');
+            } else {
+                statusBadge.classList.add('error');
+            }
+        }
+
+    } catch (error) {
+        console.error('Failed to load services:', error);
+        while (servicesList.firstChild) {
+            servicesList.removeChild(servicesList.firstChild);
+        }
+        const errorP = document.createElement('p');
+        errorP.className = 'placeholder-text';
+        errorP.textContent = 'Error loading services';
+        servicesList.appendChild(errorP);
+        showToast('Failed to load services: ' + error.message, 'error');
+    }
+}
+
+async function startService(serviceName) {
+    try {
+        showToast(`Starting ${serviceName}...`, 'info');
+        const res = await fetch(`${API_BASE}/api/system/services/${serviceName}/start`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            loadServicesStatus();
+        } else {
+            showToast(result.error || 'Failed to start service', 'error');
+        }
+    } catch (error) {
+        showToast('Failed to start service: ' + error.message, 'error');
+    }
+}
+
+async function stopService(serviceName) {
+    try {
+        showToast(`Stopping ${serviceName}...`, 'info');
+        const res = await fetch(`${API_BASE}/api/system/services/${serviceName}/stop`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            loadServicesStatus();
+        } else {
+            showToast(result.error || 'Failed to stop service', 'error');
+        }
+    } catch (error) {
+        showToast('Failed to stop service: ' + error.message, 'error');
+    }
+}
+
+async function restartService(serviceName) {
+    try {
+        showToast(`Restarting ${serviceName}...`, 'info');
+        const res = await fetch(`${API_BASE}/api/system/services/${serviceName}/restart`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            loadServicesStatus();
+        } else {
+            showToast(result.error || 'Failed to restart service', 'error');
+        }
+    } catch (error) {
+        showToast('Failed to restart service: ' + error.message, 'error');
+    }
+}
+
+async function startAllServices() {
+    if (!await confirmAction('Start All Services', 'Start all audiobook services?')) {
+        return;
+    }
+
+    try {
+        showToast('Starting all services...', 'info');
+        const res = await fetch(`${API_BASE}/api/system/services/start-all`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast('All services started', 'success');
+        } else {
+            const failures = result.results?.filter(r => !r.success).map(r => r.service).join(', ');
+            showToast(`Some services failed to start: ${failures}`, 'error');
+        }
+        loadServicesStatus();
+    } catch (error) {
+        showToast('Failed to start services: ' + error.message, 'error');
+    }
+}
+
+async function stopAllServices() {
+    if (!await confirmAction('Stop All Services',
+        'This will stop ALL services including the API. You will lose web access and need to restart services via command line. Continue?')) {
+        return;
+    }
+
+    try {
+        showToast('Stopping all services...', 'info');
+        const res = await fetch(`${API_BASE}/api/system/services/stop-all?include_api=true`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast('All services stopped. Web access will be lost shortly.', 'success');
+        } else {
+            showToast('Some services failed to stop', 'error');
+        }
+        // Don't refresh - we're about to lose connection
+    } catch (error) {
+        // Expected if API stopped before response
+        showToast('Services stopping... connection lost as expected.', 'info');
+    }
+}
+
+async function stopBackgroundServices() {
+    if (!await confirmAction('Stop Background Services',
+        'Stop converter, mover, and scanner services? API and proxy will remain running for web access.')) {
+        return;
+    }
+
+    try {
+        showToast('Stopping background services...', 'info');
+        const res = await fetch(`${API_BASE}/api/system/services/stop-all`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast('Background services stopped', 'success');
+        } else {
+            showToast('Some services failed to stop', 'error');
+        }
+        loadServicesStatus();
+    } catch (error) {
+        showToast('Failed to stop services: ' + error.message, 'error');
+    }
+}
+
+async function loadVersionInfo() {
+    try {
+        const res = await fetch(`${API_BASE}/api/system/version`);
+        const data = await res.json();
+
+        const versionEl = document.getElementById('current-version');
+        const pathEl = document.getElementById('install-path');
+
+        if (versionEl) versionEl.textContent = data.version || 'unknown';
+        if (pathEl) pathEl.textContent = data.project_root || '-';
+    } catch (error) {
+        console.error('Failed to load version:', error);
+    }
+}
+
+async function loadProjectsList() {
+    const projectsList = document.getElementById('available-projects');
+    const pathInput = document.getElementById('project-path-input');
+
+    if (!projectsList) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/system/projects`);
+        const data = await res.json();
+
+        // Clear existing content
+        while (projectsList.firstChild) {
+            projectsList.removeChild(projectsList.firstChild);
+        }
+
+        if (!data.projects || data.projects.length === 0) {
+            const noProjects = document.createElement('p');
+            noProjects.className = 'placeholder-text';
+            noProjects.textContent = 'No projects found';
+            projectsList.appendChild(noProjects);
+            projectsList.style.display = 'block';
+            return;
+        }
+
+        projectsList.style.display = 'block';
+
+        data.projects.forEach(project => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'project-option';
+
+            const infoDiv = document.createElement('div');
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'project-name';
+            nameDiv.textContent = project.name;
+            infoDiv.appendChild(nameDiv);
+
+            const pathDiv = document.createElement('div');
+            pathDiv.className = 'project-path';
+            pathDiv.textContent = project.path;
+            infoDiv.appendChild(pathDiv);
+
+            optionDiv.appendChild(infoDiv);
+
+            const versionDiv = document.createElement('div');
+            versionDiv.className = 'project-version';
+            versionDiv.textContent = project.version || '-';
+            optionDiv.appendChild(versionDiv);
+
+            optionDiv.addEventListener('click', () => {
+                if (pathInput) pathInput.value = project.path;
+                document.querySelectorAll('.project-option').forEach(opt => opt.classList.remove('selected'));
+                optionDiv.classList.add('selected');
+            });
+
+            projectsList.appendChild(optionDiv);
+        });
+
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+        showToast('Failed to load projects: ' + error.message, 'error');
+    }
+}
+
+async function startUpgrade() {
+    const sourceRadio = document.querySelector('input[name="upgrade-source"]:checked');
+    const source = sourceRadio?.value || 'github';
+    const projectPath = document.getElementById('project-path-input')?.value;
+
+    if (source === 'project' && !projectPath) {
+        showToast('Please enter or select a project directory', 'error');
+        return;
+    }
+
+    const message = source === 'github'
+        ? 'This will download and install the latest version from GitHub. The browser will reload when complete. Continue?'
+        : `This will install from "${projectPath}". The browser will reload when complete. Continue?`;
+
+    if (!await confirmAction('Start Upgrade', message)) {
+        return;
+    }
+
+    // Show progress modal
+    showProgressModal('Upgrading Application', 'Starting upgrade process...');
+
+    try {
+        const body = { source };
+        if (source === 'project') {
+            body.project_path = projectPath;
+        }
+
+        const res = await fetch(`${API_BASE}/api/system/upgrade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+            showToast('Upgrade started', 'success');
+            startUpgradePolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start upgrade', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start upgrade: ' + error.message, 'error');
+    }
+}
+
+function startUpgradePolling() {
+    // Poll upgrade status every 2 seconds
+    upgradePollingInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/system/upgrade/status`);
+            const status = await res.json();
+
+            // Update progress modal
+            const messageEl = document.getElementById('progress-message');
+            const outputEl = document.getElementById('progress-output');
+
+            if (messageEl) {
+                messageEl.textContent = status.message || 'Processing...';
+            }
+
+            if (outputEl && status.output) {
+                outputEl.textContent = status.output.join('\n');
+                outputEl.scrollTop = outputEl.scrollHeight;
+            }
+
+            // Update stage indicator
+            const stageText = {
+                'stopping_services': 'Stopping services...',
+                'upgrading': 'Installing update...',
+                'starting_services': 'Starting services...',
+                'restarting_api': 'Restarting API (page will reload)...'
+            };
+
+            if (stageText[status.stage] && messageEl) {
+                messageEl.textContent = stageText[status.stage];
+            }
+
+            // Handle completion
+            if (!status.running && status.stage === 'complete') {
+                clearInterval(upgradePollingInterval);
+                upgradePollingInterval = null;
+
+                if (status.success) {
+                    showToast('Upgrade completed! Reloading...', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    hideProgressModal();
+                    showToast('Upgrade failed: ' + status.message, 'error');
+                }
+            }
+
+            // Handle API restart - connection will drop
+            if (status.stage === 'restarting_api') {
+                clearInterval(upgradePollingInterval);
+                upgradePollingInterval = null;
+
+                // Wait and then start checking if API is back
+                setTimeout(() => {
+                    waitForApiRestart();
+                }, 3000);
+            }
+
+        } catch (error) {
+            // Connection lost - API might be restarting
+            console.log('Lost connection to API, checking if it restarts...');
+            clearInterval(upgradePollingInterval);
+            upgradePollingInterval = null;
+
+            // Wait and check if API is back
+            setTimeout(() => {
+                waitForApiRestart();
+            }, 3000);
+        }
+    }, 2000);
+}
+
+async function waitForApiRestart() {
+    const messageEl = document.getElementById('progress-message');
+    if (messageEl) {
+        messageEl.textContent = 'Waiting for API to restart...';
+    }
+
+    let attempts = 0;
+    const maxAttempts = 30; // 30 attempts * 2 seconds = 60 seconds max wait
+
+    const checkApi = async () => {
+        attempts++;
+        try {
+            const res = await fetch(`${API_BASE}/api/system/version`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(2000)
+            });
+
+            if (res.ok) {
+                // API is back!
+                hideProgressModal();
+                showToast('Upgrade complete! Reloading page...', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                return;
+            }
+        } catch (error) {
+            // Still not ready
+        }
+
+        if (attempts < maxAttempts) {
+            if (messageEl) {
+                messageEl.textContent = `Waiting for API to restart... (${attempts}/${maxAttempts})`;
+            }
+            setTimeout(checkApi, 2000);
+        } else {
+            hideProgressModal();
+            showToast('API did not restart in time. Please refresh the page manually.', 'error');
+        }
+    };
+
+    checkApi();
 }
