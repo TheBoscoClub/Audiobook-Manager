@@ -78,3 +78,235 @@ library/scripts/nohup.out
 # Database snapshots
 .snapshots/
 .claudeignore
+
+# Backport workflow - caches analyzed commits
+.backport-skip
+
+# =============================================================================
+# Claude Code - Universal .gitignore Template
+# =============================================================================
+# Auto-appended to new projects. Contains security-critical patterns that
+# should NEVER be tracked in any repository.
+#
+# Location: ~/.claude/templates/gitignore-claude
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# SECURITY & CREDENTIALS (CRITICAL - Never track these)
+# -----------------------------------------------------------------------------
+
+# Environment variables (often contain secrets)
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Private keys and certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+
+# Credentials and secrets
+credentials.json
+secrets.json
+secrets/
+.secrets/
+*_credentials.json
+*_secret.json
+*.secret
+
+# API keys and tokens
+api_key*
+apikey*
+*_api_key*
+*.token
+auth_token*
+access_token*
+
+# OAuth and authentication
+authcode.txt
+*.authcode
+oauth_tokens*
+.oauth/
+
+# SSH keys (should never be in repos)
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.ppk
+
+# GPG keys
+*.gpg
+*.asc
+secring.*
+
+# Password files
+*.password
+*.passwd
+passwords.txt
+htpasswd
+
+# AWS credentials
+.aws/
+aws_credentials
+aws_config
+
+# Cloud provider configs with potential secrets
+.gcloud/
+.azure/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+
+# -----------------------------------------------------------------------------
+# DATABASES (May contain PII)
+# -----------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+# -----------------------------------------------------------------------------
+# LOGS (May contain sensitive info)
+# -----------------------------------------------------------------------------
+*.log
+logs/
+log/
+*.log.*
+nohup.out
+
+# -----------------------------------------------------------------------------
+# CLAUDE CODE WORKFLOW FILES
+# -----------------------------------------------------------------------------
+
+# Backport workflow - caches analyzed commits
+.backport-skip
+
+# Claude Code local settings
+.claude.local
+.claude-session
+.claude-state
+.claude-tmp/
+
+# Session exit timestamps
+exit.*
+
+# Project-specific Claude instructions (each project has its own)
+CLAUDE.md
+
+# Claude ignore patterns
+.claudeignore
+
+# BTRFS snapshots (used by /test skill)
+.snapshots/
+
+# -----------------------------------------------------------------------------
+# PYTHON
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# -----------------------------------------------------------------------------
+# NODE.JS
+# -----------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# -----------------------------------------------------------------------------
+# IDE & EDITORS
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+.spyderproject
+.spyproject
+
+# -----------------------------------------------------------------------------
+# OS GENERATED
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# -----------------------------------------------------------------------------
+# TESTING & COVERAGE
+# -----------------------------------------------------------------------------
+.coverage
+.coverage.*
+coverage.json
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+.hypothesis/
+nosetests.xml
+test-results/
+junit*.xml
+
+# -----------------------------------------------------------------------------
+# TEMPORARY & CACHE
+# -----------------------------------------------------------------------------
+*.tmp
+*.temp
+*.bak
+*.swp
+.cache/
+.temp/
+tmp/
+temp/
+*.cache
+
+# -----------------------------------------------------------------------------
+# BUILD ARTIFACTS
+# -----------------------------------------------------------------------------
+*.o
+*.a
+*.lib
+*.dll
+*.dylib
+*.exe
+*.out
+*.app
+target/
+out/
