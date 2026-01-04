@@ -299,6 +299,18 @@ audiobooks-config   # Show configuration
 
 ## Upgrading
 
+> ⚠️ **IMPORTANT: Version Compatibility Notice**
+>
+> **v3.5.0 is the stable baseline.** Starting with v3.6.0, the legacy monolithic API (`api.py`) will be **removed**. All installations MUST use the modular Flask Blueprint architecture (`api_modular/`).
+>
+> - **v3.5.x**: Fully backwards compatible. Both monolithic and modular architectures supported.
+> - **v3.6.0+**: **BREAKING CHANGE** - Monolithic `api.py` removed. Modular architecture required.
+>
+> If you are using the monolithic API, migrate before upgrading to v3.6.0:
+> ```bash
+> ./migrate-api.sh --to-modular --target /opt/audiobooks
+> ```
+
 ### Docker
 
 Docker installations upgrade by pulling a new image:

@@ -1,5 +1,11 @@
 # Audiobook Library API - Modular Architecture
 
+> ⚠️ **REQUIRED STARTING v3.6.0**
+>
+> As of v3.5.0, the modular architecture is the **recommended** approach.
+> Starting with v3.6.0, it will be **required** - the legacy monolithic `api.py` will be removed.
+> Migrate now using: `./migrate-api.sh --to-modular --target /opt/audiobooks`
+
 This package provides a **modular Flask Blueprint-based architecture** for the Audiobook Library API. It refactors the original monolithic `api.py` (1994 lines) into logically separated modules for improved maintainability.
 
 ## Architecture Overview
@@ -208,18 +214,17 @@ Each module receives the database path through Flask's `app.config`. Ensure `DAT
 
 ## Recommended Approach
 
-For most use cases, **continue using the monolithic `api.py`**:
+**Use the modular architecture** (`api_modular/`):
 
-1. It's production-tested with 234 passing tests
-2. Simpler deployment and configuration
-3. No test updates required
-4. Systemd service already configured
+1. It's the future - monolithic `api.py` will be removed in v3.6.0
+2. Better code organization and maintainability
+3. Easier to extend with new features
+4. Clear separation of concerns
 
-Consider the modular approach when:
-- Multiple developers work on different API areas
-- You're planning a microservices migration
-- You need isolated unit tests for specific endpoints
-- Code navigation in a 2000-line file becomes painful
+The monolithic `api.py` is deprecated and will be removed in v3.6.0. Migrate now:
+```bash
+./migrate-api.sh --to-modular --target /opt/audiobooks
+```
 
 ## Files Reference
 

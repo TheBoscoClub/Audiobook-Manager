@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.5.0] - 2026-01-03
 
+> ⚠️ **STABLE BASELINE RELEASE**
+>
+> v3.5.0 is the last version supporting the legacy monolithic API (`api.py`).
+> Starting with v3.6.0, only the modular Flask Blueprint architecture will be supported.
+> Users of the monolithic API must migrate before upgrading to v3.6.0+.
+
 ### Added
 - **Checksum tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations
 - **Generate Checksums button**: New Utilities maintenance feature for Sources AND Library with hover tooltips
