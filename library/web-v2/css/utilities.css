@@ -6,32 +6,37 @@
 /* Import shared Art Deco theme */
 @import url('theme-art-deco.css');
 
-/* Back Office Color Mapping to Art Deco palette */
+/* Back Office Color Mapping - Matching Main Library */
 :root {
-    /* Map legacy variables to Art Deco equivalents */
-    --office-dark: var(--deco-black);
-    --office-wood: var(--deco-charcoal);
-    --office-desk: var(--deco-slate);
-    --office-leather: var(--deco-gray);
+    /* Dark wood/leather tones (matching main library) */
+    --office-dark: #1a1208;       /* Darkest brown */
+    --office-wood: #2d2015;       /* Dark wood */
+    --office-desk: #3d3020;       /* Medium brown desk */
+    --office-leather: #4a3828;    /* Leather accent */
 
-    /* Gold accents - already in theme */
-    --brass: var(--gold);
-    --brass-light: var(--gold-bright);
-    --brass-dark: var(--gold-dark);
+    /* Gold/brass accents */
+    --brass: #DAA520;             /* Standard gold */
+    --brass-light: #FFD700;       /* Bright gold */
+    --brass-dark: #B8860B;        /* Dark gold */
 
-    /* Emerald accents - already in theme */
-    --banker-green: var(--emerald);
-    --banker-green-light: var(--emerald-light);
-    --banker-green-glow: var(--emerald-glow);
+    /* Emerald accents (banker's lamp) */
+    --banker-green: #1a4a4a;
+    --banker-green-light: #2d5a4e;
+    --banker-green-glow: rgba(45, 90, 78, 0.4);
 
-    /* Text and paper colors */
-    --ledger-cream: var(--cream);
-    --ledger-line: var(--parchment);
-    --ink: var(--text-dark);
-    --ink-faded: #2d2520;
-    --red-ink: var(--ruby);
-    --filing-metal: var(--deco-gray);
-    --filing-label: var(--cream-light);
+    /* High contrast text colors */
+    --ledger-cream: #F5DEB3;      /* Cream for text on dark bg */
+    --ledger-line: #4a3828;       /* Divider lines */
+    --ink: #F5DEB3;               /* Primary text (cream on dark) */
+    --ink-faded: #d4c4a8;         /* Secondary text */
+    --ink-muted: #a89878;         /* Tertiary text */
+    --red-ink: #c44;
+    --filing-metal: #5a4838;
+    --filing-label: #3d3020;      /* Dark card backgrounds */
+
+    /* Card backgrounds */
+    --card-bg: #2d2015;           /* Dark wood */
+    --card-bg-light: #3d3020;     /* Slightly lighter */
 }
 
 /* Body Override for Back Office */
@@ -333,13 +338,13 @@ body.back-office {
     letter-spacing: 2px;
 }
 
-/* Content Area */
+/* Content Area - Dark wood theme */
 .office-content {
-    background: var(--ledger-cream);
+    background: linear-gradient(180deg, var(--office-wood) 0%, var(--office-dark) 100%);
     border-radius: 0 0 8px 8px;
     box-shadow:
-        0 4px 20px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        0 4px 20px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     min-height: 600px;
 }
 
@@ -368,11 +373,11 @@ body.back-office {
 .section-header {
     margin-bottom: 2rem;
     padding-bottom: 1rem;
-    border-bottom: 2px solid var(--ledger-line);
+    border-bottom: 2px solid var(--brass-dark);
 }
 
 .section-header h2 {
-    color: var(--ink);
+    color: var(--brass-light);
     font-size: 1.8rem;
     font-weight: normal;
     margin-bottom: 0.25rem;
@@ -394,11 +399,11 @@ body.back-office {
 }
 
 .catalog-card {
-    background: var(--cream-light);
-    border: 2px solid var(--gold);
+    background: var(--card-bg);
+    border: 2px solid var(--brass-dark);
     box-shadow:
-        4px 4px 12px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        4px 4px 12px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     display: flex;
     flex-direction: column;
     position: relative;
@@ -436,7 +441,7 @@ body.back-office {
 
 .card-footer {
     padding: 1rem 1.25rem;
-    background: var(--filing-label);
+    background: var(--office-dark);
     border-top: 1px solid var(--ledger-line);
     display: flex;
     gap: 0.75rem;
@@ -462,12 +467,16 @@ body.back-office {
 
 .stat-row .stat-label {
     color: var(--ink-faded);
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
 }
 
 .stat-row .stat-value {
-    color: var(--ink);  /* Full ink color for high contrast */
+    color: var(--brass-light);  /* Gold numbers for visibility */
     font-weight: 600;
     font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
 }
 
 /* Operation List */
@@ -482,13 +491,13 @@ body.back-office {
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    background: var(--filing-label);
+    background: var(--card-bg-light);
     border: 1px solid var(--ledger-line);
     border-radius: 4px;
 }
 
 .operation-info h4 {
-    color: var(--ink);
+    color: var(--ledger-cream);
     margin-bottom: 0.25rem;
 }
 
@@ -1039,7 +1048,7 @@ body.back-office {
 
 /* Bulk Operations - Intro Card */
 .intro-card {
-    background: linear-gradient(135deg, var(--filing-label) 0%, var(--ledger-cream) 100%);
+    background: linear-gradient(135deg, var(--office-leather) 0%, var(--office-desk) 100%);
     border: 2px solid var(--brass);
 }
 
