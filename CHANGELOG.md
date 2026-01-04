@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [3.6.0] - 2026-01-03
+
+### Added
 - **Audible Sync tab**: New Back Office section for syncing metadata from Audible library exports
   - Sync Genres: Match audiobooks to Audible entries and populate genre fields
   - Update Narrators: Fill in missing narrator information from Audible data
@@ -15,28 +23,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prerequisites check: Verifies library_metadata.json exists before operations
 - **Pipeline Operations**: Download Audiobooks, Rebuild Queue, Cleanup Indexes accessible from UI
 - **Tooltips**: Comprehensive tooltips on all buttons and action items for discoverability
-- **CSS modular architecture**: Separated utilities.css into 6 focused modules:
-  - `theme.css`: Art Deco color palette, typography, decorative elements
+- **CSS modular architecture**: Separated styles into focused modules:
+  - `theme-art-deco.css`: Art Deco color palette, typography, decorative elements
   - `layout.css`: Grid systems, card layouts, responsive breakpoints
   - `components.css`: Buttons, badges, status indicators, forms
-  - `tables.css`: Data tables, sortable columns, conversion lists
-  - `animations.css`: Transitions, loading states, lamp glow effects
-  - `utilities-main.css`: Integration layer with @import statements
+  - `sidebar.css`: Collections panel with pigeon-hole design
+  - `player.css`: Audio player styling
+  - `modals.css`: Dialog and modal styling
 - **Check Audible Prerequisites endpoint**: `/api/utilities/check-audible-prereqs`
 
 ### Changed
-- **Art Deco theme**: Complete Back Office visual redesign with:
-  - Gold, cream, and warm brown color palette
-  - Stepped corners and sunburst patterns
+- **Art Deco theme applied globally**: Complete visual redesign across entire application:
+  - Dark geometric diamond background pattern
+  - Gold, cream, and charcoal color palette
+  - Sunburst headers with chevron borders
+  - Stepped corners on book cards
+  - High-contrast dark inputs and dropdowns
   - Enhanced banker's lamp SVG with glow effect
   - Filing cabinet tab navigation with pigeon-hole metaphor
 - Updated Python script API endpoints to use `--execute` flag (dry-run is default)
 - Improved column balance with `align-items: stretch` for equal card heights
+- Database tab reorganized into balanced 2x2 card layout
 
 ### Fixed
 - Removed duplicate API endpoint definitions causing Flask startup failures
 - Fixed bash `log()` functions to work with `set -e` (use if/then instead of &&)
 - Fixed genre sync, narrator sync, and sort field population API argument handling
+- Fixed cream-on-cream contrast issues in Back Office intro cards
+- Fixed light background on form inputs and dropdowns throughout application
 
 ## [3.5.0] - 2026-01-03
 
