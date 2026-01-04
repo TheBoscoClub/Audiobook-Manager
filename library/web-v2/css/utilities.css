@@ -24,12 +24,12 @@
     --banker-green-light: #2d5a4e;
     --banker-green-glow: rgba(45, 90, 78, 0.4);
 
-    /* High contrast text colors */
-    --ledger-cream: #F5DEB3;      /* Cream for text on dark bg */
+    /* High contrast text colors - brightened */
+    --ledger-cream: #FFF8DC;      /* Cream-light for text on dark bg */
     --ledger-line: #4a3828;       /* Divider lines */
-    --ink: #F5DEB3;               /* Primary text (cream on dark) */
-    --ink-faded: #d4c4a8;         /* Secondary text */
-    --ink-muted: #a89878;         /* Tertiary text */
+    --ink: #FFF8DC;               /* Primary text (cream-light on dark) */
+    --ink-faded: #e8dcc8;         /* Secondary text - brightened */
+    --ink-muted: #c4b498;         /* Tertiary text - brightened */
     --red-ink: #c44;
     --filing-metal: #5a4838;
     --filing-label: #3d3020;      /* Dark card backgrounds */
@@ -56,14 +56,14 @@ body.back-office {
 /* Office Header - Art Deco Sunburst */
 .office-header {
     background:
-        /* Sunburst rays from center-bottom */
+        /* Sunburst rays - darkened to match main page */
         repeating-conic-gradient(
             from 0deg at 50% 100%,
-            var(--gold-deep) 0deg 2deg,
+            #5a4210 0deg 2deg,
             transparent 2deg 10deg
         ),
-        /* Base gradient */
-        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+        /* Base gradient - darker for header */
+        linear-gradient(180deg, #121212 0%, #050505 100%);
     border-bottom: 4px solid var(--gold);
     box-shadow:
         0 4px 20px rgba(0, 0, 0, 0.5),
@@ -144,12 +144,12 @@ body.back-office {
 }
 
 .office-subtitle {
-    color: var(--cream);
+    color: var(--cream-light);
     font-style: normal;
     font-size: 0.95rem;
     letter-spacing: 2px;
     text-transform: uppercase;
-    opacity: 0.85;
+    opacity: 1;
 }
 
 /* Banker's Lamp SVG Decoration */

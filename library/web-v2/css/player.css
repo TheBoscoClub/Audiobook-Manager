@@ -88,8 +88,8 @@
 
 .player-author {
     font-size: 0.9rem;
-    color: var(--cream);
-    opacity: 0.8;
+    color: var(--cream-light);
+    opacity: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -136,12 +136,15 @@
     font-size: 1.2rem;
     font-weight: bold;
     transition: all 0.2s;
+    box-shadow: var(--shadow-elevation-1);
 }
 
 .control-btn:hover {
     background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+    box-shadow:
+        var(--shadow-elevation-2),
+        0 0 16px rgba(255, 215, 0, 0.4);
 }
 
 .control-btn.small-btn {
