@@ -1118,12 +1118,22 @@ Wants=audiobooks-api.service audiobooks-web.service audiobooks-converter.service
 WantedBy=multi-user.target
 EOF
 
+        # Install tmpfiles.d configuration for control directory
+        if [[ -f "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" ]]; then
+            sudo cp "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/
+            sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks-tmpfiles.conf 2>/dev/null || true
+        fi
+
         # Reload systemd
         sudo systemctl daemon-reload
 
         # Enable and start services
         echo -e "${BLUE}Enabling and starting services...${NC}"
         sudo systemctl enable audiobooks.target 2>/dev/null || true
+
+        # Enable the upgrade helper path unit (watches for upgrade requests)
+        sudo systemctl enable audiobooks-upgrade-helper.path 2>/dev/null || true
+        sudo systemctl start audiobooks-upgrade-helper.path 2>/dev/null || true
 
         # Start the target (which starts all wanted services)
         sudo systemctl start audiobooks.target 2>/dev/null || {

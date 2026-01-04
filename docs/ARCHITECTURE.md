@@ -88,6 +88,64 @@ Audiobook-Manager consists of four logical component groups:
 - No need to re-create symlinks after upgrades
 - Single source of truth for each script
 
+### Security Architecture
+
+The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `ProtectSystem=strict`) which prevents direct `sudo` usage. Privileged operations use a **privilege-separated helper service pattern**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PRIVILEGE-SEPARATED HELPER PATTERN                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Web UI                    API Service                  Helper Service
+  (Browser)                 (audiobooks user)            (root)
+     │                           │                           │
+     │  POST /api/system/        │                           │
+     │  services/mover/stop      │                           │
+     ├──────────────────────────▶│                           │
+     │                           │                           │
+     │                           │  Write request JSON to    │
+     │                           │  /var/lib/audiobooks/     │
+     │                           │  .control/upgrade-request │
+     │                           ├──────────────────────────▶│
+     │                           │                           │
+     │                           │      Path unit detects    │
+     │                           │      file, triggers       │
+     │                           │      helper service       │
+     │                           │                           │
+     │                           │                           │  systemctl stop
+     │                           │                           │  audiobooks-mover
+     │                           │                           │
+     │                           │  Write status JSON to     │
+     │                           │  .control/upgrade-status  │
+     │                           │◀────────────────────────────
+     │                           │                           │
+     │                           │  Poll status file         │
+     │                           │  until complete           │
+     │                           │                           │
+     │  {"success": true,        │                           │
+     │   "message": "Stopped"}   │                           │
+     │◀──────────────────────────│                           │
+     │                           │                           │
+```
+
+**Components:**
+
+| Unit | Purpose |
+|------|---------|
+| `audiobooks-upgrade-helper.path` | Watches `/var/lib/audiobooks/.control/upgrade-request` |
+| `audiobooks-upgrade-helper.service` | Runs as root, processes privileged operations |
+| `/var/lib/audiobooks/.control/` | IPC directory (owned by audiobooks user) |
+
+**Supported Operations:**
+- Service control: start, stop, restart individual services
+- Bulk operations: start-all, stop-all
+- Application upgrades: from GitHub or local project directory
+
+**Why /var/lib/audiobooks/.control/ instead of /run/audiobooks/:**
+
+The API runs with `ProtectSystem=strict` which creates a read-only filesystem overlay. While `RuntimeDirectory=` can create `/run/audiobooks`, the sandboxed namespace sees it with root ownership (not audiobooks), preventing writes. Using `/var/lib/audiobooks/.control/` works because it's explicitly listed in `ReadWritePaths`.
+
 ---
 
 ## Installation Workflow

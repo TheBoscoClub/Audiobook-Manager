@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.5.1] - 2026-01-03
+
+### Added
+- **Privilege-separated helper service**: System operations (service control, upgrades) now work
+  with the API's `NoNewPrivileges=yes` security hardening via a helper service pattern
+  - `audiobooks-upgrade-helper.service`: Runs privileged operations as root
+  - `audiobooks-upgrade-helper.path`: Watches for request files to trigger helper
+  - Control files stored in `/var/lib/audiobooks/.control/` (avoids systemd namespace issues)
+
+### Changed
+- **API utilities_system.py**: Refactored from direct sudo calls to file-based IPC with helper
+- **install.sh/upgrade.sh**: Now deploy the helper service units
+
+### Fixed
+- Service control (start/stop/restart) from web UI now works with sandboxed API
+- Upgrade from web UI now works with `NoNewPrivileges=yes` security hardening
+- Race condition in status polling that caused false failure responses
+
 ## [3.5.0] - 2026-01-03
 
 ### Added

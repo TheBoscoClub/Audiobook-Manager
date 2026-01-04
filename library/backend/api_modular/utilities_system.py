@@ -1,11 +1,25 @@
 """
 System administration utilities - service control and application upgrades.
+
+Uses a privilege-separated helper service pattern:
+- API writes request to /var/lib/audiobooks/.control/upgrade-request
+- audiobooks-upgrade-helper.path unit detects the file
+- audiobooks-upgrade-helper.service runs operations with root privileges
+- API polls /var/lib/audiobooks/.control/upgrade-status for progress
+
+Using /var/lib/audiobooks/.control/ because:
+- It's in the API's ReadWritePaths (works with ProtectSystem=strict)
+- The audiobooks user owns /var/lib/audiobooks
+- Avoids /run namespace isolation issues with systemd sandboxing
+
+This allows the API to run with NoNewPrivileges=yes while still supporting
+privileged operations like service control and application upgrades.
 """
 
 import os
+import json
+import time
 import subprocess
-import threading
-from typing import Optional
 from flask import Blueprint, jsonify, request
 from pathlib import Path
 
@@ -13,15 +27,96 @@ from .core import FlaskResponse
 
 utilities_system_bp = Blueprint("utilities_system", __name__)
 
-# Track active upgrade operation
-_upgrade_thread: Optional[threading.Thread] = None
-_upgrade_status = {
-    "running": False,
-    "stage": "",
-    "message": "",
-    "success": None,
-    "output": [],
-}
+# Paths for privilege-separated helper communication
+# Using /var/lib/audiobooks/.control/ to avoid /run namespace issues with sandboxing
+CONTROL_DIR = Path("/var/lib/audiobooks/.control")
+HELPER_REQUEST_FILE = CONTROL_DIR / "upgrade-request"
+HELPER_STATUS_FILE = CONTROL_DIR / "upgrade-status"
+
+
+def _ensure_control_dir():
+    """Ensure control directory exists and is writable."""
+    if not CONTROL_DIR.exists():
+        try:
+            CONTROL_DIR.mkdir(mode=0o755, parents=True)
+        except PermissionError:
+            pass  # Will fail if not owner, but helper or upgrade will create it
+
+
+def _write_request(request_data: dict) -> bool:
+    """Write a request for the privileged helper to process."""
+    _ensure_control_dir()
+
+    # Clear any stale status (truncate instead of delete - more permission-friendly)
+    if HELPER_STATUS_FILE.exists():
+        try:
+            # Try to truncate the file instead of deleting
+            HELPER_STATUS_FILE.write_text("")
+        except (PermissionError, OSError):
+            # If we can't even truncate, just leave it - helper will overwrite
+            pass
+
+    try:
+        # Write request file - this triggers the path unit
+        HELPER_REQUEST_FILE.write_text(json.dumps(request_data))
+        return True
+    except PermissionError:
+        return False
+    except Exception:
+        return False
+
+
+def _read_status() -> dict:
+    """Read the current status from the helper."""
+    default_status = {
+        "running": False,
+        "stage": "",
+        "message": "",
+        "success": None,
+        "output": [],
+        "result": None,
+    }
+
+    if not HELPER_STATUS_FILE.exists():
+        return default_status
+
+    try:
+        content = HELPER_STATUS_FILE.read_text()
+        status = json.loads(content)
+        return status
+    except (json.JSONDecodeError, PermissionError):
+        return default_status
+
+
+def _wait_for_completion(timeout: float = 30.0, poll_interval: float = 0.5) -> dict:
+    """
+    Wait for the helper to complete and return final status.
+    Used for synchronous operations like single service control.
+    """
+    start = time.time()
+
+    # Wait for valid status file (not empty, valid JSON, has 'success' field)
+    while (time.time() - start) < timeout:
+        if HELPER_STATUS_FILE.exists():
+            try:
+                content = HELPER_STATUS_FILE.read_text().strip()
+                if content:  # Not empty
+                    status = json.loads(content)
+                    # Only return if we have a completed operation (success is not None)
+                    if status.get("success") is not None and not status.get("running", True):
+                        return status
+            except (json.JSONDecodeError, PermissionError, OSError):
+                pass  # Keep waiting
+        time.sleep(poll_interval)
+
+    return {
+        "running": False,
+        "stage": "timeout",
+        "message": "Operation timed out",
+        "success": False,
+        "output": [],
+        "result": None,
+    }
 
 
 def init_system_routes(project_root):
@@ -37,7 +132,7 @@ def init_system_routes(project_root):
     ]
 
     # =========================================================================
-    # Service Control Endpoints
+    # Service Status Endpoint (read-only, no privilege needed)
     # =========================================================================
 
     @utilities_system_bp.route("/api/system/services", methods=["GET"])
@@ -91,30 +186,28 @@ def init_system_routes(project_root):
             "all_active": all(s["active"] for s in services),
         })
 
+    # =========================================================================
+    # Service Control Endpoints (via privileged helper)
+    # =========================================================================
+
     @utilities_system_bp.route("/api/system/services/<service_name>/start", methods=["POST"])
     def start_service(service_name: str) -> FlaskResponse:
         """Start a specific service."""
         if service_name not in SERVICES:
             return jsonify({"error": f"Unknown service: {service_name}"}), 400
 
-        try:
-            result = subprocess.run(
-                ["sudo", "systemctl", "start", service_name],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode == 0:
-                return jsonify({"success": True, "message": f"Started {service_name}"})
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": result.stderr or "Failed to start service"
-                }), 500
-        except subprocess.TimeoutExpired:
-            return jsonify({"error": "Timeout starting service"}), 500
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+        if not _write_request({"type": "service_start", "service": service_name}):
+            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+
+        status = _wait_for_completion(timeout=30.0)
+
+        if status.get("success"):
+            return jsonify({"success": True, "message": f"Started {service_name}"})
+        else:
+            return jsonify({
+                "success": False,
+                "error": status.get("message", "Failed to start service")
+            }), 500
 
     @utilities_system_bp.route("/api/system/services/<service_name>/stop", methods=["POST"])
     def stop_service(service_name: str) -> FlaskResponse:
@@ -122,24 +215,18 @@ def init_system_routes(project_root):
         if service_name not in SERVICES:
             return jsonify({"error": f"Unknown service: {service_name}"}), 400
 
-        try:
-            result = subprocess.run(
-                ["sudo", "systemctl", "stop", service_name],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode == 0:
-                return jsonify({"success": True, "message": f"Stopped {service_name}"})
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": result.stderr or "Failed to stop service"
-                }), 500
-        except subprocess.TimeoutExpired:
-            return jsonify({"error": "Timeout stopping service"}), 500
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+        if not _write_request({"type": "service_stop", "service": service_name}):
+            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+
+        status = _wait_for_completion(timeout=30.0)
+
+        if status.get("success"):
+            return jsonify({"success": True, "message": f"Stopped {service_name}"})
+        else:
+            return jsonify({
+                "success": False,
+                "error": status.get("message", "Failed to stop service")
+            }), 500
 
     @utilities_system_bp.route("/api/system/services/<service_name>/restart", methods=["POST"])
     def restart_service(service_name: str) -> FlaskResponse:
@@ -147,53 +234,32 @@ def init_system_routes(project_root):
         if service_name not in SERVICES:
             return jsonify({"error": f"Unknown service: {service_name}"}), 400
 
-        try:
-            result = subprocess.run(
-                ["sudo", "systemctl", "restart", service_name],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode == 0:
-                return jsonify({"success": True, "message": f"Restarted {service_name}"})
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": result.stderr or "Failed to restart service"
-                }), 500
-        except subprocess.TimeoutExpired:
-            return jsonify({"error": "Timeout restarting service"}), 500
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+        if not _write_request({"type": "service_restart", "service": service_name}):
+            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+
+        status = _wait_for_completion(timeout=30.0)
+
+        if status.get("success"):
+            return jsonify({"success": True, "message": f"Restarted {service_name}"})
+        else:
+            return jsonify({
+                "success": False,
+                "error": status.get("message", "Failed to restart service")
+            }), 500
 
     @utilities_system_bp.route("/api/system/services/start-all", methods=["POST"])
     def start_all_services() -> FlaskResponse:
         """Start all audiobook services."""
-        results = []
-        for service in SERVICES:
-            try:
-                result = subprocess.run(
-                    ["sudo", "systemctl", "start", service],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                results.append({
-                    "service": service,
-                    "success": result.returncode == 0,
-                    "error": result.stderr if result.returncode != 0 else None,
-                })
-            except Exception as e:
-                results.append({
-                    "service": service,
-                    "success": False,
-                    "error": str(e),
-                })
+        if not _write_request({"type": "services_start_all"}):
+            return jsonify({"error": "Failed to write request (permission denied)"}), 500
 
-        all_success = all(r["success"] for r in results)
+        status = _wait_for_completion(timeout=60.0)
+
+        result = status.get("result") or {}
         return jsonify({
-            "success": all_success,
-            "results": results,
+            "success": status.get("success", False),
+            "results": result.get("results", []),
+            "message": status.get("message", ""),
         })
 
     @utilities_system_bp.route("/api/system/services/stop-all", methods=["POST"])
@@ -201,54 +267,28 @@ def init_system_routes(project_root):
         """Stop audiobook services. By default keeps API and proxy for web access."""
         include_api = request.args.get("include_api", "false").lower() == "true"
 
-        # Stop non-essential services first
-        stop_order = [
-            "audiobooks-scanner.timer",
-            "audiobooks-mover",
-            "audiobooks-converter",
-        ]
+        if not _write_request({"type": "services_stop_all", "include_api": include_api}):
+            return jsonify({"error": "Failed to write request (permission denied)"}), 500
 
-        # If include_api, add API services at the end (proxy first, then API)
-        if include_api:
-            stop_order.extend(["audiobooks-proxy", "audiobooks-api"])
+        status = _wait_for_completion(timeout=60.0)
 
-        results = []
-        for service in stop_order:
-            try:
-                result = subprocess.run(
-                    ["sudo", "systemctl", "stop", service],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                results.append({
-                    "service": service,
-                    "success": result.returncode == 0,
-                    "error": result.stderr if result.returncode != 0 else None,
-                })
-            except Exception as e:
-                results.append({
-                    "service": service,
-                    "success": False,
-                    "error": str(e),
-                })
-
-        all_success = all(r["success"] for r in results)
-        note = "All services stopped" if include_api else "API and proxy services kept running for web access"
+        result = status.get("result") or {}
         return jsonify({
-            "success": all_success,
-            "results": results,
-            "note": note,
+            "success": status.get("success", False),
+            "results": result.get("results", []),
+            "note": result.get("note", ""),
+            "message": status.get("message", ""),
         })
 
     # =========================================================================
-    # Upgrade Endpoints
+    # Upgrade Endpoints (via privileged helper, async with polling)
     # =========================================================================
 
     @utilities_system_bp.route("/api/system/upgrade/status", methods=["GET"])
     def get_upgrade_status() -> FlaskResponse:
-        """Get current upgrade status."""
-        return jsonify(_upgrade_status)
+        """Get current upgrade/operation status."""
+        status = _read_status()
+        return jsonify(status)
 
     @utilities_system_bp.route("/api/system/upgrade", methods=["POST"])
     def start_upgrade() -> FlaskResponse:
@@ -261,10 +301,10 @@ def init_system_routes(project_root):
             "project_path": "/path/to/project"  // Required if source is "project"
         }
         """
-        global _upgrade_thread, _upgrade_status
-
-        if _upgrade_status["running"]:
-            return jsonify({"error": "Upgrade already in progress"}), 400
+        # Check if an operation is already running
+        current_status = _read_status()
+        if current_status.get("running"):
+            return jsonify({"error": "An operation is already in progress"}), 400
 
         data = request.get_json() or {}
         source = data.get("source", "github")
@@ -276,114 +316,23 @@ def init_system_routes(project_root):
         if source == "project" and not os.path.isdir(project_path):
             return jsonify({"error": f"Project path not found: {project_path}"}), 400
 
-        def run_upgrade():
-            global _upgrade_status
-            _upgrade_status = {
-                "running": True,
-                "stage": "starting",
-                "message": "Starting upgrade...",
-                "success": None,
-                "output": [],
-            }
+        # Write upgrade request
+        request_data = {"type": "upgrade", "source": source}
+        if project_path:
+            request_data["project_path"] = project_path
 
-            try:
-                # Stage 1: Stop services
-                _upgrade_status["stage"] = "stopping_services"
-                _upgrade_status["message"] = "Stopping services..."
-
-                stop_services = [
-                    "audiobooks-scanner.timer",
-                    "audiobooks-mover",
-                    "audiobooks-converter",
-                ]
-                for service in stop_services:
-                    result = subprocess.run(
-                        ["sudo", "systemctl", "stop", service],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                    )
-                    _upgrade_status["output"].append(f"Stopped {service}")
-
-                # Stage 2: Run upgrade script
-                _upgrade_status["stage"] = "upgrading"
-                _upgrade_status["message"] = "Running upgrade..."
-
-                upgrade_script = "/usr/local/bin/audiobooks-upgrade"
-                if source == "github":
-                    cmd = ["sudo", upgrade_script, "--from-github"]
-                else:
-                    cmd = ["sudo", upgrade_script, "--from-project", project_path]
-
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=300,  # 5 minute timeout
-                )
-
-                if result.stdout:
-                    for line in result.stdout.split("\n"):
-                        if line.strip():
-                            _upgrade_status["output"].append(line)
-
-                if result.returncode != 0:
-                    _upgrade_status["success"] = False
-                    _upgrade_status["message"] = "Upgrade failed"
-                    if result.stderr:
-                        _upgrade_status["output"].append(f"ERROR: {result.stderr}")
-                else:
-                    _upgrade_status["success"] = True
-                    _upgrade_status["message"] = "Upgrade completed successfully"
-
-                # Stage 3: Start services
-                _upgrade_status["stage"] = "starting_services"
-                _upgrade_status["message"] = "Starting services..."
-
-                for service in reversed(stop_services):
-                    result = subprocess.run(
-                        ["sudo", "systemctl", "start", service],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                    )
-                    _upgrade_status["output"].append(f"Started {service}")
-
-                # Stage 4: Restart API (will cause a brief disconnect)
-                _upgrade_status["stage"] = "restarting_api"
-                _upgrade_status["message"] = "Restarting API (browser will reload)..."
-
-                # Small delay to allow status to be read
-                import time
-                time.sleep(2)
-
-                # Restart API service - this will kill this process
-                subprocess.Popen(
-                    ["sudo", "systemctl", "restart", "audiobooks-api"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-
-            except subprocess.TimeoutExpired:
-                _upgrade_status["success"] = False
-                _upgrade_status["message"] = "Upgrade timed out"
-                _upgrade_status["output"].append("ERROR: Operation timed out")
-            except Exception as e:
-                _upgrade_status["success"] = False
-                _upgrade_status["message"] = f"Upgrade failed: {str(e)}"
-                _upgrade_status["output"].append(f"ERROR: {str(e)}")
-            finally:
-                _upgrade_status["running"] = False
-                _upgrade_status["stage"] = "complete"
-
-        _upgrade_thread = threading.Thread(target=run_upgrade, daemon=True)
-        _upgrade_thread.start()
+        if not _write_request(request_data):
+            return jsonify({"error": "Failed to write request (permission denied)"}), 500
 
         return jsonify({
             "success": True,
             "message": "Upgrade started",
             "source": source,
         })
+
+    # =========================================================================
+    # Version and Project Info (no privilege needed)
+    # =========================================================================
 
     @utilities_system_bp.route("/api/system/version", methods=["GET"])
     def get_version() -> FlaskResponse:

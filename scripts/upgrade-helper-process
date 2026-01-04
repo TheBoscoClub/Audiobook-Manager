@@ -1,0 +1,429 @@
+#!/bin/bash
+# =============================================================================
+# Audiobooks Privileged Operations Helper
+# =============================================================================
+# This script runs as root when triggered by the path unit.
+# It handles all operations requiring elevated privileges.
+#
+# Request file format (JSON):
+#   Upgrade:     {"type": "upgrade", "source": "github"}
+#                {"type": "upgrade", "source": "project", "project_path": "/path"}
+#   Service:     {"type": "service_start", "service": "audiobooks-converter"}
+#                {"type": "service_stop", "service": "audiobooks-converter"}
+#                {"type": "service_restart", "service": "audiobooks-api"}
+#                {"type": "services_start_all"}
+#                {"type": "services_stop_all", "include_api": false}
+#
+# Status file format (JSON):
+#   {"running": true/false, "stage": "...", "message": "...", "success": true/false/null, "output": [...], "result": {...}}
+# =============================================================================
+
+# Control directory for API communication (using /var/lib/audiobooks/.control/
+# to avoid /run namespace issues with systemd sandboxing)
+CONTROL_DIR="/var/lib/audiobooks/.control"
+REQUEST_FILE="${CONTROL_DIR}/upgrade-request"
+STATUS_FILE="${CONTROL_DIR}/upgrade-status"
+INSTALL_DIR="/opt/audiobooks"
+
+# Valid services that can be controlled
+VALID_SERVICES=(
+    "audiobooks-api"
+    "audiobooks-proxy"
+    "audiobooks-converter"
+    "audiobooks-mover"
+    "audiobooks-scanner.timer"
+)
+
+# Ensure control directory exists and is writable by audiobooks user
+mkdir -p "$CONTROL_DIR"
+chown audiobooks:audiobooks "$CONTROL_DIR"
+chmod 755 "$CONTROL_DIR"
+
+# Global output array
+declare -a OUTPUT_LINES
+
+# Helper to write status
+write_status() {
+    local running="$1"
+    local stage="$2"
+    local message="$3"
+    local success="$4"
+    local result="${5:-null}"
+    shift 5 2>/dev/null || shift 4
+    local output_lines=("$@")
+
+    # Build output JSON array
+    local output_json="["
+    local first=true
+    for line in "${output_lines[@]}"; do
+        if [[ "$first" == "true" ]]; then
+            first=false
+        else
+            output_json+=","
+        fi
+        # Escape quotes and backslashes for JSON
+        line="${line//\\/\\\\}"
+        line="${line//\"/\\\"}"
+        line="${line//$'\n'/\\n}"
+        line="${line//$'\r'/}"
+        output_json+="\"$line\""
+    done
+    output_json+="]"
+
+    # Use echo with explicit file write (more reliable than heredoc in some environments)
+    echo "{\"running\": $running, \"stage\": \"$stage\", \"message\": \"$message\", \"success\": $success, \"output\": $output_json, \"result\": $result}" > "$STATUS_FILE"
+    # Make status file writable by audiobooks user (API needs to delete it before new requests)
+    chmod 666 "$STATUS_FILE" 2>/dev/null || true
+}
+
+# Check if service is valid
+is_valid_service() {
+    local svc="$1"
+    for valid in "${VALID_SERVICES[@]}"; do
+        [[ "$svc" == "$valid" ]] && return 0
+    done
+    return 1
+}
+
+# Parse JSON field (simple parser without jq)
+get_json_field() {
+    local json="$1"
+    local field="$2"
+    echo "$json" | grep -o "\"$field\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | sed 's/.*:.*"\([^"]*\)".*/\1/' | head -1
+}
+
+get_json_bool() {
+    local json="$1"
+    local field="$2"
+    local val=$(echo "$json" | grep -o "\"$field\"[[:space:]]*:[[:space:]]*[a-z]*" | sed 's/.*:[[:space:]]*//' | head -1)
+    [[ "$val" == "true" ]] && echo "true" || echo "false"
+}
+
+# =============================================================================
+# Service Control Operations
+# =============================================================================
+
+do_service_start() {
+    local service="$1"
+
+    if ! is_valid_service "$service"; then
+        write_status "false" "complete" "Invalid service: $service" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+
+    OUTPUT_LINES+=("Starting $service...")
+    write_status "true" "processing" "Starting $service..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    if systemctl start "$service" 2>&1; then
+        OUTPUT_LINES+=("Started $service")
+        write_status "false" "complete" "Started $service" "true" "{\"service\": \"$service\", \"action\": \"start\"}" "${OUTPUT_LINES[@]}"
+    else
+        OUTPUT_LINES+=("Failed to start $service")
+        write_status "false" "complete" "Failed to start $service" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+}
+
+do_service_stop() {
+    local service="$1"
+
+    if ! is_valid_service "$service"; then
+        write_status "false" "complete" "Invalid service: $service" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+
+    OUTPUT_LINES+=("Stopping $service...")
+    write_status "true" "processing" "Stopping $service..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    if systemctl stop "$service" 2>&1; then
+        OUTPUT_LINES+=("Stopped $service")
+        write_status "false" "complete" "Stopped $service" "true" "{\"service\": \"$service\", \"action\": \"stop\"}" "${OUTPUT_LINES[@]}"
+    else
+        OUTPUT_LINES+=("Failed to stop $service")
+        write_status "false" "complete" "Failed to stop $service" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+}
+
+do_service_restart() {
+    local service="$1"
+
+    if ! is_valid_service "$service"; then
+        write_status "false" "complete" "Invalid service: $service" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+
+    OUTPUT_LINES+=("Restarting $service...")
+    write_status "true" "processing" "Restarting $service..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    if systemctl restart "$service" 2>&1; then
+        OUTPUT_LINES+=("Restarted $service")
+        write_status "false" "complete" "Restarted $service" "true" "{\"service\": \"$service\", \"action\": \"restart\"}" "${OUTPUT_LINES[@]}"
+    else
+        OUTPUT_LINES+=("Failed to restart $service")
+        write_status "false" "complete" "Failed to restart $service" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+}
+
+do_services_start_all() {
+    OUTPUT_LINES+=("Starting all services...")
+    write_status "true" "processing" "Starting all services..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    local results="["
+    local first=true
+    local all_success=true
+
+    for service in "${VALID_SERVICES[@]}"; do
+        if systemctl start "$service" 2>&1; then
+            OUTPUT_LINES+=("Started $service")
+            [[ "$first" == "false" ]] && results+=","
+            results+="{\"service\": \"$service\", \"success\": true}"
+            first=false
+        else
+            OUTPUT_LINES+=("Failed to start $service")
+            [[ "$first" == "false" ]] && results+=","
+            results+="{\"service\": \"$service\", \"success\": false}"
+            first=false
+            all_success=false
+        fi
+    done
+
+    results+="]"
+
+    if [[ "$all_success" == "true" ]]; then
+        write_status "false" "complete" "All services started" "true" "{\"results\": $results}" "${OUTPUT_LINES[@]}"
+    else
+        write_status "false" "complete" "Some services failed to start" "false" "{\"results\": $results}" "${OUTPUT_LINES[@]}"
+    fi
+}
+
+do_services_stop_all() {
+    local include_api="$1"
+
+    OUTPUT_LINES+=("Stopping services (include_api=$include_api)...")
+    write_status "true" "processing" "Stopping services..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    # Stop order: timer, mover, converter, then optionally proxy and api
+    local stop_order=(
+        "audiobooks-scanner.timer"
+        "audiobooks-mover"
+        "audiobooks-converter"
+    )
+
+    if [[ "$include_api" == "true" ]]; then
+        stop_order+=("audiobooks-proxy" "audiobooks-api")
+    fi
+
+    local results="["
+    local first=true
+    local all_success=true
+
+    for service in "${stop_order[@]}"; do
+        if systemctl stop "$service" 2>&1; then
+            OUTPUT_LINES+=("Stopped $service")
+            [[ "$first" == "false" ]] && results+=","
+            results+="{\"service\": \"$service\", \"success\": true}"
+            first=false
+        else
+            OUTPUT_LINES+=("Failed to stop $service (may not be running)")
+            [[ "$first" == "false" ]] && results+=","
+            results+="{\"service\": \"$service\", \"success\": false}"
+            first=false
+            # Don't mark as failure if service wasn't running
+        fi
+    done
+
+    results+="]"
+
+    local note="API and proxy services kept running for web access"
+    [[ "$include_api" == "true" ]] && note="All services stopped"
+
+    write_status "false" "complete" "$note" "true" "{\"results\": $results, \"note\": \"$note\"}" "${OUTPUT_LINES[@]}"
+}
+
+# =============================================================================
+# Upgrade Operation
+# =============================================================================
+
+do_upgrade() {
+    local source="$1"
+    local project_path="$2"
+
+    OUTPUT_LINES+=("Source: $source")
+    [[ -n "$project_path" ]] && OUTPUT_LINES+=("Project path: $project_path")
+
+    # Stage 1: Stop non-essential services
+    write_status "true" "stopping_services" "Stopping services..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    local services_to_stop=(
+        "audiobooks-scanner.timer"
+        "audiobooks-mover"
+        "audiobooks-converter"
+    )
+
+    for service in "${services_to_stop[@]}"; do
+        if systemctl is-active --quiet "$service" 2>/dev/null; then
+            systemctl stop "$service" 2>/dev/null || true
+            OUTPUT_LINES+=("Stopped $service")
+        else
+            OUTPUT_LINES+=("Service $service was not running")
+        fi
+    done
+
+    write_status "true" "stopping_services" "Services stopped" "null" "null" "${OUTPUT_LINES[@]}"
+
+    # Stage 2: Run upgrade
+    write_status "true" "upgrading" "Running upgrade..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    local upgrade_script="$INSTALL_DIR/upgrade.sh"
+    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobooks-upgrade"
+
+    if [[ ! -x "$upgrade_script" ]]; then
+        OUTPUT_LINES+=("ERROR: Upgrade script not found")
+        write_status "false" "error" "Upgrade script not found" "false" "null" "${OUTPUT_LINES[@]}"
+        # Restart services before exiting
+        for service in "${services_to_stop[@]}"; do
+            systemctl start "$service" 2>/dev/null || true
+        done
+        return 1
+    fi
+
+    # Build upgrade command
+    local upgrade_cmd
+    if [[ "$source" == "github" ]]; then
+        upgrade_cmd=("$upgrade_script" "--from-github")
+    elif [[ "$source" == "project" ]] && [[ -n "$project_path" ]]; then
+        if [[ ! -d "$project_path" ]]; then
+            OUTPUT_LINES+=("ERROR: Project path does not exist: $project_path")
+            write_status "false" "error" "Project path does not exist" "false" "null" "${OUTPUT_LINES[@]}"
+            for service in "${services_to_stop[@]}"; do
+                systemctl start "$service" 2>/dev/null || true
+            done
+            return 1
+        fi
+        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path")
+    else
+        OUTPUT_LINES+=("ERROR: Invalid upgrade source")
+        write_status "false" "error" "Invalid upgrade source" "false" "null" "${OUTPUT_LINES[@]}"
+        for service in "${services_to_stop[@]}"; do
+            systemctl start "$service" 2>/dev/null || true
+        done
+        return 1
+    fi
+
+    # Run upgrade and capture output
+    local upgrade_output upgrade_exit
+    upgrade_output=$("${upgrade_cmd[@]}" 2>&1)
+    upgrade_exit=$?
+
+    # Parse output (strip ANSI codes)
+    while IFS= read -r line; do
+        local clean_line
+        clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
+        [[ -n "$clean_line" ]] && OUTPUT_LINES+=("$clean_line")
+    done <<< "$upgrade_output"
+
+    if [[ $upgrade_exit -ne 0 ]]; then
+        OUTPUT_LINES+=("Upgrade script exited with code: $upgrade_exit")
+        write_status "false" "error" "Upgrade failed" "false" "null" "${OUTPUT_LINES[@]}"
+
+        # Start services back up even on failure
+        for service in "${services_to_stop[@]}"; do
+            systemctl start "$service" 2>/dev/null || true
+        done
+
+        return 1
+    fi
+
+    write_status "true" "upgrading" "Upgrade completed" "null" "null" "${OUTPUT_LINES[@]}"
+
+    # Stage 3: Start services back up
+    write_status "true" "starting_services" "Starting services..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    for ((i=${#services_to_stop[@]}-1; i>=0; i--)); do
+        local service="${services_to_stop[i]}"
+        if systemctl start "$service" 2>/dev/null; then
+            OUTPUT_LINES+=("Started $service")
+        else
+            OUTPUT_LINES+=("Failed to start $service")
+        fi
+    done
+
+    write_status "true" "starting_services" "Services started" "null" "null" "${OUTPUT_LINES[@]}"
+
+    # Stage 4: Restart API
+    write_status "true" "restarting_api" "Restarting API (browser will reload)..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    # Give the API a moment to read the status before restart
+    sleep 2
+
+    # Mark as successful before restarting API
+    write_status "false" "complete" "Upgrade completed successfully" "true" "null" "${OUTPUT_LINES[@]}"
+
+    # Restart API service
+    if ! systemctl restart audiobooks-api 2>/dev/null; then
+        OUTPUT_LINES+=("Warning: Failed to restart audiobooks-api")
+        write_status "false" "complete" "Upgrade completed (API restart may require manual intervention)" "true" "null" "${OUTPUT_LINES[@]}"
+    fi
+}
+
+# =============================================================================
+# Main Entry Point
+# =============================================================================
+
+# Initialize status
+write_status "true" "starting" "Processing request..." "null" "null"
+
+# Check for request file
+if [[ ! -f "$REQUEST_FILE" ]]; then
+    write_status "false" "error" "No request found" "false" "null"
+    exit 1
+fi
+
+# Read and parse request
+REQUEST=$(cat "$REQUEST_FILE")
+REQUEST_TYPE=$(get_json_field "$REQUEST" "type")
+
+# Default type is "upgrade" for backwards compatibility
+[[ -z "$REQUEST_TYPE" ]] && REQUEST_TYPE="upgrade"
+
+case "$REQUEST_TYPE" in
+    upgrade)
+        SOURCE=$(get_json_field "$REQUEST" "source")
+        PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
+        [[ -z "$SOURCE" ]] && SOURCE="github"
+        do_upgrade "$SOURCE" "$PROJECT_PATH"
+        ;;
+
+    service_start)
+        SERVICE=$(get_json_field "$REQUEST" "service")
+        do_service_start "$SERVICE"
+        ;;
+
+    service_stop)
+        SERVICE=$(get_json_field "$REQUEST" "service")
+        do_service_stop "$SERVICE"
+        ;;
+
+    service_restart)
+        SERVICE=$(get_json_field "$REQUEST" "service")
+        do_service_restart "$SERVICE"
+        ;;
+
+    services_start_all)
+        do_services_start_all
+        ;;
+
+    services_stop_all)
+        INCLUDE_API=$(get_json_bool "$REQUEST" "include_api")
+        do_services_stop_all "$INCLUDE_API"
+        ;;
+
+    *)
+        write_status "false" "error" "Unknown request type: $REQUEST_TYPE" "false" "null"
+        exit 1
+        ;;
+esac
+
+exit 0

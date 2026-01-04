@@ -483,9 +483,31 @@ start_services() {
         return 0
     fi
 
+    # Update systemd service files from project (if system install)
+    if [[ -n "$use_sudo" ]] && [[ -d "/opt/audiobooks/systemd" ]]; then
+        echo -e "${BLUE}Updating systemd service files...${NC}"
+        for service_file in /opt/audiobooks/systemd/*.service /opt/audiobooks/systemd/*.path /opt/audiobooks/systemd/*.timer; do
+            if [[ -f "$service_file" ]]; then
+                local service_name=$(basename "$service_file")
+                sudo cp "$service_file" "/etc/systemd/system/${service_name}"
+                sudo chmod 644 "/etc/systemd/system/${service_name}"
+            fi
+        done
+
+        # Install/update tmpfiles.d configuration
+        if [[ -f "/opt/audiobooks/systemd/audiobooks-tmpfiles.conf" ]]; then
+            sudo cp "/opt/audiobooks/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/
+            sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks-tmpfiles.conf 2>/dev/null || true
+        fi
+    fi
+
     # Reload systemd to pick up any service file changes
     if [[ -n "$use_sudo" ]]; then
         sudo systemctl daemon-reload
+
+        # Enable the upgrade helper path unit (watches for upgrade requests)
+        sudo systemctl enable audiobooks-upgrade-helper.path 2>/dev/null || true
+        sudo systemctl start audiobooks-upgrade-helper.path 2>/dev/null || true
     else
         systemctl --user daemon-reload 2>/dev/null || true
     fi
