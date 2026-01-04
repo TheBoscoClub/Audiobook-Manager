@@ -642,6 +642,21 @@ The library exposes a REST API on port 5001:
 | `/api/utilities/export-json` | GET | Export as JSON |
 | `/api/utilities/export-csv` | GET | Export as CSV |
 
+#### Audible Sync (v3.6.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/utilities/check-audible-prereqs` | GET | Check for library_metadata.json |
+| `/api/utilities/sync-genres-async` | POST | Sync genres from Audible export |
+| `/api/utilities/sync-narrators-async` | POST | Update narrators from Audible |
+| `/api/utilities/populate-sort-fields-async` | POST | Generate author_sort/title_sort |
+| `/api/utilities/download-audiobooks-async` | POST | Download new audiobooks |
+| `/api/utilities/rebuild-queue-async` | POST | Rebuild conversion queue |
+| `/api/utilities/cleanup-indexes-async` | POST | Remove stale index entries |
+
+> **Note**: All sync endpoints accept `{"dry_run": true}` (default) for preview mode.
+> Set `{"dry_run": false}` to apply changes.
+
 ### Operation Status (Long-running tasks)
 
 | Endpoint | Method | Description |

@@ -8,10 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Audible Sync tab**: New Back Office section for syncing metadata from Audible library exports
+  - Sync Genres: Match audiobooks to Audible entries and populate genre fields
+  - Update Narrators: Fill in missing narrator information from Audible data
+  - Populate Sort Fields: Generate author_sort and title_sort for proper alphabetization
+  - Prerequisites check: Verifies library_metadata.json exists before operations
+- **Pipeline Operations**: Download Audiobooks, Rebuild Queue, Cleanup Indexes accessible from UI
+- **Tooltips**: Comprehensive tooltips on all buttons and action items for discoverability
+- **CSS modular architecture**: Separated utilities.css into 6 focused modules:
+  - `theme.css`: Art Deco color palette, typography, decorative elements
+  - `layout.css`: Grid systems, card layouts, responsive breakpoints
+  - `components.css`: Buttons, badges, status indicators, forms
+  - `tables.css`: Data tables, sortable columns, conversion lists
+  - `animations.css`: Transitions, loading states, lamp glow effects
+  - `utilities-main.css`: Integration layer with @import statements
+- **Check Audible Prerequisites endpoint**: `/api/utilities/check-audible-prereqs`
 
 ### Changed
+- **Art Deco theme**: Complete Back Office visual redesign with:
+  - Gold, cream, and warm brown color palette
+  - Stepped corners and sunburst patterns
+  - Enhanced banker's lamp SVG with glow effect
+  - Filing cabinet tab navigation with pigeon-hole metaphor
+- Updated Python script API endpoints to use `--execute` flag (dry-run is default)
+- Improved column balance with `align-items: stretch` for equal card heights
 
 ### Fixed
+- Removed duplicate API endpoint definitions causing Flask startup failures
+- Fixed bash `log()` functions to work with `set -e` (use if/then instead of &&)
+- Fixed genre sync, narrator sync, and sort field population API argument handling
 
 ## [3.5.0] - 2026-01-03
 
