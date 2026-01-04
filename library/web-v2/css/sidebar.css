@@ -188,6 +188,7 @@
     text-align: left;
     width: 100%;
     position: relative;
+    box-shadow: var(--shadow-elevation-1);
 }
 
 /* Art Deco stepped corner effect on hover */
@@ -209,6 +210,7 @@
     border-color: var(--gold);
     border-left-color: var(--gold);
     transform: translateX(4px);
+    box-shadow: var(--shadow-elevation-2);
 }
 
 .collection-btn:hover::before {
@@ -265,11 +267,14 @@
     cursor: pointer;
     font-size: 0.9rem;
     transition: all 0.2s;
+    box-shadow: var(--shadow-elevation-1);
 }
 
 .sidebar-toggle:hover {
     background: var(--gold);
     color: var(--deco-black);
+    box-shadow: var(--shadow-elevation-2);
+    transform: translateY(-1px);
 }
 
 .sidebar-toggle .toggle-icon {

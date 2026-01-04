@@ -14,11 +14,11 @@
    CSS Custom Properties (Variables)
    ============================================ */
 :root {
-    /* Art Deco Color Palette */
-    --deco-black: #0d0d0d;
-    --deco-charcoal: #1a1a1a;
-    --deco-slate: #2d2d2d;
-    --deco-gray: #4a4a4a;
+    /* Art Deco Color Palette - Tuned for depth */
+    --deco-black: #080808;
+    --deco-charcoal: #141414;
+    --deco-slate: #1e1e1e;
+    --deco-gray: #333333;
 
     /* Metallic Golds - Primary accent */
     --gold-bright: #FFD700;
@@ -48,6 +48,34 @@
     --leather: var(--deco-slate);
     --shadow: rgba(0, 0, 0, 0.4);
     --text-dark: #1a1410;
+
+    /* Elevation Shadow System - Creates visual depth */
+    /* Level 1: Subtle lift (buttons, inputs at rest) */
+    --shadow-elevation-1:
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        0 1px 2px rgba(0, 0, 0, 0.2);
+
+    /* Level 2: Moderate lift (cards, panels) */
+    --shadow-elevation-2:
+        0 4px 8px rgba(0, 0, 0, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.25);
+
+    /* Level 3: Prominent lift (hover states, featured elements) */
+    --shadow-elevation-3:
+        0 8px 16px rgba(0, 0, 0, 0.4),
+        0 4px 8px rgba(0, 0, 0, 0.3);
+
+    /* Level 4: High elevation (modals, dropdowns) */
+    --shadow-elevation-4:
+        0 16px 32px rgba(0, 0, 0, 0.45),
+        0 8px 16px rgba(0, 0, 0, 0.35);
+
+    /* Gold accent glow - Art Deco lamp effect */
+    --shadow-gold-glow: 0 0 20px rgba(218, 165, 32, 0.15);
+    --shadow-gold-glow-strong: 0 0 30px rgba(218, 165, 32, 0.25);
+
+    /* Inset shadow for depth on containers */
+    --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 
     /* Spacing and sizing */
     --border-radius: 4px;

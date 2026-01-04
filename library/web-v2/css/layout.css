@@ -7,14 +7,14 @@
    ============================================ */
 .library-header {
     background:
-        /* Sunburst rays */
+        /* Sunburst rays - darkened */
         repeating-conic-gradient(
             from 0deg at 50% 100%,
-            var(--gold-deep) 0deg 2deg,
+            #5a4210 0deg 2deg,
             transparent 2deg 10deg
         ),
-        /* Base gradient */
-        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+        /* Base gradient - darker for header */
+        linear-gradient(180deg, #121212 0%, #050505 100%);
     padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-lg);
     box-shadow:
         0 4px 20px var(--shadow),
@@ -64,12 +64,12 @@
 }
 
 .library-subtitle {
-    color: var(--cream);
+    color: var(--cream-light);
     font-style: normal;
     font-size: 1rem;
     letter-spacing: 3px;
     text-transform: uppercase;
-    opacity: 0.85;
+    opacity: 1;
 }
 
 /* ============================================
@@ -96,8 +96,8 @@
 .stat-label {
     display: block;
     font-size: 0.9rem;
-    color: var(--parchment);
-    opacity: 0.8;
+    color: var(--cream-light);
+    opacity: 1;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -120,12 +120,15 @@
     border: 2px solid var(--gold);
     font-size: 0.9rem;
     transition: all 0.3s;
+    box-shadow: var(--shadow-elevation-1);
 }
 
 .utilities-link:hover {
     background: var(--gold);
     color: var(--deco-black);
     border-color: var(--gold-bright);
+    box-shadow: var(--shadow-elevation-2);
+    transform: translateY(calc(-50% - 2px));
 }
 
 .utilities-icon {
