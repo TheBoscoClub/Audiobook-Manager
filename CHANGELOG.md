@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [3.6.1] - 2026-01-03
+
+### Added
 - **Privilege-separated helper service**: System operations (service control, upgrades) now work
   with the API's `NoNewPrivileges=yes` security hardening via a helper service pattern
   - `audiobooks-upgrade-helper.service`: Runs privileged operations as root
