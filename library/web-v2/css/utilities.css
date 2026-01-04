@@ -671,13 +671,18 @@ body.back-office {
 /* Office Inputs */
 .office-input, .office-select {
     padding: 0.6rem 1rem;
-    border: 2px solid var(--ledger-line);
+    border: 2px solid var(--brass-dark);
     border-radius: 4px;
-    background: #fff;
-    color: var(--ink);
+    background: var(--office-dark);
+    color: var(--ledger-cream);
     font-family: 'Georgia', serif;
     font-size: 0.95rem;
     transition: border-color 0.2s;
+}
+
+.office-select option {
+    background: var(--office-dark);
+    color: var(--ledger-cream);
 }
 
 .office-input:focus, .office-select:focus {
@@ -1176,13 +1181,15 @@ body.back-office {
 }
 
 .modal-content {
-    background: var(--ledger-cream);
+    background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
     border-radius: 8px;
+    border: 3px solid var(--gold);
     max-width: 500px;
     width: 90%;
     max-height: 80vh;
     overflow: hidden;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    color: var(--ledger-cream);
 }
 
 .modal-header {
@@ -1863,17 +1870,17 @@ body.back-office {
     flex-direction: column;
     gap: 0.25rem;
     padding: 0.5rem 0.75rem;
-    background: #f5f5f0;
+    background: var(--office-desk);
     border-radius: 4px;
     margin-bottom: 0.5rem;
     border-left: 3px solid var(--banker-green);
-    border: 1px solid #d0d0c8;
+    border: 1px solid var(--brass-dark);
 }
 
 .active-conversion-item .filename {
     font-family: 'Courier New', monospace;
     font-size: 0.85rem;
-    color: #1a1a1a;
+    color: var(--ledger-cream);
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -2207,11 +2214,11 @@ body.back-office {
 /* Project List Dropdown */
 .project-list {
     margin-top: 0.75rem;
-    border: 1px solid var(--ledger-line);
+    border: 2px solid var(--brass-dark);
     border-radius: 4px;
     max-height: 200px;
     overflow-y: auto;
-    background: white;
+    background: var(--office-dark);
 }
 
 .project-option {
