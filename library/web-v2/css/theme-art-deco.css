@@ -1,0 +1,216 @@
+/* ============================================
+   Art Deco Theme - Inspired by LA Central Library (1926)
+   Color Palette, Typography, and Patterns
+   ============================================ */
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ============================================
+   CSS Custom Properties (Variables)
+   ============================================ */
+:root {
+    /* Art Deco Color Palette */
+    --deco-black: #0d0d0d;
+    --deco-charcoal: #1a1a1a;
+    --deco-slate: #2d2d2d;
+    --deco-gray: #4a4a4a;
+
+    /* Metallic Golds - Primary accent */
+    --gold-bright: #FFD700;
+    --gold: #DAA520;
+    --gold-dark: #B8860B;
+    --gold-deep: #8b6914;
+    --brass: #CD853F;
+
+    /* Emerald/Teal - Secondary accent (library reading lamps) */
+    --emerald: #1a4a4a;
+    --emerald-light: #2d5a4e;
+    --emerald-glow: rgba(45, 90, 78, 0.4);
+
+    /* Cream/Ivory - Paper and text */
+    --cream: #F5DEB3;
+    --cream-light: #FFF8DC;
+    --parchment: #e8dcc8;
+
+    /* Accent colors */
+    --ruby: #8b2500;
+    --sapphire: #1a3a5a;
+
+    /* Legacy compatibility (for gradual migration) */
+    --wood-dark: var(--deco-charcoal);
+    --wood-medium: var(--deco-slate);
+    --wood-light: var(--deco-gray);
+    --leather: var(--deco-slate);
+    --shadow: rgba(0, 0, 0, 0.4);
+    --text-dark: #1a1410;
+
+    /* Spacing and sizing */
+    --border-radius: 4px;
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+
+    /* Typography */
+    --font-primary: 'Optima', 'Century Gothic', 'Segoe UI', sans-serif;
+    --font-serif: 'Georgia', 'Times New Roman', serif;
+    --font-mono: 'Consolas', 'Monaco', monospace;
+}
+
+/* ============================================
+   Base Typography
+   ============================================ */
+body {
+    font-family: var(--font-primary);
+    background: var(--deco-black);
+    color: var(--cream);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+/* ============================================
+   Art Deco Geometric Background Pattern
+   ============================================ */
+body {
+    background-image:
+        /* Diamond lattice pattern */
+        linear-gradient(135deg, var(--deco-charcoal) 25%, transparent 25%),
+        linear-gradient(225deg, var(--deco-charcoal) 25%, transparent 25%),
+        linear-gradient(45deg, var(--deco-charcoal) 25%, transparent 25%),
+        linear-gradient(315deg, var(--deco-charcoal) 25%, transparent 25%);
+    background-size: 60px 60px;
+    background-position: 0 0, 30px 0, 30px -30px, 0 30px;
+}
+
+/* ============================================
+   Art Deco Decorative Classes
+   ============================================ */
+
+/* Sunburst background effect */
+.deco-sunburst {
+    background:
+        repeating-conic-gradient(
+            from 0deg at 50% 100%,
+            var(--gold-deep) 0deg 2deg,
+            transparent 2deg 10deg
+        ),
+        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+}
+
+/* Chevron border pattern */
+.deco-chevron-border::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background:
+        linear-gradient(135deg, var(--gold) 25%, transparent 25%) -8px 0,
+        linear-gradient(225deg, var(--gold) 25%, transparent 25%) -8px 0,
+        linear-gradient(315deg, var(--gold) 25%, transparent 25%),
+        linear-gradient(45deg, var(--gold) 25%, transparent 25%);
+    background-size: 16px 8px;
+    background-color: var(--deco-charcoal);
+}
+
+/* Stepped corner clip-path (Art Deco geometric) */
+.deco-stepped-corners {
+    clip-path: polygon(
+        0 12px, 12px 12px, 12px 0,
+        calc(100% - 12px) 0, calc(100% - 12px) 12px, 100% 12px,
+        100% calc(100% - 12px), calc(100% - 12px) calc(100% - 12px), calc(100% - 12px) 100%,
+        12px 100%, 12px calc(100% - 12px), 0 calc(100% - 12px)
+    );
+}
+
+/* Gold gradient top bar */
+.deco-gold-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg,
+        var(--gold-dark) 0%,
+        var(--gold-bright) 50%,
+        var(--gold-dark) 100%
+    );
+}
+
+/* ============================================
+   Art Deco Typography Classes
+   ============================================ */
+.deco-title {
+    font-family: var(--font-primary);
+    color: var(--gold-bright);
+    text-shadow:
+        2px 2px 0 var(--gold-dark),
+        4px 4px 8px rgba(0, 0, 0, 0.5);
+    font-weight: 600;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+}
+
+.deco-subtitle {
+    color: var(--cream);
+    font-style: normal;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+.deco-heading {
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.text-gold { color: var(--gold); }
+.text-gold-bright { color: var(--gold-bright); }
+.text-cream { color: var(--cream); }
+.text-parchment { color: var(--parchment); }
+
+.bg-deco-black { background: var(--deco-black); }
+.bg-deco-charcoal { background: var(--deco-charcoal); }
+.bg-deco-slate { background: var(--deco-slate); }
+
+.border-gold { border-color: var(--gold); }
+.border-gold-bright { border-color: var(--gold-bright); }
+
+/* ============================================
+   Scrollbar Styling (Art Deco)
+   ============================================ */
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--deco-charcoal);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gold-dark);
+    border: 2px solid var(--deco-charcoal);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gold);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold-dark) var(--deco-charcoal);
+}

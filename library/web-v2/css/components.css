@@ -1,0 +1,605 @@
+/* ============================================
+   Components - Buttons, Forms, Badges, Dropdowns
+   ============================================ */
+
+/* ============================================
+   Buttons - Base Styles
+   ============================================ */
+.btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-family: var(--font-serif);
+    font-size: 0.9rem;
+    border: none;
+    transition: all 0.2s;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primary Button - Gold */
+.btn-primary {
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    color: var(--deco-black);
+    border: 2px solid var(--gold);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+/* Secondary Button */
+.btn-secondary {
+    background: var(--deco-slate);
+    color: var(--cream);
+    border: 2px solid var(--gold);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--deco-gray);
+    border-color: var(--gold-bright);
+}
+
+/* Danger Button */
+.btn-danger {
+    background: linear-gradient(180deg, #c0392b 0%, #962d22 100%);
+    color: white;
+    border: 2px solid #c0392b;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* Clear Button */
+.clear-btn {
+    padding: 0.8rem 1.5rem;
+    background: var(--deco-slate);
+    color: var(--cream);
+    border: 2px solid var(--gold);
+    cursor: pointer;
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    transition: all 0.3s;
+}
+
+.clear-btn:hover {
+    background: var(--gold);
+    color: var(--deco-black);
+}
+
+/* Refresh Button */
+.refresh-btn {
+    padding: 0.7rem 1.5rem;
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    color: var(--deco-black);
+    border: 2px solid var(--gold);
+    cursor: pointer;
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.refresh-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Pagination Button */
+.pagination-btn {
+    padding: 0.5rem 1rem;
+    background: var(--deco-slate);
+    color: var(--cream);
+    border: 2px solid var(--gold);
+    cursor: pointer;
+    font-family: var(--font-serif);
+    transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: var(--gold);
+    color: var(--deco-black);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pagination-btn.active {
+    background: var(--gold);
+    color: var(--deco-black);
+    font-weight: bold;
+}
+
+/* ============================================
+   Form Inputs
+   ============================================ */
+.search-input {
+    flex: 1;
+    padding: 0.8rem 1.2rem;
+    font-size: 1rem;
+    border: 2px solid var(--gold);
+    background: var(--parchment);
+    color: var(--text-dark);
+    font-family: var(--font-serif);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--gold-bright);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.filter-select {
+    padding: 0.7rem 1rem;
+    border: 2px solid var(--gold);
+    background: var(--parchment);
+    color: var(--text-dark);
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    cursor: pointer;
+    flex: 1;
+    min-width: 150px;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--gold-bright);
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+}
+
+/* ============================================
+   Autocomplete Components
+   ============================================ */
+.author-autocomplete,
+.narrator-autocomplete {
+    position: relative;
+    flex: 1;
+    min-width: 280px;
+}
+
+.author-controls,
+.narrator-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    align-items: center;
+}
+
+.letter-groups {
+    display: flex;
+    gap: 0.2rem;
+    flex-wrap: wrap;
+}
+
+.letter-group {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    background: var(--deco-slate);
+    color: var(--cream);
+    border: 1px solid var(--gold-dark);
+    cursor: pointer;
+    font-family: var(--font-serif);
+    transition: all 0.2s;
+}
+
+.letter-group:hover {
+    background: var(--gold-dark);
+    color: var(--deco-black);
+}
+
+.letter-group.active {
+    background: var(--gold);
+    border-color: var(--gold-bright);
+    color: var(--deco-black);
+    font-weight: bold;
+}
+
+.sort-toggle {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    background: var(--deco-slate);
+    color: var(--cream);
+    border: 1px solid var(--gold-dark);
+    cursor: pointer;
+    font-family: var(--font-serif);
+    font-weight: bold;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.sort-toggle:hover {
+    background: var(--deco-gray);
+}
+
+.author-search-row,
+.narrator-search-row {
+    position: relative;
+}
+
+.author-input,
+.narrator-input {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    padding-right: 2.5rem;
+    border: 2px solid var(--gold);
+    background: var(--parchment);
+    color: var(--text-dark);
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+}
+
+.author-input.has-value,
+.narrator-input.has-value {
+    background-color: var(--emerald-light);
+    border-color: var(--emerald);
+    color: var(--cream);
+}
+
+.author-clear,
+.narrator-clear {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--deco-gray);
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    display: none;
+    line-height: 1;
+}
+
+.author-autocomplete.has-value .author-clear,
+.narrator-autocomplete.has-value .narrator-clear {
+    display: block;
+}
+
+.author-clear:hover,
+.narrator-clear:hover {
+    color: #c00;
+}
+
+/* Dropdown Lists */
+.author-dropdown,
+.narrator-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--parchment);
+    border: 2px solid var(--gold);
+    border-top: none;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.author-dropdown.active,
+.narrator-dropdown.active {
+    display: block;
+}
+
+.author-option,
+.narrator-option {
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    color: var(--text-dark);
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.author-option:last-child,
+.narrator-option:last-child {
+    border-bottom: none;
+}
+
+.author-option:hover,
+.author-option.highlighted,
+.narrator-option:hover,
+.narrator-option.highlighted {
+    background: var(--gold);
+    color: var(--deco-black);
+}
+
+.author-option .count,
+.narrator-option .count {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+
+.author-option:hover .count,
+.author-option.highlighted .count,
+.narrator-option:hover .count,
+.narrator-option.highlighted .count {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.author-all-option,
+.narrator-all-option {
+    background: linear-gradient(180deg, rgba(218, 165, 32, 0.1) 0%, var(--parchment) 100%);
+    font-weight: bold;
+    border-bottom: 2px solid var(--gold);
+}
+
+.author-no-results,
+.narrator-no-results {
+    padding: 0.8rem 1rem;
+    color: var(--deco-gray);
+    font-size: 0.85rem;
+    font-style: italic;
+    text-align: center;
+}
+
+/* ============================================
+   Badges
+   ============================================ */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-keep {
+    background: #27ae60;
+    color: white;
+}
+
+.badge-duplicate {
+    background: #e74c3c;
+    color: white;
+}
+
+/* Supplement Badge */
+.supplement-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #c0392b;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    font-family: sans-serif;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: background 0.2s ease;
+}
+
+.supplement-badge:hover {
+    background: #e74c3c;
+}
+
+/* Continue Badge */
+.continue-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--deco-black);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    font-family: var(--font-serif);
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Editions Badge */
+.editions-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, #27ae60, #229954);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    font-family: var(--font-serif);
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.editions-badge:hover {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================
+   Dropdown Menu
+   ============================================ */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-btn {
+    padding: 0.7rem 1.5rem;
+    background: var(--deco-slate);
+    color: var(--cream);
+    border: 2px solid var(--gold);
+    cursor: pointer;
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    transition: all 0.3s;
+}
+
+.dropdown-btn:hover {
+    background: var(--gold);
+    color: var(--deco-black);
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--parchment);
+    min-width: 220px;
+    box-shadow: 0 8px 24px var(--shadow);
+    border: 2px solid var(--gold);
+    z-index: 100;
+    margin-top: 0.5rem;
+}
+
+.dropdown-content.show {
+    display: block;
+}
+
+.dropdown-header {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: var(--deco-gray);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-content a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: var(--text-dark);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.dropdown-content a:hover {
+    background: rgba(218, 165, 32, 0.2);
+}
+
+.dropdown-content a.danger {
+    color: #c0392b;
+}
+
+.dropdown-content a.danger:hover {
+    background: rgba(192, 57, 43, 0.1);
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 0.25rem 0;
+}
+
+/* ============================================
+   Progress Bar
+   ============================================ */
+.book-progress {
+    margin-top: 8px;
+    padding: 0 8px;
+}
+
+.progress-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: rgba(74, 74, 74, 0.4);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-dark));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.75rem;
+    color: var(--gold);
+    font-family: var(--font-serif);
+}
+
+/* CLI Command Display */
+.cli-command {
+    background: var(--deco-black);
+    color: var(--gold);
+    padding: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 1rem 0;
+    border: 1px solid var(--gold-dark);
+}
+
+/* ============================================
+   Loading Overlay
+   ============================================ */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(13, 13, 13, 0.95);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(218, 165, 32, 0.3);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-overlay p {
+    margin-top: 1rem;
+    color: var(--gold);
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+}
