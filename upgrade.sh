@@ -791,12 +791,23 @@ download_and_extract_release() {
         return 1
     fi
 
-    # Find the extracted directory
-    local extract_dir
-    extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "audiobook-manager-*" | head -1)
+    # Find the extracted directory (flexible pattern for self-healing upgrades)
+    # Try multiple patterns to handle naming changes without bootstrap problems
+    local extract_dir=""
+    for pattern in "audiobook-manager-*" "audiobooks-*" "Audiobook-Manager-*"; do
+        extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "$pattern" 2>/dev/null | head -1)
+        [[ -n "$extract_dir" ]] && break
+    done
+
+    # Fallback: find any directory that looks like a versioned release
+    if [[ -z "$extract_dir" ]]; then
+        extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "*-[0-9]*" ! -name "*.tar.gz" 2>/dev/null | head -1)
+    fi
 
     if [[ -z "$extract_dir" ]] || [[ ! -d "$extract_dir" ]]; then
         echo -e "${RED}Could not find extracted directory${NC}" >&2
+        echo "  Contents of temp dir:" >&2
+        ls -la "$temp_dir" >&2
         return 1
     fi
 
