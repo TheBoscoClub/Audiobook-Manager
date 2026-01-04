@@ -118,23 +118,27 @@
         <!-- Navigation Tabs (Filing Cabinet Style) -->
         <nav class="filing-cabinet">
             <div class="cabinet-tabs">
-                <button class="cabinet-tab active" data-section="database">
+                <button class="cabinet-tab active" data-section="database" title="Database statistics, maintenance, and backup operations">
                     <span class="tab-icon">&#128451;</span>
                     <span class="tab-label">Database</span>
                 </button>
-                <button class="cabinet-tab" data-section="conversion">
+                <button class="cabinet-tab" data-section="conversion" title="Monitor audiobook conversion progress from AAXC to Opus">
                     <span class="tab-icon">&#127925;</span>
                     <span class="tab-label">Conversion</span>
                 </button>
-                <button class="cabinet-tab" data-section="duplicates">
+                <button class="cabinet-tab" data-section="duplicates" title="Find and manage duplicate audiobooks">
                     <span class="tab-icon">&#128464;</span>
                     <span class="tab-label">Duplicates</span>
                 </button>
-                <button class="cabinet-tab" data-section="bulk">
+                <button class="cabinet-tab" data-section="audible" title="Sync metadata from Audible library exports">
+                    <span class="tab-icon">&#127911;</span>
+                    <span class="tab-label">Audible Sync</span>
+                </button>
+                <button class="cabinet-tab" data-section="bulk" title="Update or delete multiple audiobooks at once">
                     <span class="tab-icon">&#128230;</span>
                     <span class="tab-label">Bulk Ops</span>
                 </button>
-                <button class="cabinet-tab" data-section="system">
+                <button class="cabinet-tab" data-section="system" title="Manage services and application upgrades">
                     <span class="tab-icon">&#9881;</span>
                     <span class="tab-label">System</span>
                 </button>
@@ -191,7 +195,7 @@
                             </div>
                         </div>
                         <div class="card-footer">
-                            <button class="office-btn" id="refresh-stats">
+                            <button class="office-btn" id="refresh-stats" title="Reload library statistics from database">
                                 <span class="btn-icon">&#8635;</span> Refresh Stats
                             </button>
                         </div>
@@ -207,7 +211,7 @@
                                         <p>Quick add - only scans files not already in database</p>
                                         <span class="operation-badge">Recommended</span>
                                     </div>
-                                    <button class="office-btn primary" id="add-new-audiobooks">
+                                    <button class="office-btn primary" id="add-new-audiobooks" title="Fast incremental scan - finds new files without re-scanning existing ones">
                                         <span class="btn-icon">&#10133;</span> Add New
                                     </button>
                                 </div>
@@ -216,7 +220,7 @@
                                         <h4>Rescan Library</h4>
                                         <p>Full scan of audiobook directory (slow for large libraries)</p>
                                     </div>
-                                    <button class="office-btn" id="rescan-library">
+                                    <button class="office-btn" id="rescan-library" title="Complete directory scan - updates all audiobook metadata">
                                         <span class="btn-icon">&#128269;</span> Full Scan
                                     </button>
                                 </div>
@@ -225,7 +229,7 @@
                                         <h4>Reimport Database</h4>
                                         <p>Rebuild database from scan results (preserves metadata)</p>
                                     </div>
-                                    <button class="office-btn" id="reimport-db">
+                                    <button class="office-btn" id="reimport-db" title="Rebuild database from latest scan - use after manual file changes">
                                         <span class="btn-icon">&#128190;</span> Import
                                     </button>
                                 </div>
@@ -234,7 +238,7 @@
                                         <h4>Generate Hashes (SHA-256)</h4>
                                         <p>Full file hashes for Library - integrity verification</p>
                                     </div>
-                                    <button class="office-btn" id="generate-hashes">
+                                    <button class="office-btn" id="generate-hashes" title="Compute SHA-256 hashes for all library files">
                                         <span class="btn-icon">&#128274;</span> Generate
                                     </button>
                                 </div>
@@ -243,7 +247,7 @@
                                         <h4>Generate Checksums (MD5)</h4>
                                         <p>Quick checksums for Sources + Library - duplicate detection</p>
                                     </div>
-                                    <button class="office-btn" id="generate-checksums">
+                                    <button class="office-btn" id="generate-checksums" title="Compute MD5 checksums for source and library files">
                                         <span class="btn-icon">&#128203;</span> Generate
                                     </button>
                                 </div>
@@ -252,7 +256,7 @@
                                         <h4>Vacuum Database</h4>
                                         <p>Optimize database and reclaim unused space</p>
                                     </div>
-                                    <button class="office-btn" id="vacuum-db">
+                                    <button class="office-btn" id="vacuum-db" title="SQLite VACUUM - defragment and shrink database file">
                                         <span class="btn-icon">&#128295;</span> Vacuum
                                     </button>
                                 </div>
@@ -269,7 +273,7 @@
                                         <h4>Export Database</h4>
                                         <p>Download a backup of the SQLite database</p>
                                     </div>
-                                    <button class="office-btn" id="export-db">
+                                    <button class="office-btn" id="export-db" title="Download audiobooks.db SQLite file">
                                         <span class="btn-icon">&#128229;</span> Download
                                     </button>
                                 </div>
@@ -278,7 +282,7 @@
                                         <h4>Export to JSON</h4>
                                         <p>Export library metadata as JSON file</p>
                                     </div>
-                                    <button class="office-btn" id="export-json">
+                                    <button class="office-btn" id="export-json" title="Export all audiobook metadata as JSON">
                                         <span class="btn-icon">&#128196;</span> Export
                                     </button>
                                 </div>
@@ -287,7 +291,7 @@
                                         <h4>Export to CSV</h4>
                                         <p>Export library listing as spreadsheet</p>
                                     </div>
-                                    <button class="office-btn" id="export-csv">
+                                    <button class="office-btn" id="export-csv" title="Export library as CSV spreadsheet">
                                         <span class="btn-icon">&#128200;</span> Export
                                     </button>
                                 </div>
@@ -409,7 +413,7 @@
                         </div>
                         <div class="card-footer">
                             <span class="last-updated" id="conv-last-updated">Never updated</span>
-                            <button class="office-btn" id="conv-refresh">
+                            <button class="office-btn" id="conv-refresh" title="Refresh conversion progress and statistics">
                                 <span class="btn-icon">&#8635;</span> Refresh
                             </button>
                         </div>
@@ -522,7 +526,7 @@
                             </div>
                         </div>
                         <div class="card-footer">
-                            <button class="office-btn primary" id="find-duplicates">
+                            <button class="office-btn primary" id="find-duplicates" title="Scan library for duplicate audiobooks using selected method">
                                 <span class="btn-icon">&#128269;</span> Find Duplicates
                             </button>
                         </div>
@@ -539,11 +543,154 @@
                             </div>
                         </div>
                         <div class="card-footer" id="dup-actions" style="display: none;">
-                            <button class="office-btn secondary" id="select-all-dups">Select All Duplicates</button>
-                            <button class="office-btn secondary" id="deselect-all-dups">Deselect All</button>
-                            <button class="office-btn danger" id="delete-selected-dups" disabled>
+                            <button class="office-btn secondary" id="select-all-dups" title="Select all duplicate files (keeps one original per group)">Select All Duplicates</button>
+                            <button class="office-btn secondary" id="deselect-all-dups" title="Clear all selections">Deselect All</button>
+                            <button class="office-btn danger" id="delete-selected-dups" disabled title="Permanently delete selected duplicate files">
                                 <span class="btn-icon">&#128465;</span> Delete Selected (<span id="selected-count">0</span>)
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Audible Sync Section -->
+            <section class="drawer-content" id="audible-section">
+                <div class="section-header">
+                    <h2>Audible Sync</h2>
+                    <p class="section-desc">Sync metadata from your Audible library export</p>
+                </div>
+
+                <div class="card-catalog">
+                    <!-- Prerequisites Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Prerequisites</span>
+                            <span class="badge" id="audible-prereq-badge">Checking...</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="prereq-status" id="audible-prereq-status">
+                                <div class="prereq-item">
+                                    <span class="prereq-icon" id="metadata-json-icon">&#9898;</span>
+                                    <div class="prereq-info">
+                                        <h4>library_metadata.json</h4>
+                                        <p id="metadata-json-status">Checking for Audible library export file...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="prereq-help" id="audible-prereq-help" style="display: none;">
+                                <div class="help-notice">
+                                    <span class="notice-icon">&#128712;</span>
+                                    <div class="help-content">
+                                        <h4>How to export your Audible library:</h4>
+                                        <ol>
+                                            <li>Use the <code>audible</code> CLI tool: <code>audible library export --format json</code></li>
+                                            <li>Save the output as <code>library_metadata.json</code></li>
+                                            <li>Place it in your audiobooks data directory</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn" id="check-audible-prereqs" title="Check if Audible library export file exists">
+                                <span class="btn-icon">&#8635;</span> Check Prerequisites
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sync Operations Card -->
+                    <div class="catalog-card">
+                        <div class="card-header">Sync Operations</div>
+                        <div class="card-body">
+                            <div class="operation-list">
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Sync Genres</h4>
+                                        <p>Populate genre metadata from Audible library export</p>
+                                    </div>
+                                    <div class="operation-controls">
+                                        <label class="checkbox-option small" title="Preview changes without modifying database">
+                                            <input type="checkbox" id="sync-genres-dryrun" checked>
+                                            <span>Dry Run</span>
+                                        </label>
+                                        <button class="office-btn" id="sync-genres-btn" title="Sync genre metadata from Audible export">
+                                            <span class="btn-icon">&#127991;</span> Sync Genres
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Update Narrators</h4>
+                                        <p>Update narrator names from Audible metadata</p>
+                                    </div>
+                                    <div class="operation-controls">
+                                        <label class="checkbox-option small" title="Preview changes without modifying database">
+                                            <input type="checkbox" id="sync-narrators-dryrun" checked>
+                                            <span>Dry Run</span>
+                                        </label>
+                                        <button class="office-btn" id="sync-narrators-btn" title="Update narrator metadata from Audible export">
+                                            <span class="btn-icon">&#127908;</span> Update Narrators
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Populate Sort Fields</h4>
+                                        <p>Generate author_sort and title_sort fields for proper sorting</p>
+                                    </div>
+                                    <div class="operation-controls">
+                                        <label class="checkbox-option small" title="Preview changes without modifying database">
+                                            <input type="checkbox" id="populate-sort-dryrun" checked>
+                                            <span>Dry Run</span>
+                                        </label>
+                                        <button class="office-btn" id="populate-sort-btn" title="Generate sort fields for authors and titles">
+                                            <span class="btn-icon">&#128292;</span> Populate Sort
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pipeline Operations Card -->
+                    <div class="catalog-card">
+                        <div class="card-header">Pipeline Operations</div>
+                        <div class="card-body">
+                            <div class="operation-list">
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Download New Audiobooks</h4>
+                                        <p>Download new purchases from Audible to Sources folder</p>
+                                    </div>
+                                    <button class="office-btn primary" id="download-audiobooks-btn" title="Download new audiobooks from Audible account">
+                                        <span class="btn-icon">&#128229;</span> Start Download
+                                    </button>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Rebuild Conversion Queue</h4>
+                                        <p>Regenerate queue.txt with all unconverted source files</p>
+                                    </div>
+                                    <button class="office-btn" id="rebuild-queue-btn" title="Rebuild the conversion queue from scratch">
+                                        <span class="btn-icon">&#128259;</span> Rebuild Queue
+                                    </button>
+                                </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Cleanup Stale Indexes</h4>
+                                        <p>Remove index entries for files that no longer exist</p>
+                                    </div>
+                                    <div class="operation-controls">
+                                        <label class="checkbox-option small" title="Preview changes without deleting index entries">
+                                            <input type="checkbox" id="cleanup-indexes-dryrun" checked>
+                                            <span>Dry Run</span>
+                                        </label>
+                                        <button class="office-btn" id="cleanup-indexes-btn" title="Clean up stale index entries">
+                                            <span class="btn-icon">&#128465;</span> Cleanup
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -597,7 +744,7 @@
                                     <label>Value:</label>
                                     <input type="text" id="bulk-filter-value" class="office-input" placeholder="Enter author, narrator, or series name...">
                                 </div>
-                                <button class="office-btn primary" id="bulk-load">
+                                <button class="office-btn primary" id="bulk-load" title="Load audiobooks matching the selected filter">
                                     <span class="btn-icon">&#128269;</span> Load Audiobooks
                                 </button>
                             </div>
@@ -638,14 +785,14 @@
                                         </ul>
                                     </div>
                                     <div class="action-controls">
-                                        <select id="bulk-update-field" class="office-select">
+                                        <select id="bulk-update-field" class="office-select" title="Choose which metadata field to update">
                                             <option value="">Select field to update...</option>
                                             <option value="narrator">Narrator</option>
                                             <option value="series">Series</option>
                                             <option value="publisher">Publisher</option>
                                         </select>
-                                        <input type="text" id="bulk-update-value" class="office-input" placeholder="New value...">
-                                        <button class="office-btn" id="bulk-update-btn">Apply to Selected</button>
+                                        <input type="text" id="bulk-update-value" class="office-input" placeholder="New value..." title="Enter the new value to apply to all selected audiobooks">
+                                        <button class="office-btn" id="bulk-update-btn" title="Apply the new value to all selected audiobooks">Apply to Selected</button>
                                     </div>
                                 </div>
                                 <div class="bulk-action-item danger-zone">
@@ -653,7 +800,7 @@
                                         <h4>&#128465; Delete Selected Audiobooks</h4>
                                         <p>Permanently remove selected audiobooks from the database and filesystem. This action <strong>cannot be undone</strong>.</p>
                                     </div>
-                                    <button class="office-btn danger" id="bulk-delete-btn">
+                                    <button class="office-btn danger" id="bulk-delete-btn" title="DANGER: Permanently delete selected audiobooks from database and disk">
                                         <span class="btn-icon">&#128465;</span> Delete Selected
                                     </button>
                                 </div>
@@ -684,7 +831,7 @@
                             </div>
                         </div>
                         <div class="card-footer services-actions">
-                            <button class="office-btn" id="refresh-services">
+                            <button class="office-btn" id="refresh-services" title="Reload service status from systemd">
                                 <span class="btn-icon">&#8635;</span> Refresh
                             </button>
                             <button class="office-btn success" id="start-all-services" title="Start all audiobook services (API, proxy, converter, mover, scanner)">
@@ -759,7 +906,7 @@
                             </div>
                         </div>
                         <div class="card-footer">
-                            <button class="office-btn primary" id="start-upgrade">
+                            <button class="office-btn primary" id="start-upgrade" title="Begin upgrade process - services will restart automatically">
                                 <span class="btn-icon">&#8593;</span> Start Upgrade
                             </button>
                         </div>
@@ -777,13 +924,13 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="confirm-title">Confirm Action</h2>
-                <button class="modal-close" id="modal-close">&times;</button>
+                <button class="modal-close" id="modal-close" title="Close dialog">&times;</button>
             </div>
             <div class="modal-body" id="confirm-body">
             </div>
             <div class="modal-footer">
-                <button class="office-btn secondary" id="confirm-cancel">Cancel</button>
-                <button class="office-btn danger" id="confirm-action">Confirm</button>
+                <button class="office-btn secondary" id="confirm-cancel" title="Cancel and return">Cancel</button>
+                <button class="office-btn danger" id="confirm-action" title="Proceed with action">Confirm</button>
             </div>
         </div>
     </div>
@@ -812,7 +959,7 @@
             </div>
             <div class="modal-footer progress-footer">
                 <span id="modal-operation-id" class="operation-id"></span>
-                <button class="office-btn secondary" id="modal-close-progress" style="display: none;">Close</button>
+                <button class="office-btn secondary" id="modal-close-progress" style="display: none;" title="Close progress dialog">Close</button>
             </div>
         </div>
     </div>

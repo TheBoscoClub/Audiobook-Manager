@@ -497,6 +497,99 @@ body.back-office {
     font-size: 0.85rem;
 }
 
+/* Operation controls - inline dry run + button */
+.operation-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.operation-controls .checkbox-option.small {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   Prerequisites Status - Audible Sync
+   ============================================ */
+.prereq-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.prereq-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--filing-label);
+    border: 1px solid var(--ledger-line);
+}
+
+.prereq-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.prereq-icon.success { color: #27ae60; }
+.prereq-icon.error { color: #e74c3c; }
+.prereq-icon.warning { color: #f39c12; }
+
+.prereq-info h4 {
+    color: var(--ink);
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+}
+
+.prereq-info p {
+    color: var(--ink-faded);
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.prereq-help {
+    margin-top: 1rem;
+}
+
+.help-notice {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(243, 156, 18, 0.1);
+    border: 2px solid var(--gold-dark);
+    border-left: 4px solid var(--gold);
+}
+
+.help-notice .notice-icon {
+    font-size: 1.5rem;
+    color: var(--gold);
+}
+
+.help-content h4 {
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+}
+
+.help-content ol {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: var(--ink-faded);
+}
+
+.help-content ol li {
+    margin-bottom: 0.25rem;
+}
+
+.help-content code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.1rem 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+
 /* ============================================
    Office Buttons - Art Deco Style
    ============================================ */

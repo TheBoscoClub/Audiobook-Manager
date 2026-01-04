@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initConversionSection();
     initAudiobooksSection();
     initDuplicatesSection();
+    initAudibleSection();
     initBulkSection();
     initSystemSection();
     initModals();
@@ -1667,6 +1668,259 @@ async function loadConversionStatus() {
 
     } catch (error) {
         console.error('Failed to load conversion status:', error);
+    }
+}
+
+// ============================================
+// Audible Sync Section
+// ============================================
+
+function initAudibleSection() {
+    // Prerequisites check
+    document.getElementById('check-audible-prereqs')?.addEventListener('click', checkAudiblePrereqs);
+
+    // Sync operations
+    document.getElementById('sync-genres-btn')?.addEventListener('click', syncGenresAsync);
+    document.getElementById('sync-narrators-btn')?.addEventListener('click', syncNarratorsAsync);
+    document.getElementById('populate-sort-btn')?.addEventListener('click', populateSortFieldsAsync);
+
+    // Pipeline operations
+    document.getElementById('download-audiobooks-btn')?.addEventListener('click', downloadAudiobooksAsync);
+    document.getElementById('rebuild-queue-btn')?.addEventListener('click', rebuildQueueAsync);
+    document.getElementById('cleanup-indexes-btn')?.addEventListener('click', cleanupIndexesAsync);
+
+    // Check prerequisites when Audible tab is shown
+    document.querySelector('.cabinet-tab[data-section="audible"]')?.addEventListener('click', () => {
+        checkAudiblePrereqs();
+    });
+}
+
+async function checkAudiblePrereqs() {
+    const badge = document.getElementById('audible-prereq-badge');
+    const icon = document.getElementById('metadata-json-icon');
+    const status = document.getElementById('metadata-json-status');
+    const help = document.getElementById('audible-prereq-help');
+
+    if (badge) badge.textContent = 'Checking...';
+    if (icon) {
+        icon.textContent = '⏳';
+        icon.className = 'prereq-icon';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/check-audible-prereqs`);
+        const result = await res.json();
+
+        if (result.library_metadata_exists) {
+            if (badge) badge.textContent = 'Ready';
+            if (icon) {
+                icon.textContent = '✓';
+                icon.className = 'prereq-icon success';
+            }
+            if (status) status.textContent = `Found: ${result.library_metadata_path}`;
+            if (help) help.style.display = 'none';
+        } else {
+            if (badge) badge.textContent = 'Missing File';
+            if (icon) {
+                icon.textContent = '✗';
+                icon.className = 'prereq-icon error';
+            }
+            if (status) status.textContent = 'library_metadata.json not found';
+            if (help) help.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Failed to check prerequisites:', error);
+        if (badge) badge.textContent = 'Error';
+        if (icon) {
+            icon.textContent = '⚠';
+            icon.className = 'prereq-icon warning';
+        }
+        if (status) status.textContent = 'Failed to check prerequisites';
+    }
+}
+
+async function syncGenresAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    const dryRun = document.getElementById('sync-genres-dryrun')?.checked ?? true;
+
+    showProgressModal('Syncing Genres', dryRun ? 'Running in dry-run mode...' : 'Updating genre metadata...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/sync-genres-async`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dry_run: dryRun })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Genre sync' + (dryRun ? ' (dry run)' : ''), progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start genre sync', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start genre sync: ' + error.message, 'error');
+    }
+}
+
+async function syncNarratorsAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    const dryRun = document.getElementById('sync-narrators-dryrun')?.checked ?? true;
+
+    showProgressModal('Updating Narrators', dryRun ? 'Running in dry-run mode...' : 'Updating narrator metadata...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/sync-narrators-async`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dry_run: dryRun })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Narrator sync' + (dryRun ? ' (dry run)' : ''), progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start narrator sync', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start narrator sync: ' + error.message, 'error');
+    }
+}
+
+async function populateSortFieldsAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    const dryRun = document.getElementById('populate-sort-dryrun')?.checked ?? true;
+
+    showProgressModal('Populating Sort Fields', dryRun ? 'Running in dry-run mode...' : 'Generating sort fields...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/populate-sort-fields-async`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dry_run: dryRun })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Sort field population' + (dryRun ? ' (dry run)' : ''), progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start sort field population', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start sort field population: ' + error.message, 'error');
+    }
+}
+
+async function downloadAudiobooksAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    if (!await confirmAction('Download New Audiobooks',
+        'This will download new audiobooks from your Audible account to the Sources folder.\n\nMake sure the audible CLI is configured. Continue?')) {
+        return;
+    }
+
+    showProgressModal('Downloading Audiobooks', 'Connecting to Audible...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/download-audiobooks-async`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Audiobook download', progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start download', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start download: ' + error.message, 'error');
+    }
+}
+
+async function rebuildQueueAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    showProgressModal('Rebuilding Queue', 'Scanning for unconverted files...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/rebuild-queue-async`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Queue rebuild', progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start queue rebuild', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start queue rebuild: ' + error.message, 'error');
+    }
+}
+
+async function cleanupIndexesAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    const dryRun = document.getElementById('cleanup-indexes-dryrun')?.checked ?? true;
+
+    showProgressModal('Cleaning Up Indexes', dryRun ? 'Running in dry-run mode...' : 'Removing stale entries...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/cleanup-indexes-async`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dry_run: dryRun })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'Index cleanup' + (dryRun ? ' (dry run)' : ''), progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start index cleanup', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start index cleanup: ' + error.message, 'error');
     }
 }
 
