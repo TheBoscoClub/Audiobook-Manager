@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.6.3] - 2026-01-03
+
+### Fixed
+- **upgrade.sh**: Fixed GitHub release extraction failing with "Could not find extracted directory"
+  - Changed glob pattern from `audiobooks-*` to `audiobook-manager-*` to match actual tarball structure
+- **upgrade.sh**: Fixed project upgrade (`--from-project`) failing with exit code 1 when no upgrade needed
+  - Now exits cleanly with code 0 when versions are identical (matches GitHub mode behavior)
+  - Fixes web UI upgrade from project showing "Upgrade failed" when already up to date
+
 ## [3.6.2] - 2026-01-03
 
 ### Changed

@@ -793,7 +793,7 @@ download_and_extract_release() {
 
     # Find the extracted directory
     local extract_dir
-    extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "audiobooks-*" | head -1)
+    extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "audiobook-manager-*" | head -1)
 
     if [[ -z "$extract_dir" ]] || [[ ! -d "$extract_dir" ]]; then
         echo -e "${RED}Could not find extracted directory${NC}" >&2
@@ -1052,9 +1052,8 @@ echo ""
 
 # Check for updates
 if ! check_for_updates "$PROJECT_DIR" "$TARGET_DIR"; then
-    if [[ "$CHECK_ONLY" == "true" ]]; then
-        exit 0
-    fi
+    # No upgrade needed - exit cleanly (matches GitHub mode behavior)
+    exit 0
 fi
 
 if [[ "$CHECK_ONLY" == "true" ]]; then
