@@ -19,10 +19,11 @@ from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
 from scanner.metadata_utils import (
     get_file_metadata as _get_file_metadata,
     extract_cover_art,
+    enrich_metadata,
+    # Re-export for backwards compatibility with tests
     categorize_genre,
     determine_literary_era,
     extract_topics,
-    enrich_metadata,
 )
 
 # Configuration

@@ -77,3 +77,4 @@ library/scripts/nohup.out
 
 # Database snapshots
 .snapshots/
+.claudeignore

@@ -955,7 +955,21 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.5.0 (Current)
+### v3.6.1 (Current)
+- **Security**: Privilege-separated helper service for system operations
+  - API now runs with `NoNewPrivileges=yes` security hardening
+  - Service control and upgrades work via file-based IPC with helper service
+- **Fixes**: Service control from web UI, upgrade from web UI, race conditions
+
+### v3.6.0
+- **System Administration API**: New `/api/system/*` endpoints for service control and upgrades
+- **Web UI**: Back Office can now start/stop/restart services and trigger upgrades
+- **Helper Service**: `audiobooks-upgrade-helper.service` runs privileged operations
+
+### v3.5.1
+- **Backport**: Privilege-separated helper service from v3.6.1
+
+### v3.5.0
 - **Checksum Tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations for fast duplicate detection
 - **Generate Checksums**: New Utilities button to regenerate all checksums for Sources (.aaxc) and Library (.opus) files
 - **Index Cleanup**: `cleanup-stale-indexes` script removes entries for deleted files from all indexes; automatic cleanup on file deletion

@@ -354,14 +354,28 @@ def init_system_routes(project_root):
     @utilities_system_bp.route("/api/system/projects", methods=["GET"])
     def list_projects() -> FlaskResponse:
         """List available project directories for upgrade source."""
-        projects_base = "/raid0/ClaudeCodeProjects"
+        # Check common development project locations
+        search_paths = [
+            os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
+            os.path.expanduser("~/ClaudeCodeProjects"),
+            "/raid0/ClaudeCodeProjects",
+            os.path.expanduser("~/projects"),
+            "/opt/projects",
+        ]
         projects = []
+        seen_paths = set()
 
-        try:
-            if os.path.isdir(projects_base):
+        for projects_base in search_paths:
+            if not projects_base or not os.path.isdir(projects_base):
+                continue
+
+            try:
                 for name in sorted(os.listdir(projects_base)):
                     project_path = os.path.join(projects_base, name)
+                    if project_path in seen_paths:
+                        continue
                     if os.path.isdir(project_path) and name.startswith("Audiobook"):
+                        seen_paths.add(project_path)
                         version_file = os.path.join(project_path, "VERSION")
                         version = None
                         if os.path.exists(version_file):
@@ -375,8 +389,8 @@ def init_system_routes(project_root):
                             "path": project_path,
                             "version": version,
                         })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            except Exception:
+                continue  # Skip inaccessible directories
 
         return jsonify({"projects": projects})
 
