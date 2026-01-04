@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.6.4] - 2026-01-04
+
+### Fixed
+- **upgrade.sh**: Self-healing tarball extraction with flexible pattern matching
+  - Now tries multiple directory patterns (`audiobook-manager-*`, `audiobooks-*`, `Audiobook-Manager-*`)
+  - Fallback pattern for any versioned directory (`*-[0-9]*`)
+  - Added debug output showing temp dir contents on extraction failure
+  - Prevents bootstrap problems where old upgrade scripts can't upgrade themselves
+
 ## [3.6.3] - 2026-01-03
 
 ### Fixed
