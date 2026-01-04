@@ -53,7 +53,9 @@ done
 mkdir -p "$INDEX_DIR"
 
 log() {
-    $VERBOSE && echo "[$(date '+%H:%M:%S')] $1" >&2
+    if $VERBOSE; then
+        echo "[$(date '+%H:%M:%S')] $1" >&2
+    fi
 }
 
 # Normalize a title for comparison
