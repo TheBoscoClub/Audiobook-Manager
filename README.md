@@ -666,6 +666,25 @@ The library exposes a REST API on port 5001:
 | `/api/operations/all` | GET | List all operations |
 | `/api/operations/cancel/<id>` | POST | Cancel running operation |
 
+### System Administration (v3.6.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/system/version` | GET | Get installed version |
+| `/api/system/services` | GET | Get status of all services |
+| `/api/system/services/<name>/start` | POST | Start a service |
+| `/api/system/services/<name>/stop` | POST | Stop a service |
+| `/api/system/services/<name>/restart` | POST | Restart a service |
+| `/api/system/services/start-all` | POST | Start all services |
+| `/api/system/services/stop-all` | POST | Stop processing services |
+| `/api/system/upgrade` | POST | Start upgrade (async) |
+| `/api/system/upgrade/status` | GET | Get upgrade progress |
+| `/api/system/projects` | GET | List available project dirs |
+
+> **Note**: Service control and upgrades use a privilege-separated helper service
+> pattern. The API writes requests to `/var/lib/audiobooks/.control/` which triggers
+> a root-privileged helper via systemd path unit.
+
 ### Query Parameters for `/api/audiobooks`
 - `page` - Page number (default: 1)
 - `per_page` - Items per page (default: 50, max: 200)

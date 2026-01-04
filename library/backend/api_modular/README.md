@@ -76,8 +76,11 @@ The utilities module is split into focused sub-modules for maintainability:
 - **`utilities_ops.py`**: Async operations with progress tracking (scan, hashes, checksums)
 - **`utilities_conversion.py`**: Conversion monitoring (queue status, active jobs, ETA)
 - **`utilities_system.py`**: System administration (services, upgrades, version info)
+  - Uses privilege-separated helper pattern for operations requiring root
+  - Communicates via `/var/lib/audiobooks/.control/` files
+  - Supports: service start/stop/restart, upgrades from GitHub or project
 
-Routes: `/api/utilities/*`, `/api/conversion/*`, bulk operations
+Routes: `/api/utilities/*`, `/api/conversion/*`, `/api/system/*`
 
 ## Comparison: Monolithic vs Modular
 
