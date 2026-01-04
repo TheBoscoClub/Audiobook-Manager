@@ -13,22 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [3.4.3] - 2026-01-03
+## [3.5.0] - 2026-01-03
 
 ### Added
 - **Checksum tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations
 - **Generate Checksums button**: New Utilities maintenance feature for Sources AND Library with hover tooltips
 - **Index cleanup script**: `cleanup-stale-indexes` removes entries for deleted files from all indexes
 - Automatic index cleanup: Deleted files are removed from checksum indexes via delete operations
+- Real-time index updates after each conversion completes
+- Prominent remaining summary box in Conversion Monitor
+- Inline database import in Back Office UI
 
 ### Changed
 - **Bulk Operations redesign**: Clear step-by-step workflow with explanatory intro, descriptive filter options, and use-case examples
+- **Conversion queue**: Hybrid ASIN + title matching for accurate queue building
 - Removed redundant "Audiobooks" tab from Back Office (audiobook search available on main library page)
 - Updated "Generate Hashes" button tooltip to clarify it regenerates ALL hashes
 - Download and mover services now append checksums to index files in real-time
+- Mover timing optimization: reduced file age check from 5min to 1min, polling from 5min to 30sec
 
 ### Fixed
 - Fixed chapters.json ASIN extraction in cleanup script (ASINs are in JSON content, not filename)
+- Queue builder robustness: title normalization, subshell issues, edition handling
+- Version display fixes in Back Office header
 
 ## [3.4.2] - 2026-01-02
 
