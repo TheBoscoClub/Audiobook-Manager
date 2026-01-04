@@ -469,6 +469,8 @@ After system installation, files are organized as follows:
 │   ├── convert-audiobooks-opus-parallel
 │   ├── download-new-audiobooks
 │   ├── move-staged-audiobooks
+│   ├── cleanup-stale-indexes       # Remove deleted files from indexes
+│   ├── build-conversion-queue      # Build/rebuild conversion queue
 │   ├── upgrade.sh
 │   └── ...
 ├── library/                        # Python application
@@ -491,6 +493,13 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 ├── Sources/                        # Original AAXC files (AUDIOBOOKS_SOURCES)
 ├── Supplements/                    # PDF supplements
 ├── .covers/                        # Cover art cache (AUDIOBOOKS_COVERS)
+├── .index/                         # Index files for tracking
+│   ├── source_checksums.idx        # MD5 checksums of source files
+│   ├── library_checksums.idx       # MD5 checksums of library files
+│   ├── source_asins.idx            # ASIN tracking for sources
+│   ├── converted.idx               # Converted title tracking
+│   ├── converted_asins.idx         # Converted ASIN tracking
+│   └── queue.txt                   # Conversion queue
 └── logs/                           # Application logs
 
 /var/lib/audiobooks/                # Database (on fast storage)
@@ -542,9 +551,11 @@ Browse your library by curated categories:
 | Edition | Sort by edition type |
 
 ### Duplicate Detection
-Two modes available via "Find Duplicates" dropdown:
-1. **Same Title/Author/Narrator**: Finds books with matching metadata (different files)
-2. **Exact Match (SHA-256)**: Finds byte-identical files using cryptographic hashes
+Four detection methods available in the Back Office Duplicates tab:
+1. **By Title/Author/Narrator**: Finds books with matching metadata (may be different files)
+2. **By SHA-256 Hash**: Finds byte-identical Library files using cryptographic hashes (from database)
+3. **Source File Checksums**: Fast MD5 partial checksums to find duplicate .aaxc files in Sources folder
+4. **Library File Checksums**: Fast MD5 partial checksums to find duplicate .opus files in Library folder
 
 ### Audio Player
 - Play/pause with progress bar
@@ -613,6 +624,7 @@ The library exposes a REST API on port 5001:
 | `/api/utilities/reimport-async` | POST | Async reimport metadata |
 | `/api/utilities/generate-hashes` | POST | Generate SHA-256 hashes |
 | `/api/utilities/generate-hashes-async` | POST | Async hash generation |
+| `/api/utilities/generate-checksums-async` | POST | Async MD5 checksum generation (Sources + Library) |
 | `/api/utilities/vacuum` | POST | Vacuum database |
 | `/api/utilities/export-db` | GET | Export SQLite database |
 | `/api/utilities/export-json` | GET | Export as JSON |
@@ -897,7 +909,16 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.4.2 (Current)
+### v3.5.0 (Current)
+- **Checksum Tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations for fast duplicate detection
+- **Generate Checksums**: New Utilities button to regenerate all checksums for Sources (.aaxc) and Library (.opus) files
+- **Index Cleanup**: `cleanup-stale-indexes` script removes entries for deleted files from all indexes; automatic cleanup on file deletion
+- **Bulk Operations Redesign**: Clear step-by-step workflow (Filter → Select → Act) with explanatory intro, descriptive filter options, and use-case examples
+- **Conversion Queue**: Hybrid ASIN + title matching for accurate queue building, real-time index updates after each conversion
+- **UI Streamlining**: Removed redundant Audiobooks tab from Back Office (search available on main page)
+- **Fixes**: Queue builder robustness, mover timing optimization, version display
+
+### v3.4.2
 - **Refactoring**: Split utilities.py (1067 lines) into 4 focused sub-modules with reduced complexity
 - **Scanner**: New shared `metadata_utils.py` module, complexity D(24) → A(3)
 - **Quality**: Average cyclomatic complexity reduced from D to A (3.7)

@@ -6,16 +6,21 @@ This package provides a **modular Flask Blueprint-based architecture** for the A
 
 ```
 api_modular/
-├── __init__.py       # Package initialization, app factory, exports
-├── core.py           # Database connections, CORS, shared utilities
-├── collections.py    # Genre collections and collection routes
-├── editions.py       # Edition detection (Dramatized, Full Cast, etc.)
-├── audiobooks.py     # Main listing, filtering, streaming endpoints
-├── duplicates.py     # Duplicate detection and management
-├── supplements.py    # Companion file (PDF, images) management
-├── utilities.py      # Admin operations (bulk update, export, rescan)
-├── README.md         # This file
-└── MIGRATION.md      # Detailed migration guide
+├── __init__.py             # Package initialization, app factory, exports
+├── core.py                 # Database connections, CORS, shared utilities
+├── collections.py          # Genre collections and collection routes
+├── editions.py             # Edition detection (Dramatized, Full Cast, etc.)
+├── audiobooks.py           # Main listing, filtering, streaming endpoints
+├── duplicates.py           # Duplicate detection and management (with index cleanup)
+├── supplements.py          # Companion file (PDF, images) management
+├── utilities.py            # Blueprint aggregator for utilities modules
+├── utilities_crud.py       # CRUD operations for audiobooks
+├── utilities_db.py         # Database maintenance (vacuum, reimport, export)
+├── utilities_ops.py        # Async operations with progress (scan, hashes, checksums)
+├── utilities_conversion.py # Conversion monitoring with stats
+├── utilities_system.py     # System administration (services, upgrades)
+├── README.md               # This file
+└── MIGRATION.md            # Detailed migration guide
 ```
 
 ## Module Responsibilities
@@ -56,11 +61,17 @@ api_modular/
 - File download endpoints
 - Routes: `/api/supplements`, `/api/audiobooks/<id>/supplements`
 
-### `utilities.py` - Admin Operations
-- Single and bulk audiobook updates
-- Database maintenance (vacuum, rescan, reimport)
-- Export functions (JSON, CSV, SQL dump)
-- Routes: `/api/utilities/*`, bulk operations
+### `utilities*.py` - Admin Operations (Modular)
+The utilities module is split into focused sub-modules for maintainability:
+
+- **`utilities.py`**: Blueprint aggregator that registers all utility routes
+- **`utilities_crud.py`**: Single audiobook CRUD (get, update, delete)
+- **`utilities_db.py`**: Database maintenance (vacuum, reimport, export JSON/CSV/DB)
+- **`utilities_ops.py`**: Async operations with progress tracking (scan, hashes, checksums)
+- **`utilities_conversion.py`**: Conversion monitoring (queue status, active jobs, ETA)
+- **`utilities_system.py`**: System administration (services, upgrades, version info)
+
+Routes: `/api/utilities/*`, `/api/conversion/*`, bulk operations
 
 ## Comparison: Monolithic vs Modular
 
@@ -215,12 +226,17 @@ Consider the modular approach when:
 | File | Lines | Primary Responsibility |
 |------|-------|----------------------|
 | `core.py` | ~50 | Database, CORS |
-| `collections.py` | ~180 | Genre collections |
+| `collections.py` | ~230 | Genre collections |
 | `editions.py` | ~145 | Edition detection |
-| `audiobooks.py` | ~350 | Core listing/streaming |
-| `duplicates.py` | ~380 | Duplicate detection |
+| `audiobooks.py` | ~470 | Core listing/streaming |
+| `duplicates.py` | ~750 | Duplicate detection, index cleanup |
 | `supplements.py` | ~190 | Companion files |
-| `utilities.py` | ~450 | Admin operations |
+| `utilities.py` | ~60 | Blueprint aggregator |
+| `utilities_crud.py` | ~260 | Audiobook CRUD |
+| `utilities_db.py` | ~290 | Database maintenance |
+| `utilities_ops.py` | ~470 | Async operations, checksums |
+| `utilities_conversion.py` | ~300 | Conversion monitoring |
+| `utilities_system.py` | ~430 | System administration |
 | `__init__.py` | ~200 | Package init/exports |
 
 ## Switching Architectures
