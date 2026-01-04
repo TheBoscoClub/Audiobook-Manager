@@ -1,0 +1,300 @@
+/* ============================================
+   Collections Sidebar - Art Deco Pigeon Hole Design
+   Inspired by post office sorting cabinets
+   ============================================ */
+
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 998;
+}
+
+.sidebar-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.collections-sidebar {
+    position: fixed;
+    top: 0;
+    left: -340px;
+    width: 320px;
+    height: 100vh;
+    background:
+        /* Wood grain texture overlay */
+        repeating-linear-gradient(
+            90deg,
+            transparent 0px,
+            rgba(139, 101, 20, 0.03) 1px,
+            transparent 2px,
+            transparent 8px
+        ),
+        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-black) 100%);
+    border-right: 4px solid var(--gold);
+    box-shadow:
+        6px 0 30px var(--shadow),
+        inset -2px 0 0 var(--gold-dark);
+    z-index: 999;
+    transition: left 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.collections-sidebar.open {
+    left: 0;
+}
+
+/* Art Deco header with sunburst */
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 3px solid var(--gold);
+    background:
+        repeating-conic-gradient(
+            from 0deg at 50% 200%,
+            var(--gold-deep) 0deg 1deg,
+            transparent 1deg 8deg
+        ),
+        linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 100%);
+    position: relative;
+}
+
+/* Chevron trim under header */
+.sidebar-header::after {
+    content: '';
+    position: absolute;
+    bottom: -11px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background:
+        linear-gradient(135deg, var(--gold) 25%, transparent 25%) -4px 0,
+        linear-gradient(225deg, var(--gold) 25%, transparent 25%) -4px 0,
+        linear-gradient(315deg, var(--gold) 25%, transparent 25%),
+        linear-gradient(45deg, var(--gold) 25%, transparent 25%);
+    background-size: 8px 8px;
+    background-color: var(--deco-charcoal);
+    z-index: 1;
+}
+
+.sidebar-header h2 {
+    color: var(--gold-bright);
+    font-size: 1.1rem;
+    margin: 0;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-close {
+    background: none;
+    border: none;
+    color: var(--gold);
+    font-size: 1.8rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.8;
+    transition: all 0.2s;
+}
+
+.sidebar-close:hover {
+    opacity: 1;
+    color: var(--gold-bright);
+    transform: rotate(90deg);
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 1rem;
+    margin-top: 8px;
+}
+
+.sidebar-footer {
+    padding: 1rem;
+    border-top: 3px solid var(--gold);
+    background: var(--deco-slate);
+}
+
+.sidebar-clear {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--deco-charcoal);
+    border: 2px solid var(--gold);
+    color: var(--cream);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+}
+
+.sidebar-clear:hover {
+    background: var(--gold);
+    color: var(--deco-black);
+    border-color: var(--gold-bright);
+}
+
+/* ============================================
+   Sidebar Category Groups - Pigeon Holes
+   ============================================ */
+.collection-category {
+    margin-bottom: 1.5rem;
+}
+
+.collection-category-label {
+    color: var(--gold);
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 2px solid var(--gold-dark);
+    display: block;
+}
+
+.collection-category-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+/* Individual pigeon hole / collection button */
+.collection-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--deco-charcoal);
+    border: 2px solid transparent;
+    border-left: 4px solid var(--gold-dark);
+    color: var(--cream);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    width: 100%;
+    position: relative;
+}
+
+/* Art Deco stepped corner effect on hover */
+.collection-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 12px 12px 0;
+    border-color: transparent var(--deco-slate) transparent transparent;
+    transition: all 0.2s;
+}
+
+.collection-btn:hover {
+    background: var(--deco-slate);
+    border-color: var(--gold);
+    border-left-color: var(--gold);
+    transform: translateX(4px);
+}
+
+.collection-btn:hover::before {
+    border-color: transparent var(--gold) transparent transparent;
+}
+
+.collection-btn.active {
+    background: linear-gradient(90deg, var(--gold-dark) 0%, var(--gold) 100%);
+    color: var(--deco-black);
+    border-color: var(--gold-bright);
+    border-left-color: var(--gold-bright);
+    font-weight: bold;
+}
+
+.collection-btn.active::before {
+    border-color: transparent var(--gold-bright) transparent transparent;
+}
+
+.collection-btn .icon {
+    font-size: 1.1rem;
+    width: 1.5rem;
+    text-align: center;
+}
+
+.collection-btn .name {
+    flex: 1;
+}
+
+.collection-btn .count {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    min-width: 2rem;
+    text-align: center;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.collection-btn.active .count {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   Sidebar Toggle Button
+   ============================================ */
+.sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--deco-slate);
+    border: 2px solid var(--gold);
+    color: var(--cream);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.sidebar-toggle:hover {
+    background: var(--gold);
+    color: var(--deco-black);
+}
+
+.sidebar-toggle .toggle-icon {
+    font-size: 1.1rem;
+}
+
+.sidebar-toggle .active-filter {
+    display: none;
+    background: var(--gold);
+    color: var(--deco-black);
+    padding: 0.1rem 0.4rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.sidebar-toggle .active-filter.visible {
+    display: inline;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+    .collections-sidebar {
+        width: 100%;
+        left: -100%;
+    }
+}

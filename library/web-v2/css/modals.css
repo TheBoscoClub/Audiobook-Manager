@@ -1,0 +1,398 @@
+/* ============================================
+   Modals - Art Deco Dialog Styling
+   ============================================ */
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.modal.show {
+    display: flex;
+}
+
+/* Confirmation modal needs higher z-index */
+#confirm-modal {
+    z-index: 2100;
+}
+
+.modal-content {
+    background:
+        /* Subtle pattern overlay */
+        repeating-linear-gradient(
+            45deg,
+            transparent 0px,
+            transparent 10px,
+            rgba(218, 165, 32, 0.02) 10px,
+            rgba(218, 165, 32, 0.02) 11px
+        ),
+        var(--parchment);
+    border: 4px solid var(--gold);
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Art Deco stepped corners for modals */
+.modal-content::before,
+.modal-content::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: var(--gold);
+}
+
+.modal-content::before {
+    top: -4px;
+    left: -4px;
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.modal-content::after {
+    bottom: -4px;
+    right: -4px;
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.modal-small {
+    width: 100%;
+    max-width: 500px;
+}
+
+.modal-large {
+    width: 100%;
+    max-width: 900px;
+}
+
+/* ============================================
+   Modal Header
+   ============================================ */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background:
+        repeating-conic-gradient(
+            from 0deg at 50% 200%,
+            var(--gold-deep) 0deg 1deg,
+            transparent 1deg 8deg
+        ),
+        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    border-bottom: 3px solid var(--gold);
+}
+
+.modal-header h2 {
+    color: var(--gold-bright);
+    font-size: 1.3rem;
+    margin: 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: var(--gold);
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.8;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+/* ============================================
+   Duplicate Mode Tabs
+   ============================================ */
+.duplicate-mode-tabs {
+    display: flex;
+    background: var(--deco-charcoal);
+    border-bottom: 2px solid var(--gold);
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    color: var(--cream);
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.7;
+    border-bottom: 3px solid transparent;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.mode-tab:hover {
+    opacity: 0.9;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.mode-tab.active {
+    opacity: 1;
+    background: var(--deco-slate);
+    border-bottom-color: var(--gold);
+    font-weight: 600;
+}
+
+/* ============================================
+   Modal Toolbar
+   ============================================ */
+.modal-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--deco-gray);
+    border-bottom: 1px solid var(--gold-dark);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.toolbar-left {
+    color: var(--cream);
+    font-size: 0.95rem;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ============================================
+   Modal Body
+   ============================================ */
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    color: var(--text-dark);
+    flex: 1;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(180deg, #ece4d0 0%, #e0d4bc 100%);
+    border-top: 2px solid var(--gold-dark);
+}
+
+.safety-note {
+    font-size: 0.85rem;
+    color: var(--deco-gray);
+    margin: 0;
+}
+
+/* ============================================
+   Duplicate Groups
+   ============================================ */
+.duplicate-group {
+    border: 2px solid var(--gold);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.duplicate-group-header {
+    background: linear-gradient(90deg, var(--deco-gray) 0%, var(--deco-slate) 100%);
+    color: var(--cream);
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.duplicate-group-title {
+    font-weight: bold;
+    color: var(--gold);
+}
+
+.duplicate-group-meta {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.duplicate-file {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    gap: 1rem;
+}
+
+.duplicate-file:last-child {
+    border-bottom: none;
+}
+
+.duplicate-file.keeper {
+    background: rgba(46, 204, 113, 0.15);
+}
+
+.duplicate-file.deletable {
+    background: rgba(231, 76, 60, 0.05);
+}
+
+.duplicate-file.selected {
+    background: rgba(231, 76, 60, 0.2);
+}
+
+.duplicate-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--gold);
+}
+
+.duplicate-checkbox:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.duplicate-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.duplicate-title {
+    font-weight: bold;
+    color: var(--deco-charcoal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.duplicate-path {
+    font-size: 0.8rem;
+    color: var(--deco-gray);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.duplicate-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--deco-slate);
+}
+
+.duplicate-badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* ============================================
+   Hash Stats Display
+   ============================================ */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-box {
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 100%);
+    padding: 1rem;
+    text-align: center;
+    border: 2px solid var(--gold-dark);
+}
+
+.stat-box-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--gold-bright);
+}
+
+.stat-box-label {
+    font-size: 0.85rem;
+    color: var(--cream);
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.progress-bar-container {
+    background: var(--deco-black);
+    height: 24px;
+    overflow: hidden;
+    margin: 1rem 0;
+    border: 1px solid var(--gold-dark);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-dark));
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--deco-black);
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+    .modal-content {
+        margin: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+
+    .modal-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .toolbar-right {
+        justify-content: center;
+    }
+
+    .duplicate-file {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .duplicate-meta {
+        flex-wrap: wrap;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,45 +1,88 @@
-/* The Back Office - Library Utilities
- * Aesthetic: Vintage library back office / binding room
- * - Worn wood, brass fixtures, green banker's lamp
- * - Filing cabinets, card catalogs, ledgers
- * - Muted greens, browns, aged paper tones
- */
+/* ============================================
+   The Back Office - Art Deco Edition
+   Library Administrative Interface
+   ============================================ */
 
+/* Import shared Art Deco theme */
+@import url('theme-art-deco.css');
+
+/* Back Office Color Mapping to Art Deco palette */
 :root {
-    /* Back Office Color Palette */
-    --office-dark: #1a1512;
-    --office-wood: #2d2118;
-    --office-desk: #3d2e1f;
-    --office-leather: #4a3728;
-    --brass: #b8860b;
-    --brass-light: #d4a84b;
-    --brass-dark: #8b6914;
-    --banker-green: #2d4a3e;
-    --banker-green-light: #3d6a54;
-    --banker-green-glow: rgba(61, 106, 84, 0.4);
-    --ledger-cream: #e8dcc8;
-    --ledger-line: #c9b896;
-    --ink: #1a1410;
-    --ink-faded: #3d352d;
-    --red-ink: #8b2500;
-    --filing-metal: #5a5a5a;
-    --filing-label: #f5f0e6;
+    /* Map legacy variables to Art Deco equivalents */
+    --office-dark: var(--deco-black);
+    --office-wood: var(--deco-charcoal);
+    --office-desk: var(--deco-slate);
+    --office-leather: var(--deco-gray);
+
+    /* Gold accents - already in theme */
+    --brass: var(--gold);
+    --brass-light: var(--gold-bright);
+    --brass-dark: var(--gold-dark);
+
+    /* Emerald accents - already in theme */
+    --banker-green: var(--emerald);
+    --banker-green-light: var(--emerald-light);
+    --banker-green-glow: var(--emerald-glow);
+
+    /* Text and paper colors */
+    --ledger-cream: var(--cream);
+    --ledger-line: var(--parchment);
+    --ink: var(--text-dark);
+    --ink-faded: #2d2520;
+    --red-ink: var(--ruby);
+    --filing-metal: var(--deco-gray);
+    --filing-label: var(--cream-light);
 }
 
 /* Body Override for Back Office */
 body.back-office {
-    background: linear-gradient(180deg, var(--office-dark) 0%, var(--office-wood) 100%);
+    background: var(--deco-black);
     min-height: 100vh;
+    /* Art Deco geometric background pattern */
+    background-image:
+        linear-gradient(135deg, var(--deco-charcoal) 25%, transparent 25%),
+        linear-gradient(225deg, var(--deco-charcoal) 25%, transparent 25%),
+        linear-gradient(45deg, var(--deco-charcoal) 25%, transparent 25%),
+        linear-gradient(315deg, var(--deco-charcoal) 25%, transparent 25%);
+    background-size: 60px 60px;
+    background-position: 0 0, 30px 0, 30px -30px, 0 30px;
 }
 
-/* Office Header */
+/* Office Header - Art Deco Sunburst */
 .office-header {
-    background: linear-gradient(180deg, var(--office-desk) 0%, var(--office-leather) 100%);
-    border-bottom: 4px solid var(--brass);
+    background:
+        /* Sunburst rays from center-bottom */
+        repeating-conic-gradient(
+            from 0deg at 50% 100%,
+            var(--gold-deep) 0deg 2deg,
+            transparent 2deg 10deg
+        ),
+        /* Base gradient */
+        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    border-bottom: 4px solid var(--gold);
     box-shadow:
         0 4px 20px rgba(0, 0, 0, 0.5),
-        inset 0 -1px 0 var(--brass-dark);
+        inset 0 -2px 0 var(--gold-dark);
     padding: 1.5rem 2rem;
+    position: relative;
+}
+
+/* Art Deco chevron border under header */
+.office-header::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background:
+        linear-gradient(135deg, var(--gold) 25%, transparent 25%) -8px 0,
+        linear-gradient(225deg, var(--gold) 25%, transparent 25%) -8px 0,
+        linear-gradient(315deg, var(--gold) 25%, transparent 25%),
+        linear-gradient(45deg, var(--gold) 25%, transparent 25%);
+    background-size: 16px 8px;
+    background-color: var(--deco-charcoal);
+    z-index: 1;
 }
 
 .office-header .header-content {
@@ -83,22 +126,40 @@ body.back-office {
 }
 
 .office-title {
-    font-size: 2.2rem;
-    color: var(--brass-light);
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    font-weight: normal;
-    letter-spacing: 3px;
+    font-size: 2.5rem;
+    color: var(--gold-bright);
+    text-shadow:
+        2px 2px 0 var(--gold-dark),
+        4px 4px 8px rgba(0, 0, 0, 0.5);
+    font-weight: 600;
+    letter-spacing: 5px;
+    text-transform: uppercase;
     margin-bottom: 0.25rem;
+    font-family: var(--font-primary);
 }
 
 .office-subtitle {
-    color: var(--ledger-cream);
-    font-style: italic;
+    color: var(--cream);
+    font-style: normal;
     font-size: 0.95rem;
-    opacity: 0.8;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.85;
 }
 
-/* Banker's Lamp Decoration */
+/* Banker's Lamp SVG Decoration */
+.banker-lamp-svg {
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+    transition: filter 0.3s ease;
+}
+
+.banker-lamp-svg:hover {
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4))
+            drop-shadow(0 0 20px rgba(61, 106, 84, 0.3));
+}
+
+/* Legacy CSS lamp (kept for backwards compatibility) */
 .banker-lamp {
     display: flex;
     flex-direction: column;
@@ -169,20 +230,24 @@ body.back-office {
     padding: 2rem;
 }
 
-/* Filing Cabinet Navigation */
+/* ============================================
+   Filing Cabinet Navigation - Art Deco Pigeon Holes
+   Inspired by post office sorting cabinets
+   ============================================ */
 .filing-cabinet {
     margin-bottom: 2rem;
+    margin-top: 12px;  /* Room for chevron border */
 }
 
 .cabinet-tabs {
     display: flex;
-    gap: 4px;
-    background: var(--filing-metal);
-    padding: 4px;
-    border-radius: 8px 8px 0 0;
+    gap: 3px;
+    background: var(--deco-slate);
+    padding: 3px;
+    border: 3px solid var(--gold);
     box-shadow:
-        inset 0 2px 4px rgba(0, 0, 0, 0.3),
-        0 4px 8px rgba(0, 0, 0, 0.2);
+        inset 0 2px 6px rgba(0, 0, 0, 0.5),
+        0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .cabinet-tab {
@@ -190,49 +255,82 @@ body.back-office {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.3rem;
     padding: 1rem 1.5rem;
-    background: var(--filing-label);
-    border: none;
-    border-radius: 6px 6px 0 0;
+    background: var(--deco-charcoal);
+    border: 2px solid transparent;
     cursor: pointer;
-    font-family: 'Georgia', serif;
-    color: var(--ink);
+    font-family: var(--font-primary);
+    color: var(--cream);
     transition: all 0.2s;
     position: relative;
-    top: 2px;
+}
+
+/* Art Deco stepped corner effect */
+.cabinet-tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        var(--gold-dark) 30%,
+        var(--gold-dark) 70%,
+        transparent 100%
+    );
+    opacity: 0;
+    transition: opacity 0.2s;
 }
 
 .cabinet-tab:hover {
-    background: #fff;
-    top: 0;
+    background: var(--deco-slate);
+    border-color: var(--gold-dark);
+}
+
+.cabinet-tab:hover::before {
+    opacity: 1;
 }
 
 .cabinet-tab.active {
-    background: var(--ledger-cream);
-    top: 0;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    color: var(--deco-black);
+    border-color: var(--gold-bright);
+}
+
+.cabinet-tab.active::before {
+    opacity: 1;
+    background: var(--gold-bright);
 }
 
 .cabinet-tab.active::after {
     content: '';
     position: absolute;
-    bottom: -4px;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--ledger-cream);
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--gold-dark);
 }
 
 .tab-icon {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
+    transition: transform 0.2s;
+}
+
+.cabinet-tab:hover .tab-icon {
+    transform: scale(1.1);
 }
 
 .tab-label {
-    font-size: 0.85rem;
-    font-weight: bold;
+    font-size: 0.8rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
 }
 
 /* Content Area */
@@ -285,21 +383,32 @@ body.back-office {
     font-style: italic;
 }
 
-/* Card Catalog */
+/* ============================================
+   Card Catalog - Art Deco Cards
+   ============================================ */
 .card-catalog {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 1.5rem;
-    align-items: start;  /* Allow cards to be different heights */
+    align-items: stretch;
 }
 
 .catalog-card {
-    background: #fff;
-    border: 1px solid var(--ledger-line);
-    border-radius: 4px;
+    background: var(--cream-light);
+    border: 2px solid var(--gold);
     box-shadow:
-        2px 2px 8px rgba(0, 0, 0, 0.1),
+        4px 4px 12px rgba(0, 0, 0, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    /* Art Deco stepped corners */
+    clip-path: polygon(
+        0 8px, 8px 8px, 8px 0,
+        calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px,
+        100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%,
+        8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px)
+    );
 }
 
 .catalog-card.wide {
@@ -307,18 +416,22 @@ body.back-office {
 }
 
 .card-header {
-    background: linear-gradient(180deg, var(--office-leather) 0%, var(--office-desk) 100%);
-    color: var(--ledger-cream);
+    background:
+        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    color: var(--gold-bright);
     padding: 0.75rem 1rem;
-    font-weight: bold;
-    letter-spacing: 1px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 2px solid var(--gold);
 }
 
 .card-body {
     padding: 1.25rem;
+    flex: 1;  /* Grow to fill available card height */
 }
 
 .card-footer {
@@ -352,8 +465,8 @@ body.back-office {
 }
 
 .stat-row .stat-value {
-    color: var(--ink);
-    font-weight: bold;
+    color: var(--ink);  /* Full ink color for high contrast */
+    font-weight: 600;
     font-family: 'Courier New', monospace;
 }
 
@@ -384,57 +497,69 @@ body.back-office {
     font-size: 0.85rem;
 }
 
-/* Office Buttons */
+/* ============================================
+   Office Buttons - Art Deco Style
+   ============================================ */
 .office-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.6rem 1.2rem;
-    background: var(--office-leather);
-    color: var(--ledger-cream);
-    border: 2px solid var(--brass-dark);
-    border-radius: 4px;
+    background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    color: var(--cream);
+    border: 2px solid var(--gold);
     cursor: pointer;
-    font-family: 'Georgia', serif;
+    font-family: var(--font-primary);
     font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
     transition: all 0.2s;
 }
 
 .office-btn:hover {
-    background: var(--brass-dark);
-    color: var(--office-dark);
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    color: var(--deco-black);
+    border-color: var(--gold-bright);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
 }
 
 .office-btn.primary {
-    background: var(--banker-green);
-    border-color: var(--banker-green-light);
+    background: linear-gradient(180deg, var(--emerald-light) 0%, var(--emerald) 100%);
+    border-color: var(--emerald-light);
 }
 
 .office-btn.primary:hover {
-    background: var(--banker-green-light);
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    border-color: var(--gold-bright);
+    color: var(--deco-black);
 }
 
 .office-btn.secondary {
-    background: var(--filing-metal);
-    border-color: #777;
+    background: var(--deco-gray);
+    border-color: var(--deco-gray);
 }
 
 .office-btn.secondary:hover {
-    background: #777;
+    background: var(--gold-dark);
+    border-color: var(--gold);
+    color: var(--deco-black);
 }
 
 .office-btn.danger {
-    background: var(--red-ink);
+    background: linear-gradient(180deg, #a03020 0%, var(--ruby) 100%);
     border-color: #a03020;
 }
 
 .office-btn.danger:hover {
-    background: #a03020;
+    background: linear-gradient(180deg, #c04030 0%, #a03020 100%);
+    box-shadow: 0 4px 12px rgba(160, 48, 32, 0.4);
 }
 
 .office-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 .btn-icon {
@@ -638,12 +763,12 @@ body.back-office {
 }
 
 .badge {
-    background: var(--brass);
-    color: var(--office-dark);
+    background: var(--office-desk);
+    color: var(--ledger-cream);
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
     font-size: 0.85rem;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .duplicates-list {

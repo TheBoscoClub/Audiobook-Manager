@@ -1,0 +1,287 @@
+/* ============================================
+   Audio Player - Art Deco Styling
+   ============================================ */
+
+.audio-player {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background:
+        /* Subtle sunburst at top */
+        repeating-conic-gradient(
+            from 0deg at 50% 0%,
+            var(--gold-deep) 0deg 1deg,
+            transparent 1deg 6deg
+        ),
+        linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-black) 100%);
+    border-top: 4px solid var(--gold);
+    padding: 1rem 2rem;
+    box-shadow:
+        0 -4px 20px var(--shadow),
+        inset 0 2px 0 rgba(255, 215, 0, 0.1);
+    z-index: 1000;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+.player-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--gold);
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.player-close:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+/* ============================================
+   Player Info Section
+   ============================================ */
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.player-cover {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border: 3px solid var(--gold);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.player-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.player-title {
+    font-size: 1.1rem;
+    color: var(--gold-bright);
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 1px;
+}
+
+.player-author {
+    font-size: 0.9rem;
+    color: var(--cream);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-file-info {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+.player-id {
+    color: var(--gold);
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.player-path {
+    color: var(--cream);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
+}
+
+/* ============================================
+   Player Controls
+   ============================================ */
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.control-btn {
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    color: var(--deco-black);
+    border: 2px solid var(--gold);
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.control-btn:hover {
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.control-btn.small-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.time-info {
+    color: var(--cream);
+    font-size: 0.95rem;
+    font-family: var(--font-mono);
+    letter-spacing: 1px;
+}
+
+/* ============================================
+   Progress Bar
+   ============================================ */
+.progress-container {
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 10px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--deco-charcoal);
+    border: 1px solid var(--gold-dark);
+    outline: none;
+    cursor: pointer;
+}
+
+.progress-bar::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold-dark) 100%);
+    border: 2px solid var(--gold-bright);
+    cursor: pointer;
+    transition: all 0.2s;
+    /* Art Deco diamond shape */
+    transform: rotate(45deg);
+}
+
+.progress-bar::-webkit-slider-thumb:hover {
+    background: var(--gold-bright);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    transform: rotate(45deg) scale(1.1);
+}
+
+.progress-bar::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold-dark) 100%);
+    border: 2px solid var(--gold-bright);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.progress-bar::-moz-range-thumb:hover {
+    background: var(--gold-bright);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+/* ============================================
+   Player Extras (Volume, Speed)
+   ============================================ */
+.player-extras {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.volume-slider {
+    width: 120px;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--deco-charcoal);
+    border: 1px solid var(--gold-dark);
+    outline: none;
+    cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--gold);
+    border: 1px solid var(--gold-bright);
+    cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--gold);
+    border: 1px solid var(--gold-bright);
+    cursor: pointer;
+}
+
+#playback-speed {
+    color: var(--cream);
+    font-size: 0.9rem;
+    min-width: 30px;
+    text-align: center;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+    .audio-player {
+        padding: 0.75rem 1rem;
+    }
+
+    .player-info {
+        gap: 0.75rem;
+    }
+
+    .player-cover {
+        width: 50px;
+        height: 50px;
+    }
+
+    .player-title {
+        font-size: 1rem;
+    }
+
+    .player-controls {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .control-btn {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+    }
+}

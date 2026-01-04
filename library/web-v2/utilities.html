@@ -22,10 +22,75 @@
                 <p class="office-subtitle">Library Administration & Utilities · v3.5.0</p>
             </div>
             <div class="header-right">
-                <div class="banker-lamp">
-                    <div class="lamp-shade"></div>
-                    <div class="lamp-stem"></div>
-                </div>
+                <!-- Classic Banker's Lamp SVG -->
+                <svg class="banker-lamp-svg" viewBox="0 0 100 120" width="80" height="96" aria-label="Banker's desk lamp">
+                    <defs>
+                        <!-- Brass gradient for metal parts -->
+                        <linearGradient id="brass-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#8b6914"/>
+                            <stop offset="30%" style="stop-color:#d4a84b"/>
+                            <stop offset="50%" style="stop-color:#ffd700"/>
+                            <stop offset="70%" style="stop-color:#d4a84b"/>
+                            <stop offset="100%" style="stop-color:#8b6914"/>
+                        </linearGradient>
+                        <!-- Green glass shade gradient -->
+                        <linearGradient id="shade-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#4d8a6e"/>
+                            <stop offset="50%" style="stop-color:#2d5a4e"/>
+                            <stop offset="100%" style="stop-color:#1d3a2e"/>
+                        </linearGradient>
+                        <!-- Glow effect filter -->
+                        <filter id="lamp-glow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        <!-- Inner glow for shade -->
+                        <radialGradient id="inner-glow" cx="50%" cy="100%" r="80%">
+                            <stop offset="0%" style="stop-color:#7dba9e;stop-opacity:0.6"/>
+                            <stop offset="100%" style="stop-color:#2d5a4e;stop-opacity:0"/>
+                        </radialGradient>
+                    </defs>
+
+                    <!-- Weighted base -->
+                    <ellipse cx="50" cy="115" rx="28" ry="5" fill="url(#brass-gradient)"/>
+                    <ellipse cx="50" cy="113" rx="25" ry="4" fill="#1a1512"/>
+                    <ellipse cx="50" cy="112" rx="22" ry="3" fill="url(#brass-gradient)"/>
+
+                    <!-- Base stem connector -->
+                    <rect x="46" y="105" width="8" height="8" rx="1" fill="url(#brass-gradient)"/>
+
+                    <!-- Lower arm (angled) -->
+                    <rect x="47" y="70" width="6" height="38" rx="2" fill="url(#brass-gradient)" transform="rotate(-5 50 108)"/>
+
+                    <!-- Joint/knuckle -->
+                    <circle cx="49" cy="68" r="5" fill="url(#brass-gradient)"/>
+                    <circle cx="49" cy="68" r="3" fill="#1a1512"/>
+                    <circle cx="49" cy="68" r="2" fill="url(#brass-gradient)"/>
+
+                    <!-- Upper arm (angled toward shade) -->
+                    <rect x="38" y="45" width="5" height="26" rx="2" fill="url(#brass-gradient)" transform="rotate(15 40 68)"/>
+
+                    <!-- Shade mount -->
+                    <circle cx="50" cy="40" r="4" fill="url(#brass-gradient)"/>
+
+                    <!-- Glass shade with glow -->
+                    <g filter="url(#lamp-glow)">
+                        <!-- Shade outer shell -->
+                        <path d="M 20 40 Q 20 25 50 20 Q 80 25 80 40 L 75 42 Q 75 30 50 26 Q 25 30 25 42 Z"
+                              fill="url(#shade-gradient)" stroke="#1d3a2e" stroke-width="1"/>
+                        <!-- Shade rim (brass trim) -->
+                        <path d="M 20 40 Q 20 43 50 45 Q 80 43 80 40"
+                              fill="none" stroke="url(#brass-gradient)" stroke-width="2"/>
+                        <!-- Inner glow overlay -->
+                        <ellipse cx="50" cy="38" rx="25" ry="12" fill="url(#inner-glow)" opacity="0.7"/>
+                    </g>
+
+                    <!-- Light beam (subtle) -->
+                    <ellipse cx="50" cy="115" rx="35" ry="3" fill="rgba(125, 186, 158, 0.15)"/>
+                </svg>
             </div>
         </div>
     </header>
