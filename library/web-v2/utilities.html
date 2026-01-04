@@ -19,7 +19,7 @@
             </div>
             <div class="header-center">
                 <h1 class="office-title">The Back Office</h1>
-                <p class="office-subtitle">Library Administration & Utilities · v3.4.2</p>
+                <p class="office-subtitle">Library Administration & Utilities · v3.4.3</p>
             </div>
             <div class="header-right">
                 <div class="banker-lamp">
@@ -60,10 +60,6 @@
                 <button class="cabinet-tab" data-section="conversion">
                     <span class="tab-icon">&#127925;</span>
                     <span class="tab-label">Conversion</span>
-                </button>
-                <button class="cabinet-tab" data-section="audiobooks">
-                    <span class="tab-icon">&#128214;</span>
-                    <span class="tab-label">Audiobooks</span>
                 </button>
                 <button class="cabinet-tab" data-section="duplicates">
                     <span class="tab-icon">&#128464;</span>
@@ -418,109 +414,6 @@
                 </div>
             </section>
 
-            <!-- Audiobook Management Section -->
-            <section class="drawer-content" id="audiobooks-section">
-                <div class="section-header">
-                    <h2>Audiobook Management</h2>
-                    <p class="section-desc">Edit metadata and manage individual audiobooks</p>
-                </div>
-
-                <!-- Search for audiobook to edit -->
-                <div class="card-catalog">
-                    <div class="catalog-card wide">
-                        <div class="card-header">Find Audiobook</div>
-                        <div class="card-body">
-                            <div class="search-row">
-                                <input type="text" id="edit-search" class="office-input" placeholder="Search by title, author, or narrator...">
-                                <button class="office-btn" id="edit-search-btn">
-                                    <span class="btn-icon">&#128269;</span> Search
-                                </button>
-                            </div>
-                            <div class="search-results" id="edit-search-results">
-                                <!-- Results loaded here -->
-                                <p class="placeholder-text">Enter a search term to find audiobooks</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Edit Form (shown when audiobook selected) -->
-                <div class="card-catalog" id="edit-form-container" style="display: none;">
-                    <div class="catalog-card wide">
-                        <div class="card-header">
-                            <span>Edit Audiobook</span>
-                            <button class="close-btn" id="close-edit-form">&times;</button>
-                        </div>
-                        <div class="card-body">
-                            <form id="edit-audiobook-form" class="edit-form">
-                                <input type="hidden" id="edit-id">
-
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="edit-title">Title</label>
-                                        <input type="text" id="edit-title" class="office-input">
-                                    </div>
-                                </div>
-
-                                <div class="form-row two-col">
-                                    <div class="form-group">
-                                        <label for="edit-author">Author</label>
-                                        <input type="text" id="edit-author" class="office-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="edit-narrator">Narrator</label>
-                                        <input type="text" id="edit-narrator" class="office-input">
-                                    </div>
-                                </div>
-
-                                <div class="form-row two-col">
-                                    <div class="form-group">
-                                        <label for="edit-series">Series</label>
-                                        <input type="text" id="edit-series" class="office-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="edit-series-seq">Series #</label>
-                                        <input type="number" id="edit-series-seq" class="office-input" step="0.1">
-                                    </div>
-                                </div>
-
-                                <div class="form-row three-col">
-                                    <div class="form-group">
-                                        <label for="edit-publisher">Publisher</label>
-                                        <input type="text" id="edit-publisher" class="office-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="edit-year">Year</label>
-                                        <input type="number" id="edit-year" class="office-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="edit-asin">ASIN</label>
-                                        <input type="text" id="edit-asin" class="office-input">
-                                    </div>
-                                </div>
-
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>File Path</label>
-                                        <div class="file-path" id="edit-file-path">-</div>
-                                    </div>
-                                </div>
-
-                                <div class="form-actions">
-                                    <button type="button" class="office-btn secondary" id="cancel-edit">Cancel</button>
-                                    <button type="submit" class="office-btn primary">
-                                        <span class="btn-icon">&#128190;</span> Save Changes
-                                    </button>
-                                    <button type="button" class="office-btn danger" id="delete-audiobook">
-                                        <span class="btn-icon">&#128465;</span> Delete
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Duplicates Section -->
             <section class="drawer-content" id="duplicates-section">
                 <div class="section-header">
@@ -595,34 +488,61 @@
             <section class="drawer-content" id="bulk-section">
                 <div class="section-header">
                     <h2>Bulk Operations</h2>
-                    <p class="section-desc">Perform operations on multiple audiobooks at once</p>
+                    <p class="section-desc">Update or delete multiple audiobooks at once</p>
                 </div>
 
+                <!-- Intro Card -->
                 <div class="card-catalog">
-                    <div class="catalog-card wide">
-                        <div class="card-header">Select Audiobooks</div>
+                    <div class="catalog-card wide intro-card">
                         <div class="card-body">
+                            <div class="intro-content">
+                                <div class="intro-icon">&#128221;</div>
+                                <div class="intro-text">
+                                    <h3>How Bulk Operations Work</h3>
+                                    <ol class="intro-steps">
+                                        <li><strong>Filter</strong> — Choose which audiobooks to display using the filter options below</li>
+                                        <li><strong>Select</strong> — Check the boxes next to audiobooks you want to modify</li>
+                                        <li><strong>Act</strong> — Apply a bulk action to all selected items</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Selection Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">Step 1: Filter Audiobooks</div>
+                        <div class="card-body">
+                            <div class="filter-explanation">
+                                <p>Choose a filter to narrow down which audiobooks to display:</p>
+                            </div>
                             <div class="bulk-filters">
                                 <div class="filter-group">
                                     <label>Filter by:</label>
                                     <select id="bulk-filter-type" class="office-select">
-                                        <option value="all">All Audiobooks</option>
-                                        <option value="author">Author</option>
-                                        <option value="narrator">Narrator</option>
-                                        <option value="series">Series</option>
-                                        <option value="no-narrator">Missing Narrator</option>
-                                        <option value="no-hash">Missing Hash</option>
+                                        <option value="all">All Audiobooks — Show entire library</option>
+                                        <option value="author">By Author — Find all books by a specific author</option>
+                                        <option value="narrator">By Narrator — Find all books read by a specific narrator</option>
+                                        <option value="series">By Series — Find all books in a specific series</option>
+                                        <option value="no-narrator">Missing Narrator — Books without narrator metadata</option>
+                                        <option value="no-hash">Missing Hash — Books not yet checksummed for integrity</option>
                                     </select>
                                 </div>
                                 <div class="filter-group" id="bulk-filter-value-group" style="display: none;">
                                     <label>Value:</label>
-                                    <input type="text" id="bulk-filter-value" class="office-input" placeholder="Enter filter value...">
+                                    <input type="text" id="bulk-filter-value" class="office-input" placeholder="Enter author, narrator, or series name...">
                                 </div>
-                                <button class="office-btn" id="bulk-load">
-                                    <span class="btn-icon">&#128269;</span> Load
+                                <button class="office-btn primary" id="bulk-load">
+                                    <span class="btn-icon">&#128269;</span> Load Audiobooks
                                 </button>
                             </div>
+                        </div>
+                    </div>
 
+                    <!-- Results Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">Step 2: Select Audiobooks</div>
+                        <div class="card-body">
                             <div class="bulk-selection-bar" id="bulk-selection-bar" style="display: none;">
                                 <label class="checkbox-option">
                                     <input type="checkbox" id="bulk-select-all">
@@ -632,35 +552,41 @@
                             </div>
 
                             <div id="bulk-list" class="bulk-list">
-                                <p class="placeholder-text">Select a filter and click "Load" to view audiobooks</p>
+                                <p class="placeholder-text">Choose a filter above and click "Load Audiobooks" to see results</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="catalog-card" id="bulk-actions-card" style="display: none;">
-                        <div class="card-header">Bulk Actions</div>
+                    <!-- Actions Card -->
+                    <div class="catalog-card wide" id="bulk-actions-card" style="display: none;">
+                        <div class="card-header">Step 3: Apply Bulk Action</div>
                         <div class="card-body">
                             <div class="bulk-action-list">
                                 <div class="bulk-action-item">
                                     <div class="action-info">
-                                        <h4>Update Field</h4>
-                                        <p>Set a field value for all selected audiobooks</p>
+                                        <h4>&#9998; Update Metadata Field</h4>
+                                        <p>Set the same value for a metadata field across all selected audiobooks. Useful for:</p>
+                                        <ul class="action-examples">
+                                            <li>Adding a narrator to books missing one</li>
+                                            <li>Correcting a publisher name across multiple titles</li>
+                                            <li>Assigning books to a series</li>
+                                        </ul>
                                     </div>
                                     <div class="action-controls">
                                         <select id="bulk-update-field" class="office-select">
-                                            <option value="">Select field...</option>
+                                            <option value="">Select field to update...</option>
                                             <option value="narrator">Narrator</option>
                                             <option value="series">Series</option>
                                             <option value="publisher">Publisher</option>
                                         </select>
                                         <input type="text" id="bulk-update-value" class="office-input" placeholder="New value...">
-                                        <button class="office-btn" id="bulk-update-btn">Apply</button>
+                                        <button class="office-btn" id="bulk-update-btn">Apply to Selected</button>
                                     </div>
                                 </div>
                                 <div class="bulk-action-item danger-zone">
                                     <div class="action-info">
-                                        <h4>Delete Selected</h4>
-                                        <p>Permanently remove selected audiobooks from library</p>
+                                        <h4>&#128465; Delete Selected Audiobooks</h4>
+                                        <p>Permanently remove selected audiobooks from the database and filesystem. This action <strong>cannot be undone</strong>.</p>
                                     </div>
                                     <button class="office-btn danger" id="bulk-delete-btn">
                                         <span class="btn-icon">&#128465;</span> Delete Selected

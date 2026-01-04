@@ -819,6 +819,77 @@ body.back-office {
     align-items: center;
 }
 
+/* Bulk Operations - Intro Card */
+.intro-card {
+    background: linear-gradient(135deg, var(--filing-label) 0%, var(--ledger-cream) 100%);
+    border: 2px solid var(--brass);
+}
+
+.intro-content {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.intro-icon {
+    font-size: 2.5rem;
+    opacity: 0.8;
+}
+
+.intro-text h3 {
+    color: var(--ink);
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+}
+
+.intro-steps {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--ink-faded);
+}
+
+.intro-steps li {
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+.intro-steps li:last-child {
+    margin-bottom: 0;
+}
+
+.filter-explanation {
+    margin-bottom: 1rem;
+    color: var(--ink-faded);
+}
+
+.filter-explanation p {
+    margin: 0;
+}
+
+.action-examples {
+    margin: 0.5rem 0 0 1.25rem;
+    padding: 0;
+    font-size: 0.85rem;
+}
+
+.action-examples li {
+    margin-bottom: 0.25rem;
+    color: var(--ink-faded);
+}
+
+.bulk-action-item {
+    flex-wrap: wrap;
+}
+
+.bulk-action-item .action-info {
+    flex: 1;
+    min-width: 250px;
+}
+
+.bulk-action-item .action-controls {
+    flex-wrap: wrap;
+}
+
 /* Toast Notifications */
 .toast-container {
     position: fixed;
