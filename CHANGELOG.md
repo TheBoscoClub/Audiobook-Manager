@@ -21,12 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Index cleanup script**: `cleanup-stale-indexes` removes entries for deleted files from all indexes
 - Automatic index cleanup: Deleted files are removed from checksum indexes via delete operations
 
-### Fixed
-- Fixed chapters.json ASIN extraction in cleanup script (ASINs are in JSON content, not filename)
-
 ### Changed
+- **Bulk Operations redesign**: Clear step-by-step workflow with explanatory intro, descriptive filter options, and use-case examples
+- Removed redundant "Audiobooks" tab from Back Office (audiobook search available on main library page)
 - Updated "Generate Hashes" button tooltip to clarify it regenerates ALL hashes
 - Download and mover services now append checksums to index files in real-time
+
+### Fixed
+- Fixed chapters.json ASIN extraction in cleanup script (ASINs are in JSON content, not filename)
 
 ## [3.4.2] - 2026-01-02
 
