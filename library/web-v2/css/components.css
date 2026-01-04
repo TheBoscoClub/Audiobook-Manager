@@ -134,9 +134,14 @@
     padding: 0.8rem 1.2rem;
     font-size: 1rem;
     border: 2px solid var(--gold);
-    background: var(--parchment);
-    color: var(--text-dark);
+    background: var(--deco-charcoal);
+    color: var(--cream);
     font-family: var(--font-serif);
+}
+
+.search-input::placeholder {
+    color: var(--cream);
+    opacity: 0.6;
 }
 
 .search-input:focus {
@@ -148,13 +153,18 @@
 .filter-select {
     padding: 0.7rem 1rem;
     border: 2px solid var(--gold);
-    background: var(--parchment);
-    color: var(--text-dark);
+    background: var(--deco-charcoal);
+    color: var(--cream);
     font-family: var(--font-serif);
     font-size: 0.95rem;
     cursor: pointer;
     flex: 1;
     min-width: 150px;
+}
+
+.filter-select option {
+    background: var(--deco-charcoal);
+    color: var(--cream);
 }
 
 .filter-select:focus {
@@ -238,10 +248,16 @@
     padding: 0.7rem 1rem;
     padding-right: 2.5rem;
     border: 2px solid var(--gold);
-    background: var(--parchment);
-    color: var(--text-dark);
+    background: var(--deco-charcoal);
+    color: var(--cream);
     font-family: var(--font-serif);
     font-size: 0.95rem;
+}
+
+.author-input::placeholder,
+.narrator-input::placeholder {
+    color: var(--cream);
+    opacity: 0.6;
 }
 
 .author-input.has-value,
@@ -286,7 +302,7 @@
     right: 0;
     max-height: 300px;
     overflow-y: auto;
-    background: var(--parchment);
+    background: var(--deco-charcoal);
     border: 2px solid var(--gold);
     border-top: none;
     display: none;
@@ -303,9 +319,9 @@
 .narrator-option {
     padding: 0.6rem 1rem;
     cursor: pointer;
-    color: var(--text-dark);
+    color: var(--cream);
     font-size: 0.9rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid var(--gold-dark);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -342,7 +358,7 @@
 
 .author-all-option,
 .narrator-all-option {
-    background: linear-gradient(180deg, rgba(218, 165, 32, 0.1) 0%, var(--parchment) 100%);
+    background: linear-gradient(180deg, rgba(218, 165, 32, 0.15) 0%, var(--deco-slate) 100%);
     font-weight: bold;
     border-bottom: 2px solid var(--gold);
 }
@@ -350,7 +366,8 @@
 .author-no-results,
 .narrator-no-results {
     padding: 0.8rem 1rem;
-    color: var(--deco-gray);
+    color: var(--cream);
+    opacity: 0.7;
     font-size: 0.85rem;
     font-style: italic;
     text-align: center;
@@ -470,7 +487,7 @@
     position: absolute;
     right: 0;
     top: 100%;
-    background: var(--parchment);
+    background: var(--deco-charcoal);
     min-width: 220px;
     box-shadow: 0 8px 24px var(--shadow);
     border: 2px solid var(--gold);
@@ -486,23 +503,23 @@
     padding: 0.5rem 1rem;
     font-size: 0.75rem;
     font-weight: bold;
-    color: var(--deco-gray);
+    color: var(--gold);
     text-transform: uppercase;
     letter-spacing: 1px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid var(--gold-dark);
 }
 
 .dropdown-content a {
     display: block;
     padding: 0.75rem 1rem;
-    color: var(--text-dark);
+    color: var(--cream);
     text-decoration: none;
     font-size: 0.9rem;
     transition: background 0.2s;
 }
 
 .dropdown-content a:hover {
-    background: rgba(218, 165, 32, 0.2);
+    background: rgba(218, 165, 32, 0.3);
 }
 
 .dropdown-content a.danger {
