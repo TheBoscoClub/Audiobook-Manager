@@ -1,0 +1,30 @@
+[Unit]
+Description=Audiobooks Upgrade Helper Service
+Documentation=https://github.com/greogory/Audiobook-Manager
+# Started by audiobooks-upgrade-helper.path when trigger file appears
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+# Run as root to perform privileged operations
+User=root
+Group=root
+WorkingDirectory=/opt/audiobooks
+
+# Load configuration
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+
+# Process the upgrade request
+ExecStart=/opt/audiobooks/scripts/upgrade-helper-process
+
+# Cleanup trigger file after processing
+ExecStopPost=/bin/rm -f /var/lib/audiobooks/.control/upgrade-request
+
+# Security: limit what this service can access
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=no
+
+[Install]
+WantedBy=multi-user.target

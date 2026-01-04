@@ -1107,6 +1107,29 @@ EOF
             done
         fi
 
+        # Install tmpfiles.d configuration for /run/audiobooks (privileged helper communication)
+        if [[ -f "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" ]]; then
+            echo -e "${BLUE}Installing tmpfiles.d configuration...${NC}"
+            sudo cp "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+            sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
+            # Create the runtime directory immediately
+            sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
+                # Fallback: create manually if systemd-tmpfiles not available
+                sudo mkdir -p /run/audiobooks
+                sudo chown audiobooks:audiobooks /run/audiobooks
+                sudo chmod 755 /run/audiobooks
+            }
+            echo "  Created: /run/audiobooks (for privileged helper communication)"
+        fi
+
+        # Enable the upgrade helper path unit (monitors for privileged operation requests)
+        if [[ -f "${SYSTEMD_DIR}/audiobooks-upgrade-helper.path" ]]; then
+            echo -e "${BLUE}Enabling privileged operations helper...${NC}"
+            sudo systemctl enable audiobooks-upgrade-helper.path 2>/dev/null || true
+            sudo systemctl start audiobooks-upgrade-helper.path 2>/dev/null || true
+            echo "  Enabled: audiobooks-upgrade-helper.path"
+        fi
+
         # Target (includes all services)
         sudo tee "${SYSTEMD_DIR}/audiobooks.target" > /dev/null << EOF
 [Unit]

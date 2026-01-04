@@ -376,7 +376,7 @@ do_upgrade() {
         fi
     fi
 
-    # Upgrade systemd templates
+    # Upgrade systemd templates (stored in installation)
     if [[ -d "$target/systemd" ]]; then
         echo -e "${BLUE}Upgrading systemd templates...${NC}"
         for file in "${project}/systemd/"*; do
@@ -394,6 +394,53 @@ do_upgrade() {
                 fi
             fi
         done
+    fi
+
+    # Update active systemd services and helper configuration
+    if [[ -n "$use_sudo" ]] && [[ -d "/etc/systemd/system" ]]; then
+        echo -e "${BLUE}Updating systemd service files...${NC}"
+
+        # Copy new/updated service and path units
+        for unit_file in "${project}/systemd/"*.service "${project}/systemd/"*.path "${project}/systemd/"*.timer; do
+            if [[ -f "$unit_file" ]]; then
+                local unit_name=$(basename "$unit_file")
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo "  [DRY-RUN] Would install: $unit_name"
+                else
+                    sudo cp "$unit_file" "/etc/systemd/system/${unit_name}"
+                    sudo chmod 644 "/etc/systemd/system/${unit_name}"
+                    echo "  Installed: $unit_name"
+                fi
+            fi
+        done
+
+        # Install/update tmpfiles.d configuration for privileged helper
+        if [[ -f "${project}/systemd/audiobooks-tmpfiles.conf" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would update tmpfiles.d configuration"
+            else
+                sudo cp "${project}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+                sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
+                # Ensure runtime directory exists
+                sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
+                    sudo mkdir -p /run/audiobooks
+                    sudo chown audiobooks:audiobooks /run/audiobooks
+                    sudo chmod 755 /run/audiobooks
+                }
+                echo "  Updated: tmpfiles.d/audiobooks.conf"
+            fi
+        fi
+
+        # Reload systemd to pick up changes
+        if [[ "$DRY_RUN" == "false" ]]; then
+            sudo systemctl daemon-reload
+
+            # Enable and start the privileged helper path unit if not already running
+            if [[ -f "/etc/systemd/system/audiobooks-upgrade-helper.path" ]]; then
+                sudo systemctl enable audiobooks-upgrade-helper.path 2>/dev/null || true
+                sudo systemctl start audiobooks-upgrade-helper.path 2>/dev/null || true
+            fi
+        fi
     fi
 
     # Update VERSION file
