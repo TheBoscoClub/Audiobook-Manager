@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.6.2] - 2026-01-03
+
+### Changed
+- **utilities_system.py**: Project discovery now searches multiple paths instead of hardcoded
+  `/raid0/ClaudeCodeProjects` - checks `AUDIOBOOKS_PROJECT_DIR` env, `~/ClaudeCodeProjects`,
+  `~/projects`, and `/opt/projects`
+
+### Fixed
+- Version sync: Updated `install-manifest.json`, `Dockerfile`, `CLAUDE.md`, and
+  `docs/ARCHITECTURE.md` to match VERSION file (3.6.1 → now 3.6.2)
+- Removed unused imports in `scan_audiobooks.py` (re-exported from `metadata_utils` for
+  backwards compatibility with tests)
+- Added `.claudeignore` to exclude `.snapshots/` from Claude Code settings scanning
+
 ## [3.6.1] - 2026-01-03
 
 ### Added
