@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+
+### Fixed
+
+## [3.7.2] - 2026-01-05
+
+### Changed
 - **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobooks-downloader.timer` in API
   and helper script to match actual systemd unit name
 
