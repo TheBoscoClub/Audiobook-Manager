@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- **EOL Notice**: v3.5.x branch officially end-of-life (no security patches or updates)
 
 ### Fixed
 
@@ -143,11 +144,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.5.0] - 2026-01-03
 
-> ⚠️ **STABLE BASELINE RELEASE**
+> ⚠️ **END OF LIFE - NO LONGER SUPPORTED**
 >
-> v3.5.0 is the last version supporting the legacy monolithic API (`api.py`).
-> Starting with v3.6.0, only the modular Flask Blueprint architecture will be supported.
-> Users of the monolithic API must migrate before upgrading to v3.6.0+.
+> The 3.5.x branch reached end-of-life with the release of v3.7.0.
+> - **No further updates** will be released for 3.5.x
+> - **No security patches** - upgrade to 3.7.0+ immediately
+> - **Migration required**: v3.5.0 was the last version supporting the legacy monolithic API (`api.py`)
+>
+> Users still on 3.5.x must upgrade to v3.7.0 or later. See [upgrade documentation](docs/ARCHITECTURE.md).
 
 ### Added
 - **Checksum tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations

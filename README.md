@@ -299,14 +299,15 @@ audiobooks-config   # Show configuration
 
 ## Upgrading
 
-> ⚠️ **IMPORTANT: Version Compatibility Notice**
+> ⚠️ **IMPORTANT: v3.5.x End of Life**
 >
-> **v3.5.0 is the stable baseline.** Starting with v3.6.0, the legacy monolithic API (`api.py`) will be **removed**. All installations MUST use the modular Flask Blueprint architecture (`api_modular/`).
+> **v3.5.x has reached end-of-life** and is no longer supported. All users must upgrade to v3.7.0 or later.
 >
-> - **v3.5.x**: Fully backwards compatible. Both monolithic and modular architectures supported.
-> - **v3.6.0+**: **BREAKING CHANGE** - Monolithic `api.py` removed. Modular architecture required.
+> - **v3.5.x**: ⛔ **END OF LIFE** - No security patches or updates
+> - **v3.6.x**: Modular Flask Blueprint architecture required
+> - **v3.7.0+**: Current supported release
 >
-> If you are using the monolithic API, migrate before upgrading to v3.6.0:
+> If upgrading from v3.5.x with the legacy monolithic API, migrate first:
 > ```bash
 > ./migrate-api.sh --to-modular --target /opt/audiobooks
 > ```
@@ -955,21 +956,23 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.6.1 (Current)
+### v3.7.0 (Current)
+- **Upgrade System**: Fixed non-interactive upgrade failures in systemd service
+  - Fixed bash arithmetic causing exit code 1 with `set -e`
+  - Auto-confirm prompts when triggered from web UI
+- **UI**: Changed dark green text to cream-light for better contrast
+
+### v3.6.x
 - **Security**: Privilege-separated helper service for system operations
   - API now runs with `NoNewPrivileges=yes` security hardening
   - Service control and upgrades work via file-based IPC with helper service
-- **Fixes**: Service control from web UI, upgrade from web UI, race conditions
-
-### v3.6.0
 - **System Administration API**: New `/api/system/*` endpoints for service control and upgrades
 - **Web UI**: Back Office can now start/stop/restart services and trigger upgrades
-- **Helper Service**: `audiobooks-upgrade-helper.service` runs privileged operations
+- **Fixes**: Service control from web UI, upgrade from web UI, race conditions
 
-### v3.5.1
-- **Backport**: Privilege-separated helper service from v3.6.1
-
-### v3.5.0
+### v3.5.x ⚠️ END OF LIFE
+> **No longer supported.** Upgrade to v3.7.0 or later immediately.
+> No security patches or updates will be released for 3.5.x.
 - **Checksum Tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations for fast duplicate detection
 - **Generate Checksums**: New Utilities button to regenerate all checksums for Sources (.aaxc) and Library (.opus) files
 - **Index Cleanup**: `cleanup-stale-indexes` script removes entries for deleted files from all indexes; automatic cleanup on file deletion
