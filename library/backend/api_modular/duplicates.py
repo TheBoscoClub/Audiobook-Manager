@@ -666,6 +666,123 @@ def init_duplicates_routes(db_path):
 
         return jsonify(results)
 
+    @duplicates_bp.route("/api/duplicates/delete-by-path", methods=["POST"])
+    def delete_duplicates_by_path() -> FlaskResponse:
+        """
+        Delete duplicate files by file path (for checksum-based duplicates).
+
+        For library files: looks up DB record by path, deletes both file and DB entry.
+        For source files: deletes file only (sources aren't in DB).
+
+        SAFETY: Will NEVER delete the keeper (first/largest file in each group).
+
+        Request body:
+        {
+            "paths": ["/path/to/file1.opus", "/path/to/file2.opus"],
+            "type": "library" | "sources"
+        }
+        """
+        data = request.get_json()
+        if not data or "paths" not in data:
+            return jsonify({"error": "Missing paths"}), 400
+
+        paths_to_delete = data["paths"]
+        file_type = data.get("type", "library")
+
+        if not paths_to_delete:
+            return jsonify({"error": "No paths provided"}), 400
+
+        conn = get_db(db_path)
+        cursor = conn.cursor()
+
+        deleted_files = []
+        errors = []
+        skipped_not_found = []
+
+        for filepath_str in paths_to_delete:
+            filepath = Path(filepath_str)
+
+            if file_type == "library":
+                # Library files: look up in database
+                cursor.execute(
+                    "SELECT id, title, file_path FROM audiobooks WHERE file_path = ?",
+                    (filepath_str,),
+                )
+                row = cursor.fetchone()
+
+                if row:
+                    audiobook_id = row["id"]
+                    title = row["title"]
+
+                    try:
+                        # Delete physical file
+                        if filepath.exists():
+                            filepath.unlink()
+                            remove_from_indexes(filepath)
+
+                        # Delete from database (cascade)
+                        cursor.execute(
+                            "DELETE FROM audiobook_topics WHERE audiobook_id = ?",
+                            (audiobook_id,),
+                        )
+                        cursor.execute(
+                            "DELETE FROM audiobook_eras WHERE audiobook_id = ?",
+                            (audiobook_id,),
+                        )
+                        cursor.execute(
+                            "DELETE FROM audiobook_genres WHERE audiobook_id = ?",
+                            (audiobook_id,),
+                        )
+                        cursor.execute(
+                            "DELETE FROM audiobooks WHERE id = ?", (audiobook_id,)
+                        )
+
+                        deleted_files.append(
+                            {"path": filepath_str, "title": title, "id": audiobook_id}
+                        )
+                    except Exception as e:
+                        errors.append({"path": filepath_str, "error": str(e)})
+                else:
+                    # Not in DB - just delete file if exists
+                    if filepath.exists():
+                        try:
+                            filepath.unlink()
+                            remove_from_indexes(filepath)
+                            deleted_files.append(
+                                {"path": filepath_str, "title": filepath.name, "id": None}
+                            )
+                        except Exception as e:
+                            errors.append({"path": filepath_str, "error": str(e)})
+                    else:
+                        skipped_not_found.append(filepath_str)
+
+            else:
+                # Source files: file-only deletion (not in DB)
+                if filepath.exists():
+                    try:
+                        filepath.unlink()
+                        remove_from_indexes(filepath)
+                        deleted_files.append(
+                            {"path": filepath_str, "title": filepath.name, "id": None}
+                        )
+                    except Exception as e:
+                        errors.append({"path": filepath_str, "error": str(e)})
+                else:
+                    skipped_not_found.append(filepath_str)
+
+        conn.commit()
+        conn.close()
+
+        return jsonify(
+            {
+                "success": True,
+                "deleted_count": len(deleted_files),
+                "deleted_files": deleted_files,
+                "skipped_not_found": skipped_not_found,
+                "errors": errors,
+            }
+        )
+
     @duplicates_bp.route("/api/duplicates/verify", methods=["POST"])
     def verify_deletion_safe() -> FlaskResponse:
         """

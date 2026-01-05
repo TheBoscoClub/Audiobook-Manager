@@ -375,6 +375,8 @@ function initDuplicatesSection() {
 
 // Track current duplicate detection mode
 let currentDupMode = 'title';
+// Track selected paths for checksum-based deletions
+let checksumPathSelection = new Set();
 
 async function findDuplicates() {
     const method = document.querySelector('input[name="dup-method"]:checked').value;
@@ -419,13 +421,16 @@ async function findDuplicates() {
 
             duplicatesData = checksumData.duplicate_groups || [];
             duplicateSelection.clear();
+            checksumPathSelection.clear();
 
             document.getElementById('dup-group-count').textContent = duplicatesData.length;
 
             if (duplicatesData.length > 0) {
                 renderChecksumDuplicates(checksumType);
-                // Hide delete actions for checksum mode (file-based, not DB-based)
-                document.getElementById('dup-actions').style.display = 'none';
+                // Show delete actions for checksum mode (now supported!)
+                document.getElementById('dup-actions').style.display = 'flex';
+                document.getElementById('selected-count').textContent = '0';
+                document.getElementById('delete-selected-dups').disabled = true;
 
                 // Show summary stats
                 showToast(`Found ${checksumData.total_duplicate_files} duplicate files (${checksumData.total_wasted_mb?.toFixed(1)} MB wasted)`, 'info');
@@ -504,12 +509,15 @@ function renderDuplicates() {
 }
 
 /**
- * Render checksum-based duplicates (file-based, not database-based)
+ * Render checksum-based duplicates (file-based, with delete support)
  * Uses safe DOM methods to avoid XSS vulnerabilities
  */
 function renderChecksumDuplicates(checksumType) {
     const listContainer = document.getElementById('duplicates-list');
     listContainer.textContent = '';
+
+    // Store checksumType for delete operation
+    listContainer.dataset.checksumType = checksumType;
 
     duplicatesData.forEach((group, groupIdx) => {
         const groupDiv = document.createElement('div');
@@ -527,18 +535,21 @@ function renderChecksumDuplicates(checksumType) {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'duplicate-item' + (file.is_keeper ? ' keep' : '');
 
-            // Badge or checkbox placeholder
+            // Badge for keeper, checkbox for duplicates
             if (file.is_keeper) {
                 const keepBadge = document.createElement('span');
                 keepBadge.className = 'keep-badge';
                 keepBadge.textContent = 'KEEP';
                 itemDiv.appendChild(keepBadge);
             } else {
-                // Placeholder for potential future file deletion feature
-                const dupBadge = document.createElement('span');
-                dupBadge.className = 'dup-badge';
-                dupBadge.textContent = 'DUPE';
-                itemDiv.appendChild(dupBadge);
+                // Checkbox for deletion
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'duplicate-checkbox checksum-checkbox';
+                checkbox.dataset.path = file.path;
+                checkbox.dataset.group = groupIdx;
+                checkbox.addEventListener('change', updateChecksumSelection);
+                itemDiv.appendChild(checkbox);
             }
 
             // File info
@@ -578,12 +589,19 @@ function renderChecksumDuplicates(checksumType) {
 
         listContainer.appendChild(groupDiv);
     });
+}
 
-    // Add info message about manual deletion
-    const infoDiv = document.createElement('div');
-    infoDiv.className = 'checksum-info-notice';
-    infoDiv.textContent = 'Checksum duplicates are file-based. Use file manager or command line to delete duplicates.';
-    listContainer.insertBefore(infoDiv, listContainer.firstChild);
+/**
+ * Update selection tracking for checksum-based duplicates
+ */
+function updateChecksumSelection() {
+    checksumPathSelection.clear();
+    document.querySelectorAll('.checksum-checkbox:checked').forEach(cb => {
+        checksumPathSelection.add(cb.dataset.path);
+    });
+
+    document.getElementById('selected-count').textContent = checksumPathSelection.size;
+    document.getElementById('delete-selected-dups').disabled = checksumPathSelection.size === 0;
 }
 
 function updateDuplicateSelection() {
@@ -600,51 +618,114 @@ function selectAllDuplicates() {
     document.querySelectorAll('.duplicate-checkbox').forEach(cb => {
         cb.checked = true;
     });
-    updateDuplicateSelection();
+    // Update the appropriate selection based on mode
+    if (currentDupMode === 'source-checksum' || currentDupMode === 'library-checksum') {
+        updateChecksumSelection();
+    } else {
+        updateDuplicateSelection();
+    }
 }
 
 function deselectAllDuplicates() {
     document.querySelectorAll('.duplicate-checkbox').forEach(cb => {
         cb.checked = false;
     });
-    updateDuplicateSelection();
+    // Update the appropriate selection based on mode
+    if (currentDupMode === 'source-checksum' || currentDupMode === 'library-checksum') {
+        updateChecksumSelection();
+    } else {
+        updateDuplicateSelection();
+    }
 }
 
 async function deleteSelectedDuplicates() {
-    if (duplicateSelection.size === 0) return;
+    // Check which mode we're in
+    const isChecksumMode = currentDupMode === 'source-checksum' || currentDupMode === 'library-checksum';
 
-    const confirmed = await confirmAction(
-        'Delete Duplicates',
-        `Are you sure you want to delete ${duplicateSelection.size} duplicate audiobook(s)?\n\nThis will remove them from the database AND delete the audio files.`
-    );
+    if (isChecksumMode) {
+        // Path-based deletion for checksum duplicates
+        if (checksumPathSelection.size === 0) return;
 
-    if (!confirmed) return;
+        const checksumType = currentDupMode === 'source-checksum' ? 'sources' : 'library';
+        const confirmed = await confirmAction(
+            'Delete Duplicates',
+            `Are you sure you want to delete ${checksumPathSelection.size} duplicate file(s)?\n\nThis will permanently delete the files${checksumType === 'library' ? ' and remove them from the database' : ''}.`
+        );
 
-    showProgress('Deleting Duplicates', `Removing ${duplicateSelection.size} files...`);
+        if (!confirmed) return;
 
-    try {
-        const res = await fetch(`${API_BASE}/api/audiobooks/bulk-delete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ids: Array.from(duplicateSelection),
-                delete_files: true
-            })
-        });
+        showProgress('Deleting Duplicates', `Removing ${checksumPathSelection.size} files...`);
 
-        const result = await res.json();
-        hideProgress();
+        try {
+            const res = await fetch(`${API_BASE}/api/duplicates/delete-by-path`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    paths: Array.from(checksumPathSelection),
+                    type: checksumType
+                })
+            });
 
-        if (result.success) {
-            showToast(`Deleted ${result.deleted_count} audiobooks`, 'success');
-            findDuplicates(); // Refresh
-            loadDatabaseStats();
-        } else {
-            showToast(result.error || 'Delete failed', 'error');
+            const result = await res.json();
+            hideProgress();
+
+            if (result.success) {
+                let msg = `Deleted ${result.deleted_count} files`;
+                if (result.skipped_not_found?.length > 0) {
+                    msg += ` (${result.skipped_not_found.length} not found)`;
+                }
+                if (result.errors?.length > 0) {
+                    msg += ` (${result.errors.length} errors)`;
+                }
+                showToast(msg, 'success');
+                findDuplicates(); // Refresh
+                if (checksumType === 'library') {
+                    loadDatabaseStats();
+                }
+            } else {
+                showToast(result.error || 'Delete failed', 'error');
+            }
+        } catch (error) {
+            hideProgress();
+            showToast('Failed to delete: ' + error.message, 'error');
         }
-    } catch (error) {
-        hideProgress();
-        showToast('Failed to delete: ' + error.message, 'error');
+    } else {
+        // ID-based deletion for title/hash duplicates
+        if (duplicateSelection.size === 0) return;
+
+        const confirmed = await confirmAction(
+            'Delete Duplicates',
+            `Are you sure you want to delete ${duplicateSelection.size} duplicate audiobook(s)?\n\nThis will remove them from the database AND delete the audio files.`
+        );
+
+        if (!confirmed) return;
+
+        showProgress('Deleting Duplicates', `Removing ${duplicateSelection.size} files...`);
+
+        try {
+            const res = await fetch(`${API_BASE}/api/audiobooks/bulk-delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ids: Array.from(duplicateSelection),
+                    delete_files: true
+                })
+            });
+
+            const result = await res.json();
+            hideProgress();
+
+            if (result.success) {
+                showToast(`Deleted ${result.deleted_count} audiobooks`, 'success');
+                findDuplicates(); // Refresh
+                loadDatabaseStats();
+            } else {
+                showToast(result.error || 'Delete failed', 'error');
+            }
+        } catch (error) {
+            hideProgress();
+            showToast('Failed to delete: ' + error.message, 'error');
+        }
     }
 }
 
