@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.7.1] - 2026-01-05
+
+### Added
+- **Duplicate Deletion**: Added delete capability for checksum-based duplicates in Back Office
+  - New API endpoint `POST /api/duplicates/delete-by-path` for path-based deletion
+  - Library checksum duplicates now show checkboxes for selection
+  - Source checksum duplicates also support deletion (file-only, not in database)
+  - Removed "manual deletion required" notice - duplicates can now be deleted from the UI
+
+### Changed
+- **API Service**: Updated systemd service `ReadWritePaths` to include Library and Sources directories
+  - Required for API to delete duplicate files (previously had read-only access)
+
 ## [3.7.0.1] - 2026-01-04
 
 ### Changed
