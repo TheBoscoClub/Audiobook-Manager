@@ -128,7 +128,7 @@ def init_system_routes(project_root):
         "audiobooks-proxy",
         "audiobooks-converter",
         "audiobooks-mover",
-        "audiobooks-scanner.timer",
+        "audiobooks-downloader.timer",
     ]
 
     # =========================================================================

@@ -159,6 +159,10 @@ def init_db_routes(db_path, project_root):
             # Get size before vacuum
             size_before = db_path.stat().st_size
 
+            # Use memory for temp storage to avoid disk I/O errors in sandboxed environments
+            # (ProtectSystem=strict blocks default temp directory access)
+            conn.execute("PRAGMA temp_store = MEMORY;")
+
             # Run VACUUM
             conn.execute("VACUUM")
             conn.close()

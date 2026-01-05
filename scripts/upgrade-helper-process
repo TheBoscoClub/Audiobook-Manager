@@ -31,7 +31,7 @@ VALID_SERVICES=(
     "audiobooks-proxy"
     "audiobooks-converter"
     "audiobooks-mover"
-    "audiobooks-scanner.timer"
+    "audiobooks-downloader.timer"
 )
 
 # Ensure control directory exists and is writable by audiobooks user
@@ -206,7 +206,7 @@ do_services_stop_all() {
 
     # Stop order: timer, mover, converter, then optionally proxy and api
     local stop_order=(
-        "audiobooks-scanner.timer"
+        "audiobooks-downloader.timer"
         "audiobooks-mover"
         "audiobooks-converter"
     )
@@ -257,7 +257,7 @@ do_upgrade() {
     write_status "true" "stopping_services" "Stopping services..." "null" "null" "${OUTPUT_LINES[@]}"
 
     local services_to_stop=(
-        "audiobooks-scanner.timer"
+        "audiobooks-downloader.timer"
         "audiobooks-mover"
         "audiobooks-converter"
     )

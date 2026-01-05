@@ -10,8 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobooks-downloader.timer` in API
+  and helper script to match actual systemd unit name
 
 ### Fixed
+- **Download Feature**: Fixed "Read-only file system" error when downloading audiobooks
+  - Added `/run/audiobooks` to `ReadWritePaths` in API service for lock files and temp storage
+- **Vacuum Database**: Fixed "disk I/O error" when vacuuming database
+  - Added `PRAGMA temp_store = MEMORY` to avoid temp file creation in sandboxed environment
+- **Service Timer Control**: Fixed "Unit not found" error when starting/stopping timer
+  - Updated service name from `audiobooks-scanner.timer` to `audiobooks-downloader.timer`
 
 ## [3.7.1] - 2026-01-05
 
