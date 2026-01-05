@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.7.0] - 2026-01-04
+
+### Changed
+- **UI Styling**: Changed dark green text on dark backgrounds to cream-light for better contrast
+  - Progress output text, success stats, active file indicators now use `--cream-light`
+
+### Fixed
+- **upgrade.sh**: Fixed non-interactive upgrade failures in systemd service
+  - Fixed arithmetic increment `((issues_found++))` causing exit code 1 with `set -e`
+  - Changed to `issues_found=$((issues_found + 1))` which always succeeds
+- **upgrade-helper-process**: Auto-confirm upgrade prompts
+  - Pipe "y" to upgrade script since user already confirmed via web UI
+  - Fixes `read` command failing with no TTY in systemd context
+
 ## [3.6.4.1] - 2026-01-04
 
 ### Added
