@@ -225,7 +225,7 @@ body.back-office {
 }
 
 .remaining-summary.complete .remaining-count {
-    color: var(--banker-green-light);
+    color: var(--cream-light);
 }
 
 /* Main Content Area */
@@ -1258,7 +1258,7 @@ body.back-office {
 
 .progress-output {
     background: var(--office-dark);
-    color: var(--banker-green-light);
+    color: var(--cream-light);
     font-family: 'Courier New', monospace;
     font-size: 0.85rem;
     padding: 1rem;
@@ -1617,7 +1617,7 @@ body.back-office {
 }
 
 .conversion-stats .stat-value.success {
-    color: var(--banker-green-light);
+    color: var(--cream-light);
 }
 
 .conversion-stats .stat-value.warning {
@@ -1781,7 +1781,7 @@ body.back-office {
 
 .active-file-item::before {
     content: '●';
-    color: var(--banker-green-light);
+    color: var(--cream-light);
     font-size: 0.6rem;
     animation: pulse 1.5s ease-in-out infinite;
 }
@@ -1965,7 +1965,7 @@ body.back-office {
 }
 
 .conversion-complete .progress-percent {
-    color: var(--banker-green-light);
+    color: var(--cream-light);
 }
 
 /* No Conversions State */

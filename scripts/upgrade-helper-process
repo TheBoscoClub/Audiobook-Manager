@@ -313,8 +313,9 @@ do_upgrade() {
     fi
 
     # Run upgrade and capture output
+    # Pipe "y" to auto-confirm since user already confirmed via web UI
     local upgrade_output upgrade_exit
-    upgrade_output=$("${upgrade_cmd[@]}" 2>&1)
+    upgrade_output=$(echo "y" | "${upgrade_cmd[@]}" 2>&1)
     upgrade_exit=$?
 
     # Parse output (strip ANSI codes)
