@@ -281,25 +281,40 @@ get_first_significant_word() {
     echo "${title%% *}"
 }
 
-# Check if a title is already converted using EXACT matching only
-# Different ASINs = different books, even with same title
+# Get sorted word signature of a title (for word-set matching)
+# "ep 1 mapping the earth bill brysons" -> "1 bill brysons earth ep mapping the"
+get_word_signature() {
+    echo "$1" | tr ' ' '\n' | sort | tr '\n' ' ' | sed 's/ $//'
+}
+
+# Check if a title is already converted
+# Uses exact match first, then falls back to word-set matching
 # Returns 0 (true) if converted, 1 (false) if not
 is_title_converted() {
     local source_title="$1"
     local converted_idx="$2"
 
-    # EXACT match only - no fuzzy/prefix matching
-    # This ensures different editions (ASINs) are treated as separate books
+    # EXACT match first - fastest
     if grep -qFx "$source_title" "$converted_idx" 2>/dev/null; then
         return 0
     fi
+
+    # Word-set match fallback: handles cases where metadata/filename have
+    # same words in different order (e.g., "Bill Bryson's... Ep. 1: Title"
+    # vs "Ep. 1: Title (Bill Bryson's...)")
+    local source_sig=$(get_word_signature "$source_title")
+    while IFS= read -r conv_title; do
+        local conv_sig=$(get_word_signature "$conv_title")
+        if [[ "$source_sig" == "$conv_sig" ]]; then
+            return 0
+        fi
+    done < "$converted_idx"
 
     return 1
 }
 
 # Find the matching converted title for a source title
-# Returns the matched title (for exact or prefix match), or empty if no match
-# Prefix matching: "catching fire" matches "catching fire the hunger games"
+# Returns the matched title (for exact, prefix, or word-set match), or empty if no match
 find_matching_converted() {
     local source_title="$1"
     local converted_idx="$2"
@@ -309,6 +324,16 @@ find_matching_converted() {
         echo "$source_title"
         return
     fi
+
+    # Word-set match: same words, different order
+    local source_sig=$(get_word_signature "$source_title")
+    while IFS= read -r conv_title; do
+        local conv_sig=$(get_word_signature "$conv_title")
+        if [[ "$source_sig" == "$conv_sig" ]]; then
+            echo "$conv_title"
+            return
+        fi
+    done < "$converted_idx"
 
     # Prefix match: source is longer than converted (source has subtitle)
     # e.g., source "catching fire the hunger games book 2" matches "catching fire"
@@ -482,6 +507,20 @@ build_queue() {
                         fi
                     done < <(grep "^${normalized%% *}" "$converted_title_idx")
                 fi
+                # Try word-set match: same words, different order
+                # Handles cases like "Bill Bryson's Appliance... Ep.1: Title" vs "Ep.1: Title (Bill Bryson's...)"
+                if ! $found; then
+                    local source_sig=$(get_word_signature "$normalized")
+                    while IFS= read -r conv_title; do
+                        local conv_sig=$(get_word_signature "$conv_title")
+                        if [[ "$source_sig" == "$conv_sig" ]]; then
+                            matched_title=$((matched_title + 1))
+                            log "  Word-set match (no ASIN): $normalized"
+                            found=true
+                            break
+                        fi
+                    done < "$converted_title_idx"
+                fi
                 if ! $found; then
                     echo "$path" >> "$queue_file"
                     queued=$((queued + 1))
@@ -493,17 +532,79 @@ build_queue() {
                 log "  Need conversion (no ASIN): $title"
             fi
         else
-            # ASIN file: ASIN-only matching (no title fallback)
-            # Different ASINs = different editions = different books
+            # ASIN file: check ASIN first, then fall back to title matching
             if grep -qFx "$asin_or_id" "$converted_asin_idx" 2>/dev/null; then
                 matched_asin=$((matched_asin + 1))
                 log "  ASIN match: $asin_or_id"
             else
-                # ASIN not in converted index - needs conversion
-                # NO title fallback: different editions (different ASINs) should both be converted
-                echo "$path" >> "$queue_file"
-                queued=$((queued + 1))
-                log "  Need conversion: ASIN $asin_or_id not in library"
+                # ASIN not matched - try title fallback
+                # This catches same-book-different-ASIN scenarios (re-releases, regional variants)
+                local bn=$(basename "$path")
+                bn="${bn%.aaxc}"
+                bn="${bn%.m4b}"
+                local title=$(echo "$bn" | sed -E 's/^[A-Z0-9]{10}_//' | sed -E 's/-AAX_[0-9]+_[0-9]+$//' | tr '_' ' ')
+                local normalized=$(normalize_title "$title")
+
+                local title_matched=false
+                # Exact match
+                if grep -qFx "$normalized" "$converted_title_idx" 2>/dev/null; then
+                    title_matched=true
+                    log "  Title match (ASIN fallback): $normalized"
+                fi
+                # Prefix match: source is prefix of converted (source shorter)
+                if ! $title_matched; then
+                    while IFS= read -r conv_title; do
+                        if [[ "$conv_title" == "$normalized"* ]]; then
+                            title_matched=true
+                            log "  Prefix match (ASIN fallback): $normalized matches $conv_title"
+                            break
+                        fi
+                    done < "$converted_title_idx"
+                fi
+                # Prefix match: converted is prefix of source (source longer)
+                if ! $title_matched; then
+                    while IFS= read -r conv_title; do
+                        if [[ "$normalized" == "$conv_title"* ]]; then
+                            title_matched=true
+                            log "  Prefix match (ASIN fallback): $conv_title matches $normalized"
+                            break
+                        fi
+                    done < "$converted_title_idx"
+                fi
+                # N-word prefix match: first 2-3 significant words match
+                if ! $title_matched; then
+                    local src_prefix=$(get_title_prefix "$normalized" 2)
+                    if [[ -n "$src_prefix" ]]; then
+                        while IFS= read -r conv_title; do
+                            local conv_prefix=$(get_title_prefix "$conv_title" 2)
+                            if [[ "$src_prefix" == "$conv_prefix" ]]; then
+                                title_matched=true
+                                log "  2-word prefix match (ASIN fallback): $src_prefix"
+                                break
+                            fi
+                        done < "$converted_title_idx"
+                    fi
+                fi
+                # Word-set match: same words, different order
+                if ! $title_matched; then
+                    local source_sig=$(get_word_signature "$normalized")
+                    while IFS= read -r conv_title; do
+                        local conv_sig=$(get_word_signature "$conv_title")
+                        if [[ "$source_sig" == "$conv_sig" ]]; then
+                            title_matched=true
+                            log "  Word-set match (ASIN fallback): $normalized"
+                            break
+                        fi
+                    done < "$converted_title_idx"
+                fi
+
+                if $title_matched; then
+                    matched_title=$((matched_title + 1))
+                else
+                    echo "$path" >> "$queue_file"
+                    queued=$((queued + 1))
+                    log "  Need conversion: ASIN $asin_or_id not in library"
+                fi
             fi
         fi
 

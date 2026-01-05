@@ -849,6 +849,7 @@ function confirmAction(title, message) {
 
         const confirmBtn = document.getElementById('confirm-action');
         confirmBtn.onclick = () => {
+            confirmResolve = null;  // Clear before hide so it won't resolve false
             hideConfirmModal();
             resolve(true);
         };

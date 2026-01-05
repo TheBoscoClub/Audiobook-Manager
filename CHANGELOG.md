@@ -13,6 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.6.4.1] - 2026-01-04
+
+### Added
+- **CSS Customization Guide**: New `docs/CSS-CUSTOMIZATION.md` documenting how to customize
+  colors, fonts, shadows, and create custom themes for the web UI
+
+### Changed
+- **UI Styling**: Enhanced visual depth and contrast across web interface
+  - Darkened header sunburst background for better separation from content
+  - Brightened all cream-colored text (85% opacity → 100% with cream-light color)
+  - Added shadow elevation system to theme for consistent depth cues
+  - Matched Back Office header/background styling to main Library page
+- **Back Office**: Removed hardcoded version from header (available in System tab)
+
+### Fixed
+- **Upgrade Button**: Fixed confirm dialog always resolving as "Cancel"
+  - `confirmAction()` was resolving with `false` before `resolve(true)` could run
+  - Clicking "Confirm" on upgrade dialog now properly triggers the upgrade
+- **Duplicate Detection**: Improved detection of already-converted audiobooks
+  - Added word-set matching for titles with same words in different order
+    (e.g., "Bill Bryson's... Ep. 1: Title" vs "Ep. 1: Title (Bill Bryson's...)")
+  - Added title fallback matching for ASIN files (catches same-book-different-ASIN scenarios)
+  - Added 2-word prefix matching for title variations
+    (e.g., "Blue Belle Burke Book 3" matches "Blue Belle: A Burke Novel 3")
+
 ## [3.6.4] - 2026-01-04
 
 ### Fixed
