@@ -1031,7 +1031,15 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.7.2 (Current)
+### v3.8.0 (Current)
+- **Position Sync with Audible**: Bidirectional playback position synchronization
+  - "Furthest ahead wins" conflict resolution - you never lose progress
+  - Seamlessly switch between Audible apps and self-hosted library
+  - Web player auto-saves every 15 seconds to both localStorage and API
+  - Batch sync all books with ASINs in a single operation
+- **Comprehensive Documentation**: New `docs/POSITION_SYNC.md` with setup guides, API reference, troubleshooting
+
+### v3.7.2
 - **Position Sync API**: Bidirectional playback position synchronization with Audible cloud
   - Sync single books or batch sync all audiobooks with ASINs
   - "Furthest ahead wins" logic for conflict resolution

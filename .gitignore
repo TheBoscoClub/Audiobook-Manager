@@ -310,3 +310,4 @@ temp/
 *.app
 target/
 out/
+config.dev.env
