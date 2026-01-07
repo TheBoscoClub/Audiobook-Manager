@@ -6,19 +6,20 @@ This document describes the system architecture, installation workflows, storage
 
 1. [System Overview](#system-overview)
 2. [Component Architecture](#component-architecture)
-3. [Installation Workflow](#installation-workflow)
-4. [Upgrade Workflow](#upgrade-workflow)
-5. [Migration Workflow](#migration-workflow)
-6. [Storage Layout](#storage-layout)
-7. [Storage Recommendations](#storage-recommendations)
-8. [Filesystem Recommendations](#filesystem-recommendations)
-9. [Kernel Compatibility](#kernel-compatibility)
+3. [Position Sync Architecture](#position-sync-architecture)
+4. [Installation Workflow](#installation-workflow)
+5. [Upgrade Workflow](#upgrade-workflow)
+6. [Migration Workflow](#migration-workflow)
+7. [Storage Layout](#storage-layout)
+8. [Storage Recommendations](#storage-recommendations)
+9. [Filesystem Recommendations](#filesystem-recommendations)
+10. [Kernel Compatibility](#kernel-compatibility)
 
 ---
 
 ## System Overview
 
-Audiobook-Manager consists of four logical component groups:
+Audiobook-Manager consists of five logical component groups:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -31,7 +32,7 @@ Audiobook-Manager consists of four logical component groups:
 │  │ • Python code   │  │ • Library/      │  │ • SQLite DB     │             │
 │  │ • Web UI        │  │ • Sources/      │  │ • Indexes       │             │
 │  │ • Scripts       │  │ • Supplements/  │  │ • Metadata      │             │
-│  │ • Converter     │  │ • .covers/      │  │                 │             │
+│  │ • Converter     │  │ • .covers/      │  │ • Positions     │             │
 │  │                 │  │ • logs/         │  │                 │             │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘             │
 │           │                    │                    │                       │
@@ -39,6 +40,12 @@ Audiobook-Manager consists of four logical component groups:
 │  ┌─────────────────────────────────────────────────────────────┐           │
 │  │                      CONFIGURATION                          │           │
 │  │  /etc/audiobooks/audiobooks.conf  |  Environment Variables  │           │
+│  └─────────────────────────────────────────────────────────────┘           │
+│           │                                                                 │
+│           ▼                                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐           │
+│  │                    EXTERNAL INTEGRATIONS                     │           │
+│  │  Position Sync: Audible Cloud  |  Metadata: Audible Library  │           │
 │  └─────────────────────────────────────────────────────────────┘           │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -145,6 +152,149 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
 **Why /var/lib/audiobooks/.control/ instead of /run/audiobooks/:**
 
 The API runs with `ProtectSystem=strict` which creates a read-only filesystem overlay. While `RuntimeDirectory=` can create `/run/audiobooks`, the sandboxed namespace sees it with root ownership (not audiobooks), preventing writes. Using `/var/lib/audiobooks/.control/` works because it's explicitly listed in `ReadWritePaths`.
+
+---
+
+## Position Sync Architecture
+
+Audiobook-Manager supports bidirectional playback position synchronization with Audible cloud, allowing seamless switching between the web interface and Audible's official apps.
+
+### Position Sync Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      POSITION SYNC ARCHITECTURE                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────┐         ┌───────────────────┐         ┌──────────────────┐
+  │   Web Browser    │         │  Audiobook-Manager│         │   Audible Cloud  │
+  │   (Player)       │         │       API         │         │                  │
+  ├──────────────────┤         ├───────────────────┤         ├──────────────────┤
+  │                  │  Every  │                   │  Batch  │                  │
+  │  localStorage ───┼──15s───▶│  SQLite Database ─┼─ Sync ─▶│  Audible API     │
+  │  (fast cache)    │  save   │  (persistent)     │         │  lastpositions   │
+  │                  │         │                   │         │                  │
+  │  PlaybackManager │         │  position_sync.py │         │  ACR credential  │
+  │  class           │         │  Flask Blueprint  │         │  for writes      │
+  └──────────────────┘         └───────────────────┘         └──────────────────┘
+```
+
+### Sync Strategy: Furthest Ahead Wins
+
+The sync algorithm uses a simple, conservative approach:
+
+| Condition | Action | Result |
+|-----------|--------|--------|
+| Audible > Local | Pull from Audible | Local updated to Audible position |
+| Local > Audible | Push to Audible | Audible updated to local position |
+| Local = Audible | No action | Already synchronized |
+
+**Rationale:** You never lose progress. Rewinding is always a manual action.
+
+### Component Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    POSITION SYNC DATA FLOW                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Web Player                   Flask API                    Audible Cloud
+      │                            │                             │
+      │  Every 15s during play     │                             │
+      ├────────────────────────────▶                             │
+      │  PUT /api/position/<id>    │                             │
+      │  {position_ms: 3600000}    │                             │
+      │                            │                             │
+      │                            │  Store in SQLite            │
+      │                            │  + playback_history table   │
+      │                            │                             │
+      │  On sync request           │                             │
+      │  POST /api/position/sync   │                             │
+      ├────────────────────────────▶                             │
+      │                            │                             │
+      │                            │  Fetch Audible position     │
+      │                            ├────────────────────────────▶│
+      │                            │  GET /1.0/annotations/      │
+      │                            │      lastpositions          │
+      │                            │◀────────────────────────────┤
+      │                            │                             │
+      │                            │  Compare positions          │
+      │                            │  (furthest ahead wins)      │
+      │                            │                             │
+      │                            │  If local > audible:        │
+      │                            │    Get ACR credential       │
+      │                            ├────────────────────────────▶│
+      │                            │  POST /1.0/content/{asin}/  │
+      │                            │       licenserequest        │
+      │                            │◀────────────────────────────┤
+      │                            │                             │
+      │                            │    Push position            │
+      │                            ├────────────────────────────▶│
+      │                            │  PUT /1.0/lastpositions/    │
+      │                            │      {asin}                 │
+      │                            │                             │
+      │  Sync result               │                             │
+      │◀────────────────────────────                             │
+      │  {action: "pushed/pulled"} │                             │
+```
+
+### Dual-Layer Storage
+
+The web player uses two storage tiers for optimal responsiveness:
+
+| Layer | Purpose | Persistence | Sync Capability |
+|-------|---------|-------------|-----------------|
+| **localStorage** | Fast cache for immediate resume | Per-browser, volatile | None |
+| **API/Database** | Persistent storage | Survives browser clears | Yes (Audible cloud) |
+
+### ASIN Requirement
+
+Position sync with Audible requires the book's **ASIN** (Amazon Standard Identification Number):
+
+- Books with ASINs can sync bidirectionally with Audible
+- Books without ASINs have local-only position tracking
+- Use `rnd/populate_asins.py` to match local books to Audible library
+
+### Database Schema (Position Fields)
+
+```sql
+-- In audiobooks table
+playback_position_ms INTEGER DEFAULT 0,      -- Current local position
+playback_position_updated TIMESTAMP,         -- When local was last updated
+audible_position_ms INTEGER,                 -- Last known Audible position
+audible_position_updated TIMESTAMP,          -- When Audible was fetched
+position_synced_at TIMESTAMP,                -- Last successful sync
+
+-- Position history tracking
+CREATE TABLE playback_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id INTEGER NOT NULL,
+    position_ms INTEGER NOT NULL,
+    source TEXT NOT NULL,  -- 'local', 'audible', 'sync'
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Security: Credential Storage
+
+Audible authentication credentials are stored securely:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CREDENTIAL STORAGE                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ~/.audible/
+  ├── audible.json                    # Audible auth (from audible-cli)
+  └── position_sync_credentials.enc   # Encrypted password for audible.json
+
+  Encryption:
+  • Algorithm: Fernet (AES-128-CBC)
+  • Key derivation: PBKDF2 with 480,000 iterations
+  • Salt: Machine-bound (hostname + username hash)
+```
+
+For complete setup instructions, see [Position Sync Guide](POSITION_SYNC.md).
 
 ---
 
@@ -1043,4 +1193,4 @@ systemctl status audiobooks.target --no-pager
 ---
 
 *Document Version: 3.7.2*
-*Last Updated: 2026-01-05*
+*Last Updated: 2026-01-07*

@@ -577,6 +577,66 @@ Four detection methods available in the Back Office Duplicates tab:
 - Volume control
 - **Position saving**: Automatically saves playback position per book
 - **Resume playback**: Click any book to resume from last position
+- **Audible cloud sync**: Bidirectional position sync with Audible (see below)
+
+## Position Sync with Audible
+
+Seamlessly switch between listening on Audible's apps and your self-hosted library. When you pause a book on your phone, resume at the exact same position in your browser.
+
+### How It Works
+
+- **Bidirectional sync**: Positions flow both ways between local and Audible cloud
+- **"Furthest ahead wins"**: The more advanced position always takes precedence (you never lose progress)
+- **Automatic player sync**: Web player saves positions every 15 seconds to both localStorage and API
+- **Batch sync**: Sync hundreds of books in a single operation
+
+### Quick Setup
+
+```bash
+# 1. Install and authenticate audible-cli
+pip install audible-cli
+audible quickstart
+
+# 2. Store credential for position sync (one-time)
+cd /opt/audiobooks/rnd
+python3 position_sync_test.py list
+# Enter your audible.json password when prompted
+
+# 3. Populate ASINs (matches local books to Audible library)
+python3 populate_asins.py --dry-run   # Preview
+python3 populate_asins.py             # Apply
+
+# 4. Run initial sync
+python3 position_sync_test.py batch-sync
+```
+
+### Verify Setup
+
+```bash
+# Check sync status
+curl -s http://localhost:5001/api/position/status | python3 -m json.tool
+
+# Should return:
+# {
+#     "audible_available": true,
+#     "credential_stored": true,
+#     "auth_file_exists": true
+# }
+```
+
+### Ongoing Sync
+
+The web player automatically saves positions to the API. For comprehensive sync with Audible cloud:
+
+```bash
+# Manual sync all books
+python3 position_sync_test.py batch-sync
+
+# Or use API
+curl -X POST http://localhost:5001/api/position/sync-all
+```
+
+For detailed instructions, see [docs/POSITION_SYNC.md](docs/POSITION_SYNC.md).
 
 ## REST API
 
