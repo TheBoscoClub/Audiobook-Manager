@@ -13,6 +13,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.8.0] - 2026-01-07
+
+### Added
+- **Position Sync with Audible**: Bidirectional playback position synchronization with Audible cloud
+  - "Furthest ahead wins" conflict resolution - you never lose progress
+  - Seamlessly switch between Audible apps and self-hosted library
+  - Sync single books or batch sync all audiobooks with ASINs
+  - Position history tracking for debugging and progress review
+- **Position Sync API Endpoints**:
+  - `GET /api/position/<id>` - Get position for a single audiobook
+  - `PUT /api/position/<id>` - Update local playback position (from web player)
+  - `POST /api/position/sync/<id>` - Sync single book with Audible
+  - `POST /api/position/sync-all` - Batch sync all books with ASINs
+  - `GET /api/position/syncable` - List all syncable audiobooks
+  - `GET /api/position/history/<id>` - Get position history for a book
+  - `GET /api/position/status` - Check if position sync is available
+- **Web Player Integration**: Dual-layer position storage (localStorage + API)
+  - Automatic position save every 15 seconds during playback
+  - Resume from best position (furthest ahead from cache or API)
+  - Immediate flush on player close
+- **Credential Management**: Encrypted Audible auth password storage using Fernet (PBKDF2)
+- **ASIN Population Tool**: `rnd/populate_asins.py` matches local books to Audible library
+- **Documentation**: New comprehensive `docs/POSITION_SYNC.md` guide with:
+  - Setup prerequisites and configuration steps
+  - First sync instructions with batch-sync command
+  - Ongoing sync maintenance patterns
+  - API reference with examples
+  - Troubleshooting guide
+
+### Changed
+- **Architecture Docs**: Added Position Sync Architecture section with data flow diagrams
+- **README**: Added Position Sync section with quick setup guide
+
 ## [3.7.2] - 2026-01-07
 
 ### Added
