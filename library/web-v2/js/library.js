@@ -1270,15 +1270,25 @@ class AudioPlayer {
         // Show player
         this.player.style.display = 'block';
 
-        // Handle resume
+        // Handle resume - check both localStorage and API for best position
         if (resume && playbackManager) {
-            const savedPosition = playbackManager.getPosition(book.id);
-            if (savedPosition) {
-                // Wait for metadata to load, then seek
-                this.audio.addEventListener('loadedmetadata', () => {
-                    this.audio.currentTime = savedPosition.position;
-                }, { once: true });
-            }
+            // Use async getBestPosition to check both local and API (furthest ahead wins)
+            playbackManager.getBestPosition(book.id).then(savedPosition => {
+                if (savedPosition && savedPosition.position > 30) {
+                    // Wait for metadata to load, then seek
+                    const seekHandler = () => {
+                        this.audio.currentTime = savedPosition.position;
+                        console.log(`Resumed at ${savedPosition.position}s from ${savedPosition.source || 'local'}`);
+                    };
+
+                    if (this.audio.readyState >= 1) {
+                        // Metadata already loaded
+                        seekHandler();
+                    } else {
+                        this.audio.addEventListener('loadedmetadata', seekHandler, { once: true });
+                    }
+                }
+            });
         }
 
         // Try to play
@@ -1353,13 +1363,15 @@ class AudioPlayer {
     }
 
     close() {
-        // Save position before closing
+        // Save position before closing (both localStorage and API)
         if (this.currentBook && playbackManager && this.audio.currentTime > 0 && this.audio.duration) {
             playbackManager.savePosition(
                 this.currentBook.id,
                 this.audio.currentTime,
                 this.audio.duration
             );
+            // Flush to API immediately on close (don't wait for debounce)
+            playbackManager.flushToAPI(this.currentBook.id, this.audio.currentTime);
         }
 
         this.audio.pause();
@@ -1810,12 +1822,16 @@ class DuplicateManager {
 }
 
 // Playback Manager - handles playback position persistence
+// Dual-layer storage: localStorage (fast cache) + API (persistent/syncable)
 class PlaybackManager {
     constructor() {
         this.storagePrefix = 'audiobook_';
         this.saveInterval = null;
+        this.apiSaveTimeout = null;  // Separate debounce for API saves
+        this.apiSaveDelay = 15000;   // Save to API every 15 seconds (less frequent than localStorage)
     }
 
+    // Save to localStorage (instant, local cache)
     savePosition(fileId, position, duration) {
         const data = {
             position: position,
@@ -1823,6 +1839,87 @@ class PlaybackManager {
             timestamp: Date.now()
         };
         localStorage.setItem(`${this.storagePrefix}position_${fileId}`, JSON.stringify(data));
+
+        // Also queue API save (debounced)
+        this.queueAPISave(fileId, position);
+    }
+
+    // Queue position save to backend API (debounced)
+    queueAPISave(fileId, positionSeconds) {
+        if (this.apiSaveTimeout) {
+            clearTimeout(this.apiSaveTimeout);
+        }
+        this.apiSaveTimeout = setTimeout(() => {
+            this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
+        }, this.apiSaveDelay);
+    }
+
+    // Save position to backend API
+    async savePositionToAPI(fileId, positionMs) {
+        try {
+            const response = await fetch(`${API_BASE}/position/${fileId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ position_ms: positionMs })
+            });
+            if (!response.ok) {
+                console.warn(`Failed to save position to API: ${response.status}`);
+            }
+        } catch (error) {
+            console.warn('Error saving position to API:', error);
+        }
+    }
+
+    // Fetch position from backend API
+    async getPositionFromAPI(fileId) {
+        try {
+            const response = await fetch(`${API_BASE}/position/${fileId}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.local_position_ms > 0) {
+                    return {
+                        position: data.local_position_ms / 1000,  // Convert to seconds
+                        duration: data.duration_ms ? data.duration_ms / 1000 : 0,
+                        timestamp: data.local_position_updated ? new Date(data.local_position_updated).getTime() : 0,
+                        source: 'api'
+                    };
+                }
+            }
+        } catch (error) {
+            console.warn('Error fetching position from API:', error);
+        }
+        return null;
+    }
+
+    // Get best position from both localStorage and API (furthest ahead wins)
+    async getBestPosition(fileId) {
+        const localPosition = this.getPosition(fileId);
+        const apiPosition = await this.getPositionFromAPI(fileId);
+
+        // If neither has data, return null
+        if (!localPosition && !apiPosition) return null;
+
+        // If only one has data, use that
+        if (!localPosition) return apiPosition;
+        if (!apiPosition) return localPosition;
+
+        // Both have data - use furthest ahead (same logic as Audible sync)
+        if (apiPosition.position > localPosition.position) {
+            console.log(`Using API position (${apiPosition.position}s) over local (${localPosition.position}s)`);
+            return apiPosition;
+        } else {
+            console.log(`Using local position (${localPosition.position}s) over API (${apiPosition.position}s)`);
+            return localPosition;
+        }
+    }
+
+    // Force immediate API save (for player close)
+    async flushToAPI(fileId, positionSeconds) {
+        if (this.apiSaveTimeout) {
+            clearTimeout(this.apiSaveTimeout);
+            this.apiSaveTimeout = null;
+        }
+        await this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
     }
 
     getPosition(fileId) {
@@ -1853,6 +1950,8 @@ class PlaybackManager {
 
     clearPosition(fileId) {
         localStorage.removeItem(`${this.storagePrefix}position_${fileId}`);
+        // Also clear from API
+        this.savePositionToAPI(fileId, 0);
     }
 
     // Format time for display
