@@ -24,8 +24,6 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from getpass import getpass
-
 try:
     import audible
 except ImportError:
@@ -33,7 +31,7 @@ except ImportError:
     sys.exit(1)
 
 # Import credential manager (same directory)
-from credential_manager import get_or_prompt_credential, has_stored_credential, retrieve_credential
+from credential_manager import get_or_prompt_credential, retrieve_credential
 
 
 # Configuration - use real user's home even when running as sudo

@@ -14,13 +14,11 @@ Endpoints:
 """
 
 import asyncio
-import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 
 # Add rnd directory to path for credential_manager and audible imports
 RND_PATH = Path(__file__).parent.parent.parent.parent / "rnd"

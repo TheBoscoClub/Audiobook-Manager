@@ -19,6 +19,7 @@ api_modular/
 ├── audiobooks.py           # Main listing, filtering, streaming endpoints
 ├── duplicates.py           # Duplicate detection and management (with index cleanup)
 ├── supplements.py          # Companion file (PDF, images) management
+├── position_sync.py        # Playback position sync with Audible cloud
 ├── utilities.py            # Blueprint aggregator for utilities modules
 ├── utilities_crud.py       # CRUD operations for audiobooks
 ├── utilities_db.py         # Database maintenance (vacuum, reimport, export)
@@ -66,6 +67,14 @@ api_modular/
 - Per-audiobook supplement listing
 - File download endpoints
 - Routes: `/api/supplements`, `/api/audiobooks/<id>/supplements`
+
+### `position_sync.py` - Audible Position Sync (v3.7.2+)
+- Bidirectional playback position synchronization with Audible cloud
+- "Furthest ahead wins" conflict resolution
+- Batch sync for all audiobooks with ASINs
+- Position history tracking
+- Requires: `audible` library, stored credentials via system keyring
+- Routes: `/api/position/*`, `/api/position/sync/*`
 
 ### `utilities*.py` - Admin Operations (Modular)
 The utilities module is split into focused sub-modules for maintainability:
@@ -239,6 +248,7 @@ The monolithic `api.py` is deprecated and will be removed in v3.6.0. Migrate now
 | `audiobooks.py` | ~470 | Core listing/streaming |
 | `duplicates.py` | ~750 | Duplicate detection, index cleanup |
 | `supplements.py` | ~190 | Companion files |
+| `position_sync.py` | ~600 | Audible position sync |
 | `utilities.py` | ~60 | Blueprint aggregator |
 | `utilities_crud.py` | ~260 | Audiobook CRUD |
 | `utilities_db.py` | ~290 | Database maintenance |

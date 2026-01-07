@@ -686,6 +686,21 @@ The library exposes a REST API on port 5001:
 > pattern. The API writes requests to `/var/lib/audiobooks/.control/` which triggers
 > a root-privileged helper via systemd path unit.
 
+### Position Sync (v3.7.2+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/position/<id>` | GET | Get playback position for audiobook |
+| `/api/position/<id>` | PUT | Update local playback position |
+| `/api/position/sync/<id>` | POST | Sync single book with Audible (furthest ahead wins) |
+| `/api/position/sync-all` | POST | Batch sync all books with ASINs |
+| `/api/position/syncable` | GET | List all syncable audiobooks |
+| `/api/position/history/<id>` | GET | Get position history for audiobook |
+| `/api/position/status` | GET | Check if position sync is available |
+
+> **Note**: Position sync requires the `audible` Python library and stored credentials
+> via system keyring. Run `rnd/position_sync_test.py` to set up initial authentication.
+
 ### Query Parameters for `/api/audiobooks`
 - `page` - Page number (default: 1)
 - `per_page` - Items per page (default: 50, max: 200)
@@ -956,7 +971,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.7.0 (Current)
+### v3.7.2 (Current)
+- **Position Sync API**: Bidirectional playback position synchronization with Audible cloud
+  - Sync single books or batch sync all audiobooks with ASINs
+  - "Furthest ahead wins" logic for conflict resolution
+  - Position history tracking
+- **Bug Fixes**: Service timer control, download path, database vacuum improvements
+
+### v3.7.0
 - **Upgrade System**: Fixed non-interactive upgrade failures in systemd service
   - Fixed bash arithmetic causing exit code 1 with `set -e`
   - Auto-confirm prompts when triggered from web UI

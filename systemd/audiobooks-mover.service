@@ -26,5 +26,11 @@ RestartSec=30
 # Nice value for lower priority
 Nice=5
 
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/raid0/Audiobooks /var/lib/audiobooks /tmp/audiobook-staging
+
 [Install]
 WantedBy=audiobooks.target multi-user.target

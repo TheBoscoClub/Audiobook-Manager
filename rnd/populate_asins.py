@@ -26,7 +26,7 @@ except ImportError:
     print("ERROR: 'audible' library not installed")
     sys.exit(1)
 
-from credential_manager import get_or_prompt_credential, retrieve_credential, CREDENTIAL_FILE
+from credential_manager import retrieve_credential
 
 # Configuration - use bosco's audible config even when running as root
 REAL_USER_HOME = Path(os.environ.get("SUDO_USER_HOME", os.environ.get("HOME", "/home/bosco")))
