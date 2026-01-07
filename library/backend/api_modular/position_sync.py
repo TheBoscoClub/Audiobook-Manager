@@ -80,15 +80,23 @@ async def get_audible_client():
     if not AUDIBLE_AVAILABLE:
         raise RuntimeError(f"Audible library not available: {AUDIBLE_IMPORT_ERROR}")
 
+    if not AUTH_FILE.exists():
+        raise RuntimeError(f"Audible auth file not found: {AUTH_FILE}")
+
+    # First try loading without password (unencrypted auth file)
+    try:
+        auth = audible.Authenticator.from_file(AUTH_FILE)
+        return audible.AsyncClient(auth=auth, country_code=COUNTRY_CODE)
+    except Exception:
+        pass  # Auth file might be password-protected, try with credential
+
+    # Fall back to stored credential for password-protected auth files
     if not has_stored_credential():
         raise RuntimeError("No stored Audible credential. Run position_sync_test.py first to set up.")
 
     password = retrieve_credential()
     if not password:
         raise RuntimeError("Could not retrieve stored Audible credential")
-
-    if not AUTH_FILE.exists():
-        raise RuntimeError(f"Audible auth file not found: {AUTH_FILE}")
 
     auth = audible.Authenticator.from_file(AUTH_FILE, password=password)
     return audible.AsyncClient(auth=auth, country_code=COUNTRY_CODE)

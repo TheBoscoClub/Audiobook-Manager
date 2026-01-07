@@ -3,3 +3,5 @@ Flask-Cors>=6.0.2
 mutagen>=1.47.0
 waitress>=2.1.0
 requests>=2.31.0
+audible>=0.8.0
+cryptography>=42.0.0
