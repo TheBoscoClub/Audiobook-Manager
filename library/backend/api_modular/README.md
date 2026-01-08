@@ -20,6 +20,7 @@ api_modular/
 ├── duplicates.py           # Duplicate detection and management (with index cleanup)
 ├── supplements.py          # Companion file (PDF, images) management
 ├── position_sync.py        # Playback position sync with Audible cloud
+├── periodicals.py          # Episodic content management (podcasts, news, meditation)
 ├── utilities.py            # Blueprint aggregator for utilities modules
 ├── utilities_crud.py       # CRUD operations for audiobooks
 ├── utilities_db.py         # Database maintenance (vacuum, reimport, export)
@@ -75,6 +76,15 @@ api_modular/
 - Position history tracking
 - Requires: `audible` library, stored credentials via system keyring
 - Routes: `/api/position/*`, `/api/position/sync/*`
+
+### `periodicals.py` - Episodic Content (v3.8.0+)
+- Manages Audible episodic content (podcasts, newspapers, meditation series)
+- Separate from main audiobook library to avoid clutter
+- Parent/child ASIN structure (series → episodes)
+- Category filtering: podcast, news, meditation, other
+- Real-time sync status via Server-Sent Events (SSE)
+- Download queue management
+- Routes: `/api/v1/periodicals/*`, `/api/v1/periodicals/sync/*`
 
 ### `utilities*.py` - Admin Operations (Modular)
 The utilities module is split into focused sub-modules for maintainability:
@@ -249,6 +259,7 @@ The monolithic `api.py` is deprecated and will be removed in v3.6.0. Migrate now
 | `duplicates.py` | ~750 | Duplicate detection, index cleanup |
 | `supplements.py` | ~190 | Companion files |
 | `position_sync.py` | ~600 | Audible position sync |
+| `periodicals.py` | ~400 | Episodic content (podcasts, news) |
 | `utilities.py` | ~60 | Blueprint aggregator |
 | `utilities_crud.py` | ~260 | Audiobook CRUD |
 | `utilities_db.py` | ~290 | Database maintenance |

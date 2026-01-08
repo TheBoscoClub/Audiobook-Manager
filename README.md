@@ -62,7 +62,18 @@ Web-based audiobook library browser with:
 - PDF supplement support (course materials, maps, etc.)
 - **Genre sync** from Audible library export with 250+ genre categories
 - **Narrator metadata sync** from Audible library export
+- **Periodicals "Reading Room"** for episodic content (podcasts, newspapers, meditation)
 - Production-ready HTTPS server with reverse proxy
+
+### 3. Periodicals "Reading Room" (`library/web-v2/periodicals.html`)
+Dedicated subsystem for Audible's episodic content:
+- **Separate from main library**: Keeps short-form content organized
+- **Category filtering**: Podcasts, News, Meditation, Other
+- **Episode selection**: Individual or bulk download queuing
+- **Real-time sync status**: Server-Sent Events (SSE) for live updates
+- **On-demand refresh**: Manual sync trigger via UI button
+- **Twice-daily auto-sync**: systemd timer at 06:00 and 18:00
+- **Parent/child ASIN structure**: Mirrors Audible's series organization
 
 ## Quick Start
 
