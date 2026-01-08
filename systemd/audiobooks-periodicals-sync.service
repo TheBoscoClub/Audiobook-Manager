@@ -36,4 +36,4 @@ PrivateTmp=true
 ReadWritePaths=/var/lib/audiobooks /var/log/audiobooks /run/audiobooks
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=audiobooks.target multi-user.target

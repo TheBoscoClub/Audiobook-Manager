@@ -1,6 +1,21 @@
 [Unit]
 Description=Audiobook Library Services
-After=network.target
+Documentation=https://github.com/greogory/Audiobook-Manager
+After=network-online.target
+Wants=network-online.target
+
+# Core services - these are the main services that must start
+Wants=audiobooks-api.service
+Wants=audiobooks-proxy.service
+Wants=audiobooks-redirect.service
+
+# Background workers - conversion and file moving
+Wants=audiobooks-converter.service
+Wants=audiobooks-mover.service
+
+# Scheduled tasks - timers trigger their corresponding .service units
+Wants=audiobooks-downloader.timer
+Wants=audiobooks-periodicals-sync.timer
 
 [Install]
 WantedBy=multi-user.target

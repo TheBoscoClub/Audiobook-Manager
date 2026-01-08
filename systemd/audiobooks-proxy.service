@@ -33,4 +33,4 @@ ProtectHome=yes
 PrivateTmp=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=audiobooks.target multi-user.target
