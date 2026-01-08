@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.1] - 2026-01-08
+
+### Fixed
+- **Systemd Target**: All services now properly bind to `audiobooks.target` for correct stop/start behavior during upgrades
+  - Added `audiobooks.target` to WantedBy for: api, proxy, redirect, periodicals-sync services and timer
+  - Added explicit `Wants=` in audiobooks.target for all core services and timers
+  - Previously only converter/mover responded to `systemctl stop/start audiobooks.target`
+
 ## [3.9.0] - 2026-01-08
 
 ### Added
