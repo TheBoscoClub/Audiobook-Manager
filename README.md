@@ -1042,7 +1042,16 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.8.0 (Current)
+### v3.9.0 (Current)
+- **Periodicals "Reading Room"**: New subsystem for Audible episodic content
+  - Manages podcasts, newspapers, meditation series separately from main library
+  - Real-time sync status via Server-Sent Events (SSE)
+  - Individual or bulk episode download queuing
+  - Twice-daily auto-sync via systemd timer (06:00 and 18:00)
+- **Security Fixes**: Patched CVE-2026-21441 (urllib3), CVE-2025-43859 (h11)
+- **Code Cleanup**: Removed deprecated Flask-CORS, dead CSS code
+
+### v3.8.0
 - **Position Sync with Audible**: Bidirectional playback position synchronization
   - "Furthest ahead wins" conflict resolution - you never lose progress
   - Seamlessly switch between Audible apps and self-hosted library

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [3.9.0] - 2026-01-08
+
+### Added
 - **Periodicals "Reading Room"**: New subsystem for episodic Audible content
   - Dedicated page for browsing podcasts, newspapers, meditation series
   - Category filtering (All, Podcasts, News, Meditation, Other)
