@@ -33,7 +33,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/audiobooks /var/log/audiobooks /run/audiobooks
+ReadWritePaths=/var/lib/audiobooks /run/audiobooks
 
 [Install]
 WantedBy=audiobooks.target multi-user.target

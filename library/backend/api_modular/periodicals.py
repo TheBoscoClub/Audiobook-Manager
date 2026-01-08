@@ -46,7 +46,7 @@ def init_periodicals_routes(db_path: str) -> None:
             category: Filter by category (podcast, news, meditation, other)
             sort: Sort by 'title', 'episodes', 'latest' (default: title)
         """
-        db = get_db()
+        db = get_db(g.db_path)
         category = request.args.get("category")
         sort = request.args.get("sort", "title")
 
@@ -112,7 +112,7 @@ def init_periodicals_routes(db_path: str) -> None:
         if not validate_asin(parent_asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
-        db = get_db()
+        db = get_db(g.db_path)
         page = max(1, int(request.args.get("page", 1)))
         per_page = min(200, max(1, int(request.args.get("per_page", 50))))
         status = request.args.get("status")
@@ -190,7 +190,7 @@ def init_periodicals_routes(db_path: str) -> None:
         if not validate_asin(parent_asin) or not validate_asin(child_asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
-        db = get_db()
+        db = get_db(g.db_path)
         row = db.execute("""
             SELECT
                 p.parent_asin,
@@ -257,7 +257,7 @@ def init_periodicals_routes(db_path: str) -> None:
         if not asins:
             return jsonify({"error": "Empty ASIN list"}), 400
 
-        db = get_db()
+        db = get_db(g.db_path)
         queued = 0
         already_downloaded = 0
         already_queued = 0
@@ -301,7 +301,7 @@ def init_periodicals_routes(db_path: str) -> None:
         if not validate_asin(child_asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
-        db = get_db()
+        db = get_db(g.db_path)
         cursor = db.execute("""
             UPDATE periodicals
             SET download_requested = 0, download_priority = 0
@@ -317,7 +317,7 @@ def init_periodicals_routes(db_path: str) -> None:
     @periodicals_bp.route("/api/v1/periodicals/queue", methods=["GET"])
     def get_queue():
         """Get current download queue."""
-        db = get_db()
+        db = get_db(g.db_path)
         cursor = db.execute("""
             SELECT
                 child_asin,
@@ -356,7 +356,7 @@ def init_periodicals_routes(db_path: str) -> None:
         Connect via EventSource in browser.
         """
         def generate():
-            db = get_db()
+            db = get_db(g.db_path)
 
             # Send current status immediately
             row = db.execute("""
@@ -427,7 +427,7 @@ def init_periodicals_routes(db_path: str) -> None:
     @periodicals_bp.route("/api/v1/periodicals/categories", methods=["GET"])
     def list_categories():
         """Get list of categories with counts."""
-        db = get_db()
+        db = get_db(g.db_path)
         cursor = db.execute("""
             SELECT category, COUNT(DISTINCT parent_asin) as parent_count
             FROM periodicals
