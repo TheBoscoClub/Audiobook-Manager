@@ -942,7 +942,7 @@ docker restart audiobooks
 cd library
 python3 -m venv venv
 source venv/bin/activate
-pip install flask flask-cors
+pip install flask
 
 # Scan your audiobooks
 cd scanner

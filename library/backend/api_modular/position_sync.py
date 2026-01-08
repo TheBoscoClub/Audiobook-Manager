@@ -419,7 +419,10 @@ def sync_position(audiobook_id: int):
         return jsonify(result)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Log the actual error server-side, return generic message to client
+        import logging
+        logging.error(f"Position sync error: {e}")
+        return jsonify({"error": "Internal server error during position sync"}), 500
 
 
 @position_bp.route('/sync-all', methods=['POST'])
@@ -549,7 +552,10 @@ def sync_all_positions():
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Log the actual error server-side, return generic message to client
+        import logging
+        logging.error(f"Batch sync error: {e}")
+        return jsonify({"error": "Internal server error during batch sync"}), 500
 
 
 @position_bp.route('/syncable', methods=['GET'])
