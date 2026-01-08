@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reading Room - Periodicals</title>
     <link rel="stylesheet" href="css/periodicals.css">
-    <!-- HTMX for dynamic content without full JS framework -->
-    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
 </head>
 <body>
     <!-- Header -->
@@ -46,7 +44,7 @@
 
     <!-- Main Content -->
     <main class="reading-room-main">
-        <!-- Left Panel: Parent List -->
+        <!-- Left Panel: Periodicals List -->
         <aside class="parent-list-panel">
             <div class="panel-header">
                 <h2>Publications</h2>
@@ -58,37 +56,20 @@
             </div>
         </aside>
 
-        <!-- Right Panel: Episode List -->
+        <!-- Right Panel: Item Details -->
         <section class="episode-list-panel">
             <div class="panel-header">
                 <div class="episode-header-left">
                     <h2 id="episode-panel-title">Select a publication</h2>
                     <span class="episode-count" id="episode-count"></span>
                 </div>
-                <div class="episode-header-right">
-                    <button class="select-all-btn" id="select-all-btn" title="Select all new episodes" disabled>
-                        Select All New
-                    </button>
-                </div>
             </div>
 
             <div class="episode-list" id="episode-list">
                 <div class="empty-state">
                     <span class="empty-icon">📰</span>
-                    <p>Select a publication from the left to browse episodes</p>
+                    <p>Select a publication from the left to view details</p>
                 </div>
-            </div>
-
-            <!-- Bulk Actions Footer -->
-            <div class="bulk-actions" id="bulk-actions" style="display: none;">
-                <div class="selected-count">
-                    <span id="selected-count">0</span> selected
-                </div>
-                <button class="download-btn" id="download-selected-btn"
-                        title="Queue selected episodes for download" disabled>
-                    <span class="download-icon">↓</span>
-                    Download Selected
-                </button>
             </div>
         </section>
     </main>
@@ -97,22 +78,20 @@
     <div class="queue-toast" id="queue-toast" style="display: none;">
         <div class="queue-toast-content">
             <span class="queue-icon">📥</span>
-            <span class="queue-text" id="queue-text">0 items in download queue</span>
+            <span class="queue-text" id="queue-text">Item queued for download</span>
             <button class="queue-close" id="queue-close" title="Dismiss">×</button>
         </div>
     </div>
 
     <script>
         // ========================================
-        // Periodicals Reading Room - Secure JS
-        // Uses safe DOM methods (no innerHTML)
+        // Periodicals Reading Room - New Flat Schema
+        // Each periodical is a standalone item (no episodes)
         // ========================================
 
         const API_BASE = '/api/v1/periodicals';
         let currentCategory = 'all';
-        let currentParentAsin = null;
-        let currentParentTitle = '';
-        let selectedEpisodes = new Set();
+        let currentAsin = null;
         let sseConnection = null;
 
         // ========================================
@@ -190,9 +169,9 @@
                 case 'completed':
                     statusEl.classList.add('success');
                     iconEl.textContent = '✓';
-                    textEl.textContent = (data.new || 0) + ' new episodes';
+                    textEl.textContent = (data.new || 0) + ' new items';
                     refreshBtn.disabled = false;
-                    loadParentList();
+                    loadPeriodicalsList();
                     break;
                 case 'failed':
                     statusEl.classList.add('error');
@@ -226,31 +205,30 @@
         }
 
         // ========================================
-        // Parent List Loading & Rendering
+        // Periodicals List Loading & Rendering
         // ========================================
-        async function loadParentList() {
+        async function loadPeriodicalsList() {
             const container = document.getElementById('parent-list');
             clearElement(container);
             container.appendChild(createElement('div', { className: 'loading-indicator', textContent: 'Loading...' }));
 
             try {
-                const response = await fetch(API_BASE);
+                let url = API_BASE;
+                if (currentCategory !== 'all') {
+                    url += '?category=' + currentCategory;
+                }
+                const response = await fetch(url);
                 const data = await response.json();
-                renderParentList(data.periodicals || []);
+                renderPeriodicalsList(data.periodicals || []);
             } catch (error) {
                 clearElement(container);
                 container.appendChild(createEmptyState('⚠️', 'Failed to load periodicals'));
             }
         }
 
-        function renderParentList(periodicals) {
+        function renderPeriodicalsList(periodicals) {
             const container = document.getElementById('parent-list');
             const countEl = document.getElementById('parent-count');
-
-            // Filter by current category
-            if (currentCategory !== 'all') {
-                periodicals = periodicals.filter(function(p) { return p.category === currentCategory; });
-            }
 
             countEl.textContent = String(periodicals.length);
             clearElement(container);
@@ -261,33 +239,46 @@
             }
 
             periodicals.forEach(function(p) {
-                container.appendChild(createParentCard(p));
+                container.appendChild(createPeriodicalCard(p));
             });
         }
 
-        function createParentCard(p) {
+        function createPeriodicalCard(p) {
             const coverContent = p.cover_url
                 ? createElement('img', { src: p.cover_url, alt: '', loading: 'lazy' })
                 : createElement('span', { className: 'no-cover', textContent: '📻' });
 
+            // Status badges
             const badges = [];
-            badges.push(createElement('span', { className: 'episode-badge', textContent: p.episode_count + ' eps' }));
-            if (p.downloaded_count > 0) {
-                badges.push(createElement('span', { className: 'downloaded-badge', textContent: p.downloaded_count + ' ↓' }));
+            if (p.content_type) {
+                badges.push(createElement('span', {
+                    className: 'type-badge',
+                    textContent: p.content_type
+                }));
             }
-            if (p.queued_count > 0) {
-                badges.push(createElement('span', { className: 'queued-badge', textContent: p.queued_count + ' ⏳' }));
+            if (p.is_downloaded) {
+                badges.push(createElement('span', {
+                    className: 'downloaded-badge',
+                    textContent: '✓ Downloaded'
+                }));
+            }
+            if (p.download_requested && !p.is_downloaded) {
+                badges.push(createElement('span', {
+                    className: 'queued-badge',
+                    textContent: '⏳ Queued'
+                }));
             }
 
             const card = createElement('button', {
-                className: 'parent-card' + (p.parent_asin === currentParentAsin ? ' active' : ''),
-                dataAsin: p.parent_asin,
-                title: p.title + ' - ' + p.episode_count + ' episodes',
-                onClick: function() { selectParent(p.parent_asin, p.title); }
+                className: 'parent-card' + (p.asin === currentAsin ? ' active' : ''),
+                dataAsin: p.asin,
+                title: p.title + ' - ' + (p.content_type || 'Periodical'),
+                onClick: function() { selectPeriodical(p.asin); }
             }, [
                 createElement('div', { className: 'parent-cover' }, [coverContent]),
                 createElement('div', { className: 'parent-info' }, [
                     createElement('span', { className: 'parent-title', textContent: p.title }),
+                    createElement('span', { className: 'parent-author', textContent: p.author || '' }),
                     createElement('span', { className: 'parent-meta' }, badges)
                 ])
             ]);
@@ -303,156 +294,135 @@
         }
 
         // ========================================
-        // Episode List Loading & Rendering
+        // Periodical Details View
         // ========================================
-        async function selectParent(asin, title) {
-            currentParentAsin = asin;
-            currentParentTitle = title;
-            selectedEpisodes.clear();
-            updateSelectionUI();
+        async function selectPeriodical(asin) {
+            currentAsin = asin;
 
-            // Update active state in parent list
+            // Update active state in list
             document.querySelectorAll('.parent-card').forEach(function(card) {
                 card.classList.toggle('active', card.dataset.asin === asin);
             });
 
-            // Update episode panel header
-            document.getElementById('episode-panel-title').textContent = title;
-            document.getElementById('select-all-btn').disabled = false;
-
-            // Load episodes
             const container = document.getElementById('episode-list');
             clearElement(container);
-            container.appendChild(createElement('div', { className: 'loading-indicator', textContent: 'Loading episodes...' }));
+            container.appendChild(createElement('div', { className: 'loading-indicator', textContent: 'Loading details...' }));
 
             try {
-                const response = await fetch(API_BASE + '/' + asin + '?per_page=100');
+                const response = await fetch(API_BASE + '/' + asin);
                 const data = await response.json();
-                renderEpisodeList(data);
+                renderPeriodicalDetails(data);
             } catch (error) {
                 clearElement(container);
-                container.appendChild(createEmptyState('⚠️', 'Failed to load episodes'));
+                container.appendChild(createEmptyState('⚠️', 'Failed to load details'));
             }
         }
 
-        function renderEpisodeList(data) {
+        function renderPeriodicalDetails(item) {
             const container = document.getElementById('episode-list');
+            const titleEl = document.getElementById('episode-panel-title');
             const countEl = document.getElementById('episode-count');
 
-            countEl.textContent = data.total + ' episodes';
+            titleEl.textContent = item.title;
+            countEl.textContent = item.content_type || 'Periodical';
+
             clearElement(container);
 
-            if (!data.episodes || data.episodes.length === 0) {
-                container.appendChild(createEmptyState('📭', 'No episodes available'));
-                return;
-            }
-
-            data.episodes.forEach(function(ep) {
-                container.appendChild(createEpisodeCard(ep));
-            });
-
-            document.getElementById('bulk-actions').style.display = 'flex';
-        }
-
-        function createEpisodeCard(ep) {
-            const isDisabled = ep.is_downloaded || ep.download_requested;
-
-            const checkbox = createElement('input', {
-                type: 'checkbox',
-                className: 'episode-checkbox',
-                dataAsin: ep.child_asin
-            });
-            if (isDisabled) checkbox.disabled = true;
-            if (ep.download_requested) checkbox.checked = true;
-            checkbox.addEventListener('change', function() {
-                toggleEpisode(ep.child_asin, this.checked);
-            });
-
-            const statusIcons = [];
-            if (ep.is_downloaded) {
-                statusIcons.push(createElement('span', { className: 'status-downloaded', title: 'Downloaded', textContent: '✓' }));
-            }
-            if (ep.download_requested && !ep.is_downloaded) {
-                statusIcons.push(createElement('span', { className: 'status-queued', title: 'Queued', textContent: '⏳' }));
-            }
-
-            const metaParts = [];
-            if (ep.runtime_minutes) metaParts.push(ep.runtime_minutes + ' min');
-            if (ep.release_date) metaParts.push(formatDate(ep.release_date));
-
-            const card = createElement('label', {
-                className: 'episode-card' + (ep.is_downloaded ? ' downloaded' : '') + (ep.download_requested ? ' queued' : ''),
-                title: ep.episode_title || ('Episode ' + ep.episode_number)
-            }, [
-                checkbox,
-                createElement('div', { className: 'episode-info' }, [
-                    createElement('span', { className: 'episode-number', textContent: ep.episode_number || '—' }),
-                    createElement('span', { className: 'episode-title', textContent: ep.episode_title || 'Untitled' }),
-                    createElement('span', { className: 'episode-meta', textContent: metaParts.join(' • ') })
+            // Build details card
+            const detailsCard = createElement('div', { className: 'details-card' }, [
+                // Cover and basic info
+                createElement('div', { className: 'details-header' }, [
+                    item.cover_url
+                        ? createElement('img', {
+                            src: item.cover_url,
+                            alt: item.title,
+                            className: 'details-cover'
+                        })
+                        : createElement('div', { className: 'details-cover no-cover', textContent: '📻' }),
+                    createElement('div', { className: 'details-info' }, [
+                        createElement('h3', { className: 'details-title', textContent: item.title }),
+                        createElement('p', { className: 'details-author', textContent: 'By ' + (item.author || 'Unknown') }),
+                        item.narrator
+                            ? createElement('p', { className: 'details-narrator', textContent: 'Narrated by ' + item.narrator })
+                            : null,
+                        createElement('p', { className: 'details-type', textContent: item.content_type + ' • ' + item.category }),
+                        item.runtime_minutes
+                            ? createElement('p', { className: 'details-runtime', textContent: formatDuration(item.runtime_minutes) })
+                            : null,
+                        item.release_date
+                            ? createElement('p', { className: 'details-date', textContent: 'Released: ' + formatDate(item.release_date) })
+                            : null
+                    ])
                 ]),
-                createElement('div', { className: 'episode-status' }, statusIcons)
+
+                // Description
+                item.description
+                    ? createElement('div', { className: 'details-description' }, [
+                        createElement('h4', { textContent: 'Description' }),
+                        createElement('p', { textContent: item.description })
+                    ])
+                    : null,
+
+                // Status & Actions
+                createElement('div', { className: 'details-actions' }, [
+                    item.is_downloaded
+                        ? createElement('div', { className: 'status-downloaded' }, [
+                            createElement('span', { className: 'status-icon', textContent: '✓' }),
+                            createElement('span', { textContent: 'Downloaded to Library' })
+                        ])
+                        : item.download_requested
+                            ? createElement('div', { className: 'status-queued' }, [
+                                createElement('span', { className: 'status-icon', textContent: '⏳' }),
+                                createElement('span', { textContent: 'Queued for Download' })
+                            ])
+                            : createElement('button', {
+                                className: 'download-btn',
+                                title: 'Queue this item for download',
+                                onClick: function() { queueDownload(item.asin); }
+                            }, [
+                                createElement('span', { className: 'download-icon', textContent: '↓' }),
+                                createElement('span', { textContent: 'Queue for Download' })
+                            ])
+                ]),
+
+                // Metadata
+                createElement('div', { className: 'details-meta' }, [
+                    createElement('p', { textContent: 'ASIN: ' + item.asin }),
+                    item.last_synced
+                        ? createElement('p', { textContent: 'Last synced: ' + formatDate(item.last_synced) })
+                        : null
+                ])
             ]);
 
-            return card;
-        }
-
-        // ========================================
-        // Selection Management
-        // ========================================
-        function toggleEpisode(asin, checked) {
-            if (checked) {
-                selectedEpisodes.add(asin);
-            } else {
-                selectedEpisodes.delete(asin);
-            }
-            updateSelectionUI();
-        }
-
-        function selectAllNew() {
-            document.querySelectorAll('.episode-checkbox:not(:disabled)').forEach(function(cb) {
-                cb.checked = true;
-                selectedEpisodes.add(cb.dataset.asin);
-            });
-            updateSelectionUI();
-        }
-
-        function updateSelectionUI() {
-            const count = selectedEpisodes.size;
-            document.getElementById('selected-count').textContent = String(count);
-            document.getElementById('download-selected-btn').disabled = count === 0;
+            container.appendChild(detailsCard);
         }
 
         // ========================================
         // Download Queue
         // ========================================
-        async function downloadSelected() {
-            if (selectedEpisodes.size === 0) return;
-
-            const btn = document.getElementById('download-selected-btn');
-            btn.disabled = true;
-            const btnIcon = btn.querySelector('.download-icon');
-            const originalIcon = btnIcon.textContent;
-            btnIcon.textContent = '⏳';
-
+        async function queueDownload(asin) {
             try {
                 const response = await fetch(API_BASE + '/download', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ asins: Array.from(selectedEpisodes) })
+                    body: JSON.stringify({ asins: [asin] })
                 });
 
                 const data = await response.json();
-                showQueueToast(data.queued + ' episodes queued for download', false);
-
-                // Refresh episode list
-                if (currentParentAsin) {
-                    selectParent(currentParentAsin, currentParentTitle);
+                if (data.queued > 0) {
+                    showQueueToast('Item queued for download', false);
+                    // Refresh the details view
+                    selectPeriodical(asin);
+                    // Also refresh the list to update badges
+                    loadPeriodicalsList();
+                } else if (data.already_downloaded > 0) {
+                    showQueueToast('Already downloaded', false);
+                } else if (data.already_queued > 0) {
+                    showQueueToast('Already in queue', false);
                 }
             } catch (error) {
-                showQueueToast('Failed to queue downloads', true);
+                showQueueToast('Failed to queue download', true);
             }
-
-            btnIcon.textContent = originalIcon;
         }
 
         function showQueueToast(message, isError) {
@@ -464,7 +434,7 @@
 
             setTimeout(function() {
                 toast.style.display = 'none';
-            }, 5000);
+            }, 4000);
         }
 
         // ========================================
@@ -477,7 +447,16 @@
                 });
                 tab.classList.add('active');
                 currentCategory = tab.dataset.category;
-                loadParentList();
+                currentAsin = null;
+
+                // Reset details panel
+                document.getElementById('episode-panel-title').textContent = 'Select a publication';
+                document.getElementById('episode-count').textContent = '';
+                const detailsContainer = document.getElementById('episode-list');
+                clearElement(detailsContainer);
+                detailsContainer.appendChild(createEmptyState('📰', 'Select a publication from the left to view details'));
+
+                loadPeriodicalsList();
             });
         });
 
@@ -485,8 +464,6 @@
         // Event Listeners
         // ========================================
         document.getElementById('refresh-btn').addEventListener('click', triggerSync);
-        document.getElementById('select-all-btn').addEventListener('click', selectAllNew);
-        document.getElementById('download-selected-btn').addEventListener('click', downloadSelected);
         document.getElementById('queue-close').addEventListener('click', function() {
             document.getElementById('queue-toast').style.display = 'none';
         });
@@ -500,8 +477,17 @@
                 const date = new Date(dateStr);
                 return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             } catch (e) {
-                return '';
+                return dateStr;
             }
+        }
+
+        function formatDuration(minutes) {
+            if (!minutes) return '';
+            if (minutes < 60) return minutes + ' minutes';
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            if (mins === 0) return hours + ' hours';
+            return hours + 'h ' + mins + 'm';
         }
 
         // ========================================
@@ -509,7 +495,7 @@
         // ========================================
         document.addEventListener('DOMContentLoaded', function() {
             connectSSE();
-            loadParentList();
+            loadPeriodicalsList();
         });
     </script>
 </body>

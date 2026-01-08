@@ -1,17 +1,24 @@
 """
-Periodicals API - Episodic content management
+Periodicals API - Non-audiobook content from Audible library
 
-Provides endpoints for browsing and downloading periodical content
-(podcasts, news, meditation series) that is skipped by default.
+Provides endpoints for browsing podcasts, news, shows, and other
+non-audiobook content that appears in the user's Audible library.
+
+Content types synced:
+    - Podcast: podcast series
+    - Newspaper / Magazine: NYT Digest, etc.
+    - Show: meditation series, interview shows
+    - Radio/TV Program: documentaries, radio dramas
 
 Endpoints:
-    GET  /api/v1/periodicals              - List all periodical parents
-    GET  /api/v1/periodicals/<asin>       - List episodes for parent
-    GET  /api/v1/periodicals/<asin>/<ep>  - Episode details
-    POST /api/v1/periodicals/download     - Queue episodes for download
+    GET  /api/v1/periodicals              - List all periodicals
+    GET  /api/v1/periodicals/<asin>       - Item details
+    POST /api/v1/periodicals/download     - Queue items for download
     DEL  /api/v1/periodicals/download/<a> - Cancel queued download
+    GET  /api/v1/periodicals/queue        - Get download queue
     GET  /api/v1/periodicals/sync/status  - SSE stream for sync status
     POST /api/v1/periodicals/sync/trigger - Manually trigger sync
+    GET  /api/v1/periodicals/categories   - List categories with counts
 """
 
 import re
@@ -40,29 +47,37 @@ def init_periodicals_routes(db_path: str) -> None:
 
     @periodicals_bp.route("/api/v1/periodicals", methods=["GET"])
     def list_periodicals():
-        """List all periodical parents with episode counts.
+        """List all periodical items.
 
         Query params:
-            category: Filter by category (podcast, news, meditation, other)
-            sort: Sort by 'title', 'episodes', 'latest' (default: title)
+            category: Filter by category (podcast, news, meditation, documentary, show, other)
+            sort: Sort by 'title', 'runtime', 'release' (default: title)
+            page: Page number (default: 1)
+            per_page: Items per page (default: 50, max: 200)
         """
         db = get_db(g.db_path)
         category = request.args.get("category")
         sort = request.args.get("sort", "title")
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = min(200, max(1, int(request.args.get("per_page", 50))))
+        offset = (page - 1) * per_page
 
-        # Build query using the summary view
+        # Build query
         query = """
             SELECT
-                parent_asin,
+                asin,
                 title,
+                author,
                 category,
-                total_episodes,
-                downloaded_count,
-                queued_count,
-                latest_episode_date,
-                last_synced,
-                cover_url
-            FROM periodicals_summary
+                content_type,
+                runtime_minutes,
+                release_date,
+                description,
+                cover_url,
+                is_downloaded,
+                download_requested,
+                last_synced
+            FROM periodicals
         """
         params = []
 
@@ -73,10 +88,21 @@ def init_periodicals_routes(db_path: str) -> None:
         # Sort options
         sort_map = {
             "title": "title ASC",
-            "episodes": "total_episodes DESC",
-            "latest": "latest_episode_date DESC",
+            "runtime": "runtime_minutes DESC",
+            "release": "release_date DESC",
+            "category": "category ASC, title ASC",
         }
         query += f" ORDER BY {sort_map.get(sort, 'title ASC')}"
+
+        # Get total count
+        count_query = "SELECT COUNT(*) FROM periodicals"
+        if category:
+            count_query += " WHERE category = ?"
+        total = db.execute(count_query, params[:1] if params else []).fetchone()[0]
+
+        # Add pagination
+        query += " LIMIT ? OFFSET ?"
+        params.extend([per_page, offset])
 
         cursor = db.execute(query, params)
         rows = cursor.fetchall()
@@ -84,161 +110,85 @@ def init_periodicals_routes(db_path: str) -> None:
         periodicals = []
         for row in rows:
             periodicals.append({
-                "parent_asin": row[0],
+                "asin": row[0],
                 "title": row[1],
-                "category": row[2],
-                "episode_count": row[3],
-                "downloaded_count": row[4],
-                "queued_count": row[5],
-                "latest_episode_date": row[6],
-                "last_synced": row[7],
+                "author": row[2],
+                "category": row[3],
+                "content_type": row[4],
+                "runtime_minutes": row[5],
+                "release_date": row[6],
+                "description": row[7],
                 "cover_url": row[8],
+                "is_downloaded": bool(row[9]),
+                "download_requested": bool(row[10]),
+                "last_synced": row[11],
             })
 
         return jsonify({
             "periodicals": periodicals,
-            "total": len(periodicals),
-        })
-
-    @periodicals_bp.route("/api/v1/periodicals/<parent_asin>", methods=["GET"])
-    def list_episodes(parent_asin: str):
-        """List episodes for a parent periodical.
-
-        Query params:
-            page: Page number (default: 1)
-            per_page: Items per page (default: 50, max: 200)
-            status: Filter by 'available', 'downloaded', 'queued'
-        """
-        if not validate_asin(parent_asin):
-            return jsonify({"error": "Invalid ASIN format"}), 400
-
-        db = get_db(g.db_path)
-        page = max(1, int(request.args.get("page", 1)))
-        per_page = min(200, max(1, int(request.args.get("per_page", 50))))
-        status = request.args.get("status")
-        offset = (page - 1) * per_page
-
-        # Base query for episodes (child_asin IS NOT NULL)
-        query = """
-            SELECT
-                child_asin,
-                episode_title,
-                episode_number,
-                runtime_minutes,
-                release_date,
-                description,
-                is_downloaded,
-                download_requested
-            FROM periodicals
-            WHERE parent_asin = ? AND child_asin IS NOT NULL
-        """
-        params = [parent_asin]
-
-        # Status filter
-        if status == "available":
-            query += " AND is_downloaded = 0 AND download_requested = 0"
-        elif status == "downloaded":
-            query += " AND is_downloaded = 1"
-        elif status == "queued":
-            query += " AND download_requested = 1 AND is_downloaded = 0"
-
-        # Get total count
-        count_query = f"SELECT COUNT(*) FROM ({query})"
-        total = db.execute(count_query, params).fetchone()[0]
-
-        # Add pagination
-        query += " ORDER BY release_date DESC LIMIT ? OFFSET ?"
-        params.extend([per_page, offset])
-
-        cursor = db.execute(query, params)
-        rows = cursor.fetchall()
-
-        # Get parent info
-        parent = db.execute(
-            "SELECT title, category, cover_url FROM periodicals WHERE parent_asin = ? AND child_asin IS NULL",
-            [parent_asin]
-        ).fetchone()
-
-        episodes = []
-        for row in rows:
-            episodes.append({
-                "child_asin": row[0],
-                "episode_title": row[1],
-                "episode_number": row[2],
-                "runtime_minutes": row[3],
-                "release_date": row[4],
-                "description": row[5],
-                "is_downloaded": bool(row[6]),
-                "download_requested": bool(row[7]),
-            })
-
-        return jsonify({
-            "parent_asin": parent_asin,
-            "title": parent[0] if parent else "Unknown",
-            "category": parent[1] if parent else "unknown",
-            "cover_url": parent[2] if parent else None,
-            "episodes": episodes,
             "total": total,
             "page": page,
             "per_page": per_page,
-            "total_pages": (total + per_page - 1) // per_page,
+            "total_pages": (total + per_page - 1) // per_page if total > 0 else 0,
         })
 
-    @periodicals_bp.route("/api/v1/periodicals/<parent_asin>/<child_asin>", methods=["GET"])
-    def episode_details(parent_asin: str, child_asin: str):
-        """Get detailed info for a single episode."""
-        if not validate_asin(parent_asin) or not validate_asin(child_asin):
+    @periodicals_bp.route("/api/v1/periodicals/<asin>", methods=["GET"])
+    def periodical_details(asin: str):
+        """Get detailed info for a single periodical."""
+        if not validate_asin(asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
         db = get_db(g.db_path)
         row = db.execute("""
             SELECT
-                p.parent_asin,
-                p.child_asin,
-                p.title,
-                p.episode_title,
-                p.episode_number,
-                p.author,
-                p.narrator,
-                p.runtime_minutes,
-                p.release_date,
-                p.description,
-                p.category,
-                p.is_downloaded,
-                p.download_requested,
-                p.cover_url,
-                p.last_synced
-            FROM periodicals p
-            WHERE p.parent_asin = ? AND p.child_asin = ?
-        """, [parent_asin, child_asin]).fetchone()
+                asin,
+                title,
+                author,
+                narrator,
+                category,
+                content_type,
+                runtime_minutes,
+                release_date,
+                description,
+                cover_url,
+                is_downloaded,
+                download_requested,
+                download_priority,
+                last_synced,
+                created_at,
+                updated_at
+            FROM periodicals
+            WHERE asin = ?
+        """, [asin]).fetchone()
 
         if not row:
-            return jsonify({"error": "Episode not found"}), 404
+            return jsonify({"error": "Periodical not found"}), 404
 
         return jsonify({
-            "parent_asin": row[0],
-            "child_asin": row[1],
-            "title": row[2],
-            "episode_title": row[3],
-            "episode_number": row[4],
-            "author": row[5],
-            "narrator": row[6],
-            "runtime_minutes": row[7],
-            "release_date": row[8],
-            "description": row[9],
-            "category": row[10],
-            "is_downloaded": bool(row[11]),
-            "download_requested": bool(row[12]),
-            "cover_url": row[13],
-            "last_synced": row[14],
+            "asin": row[0],
+            "title": row[1],
+            "author": row[2],
+            "narrator": row[3],
+            "category": row[4],
+            "content_type": row[5],
+            "runtime_minutes": row[6],
+            "release_date": row[7],
+            "description": row[8],
+            "cover_url": row[9],
+            "is_downloaded": bool(row[10]),
+            "download_requested": bool(row[11]),
+            "download_priority": row[12],
+            "last_synced": row[13],
+            "created_at": row[14],
+            "updated_at": row[15],
         })
 
     @periodicals_bp.route("/api/v1/periodicals/download", methods=["POST"])
     def queue_downloads():
-        """Queue episodes for download.
+        """Queue periodicals for download.
 
         Request body:
-            asins: List of child ASINs to download
+            asins: List of ASINs to download
             priority: 'high', 'normal', 'low' (default: normal)
         """
         data = request.get_json()
@@ -265,7 +215,7 @@ def init_periodicals_routes(db_path: str) -> None:
         for asin in asins:
             # Check current status
             row = db.execute(
-                "SELECT is_downloaded, download_requested FROM periodicals WHERE child_asin = ?",
+                "SELECT is_downloaded, download_requested FROM periodicals WHERE asin = ?",
                 [asin]
             ).fetchone()
 
@@ -282,7 +232,7 @@ def init_periodicals_routes(db_path: str) -> None:
             db.execute("""
                 UPDATE periodicals
                 SET download_requested = 1, download_priority = ?
-                WHERE child_asin = ?
+                WHERE asin = ?
             """, [priority, asin])
             queued += 1
 
@@ -295,24 +245,24 @@ def init_periodicals_routes(db_path: str) -> None:
             "total_requested": len(asins),
         })
 
-    @periodicals_bp.route("/api/v1/periodicals/download/<child_asin>", methods=["DELETE"])
-    def cancel_download(child_asin: str):
+    @periodicals_bp.route("/api/v1/periodicals/download/<asin>", methods=["DELETE"])
+    def cancel_download(asin: str):
         """Cancel a queued download."""
-        if not validate_asin(child_asin):
+        if not validate_asin(asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
         db = get_db(g.db_path)
         cursor = db.execute("""
             UPDATE periodicals
             SET download_requested = 0, download_priority = 0
-            WHERE child_asin = ? AND download_requested = 1 AND is_downloaded = 0
-        """, [child_asin])
+            WHERE asin = ? AND download_requested = 1 AND is_downloaded = 0
+        """, [asin])
         db.commit()
 
         if cursor.rowcount == 0:
-            return jsonify({"error": "Episode not in queue"}), 404
+            return jsonify({"error": "Item not in queue"}), 404
 
-        return jsonify({"cancelled": child_asin})
+        return jsonify({"cancelled": asin})
 
     @periodicals_bp.route("/api/v1/periodicals/queue", methods=["GET"])
     def get_queue():
@@ -320,13 +270,12 @@ def init_periodicals_routes(db_path: str) -> None:
         db = get_db(g.db_path)
         cursor = db.execute("""
             SELECT
-                child_asin,
-                parent_asin,
+                asin,
                 title,
-                episode_title,
-                episode_number,
                 category,
-                download_priority
+                content_type,
+                download_priority,
+                queued_at
             FROM periodicals_download_queue
             LIMIT 100
         """)
@@ -334,13 +283,12 @@ def init_periodicals_routes(db_path: str) -> None:
         queue = []
         for row in cursor.fetchall():
             queue.append({
-                "child_asin": row[0],
-                "parent_asin": row[1],
-                "title": row[2],
-                "episode_title": row[3],
-                "episode_number": row[4],
-                "category": row[5],
-                "priority": row[6],
+                "asin": row[0],
+                "title": row[1],
+                "category": row[2],
+                "content_type": row[3],
+                "priority": row[4],
+                "queued_at": row[5],
             })
 
         return jsonify({
@@ -367,12 +315,11 @@ def init_periodicals_routes(db_path: str) -> None:
             """).fetchone()
 
             if row:
-                yield f"data: {{\"sync_id\":\"{row[0]}\",\"status\":\"{row[1]}\",\"started\":\"{row[2]}\",\"processed\":{row[3]},\"total\":{row[4]},\"episodes\":{row[5]},\"new\":{row[6]}}}\n\n"
+                yield f"data: {{\"sync_id\":\"{row[0]}\",\"status\":\"{row[1]}\",\"started\":\"{row[2]}\",\"processed\":{row[3]},\"total\":{row[4]},\"items\":{row[5]},\"new\":{row[6]}}}\n\n"
             else:
                 yield 'data: {"status":"no_sync_history"}\n\n'
 
             # Keep connection open for future updates
-            # In production, this would watch the FIFO or use polling
             yield 'data: {"event":"connected"}\n\n'
 
         return Response(
@@ -390,20 +337,20 @@ def init_periodicals_routes(db_path: str) -> None:
         """Manually trigger a periodicals sync.
 
         Query params:
-            parent: Sync only this parent ASIN (optional)
+            asin: Sync only this ASIN (optional)
             force: Re-sync all even if recently synced (optional)
         """
-        parent = request.args.get("parent")
+        asin = request.args.get("asin")
         force = request.args.get("force", "").lower() == "true"
 
-        # Validate parent if provided
-        if parent and not validate_asin(parent):
-            return jsonify({"error": "Invalid parent ASIN"}), 400
+        # Validate ASIN if provided
+        if asin and not validate_asin(asin):
+            return jsonify({"error": "Invalid ASIN"}), 400
 
         # Build command
         cmd = ["/opt/audiobooks/scripts/sync-periodicals-index"]
-        if parent:
-            cmd.extend(["--parent", parent])
+        if asin:
+            cmd.extend(["--asin", asin])
         if force:
             cmd.append("--force")
 
@@ -420,7 +367,7 @@ def init_periodicals_routes(db_path: str) -> None:
 
         return jsonify({
             "status": "started",
-            "parent": parent,
+            "asin": asin,
             "force": force,
         })
 
@@ -429,11 +376,10 @@ def init_periodicals_routes(db_path: str) -> None:
         """Get list of categories with counts."""
         db = get_db(g.db_path)
         cursor = db.execute("""
-            SELECT category, COUNT(DISTINCT parent_asin) as parent_count
+            SELECT category, COUNT(*) as item_count
             FROM periodicals
-            WHERE child_asin IS NULL
             GROUP BY category
-            ORDER BY parent_count DESC
+            ORDER BY item_count DESC
         """)
 
         categories = []
