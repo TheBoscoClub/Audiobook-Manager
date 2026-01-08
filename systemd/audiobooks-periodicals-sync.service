@@ -1,0 +1,39 @@
+[Unit]
+Description=Audible periodicals index sync
+Documentation=file:///opt/audiobooks/docs/PERIODICALS.md
+After=network-online.target audiobooks-api.service
+Wants=network-online.target
+ConditionPathExists=/var/lib/audiobooks/audiobooks.db
+
+[Service]
+Type=oneshot
+User=audiobooks
+Group=audiobooks
+
+# Working directory
+WorkingDirectory=/opt/audiobooks
+
+# Run the sync script
+ExecStart=/opt/audiobooks/scripts/sync-periodicals-index
+
+# Timeout after 10 minutes (API can be slow)
+TimeoutStartSec=600
+
+# Nice priority - background task
+Nice=10
+IOSchedulingClass=idle
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobooks-periodicals
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/audiobooks /var/log/audiobooks /run/audiobooks
+
+[Install]
+WantedBy=multi-user.target

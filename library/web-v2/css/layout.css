@@ -103,13 +103,20 @@
 }
 
 /* ============================================
-   Utilities Link (Header)
+   Header Navigation Links
    ============================================ */
-.utilities-link {
+.header-nav {
     position: absolute;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.nav-link,
+.utilities-link {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -123,14 +130,16 @@
     box-shadow: var(--shadow-elevation-1);
 }
 
+.nav-link:hover,
 .utilities-link:hover {
     background: var(--gold);
     color: var(--deco-black);
     border-color: var(--gold-bright);
     box-shadow: var(--shadow-elevation-2);
-    transform: translateY(calc(-50% - 2px));
+    transform: translateY(-2px);
 }
 
+.nav-icon,
 .utilities-icon {
     font-size: 1.2rem;
 }

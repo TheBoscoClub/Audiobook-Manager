@@ -2041,7 +2041,12 @@ function initSystemSection() {
     document.querySelector('.cabinet-tab[data-section="system"]')?.addEventListener('click', () => {
         loadServicesStatus();
         loadVersionInfo();
+        loadPositionSyncStatus();
     });
+
+    // Position Sync buttons
+    document.getElementById('refresh-sync-status')?.addEventListener('click', loadPositionSyncStatus);
+    document.getElementById('sync-all-positions')?.addEventListener('click', syncAllPositions);
 }
 
 async function loadServicesStatus() {
@@ -2526,4 +2531,281 @@ async function waitForApiRestart() {
     };
 
     checkApi();
+}
+
+// ============================================
+// Position Sync
+// ============================================
+
+// Unicode icons for position sync status
+const SYNC_ICONS = {
+    circle: '\u26AA',      // ⚪ (white circle)
+    check: '\u2714',       // ✔ (checkmark)
+    cross: '\u2716',       // ✖ (X mark)
+    warning: '\u26A0'      // ⚠ (warning)
+};
+
+async function loadPositionSyncStatus() {
+    const badge = document.getElementById('position-sync-badge');
+    const statusIcon = document.getElementById('sync-status-icon');
+    const statusText = document.getElementById('sync-status-text');
+    const statsContainer = document.getElementById('position-sync-stats');
+    const syncButton = document.getElementById('sync-all-positions');
+    const resultsContainer = document.getElementById('sync-results');
+
+    // Reset to checking state
+    if (badge) {
+        badge.textContent = 'Checking...';
+        badge.className = 'badge';
+    }
+    if (statusIcon) {
+        statusIcon.textContent = SYNC_ICONS.circle;
+        statusIcon.className = 'sync-status-icon checking';
+    }
+    if (statusText) {
+        statusText.textContent = 'Checking Audible connection...';
+    }
+    if (statsContainer) {
+        statsContainer.style.display = 'none';
+    }
+    if (resultsContainer) {
+        resultsContainer.style.display = 'none';
+    }
+    if (syncButton) {
+        syncButton.disabled = true;
+    }
+
+    try {
+        // Fetch status and syncable books in parallel
+        const [statusRes, syncableRes] = await Promise.all([
+            fetch(`${API_BASE}/api/position/status`),
+            fetch(`${API_BASE}/api/position/syncable`)
+        ]);
+
+        const status = await statusRes.json();
+        const syncable = await syncableRes.json();
+
+        // Check if Audible is available
+        if (!status.audible_available) {
+            if (badge) {
+                badge.textContent = 'Unavailable';
+                badge.className = 'badge unavailable';
+            }
+            if (statusIcon) {
+                statusIcon.textContent = SYNC_ICONS.cross;
+                statusIcon.className = 'sync-status-icon unavailable';
+            }
+            if (statusText) {
+                statusText.textContent = status.error || 'Audible library not available';
+            }
+            return;
+        }
+
+        if (!status.auth_file_exists) {
+            if (badge) {
+                badge.textContent = 'Not Configured';
+                badge.className = 'badge unavailable';
+            }
+            if (statusIcon) {
+                statusIcon.textContent = SYNC_ICONS.warning;
+                statusIcon.className = 'sync-status-icon unavailable';
+            }
+            if (statusText) {
+                statusText.textContent = 'Audible authentication file not found';
+            }
+            return;
+        }
+
+        // Audible is available
+        if (badge) {
+            badge.textContent = `${syncable.total} books`;
+            badge.className = 'badge available';
+        }
+        if (statusIcon) {
+            statusIcon.textContent = SYNC_ICONS.check;
+            statusIcon.className = 'sync-status-icon available';
+        }
+        if (statusText) {
+            statusText.textContent = 'Audible sync available and configured';
+        }
+
+        // Show stats
+        if (statsContainer && syncable.books) {
+            statsContainer.style.display = 'grid';
+
+            const totalEl = document.getElementById('sync-total-syncable');
+            const withPosEl = document.getElementById('sync-with-positions');
+            const lastSyncEl = document.getElementById('sync-last-synced');
+
+            if (totalEl) {
+                totalEl.textContent = syncable.total;
+            }
+
+            // Count books with positions
+            const withPositions = syncable.books.filter(b => b.percent_complete > 0).length;
+            if (withPosEl) {
+                withPosEl.textContent = withPositions;
+            }
+
+            // Find most recent sync
+            if (lastSyncEl) {
+                const lastSynced = syncable.books
+                    .filter(b => b.last_synced)
+                    .map(b => new Date(b.last_synced))
+                    .sort((a, b) => b - a)[0];
+
+                if (lastSynced) {
+                    lastSyncEl.textContent = formatRelativeTime(lastSynced);
+                } else {
+                    lastSyncEl.textContent = 'Never';
+                }
+            }
+        }
+
+        // Enable sync button if there are syncable books
+        if (syncButton && syncable.total > 0) {
+            syncButton.disabled = false;
+        }
+
+    } catch (error) {
+        console.error('Failed to load position sync status:', error);
+        if (badge) {
+            badge.textContent = 'Error';
+            badge.className = 'badge unavailable';
+        }
+        if (statusIcon) {
+            statusIcon.textContent = SYNC_ICONS.cross;
+            statusIcon.className = 'sync-status-icon unavailable';
+        }
+        if (statusText) {
+            statusText.textContent = 'Failed to check sync status: ' + error.message;
+        }
+    }
+}
+
+async function syncAllPositions() {
+    const syncButton = document.getElementById('sync-all-positions');
+    const badge = document.getElementById('position-sync-badge');
+    const progressContainer = document.getElementById('sync-progress-container');
+    const progressFill = document.getElementById('sync-progress-fill');
+    const progressText = document.getElementById('sync-progress-text');
+    const progressCount = document.getElementById('sync-progress-count');
+    const resultsContainer = document.getElementById('sync-results');
+
+    // Disable button and show syncing state
+    if (syncButton) {
+        syncButton.disabled = true;
+    }
+    if (badge) {
+        badge.textContent = 'Syncing...';
+        badge.className = 'badge syncing';
+    }
+
+    // Show progress bar
+    if (progressContainer) {
+        progressContainer.style.display = 'block';
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressText) progressText.textContent = 'Starting sync...';
+        if (progressCount) progressCount.textContent = '';
+    }
+
+    // Hide previous results
+    if (resultsContainer) {
+        resultsContainer.style.display = 'none';
+    }
+
+    try {
+        // Show indeterminate progress (we don't have real-time updates from the API)
+        if (progressFill) progressFill.style.width = '50%';
+        if (progressText) progressText.textContent = 'Syncing with Audible...';
+
+        const res = await fetch(`${API_BASE}/api/position/sync-all`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await res.json();
+
+        // Complete progress bar
+        if (progressFill) progressFill.style.width = '100%';
+
+        if (result.error) {
+            if (progressText) progressText.textContent = 'Sync failed: ' + result.error;
+            showToast('Position sync failed: ' + result.error, 'error');
+            return;
+        }
+
+        // Show results
+        if (progressText) progressText.textContent = 'Sync complete!';
+        if (progressCount) progressCount.textContent = `${result.total} books processed`;
+
+        // Update results display
+        if (resultsContainer) {
+            resultsContainer.style.display = 'grid';
+
+            const pulledEl = document.getElementById('sync-pulled-count');
+            const pushedEl = document.getElementById('sync-pushed-count');
+            const unchangedEl = document.getElementById('sync-unchanged-count');
+            const errorEl = document.getElementById('sync-error-count');
+
+            if (pulledEl) pulledEl.textContent = result.pulled_from_audible || 0;
+            if (pushedEl) pushedEl.textContent = result.pushed_to_audible || 0;
+            if (unchangedEl) unchangedEl.textContent = result.already_synced || 0;
+            if (errorEl) errorEl.textContent = result.failed || 0;
+        }
+
+        // Update badge
+        if (badge) {
+            badge.textContent = `${result.total} synced`;
+            badge.className = 'badge available';
+        }
+
+        // Show success toast
+        const summary = [];
+        if (result.pulled_from_audible > 0) summary.push(`${result.pulled_from_audible} pulled`);
+        if (result.pushed_to_audible > 0) summary.push(`${result.pushed_to_audible} pushed`);
+        if (result.already_synced > 0) summary.push(`${result.already_synced} unchanged`);
+
+        showToast(`Position sync complete: ${summary.join(', ') || 'No changes needed'}`, 'success');
+
+        // Update the syncable books stat without hiding results
+        const syncableStat = document.getElementById('syncable-books-count');
+        if (syncableStat) {
+            syncableStat.textContent = result.total;
+        }
+
+        // Hide progress bar after showing results (results stay visible)
+        setTimeout(() => {
+            if (progressContainer) progressContainer.style.display = 'none';
+        }, 3000);
+
+    } catch (error) {
+        console.error('Position sync failed:', error);
+        if (progressText) progressText.textContent = 'Sync failed: ' + error.message;
+        if (badge) {
+            badge.textContent = 'Error';
+            badge.className = 'badge unavailable';
+        }
+        showToast('Position sync failed: ' + error.message, 'error');
+    } finally {
+        // Re-enable button after a short delay
+        setTimeout(() => {
+            if (syncButton) syncButton.disabled = false;
+        }, 2000);
+    }
+}
+
+function formatRelativeTime(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hr ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+
+    return date.toLocaleDateString();
 }

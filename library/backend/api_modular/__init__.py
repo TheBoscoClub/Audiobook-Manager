@@ -44,6 +44,7 @@ from .duplicates import duplicates_bp, init_duplicates_routes
 from .supplements import supplements_bp, init_supplements_routes
 from .utilities import utilities_bp, init_utilities_routes
 from .position_sync import position_bp, init_position_routes
+from .periodicals import periodicals_bp, init_periodicals_routes
 
 # Type alias for Flask route return types (backward compatibility)
 from typing import Optional, Union
@@ -114,6 +115,7 @@ def create_app(
     init_supplements_routes(database_path, supplements_dir)
     init_utilities_routes(database_path, project_root)
     init_position_routes(database_path)
+    init_periodicals_routes(database_path)
 
     # Register blueprints
     flask_app.register_blueprint(audiobooks_bp)
@@ -123,6 +125,7 @@ def create_app(
     flask_app.register_blueprint(supplements_bp)
     flask_app.register_blueprint(utilities_bp)
     flask_app.register_blueprint(position_bp)
+    flask_app.register_blueprint(periodicals_bp)
 
     return flask_app
 
@@ -225,4 +228,6 @@ __all__ = [
     "duplicates_bp",
     "supplements_bp",
     "utilities_bp",
+    "position_bp",
+    "periodicals_bp",
 ]

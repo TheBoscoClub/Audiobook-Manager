@@ -8,8 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Periodicals "Reading Room"**: New subsystem for episodic Audible content
+  - Dedicated page for browsing podcasts, newspapers, meditation series
+  - Category filtering (All, Podcasts, News, Meditation, Other)
+  - Episode selection with bulk download capability
+  - Real-time sync status via Server-Sent Events (SSE)
+  - **On-demand refresh button** to sync periodicals index from Audible
+  - Twice-daily automatic sync via systemd timer (06:00, 18:00)
+  - Skip list integration - periodicals excluded from main library by default
+- **Periodicals API Endpoints**:
+  - `GET /api/v1/periodicals` - List all periodical parents with counts
+  - `GET /api/v1/periodicals/<asin>` - List episodes for a parent
+  - `GET /api/v1/periodicals/<asin>/<ep>` - Episode details
+  - `POST /api/v1/periodicals/download` - Queue episodes for download
+  - `DELETE /api/v1/periodicals/download/<asin>` - Cancel queued download
+  - `GET /api/v1/periodicals/sync/status` - SSE stream for sync status
+  - `POST /api/v1/periodicals/sync/trigger` - Manually trigger sync
+  - `GET /api/v1/periodicals/categories` - List categories with counts
+- **New Database Tables**: `periodicals` (content index), `periodicals_sync_status` (sync tracking)
+- **New Systemd Units**: `audiobooks-periodicals-sync.service`, `audiobooks-periodicals-sync.timer`
+- **Security**: XSS-safe DOM rendering using textContent and createElement (no innerHTML)
+- **Technology**: HTMX for declarative interactions, SSE for real-time updates
 
 ### Changed
+- **Library Header**: Added "Reading Room" navigation link next to "Back Office"
+- **CSS Layout**: Header navigation now uses flex container for multiple links
 
 ### Fixed
 

@@ -40,6 +40,7 @@ position_bp = Blueprint('position', __name__, url_prefix='/api/position')
 AUDIBLE_CONFIG_DIR = Path.home() / ".audible"
 AUTH_FILE = AUDIBLE_CONFIG_DIR / "audible.json"
 COUNTRY_CODE = "us"
+BATCH_CHUNK_SIZE = 25  # Audible API limit: "No more than 25 asins allowed in request at once"
 
 # Module-level database path (set by init function)
 _db_path = None
@@ -128,34 +129,45 @@ async def fetch_audible_position(client, asin: str) -> dict:
 
 
 async def fetch_audible_positions_batch(client, asins: list[str]) -> dict:
-    """Fetch positions from Audible for multiple ASINs."""
-    try:
-        # API accepts comma-separated ASINs
-        response = await client.get(
-            "1.0/annotations/lastpositions",
-            params={"asins": ",".join(asins)}
-        )
+    """
+    Fetch positions from Audible for multiple ASINs.
 
-        results = {}
-        annotations = response.get("asin_last_position_heard_annots", [])
-        for annot in annotations:
-            asin = annot.get("asin")
-            pos_data = annot.get("last_position_heard", {})
-            results[asin] = {
-                "position_ms": pos_data.get("position_ms"),
-                "last_updated": pos_data.get("last_updated"),
-                "status": pos_data.get("status"),
-            }
+    Processes ASINs in chunks to avoid CloudFront 413 (Request Entity Too Large) errors.
+    With 724+ books, a single request would exceed URL length limits.
+    """
+    results = {}
 
-        # Mark missing ASINs
-        for asin in asins:
-            if asin not in results:
-                results[asin] = {"position_ms": None, "status": "NotFound"}
+    # Process ASINs in chunks to avoid CloudFront 413 errors
+    for i in range(0, len(asins), BATCH_CHUNK_SIZE):
+        chunk = asins[i:i + BATCH_CHUNK_SIZE]
 
-        return results
+        try:
+            # API accepts comma-separated ASINs
+            response = await client.get(
+                "1.0/annotations/lastpositions",
+                params={"asins": ",".join(chunk)}
+            )
 
-    except Exception as e:
-        return {"error": str(e)}
+            annotations = response.get("asin_last_position_heard_annots", [])
+            for annot in annotations:
+                asin = annot.get("asin")
+                pos_data = annot.get("last_position_heard", {})
+                results[asin] = {
+                    "position_ms": pos_data.get("position_ms"),
+                    "last_updated": pos_data.get("last_updated"),
+                    "status": pos_data.get("status"),
+                }
+
+        except Exception as e:
+            # On chunk failure, return error immediately
+            return {"error": f"Chunk {i // BATCH_CHUNK_SIZE + 1} failed: {str(e)}"}
+
+    # Mark missing ASINs (not returned by any chunk)
+    for asin in asins:
+        if asin not in results:
+            results[asin] = {"position_ms": None, "status": "NotFound"}
+
+    return results
 
 
 async def push_audible_position(client, asin: str, position_ms: int) -> dict:
@@ -493,10 +505,13 @@ def sync_all_positions():
             return results, audible_positions
 
     try:
-        results, audible_positions = run_async(do_batch_sync())
+        sync_result = run_async(do_batch_sync())
 
-        if isinstance(results, dict) and "error" in results:
-            return jsonify(results), 500
+        # Handle error case (single dict returned instead of tuple)
+        if isinstance(sync_result, dict) and "error" in sync_result:
+            return jsonify(sync_result), 500
+
+        results, audible_positions = sync_result
 
         # Update database
         now = datetime.now().isoformat()

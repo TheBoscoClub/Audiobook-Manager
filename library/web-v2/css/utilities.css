@@ -2314,6 +2314,163 @@ body.back-office {
     text-decoration: line-through;
 }
 
+/* ============================================
+ * Position Sync Section
+ * ============================================ */
+
+/* Status indicator row */
+.position-sync-status {
+    margin-bottom: 1rem;
+}
+
+.sync-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--filing-label);
+    border-radius: 6px;
+    border: 1px solid var(--ledger-line);
+}
+
+.sync-status-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.sync-status-icon.available {
+    color: var(--banker-green-light);
+}
+
+.sync-status-icon.unavailable {
+    color: var(--red-ink);
+}
+
+.sync-status-icon.checking {
+    color: var(--brass);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.sync-status-text {
+    color: var(--ink);
+    font-size: 0.95rem;
+}
+
+/* Stats grid for sync */
+.position-sync-stats {
+    margin-top: 1rem;
+}
+
+/* Progress bar for sync */
+.sync-progress-container {
+    margin: 1rem 0;
+}
+
+.sync-progress-bar {
+    height: 12px;
+    background: var(--office-dark);
+    border-radius: 6px;
+    border: 1px solid var(--brass-dark);
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.sync-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--banker-green) 0%, var(--banker-green-light) 100%);
+    border-radius: 5px;
+    transition: width 0.3s ease-out;
+    box-shadow: 0 0 8px var(--banker-green-glow);
+}
+
+.sync-progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--ink-faded);
+}
+
+#sync-progress-text {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* Sync results display */
+.sync-results {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ledger-line);
+}
+
+.sync-result-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+.sync-result-item .result-icon {
+    font-size: 1rem;
+    width: 1.25rem;
+    text-align: center;
+}
+
+.sync-result-item .result-icon.pulled {
+    color: var(--banker-green-light);
+}
+
+.sync-result-item .result-icon.pushed {
+    color: #3498db;
+}
+
+.sync-result-item .result-icon.unchanged {
+    color: var(--brass);
+}
+
+.sync-result-item .result-icon.error {
+    color: var(--red-ink);
+}
+
+.sync-result-item .result-label {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--ink-faded);
+}
+
+.sync-result-item .result-value {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: var(--brass-light);
+}
+
+/* Badge variations for sync status */
+#position-sync-badge.available {
+    background: var(--banker-green);
+}
+
+#position-sync-badge.unavailable {
+    background: var(--red-ink);
+}
+
+#position-sync-badge.syncing {
+    background: var(--brass-dark);
+    animation: pulse 1s ease-in-out infinite;
+}
+
+/* Responsive - Position Sync */
+@media (max-width: 768px) {
+    .sync-results {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Responsive - System Section */
 @media (max-width: 768px) {
     .services-grid {

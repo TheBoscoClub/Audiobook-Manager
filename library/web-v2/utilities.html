@@ -871,6 +871,78 @@
                         </div>
                     </div>
 
+                    <!-- Audible Position Sync Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Audible Position Sync</span>
+                            <span class="badge" id="position-sync-badge">Checking...</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="position-sync-status" id="position-sync-status">
+                                <div class="sync-status-row">
+                                    <span class="sync-status-icon" id="sync-status-icon">&#9898;</span>
+                                    <span class="sync-status-text" id="sync-status-text">Checking Audible connection...</span>
+                                </div>
+                            </div>
+
+                            <div class="stat-grid position-sync-stats" id="position-sync-stats" style="display: none;">
+                                <div class="stat-row">
+                                    <span class="stat-label">Syncable Books</span>
+                                    <span class="stat-value" id="sync-total-syncable">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">With Positions</span>
+                                    <span class="stat-value" id="sync-with-positions">-</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Last Synced</span>
+                                    <span class="stat-value" id="sync-last-synced">Never</span>
+                                </div>
+                            </div>
+
+                            <div class="sync-progress-container" id="sync-progress-container" style="display: none;">
+                                <div class="sync-progress-bar">
+                                    <div class="sync-progress-fill" id="sync-progress-fill" style="width: 0%"></div>
+                                </div>
+                                <div class="sync-progress-info">
+                                    <span id="sync-progress-text">Syncing...</span>
+                                    <span id="sync-progress-count">0 / 0</span>
+                                </div>
+                            </div>
+
+                            <div class="sync-results" id="sync-results" style="display: none;">
+                                <div class="sync-result-item">
+                                    <span class="result-icon pulled">&#8595;</span>
+                                    <span class="result-label">Pulled from Audible</span>
+                                    <span class="result-value" id="sync-pulled-count">0</span>
+                                </div>
+                                <div class="sync-result-item">
+                                    <span class="result-icon pushed">&#8593;</span>
+                                    <span class="result-label">Pushed to Audible</span>
+                                    <span class="result-value" id="sync-pushed-count">0</span>
+                                </div>
+                                <div class="sync-result-item">
+                                    <span class="result-icon unchanged">&#8596;</span>
+                                    <span class="result-label">Already in Sync</span>
+                                    <span class="result-value" id="sync-unchanged-count">0</span>
+                                </div>
+                                <div class="sync-result-item">
+                                    <span class="result-icon error">&#10006;</span>
+                                    <span class="result-label">Errors</span>
+                                    <span class="result-value" id="sync-error-count">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn" id="refresh-sync-status" title="Check Audible sync availability and statistics">
+                                <span class="btn-icon">&#8635;</span> Refresh
+                            </button>
+                            <button class="office-btn primary" id="sync-all-positions" title="Synchronize playback positions for all audiobooks with ASINs" disabled>
+                                <span class="btn-icon">&#128259;</span> Sync All Positions
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Upgrade Card -->
                     <div class="catalog-card wide">
                         <div class="card-header">Upgrade Application</div>
