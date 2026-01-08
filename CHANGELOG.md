@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CSS Layout**: Header navigation now uses flex container for multiple links
 
 ### Fixed
+- **Security**: Pinned minimum versions for transitive dependencies with CVEs
+  - urllib3>=2.6.3 (CVE-2026-21441)
+  - h11>=0.16.0 (CVE-2025-43859)
+- **Security**: Fixed exception info exposure in position_sync.py (now returns generic error messages)
+- **Code Cleanup**: Removed dead CSS code (banker-lamp classes) from utilities.css
 
 ## [3.8.0] - 2026-01-07
 

@@ -15,10 +15,7 @@ Endpoints:
 """
 
 import re
-import sqlite3
 import subprocess
-import uuid
-from typing import Any
 from flask import Blueprint, Response, jsonify, request, g
 
 from .core import get_db

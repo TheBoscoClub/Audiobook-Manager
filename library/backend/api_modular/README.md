@@ -1,12 +1,11 @@
 # Audiobook Library API - Modular Architecture
 
-> ⚠️ **REQUIRED STARTING v3.6.0**
+> **This is the production API architecture since v3.2.0.**
 >
-> As of v3.5.0, the modular architecture is the **recommended** approach.
-> Starting with v3.6.0, it will be **required** - the legacy monolithic `api.py` will be removed.
-> Migrate now using: `./migrate-api.sh --to-modular --target /opt/audiobooks`
+> The legacy monolithic `api.py` was removed in v3.2.0. This modular architecture is now
+> the only supported API implementation.
 
-This package provides a **modular Flask Blueprint-based architecture** for the Audiobook Library API. It refactors the original monolithic `api.py` (1994 lines) into logically separated modules for improved maintainability.
+This package provides a **modular Flask Blueprint-based architecture** for the Audiobook Library API. The original monolithic `api.py` (1994 lines) was refactored into logically separated modules for improved maintainability.
 
 ## Architecture Overview
 
@@ -101,31 +100,7 @@ The utilities module is split into focused sub-modules for maintainability:
 
 Routes: `/api/utilities/*`, `/api/conversion/*`, `/api/system/*`
 
-## Comparison: Monolithic vs Modular
-
-### Monolithic Approach (`api.py`)
-
-| Aspect | Details |
-|--------|---------|
-| **File Size** | 1994 lines, single file |
-| **Deployment** | Simple - one file to deploy |
-| **Testing** | All tests patch `backend.api.*` |
-| **Production Status** | Battle-tested, all 234 tests pass |
-| **Best For** | Small teams, simple deployments, proven stability |
-
-**Pros:**
-- Zero configuration required
-- Single point of truth for all routes
-- No import complexity
-- Test mocking paths are straightforward
-- Proven in production
-
-**Cons:**
-- Difficult to navigate (nearly 2000 lines)
-- Hard to find specific functionality
-- Merge conflicts more likely with multiple developers
-- All routes load at startup even if unused
-- Harder to unit test individual components
+## Architecture Details
 
 ### Modular Approach (`api_modular/`)
 
@@ -234,19 +209,15 @@ Each module receives the database path through Flask's `app.config`. Ensure `DAT
 - **Runtime:** Identical performance - routes execute the same code.
 - **Memory:** Negligible difference - Python loads all modules on first import.
 
-## Recommended Approach
+## Architecture Benefits
 
-**Use the modular architecture** (`api_modular/`):
+The modular architecture provides:
 
-1. It's the future - monolithic `api.py` will be removed in v3.6.0
-2. Better code organization and maintainability
-3. Easier to extend with new features
-4. Clear separation of concerns
-
-The monolithic `api.py` is deprecated and will be removed in v3.6.0. Migrate now:
-```bash
-./migrate-api.sh --to-modular --target /opt/audiobooks
-```
+1. Better code organization and maintainability
+2. Easier to extend with new features
+3. Clear separation of concerns
+4. Individual modules can be tested in isolation
+5. Foundation for microservices migration
 
 ## Files Reference
 
@@ -268,25 +239,6 @@ The monolithic `api.py` is deprecated and will be removed in v3.6.0. Migrate now
 | `utilities_system.py` | ~430 | System administration |
 | `__init__.py` | ~200 | Package init/exports |
 
-## Switching Architectures
-
-Use `migrate-api.sh` to switch between monolithic and modular architectures:
-
-```bash
-# Check current architecture
-./migrate-api.sh --status
-
-# Switch to modular
-./migrate-api.sh --to-modular --target /opt/audiobooks
-
-# Switch back to monolithic
-./migrate-api.sh --to-monolithic --target /opt/audiobooks
-```
-
-**Note:** Migration automatically stops services, updates wrapper scripts, and restarts services.
-
 ## See Also
 
-- [MIGRATION.md](./MIGRATION.md) - Detailed migration instructions
-- [api.py](../api.py) - Original monolithic implementation
-- [api_server.py](../api_server.py) - Modular entry point
+- [api_server.py](../api_server.py) - Main entry point

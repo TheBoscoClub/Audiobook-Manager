@@ -164,30 +164,6 @@ body.back-office {
             drop-shadow(0 0 20px rgba(61, 106, 84, 0.3));
 }
 
-/* Legacy CSS lamp (kept for backwards compatibility) */
-.banker-lamp {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.lamp-shade {
-    width: 60px;
-    height: 20px;
-    background: linear-gradient(180deg, var(--banker-green-light) 0%, var(--banker-green) 100%);
-    border-radius: 30px 30px 0 0;
-    box-shadow:
-        0 0 30px var(--banker-green-glow),
-        inset 0 -5px 10px rgba(0, 0, 0, 0.3);
-}
-
-.lamp-stem {
-    width: 8px;
-    height: 25px;
-    background: linear-gradient(90deg, var(--brass-dark) 0%, var(--brass-light) 50%, var(--brass-dark) 100%);
-    border-radius: 0 0 4px 4px;
-}
-
 /* Remaining Summary Box */
 .remaining-summary {
     display: flex;
