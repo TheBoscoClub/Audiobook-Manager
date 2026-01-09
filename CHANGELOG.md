@@ -8,10 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Developer Safeguards**: Pre-commit hook blocks hardcoded paths in scripts and services
+  - Rejects commits containing literal paths like `/run/audiobooks`, `/var/lib/audiobooks`, `/srv/audiobooks`
+  - Enforces use of configuration variables (`$AUDIOBOOKS_RUN_DIR`, `$AUDIOBOOKS_VAR_DIR`, etc.)
+  - Shareable hooks in `scripts/hooks/` with installer script (`scripts/install-hooks.sh`)
 
 ### Changed
+- **Runtime Directory**: Changed `AUDIOBOOKS_RUN_DIR` from `/run/audiobooks` to `/var/lib/audiobooks/.run`
+  - Fixes namespace isolation issues with systemd's `ProtectSystem=strict` security hardening
+  - Using `/run/` directories doesn't work reliably with sandboxed services
 
 ### Fixed
+- **Systemd Services**: Removed `RuntimeDirectory=audiobooks` from all services
+  - API, converter, downloader, mover, and periodicals-sync services updated
+  - tmpfiles.d now creates `/var/lib/audiobooks/.run` at boot
+- **Periodicals Sync**: Fixed SSE FIFO path to use `$AUDIOBOOKS_RUN_DIR` variable
+- **Scripts**: Fixed `set -e` failure in log function (changed `$VERBOSE && echo` to `if $VERBOSE; then echo`)
 
 ## [3.9.3] - 2026-01-08
 
@@ -156,20 +168,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.7.1] - 2026-01-05
 
-### Changed
-- **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobooks-downloader.timer` in API
-  and helper script to match actual systemd unit name
-
-### Fixed
-- **Download Feature**: Fixed "Read-only file system" error when downloading audiobooks
-  - Added `/run/audiobooks` to `ReadWritePaths` in API service for lock files and temp storage
-- **Vacuum Database**: Fixed "disk I/O error" when vacuuming database
-  - Added `PRAGMA temp_store = MEMORY` to avoid temp file creation in sandboxed environment
-- **Service Timer Control**: Fixed "Unit not found" error when starting/stopping timer
-  - Updated service name from `audiobooks-scanner.timer` to `audiobooks-downloader.timer`
-
-## [3.7.1] - 2026-01-05
-
 ### Added
 - **Duplicate Deletion**: Added delete capability for checksum-based duplicates in Back Office
   - New API endpoint `POST /api/duplicates/delete-by-path` for path-based deletion
@@ -178,8 +176,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed "manual deletion required" notice - duplicates can now be deleted from the UI
 
 ### Changed
+- **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobooks-downloader.timer` in API
+  and helper script to match actual systemd unit name
 - **API Service**: Updated systemd service `ReadWritePaths` to include Library and Sources directories
   - Required for API to delete duplicate files (previously had read-only access)
+
+### Fixed
+- **Download Feature**: Fixed "Read-only file system" error when downloading audiobooks
+  - Added runtime directory to `ReadWritePaths` in API service for lock files and temp storage
+- **Vacuum Database**: Fixed "disk I/O error" when vacuuming database
+  - Added `PRAGMA temp_store = MEMORY` to avoid temp file creation in sandboxed environment
+- **Service Timer Control**: Fixed "Unit not found" error when starting/stopping timer
+  - Updated service name from `audiobooks-scanner.timer` to `audiobooks-downloader.timer`
 
 ## [3.7.0.1] - 2026-01-04
 
