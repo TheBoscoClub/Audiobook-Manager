@@ -5,7 +5,14 @@ Thank you for your interest in contributing to the Audiobooks project!
 ## Getting Started
 
 1. **Fork the repository** and clone it locally
-2. **Install dependencies**:
+
+2. **Install git hooks** (required):
+   ```bash
+   ./scripts/install-hooks.sh
+   ```
+   This installs commit safeguards that enforce coding standards.
+
+3. **Install dependencies**:
    ```bash
    cd library
    python -m venv venv
@@ -14,7 +21,7 @@ Thank you for your interest in contributing to the Audiobooks project!
    pip install pytest pytest-cov ruff
    ```
 
-3. **Run tests** to ensure everything works:
+4. **Run tests** to ensure everything works:
    ```bash
    cd library
    pytest tests/ -v

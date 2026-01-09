@@ -1,0 +1,104 @@
+#!/bin/bash
+# Pre-commit hook: Block hardcoded paths in audiobooks project
+#
+# This hook prevents commits containing hardcoded paths that should use
+# configuration variables from lib/audiobooks-config.sh instead.
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Patterns that indicate hardcoded paths (should use variables instead)
+# These are checked in staged files only
+FORBIDDEN_PATTERNS=(
+    # Runtime/var paths - should use $AUDIOBOOKS_RUN_DIR or $AUDIOBOOKS_VAR_DIR
+    '/run/audiobooks[^-]'
+    '/var/lib/audiobooks[^/]'
+
+    # Data paths - should use $AUDIOBOOKS_DATA and derivatives
+    '/srv/audiobooks[^/]'
+
+    # These are OK in comments explaining the defaults, but not in actual code
+    # The grep will catch them, and we'll filter out comments below
+)
+
+# File patterns to check
+FILE_PATTERNS="*.sh *.py *.service *.timer *.conf"
+
+# Get list of staged files matching our patterns
+STAGED_FILES=""
+for pattern in $FILE_PATTERNS; do
+    files=$(git diff --cached --name-only --diff-filter=ACM -- "$pattern" 2>/dev/null || true)
+    STAGED_FILES="$STAGED_FILES $files"
+done
+
+# Remove leading/trailing whitespace
+STAGED_FILES=$(echo "$STAGED_FILES" | xargs)
+
+if [[ -z "$STAGED_FILES" ]]; then
+    exit 0
+fi
+
+# Check each staged file for forbidden patterns
+VIOLATIONS=""
+for file in $STAGED_FILES; do
+    # Skip files that are supposed to define defaults (config files)
+    if [[ "$file" == "lib/audiobooks-config.sh" ]] || \
+       [[ "$file" == "etc/audiobooks.conf.example" ]] || \
+       [[ "$file" == "CLAUDE.md" ]] || \
+       [[ "$file" == "README.md" ]] || \
+       [[ "$file" == "docs/"* ]]; then
+        continue
+    fi
+
+    # Get staged content of the file
+    content=$(git show ":$file" 2>/dev/null || true)
+
+    if [[ -z "$content" ]]; then
+        continue
+    fi
+
+    # Check for hardcoded paths (excluding comments and variable assignments)
+    # We use a simple heuristic: lines with '=' followed by the path are likely defaults
+
+    # Check /run/audiobooks (should be $AUDIOBOOKS_RUN_DIR)
+    if echo "$content" | grep -n '/run/audiobooks' | grep -v '^\s*#' | grep -v 'AUDIOBOOKS_RUN_DIR' | grep -v '\.snapshots' >/dev/null 2>&1; then
+        matches=$(echo "$content" | grep -n '/run/audiobooks' | grep -v '^\s*#' | grep -v 'AUDIOBOOKS_RUN_DIR' | grep -v '\.snapshots' || true)
+        if [[ -n "$matches" ]]; then
+            VIOLATIONS="$VIOLATIONS\n${YELLOW}$file${NC}: /run/audiobooks should be \$AUDIOBOOKS_RUN_DIR\n$matches\n"
+        fi
+    fi
+
+    # Check /var/lib/audiobooks (should be $AUDIOBOOKS_VAR_DIR)
+    if echo "$content" | grep -n '/var/lib/audiobooks' | grep -v '^\s*#' | grep -v 'AUDIOBOOKS_VAR_DIR' | grep -v '\.snapshots' | grep -v 'default' >/dev/null 2>&1; then
+        matches=$(echo "$content" | grep -n '/var/lib/audiobooks' | grep -v '^\s*#' | grep -v 'AUDIOBOOKS_VAR_DIR' | grep -v '\.snapshots' | grep -v 'default' || true)
+        if [[ -n "$matches" ]]; then
+            VIOLATIONS="$VIOLATIONS\n${YELLOW}$file${NC}: /var/lib/audiobooks should be \$AUDIOBOOKS_VAR_DIR\n$matches\n"
+        fi
+    fi
+done
+
+if [[ -n "$VIOLATIONS" ]]; then
+    echo -e "${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║  COMMIT BLOCKED: Hardcoded paths detected                      ║${NC}"
+    echo -e "${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "The following files contain hardcoded paths that should use"
+    echo -e "configuration variables from lib/audiobooks-config.sh:"
+    echo ""
+    echo -e "$VIOLATIONS"
+    echo ""
+    echo -e "To fix:"
+    echo -e "  1. Replace hardcoded paths with the appropriate variable"
+    echo -e "  2. If no variable exists, add one to lib/audiobooks-config.sh"
+    echo -e "  3. Stage your changes and commit again"
+    echo ""
+    echo -e "See CLAUDE.md for the list of available variables."
+    echo ""
+    exit 1
+fi
+
+exit 0
