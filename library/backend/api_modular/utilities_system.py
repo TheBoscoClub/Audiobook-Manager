@@ -383,7 +383,7 @@ def init_system_routes(project_root):
                                 with open(version_file) as f:
                                     version = f.read().strip()
                             except Exception:
-                                pass
+                                pass  # Non-critical: version stays None
                         projects.append({
                             "name": name,
                             "path": project_path,

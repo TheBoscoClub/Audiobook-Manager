@@ -363,7 +363,8 @@ def init_periodicals_routes(db_path: str) -> None:
                 start_new_session=True,
             )
         except Exception as e:
-            return jsonify({"error": f"Failed to start sync: {e}"}), 500
+            current_app.logger.error(f"Failed to start periodicals sync for ASIN {asin}: {e}")
+            return jsonify({"error": "Failed to start sync process"}), 500
 
         return jsonify({
             "status": "started",

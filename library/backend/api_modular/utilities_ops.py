@@ -168,7 +168,7 @@ def init_ops_routes(db_path, project_root):
                         try:
                             files_found = int(line.split(":")[1].strip())
                         except (ValueError, IndexError):
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -232,7 +232,7 @@ def init_ops_routes(db_path, project_root):
                                     imported_count = int(parts[i + 1])
                                     break
                         except (ValueError, IndexError):
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -295,7 +295,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 hashes_generated = int(numbers[0])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -478,7 +478,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 downloaded_count = int(numbers[0])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -549,7 +549,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 queue_size = int(numbers[-1])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -629,7 +629,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 removed_count += int(numbers[0])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -706,7 +706,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 updated_count = int(numbers[0])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -783,7 +783,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 updated_count = int(numbers[0])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -860,7 +860,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 updated_count = int(numbers[0])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {
@@ -941,7 +941,7 @@ def init_ops_routes(db_path, project_root):
                             if numbers:
                                 duplicates_found = int(numbers[0])
                         except ValueError:
-                            pass
+                            pass  # Non-critical: continue with default count
 
                 if result.returncode == 0:
                     tracker.complete_operation(operation_id, {

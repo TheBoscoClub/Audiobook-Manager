@@ -393,7 +393,7 @@ async def batch_sync_from_db(client: audible.AsyncClient, db_path: str, limit: i
 
     if not books:
         print("No books to sync!")
-        return
+        return {}
 
     # Batch fetch positions from Audible
     asins = [b['asin'] for b in books]
@@ -634,6 +634,7 @@ Examples:
         print(f"🔓 Using credential from {CREDENTIAL_FILE_PATH}")
 
     # Execute command
+    result = None
     async with await get_authenticated_client(password) as client:
         if args.command == "list":
             result = await list_library_sample(client)

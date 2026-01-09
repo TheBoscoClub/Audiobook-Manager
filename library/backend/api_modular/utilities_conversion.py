@@ -61,7 +61,7 @@ def get_ffmpeg_nice_value() -> str | None:
                 if parts:
                     return parts[0]
     except Exception:
-        pass
+        pass  # Non-critical: FFmpeg PID detection is best-effort
     return None
 
 
@@ -83,7 +83,7 @@ def parse_job_io(pid: int) -> tuple[int, int]:
                 elif line.startswith("write_bytes:"):
                     write_bytes = int(line.split(":")[1].strip())
     except (FileNotFoundError, PermissionError):
-        pass
+        pass  # Process may have exited; return zeros
 
     return read_bytes, write_bytes
 
@@ -173,7 +173,7 @@ def get_system_stats() -> dict:
                     tmpfs_usage = parts[4]  # e.g., "15%"
                     tmpfs_avail = parts[3]  # e.g., "7.5G"
     except Exception:
-        pass
+        pass  # Non-critical stats; return None values
 
     return {
         "load_avg": load_avg,

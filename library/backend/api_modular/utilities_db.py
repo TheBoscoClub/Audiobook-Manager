@@ -38,7 +38,7 @@ def init_db_routes(db_path, project_root):
                     try:
                         files_found = int(line.split(":")[1].strip())
                     except (ValueError, IndexError):
-                        pass
+                        pass  # Non-critical: continue with default count
 
             return jsonify(
                 {
@@ -83,7 +83,7 @@ def init_db_routes(db_path, project_root):
                                 imported_count = int(parts[i + 1])
                                 break
                     except (ValueError, IndexError):
-                        pass
+                        pass  # Non-critical: continue with default count
 
             return jsonify(
                 {
@@ -130,7 +130,7 @@ def init_db_routes(db_path, project_root):
                         if numbers:
                             hashes_generated = int(numbers[0])
                     except ValueError:
-                        pass
+                        pass  # Non-critical: continue with default count
 
             return jsonify(
                 {
