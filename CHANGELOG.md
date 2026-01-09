@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.3] - 2026-01-08
+
+### Changed
+- **Periodicals (Reading Room)**: Simplified to flat data schema with skip list support
+  - Each periodical is now a standalone item (matching Audible's content_type classification)
+  - API endpoints use single `asin` instead of parent/child model
+  - UI rewritten with details card view for better browsing
+  - Added skip list support via `/etc/audiobooks/periodicals-skip.txt`
+  - Content types: Podcast, Newspaper/Magazine, Show, Radio/TV Program
+
+### Fixed
+- **Mover Service**: Prevented `build-conversion-queue` process stampede
+  - Added `flock -n` wrapper to prevent multiple concurrent rebuilds
+  - Previously, 167+ zombie processes could accumulate consuming 200% CPU
+
 ## [3.9.2] - 2026-01-08
 
 ### Fixed
