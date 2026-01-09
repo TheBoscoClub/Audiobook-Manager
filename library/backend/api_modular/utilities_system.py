@@ -2,14 +2,14 @@
 System administration utilities - service control and application upgrades.
 
 Uses a privilege-separated helper service pattern:
-- API writes request to /var/lib/audiobooks/.control/upgrade-request
+- API writes request to $AUDIOBOOKS_VAR_DIR/.control/upgrade-request
 - audiobooks-upgrade-helper.path unit detects the file
 - audiobooks-upgrade-helper.service runs operations with root privileges
-- API polls /var/lib/audiobooks/.control/upgrade-status for progress
+- API polls $AUDIOBOOKS_VAR_DIR/.control/upgrade-status for progress
 
-Using /var/lib/audiobooks/.control/ because:
+Using $AUDIOBOOKS_VAR_DIR/.control/ because:
 - It's in the API's ReadWritePaths (works with ProtectSystem=strict)
-- The audiobooks user owns /var/lib/audiobooks
+- The audiobooks user owns $AUDIOBOOKS_VAR_DIR
 - Avoids /run namespace isolation issues with systemd sandboxing
 
 This allows the API to run with NoNewPrivileges=yes while still supporting
@@ -28,8 +28,9 @@ from .core import FlaskResponse
 utilities_system_bp = Blueprint("utilities_system", __name__)
 
 # Paths for privilege-separated helper communication
-# Using /var/lib/audiobooks/.control/ to avoid /run namespace issues with sandboxing
-CONTROL_DIR = Path("/var/lib/audiobooks/.control")
+# Using $AUDIOBOOKS_VAR_DIR/.control/ to avoid /run namespace issues with sandboxing
+_var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
+CONTROL_DIR = Path(_var_dir) / ".control"
 HELPER_REQUEST_FILE = CONTROL_DIR / "upgrade-request"
 HELPER_STATUS_FILE = CONTROL_DIR / "upgrade-status"
 

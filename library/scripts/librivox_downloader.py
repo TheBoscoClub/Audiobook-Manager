@@ -63,8 +63,10 @@ try:
     DEFAULT_OUTPUT = AUDIOBOOKS_DATA / "Sources-Librivox"
     LOG_DIR = AUDIOBOOKS_LOGS
 except ImportError:
-    DEFAULT_OUTPUT = Path("/srv/audiobooks/Sources-Librivox")
-    LOG_DIR = Path("/srv/audiobooks/logs")
+    # Fallback to environment variables when running standalone
+    _data_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
+    DEFAULT_OUTPUT = Path(_data_dir) / "Sources-Librivox"
+    LOG_DIR = Path(os.environ.get("AUDIOBOOKS_LOGS", f"{_data_dir}/logs"))
 
 LIBRIVOX_API = "https://librivox.org/api/feed/audiobooks"
 

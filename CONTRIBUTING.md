@@ -20,6 +20,40 @@ Thank you for your interest in contributing to the Audiobooks project!
    pytest tests/ -v
    ```
 
+## CRITICAL: No Hardcoded Paths
+
+**All paths MUST use configuration variables.** This is enforced by a pre-commit hook.
+
+### The Rule
+
+- **NEVER** write literal paths like `/var/lib/audiobooks`, `/srv/audiobooks`, `/run/audiobooks`
+- **ALWAYS** use environment variables: `$AUDIOBOOKS_DATA`, `$AUDIOBOOKS_VAR_DIR`, etc.
+- If a path variable doesn't exist, **add it** to `lib/audiobooks-config.sh` first
+
+### Why This Matters
+
+End users configure their own paths. Hardcoded paths:
+- Break user customization
+- Cause silent failures when paths differ
+- Have repeatedly caused regressions in past releases
+
+### Available Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `AUDIOBOOKS_DATA` | Main data directory |
+| `AUDIOBOOKS_LIBRARY` | Converted audiobooks |
+| `AUDIOBOOKS_SOURCES` | Source files |
+| `AUDIOBOOKS_RUN_DIR` | Runtime (locks, FIFOs) |
+| `AUDIOBOOKS_VAR_DIR` | Persistent state |
+| `AUDIOBOOKS_STAGING` | Conversion staging |
+| `AUDIOBOOKS_DATABASE` | SQLite database |
+| `AUDIOBOOKS_LOGS` | Log files |
+
+See `lib/audiobooks-config.sh` for the complete list with defaults.
+
+---
+
 ## Development Workflow
 
 ### Code Style
