@@ -7,7 +7,7 @@ on:
     branches: [main, master]
   schedule:
     # Weekly scan on Monday at 6am UTC
-    - cron: '0 6 * * 1'
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
 
 jobs:
   analyze:
