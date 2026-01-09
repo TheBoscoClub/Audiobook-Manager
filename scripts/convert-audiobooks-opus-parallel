@@ -45,6 +45,17 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
+# Signal handling: clean up child processes on SIGTERM/SIGINT
+cleanup() {
+    log "Received signal, terminating parallel jobs..."
+    # Kill all child processes of this script
+    pkill -P $$ 2>/dev/null
+    # Also kill any FFmpeg processes started by parallel
+    pkill -P $$ -f ffmpeg 2>/dev/null
+    exit 0
+}
+trap cleanup SIGTERM SIGINT
+
 # Check tmpfs usage and wait if too high
 check_tmpfs_space() {
     local USAGE=$(df /tmp | tail -1 | awk '{print int($5)}')

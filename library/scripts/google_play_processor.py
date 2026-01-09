@@ -460,8 +460,10 @@ class GooglePlayProcessor:
         self, chapter_files: List[Path], output_path: Path, metadata: Dict
     ) -> bool:
         """Merge chapter files into single OPUS file using FFmpeg."""
-        # Create concat file list
-        concat_file = Path(tempfile.mktemp(suffix=".txt"))
+        # Create concat file list securely (mktemp is insecure - B306)
+        fd, concat_path = tempfile.mkstemp(suffix=".txt")
+        os.close(fd)  # Close the file descriptor, we'll open it with write mode
+        concat_file = Path(concat_path)
 
         try:
             with open(concat_file, "w") as f:

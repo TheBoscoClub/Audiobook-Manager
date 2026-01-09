@@ -21,9 +21,9 @@ from scanner.metadata_utils import (
     extract_cover_art,
     enrich_metadata,
     # Re-export for backwards compatibility with tests
-    categorize_genre,
-    determine_literary_era,
-    extract_topics,
+    categorize_genre,  # noqa: F401
+    determine_literary_era,  # noqa: F401
+    extract_topics,  # noqa: F401
 )
 
 # Configuration

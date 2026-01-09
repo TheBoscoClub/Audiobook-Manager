@@ -17,14 +17,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import os
 
 try:
-    from config import DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
+    from config import DATABASE_PATH, SUPPLEMENTS_DIR
 
     DEFAULT_SUPPLEMENTS_DIR = SUPPLEMENTS_DIR
 except ImportError:
     # Fallback to environment variables when running standalone
     _data_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
     DATABASE_PATH = Path(os.environ.get("AUDIOBOOKS_DATABASE", f"{_data_dir}/audiobooks.db"))
-    PROJECT_DIR = Path(os.environ.get("AUDIOBOOKS_HOME", "/opt/audiobooks"))
     DEFAULT_SUPPLEMENTS_DIR = Path(os.environ.get("AUDIOBOOKS_SUPPLEMENTS", f"{_data_dir}/Supplements"))
 
 
