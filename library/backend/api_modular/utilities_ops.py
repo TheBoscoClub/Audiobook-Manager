@@ -357,7 +357,7 @@ def init_ops_routes(db_path, project_root):
                     try:
                         with open(filepath, "rb") as f:
                             data = f.read(1048576)  # 1MB
-                        return hashlib.md5(data).hexdigest()
+                        return hashlib.md5(data, usedforsecurity=False).hexdigest()
                     except (IOError, OSError):
                         return None
 

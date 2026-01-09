@@ -23,7 +23,7 @@ Endpoints:
 
 import re
 import subprocess
-from flask import Blueprint, Response, jsonify, request, g
+from flask import Blueprint, Response, jsonify, request, g, current_app
 
 from .core import get_db
 

@@ -304,7 +304,7 @@ def extract_cover_art(filepath: Path, output_dir: Path, timeout: int = 30) -> st
     """
     try:
         # Generate unique filename based on file path
-        file_hash = hashlib.md5(str(filepath).encode()).hexdigest()
+        file_hash = hashlib.md5(str(filepath).encode(), usedforsecurity=False).hexdigest()
         cover_path = output_dir / f"{file_hash}.jpg"
 
         # Skip if already extracted

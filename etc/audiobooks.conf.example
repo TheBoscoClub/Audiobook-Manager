@@ -74,8 +74,8 @@ AUDIOBOOKS_WEB_PORT="8443"
 AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
 
 # HTTP to HTTPS redirect port
-# Default: 8080
-AUDIOBOOKS_HTTP_REDIRECT_PORT="8080"
+# Default: 8081
+AUDIOBOOKS_HTTP_REDIRECT_PORT="8081"
 
 # Use waitress WSGI server (production mode)
 # Default: true

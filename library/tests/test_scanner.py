@@ -377,7 +377,7 @@ class TestExtractCoverArt:
         def create_cover_file(*args, **kwargs):
             # Create the cover file that ffmpeg would create
             cover_path = (
-                output_dir / f"{hashlib.md5(str(test_file).encode()).hexdigest()}.jpg"
+                output_dir / f"{hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()}.jpg"
             )
             cover_path.write_bytes(b"fake jpeg")
             return MagicMock(returncode=0)
@@ -415,7 +415,7 @@ class TestExtractCoverArt:
         output_dir.mkdir()
 
         # Pre-create the cover file
-        cover_hash = hashlib.md5(str(test_file).encode()).hexdigest()
+        cover_hash = hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()
         cover_path = output_dir / f"{cover_hash}.jpg"
         cover_path.write_bytes(b"existing cover")
 
