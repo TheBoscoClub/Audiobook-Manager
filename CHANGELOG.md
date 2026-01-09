@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [3.9.4] - 2026-01-09
+
+### Added
 - **Developer Safeguards**: Pre-commit hook blocks hardcoded paths in scripts and services
   - Rejects commits containing literal paths like `/run/audiobooks`, `/var/lib/audiobooks`, `/srv/audiobooks`
   - Enforces use of configuration variables (`$AUDIOBOOKS_RUN_DIR`, `$AUDIOBOOKS_VAR_DIR`, etc.)
@@ -19,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Using `/run/` directories doesn't work reliably with sandboxed services
 
 ### Fixed
+- **Security**: Replace insecure `mktemp()` with `mkstemp()` in `google_play_processor.py`
+  - Eliminates TOCTOU (time-of-check-time-of-use) race condition vulnerability
+- **Reliability**: Add signal trap to converter script for clean FFmpeg shutdown
+  - Prevents orphan FFmpeg processes on service stop/restart
+- **Code Quality**: Fix missing `import os` in `librivox_downloader.py`
+- **Code Quality**: Remove unused `LOG_DIR` variable from `librivox_downloader.py`
+- **Code Quality**: Remove unused `PROJECT_DIR` import from `scan_supplements.py`
+- **Code Quality**: Add logging for silent exceptions in `duplicates.py` index updates
 - **Systemd Services**: Removed `RuntimeDirectory=audiobooks` from all services
   - API, converter, downloader, mover, and periodicals-sync services updated
   - tmpfiles.d now creates `/var/lib/audiobooks/.run` at boot

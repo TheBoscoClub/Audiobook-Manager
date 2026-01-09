@@ -1048,7 +1048,12 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.3 (Current)
+### v3.9.4 (Current)
+- **Security**: Replace insecure mktemp() with mkstemp() for temp file creation
+- **Reliability**: Add signal trap to converter script for clean FFmpeg shutdown
+- **Code Quality**: Fix missing imports, remove unused variables, add exception logging
+
+### v3.9.3
 - **Periodicals (Reading Room)**: Simplified to flat data schema with skip list support
 - **Mover Service**: Fixed process stampede with flock wrapper
 
