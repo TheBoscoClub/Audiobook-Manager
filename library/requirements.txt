@@ -5,5 +5,11 @@ requests>=2.31.0
 audible>=0.8.0
 cryptography>=42.0.0
 # Security: Pin minimum versions for transitive deps with CVEs
-urllib3>=2.6.3  # CVE-2026-21441
-h11>=0.16.0     # CVE-2025-43859
+urllib3>=2.6.3      # CVE-2026-21441
+h11>=0.16.0         # CVE-2025-43859
+aiohttp>=3.13.3     # CVE-2025-69223 through CVE-2025-69230
+brotli>=1.2.0       # CVE-2025-6176
+filelock>=3.20.1    # CVE-2025-68146
+marshmallow>=3.26.2 # CVE-2025-68480
+pynacl>=1.6.2       # CVE-2025-69277
+werkzeug>=3.1.5     # CVE-2025-66221, CVE-2026-21860

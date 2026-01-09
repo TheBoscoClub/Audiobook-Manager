@@ -410,10 +410,16 @@ Configuration is loaded from multiple sources in priority order:
 | `AUDIOBOOKS_COVERS` | Cover art cache |
 | `AUDIOBOOKS_CERTS` | SSL certificate directory |
 | `AUDIOBOOKS_LOGS` | Log files directory |
+| `AUDIOBOOKS_STAGING` | Temporary staging directory for conversions (default: /tmp/audiobook-staging) |
+| `AUDIOBOOKS_VENV` | Python virtual environment path |
+| `AUDIOBOOKS_CONVERTER` | Path to AAXtoMP3 converter script |
 | `AUDIOBOOKS_API_PORT` | API server port (default: 5001) |
 | `AUDIOBOOKS_WEB_PORT` | HTTPS web server port (default: 8443) |
+| `AUDIOBOOKS_BIND_ADDRESS` | Server bind address (default: 0.0.0.0) |
 | `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8081) |
 | `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
+| `AUDIOBOOKS_HTTPS_ENABLED` | Enable HTTPS for web server (default: true) |
+| `AUDIOBOOKS_USE_WAITRESS` | Use Waitress WSGI server for production (default: true) |
 
 ### Override via Environment
 ```bash
@@ -1042,7 +1048,11 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.0 (Current)
+### v3.9.3 (Current)
+- **Periodicals (Reading Room)**: Simplified to flat data schema with skip list support
+- **Mover Service**: Fixed process stampede with flock wrapper
+
+### v3.9.0
 - **Periodicals "Reading Room"**: New subsystem for Audible episodic content
   - Manages podcasts, newspapers, meditation series separately from main library
   - Real-time sync status via Server-Sent Events (SSE)

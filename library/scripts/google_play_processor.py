@@ -213,7 +213,7 @@ class GooglePlayProcessor:
 
                 # Also save cover separately
                 cover_ext = "jpg" if "jpeg" in cover_mime else "png"
-                cover_hash = hashlib.md5(str(output_file).encode()).hexdigest()
+                cover_hash = hashlib.md5(str(output_file).encode(), usedforsecurity=False).hexdigest()
                 cover_path = self.covers_dir / f"{cover_hash}.{cover_ext}"
                 if not cover_path.exists():
                     self.covers_dir.mkdir(parents=True, exist_ok=True)
