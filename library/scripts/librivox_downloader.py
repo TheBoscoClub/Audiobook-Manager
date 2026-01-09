@@ -45,9 +45,10 @@ Usage:
 API Documentation: https://librivox.org/api/info
 """
 
+import os
+import re
 import requests
 import sys
-import re
 import time
 from pathlib import Path
 from argparse import ArgumentParser
@@ -58,15 +59,13 @@ from xml.etree import ElementTree
 # Add parent directory for config
 sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
-    from config import AUDIOBOOKS_DATA, AUDIOBOOKS_LOGS
+    from config import AUDIOBOOKS_DATA
 
     DEFAULT_OUTPUT = AUDIOBOOKS_DATA / "Sources-Librivox"
-    LOG_DIR = AUDIOBOOKS_LOGS
 except ImportError:
     # Fallback to environment variables when running standalone
     _data_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
     DEFAULT_OUTPUT = Path(_data_dir) / "Sources-Librivox"
-    LOG_DIR = Path(os.environ.get("AUDIOBOOKS_LOGS", f"{_data_dir}/logs"))
 
 LIBRIVOX_API = "https://librivox.org/api/feed/audiobooks"
 

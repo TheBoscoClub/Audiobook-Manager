@@ -45,8 +45,10 @@ def remove_from_indexes(filepath: Path) -> dict:
             if new_count < original_count:
                 idx_path.write_text("\n".join(filtered) + "\n" if filtered else "")
                 removed[idx_name] = original_count - new_count
-        except Exception:
-            pass  # Silently continue if index update fails
+        except Exception as e:
+            # Log but continue - index update failures shouldn't break the operation
+            import logging
+            logging.warning(f"Failed to update index {idx_name}: {e}")
 
     return removed
 
