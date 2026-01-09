@@ -414,18 +414,19 @@ do_upgrade() {
             fi
         done
 
-        # Install/update tmpfiles.d configuration for privileged helper
+        # Install/update tmpfiles.d configuration for runtime directories
         if [[ -f "${project}/systemd/audiobooks-tmpfiles.conf" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo "  [DRY-RUN] Would update tmpfiles.d configuration"
             else
                 sudo cp "${project}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
                 sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
-                # Ensure runtime directory exists
+                # Ensure runtime directories exist
                 sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
-                    sudo mkdir -p /run/audiobooks
-                    sudo chown audiobooks:audiobooks /run/audiobooks
-                    sudo chmod 755 /run/audiobooks
+                    sudo mkdir -p /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
+                    sudo chown audiobooks:audiobooks /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
+                    sudo chmod 755 /var/lib/audiobooks/.control
+                    sudo chmod 775 /var/lib/audiobooks/.run /tmp/audiobook-staging
                 }
                 echo "  Updated: tmpfiles.d/audiobooks.conf"
             fi

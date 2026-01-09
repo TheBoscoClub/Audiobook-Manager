@@ -23,7 +23,7 @@ export AUDIBLE_CONFIG_DIR=/etc/audiobooks/audible
 # Script config
 SYNC_ID=$(uuidgen)
 DB="${AUDIOBOOKS_DATA}/audiobooks.db"
-SSE_FIFO="/run/audiobooks/periodicals-sse"
+SSE_FIFO="${AUDIOBOOKS_RUN_DIR}/periodicals-sse"
 SKIP_FILE="/etc/audiobooks/periodicals-skip.txt"
 
 # Load skip list (ASINs to exclude from sync)
@@ -98,7 +98,7 @@ done
 
 log() {
     local msg="[$(date -Iseconds)] $1"
-    $VERBOSE && echo "$msg" >&2
+    if $VERBOSE; then echo "$msg" >&2; fi
 }
 
 emit_sse() {

@@ -3,7 +3,7 @@ Description=Audible periodicals index sync
 Documentation=file:///opt/audiobooks/docs/PERIODICALS.md
 After=network-online.target audiobooks-api.service
 Wants=network-online.target
-ConditionPathExists=/var/lib/audiobooks/audiobooks.db
+ConditionPathExists=/raid0/Audiobooks/audiobooks.db
 
 [Service]
 Type=oneshot
@@ -33,7 +33,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/audiobooks /run/audiobooks
+ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks
 
 [Install]
 WantedBy=audiobooks.target multi-user.target

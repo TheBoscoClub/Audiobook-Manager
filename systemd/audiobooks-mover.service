@@ -12,10 +12,6 @@ Group=audiobooks
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
 Environment=HOME=/var/lib/audiobooks
 
-# Create runtime directories
-RuntimeDirectory=audiobooks
-RuntimeDirectoryMode=0775
-
 # Main script
 ExecStart=/usr/local/bin/audiobooks-move-staged
 

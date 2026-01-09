@@ -111,7 +111,7 @@ fi
 : "${AUDIOBOOKS_DOWNLOAD_DELAY:=30}"               # Seconds between downloads
 
 # Runtime directories
-: "${AUDIOBOOKS_RUN_DIR:=/run/audiobooks}"         # Runtime data (locks, temp)
+: "${AUDIOBOOKS_RUN_DIR:=/var/lib/audiobooks/.run}" # Runtime data (locks, temp) - NOT /run due to ProtectSystem=strict
 : "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"     # Persistent state data
 : "${AUDIOBOOKS_TRIGGERS:=/tmp/audiobook-triggers}" # Trigger files for service coordination
 : "${AUDIOBOOKS_DOWNLOADER_LOCK:=/tmp/audiobook-downloader.lock}"

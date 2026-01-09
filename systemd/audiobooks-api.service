@@ -26,7 +26,7 @@ StandardError=append:/raid0/Audiobooks/logs/api-error.log
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks/logs /raid0/Audiobooks/.index /raid0/Audiobooks/.covers /raid0/Audiobooks/Library /raid0/Audiobooks/Sources /run/audiobooks
+ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks/logs /raid0/Audiobooks/.index /raid0/Audiobooks/.covers /raid0/Audiobooks/Library /raid0/Audiobooks/Sources
 ProtectHome=yes
 # PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
 PrivateTmp=no

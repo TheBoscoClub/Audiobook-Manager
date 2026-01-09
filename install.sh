@@ -1107,19 +1107,20 @@ EOF
             done
         fi
 
-        # Install tmpfiles.d configuration for /run/audiobooks (privileged helper communication)
+        # Install tmpfiles.d configuration for runtime directories
         if [[ -f "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" ]]; then
             echo -e "${BLUE}Installing tmpfiles.d configuration...${NC}"
             sudo cp "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
             sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
-            # Create the runtime directory immediately
+            # Create the runtime directories immediately
             sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
                 # Fallback: create manually if systemd-tmpfiles not available
-                sudo mkdir -p /run/audiobooks
-                sudo chown audiobooks:audiobooks /run/audiobooks
-                sudo chmod 755 /run/audiobooks
+                sudo mkdir -p /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
+                sudo chown audiobooks:audiobooks /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
+                sudo chmod 755 /var/lib/audiobooks/.control
+                sudo chmod 775 /var/lib/audiobooks/.run /tmp/audiobook-staging
             }
-            echo "  Created: /run/audiobooks (for privileged helper communication)"
+            echo "  Created: /var/lib/audiobooks/.control, /var/lib/audiobooks/.run, /tmp/audiobook-staging"
         fi
 
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
