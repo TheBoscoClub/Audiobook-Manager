@@ -815,8 +815,11 @@ The SQLite database stores audiobook metadata with the following key fields:
 | `asin` | TEXT | Amazon Standard Identification Number |
 | `isbn` | TEXT | International Standard Book Number |
 | `source` | TEXT | Audiobook source (audible, google_play, librivox, chirp, etc.) |
+| `content_type` | TEXT | Audible content classification (Product, Podcast, Lecture, etc.) |
 
 Additional tables: `supplements` (PDF attachments), `audiobook_genres`, `audiobook_topics`, `audiobook_eras`
+
+Additional views: `library_audiobooks` (filters out periodical content types for main library display)
 
 ## Docker (macOS, Windows, Linux)
 

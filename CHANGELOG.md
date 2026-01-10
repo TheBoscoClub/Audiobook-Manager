@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rejects commits containing literal paths like `/run/audiobooks`, `/var/lib/audiobooks`, `/srv/audiobooks`
   - Enforces use of configuration variables (`$AUDIOBOOKS_RUN_DIR`, `$AUDIOBOOKS_VAR_DIR`, etc.)
   - Shareable hooks in `scripts/hooks/` with installer script (`scripts/install-hooks.sh`)
+- **Database Schema**: Added `content_type` column to audiobooks table
+  - Stores Audible content classification (Product, Podcast, Lecture, Performance, Speech, Radio/TV Program)
+  - Added `library_audiobooks` view to separate main library from periodicals
+  - New index `idx_audiobooks_content_type` for efficient filtering
+  - Used by `AUDIOBOOK_FILTER` to exclude periodical content from main library queries
 
 ### Changed
 - **Runtime Directory**: Changed `AUDIOBOOKS_RUN_DIR` from `/run/audiobooks` to `/var/lib/audiobooks/.run`

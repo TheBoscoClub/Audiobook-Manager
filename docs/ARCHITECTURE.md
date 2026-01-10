@@ -277,6 +277,32 @@ CREATE TABLE playback_history (
 );
 ```
 
+### Content Type Classification
+
+The `content_type` field in the audiobooks table stores Audible's content classification:
+
+| Content Type | Description | Main Library |
+|-------------|-------------|--------------|
+| `Product` | Standard audiobooks | Yes |
+| `Lecture` | Educational content (Great Courses, etc.) | Yes |
+| `Performance` | Dramatized productions | Yes |
+| `Speech` | Speeches, talks | Yes |
+| `Podcast` | Podcast episodes | No (Reading Room) |
+| `Newspaper/Magazine` | News content | No (Reading Room) |
+| `Radio/TV Program` | Broadcast content | No (Reading Room) |
+| `Show` | Series-based content | No (Reading Room) |
+
+The `library_audiobooks` view filters the main library to exclude periodical content types:
+
+```sql
+CREATE VIEW library_audiobooks AS
+SELECT * FROM audiobooks
+WHERE content_type IN ('Product', 'Lecture', 'Performance', 'Speech')
+   OR content_type IS NULL;
+```
+
+This separation ensures the main library displays full-length audiobooks while periodical content is managed through the Reading Room.
+
 ### Security: Credential Storage
 
 Audible authentication credentials are stored securely:

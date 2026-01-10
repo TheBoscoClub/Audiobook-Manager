@@ -123,7 +123,7 @@ while true; do
                         REMAINING=$(find "$DIR" -name "*.opus" -type f 2>/dev/null | wc -l)
                         SIZE=$(du -sh "$DEST" 2>/dev/null | cut -f1)
 
-                        if [ $REMAINING -eq 0 ]; then
+                        if [ "$REMAINING" -eq 0 ]; then
                             log "${GREEN}✓ Moved:${NC} $DIR_NAME ($SIZE total)"
 
                             # Generate checksums for moved opus files
