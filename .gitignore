@@ -321,3 +321,13 @@ config.dev.env
 # Local tool configs
 .bandit
 pyproject.toml
+.ruff.toml
+.prettierrc
+.prettierrc.*
+.eslintrc.*
+.editorconfig
+.stylua.toml
+.yamllint
+.yamllint.yml
+.markdownlint.*
+setup.cfg
