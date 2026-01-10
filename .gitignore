@@ -191,6 +191,8 @@ nohup.out
 # Claude Code local settings
 .claude.local
 .claude-session
+.claude-session-exit
+.claude-exit
 .claude-state
 .claude-tmp/
 
