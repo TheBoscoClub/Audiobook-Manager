@@ -20,9 +20,10 @@ from .collections import COLLECTIONS
 audiobooks_bp = Blueprint("audiobooks", __name__)
 
 # Filter condition for main library (excludes periodicals)
-# Periodicals (Podcast, Newspaper / Magazine, Show, Radio/TV Program) belong in Reading Room
+# Include: Product, Lecture, Performance, Speech (all valid audiobook content)
+# Exclude: Podcast, Newspaper / Magazine, Show, Radio/TV Program (periodicals → Reading Room)
 # content_type IS NULL handles legacy entries before the field was added
-AUDIOBOOK_FILTER = "(content_type = 'Product' OR content_type IS NULL)"
+AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Lecture', 'Performance', 'Speech') OR content_type IS NULL)"
 
 
 def init_audiobooks_routes(db_path, project_root, database_path):
