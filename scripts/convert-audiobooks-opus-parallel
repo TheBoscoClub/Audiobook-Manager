@@ -202,20 +202,22 @@ while true; do
     QUEUE_FILE="${AUDIOBOOKS_DATA:-/raid0/Audiobooks}/.index/queue.txt"
     QUEUE_BUILDER="${AUDIOBOOKS_HOME:-/opt/audiobooks}/scripts/build-conversion-queue"
 
-    # Rebuild queue if missing, empty, or stale (older than 10 minutes)
+    # Rebuild queue if missing OR if new source files appeared since last rebuild
+    # NOTE: Empty queue is valid (all files converted) - don't rebuild just for staleness
     REBUILD_QUEUE=false
     if [[ ! -f "$QUEUE_FILE" ]]; then
         log "Queue file missing - rebuilding..."
         REBUILD_QUEUE=true
     elif [[ ! -s "$QUEUE_FILE" ]]; then
-        # Queue exists but empty - check if it's stale
-        if [[ -n "$(find "$QUEUE_FILE" -mmin +10 2>/dev/null)" ]]; then
-            log "Queue empty and stale - rebuilding..."
+        # Queue exists but empty - only rebuild if new source files appeared
+        if [[ -n "$(find "$SOURCES_DIR" -name "*.aaxc" -type f -newer "$QUEUE_FILE" 2>/dev/null | head -1)" ]]; then
+            log "New source files detected - rebuilding queue..."
             REBUILD_QUEUE=true
         fi
     fi
 
     if $REBUILD_QUEUE && [[ -x "$QUEUE_BUILDER" ]]; then
+        # Queue builder uses flock internally - safe if another rebuild is running
         "$QUEUE_BUILDER" --rebuild >/dev/null 2>&1
     fi
 
@@ -253,6 +255,8 @@ while true; do
 
     # Rebuild queue after batch to remove newly converted files
     # Run in background to not delay next scan
+    # NOTE: Queue builder uses flock -n internally - concurrent spawns exit immediately
+    # so multiple background rebuilds are safe (only one actually runs at a time)
     if [[ -x "$QUEUE_BUILDER" ]]; then
         "$QUEUE_BUILDER" --rebuild >/dev/null 2>&1 &
     fi

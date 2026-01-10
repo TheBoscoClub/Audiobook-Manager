@@ -52,6 +52,28 @@ done
 
 mkdir -p "$INDEX_DIR"
 
+# ============================================================================
+# EARLY LOCK CHECK FOR REBUILD MODE
+# ============================================================================
+# Prevent multiple concurrent rebuild operations by acquiring exclusive lock
+# at script startup. This must happen BEFORE any heavy operations.
+# Quick-update mode has its own locking and doesn't need this.
+# ============================================================================
+if ! $QUICK_UPDATE; then
+    REBUILD_LOCK="$INDEX_DIR/.rebuild.lock"
+
+    # Open lock file on FD 201
+    exec 201>"$REBUILD_LOCK"
+
+    # Try to acquire exclusive lock (non-blocking)
+    if ! flock -n 201; then
+        # Another rebuild is running - exit silently
+        # This is normal when multiple rebuilds are triggered in quick succession
+        exit 0
+    fi
+    # Lock acquired - will be released when script exits
+fi
+
 log() {
     if $VERBOSE; then
         echo "[$(date '+%H:%M:%S')] $1" >&2
@@ -732,6 +754,10 @@ main() {
         quick_update_indexes "$QUICK_SOURCE" "$QUICK_OUTPUT"
         exit $?
     fi
+
+    # Lock is acquired at script startup (see EARLY LOCK CHECK section)
+    # This prevents concurrent rebuilds from interfering with each other
+
     if $REBUILD || ! indexes_current; then
         log "Rebuilding indexes..."
         build_source_asin_index
