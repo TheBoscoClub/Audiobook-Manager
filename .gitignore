@@ -317,3 +317,7 @@ temp/
 target/
 out/
 config.dev.env
+
+# Local tool configs
+.bandit
+pyproject.toml
