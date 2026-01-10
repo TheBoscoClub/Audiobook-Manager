@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.5] - 2026-01-10
+
+### Added
+- **Schema Tracking**: `schema.sql` now tracked in git repository
+  - Contains authoritative database schema with all columns, indices, and views
+  - Includes `content_type` and `source_asin` columns for periodical classification
+  - Added `library_audiobooks` view and `idx_audiobooks_content_type` index
+- **Utility Script**: `rnd/update_content_types.py` for syncing content_type from Audible API
+  - Fetches content_type for all library items with ASINs
+  - Handles Audible's pagination and inconsistent tagging
+
+### Changed
+- **Content Filter**: Expanded `AUDIOBOOK_FILTER` to include more content types
+  - Now includes: Product, Lecture, Performance, Speech (main library)
+  - Excludes: Podcast, Radio/TV Program (Reading Room)
+  - Handles NULL content_type for legacy entries
+
+### Fixed
+- **Reliability**: Prevent concurrent `build-conversion-queue` processes with flock
+  - Multiple simultaneous rebuilds caused race conditions and duplicate conversions
+- **Scripts**: Fixed shellcheck warnings in `build-conversion-queue` and `move-staged-audiobooks`
+  - SC2188: Use `: >` instead of `>` for file truncation
+  - SC2086: Quote numeric variables properly
+
 ## [3.9.4] - 2026-01-09
 
 ### Added

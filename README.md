@@ -1051,7 +1051,13 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.4 (Current)
+### v3.9.5 (Current)
+- **Schema Tracking**: Database schema now tracked in git (schema.sql)
+- **Content Filter**: Expanded AUDIOBOOK_FILTER to include Lecture, Performance, Speech types
+- **Reliability**: Prevent concurrent queue rebuild processes with flock
+- **Scripts**: Fixed shellcheck warnings in build scripts
+
+### v3.9.4
 - **Security**: Replace insecure mktemp() with mkstemp() for temp file creation
 - **Reliability**: Add signal trap to converter script for clean FFmpeg shutdown
 - **Code Quality**: Fix missing imports, remove unused variables, add exception logging

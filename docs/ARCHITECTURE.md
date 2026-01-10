@@ -1448,5 +1448,5 @@ systemctl status audiobooks.target --no-pager
 
 ---
 
-*Document Version: 3.9.4*
+*Document Version: 3.9.5*
 *Last Updated: 2026-01-09*
