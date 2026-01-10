@@ -20,14 +20,16 @@ ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/redirect_server.py
 
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:/raid0/Audiobooks/logs/redirect.log
-StandardError=append:/raid0/Audiobooks/logs/redirect-error.log
+# Use journal logging (query with: journalctl -u audiobooks-redirect)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobooks-redirect
 
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadOnlyPaths=/etc/audiobooks /opt/audiobooks
-ReadWritePaths=/raid0/Audiobooks/logs
+ReadWritePaths=/var/lib/audiobooks  # default
 ProtectHome=yes
 PrivateTmp=yes
 

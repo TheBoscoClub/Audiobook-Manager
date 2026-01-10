@@ -21,11 +21,15 @@ Endpoints:
     GET  /api/v1/periodicals/categories   - List categories with counts
 """
 
+import os
 import re
 import subprocess
 from flask import Blueprint, Response, jsonify, request, g, current_app
 
 from .core import get_db
+
+# Script paths - use environment variable with fallback
+_audiobooks_home = os.environ.get("AUDIOBOOKS_HOME", "/opt/audiobooks")
 
 periodicals_bp = Blueprint("periodicals", __name__)
 
@@ -347,8 +351,8 @@ def init_periodicals_routes(db_path: str) -> None:
         if asin and not validate_asin(asin):
             return jsonify({"error": "Invalid ASIN"}), 400
 
-        # Build command
-        cmd = ["/opt/audiobooks/scripts/sync-periodicals-index"]
+        # Build command - use configurable path
+        cmd = [f"{_audiobooks_home}/scripts/sync-periodicals-index"]
         if asin:
             cmd.extend(["--asin", asin])
         if force:

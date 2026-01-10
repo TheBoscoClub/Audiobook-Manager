@@ -164,7 +164,8 @@ while true; do
                 # Update queue index (so converter doesn't re-process moved books)
                 # Use flock -n to prevent multiple concurrent rebuilds (non-blocking)
                 if [[ -x "${AUDIOBOOKS_HOME}/scripts/build-conversion-queue" ]]; then
-                    flock -n /run/audiobooks/queue-rebuild.lock \
+                    mkdir -p "${AUDIOBOOKS_RUN_DIR}"
+                    flock -n "${AUDIOBOOKS_RUN_DIR}/queue-rebuild.lock" \
                         "${AUDIOBOOKS_HOME}/scripts/build-conversion-queue" --rebuild >/dev/null 2>&1 &
                 fi
             fi

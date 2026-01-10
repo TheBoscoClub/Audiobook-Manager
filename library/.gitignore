@@ -120,6 +120,8 @@ Cargo.lock
 # Large files that might be sensitive
 *.dump
 *.sql
+# Exception: migration files should be tracked
+!backend/migrations/*.sql
 
 # Project-specific: Generated data
 data/audiobooks.json

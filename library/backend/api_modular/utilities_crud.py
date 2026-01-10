@@ -71,11 +71,17 @@ def init_crud_routes(db_path):
 
     @utilities_crud_bp.route("/api/audiobooks/<int:id>", methods=["DELETE"])
     def delete_audiobook(id: int) -> FlaskResponse:
-        """Delete audiobook from database (does not delete file)"""
+        """Delete audiobook from database (does not delete file)
+
+        Uses transaction to ensure atomic deletion of audiobook and related records.
+        """
         conn = get_db(db_path)
         cursor = conn.cursor()
 
         try:
+            # Start explicit transaction for atomicity
+            cursor.execute("BEGIN TRANSACTION")
+
             # Delete related records first
             cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (id,))
             cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (id,))
@@ -85,14 +91,20 @@ def init_crud_routes(db_path):
             # Delete the audiobook
             cursor.execute("DELETE FROM audiobooks WHERE id = ?", (id,))
             rows_affected = cursor.rowcount
-            conn.commit()
-            conn.close()
 
+            # Commit only if audiobook was found and deleted
             if rows_affected > 0:
+                conn.commit()
+                conn.close()
                 return jsonify({"success": True, "deleted": rows_affected})
             else:
+                # Rollback the related record deletions if audiobook not found
+                conn.rollback()
+                conn.close()
                 return jsonify({"success": False, "error": "Audiobook not found"}), 404
         except Exception as e:
+            # Rollback on any error to prevent partial deletions
+            conn.rollback()
             conn.close()
             return jsonify({"success": False, "error": str(e)}), 500
 
@@ -146,7 +158,12 @@ def init_crud_routes(db_path):
 
     @utilities_crud_bp.route("/api/audiobooks/bulk-delete", methods=["POST"])
     def bulk_delete_audiobooks() -> FlaskResponse:
-        """Delete multiple audiobooks"""
+        """Delete multiple audiobooks.
+
+        IMPORTANT: Database records are deleted FIRST in a transaction.
+        Files are only deleted AFTER the database commit succeeds.
+        This prevents orphaned files if DB deletion fails.
+        """
         data = request.get_json()
 
         if not data or "ids" not in data:
@@ -166,25 +183,24 @@ def init_crud_routes(db_path):
         cursor = conn.cursor()
 
         try:
-            # Get file paths if we need to delete files
-            deleted_files = []
+            placeholders = ",".join("?" * len(ids))
+
+            # STEP 1: Collect file paths BEFORE deletion (if we need to delete files)
+            files_to_delete = []
             if delete_files:
-                placeholders = ",".join("?" * len(ids))
                 cursor.execute(
                     f"SELECT id, file_path FROM audiobooks WHERE id IN ({placeholders})",
                     ids,
                 )
-                for row in cursor.fetchall():
-                    file_path = Path(row["file_path"])
-                    if file_path.exists():
-                        try:
-                            file_path.unlink()
-                            deleted_files.append(str(file_path))
-                        except Exception as e:
-                            print(f"Warning: Could not delete file {file_path}: {e}")
+                files_to_delete = [
+                    Path(row["file_path"]) for row in cursor.fetchall()
+                    if row["file_path"]
+                ]
+
+            # STEP 2: Delete from database first (in transaction)
+            cursor.execute("BEGIN TRANSACTION")
 
             # Delete related records
-            placeholders = ",".join("?" * len(ids))
             cursor.execute(
                 f"DELETE FROM audiobook_genres WHERE audiobook_id IN ({placeholders})",
                 ids,
@@ -204,17 +220,36 @@ def init_crud_routes(db_path):
             # Delete audiobooks
             cursor.execute(f"DELETE FROM audiobooks WHERE id IN ({placeholders})", ids)
             deleted_count = cursor.rowcount
+
+            # Commit database changes first
             conn.commit()
             conn.close()
+
+            # STEP 3: Only delete files AFTER successful DB commit
+            # Files are recoverable; database records are not
+            deleted_files = []
+            failed_files = []
+            if delete_files:
+                for file_path in files_to_delete:
+                    if file_path.exists():
+                        try:
+                            file_path.unlink()
+                            deleted_files.append(str(file_path))
+                        except Exception as e:
+                            # Log but don't fail - DB deletion succeeded
+                            failed_files.append({"path": str(file_path), "error": str(e)})
 
             return jsonify(
                 {
                     "success": True,
                     "deleted_count": deleted_count,
-                    "files_deleted": len(deleted_files) if delete_files else 0,
+                    "files_deleted": len(deleted_files),
+                    "files_failed": failed_files if failed_files else None,
                 }
             )
         except Exception as e:
+            # Rollback on any error
+            conn.rollback()
             conn.close()
             return jsonify({"success": False, "error": str(e)}), 500
 

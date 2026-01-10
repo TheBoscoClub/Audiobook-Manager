@@ -3,6 +3,7 @@ Async operations with progress tracking.
 Handles background operations like add-new, rescan, reimport, and hash generation.
 """
 
+import os
 import subprocess
 import threading
 import sys
@@ -10,6 +11,9 @@ from flask import Blueprint, jsonify, request
 from pathlib import Path
 
 from .core import FlaskResponse
+
+# Script paths - use environment variable with fallback
+_audiobooks_home = os.environ.get("AUDIOBOOKS_HOME", "/opt/audiobooks")
 
 # Import operation tracking
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -453,7 +457,7 @@ def init_ops_routes(db_path, project_root):
             tracker.start_operation(operation_id)
             import os
             # Use installed script path
-            script_path = Path("/opt/audiobooks/scripts/download-new-audiobooks")
+            script_path = Path(f"{_audiobooks_home}/scripts/download-new-audiobooks")
             if not script_path.exists():
                 script_path = project_root.parent / "scripts" / "download-new-audiobooks"
 
@@ -524,7 +528,7 @@ def init_ops_routes(db_path, project_root):
         def run_rebuild():
             tracker.start_operation(operation_id)
             import os
-            script_path = Path("/opt/audiobooks/scripts/build-conversion-queue")
+            script_path = Path(f"{_audiobooks_home}/scripts/build-conversion-queue")
             if not script_path.exists():
                 script_path = project_root.parent / "scripts" / "build-conversion-queue"
 
@@ -600,7 +604,7 @@ def init_ops_routes(db_path, project_root):
         def run_cleanup():
             tracker.start_operation(operation_id)
             import os
-            script_path = Path("/opt/audiobooks/scripts/cleanup-stale-indexes")
+            script_path = Path(f"{_audiobooks_home}/scripts/cleanup-stale-indexes")
             if not script_path.exists():
                 script_path = project_root.parent / "scripts" / "cleanup-stale-indexes"
 
@@ -912,7 +916,7 @@ def init_ops_routes(db_path, project_root):
         def run_scan():
             tracker.start_operation(operation_id)
             import os
-            script_path = Path("/opt/audiobooks/scripts/find-duplicate-sources")
+            script_path = Path(f"{_audiobooks_home}/scripts/find-duplicate-sources")
             if not script_path.exists():
                 script_path = project_root.parent / "scripts" / "find-duplicate-sources"
 
@@ -975,7 +979,7 @@ def init_ops_routes(db_path, project_root):
         """Check if Audible library metadata file exists."""
         import os
 
-        data_dir = os.environ.get("AUDIOBOOKS_DATA", "/var/lib/audiobooks")
+        data_dir = os.environ.get("AUDIOBOOKS_DATA", "/var/lib/audiobooks")  # default
         metadata_path = os.path.join(data_dir, "library_metadata.json")
 
         exists = os.path.isfile(metadata_path)

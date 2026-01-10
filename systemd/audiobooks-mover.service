@@ -10,7 +10,7 @@ Group=audiobooks
 
 # Load configuration
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
-Environment=HOME=/var/lib/audiobooks
+Environment=HOME=/var/lib/audiobooks  # default for audiobooks user
 
 # Main script
 ExecStart=/usr/local/bin/audiobooks-move-staged
@@ -22,11 +22,11 @@ RestartSec=30
 # Nice value for lower priority
 Nice=5
 
-# Security hardening
+# Security hardening (ProtectSystem disabled - mover needs full file system access)
+# Data paths are configured via EnvironmentFile
 NoNewPrivileges=yes
-ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/raid0/Audiobooks /var/lib/audiobooks /tmp/audiobook-staging
+PrivateTmp=no
 
 [Install]
 WantedBy=audiobooks.target multi-user.target

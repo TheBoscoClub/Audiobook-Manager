@@ -35,7 +35,7 @@ if os.environ.get("SUDO_USER"):
 AUDIBLE_CONFIG_DIR = REAL_USER_HOME / ".audible"
 AUTH_FILE = AUDIBLE_CONFIG_DIR / "audible.json"
 CREDENTIAL_FILE_PATH = AUDIBLE_CONFIG_DIR / "position_sync_credentials.enc"
-DB_PATH = Path("/var/lib/audiobooks/audiobooks.db")
+DB_PATH = Path("/var/lib/audiobooks/audiobooks.db")  # default system install path
 COUNTRY_CODE = "us"
 
 
@@ -64,12 +64,17 @@ def calculate_similarity(s1: str, s2: str) -> float:
 
 
 async def fetch_audible_library(client) -> list[dict]:
-    """Fetch complete Audible library."""
-    print("📚 Fetching Audible library...")
+    """Fetch complete Audible library (audiobooks only, not periodicals).
+
+    Filters by content_type='Product' to exclude podcasts, newspapers,
+    shows, and other periodical content that belongs in Reading Room.
+    """
+    print("📚 Fetching Audible library (audiobooks only)...")
 
     all_items = []
     page = 1  # Audible API is 1-indexed
     page_size = 50
+    skipped_periodicals = 0
 
     while True:
         response = await client.get(
@@ -85,14 +90,26 @@ async def fetch_audible_library(client) -> list[dict]:
         if not items:
             break
 
-        all_items.extend(items)
-        print(f"   Fetched {len(all_items)} items...")
+        # Filter to only include actual audiobooks (content_type='Product')
+        # Exclude periodicals: Podcast, Newspaper / Magazine, Show, Radio/TV Program
+        for item in items:
+            content_type = item.get("content_type", "Product")
+            if content_type == "Product":
+                # Store content_type for reference
+                item["_content_type"] = content_type
+                all_items.append(item)
+            else:
+                skipped_periodicals += 1
+
+        print(f"   Fetched {len(all_items)} audiobooks (skipped {skipped_periodicals} periodicals)...")
 
         if len(items) < page_size:
             break
         page += 1
 
-    print(f"✅ Fetched {len(all_items)} items from Audible library")
+    print(f"✅ Fetched {len(all_items)} audiobooks from Audible library")
+    if skipped_periodicals:
+        print(f"   ℹ️  Skipped {skipped_periodicals} periodicals (belong in Reading Room)")
     return all_items
 
 
@@ -199,14 +216,16 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
         cursor = conn.cursor()
 
         for match in updates:
+            # Set both ASIN and content_type='Product' to ensure proper classification
+            # This marks the item as a true audiobook, not a periodical
             cursor.execute(
-                "UPDATE audiobooks SET asin = ? WHERE id = ?",
+                "UPDATE audiobooks SET asin = ?, content_type = 'Product' WHERE id = ?",
                 (match["asin"], match["local_id"])
             )
 
         conn.commit()
         conn.close()
-        print(f"\n✅ Updated {len(updates)} audiobooks with ASINs")
+        print(f"\n✅ Updated {len(updates)} audiobooks with ASINs (marked as content_type='Product')")
 
     # Show sample matches
     print("\n📋 Sample Matches:")

@@ -215,12 +215,16 @@
             try {
                 let url = API_BASE;
                 if (currentCategory !== 'all') {
-                    url += '?category=' + currentCategory;
+                    url += '?category=' + encodeURIComponent(currentCategory);
                 }
                 const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                }
                 const data = await response.json();
                 renderPeriodicalsList(data.periodicals || []);
             } catch (error) {
+                console.error('Failed to load periodicals:', error);
                 clearElement(container);
                 container.appendChild(createEmptyState('⚠️', 'Failed to load periodicals'));
             }
@@ -309,10 +313,14 @@
             container.appendChild(createElement('div', { className: 'loading-indicator', textContent: 'Loading details...' }));
 
             try {
-                const response = await fetch(API_BASE + '/' + asin);
+                const response = await fetch(API_BASE + '/' + encodeURIComponent(asin));
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                }
                 const data = await response.json();
                 renderPeriodicalDetails(data);
             } catch (error) {
+                console.error('Failed to load details:', error);
                 clearElement(container);
                 container.appendChild(createEmptyState('⚠️', 'Failed to load details'));
             }
@@ -408,6 +416,16 @@
                     body: JSON.stringify({ asins: [asin] })
                 });
 
+                if (!response.ok) {
+                    // Handle HTTP errors (4xx, 5xx)
+                    let errorMsg = 'Server error: ' + response.status;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.error) errorMsg = errorData.error;
+                    } catch (e) { /* ignore JSON parse error */ }
+                    throw new Error(errorMsg);
+                }
+
                 const data = await response.json();
                 if (data.queued > 0) {
                     showQueueToast('Item queued for download', false);
@@ -419,9 +437,13 @@
                     showQueueToast('Already downloaded', false);
                 } else if (data.already_queued > 0) {
                     showQueueToast('Already in queue', false);
+                } else {
+                    // Unexpected response - show warning
+                    showQueueToast('Unexpected response', true);
                 }
             } catch (error) {
-                showQueueToast('Failed to queue download', true);
+                console.error('Download queue error:', error);
+                showQueueToast(error.message || 'Failed to queue download', true);
             }
         }
 

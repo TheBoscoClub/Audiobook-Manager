@@ -21,14 +21,16 @@ ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/proxy_server.py
 
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:/raid0/Audiobooks/logs/proxy.log
-StandardError=append:/raid0/Audiobooks/logs/proxy-error.log
+# Use journal logging (query with: journalctl -u audiobooks-proxy)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobooks-proxy
 
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadOnlyPaths=/etc/audiobooks /opt/audiobooks /raid0/Audiobooks/Library /raid0/Audiobooks/Supplements
-ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks/logs
+ReadOnlyPaths=/etc/audiobooks /opt/audiobooks
+ReadWritePaths=/var/lib/audiobooks  # default
 ProtectHome=yes
 PrivateTmp=yes
 

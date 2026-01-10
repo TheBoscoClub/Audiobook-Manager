@@ -7,6 +7,41 @@
 // This allows the proxy server to properly route requests
 const API_BASE = '';
 
+// ============================================
+// Safe Fetch Wrapper - Always checks response.ok
+// ============================================
+
+/**
+ * Fetch wrapper that always checks response.ok before parsing JSON.
+ * Throws a detailed error for non-2xx responses.
+ *
+ * @param {string} url - The URL to fetch
+ * @param {object} options - Fetch options (method, headers, body, etc.)
+ * @returns {Promise<object>} - Parsed JSON response
+ * @throws {Error} - If response is not ok or JSON parsing fails
+ */
+async function safeFetch(url, options = {}) {
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+        // Try to get error message from response body
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+            const errorData = await response.json();
+            if (errorData.error) {
+                errorMessage = errorData.error;
+            } else if (errorData.message) {
+                errorMessage = errorData.message;
+            }
+        } catch (e) {
+            // Response wasn't JSON, use default error message
+        }
+        throw new Error(errorMessage);
+    }
+
+    return response.json();
+}
+
 // State
 let currentSection = 'database';
 let editingAudiobook = null;
@@ -82,14 +117,11 @@ function initDatabaseSection() {
 
 async function loadDatabaseStats() {
     try {
-        // Fetch stats from API
-        const [statsRes, hashRes] = await Promise.all([
-            fetch(`${API_BASE}/api/stats`),
-            fetch(`${API_BASE}/api/hash-stats`)
+        // Fetch stats from API using safeFetch for proper error handling
+        const [stats, hashStats] = await Promise.all([
+            safeFetch(`${API_BASE}/api/stats`),
+            safeFetch(`${API_BASE}/api/hash-stats`)
         ]);
-
-        const stats = await statsRes.json();
-        const hashStats = await hashRes.json();
 
         // Update UI - map API field names to display elements
         document.getElementById('db-total-books').textContent = stats.total_audiobooks?.toLocaleString() || '-';
@@ -115,8 +147,7 @@ async function loadDatabaseStats() {
 async function rescanLibrary() {
     showProgress('Scanning Library', 'Scanning audiobook directory for new files...');
     try {
-        const res = await fetch(`${API_BASE}/api/utilities/rescan`, { method: 'POST' });
-        const result = await res.json();
+        const result = await safeFetch(`${API_BASE}/api/utilities/rescan`, { method: 'POST' });
         hideProgress();
 
         if (result.success) {
@@ -849,7 +880,7 @@ async function bulkUpdateField() {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/api/audiobooks/bulk-update`, {
+        const result = await safeFetch(`${API_BASE}/api/audiobooks/bulk-update`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -858,8 +889,6 @@ async function bulkUpdateField() {
                 value: value
             })
         });
-
-        const result = await res.json();
 
         if (result.success) {
             showToast(`Updated ${result.updated_count} audiobooks`, 'success');
@@ -886,7 +915,7 @@ async function bulkDelete() {
     if (!confirmed) return;
 
     try {
-        const res = await fetch(`${API_BASE}/api/audiobooks/bulk-delete`, {
+        const result = await safeFetch(`${API_BASE}/api/audiobooks/bulk-delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -894,8 +923,6 @@ async function bulkDelete() {
                 delete_files: false
             })
         });
-
-        const result = await res.json();
 
         if (result.success) {
             showToast(`Deleted ${result.deleted_count} audiobooks from database`, 'success');
@@ -2719,12 +2746,10 @@ async function syncAllPositions() {
         if (progressFill) progressFill.style.width = '50%';
         if (progressText) progressText.textContent = 'Syncing with Audible...';
 
-        const res = await fetch(`${API_BASE}/api/position/sync-all`, {
+        const result = await safeFetch(`${API_BASE}/api/position/sync-all`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-
-        const result = await res.json();
 
         // Complete progress bar
         if (progressFill) progressFill.style.width = '100%';
