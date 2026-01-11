@@ -28,6 +28,24 @@ Complete installation instructions for the Audiobook Library system.
   - Database: ~5-10 MB per 1,000 audiobooks
   - Cover art cache: ~50-100 MB per 1,000 books
 
+### Storage Tier Recommendations
+
+For optimal performance, place components on appropriate storage tiers:
+
+| Component | Recommended Storage | Why |
+|-----------|--------------------|----|
+| **Database** (`audiobooks.db`) | NVMe SSD | High random I/O; query performance depends on IOPS |
+| **Index files** (`.index/`) | NVMe SSD | Frequently accessed during operations |
+| **Cover art** (`.covers/`) | SSD or NVMe | Random reads, small files |
+| **Audio Library** (`Library/`) | HDD or SSD | Sequential streaming; HDDs handle this well |
+| **Source files** (`Sources/`) | HDD | Sequential read during conversion |
+
+**Key Insight**: SQLite database performance is dramatically affected by storage tier:
+- NVMe: ~0.002s query time
+- HDD: Can be 100x slower due to random I/O
+
+See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md#storage-architecture) for detailed recommendations including BTRFS subvolume layouts and mount options.
+
 ### Software
 - **Python**: 3.8 or higher
 - **ffmpeg**: 4.0 or higher (with ffprobe)
@@ -78,6 +96,33 @@ All Python dependencies are listed in `requirements.txt`:
 ---
 
 ## Installation Methods
+
+### Automatic Storage Tier Detection
+
+The installer automatically detects storage tiers (NVMe, SSD, HDD) and:
+- Displays detected storage type for each installation path
+- Warns if database would be placed on slow storage (HDD)
+- Recommends optimal placement for performance-critical components
+
+Example installer output:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Detected Storage Tiers
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Application (/opt/audiobooks):  NVMe SSD
+  Data (/srv/audiobooks):         HDD
+  Database (/var/lib/audiobooks): NVMe SSD
+```
+
+If the database is detected on HDD, you'll see a warning:
+```
+⚠ Storage Warning:
+  Path: /var/lib/audiobooks
+  Detected: HDD
+  Recommended: NVMe or SSD
+  Database on HDD will significantly impact query performance
+```
 
 ### Method 1: User Installation (Recommended)
 
@@ -278,23 +323,34 @@ https://localhost:8443
 
 ### Service Management
 
+All audiobook services are grouped under `audiobooks.target`, allowing single-command control:
+
 ```bash
-# Check all audiobooks services
-sudo systemctl status 'audiobooks-*'
+# Control ALL services at once using audiobooks.target
+sudo systemctl start audiobooks.target     # Start all
+sudo systemctl stop audiobooks.target      # Stop all
+sudo systemctl restart audiobooks.target   # Restart all
+sudo systemctl status audiobooks.target    # Status of all
 
-# Check specific services
-sudo systemctl status audiobooks-api audiobooks-proxy
-
-# Restart services
-sudo systemctl restart audiobooks.target
-
-# Stop services
-sudo systemctl stop audiobooks.target
+# Individual service management
+sudo systemctl status 'audiobooks-*'       # Check all services
+sudo systemctl restart audiobooks-api      # Restart specific service
 
 # View logs
-journalctl -u audiobooks-api -f
-journalctl -u audiobooks-proxy -f
+journalctl -u audiobooks-api -f            # Follow API logs
+journalctl -u 'audiobooks-*' --since today # All logs since today
 ```
+
+**Services in `audiobooks.target`:**
+| Service | Purpose |
+|---------|---------|
+| `audiobooks-api` | REST API (port 5001) |
+| `audiobooks-proxy` | HTTPS server (port 8443) |
+| `audiobooks-converter` | AAXC → Opus conversion |
+| `audiobooks-mover` | Move converted files |
+| `audiobooks-downloader.timer` | Scheduled downloads |
+
+All services are **automatically enabled** at installation and start at boot.
 
 ---
 

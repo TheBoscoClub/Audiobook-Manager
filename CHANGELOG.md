@@ -13,6 +13,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.6] - 2026-01-10
+
+### Added
+- **Storage Tier Detection**: Installer now automatically detects NVMe, SSD, and HDD storage
+  - Displays detected storage tier for each installation path
+  - Warns if database would be placed on slow storage (HDD)
+  - Explains performance impact: "SQLite query times: NVMe ~0.002s vs HDD ~0.2s (100x difference)"
+  - Option to cancel installation and adjust paths
+- **Installed App Documentation**: New documentation at `/opt/audiobooks/`
+  - `README.md` - Quick start guide and service overview
+  - `CHANGELOG.md` - Version history for installed application
+  - `USAGE.md` - Comprehensive usage guide with troubleshooting
+
+### Fixed
+- **Proxy hop-by-hop headers**: Fixed `AssertionError: Connection is a "hop-by-hop" header` from Waitress
+  - Added `HOP_BY_HOP_HEADERS` filter to `proxy_server.py` (PEP 3333 / RFC 2616 compliance)
+  - Prevents silently dropped API responses through reverse proxy
+- **Service permissions**: Fixed silent download failures due to directory ownership mismatch
+  - Documented in ARCHITECTURE.md with detection script
+- **Rebuild queue script**: Fixed "Read-only file system" error in `build-conversion-queue`
+  - Typo: `: > "temp_file"` → `: > "$temp_file"` (3 instances)
+
+### Changed
+- **ARCHITECTURE.md**: Added reverse proxy architecture and service permissions sections
+- **INSTALL.md**: Added storage tier detection documentation with example output
+
 ## [3.9.5] - 2026-01-10
 
 ### Added

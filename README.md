@@ -293,6 +293,17 @@ The installer automatically checks if the required ports (5001, 8443, 8080) are 
 2. Continue anyway (if you plan to stop the conflicting service)
 3. Abort installation
 
+### Storage Tier Detection
+The installer automatically detects storage types (NVMe, SSD, HDD) and warns if performance-critical components would be placed on slow storage:
+
+| Component | Recommended | Why |
+|-----------|-------------|-----|
+| Database (audiobooks.db) | NVMe/SSD | High random I/O; 100x faster queries |
+| Index files (.index/) | NVMe/SSD | Frequently accessed during operations |
+| Audio Library (Library/) | HDD OK | Sequential streaming works well on HDD |
+
+If the database path is on HDD, you'll see a warning with the option to cancel and adjust paths. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#storage-architecture) for detailed recommendations.
+
 Both installation modes:
 - Create configuration files
 - Generate SSL certificates
@@ -989,25 +1000,53 @@ All services use the `audiobooks-*` naming convention for easy management.
 
 ### System Services (Recommended)
 
-System services run at boot without requiring login:
+System services run at boot without requiring login. The installer automatically enables all services.
+
+#### The `audiobooks.target` Unit
+
+All audiobook services are grouped under `audiobooks.target`, allowing you to control them all with a single command:
+
+```bash
+# Start ALL audiobook services at once
+sudo systemctl start audiobooks.target
+
+# Stop ALL audiobook services at once
+sudo systemctl stop audiobooks.target
+
+# Restart ALL audiobook services at once
+sudo systemctl restart audiobooks.target
+
+# Check status of the target (shows all member services)
+sudo systemctl status audiobooks.target
+```
+
+#### Individual Service Management
+
+You can also manage individual services when needed:
 
 ```bash
 # Check all audiobooks services
 sudo systemctl status 'audiobooks-*'
 
-# Enable core services at boot
-sudo systemctl enable audiobooks-api audiobooks-proxy audiobooks-redirect \
-  audiobooks-converter audiobooks-mover audiobooks-downloader.timer
+# Restart just the API server
+sudo systemctl restart audiobooks-api
 
-# Start services
-sudo systemctl start audiobooks.target
-
-# Check status
-sudo systemctl status audiobooks-api audiobooks-proxy
-
-# View logs
+# View logs for a specific service
 journalctl -u audiobooks-api -f
+
+# View all audiobook service logs since today
+journalctl -u 'audiobooks-*' --since today
 ```
+
+#### Services Included in `audiobooks.target`
+
+| Service | Purpose |
+|---------|---------|
+| `audiobooks-api` | REST API backend (port 5001) |
+| `audiobooks-proxy` | HTTPS reverse proxy (port 8443) |
+| `audiobooks-converter` | Continuous AAXC → Opus conversion |
+| `audiobooks-mover` | Moves converted files to library |
+| `audiobooks-downloader.timer` | Scheduled Audible downloads |
 
 ### Conversion Priority
 

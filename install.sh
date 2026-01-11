@@ -4,6 +4,11 @@
 # =============================================================================
 # Interactive installer that supports both system-wide and user installations.
 #
+# Features:
+#   - Automatic storage tier detection (NVMe, SSD, HDD)
+#   - Warnings for suboptimal storage placement
+#   - Smart defaults based on detected hardware
+#
 # Usage:
 #   ./install.sh [OPTIONS]
 #
@@ -16,6 +21,13 @@
 #   --uninstall        Remove installation
 #   --no-services      Skip systemd service installation
 #   --help             Show this help message
+#
+# Storage Tier Recommendations:
+#   Database (audiobooks.db) → NVMe/SSD (high random I/O)
+#   Index files (.index/)    → NVMe/SSD (frequent access)
+#   Cover art (.covers/)     → SSD (random reads)
+#   Audio Library (Library/) → HDD OK (sequential streaming)
+#   Source files (Sources/)  → HDD OK (sequential read/write)
 # =============================================================================
 
 set -e
@@ -215,6 +227,248 @@ show_sudo_error() {
     echo ""
     echo "Your username: $(whoami)"
     echo "Your groups: $(groups)"
+    echo ""
+}
+
+# -----------------------------------------------------------------------------
+# Storage Tier Detection Functions
+# -----------------------------------------------------------------------------
+
+# Detect storage tier for a given path
+# Returns: "nvme", "ssd", "hdd", "tmpfs", or "unknown"
+detect_storage_tier() {
+    local path="$1"
+
+    # Resolve to real path (follow symlinks)
+    local real_path
+    real_path=$(realpath -m "$path" 2>/dev/null) || real_path="$path"
+
+    # Find mount point and device
+    local mount_info device dev_name
+    mount_info=$(df "$real_path" 2>/dev/null | tail -1) || return 1
+    device=$(echo "$mount_info" | awk '{print $1}')
+
+    # Check for tmpfs (RAM disk) - ideal for staging/temp files
+    if [[ "$device" == "tmpfs" ]] || [[ "$device" == "ramfs" ]]; then
+        echo "tmpfs"
+        return 0
+    fi
+
+    # Handle device mapper and other special devices
+    if [[ "$device" == /dev/mapper/* ]]; then
+        # For LVM/dm devices, try to find underlying device
+        local dm_name=${device##*/}
+        if [[ -L "/sys/block/$dm_name" ]]; then
+            dev_name="$dm_name"
+        else
+            # Try to resolve through dmsetup
+            local slave
+            slave=$(ls /sys/block/dm-*/slaves/ 2>/dev/null | head -1)
+            dev_name="${slave:-unknown}"
+        fi
+    elif [[ "$device" == /dev/md* ]]; then
+        # RAID array - check component devices
+        local md_name=${device##*/}
+        local component
+        component=$(ls /sys/block/"$md_name"/slaves/ 2>/dev/null | head -1)
+        if [[ -n "$component" ]]; then
+            dev_name="$component"
+        else
+            dev_name="$md_name"
+        fi
+    else
+        # Regular device - extract base name (sda from sda1, nvme0n1 from nvme0n1p1)
+        dev_name=$(echo "$device" | sed 's|/dev/||; s/[0-9]*$//; s/p[0-9]*$//')
+    fi
+
+    # Check if NVMe (device name starts with nvme)
+    if [[ "$dev_name" == nvme* ]]; then
+        echo "nvme"
+        return 0
+    fi
+
+    # Check rotational flag (0 = SSD/NVMe, 1 = HDD)
+    local rotational
+    rotational=$(cat "/sys/block/$dev_name/queue/rotational" 2>/dev/null)
+
+    if [[ "$rotational" == "0" ]]; then
+        echo "ssd"
+        return 0
+    elif [[ "$rotational" == "1" ]]; then
+        echo "hdd"
+        return 0
+    fi
+
+    echo "unknown"
+}
+
+# Get a human-readable name for storage tier
+storage_tier_name() {
+    local tier="$1"
+    case "$tier" in
+        nvme)  echo "NVMe SSD" ;;
+        ssd)   echo "SATA SSD" ;;
+        hdd)   echo "HDD" ;;
+        tmpfs) echo "RAM (tmpfs)" ;;
+        *)     echo "Unknown" ;;
+    esac
+}
+
+# Get color for storage tier display
+storage_tier_color() {
+    local tier="$1"
+    case "$tier" in
+        nvme)  echo "${GREEN}" ;;
+        ssd)   echo "${BLUE}" ;;
+        tmpfs) echo "${GREEN}" ;;
+        hdd)   echo "${YELLOW}" ;;
+        *)     echo "${NC}" ;;
+    esac
+}
+
+# Find the fastest available mount point from a list of candidates
+# Arguments: component_type (database|library|application)
+# Returns: best path or empty if none suitable
+find_fastest_mount() {
+    local component="$1"
+    local candidates=()
+    local best_path=""
+    local best_tier="hdd"
+
+    # Define candidate paths based on component type
+    case "$component" in
+        database)
+            # Database needs fastest possible storage
+            candidates=("/var/lib" "/opt" "/")
+            ;;
+        application)
+            # Application benefits from fast storage but less critical
+            candidates=("/opt" "/usr/local" "/")
+            ;;
+        data)
+            # Bulk audio data - HDD is fine, SSD/NVMe is bonus
+            candidates=("/srv" "/data" "/home" "/")
+            ;;
+    esac
+
+    # Score tiers: nvme=3, ssd=2, hdd=1, unknown=0
+    local tier_score
+    tier_score() {
+        case "$1" in
+            nvme) echo 3 ;;
+            ssd)  echo 2 ;;
+            hdd)  echo 1 ;;
+            *)    echo 0 ;;
+        esac
+    }
+
+    local best_score=0
+    for candidate in "${candidates[@]}"; do
+        if [[ -d "$candidate" ]]; then
+            local tier
+            tier=$(detect_storage_tier "$candidate")
+            local score
+            score=$(tier_score "$tier")
+            if [[ $score -gt $best_score ]]; then
+                best_score=$score
+                best_path="$candidate"
+                best_tier="$tier"
+            fi
+        fi
+    done
+
+    echo "$best_path"
+}
+
+# Display storage tier recommendations
+show_storage_recommendations() {
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}Storage Tier Recommendations${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo "For optimal performance, place components on appropriate storage:"
+    echo ""
+    echo -e "  ${GREEN}●${NC} ${BOLD}Database${NC} (audiobooks.db)  → ${GREEN}NVMe/SSD${NC} (high random I/O)"
+    echo -e "  ${GREEN}●${NC} ${BOLD}Index files${NC} (.index/)     → ${GREEN}NVMe/SSD${NC} (frequent access)"
+    echo -e "  ${BLUE}●${NC} ${BOLD}Cover art${NC} (.covers/)      → ${BLUE}SSD${NC} (random reads, small files)"
+    echo -e "  ${YELLOW}●${NC} ${BOLD}Audio Library${NC} (Library/)  → ${YELLOW}HDD OK${NC} (sequential streaming)"
+    echo -e "  ${YELLOW}●${NC} ${BOLD}Source files${NC} (Sources/)   → ${YELLOW}HDD OK${NC} (sequential read/write)"
+    echo ""
+    echo -e "${DIM}SQLite query times: NVMe ~0.002s vs HDD ~0.2s (100x difference)${NC}"
+    echo ""
+}
+
+# Warn if a path is on suboptimal storage for its purpose
+# Arguments: path, component_type (database|index|covers|library|sources)
+warn_storage_tier() {
+    local path="$1"
+    local component="$2"
+    local tier
+    tier=$(detect_storage_tier "$path")
+    local tier_name
+    tier_name=$(storage_tier_name "$tier")
+
+    # Define recommended tiers per component
+    local recommended=""
+    local warning=""
+
+    case "$component" in
+        database|index)
+            if [[ "$tier" == "hdd" ]]; then
+                recommended="NVMe or SSD"
+                warning="Database on HDD will significantly impact query performance"
+            fi
+            ;;
+        covers)
+            if [[ "$tier" == "hdd" ]]; then
+                recommended="SSD"
+                warning="Cover art on HDD may slow down UI loading"
+            fi
+            ;;
+        library|sources)
+            # HDD is acceptable for bulk audio files
+            ;;
+    esac
+
+    if [[ -n "$warning" ]]; then
+        echo ""
+        echo -e "${YELLOW}⚠ Storage Warning:${NC}"
+        echo -e "  Path: $path"
+        echo -e "  Detected: ${tier_name}"
+        echo -e "  Recommended: ${recommended}"
+        echo -e "  ${DIM}${warning}${NC}"
+        echo ""
+        return 1
+    fi
+    return 0
+}
+
+# Display detected storage tiers for installation paths
+show_detected_storage() {
+    local app_dir="$1"
+    local data_dir="$2"
+    local db_dir="$3"
+
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}Detected Storage Tiers${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    local app_tier data_tier db_tier
+    app_tier=$(detect_storage_tier "$app_dir")
+    data_tier=$(detect_storage_tier "$data_dir")
+    db_tier=$(detect_storage_tier "$db_dir")
+
+    local app_color data_color db_color
+    app_color=$(storage_tier_color "$app_tier")
+    data_color=$(storage_tier_color "$data_tier")
+    db_color=$(storage_tier_color "$db_tier")
+
+    printf "  %-25s %s%-10s${NC}\n" "Application ($app_dir):" "$app_color" "$(storage_tier_name "$app_tier")"
+    printf "  %-25s %s%-10s${NC}\n" "Data ($data_dir):" "$data_color" "$(storage_tier_name "$data_tier")"
+    printf "  %-25s %s%-10s${NC}\n" "Database ($db_dir):" "$db_color" "$(storage_tier_name "$db_tier")"
     echo ""
 }
 
@@ -786,6 +1040,7 @@ check_all_ports() {
 
 do_system_install() {
     local data_dir="${DATA_DIR:-/srv/audiobooks}"
+    local db_dir="/var/lib/audiobooks"
 
     # Paths for system installation
     local INSTALL_PREFIX="/usr/local"
@@ -802,7 +1057,29 @@ do_system_install() {
     echo "  Application:  ${APP_DIR}/"
     echo "  Services:     ${SYSTEMD_DIR}/"
     echo "  Data:         ${data_dir}/"
+    echo "  Database:     ${db_dir}/"
     echo ""
+
+    # Show detected storage tiers
+    show_detected_storage "$APP_DIR" "$data_dir" "$db_dir"
+
+    # Warn about suboptimal storage placement
+    local storage_warnings=0
+    if ! warn_storage_tier "$db_dir" "database"; then
+        ((storage_warnings++)) || true
+    fi
+
+    if [[ $storage_warnings -gt 0 ]]; then
+        echo -e "${YELLOW}Consider using --data-dir to specify a path on faster storage,${NC}"
+        echo -e "${YELLOW}or configure AUDIOBOOKS_DATABASE in /etc/audiobooks/audiobooks.conf${NC}"
+        echo -e "${YELLOW}to place the database on NVMe/SSD after installation.${NC}"
+        echo ""
+        read -r -p "Continue with current storage configuration? [Y/n]: " continue_choice
+        if [[ "${continue_choice,,}" == "n" ]]; then
+            echo -e "${YELLOW}Installation cancelled. Adjust paths and try again.${NC}"
+            return 1
+        fi
+    fi
 
     # Check port availability before proceeding
     if ! check_all_ports; then
@@ -1146,9 +1423,15 @@ EOF
         sudo systemctl daemon-reload
 
         # Enable and start services
-        echo -e "${BLUE}Enabling and starting services...${NC}"
-        sudo systemctl enable audiobooks.target 2>/dev/null || true
+        echo -e "${BLUE}Enabling services for automatic start at boot...${NC}"
 
+        # Enable the target and all individual services
+        sudo systemctl enable audiobooks.target 2>/dev/null || true
+        for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover audiobooks-downloader.timer; do
+            sudo systemctl enable "$svc" 2>/dev/null || true
+        done
+
+        echo -e "${BLUE}Starting services...${NC}"
         # Start the target (which starts all wanted services)
         sudo systemctl start audiobooks.target 2>/dev/null || {
             # Fallback: start individual services
@@ -1330,8 +1613,30 @@ do_user_install() {
     echo "  Library:      ${LIB_DIR}/"
     echo "  Services:     ${SYSTEMD_DIR}/"
     echo "  Data:         ${data_dir}/"
+    echo "  Database:     ${STATE_DIR}/"
     echo "  Logs:         ${LOG_DIR}/"
     echo ""
+
+    # Show detected storage tiers
+    show_detected_storage "$LIB_DIR" "$data_dir" "$STATE_DIR"
+
+    # Warn about suboptimal storage placement
+    local storage_warnings=0
+    if ! warn_storage_tier "$STATE_DIR" "database"; then
+        ((storage_warnings++)) || true
+    fi
+
+    if [[ $storage_warnings -gt 0 ]]; then
+        echo -e "${YELLOW}Consider using --data-dir to specify a path on faster storage,${NC}"
+        echo -e "${YELLOW}or configure AUDIOBOOKS_DATABASE in ~/.config/audiobooks/audiobooks.conf${NC}"
+        echo -e "${YELLOW}to place the database on NVMe/SSD after installation.${NC}"
+        echo ""
+        read -r -p "Continue with current storage configuration? [Y/n]: " continue_choice
+        if [[ "${continue_choice,,}" == "n" ]]; then
+            echo -e "${YELLOW}Installation cancelled. Adjust paths and try again.${NC}"
+            return 1
+        fi
+    fi
 
     # Check port availability before proceeding
     if ! check_all_ports; then
@@ -1668,14 +1973,22 @@ EOF
         # Reload systemd
         systemctl --user daemon-reload
 
+        # Enable and start services by default
+        echo -e "${BLUE}Enabling and starting user services...${NC}"
+        systemctl --user enable audiobooks.target 2>/dev/null || true
+        systemctl --user enable audiobooks-api.service audiobooks-web.service 2>/dev/null || true
+
+        # Start services
+        systemctl --user start audiobooks.target 2>/dev/null || {
+            # Fallback: start individual services
+            systemctl --user start audiobooks-api.service 2>/dev/null || true
+            systemctl --user start audiobooks-web.service 2>/dev/null || true
+        }
+
         echo ""
-        echo -e "${YELLOW}To enable services at login:${NC}"
-        echo "  systemctl --user enable audiobooks-api audiobooks-web"
+        echo -e "${GREEN}Services enabled and started.${NC}"
         echo ""
-        echo -e "${YELLOW}To start services now:${NC}"
-        echo "  systemctl --user start audiobooks.target"
-        echo ""
-        echo -e "${YELLOW}To enable lingering (start at boot without login):${NC}"
+        echo -e "${YELLOW}To enable services to start at boot (without login):${NC}"
         echo "  loginctl enable-linger \$USER"
     fi
 

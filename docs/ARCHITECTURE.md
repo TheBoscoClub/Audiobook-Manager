@@ -155,6 +155,56 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
 
 The API runs with `ProtectSystem=strict` which creates a read-only filesystem overlay. While `RuntimeDirectory=` can create `/run/audiobooks`, the sandboxed namespace sees it with root ownership (not audiobooks), preventing writes. Using `/var/lib/audiobooks/.control/` works because it's explicitly listed in `ReadWritePaths`.
 
+### Reverse Proxy Architecture
+
+The HTTPS reverse proxy (`proxy_server.py`) terminates SSL and forwards requests to the Flask API. A critical requirement is filtering **hop-by-hop headers** per RFC 2616 and PEP 3333:
+
+```python
+# Headers that MUST NOT be forwarded by proxies
+HOP_BY_HOP_HEADERS = frozenset({
+    'connection', 'keep-alive', 'proxy-authenticate',
+    'proxy-authorization', 'te', 'trailers',
+    'transfer-encoding', 'upgrade',
+})
+
+# Filter when forwarding response headers
+for header, value in response.headers.items():
+    if header.lower() not in HOP_BY_HOP_HEADERS:
+        self.send_header(header, value)
+```
+
+**Symptoms of Missing Hop-by-hop Filter:**
+- `AssertionError: Connection is a "hop-by-hop" header` from Waitress/WSGI
+- Silently dropped API responses
+- Intermittent failures only when accessed through proxy
+- Works when hitting API directly on port 5001
+
+**Why This Matters:**
+HTTP/1.1 defines hop-by-hop headers as connection-specific; they must be consumed by the first proxy and not forwarded. WSGI servers (Waitress, Gunicorn) reject responses containing these headers, causing the proxy to appear to "hang" or "fail silently."
+
+### Service User Permissions
+
+The `audiobooks` service user must have write access to all data directories:
+
+```
+Owner: audiobooks:audiobooks
+├── /var/lib/audiobooks/     # Database, indexes, control files
+├── /srv/audiobooks/Sources/ # Downloaded AAXC files (MUST be writable)
+├── /srv/audiobooks/Library/ # Converted OPUS files
+└── /srv/audiobooks/.covers/ # Cover art cache
+```
+
+**Common Issue**: Downloads or writes "fail silently" when directories are owned by a different user (e.g., `root` or `bosco`) but the service runs as `audiobooks`. The service can start successfully but cannot perform write operations.
+
+**Detection**:
+```bash
+# Check for permission mismatches
+for dir in /var/lib/audiobooks /srv/audiobooks/Sources /srv/audiobooks/Library; do
+    owner=$(stat -c %U "$dir" 2>/dev/null)
+    [[ "$owner" != "audiobooks" ]] && echo "WARN: $dir owned by $owner"
+done
+```
+
 ---
 
 ## Position Sync Architecture
