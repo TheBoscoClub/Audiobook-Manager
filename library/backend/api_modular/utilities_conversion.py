@@ -69,8 +69,12 @@ def parse_job_io(pid: int) -> tuple[int, int]:
     """
     Read I/O stats for a process from /proc.
 
+    Uses rchar/wchar instead of read_bytes/write_bytes because the latter
+    only counts actual disk I/O, not cached reads. FFmpeg often reads from
+    cached files, so read_bytes would show 0 even when actively processing.
+
     Returns:
-        Tuple of (read_bytes, write_bytes)
+        Tuple of (read_bytes, write_bytes) - actually rchar/wchar values
     """
     read_bytes = 0
     write_bytes = 0
@@ -78,9 +82,9 @@ def parse_job_io(pid: int) -> tuple[int, int]:
     try:
         with open(f"/proc/{pid}/io", "r") as f:
             for line in f:
-                if line.startswith("read_bytes:"):
+                if line.startswith("rchar:"):
                     read_bytes = int(line.split(":")[1].strip())
-                elif line.startswith("write_bytes:"):
+                elif line.startswith("wchar:"):
                     write_bytes = int(line.split(":")[1].strip())
     except (FileNotFoundError, PermissionError):
         pass  # Process may have exited; return zeros

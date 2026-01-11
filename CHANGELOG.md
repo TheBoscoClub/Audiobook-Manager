@@ -7,13 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
 ### Fixed
+- **CRITICAL: Parallelism Restored**: Fixed 7 variable expansion bugs in `build-conversion-queue`
+  that completely broke parallel conversions (was running 1 at a time instead of 12)
+  - Bug: `: > "queue_file"` (literal string) instead of `: > "$queue_file"` (variable)
+  - Introduced by incomplete shellcheck SC2188 fix in fd686b9
+  - Affected functions: `build_converted_asin_index`, `build_source_asin_index`,
+    `build_converted_index`, `load_checksum_duplicates`, `build_queue`
+- **Progress Tracking**: Fixed conversion progress showing 0% for all jobs
+  - Changed from `read_bytes` to `rchar` in `/proc/PID/io` parsing
+  - `read_bytes` only counts actual disk I/O; `rchar` includes cached reads
+  - FFmpeg typically reads from kernel cache, so `read_bytes` was always 0
+- **UI Safety**: Removed `audiobooks-api` and `audiobooks-proxy` from web UI service controls
+  - These are core infrastructure services that should not be stoppable via UI
+  - Prevents accidental self-destruction of the running application
 
-## [3.9.7] - 2026-01-11
+## [3.9.7] - 2026-01-11 *(rolled back)*
+
+> **Note**: This release was rolled back due to critical bugs in the queue builder
+> that broke parallel conversions. The fixes below are valid but were released
+> alongside unfixed bugs from 3.9.6. See [Unreleased] for the complete fixes.
 
 ### Fixed
 - **Database Connection Leaks**: Fixed 6 connection leaks in `position_sync.py`
@@ -26,7 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Code Cleanup**: Removed unused `Any` import from `duplicates.py`
 
-## [3.9.6] - 2026-01-10
+## [3.9.6] - 2026-01-10 *(never released)*
+
+> **Note**: This version was committed but never tagged/released. The queue script
+> fix below was incomplete (claimed 3 instances, actually 7). See [Unreleased] for
+> the complete fix.
 
 ### Added
 - **Storage Tier Detection**: Installer now automatically detects NVMe, SSD, and HDD storage
@@ -45,8 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prevents silently dropped API responses through reverse proxy
 - **Service permissions**: Fixed silent download failures due to directory ownership mismatch
   - Documented in ARCHITECTURE.md with detection script
-- **Rebuild queue script**: Fixed "Read-only file system" error in `build-conversion-queue`
-  - Typo: `: > "temp_file"` → `: > "$temp_file"` (3 instances)
+- **Rebuild queue script** *(incomplete)*: Attempted fix for variable expansion in `build-conversion-queue`
+  - Fixed 3 of 7 instances; remaining 4 caused parallelism to fail
 
 ### Changed
 - **ARCHITECTURE.md**: Added reverse proxy architecture and service permissions sections

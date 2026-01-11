@@ -137,7 +137,7 @@ build_converted_asin_index() {
     local index_file="$INDEX_DIR/converted_asins.idx"
     local temp_file="$INDEX_DIR/converted_asins.idx.tmp"
 
-    : > "temp_file"
+    : > "$temp_file"
 
     local count=0
     # Method 1: Scan library for chapters.json files (contain ASIN metadata)
@@ -168,7 +168,7 @@ build_converted_asin_index() {
 
     # Build normalized library title list
     # Use explicit loop to ensure each title is on its own line
-    : > "lib_titles_file"
+    : > "$lib_titles_file"
     while IFS= read -r opus_file; do
         bn=$(basename "$opus_file" .opus)
         normalized=$(normalize_title "$bn")
@@ -178,7 +178,7 @@ build_converted_asin_index() {
 
     # Match source ASINs to library titles
     # Output ASINs whose normalized titles are in the library
-    : > "backfill_file"
+    : > "$backfill_file"
     while IFS= read -r aaxc_file; do
         bn=$(basename "$aaxc_file" .aaxc)
         # Check if file has ASIN prefix (10 alphanumeric before underscore)
@@ -215,7 +215,7 @@ build_source_asin_index() {
     local index_file="$INDEX_DIR/source_asins.idx"
     local temp_file="$INDEX_DIR/source_asins.idx.tmp"
 
-    : > "temp_file"
+    : > "$temp_file"
 
     local count=0
     while IFS= read -r aaxc_file; do
@@ -245,7 +245,7 @@ build_converted_index() {
     local temp_file="$INDEX_DIR/converted.idx.tmp"
     local bn normalized
 
-    : > "temp_file"
+    : > "$temp_file"
 
     # Index library files (opus filename = metadata title from conversion)
     while read -r opus_file; do
@@ -391,7 +391,7 @@ load_checksum_duplicates() {
     local checksum_idx="$INDEX_DIR/source_checksums.idx"
     local dupe_map_file="$INDEX_DIR/.checksum_dupes.tmp"
 
-    : > "dupe_map_file"
+    : > "$dupe_map_file"
 
     if [[ ! -f "$checksum_idx" ]]; then
         log "No checksum index found - skipping duplicate detection"
@@ -459,7 +459,7 @@ build_queue() {
     # Load checksum duplicates for filtering
     load_checksum_duplicates
 
-    : > "queue_file"
+    : > "$queue_file"
 
     local checked=0
     local queued=0
