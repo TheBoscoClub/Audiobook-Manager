@@ -1091,18 +1091,15 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.6 (Current)
-- **Storage Tier Detection**: Installer detects NVMe, SSD, HDD and warns if database would be on slow storage
-- **Installed App Documentation**: New README.md, CHANGELOG.md, and USAGE.md at /opt/audiobooks/
-- **Proxy Hop-by-Hop Fix**: Fixed AssertionError from Waitress with PEP 3333 / RFC 2616 compliance
-- **Service Permissions**: Fixed silent download failures due to directory ownership mismatch
-- **Rebuild Queue Script**: Fixed "Read-only file system" error (typo in variable expansion)
-
-### v3.9.5
+### v3.9.5 (Current)
 - **Schema Tracking**: Database schema now tracked in git (schema.sql)
 - **Content Filter**: Expanded AUDIOBOOK_FILTER to include Lecture, Performance, Speech types
 - **Reliability**: Prevent concurrent queue rebuild processes with flock
 - **Scripts**: Fixed shellcheck warnings in build scripts
+
+> **Note**: v3.9.6 and v3.9.7 were attempted but rolled back due to bugs in the
+> queue builder that broke parallel conversions. See [CHANGELOG.md](CHANGELOG.md)
+> for details. Fixes are in development.
 
 ### v3.9.4
 - **Security**: Replace insecure mktemp() with mkstemp() for temp file creation

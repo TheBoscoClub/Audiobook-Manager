@@ -124,9 +124,9 @@ def init_system_routes(project_root):
     """Initialize system administration routes."""
 
     # List of services that can be controlled
+    # Note: audiobooks-api and audiobooks-proxy are intentionally excluded -
+    # they are core infrastructure that should not be stopped via the UI
     SERVICES = [
-        "audiobooks-api",
-        "audiobooks-proxy",
         "audiobooks-converter",
         "audiobooks-mover",
         "audiobooks-downloader.timer",
