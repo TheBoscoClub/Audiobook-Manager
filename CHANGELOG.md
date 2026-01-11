@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.7] - 2026-01-11
+
+### Fixed
+- **Database Connection Leaks**: Fixed 6 connection leaks in `position_sync.py`
+  - All API endpoints now properly close database connections via try/finally blocks
+  - Affected routes: `get_position`, `update_position`, `sync_position`, `sync_all_positions`, `list_syncable`, `get_position_history`
+- **Version Sync**: Synchronized version across all files (Dockerfile, install-manifest.json, documentation)
+- **Database Path**: Corrected database path in install-manifest.json and documentation
+  - Changed from `/var/lib/audiobooks/audiobooks.db` to `/var/lib/audiobooks/db/audiobooks.db`
+
+### Changed
+- **Code Cleanup**: Removed unused `Any` import from `duplicates.py`
+
 ## [3.9.6] - 2026-01-10
 
 ### Added
