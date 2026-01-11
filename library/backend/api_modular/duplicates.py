@@ -3,7 +3,6 @@ Duplicate detection endpoints - hash-based and title-based duplicate finding.
 """
 
 import os
-from typing import Any
 from flask import Blueprint, Response, jsonify, request
 from pathlib import Path
 

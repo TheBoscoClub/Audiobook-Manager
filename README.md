@@ -544,7 +544,8 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 └── logs/                           # Application logs
 
 /var/lib/audiobooks/                # Database (on fast storage)
-└── audiobooks.db                   # SQLite database (AUDIOBOOKS_DATABASE)
+└── db/
+    └── audiobooks.db               # SQLite database (AUDIOBOOKS_DATABASE)
 
 /etc/audiobooks/                    # System configuration
 ├── audiobooks.conf                 # Main config file
@@ -1090,7 +1091,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.5 (Current)
+### v3.9.6 (Current)
+- **Storage Tier Detection**: Installer detects NVMe, SSD, HDD and warns if database would be on slow storage
+- **Installed App Documentation**: New README.md, CHANGELOG.md, and USAGE.md at /opt/audiobooks/
+- **Proxy Hop-by-Hop Fix**: Fixed AssertionError from Waitress with PEP 3333 / RFC 2616 compliance
+- **Service Permissions**: Fixed silent download failures due to directory ownership mismatch
+- **Rebuild Queue Script**: Fixed "Read-only file system" error (typo in variable expansion)
+
+### v3.9.5
 - **Schema Tracking**: Database schema now tracked in git (schema.sql)
 - **Content Filter**: Expanded AUDIOBOOK_FILTER to include Lecture, Performance, Speech types
 - **Reliability**: Prevent concurrent queue rebuild processes with flock

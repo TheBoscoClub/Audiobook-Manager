@@ -1,6 +1,6 @@
 {
   "name": "audiobooks",
-  "version": "3.9.5",
+  "version": "3.9.6",
   "description": "Audiobook library management with Audible sync, conversion, and web interface",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
@@ -168,7 +168,7 @@
       "description": "Main configuration file"
     },
     {
-      "path": "/var/lib/audiobooks/audiobooks.db",
+      "path": "/var/lib/audiobooks/db/audiobooks.db",
       "required": true,
       "description": "SQLite database (canonical, on NVMe)"
     }
@@ -271,7 +271,7 @@
     },
     {
       "name": "Database accessible",
-      "command": "test -f /var/lib/audiobooks/audiobooks.db && sqlite3 /var/lib/audiobooks/audiobooks.db 'SELECT 1'",
+      "command": "test -f /var/lib/audiobooks/db/audiobooks.db && sqlite3 /var/lib/audiobooks/db/audiobooks.db 'SELECT 1'",
       "timeout": 5
     },
     {

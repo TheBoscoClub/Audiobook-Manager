@@ -943,7 +943,7 @@ Architecture Comparison:
 | **Library** | `/srv/audiobooks/Library/` | `~/Audiobooks/Library/` | `AUDIOBOOKS_LIBRARY` |
 | **Sources** | `/srv/audiobooks/Sources/` | `~/Audiobooks/Sources/` | `AUDIOBOOKS_SOURCES` |
 | **Supplements** | `/srv/audiobooks/Supplements/` | `~/Audiobooks/Supplements/` | `AUDIOBOOKS_SUPPLEMENTS` |
-| **Database** | `/var/lib/audiobooks/audiobooks.db` | `~/.local/share/audiobooks/audiobooks.db` | `AUDIOBOOKS_DATABASE` |
+| **Database** | `/var/lib/audiobooks/db/audiobooks.db` | `~/.local/share/audiobooks/audiobooks.db` | `AUDIOBOOKS_DATABASE` |
 | **Covers** | `/srv/audiobooks/.covers/` | `~/Audiobooks/.covers/` | `AUDIOBOOKS_COVERS` |
 | **Logs** | `/var/log/audiobooks/` | `~/Audiobooks/logs/` | `AUDIOBOOKS_LOGS` |
 | **Config** | `/etc/audiobooks/audiobooks.conf` | `~/.config/audiobooks/audiobooks.conf` | - |
@@ -1401,7 +1401,7 @@ export AUDIOBOOKS_HOME=/opt/audiobooks
 export AUDIOBOOKS_DATA=/srv/audiobooks
 export AUDIOBOOKS_LIBRARY=/srv/audiobooks/Library
 export AUDIOBOOKS_SOURCES=/srv/audiobooks/Sources
-export AUDIOBOOKS_DATABASE=/var/lib/audiobooks/audiobooks.db
+export AUDIOBOOKS_DATABASE=/var/lib/audiobooks/db/audiobooks.db
 export AUDIOBOOKS_COVERS=/srv/audiobooks/.covers
 
 # Server settings
@@ -1444,7 +1444,7 @@ curl -s http://localhost:5001/api/health
 curl -sk https://localhost:8443/ -o /dev/null -w '%{http_code}\n'
 
 # Database
-sqlite3 /var/lib/audiobooks/audiobooks.db 'SELECT COUNT(*) FROM audiobooks;'
+sqlite3 /var/lib/audiobooks/db/audiobooks.db 'SELECT COUNT(*) FROM audiobooks;'
 
 # Service status
 systemctl status audiobooks.target --no-pager
@@ -1498,5 +1498,5 @@ systemctl status audiobooks.target --no-pager
 
 ---
 
-*Document Version: 3.9.5*
-*Last Updated: 2026-01-09*
+*Document Version: 3.9.6*
+*Last Updated: 2026-01-10*
