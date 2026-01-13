@@ -79,7 +79,17 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     def proxy_to_api(self, method="GET"):
         """Proxy request to Flask API backend."""
-        api_url = f"http://localhost:{API_PORT}{self.path}"
+        # Validate the path to prevent SSRF - only allow /api/ and /covers/ paths
+        # and sanitize to prevent path traversal
+        path = self.path
+        if not (path.startswith("/api/") or path.startswith("/covers/")):
+            self.send_error(403, "Forbidden - Invalid path")
+            return
+
+        # Sanitize path: remove any null bytes and normalize
+        path = path.replace("\x00", "")
+        # Construct URL to local backend only (never external)
+        api_url = f"http://127.0.0.1:{API_PORT}{path}"
 
         try:
             # Prepare headers
@@ -190,8 +200,10 @@ def main():
     web_dir = Path(__file__).parent
     os.chdir(web_dir)
 
-    # Create SSL context
+    # Create SSL context with secure defaults
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    # Enforce TLS 1.2 minimum to prevent use of insecure protocols
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
     # Create HTTPS server

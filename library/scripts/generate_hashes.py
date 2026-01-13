@@ -149,7 +149,9 @@ def generate_hashes(force: bool = False, limit: int = None, parallel: int = None
     if not pending:
         print("All audiobooks already have hashes.")
         print("\nRun with --force to recalculate all hashes.")
-        return show_stats(conn)
+        show_stats(conn)
+        conn.close()
+        return
 
     total_files = len(pending)
     total_size = sum(row[2] or 0 for row in pending)
@@ -157,7 +159,8 @@ def generate_hashes(force: bool = False, limit: int = None, parallel: int = None
     # Use parallel processing if requested
     if parallel:
         conn.close()
-        return generate_hashes_parallel(pending, total_files, total_size, parallel)
+        generate_hashes_parallel(pending, total_files, total_size, parallel)
+        return
 
     print(f"\n{'=' * 60}")
     print("SHA-256 Hash Generation")

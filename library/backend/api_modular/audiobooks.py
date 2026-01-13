@@ -85,8 +85,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
             db_path_str = str(database_path)
             if os.path.exists(db_path_str):
                 database_size_mb = os.path.getsize(db_path_str) / (1024 * 1024)
-        except Exception:
-            pass
+        except OSError:
+            pass  # Non-critical: database size is for informational display only
 
         return jsonify(
             {
@@ -157,7 +157,6 @@ def init_audiobooks_routes(db_path, project_root, database_path):
             sort_sql = sort_mappings[sort_field]
         else:
             sort_sql = "title"
-            sort_field = "title"
 
         # Validate sort order
         if sort_order not in ["asc", "desc"]:

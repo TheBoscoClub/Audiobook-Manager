@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **TLS 1.2 Minimum**: Enforce TLS 1.2 as minimum protocol version in proxy_server.py
+  - Prevents downgrade attacks to SSLv3, TLS 1.0, or TLS 1.1
+- **SSRF Protection**: Add path validation in proxy_server.py to prevent SSRF attacks
+  - Only allows `/api/` and `/covers/` paths to be proxied
+  - Blocks attempts to access internal services via crafted URLs
+
 ### Fixed
 - **CRITICAL: Parallelism Restored**: Fixed 7 variable expansion bugs in `build-conversion-queue`
   that completely broke parallel conversions (see v3.9.8 pending)

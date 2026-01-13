@@ -40,9 +40,9 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
                         pids.append(pid)
                         cmdlines[pid] = parts[10]  # The command line
                     except (ValueError, IndexError):
-                        pass
+                        pass  # Non-critical: skip malformed line
     except Exception:
-        pass
+        pass  # Non-critical: process listing is best-effort
 
     return pids, cmdlines
 
@@ -297,10 +297,12 @@ def init_conversion_routes(project_root):
                 "system": system_stats
             })
 
-        except Exception as e:
+        except Exception:
+            import logging
+            logging.exception("Error getting conversion status")
             return jsonify({
                 "success": False,
-                "error": str(e)
+                "error": "Failed to get conversion status"
             }), 500
 
     return utilities_conversion_bp

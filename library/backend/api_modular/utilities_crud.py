@@ -65,9 +65,11 @@ def init_crud_routes(db_path):
                 return jsonify({"success": True, "updated": rows_affected})
             else:
                 return jsonify({"success": False, "error": "Audiobook not found"}), 404
-        except Exception as e:
+        except Exception:
+            import logging
+            logging.exception("Error updating audiobook %d", id)
             conn.close()
-            return jsonify({"success": False, "error": str(e)}), 500
+            return jsonify({"success": False, "error": "Database update failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/<int:id>", methods=["DELETE"])
     def delete_audiobook(id: int) -> FlaskResponse:
@@ -102,11 +104,13 @@ def init_crud_routes(db_path):
                 conn.rollback()
                 conn.close()
                 return jsonify({"success": False, "error": "Audiobook not found"}), 404
-        except Exception as e:
+        except Exception:
             # Rollback on any error to prevent partial deletions
+            import logging
+            logging.exception("Error deleting audiobook %d", id)
             conn.rollback()
             conn.close()
-            return jsonify({"success": False, "error": str(e)}), 500
+            return jsonify({"success": False, "error": "Database deletion failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/bulk-update", methods=["POST"])
     def bulk_update_audiobooks() -> FlaskResponse:
@@ -152,9 +156,11 @@ def init_crud_routes(db_path):
             conn.close()
 
             return jsonify({"success": True, "updated_count": updated_count})
-        except Exception as e:
+        except Exception:
+            import logging
+            logging.exception("Error in bulk update")
             conn.close()
-            return jsonify({"success": False, "error": str(e)}), 500
+            return jsonify({"success": False, "error": "Bulk update failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/bulk-delete", methods=["POST"])
     def bulk_delete_audiobooks() -> FlaskResponse:
@@ -247,11 +253,13 @@ def init_crud_routes(db_path):
                     "files_failed": failed_files if failed_files else None,
                 }
             )
-        except Exception as e:
+        except Exception:
             # Rollback on any error
+            import logging
+            logging.exception("Error in bulk delete")
             conn.rollback()
             conn.close()
-            return jsonify({"success": False, "error": str(e)}), 500
+            return jsonify({"success": False, "error": "Bulk deletion failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/missing-narrator", methods=["GET"])
     def get_audiobooks_missing_narrator() -> Response:

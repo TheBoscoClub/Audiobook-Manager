@@ -3,6 +3,7 @@ Duplicate detection endpoints - hash-based and title-based duplicate finding.
 """
 
 import os
+from typing import Any
 from flask import Blueprint, Response, jsonify, request
 from pathlib import Path
 
@@ -458,8 +459,10 @@ def init_duplicates_routes(db_path):
                     {"id": audiobook_id, "title": title, "path": str(file_path)}
                 )
 
-            except Exception as e:
-                errors.append({"id": audiobook_id, "title": title, "error": str(e)})
+            except Exception:
+                import logging
+                logging.exception("Error deleting audiobook %d", audiobook_id)
+                errors.append({"id": audiobook_id, "title": title, "error": "Deletion failed"})
 
         conn.commit()
         conn.close()
@@ -741,8 +744,10 @@ def init_duplicates_routes(db_path):
                         deleted_files.append(
                             {"path": filepath_str, "title": title, "id": audiobook_id}
                         )
-                    except Exception as e:
-                        errors.append({"path": filepath_str, "error": str(e)})
+                    except Exception:
+                        import logging
+                        logging.exception("Error deleting library file %s", filepath_str)
+                        errors.append({"path": filepath_str, "error": "Deletion failed"})
                 else:
                     # Not in DB - just delete file if exists
                     if filepath.exists():
@@ -752,8 +757,10 @@ def init_duplicates_routes(db_path):
                             deleted_files.append(
                                 {"path": filepath_str, "title": filepath.name, "id": None}
                             )
-                        except Exception as e:
-                            errors.append({"path": filepath_str, "error": str(e)})
+                        except Exception:
+                            import logging
+                            logging.exception("Error deleting file %s", filepath_str)
+                            errors.append({"path": filepath_str, "error": "Deletion failed"})
                     else:
                         skipped_not_found.append(filepath_str)
 
@@ -766,8 +773,10 @@ def init_duplicates_routes(db_path):
                         deleted_files.append(
                             {"path": filepath_str, "title": filepath.name, "id": None}
                         )
-                    except Exception as e:
-                        errors.append({"path": filepath_str, "error": str(e)})
+                    except Exception:
+                        import logging
+                        logging.exception("Error deleting source file %s", filepath_str)
+                        errors.append({"path": filepath_str, "error": "Deletion failed"})
                 else:
                     skipped_not_found.append(filepath_str)
 

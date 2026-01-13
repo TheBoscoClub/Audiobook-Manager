@@ -21,10 +21,19 @@ from scanner.metadata_utils import (
     extract_cover_art,
     enrich_metadata,
     # Re-export for backwards compatibility with tests
-    categorize_genre,  # noqa: F401
-    determine_literary_era,  # noqa: F401
-    extract_topics,  # noqa: F401
+    categorize_genre,
+    determine_literary_era,
+    extract_topics,
 )
+
+# Re-export for backwards compatibility with tests
+__all__ = [
+    "categorize_genre",
+    "determine_literary_era",
+    "extract_topics",
+    "get_file_metadata",
+    "scan_audiobooks",
+]
 
 # Configuration
 OUTPUT_FILE = DATA_DIR / "audiobooks.json"

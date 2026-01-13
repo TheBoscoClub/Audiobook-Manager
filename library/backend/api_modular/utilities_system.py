@@ -173,13 +173,15 @@ def init_system_routes(project_root):
                     "status": "timeout",
                     "error": "Timeout checking service status",
                 })
-            except Exception as e:
+            except Exception:
+                import logging
+                logging.exception("Error checking service status for %s", service)
                 services.append({
                     "name": service,
                     "active": False,
                     "enabled": False,
                     "status": "error",
-                    "error": str(e),
+                    "error": "Service status check failed",
                 })
 
         return jsonify({

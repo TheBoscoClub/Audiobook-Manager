@@ -1106,7 +1106,11 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.5 (Current)
+### v3.9.5.1 (Current)
+- **Version Badges**: Multi-segment version badges with hierarchical color scheme
+- **Documentation**: Version history table showing release progression
+
+### v3.9.5
 - **Schema Tracking**: Database schema now tracked in git (schema.sql)
 - **Content Filter**: Expanded AUDIOBOOK_FILTER to include Lecture, Performance, Speech types
 - **Reliability**: Prevent concurrent queue rebuild processes with flock

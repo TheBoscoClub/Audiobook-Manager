@@ -358,8 +358,8 @@ class LibrivoxDownloader:
             match = re.match(r"(\d{4})", str(year_str))
             if match:
                 return int(match.group(1))
-        except ValueError:
-            pass
+        except (ValueError, TypeError):
+            pass  # Non-critical: return None for unparseable years
         return None
 
     def _sanitize_filename(self, name: str) -> str:

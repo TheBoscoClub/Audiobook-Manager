@@ -90,11 +90,13 @@ if _project_root:
 
 
 @overload
-def get_config(key: str) -> Optional[str]: ...
+def get_config(key: str) -> Optional[str]:
+    pass
 
 
 @overload
-def get_config(key: str, default: str) -> str: ...
+def get_config(key: str, default: str) -> str:
+    pass
 
 
 def get_config(key: str, default: Optional[str] = None) -> Optional[str]:

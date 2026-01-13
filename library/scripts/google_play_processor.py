@@ -342,7 +342,7 @@ class GooglePlayProcessor:
                             try:
                                 metadata["year"] = int(str(tags["TDRC"])[:4])
                             except (ValueError, TypeError):
-                                pass
+                                pass  # Non-critical: year is optional metadata
 
                     elif suffix in [".m4a", ".m4b", ".aac"]:
                         # M4A/M4B/AAC with MP4 tags
@@ -386,7 +386,7 @@ class GooglePlayProcessor:
                                 year_str = str(tags["\xa9day"][0])
                                 metadata["year"] = int(year_str[:4])
                             except (ValueError, TypeError, IndexError):
-                                pass
+                                pass  # Non-critical: year is optional metadata
 
             except Exception as e:
                 if self.verbose:
@@ -554,7 +554,7 @@ class GooglePlayProcessor:
                 picture.width, picture.height = img.size
                 picture.depth = 24  # Assume 24-bit color
             except ImportError:
-                pass
+                pass  # PIL is optional for cover art dimensions
 
             picture_data = picture.write()
             encoded_data = base64.b64encode(picture_data).decode("ascii")

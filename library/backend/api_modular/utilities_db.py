@@ -52,8 +52,10 @@ def init_db_routes(db_path, project_root):
             return jsonify(
                 {"success": False, "error": "Scan timed out after 30 minutes"}
             ), 500
-        except Exception as e:
-            return jsonify({"success": False, "error": str(e)}), 500
+        except Exception:
+            import logging
+            logging.exception("Error during library rescan")
+            return jsonify({"success": False, "error": "Library rescan failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/reimport", methods=["POST"])
     def reimport_database() -> FlaskResponse:
@@ -97,8 +99,10 @@ def init_db_routes(db_path, project_root):
             return jsonify(
                 {"success": False, "error": "Import timed out after 5 minutes"}
             ), 500
-        except Exception as e:
-            return jsonify({"success": False, "error": str(e)}), 500
+        except Exception:
+            import logging
+            logging.exception("Error during database reimport")
+            return jsonify({"success": False, "error": "Database reimport failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/generate-hashes", methods=["POST"])
     def generate_hashes() -> FlaskResponse:
@@ -147,8 +151,10 @@ def init_db_routes(db_path, project_root):
                     "error": "Hash generation timed out after 30 minutes",
                 }
             ), 500
-        except Exception as e:
-            return jsonify({"success": False, "error": str(e)}), 500
+        except Exception:
+            import logging
+            logging.exception("Error during hash generation")
+            return jsonify({"success": False, "error": "Hash generation failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/vacuum", methods=["POST"])
     def vacuum_database() -> FlaskResponse:
@@ -181,8 +187,10 @@ def init_db_routes(db_path, project_root):
                     "space_reclaimed_mb": max(0, space_reclaimed),
                 }
             )
-        except Exception as e:
-            return jsonify({"success": False, "error": str(e)}), 500
+        except Exception:
+            import logging
+            logging.exception("Error during database vacuum")
+            return jsonify({"success": False, "error": "Database vacuum failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/export-db", methods=["GET"])
     def export_database() -> FlaskResponse:

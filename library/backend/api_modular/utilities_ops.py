@@ -5,19 +5,20 @@ Handles background operations like add-new, rescan, reimport, and hash generatio
 
 import os
 import subprocess
-import threading
 import sys
-from flask import Blueprint, jsonify, request
+import threading
 from pathlib import Path
+
+# Path setup for sibling module import (must be before the import)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from operation_status import get_tracker, create_progress_callback  # noqa: E402
+
+from flask import Blueprint, jsonify, request
 
 from .core import FlaskResponse
 
 # Script paths - use environment variable with fallback
 _audiobooks_home = os.environ.get("AUDIOBOOKS_HOME", "/opt/audiobooks")
-
-# Import operation tracking
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from operation_status import get_tracker, create_progress_callback
 
 utilities_ops_bp = Blueprint("utilities_ops", __name__)
 
