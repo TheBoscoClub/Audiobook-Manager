@@ -2,6 +2,21 @@
 
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 
+### Version History
+
+| Version | Status | Release |
+|---------|--------|---------|
+| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-green)![5](https://img.shields.io/badge/5-darkgreen)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v3.9.5.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5.1) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-red)![5](https://img.shields.io/badge/5-darkred) | Prior patch | [v3.9.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-red)![0](https://img.shields.io/badge/0-darkred) | Prior minor | [v3.9.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.0) |
+
+<details>
+<summary>Badge Color Convention</summary>
+
+Each version segment gets its own badge (brightgreen→green→darkgreen→yellow for current, brightred→red→darkred→orange for prior).
+
+</details>
+
 ## Important: OGG/OPUS Format Only
 
 **This project uses OGG/OPUS as the exclusive audio format.** While the included AAXtoMP3 converter supports other formats (MP3, M4A, M4B, FLAC), the library browser, web UI, Docker container, and all tooling are designed and tested **only with OGG/OPUS files**.
