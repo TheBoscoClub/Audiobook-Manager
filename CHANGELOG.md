@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **CRITICAL: Parallelism Restored**: Fixed 7 variable expansion bugs in `build-conversion-queue`
   that completely broke parallel conversions (see v3.9.8 pending)
+- **Index Corruption Bug**: Fixed `generate_library_checksum()` in `move-staged-audiobooks`
+  that caused phantom duplicates in the library checksum index
+  - Bug: Script appended entries without checking if filepath already existed
+  - Result: Same file could appear 8+ times in index after reprocessing
+  - Fix: Now removes existing entry before appending (idempotent operation)
+  - Affected: `/raid0/Audiobooks/.index/library_checksums.idx`
 
 ## [3.9.5.1] - 2026-01-13
 

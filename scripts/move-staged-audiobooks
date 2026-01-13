@@ -50,9 +50,15 @@ generate_library_checksum() {
     # Generate MD5 checksum of first 1MB (fast duplicate detection)
     local checksum=$(head -c 1048576 "$filepath" 2>/dev/null | md5sum | cut -d' ' -f1)
     if [ -n "$checksum" ]; then
-        # Append to index (thread-safe with flock)
+        # Update index atomically (thread-safe with flock)
+        # Remove any existing entry for this filepath before adding new one
         (
             flock -x 201
+            # Remove existing entry for this file (if any) to prevent duplicates
+            if [ -f "$index_file" ]; then
+                grep -v "|${filepath}$" "$index_file" > "${index_file}.tmp" 2>/dev/null || true
+                mv "${index_file}.tmp" "$index_file"
+            fi
             echo "${checksum}|${filepath}" >> "$index_file"
         ) 201>"${index_file}.lock"
     fi
