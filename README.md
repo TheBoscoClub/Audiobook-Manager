@@ -6,14 +6,14 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-green)![5](https://img.shields.io/badge/5-darkgreen)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v3.9.5.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5.1) |
-| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-red)![5](https://img.shields.io/badge/5-darkred) | Prior patch | [v3.9.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5) |
-| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-red)![0](https://img.shields.io/badge/0-darkred) | Prior minor | [v3.9.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.0) |
+| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-darkgreen)![5](https://img.shields.io/badge/5-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v3.9.5.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5.1) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![5](https://img.shields.io/badge/5-red) | Prior patch | [v3.9.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v3.9.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.0) |
 
 <details>
 <summary>Badge Color Convention</summary>
 
-Each version segment gets its own badge (brightgreen→green→darkgreen→yellow for current, brightred→red→darkred→orange for prior).
+Each segment: `brightgreen → darkgreen → green → yellow` (current) / `brightred → darkred → red → orange` (prior)
 
 </details>
 
