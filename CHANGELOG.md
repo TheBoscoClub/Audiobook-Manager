@@ -7,22 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [3.9.6] - 2026-01-13
+
 ### Security
+- **CVE-2025-43859**: Fix HTTP request smuggling vulnerability by upgrading h11 to >=0.16.0
 - **TLS 1.2 Minimum**: Enforce TLS 1.2 as minimum protocol version in proxy_server.py
   - Prevents downgrade attacks to SSLv3, TLS 1.0, or TLS 1.1
 - **SSRF Protection**: Add path validation in proxy_server.py to prevent SSRF attacks
   - Only allows `/api/` and `/covers/` paths to be proxied
   - Blocks attempts to access internal services via crafted URLs
+- **Stack Trace Exposure**: Replace 12 instances of raw exception messages in API responses
+  with generic error messages; full tracebacks now logged server-side only
 
 ### Fixed
-- **CRITICAL: Parallelism Restored**: Fixed 7 variable expansion bugs in `build-conversion-queue`
-  that completely broke parallel conversions (see v3.9.8 pending)
+- **CodeQL Remediation**: Fix 30 code scanning alerts across the codebase
+  - Add missing `from typing import Any` import in duplicates.py
+  - Fix import order in utilities_ops.py (E402)
+  - Document 7 intentional empty exception handlers
+  - Fix mixed return statements in generate_hashes.py
+  - Remove unused variable in audiobooks.py
+  - Add `__all__` exports in scan_audiobooks.py for re-exported symbols
 - **Index Corruption Bug**: Fixed `generate_library_checksum()` in `move-staged-audiobooks`
   that caused phantom duplicates in the library checksum index
   - Bug: Script appended entries without checking if filepath already existed
   - Result: Same file could appear 8+ times in index after reprocessing
   - Fix: Now removes existing entry before appending (idempotent operation)
-  - Affected: `/raid0/Audiobooks/.index/library_checksums.idx`
+
+### Changed
+- Upgrade httpx to 0.28.1 and httpcore to 1.0.9 (required for h11 CVE fix)
 
 ## [3.9.5.1] - 2026-01-13
 

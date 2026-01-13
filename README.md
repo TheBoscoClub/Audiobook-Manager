@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-darkgreen)![5](https://img.shields.io/badge/5-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v3.9.5.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5.1) |
+| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-darkgreen)![6](https://img.shields.io/badge/6-green) | Latest patch | [v3.9.6](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.6) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![5](https://img.shields.io/badge/5-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v3.9.5.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5.1) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![5](https://img.shields.io/badge/5-red) | Prior patch | [v3.9.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v3.9.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.0) |
 
@@ -1106,7 +1107,12 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.5.1 (Current)
+### v3.9.6 (Current)
+- **Security Hardening**: Fix CVE-2025-43859 (h11 HTTP smuggling), enforce TLS 1.2 minimum, add SSRF path validation
+- **CodeQL Remediation**: Fix 30 code scanning alerts (stack trace exposure, empty except handlers, type errors)
+- **Code Quality**: Fix ruff linting errors, add missing type imports, improve error logging
+
+### v3.9.5.1
 - **Version Badges**: Multi-segment version badges with hierarchical color scheme
 - **Documentation**: Version history table showing release progression
 
@@ -1115,10 +1121,6 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Content Filter**: Expanded AUDIOBOOK_FILTER to include Lecture, Performance, Speech types
 - **Reliability**: Prevent concurrent queue rebuild processes with flock
 - **Scripts**: Fixed shellcheck warnings in build scripts
-
-> **Note**: v3.9.6 and v3.9.7 were attempted but rolled back due to bugs in the
-> queue builder that broke parallel conversions. See [CHANGELOG.md](CHANGELOG.md)
-> for details. Fixes are in development.
 
 ### v3.9.4
 - **Security**: Replace insecure mktemp() with mkstemp() for temp file creation
