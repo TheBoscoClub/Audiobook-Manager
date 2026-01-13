@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **CRITICAL: Parallelism Restored**: Fixed 7 variable expansion bugs in `build-conversion-queue`
+  that completely broke parallel conversions (see v3.9.8 pending)
+
+## [3.9.5.1] - 2026-01-13
+
+### Added
+- Multi-segment version badges in README with hierarchical color scheme
+- Version history table showing release progression
+
+## [3.9.5] - (Previous)
+
+### Fixed (rolled back from 3.9.7)
+- **CRITICAL: Parallelism Restored**: Fixed 7 variable expansion bugs in `build-conversion-queue`
   that completely broke parallel conversions (was running 1 at a time instead of 12)
   - Bug: `: > "queue_file"` (literal string) instead of `: > "$queue_file"` (variable)
   - Introduced by incomplete shellcheck SC2188 fix in fd686b9
