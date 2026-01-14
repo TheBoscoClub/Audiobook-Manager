@@ -108,6 +108,34 @@ emit_sse() {
     fi
 }
 
+# Auto-queue new episodes for download if parent series has downloaded content
+# This enables automatic downloads for "subscribed" series (those with at least 1 download)
+auto_queue_if_subscribed() {
+    local ep_asin="$1"
+    local parent_asin="$2"
+
+    [[ -z "$parent_asin" || "$parent_asin" == "null" ]] && return 0
+
+    # Check if parent series has any downloaded episodes
+    local has_downloads
+    has_downloads=$(sqlite3 "$DB" "
+        SELECT COUNT(*) FROM periodicals
+        WHERE parent_asin = '$parent_asin' AND is_downloaded = 1
+    ")
+
+    if [[ "$has_downloads" -gt 0 ]]; then
+        # Parent has downloads - auto-queue this new episode
+        sqlite3 "$DB" "
+            UPDATE periodicals
+            SET download_requested = 1
+            WHERE asin = '$ep_asin' AND download_requested = 0 AND is_downloaded = 0
+        "
+        log "  Auto-queued $ep_asin (parent $parent_asin has $has_downloads downloaded)"
+        return 1  # Return 1 to indicate auto-queued
+    fi
+    return 0
+}
+
 # Initialize sync status in database
 init_sync() {
     sqlite3 "$DB" <<EOF
@@ -265,6 +293,11 @@ sync_episodes() {
 
         local is_new
         is_new=$(sync_item "$episode" "$parent_asin" 2>/dev/null) || continue
+
+        # Auto-queue new episodes if parent series is "subscribed" (has downloaded content)
+        if [[ "$is_new" -eq 1 ]]; then
+            auto_queue_if_subscribed "$ep_asin" "$parent_asin"
+        fi
 
         ((new_episodes += is_new)) || true
     done < <(echo "$episodes_data" | jq -c '.items[]')
