@@ -13,6 +13,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.10.1] - 2026-01-14
+
+### Added
+- **Architecture Documentation**: Comprehensive update to ARCHITECTURE.md with 4 new sections:
+  - Scanner Module Architecture (data pipeline flow diagram)
+  - API Module Architecture (utilities_ops submodules documentation)
+  - Systemd Services Reference (complete service inventory)
+  - Scripts Reference (21 scripts organized by category)
+
+### Changed
+- **Periodicals Sync**: Enhanced parent/child hierarchy support for podcast episodes
+  - Sync script now properly tracks episode parent ASINs
+  - Improved episode metadata extraction from Audible API
+
+### Fixed
+- **Hardcoded Paths**: Fixed 2 hardcoded paths in shell scripts:
+  - `move-staged-audiobooks`: Changed `/opt/audiobooks/library/scanner/import_single.py` to `${AUDIOBOOKS_HOME}/...`
+  - `sync-periodicals-index`: Changed `/opt/audiobooks/library/backend/migrations/006_periodicals.sql` to `${AUDIOBOOKS_HOME}/...`
+- **Systemd Inline Comments**: Removed invalid inline comments from 6 systemd service files (systemd doesn't support inline comments)
+- **Test Config**: Updated hardcoded path tests to properly handle systemd files and shell variable defaults
+
 ## [3.10.0] - 2026-01-14
 
 ### Changed
