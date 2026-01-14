@@ -50,6 +50,12 @@
                 <h2>Publications</h2>
                 <span class="parent-count" id="parent-count">-</span>
             </div>
+            <div class="sort-controls">
+                <span class="sort-label">Sort:</span>
+                <button class="sort-btn active" data-sort="alpha" data-panel="parent" title="Sort alphabetically">A-Z</button>
+                <button class="sort-btn" data-sort="date" data-panel="parent" title="Sort by date (newest first)">Date</button>
+                <button class="sort-btn" data-sort="episodes" data-panel="parent" title="Sort by episode count">Episodes</button>
+            </div>
 
             <div class="parent-list" id="parent-list">
                 <div class="loading-indicator">Loading...</div>
@@ -62,6 +68,12 @@
                 <div class="episode-header-left">
                     <h2 id="episode-panel-title">Select a publication</h2>
                     <span class="episode-count" id="episode-count"></span>
+                </div>
+                <div class="sort-controls episode-sort" id="episode-sort-controls" style="display: none;">
+                    <span class="sort-label">Sort:</span>
+                    <button class="sort-btn active" data-sort="date-desc" data-panel="episode" title="Newest first">Newest</button>
+                    <button class="sort-btn" data-sort="date-asc" data-panel="episode" title="Oldest first">Oldest</button>
+                    <button class="sort-btn" data-sort="alpha" data-panel="episode" title="Sort alphabetically">A-Z</button>
                 </div>
             </div>
 
@@ -93,6 +105,52 @@
         let currentCategory = 'all';
         let currentAsin = null;
         let sseConnection = null;
+
+        // Sorting state
+        let parentSortBy = 'alpha';  // 'alpha', 'date', 'episodes'
+        let episodeSortBy = 'date-desc';  // 'date-desc', 'date-asc', 'alpha'
+        let cachedParents = [];  // Cache for re-sorting without refetch
+        let cachedEpisodes = [];  // Cache for re-sorting without refetch
+
+        // Sort comparison functions
+        function sortParents(parents, sortBy) {
+            return [...parents].sort((a, b) => {
+                switch (sortBy) {
+                    case 'alpha':
+                        return (a.title || '').localeCompare(b.title || '');
+                    case 'date':
+                        // Newest first
+                        const dateA = a.release_date || '1900-01-01';
+                        const dateB = b.release_date || '1900-01-01';
+                        return dateB.localeCompare(dateA);
+                    case 'episodes':
+                        return (b.episode_count || 0) - (a.episode_count || 0);
+                    default:
+                        return 0;
+                }
+            });
+        }
+
+        function sortEpisodes(episodes, sortBy) {
+            return [...episodes].sort((a, b) => {
+                switch (sortBy) {
+                    case 'alpha':
+                        return (a.title || '').localeCompare(b.title || '');
+                    case 'date-desc':
+                        // Newest first
+                        const dateA = a.release_date || '1900-01-01';
+                        const dateB = b.release_date || '1900-01-01';
+                        return dateB.localeCompare(dateA);
+                    case 'date-asc':
+                        // Oldest first
+                        const dateC = a.release_date || '1900-01-01';
+                        const dateD = b.release_date || '1900-01-01';
+                        return dateC.localeCompare(dateD);
+                    default:
+                        return 0;
+                }
+            });
+        }
 
         // ========================================
         // Safe DOM Creation Utilities
@@ -223,7 +281,8 @@
                     throw new Error('HTTP ' + response.status + ': ' + response.statusText);
                 }
                 const data = await response.json();
-                renderPeriodicalsList(data.parents || []);
+                cachedParents = data.parents || [];  // Cache for re-sorting
+                renderPeriodicalsList(cachedParents);
             } catch (error) {
                 console.error('Failed to load periodicals:', error);
                 clearElement(container);
@@ -235,15 +294,18 @@
             const container = document.getElementById('parent-list');
             const countEl = document.getElementById('parent-count');
 
-            countEl.textContent = String(parents.length);
+            // Apply current sort
+            const sortedParents = sortParents(parents, parentSortBy);
+
+            countEl.textContent = String(sortedParents.length);
             clearElement(container);
 
-            if (parents.length === 0) {
+            if (sortedParents.length === 0) {
                 container.appendChild(createEmptyState('📭', 'No series in this category'));
                 return;
             }
 
-            parents.forEach(function(p) {
+            sortedParents.forEach(function(p) {
                 container.appendChild(createPeriodicalCard(p));
             });
         }
@@ -359,8 +421,20 @@
             }
         }
 
+        // Store current parent for queueAllEpisodes
+        let currentParent = null;
+
         function renderSeriesWithEpisodes(parent, episodes) {
             const container = document.getElementById('episode-list');
+            const sortControls = document.getElementById('episode-sort-controls');
+
+            // Cache episodes for re-sorting and store parent
+            cachedEpisodes = episodes;
+            currentParent = parent;
+
+            // Show episode sort controls
+            sortControls.style.display = 'flex';
+
             clearElement(container);
 
             // Series header card (compact)
@@ -379,7 +453,7 @@
                     createElement('button', {
                         className: 'download-all-btn',
                         title: 'Queue all episodes for download',
-                        onClick: function() { queueAllEpisodes(episodes); }
+                        onClick: function() { queueAllEpisodes(cachedEpisodes); }
                     }, [
                         createElement('span', { textContent: '↓ Download All' })
                     ])
@@ -387,18 +461,35 @@
             ]);
             container.appendChild(headerCard);
 
-            // Episodes list
-            const episodesList = createElement('div', { className: 'episodes-list' });
+            // Render the sorted episodes list
+            renderEpisodesList(cachedEpisodes);
+        }
 
-            if (episodes.length === 0) {
+        function renderEpisodesList(episodes) {
+            // Find or create the episodes-list container (after header card)
+            const container = document.getElementById('episode-list');
+            let episodesList = container.querySelector('.episodes-list');
+
+            if (!episodesList) {
+                // Create if doesn't exist
+                episodesList = createElement('div', { className: 'episodes-list' });
+                container.appendChild(episodesList);
+            } else {
+                // Clear existing episodes
+                clearElement(episodesList);
+            }
+
+            // Apply current sort
+            const sortedEpisodes = sortEpisodes(episodes, episodeSortBy);
+
+            if (sortedEpisodes.length === 0) {
                 episodesList.appendChild(createEmptyState('📭', 'No episodes found'));
             } else {
-                episodes.forEach(function(ep, index) {
+                sortedEpisodes.forEach(function(ep, index) {
+                    // For sorted display, show original index if sorting by something other than date-desc
                     episodesList.appendChild(createEpisodeCard(ep, index + 1));
                 });
             }
-
-            container.appendChild(episodesList);
         }
 
         function createEpisodeCard(ep, index) {
@@ -479,6 +570,12 @@
 
         function renderPeriodicalDetails(item) {
             const container = document.getElementById('episode-list');
+            const sortControls = document.getElementById('episode-sort-controls');
+
+            // Hide episode sort controls for standalone items
+            sortControls.style.display = 'none';
+            cachedEpisodes = [];  // Clear episode cache
+
             clearElement(container);
 
             // Build details card (for standalone items or items without episodes)
@@ -623,6 +720,8 @@
                 // Reset details panel
                 document.getElementById('episode-panel-title').textContent = 'Select a publication';
                 document.getElementById('episode-count').textContent = '';
+                document.getElementById('episode-sort-controls').style.display = 'none';
+                cachedEpisodes = [];
                 const detailsContainer = document.getElementById('episode-list');
                 clearElement(detailsContainer);
                 detailsContainer.appendChild(createEmptyState('📰', 'Select a publication from the left to view details'));
@@ -637,6 +736,28 @@
         document.getElementById('refresh-btn').addEventListener('click', triggerSync);
         document.getElementById('queue-close').addEventListener('click', function() {
             document.getElementById('queue-toast').style.display = 'none';
+        });
+
+        // Sort button handlers
+        document.querySelectorAll('.sort-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const sortBy = btn.dataset.sort;
+                const panel = btn.dataset.panel;
+
+                // Update active state for this panel's buttons
+                btn.parentElement.querySelectorAll('.sort-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                });
+                btn.classList.add('active');
+
+                if (panel === 'parent') {
+                    parentSortBy = sortBy;
+                    renderPeriodicalsList(cachedParents);
+                } else if (panel === 'episode') {
+                    episodeSortBy = sortBy;
+                    renderEpisodesList(cachedEpisodes);
+                }
+            });
         });
 
         // ========================================

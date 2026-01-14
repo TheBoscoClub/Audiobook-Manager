@@ -23,15 +23,43 @@ Endpoints:
     POST /api/v1/periodicals/sync/trigger - Manually trigger sync
     GET  /api/v1/periodicals/categories   - List categories with counts
     GET  /api/v1/periodicals/parents      - List parent items with episode counts
+
+Position Sync (Whispersync):
+    GET  /api/v1/periodicals/<asin>/position     - Get position for item
+    PUT  /api/v1/periodicals/<asin>/position     - Update local position
+    POST /api/v1/periodicals/<asin>/position/sync - Sync with Audible cloud
+    GET  /api/v1/periodicals/position/test/<asin> - Test if Audible supports position for ASIN
 """
 
+import asyncio
 import os
 import re
 import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
 
 from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from .core import get_db
+
+# Audible client for position sync (optional - graceful degradation)
+RND_PATH = Path(__file__).parent.parent.parent.parent / "rnd"
+sys.path.insert(0, str(RND_PATH))
+
+try:
+    import audible
+    from credential_manager import has_stored_credential, retrieve_credential
+
+    AUDIBLE_AVAILABLE = True
+except ImportError as e:
+    AUDIBLE_AVAILABLE = False
+    AUDIBLE_IMPORT_ERROR = str(e)
+
+# Audible config paths
+AUDIBLE_CONFIG_DIR = Path.home() / ".audible"
+AUTH_FILE = AUDIBLE_CONFIG_DIR / "audible.json"
+COUNTRY_CODE = "us"
 
 # Script paths - use environment variable with fallback
 _audiobooks_home = os.environ.get("AUDIOBOOKS_HOME", "/opt/audiobooks")
@@ -524,6 +552,10 @@ def init_periodicals_routes(db_path: str) -> None:
     def expunge_periodical(asin: str):
         """Completely expunge a periodical - delete from database AND filesystem.
 
+        SAFETY: Only periodical content (Podcast, Show, News, etc.) can be expunged.
+        Regular audiobooks (content_type='Product') are PROTECTED and cannot be
+        deleted through this endpoint to preserve paid purchases.
+
         If ASIN is a parent series, expunges all episodes of that series.
         Deletes: audio files, covers, chapters.json, database entries.
 
@@ -533,6 +565,9 @@ def init_periodicals_routes(db_path: str) -> None:
         import shutil
         from pathlib import Path
 
+        # Allowed content types for expungement (NOT 'Product' which is paid audiobooks)
+        EXPUNGEABLE_TYPES = ('Podcast', 'Show', 'Newspaper / Magazine', 'Radio/TV Program', None)
+
         if not validate_asin(asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
@@ -541,12 +576,21 @@ def init_periodicals_routes(db_path: str) -> None:
 
         # Check if this is a parent (series) or episode
         row = db.execute(
-            "SELECT asin, title, parent_asin FROM periodicals WHERE asin = ?",
+            "SELECT asin, title, parent_asin, content_type FROM periodicals WHERE asin = ?",
             [asin]
         ).fetchone()
 
         if not row:
             return jsonify({"error": "Periodical not found"}), 404
+
+        # SAFETY CHECK: Never expunge paid audiobooks
+        content_type = row[3]
+        if content_type == 'Product':
+            return jsonify({
+                "error": "Cannot expunge paid audiobooks",
+                "message": "This is a purchased audiobook (content_type='Product'). "
+                           "Expungement is only allowed for periodical content like podcasts."
+            }), 403
 
         is_parent = row[2] is None
         asins_to_expunge = [asin]
@@ -554,12 +598,14 @@ def init_periodicals_routes(db_path: str) -> None:
         # If parent and include_children, get all episode ASINs
         if is_parent and include_children:
             episodes = db.execute(
-                "SELECT asin FROM periodicals WHERE parent_asin = ?",
+                "SELECT asin, content_type FROM periodicals WHERE parent_asin = ?",
                 [asin]
             ).fetchall()
-            asins_to_expunge.extend([ep[0] for ep in episodes])
+            # Filter out any Product types (extra safety)
+            safe_episodes = [ep[0] for ep in episodes if ep[1] != 'Product']
+            asins_to_expunge.extend(safe_episodes)
 
-        expunged = {"database": 0, "files": 0, "errors": []}
+        expunged = {"database": 0, "files": 0, "errors": [], "protected": 0}
 
         for target_asin in asins_to_expunge:
             # Find file path from audiobooks table (if downloaded/converted)
@@ -793,3 +839,364 @@ def init_periodicals_routes(db_path: str) -> None:
             )
 
         return jsonify({"categories": categories})
+
+    # ========================================
+    # Position Sync (Whispersync) Endpoints
+    # ========================================
+
+    def ms_to_human(ms: int) -> str:
+        """Convert milliseconds to human-readable format."""
+        if ms is None or ms == 0:
+            return "0s"
+        seconds = ms // 1000
+        hours, remainder = divmod(seconds, 3600)
+        minutes, secs = divmod(remainder, 60)
+        if hours > 0:
+            return f"{hours}h {minutes}m {secs}s"
+        elif minutes > 0:
+            return f"{minutes}m {secs}s"
+        return f"{secs}s"
+
+    async def get_audible_client():
+        """Create authenticated Audible client."""
+        if not AUDIBLE_AVAILABLE:
+            raise RuntimeError(f"Audible library not available: {AUDIBLE_IMPORT_ERROR}")
+
+        if not AUTH_FILE.exists():
+            raise RuntimeError(f"Audible auth file not found: {AUTH_FILE}")
+
+        # First try loading without password (unencrypted auth file)
+        try:
+            auth = audible.Authenticator.from_file(AUTH_FILE)
+            return audible.AsyncClient(auth=auth, country_code=COUNTRY_CODE)
+        except Exception:
+            pass  # Auth file might be password-protected, try with credential
+
+        # Fall back to stored credential for password-protected auth files
+        if not has_stored_credential():
+            raise RuntimeError(
+                "No stored Audible credential. Run position_sync_test.py first to set up."
+            )
+
+        password = retrieve_credential()
+        if not password:
+            raise RuntimeError("Could not retrieve stored Audible credential")
+
+        auth = audible.Authenticator.from_file(AUTH_FILE, password=password)
+        return audible.AsyncClient(auth=auth, country_code=COUNTRY_CODE)
+
+    async def fetch_audible_position(client, asin: str) -> dict:
+        """Fetch position from Audible for a single ASIN."""
+        try:
+            response = await client.get(
+                "1.0/annotations/lastpositions", params={"asins": asin}
+            )
+
+            annotations = response.get("asin_last_position_heard_annots", [])
+            for annot in annotations:
+                if annot.get("asin") == asin:
+                    pos_data = annot.get("last_position_heard", {})
+                    return {
+                        "asin": asin,
+                        "position_ms": pos_data.get("position_ms"),
+                        "last_updated": pos_data.get("last_updated"),
+                        "status": pos_data.get("status"),
+                        "supported": True,  # Audible returned data
+                    }
+
+            return {"asin": asin, "position_ms": None, "status": "NotFound", "supported": False}
+
+        except Exception as e:
+            return {"asin": asin, "error": str(e), "supported": None}
+
+    async def push_audible_position(client, asin: str, position_ms: int) -> dict:
+        """Push position to Audible for a single ASIN."""
+        try:
+            # First get ACR from license request
+            license_response = await client.post(
+                f"1.0/content/{asin}/licenserequest",
+                body={
+                    "drm_type": "Adrm",
+                    "consumption_type": "Download",
+                    "quality": "High",
+                },
+            )
+
+            content_license = license_response.get("content_license", {})
+            acr = content_license.get("acr")
+
+            if not acr:
+                return {"asin": asin, "success": False, "error": "Could not obtain ACR"}
+
+            # Push position
+            await client.put(
+                f"1.0/lastpositions/{asin}",
+                body={"acr": acr, "asin": asin, "position_ms": position_ms},
+            )
+
+            return {"asin": asin, "success": True, "position_ms": position_ms}
+
+        except Exception as e:
+            return {"asin": asin, "success": False, "error": str(e)}
+
+    def run_async(coro):
+        """Run async coroutine in sync context."""
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    @periodicals_bp.route("/api/v1/periodicals/<asin>/position", methods=["GET"])
+    def get_periodical_position(asin: str):
+        """Get playback position for a periodical item."""
+        if not validate_asin(asin):
+            return jsonify({"error": "Invalid ASIN format"}), 400
+
+        db = get_db(g.db_path)
+        row = db.execute(
+            """
+            SELECT asin, title, runtime_minutes,
+                   playback_position_ms, playback_position_updated,
+                   audible_position_ms, audible_position_updated,
+                   position_synced_at
+            FROM periodicals WHERE asin = ?
+        """,
+            [asin],
+        ).fetchone()
+
+        if not row:
+            return jsonify({"error": "Periodical not found"}), 404
+
+        duration_ms = (row[2] or 0) * 60000  # runtime_minutes to ms
+        local_pos = row[3] or 0
+        percent = round(local_pos / duration_ms * 100, 1) if duration_ms > 0 else 0
+
+        return jsonify(
+            {
+                "asin": row[0],
+                "title": row[1],
+                "duration_ms": duration_ms,
+                "duration_human": ms_to_human(duration_ms),
+                "local_position_ms": local_pos,
+                "local_position_human": ms_to_human(local_pos),
+                "local_position_updated": row[4],
+                "audible_position_ms": row[5],
+                "audible_position_human": ms_to_human(row[5]),
+                "audible_position_updated": row[6],
+                "position_synced_at": row[7],
+                "percent_complete": percent,
+            }
+        )
+
+    @periodicals_bp.route("/api/v1/periodicals/<asin>/position", methods=["PUT"])
+    def update_periodical_position(asin: str):
+        """Update local playback position for a periodical."""
+        if not validate_asin(asin):
+            return jsonify({"error": "Invalid ASIN format"}), 400
+
+        data = request.get_json()
+        position_ms = data.get("position_ms")
+
+        if position_ms is None:
+            return jsonify({"error": "position_ms required"}), 400
+
+        db = get_db(g.db_path)
+
+        now = datetime.now().isoformat()
+        cursor = db.execute(
+            """
+            UPDATE periodicals
+            SET playback_position_ms = ?,
+                playback_position_updated = ?,
+                updated_at = ?
+            WHERE asin = ?
+        """,
+            [position_ms, now, now, asin],
+        )
+
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Periodical not found"}), 404
+
+        # Record in history
+        db.execute(
+            """
+            INSERT INTO periodicals_playback_history (periodical_asin, position_ms, source)
+            VALUES (?, ?, 'local')
+        """,
+            [asin, position_ms],
+        )
+
+        db.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "asin": asin,
+                "position_ms": position_ms,
+                "position_human": ms_to_human(position_ms),
+                "updated_at": now,
+            }
+        )
+
+    @periodicals_bp.route("/api/v1/periodicals/position/test/<asin>", methods=["GET"])
+    def test_position_support(asin: str):
+        """Test if Audible supports position sync for this ASIN.
+
+        Use this to check whether periodical content (podcasts, shows)
+        actually has Whispersync support in Audible.
+        """
+        if not validate_asin(asin):
+            return jsonify({"error": "Invalid ASIN format"}), 400
+
+        if not AUDIBLE_AVAILABLE:
+            return jsonify({
+                "error": "Audible library not available",
+                "audible_available": False
+            }), 503
+
+        async def do_test():
+            async with await get_audible_client() as client:
+                return await fetch_audible_position(client, asin)
+
+        try:
+            result = run_async(do_test())
+            return jsonify({
+                "asin": asin,
+                "audible_response": result,
+                "supports_position_sync": result.get("supported", False),
+                "message": (
+                    "Audible supports position sync for this content"
+                    if result.get("supported")
+                    else "Audible may not track position for this content type"
+                )
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @periodicals_bp.route("/api/v1/periodicals/<asin>/position/sync", methods=["POST"])
+    def sync_periodical_position(asin: str):
+        """Sync position for a periodical with Audible (Whispersync).
+
+        Logic: "Furthest ahead wins"
+        - If Audible > local: update local from Audible
+        - If local > Audible: push local to Audible
+        - If equal: no action needed
+
+        NOTE: This may not work for all periodical content types. Audible's
+        Whispersync might only support certain content. Use the test endpoint
+        first to verify support.
+        """
+        if not validate_asin(asin):
+            return jsonify({"error": "Invalid ASIN format"}), 400
+
+        if not AUDIBLE_AVAILABLE:
+            return jsonify({"error": "Audible library not available"}), 503
+
+        db = get_db(g.db_path)
+
+        # Get periodical info
+        row = db.execute(
+            """
+            SELECT asin, title, playback_position_ms, runtime_minutes
+            FROM periodicals WHERE asin = ?
+        """,
+            [asin],
+        ).fetchone()
+
+        if not row:
+            return jsonify({"error": "Periodical not found"}), 404
+
+        local_pos = row[2] or 0
+
+        async def do_sync():
+            async with await get_audible_client() as client:
+                # Fetch Audible position
+                audible_data = await fetch_audible_position(client, asin)
+
+                if "error" in audible_data:
+                    return {"error": audible_data["error"]}
+
+                # Check if Audible actually supports position for this content
+                if not audible_data.get("supported"):
+                    return {
+                        "error": "Audible does not appear to track position for this content",
+                        "audible_response": audible_data
+                    }
+
+                audible_pos = audible_data.get("position_ms") or 0
+
+                result = {
+                    "asin": asin,
+                    "title": row[1],
+                    "local_position_ms": local_pos,
+                    "local_position_human": ms_to_human(local_pos),
+                    "audible_position_ms": audible_pos,
+                    "audible_position_human": ms_to_human(audible_pos),
+                }
+
+                now = datetime.now().isoformat()
+
+                if audible_pos > local_pos:
+                    # Audible is ahead - update local
+                    result["action"] = "pulled_from_audible"
+                    result["final_position_ms"] = audible_pos
+                    result["final_position_human"] = ms_to_human(audible_pos)
+
+                elif local_pos > audible_pos:
+                    # Local is ahead - push to Audible
+                    push_result = await push_audible_position(client, asin, local_pos)
+                    result["action"] = "pushed_to_audible"
+                    result["push_result"] = push_result
+                    result["final_position_ms"] = local_pos
+                    result["final_position_human"] = ms_to_human(local_pos)
+
+                else:
+                    result["action"] = "already_synced"
+                    result["final_position_ms"] = local_pos
+                    result["final_position_human"] = ms_to_human(local_pos)
+
+                return result, audible_pos, now
+
+        try:
+            sync_result = run_async(do_sync())
+
+            # Handle error case (single dict returned instead of tuple)
+            if isinstance(sync_result, dict) and "error" in sync_result:
+                return jsonify(sync_result), 500
+
+            result, audible_pos, now = sync_result
+
+            # Update database with sync results
+            final_pos = result["final_position_ms"]
+            db.execute(
+                """
+                UPDATE periodicals
+                SET playback_position_ms = ?,
+                    playback_position_updated = ?,
+                    audible_position_ms = ?,
+                    audible_position_updated = ?,
+                    position_synced_at = ?,
+                    updated_at = ?
+                WHERE asin = ?
+            """,
+                [final_pos, now, audible_pos, now, now, now, asin],
+            )
+
+            # Record in history
+            db.execute(
+                """
+                INSERT INTO periodicals_playback_history (periodical_asin, position_ms, source)
+                VALUES (?, ?, 'sync')
+            """,
+                [asin, final_pos],
+            )
+
+            db.commit()
+
+            return jsonify(result)
+
+        except Exception as e:
+            import logging
+            logging.error(f"Periodical position sync error: {e}")
+            return jsonify({"error": "Internal server error during position sync"}), 500

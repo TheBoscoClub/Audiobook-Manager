@@ -239,6 +239,49 @@ body {
     color: var(--rr-text-muted);
 }
 
+/* Sort Controls */
+.sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--rr-bg-tertiary);
+    border-bottom: 1px solid var(--rr-border);
+}
+
+.sort-label {
+    font-size: 0.75rem;
+    color: var(--rr-text-muted);
+    margin-right: 0.25rem;
+}
+
+.sort-btn {
+    padding: 0.25rem 0.5rem;
+    background: transparent;
+    color: var(--rr-text-secondary);
+    border: 1px solid var(--rr-border);
+    border-radius: var(--rr-radius-sm);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all var(--rr-transition);
+}
+
+.sort-btn:hover {
+    background: var(--rr-bg-hover);
+    color: var(--rr-text-primary);
+}
+
+.sort-btn.active {
+    background: var(--rr-accent);
+    color: var(--rr-bg-primary);
+    border-color: var(--rr-accent);
+}
+
+/* Episode sort controls inline with header */
+.episode-sort {
+    margin-left: auto;
+}
+
 .parent-list {
     flex: 1;
     overflow-y: auto;
@@ -978,6 +1021,37 @@ body {
    Responsive: Mobile
    ========================================== */
 @media (max-width: 600px) {
+    /* Sort controls - stack on mobile */
+    .sort-controls {
+        flex-wrap: wrap;
+        gap: 0.375rem;
+    }
+
+    .sort-label {
+        width: 100%;
+    }
+
+    .sort-btn {
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+    }
+
+    /* Panel header flex-wrap for sort controls */
+    .panel-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .episode-sort {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 0.5rem;
+        padding: 0;
+        background: transparent;
+        border-bottom: none;
+    }
+
     .reading-room-header {
         padding: 0.75rem 1rem;
     }
