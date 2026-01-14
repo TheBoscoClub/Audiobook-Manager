@@ -31,6 +31,7 @@ from credential_manager import retrieve_credential
 # Add library directory to path for common import
 sys.path.insert(0, str(Path(__file__).parent.parent / "library"))
 from common import normalize_title
+from config import AUDIOBOOKS_DATABASE
 
 # Configuration - use bosco's audible config even when running as root
 REAL_USER_HOME = Path(os.environ.get("SUDO_USER_HOME", os.environ.get("HOME", "/home/bosco")))
@@ -39,7 +40,7 @@ if os.environ.get("SUDO_USER"):
 AUDIBLE_CONFIG_DIR = REAL_USER_HOME / ".audible"
 AUTH_FILE = AUDIBLE_CONFIG_DIR / "audible.json"
 CREDENTIAL_FILE_PATH = AUDIBLE_CONFIG_DIR / "position_sync_credentials.enc"
-DB_PATH = Path("/var/lib/audiobooks/audiobooks.db")  # default system install path
+DB_PATH = AUDIOBOOKS_DATABASE
 COUNTRY_CODE = "us"
 
 

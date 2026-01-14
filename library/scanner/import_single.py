@@ -6,7 +6,7 @@ Imports audiobooks from a specific directory path directly to database.
 Designed to be called inline by the mover script after each successful move.
 
 Usage:
-    python3 import_single.py /raid0/Audiobooks/Library/Author/Book
+    python3 import_single.py /path/to/Library/Author/Book
 """
 
 import sqlite3

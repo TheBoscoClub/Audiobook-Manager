@@ -38,6 +38,10 @@ def init_crud_routes(db_path):
             "asin",
             "isbn",
             "description",
+            "content_type",
+            "source",
+            "edition",
+            "acquired_date",
         ]
         updates = []
         values = []
@@ -137,7 +141,18 @@ def init_crud_routes(db_path):
         value = data.get("value")
 
         # Whitelist allowed fields for bulk update
-        allowed_fields = ["narrator", "series", "publisher", "published_year"]
+        allowed_fields = [
+            "narrator",
+            "series",
+            "publisher",
+            "published_year",
+            "content_type",
+            "source",
+            "edition",
+            "acquired_date",
+            "author",
+            "asin",
+        ]
         if field not in allowed_fields:
             return (
                 jsonify(

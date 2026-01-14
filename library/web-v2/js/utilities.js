@@ -1792,6 +1792,7 @@ function initAudibleSection() {
     document.getElementById('sync-genres-btn')?.addEventListener('click', syncGenresAsync);
     document.getElementById('sync-narrators-btn')?.addEventListener('click', syncNarratorsAsync);
     document.getElementById('populate-sort-btn')?.addEventListener('click', populateSortFieldsAsync);
+    document.getElementById('populate-asins-btn')?.addEventListener('click', populateAsinsAsync);
 
     // Pipeline operations
     document.getElementById('download-audiobooks-btn')?.addEventListener('click', downloadAudiobooksAsync);
@@ -1941,6 +1942,38 @@ async function populateSortFieldsAsync() {
     } catch (error) {
         hideProgressModal();
         showToast('Failed to start sort field population: ' + error.message, 'error');
+    }
+}
+
+async function populateAsinsAsync() {
+    if (activeOperationId) {
+        showToast('An operation is already running', 'error');
+        return;
+    }
+
+    const dryRun = document.getElementById('populate-asins-dryrun')?.checked ?? true;
+
+    showProgressModal('Populating ASINs', dryRun ? 'Running in dry-run mode...' : 'Matching audiobooks to Audible...');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/utilities/populate-asins-async`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dry_run: dryRun })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            activeOperationId = result.operation_id;
+            showStatusBanner({ id: result.operation_id, description: 'ASIN population' + (dryRun ? ' (dry run)' : ''), progress: 0 });
+            startOperationPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start ASIN population', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to start ASIN population: ' + error.message, 'error');
     }
 }
 

@@ -656,6 +656,21 @@
                                         </button>
                                     </div>
                                 </div>
+                                <div class="operation-item">
+                                    <div class="operation-info">
+                                        <h4>Populate ASINs</h4>
+                                        <p>Match local audiobooks to Audible library for position sync</p>
+                                    </div>
+                                    <div class="operation-controls">
+                                        <label class="checkbox-option small" title="Preview matches without updating database">
+                                            <input type="checkbox" id="populate-asins-dryrun" checked>
+                                            <span>Dry Run</span>
+                                        </label>
+                                        <button class="office-btn" id="populate-asins-btn" title="Match audiobooks to Audible ASINs for Whispersync">
+                                            <span class="btn-icon">&#128279;</span> Populate ASINs
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -795,9 +810,22 @@
                                     <div class="action-controls">
                                         <select id="bulk-update-field" class="office-select" title="Choose which metadata field to update">
                                             <option value="">Select field to update...</option>
-                                            <option value="narrator">Narrator</option>
-                                            <option value="series">Series</option>
-                                            <option value="publisher">Publisher</option>
+                                            <optgroup label="Common Fields">
+                                                <option value="narrator">Narrator</option>
+                                                <option value="author">Author</option>
+                                                <option value="series">Series</option>
+                                                <option value="publisher">Publisher</option>
+                                            </optgroup>
+                                            <optgroup label="Classification">
+                                                <option value="content_type">Content Type (Product/Podcast/Show)</option>
+                                                <option value="source">Source (audible/librivox/other)</option>
+                                            </optgroup>
+                                            <optgroup label="Additional Metadata">
+                                                <option value="edition">Edition</option>
+                                                <option value="published_year">Published Year</option>
+                                                <option value="acquired_date">Acquired Date (YYYY-MM-DD)</option>
+                                                <option value="asin">ASIN</option>
+                                            </optgroup>
                                         </select>
                                         <input type="text" id="bulk-update-value" class="office-input" placeholder="New value..." title="Enter the new value to apply to all selected audiobooks">
                                         <button class="office-btn" id="bulk-update-btn" title="Apply the new value to all selected audiobooks">Apply to Selected</button>
