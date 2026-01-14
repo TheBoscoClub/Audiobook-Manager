@@ -6,7 +6,7 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-darkgreen)![8](https://img.shields.io/badge/8-green) | Latest patch | [v3.9.8](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.8) |
+| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-darkgreen)![8](https://img.shields.io/badge/8-green) | Latest patch | [v3.10.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.10.0) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![7](https://img.shields.io/badge/7-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v3.9.7.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.7.1) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![7](https://img.shields.io/badge/7-red) | Prior patch | [v3.9.7](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.7) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![6](https://img.shields.io/badge/6-red) | Prior patch | [v3.9.6](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.6) |
@@ -1108,7 +1108,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.8 (Current)
+### v3.10.0 (Current)
 - **Major Refactoring**: Split monolithic `utilities_ops.py` (994 lines) into modular package with 5 focused modules
 - **Test Coverage**: Added 27 new test files, increased coverage from 77% to 85%
 - **Code Quality**: Removed unused imports, fixed incorrect default paths

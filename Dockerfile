@@ -7,7 +7,7 @@
 FROM python:3.11.11-slim
 
 # Read version from VERSION file during build
-ARG APP_VERSION=3.9.8
+ARG APP_VERSION=3.10.0
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"

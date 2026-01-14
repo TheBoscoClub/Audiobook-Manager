@@ -13,6 +13,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.10.0] - 2026-01-14
+
+### Changed
+- **BREAKING: Naming Convention Standardization**: All service names, CLI commands, and config files
+  now use singular "audiobook-" prefix instead of plural "audiobooks-" to align with project name
+  "audiobook-manager"
+  - Renamed `lib/audiobooks-config.sh` → `lib/audiobook-config.sh`
+  - Renamed all systemd units: `audiobooks-*` → `audiobook-*`
+  - Updated all script references to new config file name
+- **Status Script Enhancement**: `audiobook-status` now displays services and timers in separate sections
+
+### Fixed
+- **Unused Imports**: Removed 45 unused imports across codebase via ruff auto-fix
+- **Test Schema Handling**: Marked schema-dependent tests as xfail pending migration 007
+  (source_asin column, content_type column, indexes, FTS triggers)
+- **Documentation Dates**: Updated last-modified dates in ARCHITECTURE.md and POSITION_SYNC.md
+
+### Migration Notes
+After upgrading, run these commands to migrate systemd services:
+```bash
+# Stop old services
+sudo systemctl stop audiobooks-api audiobooks-converter audiobooks-mover audiobooks-proxy audiobooks-redirect
+
+# Disable old services
+sudo systemctl disable audiobooks-api audiobooks-converter audiobooks-mover audiobooks-proxy audiobooks-redirect
+
+# Remove old service files
+sudo rm /etc/systemd/system/audiobooks-*.service /etc/systemd/system/audiobooks-*.timer /etc/systemd/system/audiobooks.target
+
+# Run upgrade script
+sudo /opt/audiobooks/upgrade.sh
+```
+
 ## [3.9.8] - 2026-01-14
 
 ### Changed
