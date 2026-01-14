@@ -1,17 +1,16 @@
 [Unit]
-Description=Sync Audible periodicals index twice daily
+Description=Sync Audible periodicals index every 10 minutes
 Documentation=file:///opt/audiobooks/docs/PERIODICALS.md
 
 [Timer]
-# Run at 6 AM and 6 PM daily
-OnCalendar=*-*-* 06:00:00
-OnCalendar=*-*-* 18:00:00
+# Run every 10 minutes (6x per hour) to catch new subscribed content
+OnCalendar=*:0/10
 
 # Catch up if system was off during scheduled time
 Persistent=true
 
-# Add random delay up to 5 minutes to avoid API hammering
-RandomizedDelaySec=300
+# Add random delay up to 30 seconds to avoid API hammering
+RandomizedDelaySec=30
 
 # Don't wake system from sleep just for this
 WakeSystem=false
