@@ -1688,7 +1688,7 @@ body.back-office {
 .detail-value {
     font-family: 'Courier New', monospace;
     font-weight: bold;
-    color: #1a1a1a;
+    color: var(--gold-bright);
     font-size: 1.1rem;
 }
 
@@ -1772,7 +1772,7 @@ body.back-office {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #1a1a1a;
+    color: var(--cream-light);
     font-family: 'Courier New', monospace;
 }
 

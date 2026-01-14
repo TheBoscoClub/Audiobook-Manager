@@ -17,7 +17,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-DB_PATH = Path("/var/lib/audiobooks/audiobooks.db")  # default system install path
+# Add library directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent / "library"))
+from config import AUDIOBOOKS_DATABASE
+
+DB_PATH = AUDIOBOOKS_DATABASE
 
 
 def fetch_library_with_content_type() -> dict[str, str]:

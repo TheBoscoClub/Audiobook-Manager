@@ -33,6 +33,9 @@ except ImportError:
 # Import credential manager (same directory)
 from credential_manager import get_or_prompt_credential, retrieve_credential
 
+# Add library directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent / "library"))
+from config import AUDIOBOOKS_DATABASE
 
 # Configuration - use real user's home even when running as sudo
 REAL_USER_HOME = Path(os.environ.get("HOME", "/home/bosco"))
@@ -569,8 +572,8 @@ Examples:
     )
     parser.add_argument(
         "--db",
-        default="/var/lib/audiobooks/audiobooks.db",
-        help="Database path for batch-sync (default: /var/lib/audiobooks/audiobooks.db)"
+        default=str(AUDIOBOOKS_DATABASE),
+        help=f"Database path for batch-sync (default: {AUDIOBOOKS_DATABASE})"
     )
     parser.add_argument(
         "--limit",

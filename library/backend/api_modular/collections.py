@@ -58,21 +58,49 @@ COLLECTIONS = {
     "fiction": {
         "name": "Fiction",
         "description": "Literary fiction, genre fiction, and novels",
-        "query": genre_query("Fiction"),  # Matches actual DB genre name
+        "query": multi_genre_query(
+            [
+                "Literature & Fiction",
+                "Literary Fiction",
+                "Genre Fiction",
+                "Contemporary Fiction",
+                "Historical Fiction",
+                "Women''s Fiction",  # SQL escape apostrophe
+            ]
+        ),
         "icon": "📖",
         "category": "main",
     },
     "mystery-thriller": {
         "name": "Mystery & Thriller",
         "description": "Mystery, suspense, and thriller novels",
-        "query": genre_query("Mystery & Thriller"),  # Matches actual DB genre name
+        "query": multi_genre_query(
+            [
+                "Mystery",
+                "Mystery & Suspense",
+                "Thriller & Suspense",
+                "Thrillers & Suspense",
+                "Crime Thrillers",
+                "Domestic Thrillers",
+                "Technothrillers",
+                "International Mystery & Crime",
+            ]
+        ),
         "icon": "🔍",
         "category": "main",
     },
     "scifi-fantasy": {
         "name": "Sci-Fi & Fantasy",
         "description": "Science fiction and fantasy",
-        "query": genre_query("Sci-Fi & Fantasy"),  # Matches actual DB genre name
+        "query": multi_genre_query(
+            [
+                "Science Fiction & Fantasy",
+                "Science Fiction",
+                "Fantasy",
+                "Hard Science Fiction",
+                "Fantasy & Magic",
+            ]
+        ),
         "icon": "🚀",
         "category": "main",
     },
@@ -103,7 +131,7 @@ COLLECTIONS = {
     "biography-memoir": {
         "name": "Biography & Memoir",
         "description": "Biographies, autobiographies, and memoirs",
-        "query": genre_query("Biography & Memoir"),  # Matches actual DB genre name
+        "query": multi_genre_query(["Biographies & Memoirs", "Memoirs"]),
         "icon": "👤",
         "category": "nonfiction",
     },
@@ -117,7 +145,7 @@ COLLECTIONS = {
     "science": {
         "name": "Science & Technology",
         "description": "Science, technology, and nature",
-        "query": genre_query("Science & Technology"),  # Matches actual DB genre name
+        "query": multi_genre_query(["Science", "Science & Engineering"]),
         "icon": "🔬",
         "category": "nonfiction",
     },
@@ -131,7 +159,7 @@ COLLECTIONS = {
     "business": {
         "name": "Business",
         "description": "Business, finance, and economics",
-        "query": genre_query("Business"),  # Matches actual DB genre name
+        "query": genre_query("Business & Careers"),
         "icon": "💼",
         "category": "nonfiction",
     },
