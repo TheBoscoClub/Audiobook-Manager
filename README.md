@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![3](https://img.shields.io/badge/3-brightgreen)![10](https://img.shields.io/badge/10-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v3.10.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.10.1) |
+| ![3](https://img.shields.io/badge/3-brightgreen)![11](https://img.shields.io/badge/11-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v3.11.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.0) |
+| ![3](https://img.shields.io/badge/3-brightred)![10](https://img.shields.io/badge/10-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v3.10.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.10.1) |
 | ![3](https://img.shields.io/badge/3-brightred)![10](https://img.shields.io/badge/10-darkred)![0](https://img.shields.io/badge/0-red) | Prior patch | [v3.10.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.10.0) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![8](https://img.shields.io/badge/8-red) | Prior patch | [v3.9.8](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.8) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![7](https://img.shields.io/badge/7-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v3.9.7.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.7.1) |
@@ -1152,7 +1153,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.10.1 (Current)
+### v3.11.0 (Current)
+- **Periodicals Sorting**: Reading Room supports title, date, subscription, and download status sorting
+- **Whispersync Position Sync**: Periodicals now sync listening positions with Audible
+- **Auto-Download**: Subscribed podcast series automatically queue new episodes
+- **Podcast Expungement**: Complete removal of unsubscribed podcast content
+- **Test Fixes**: Resolved 19 test failures, improved code quality
+
+### v3.10.1
 - **Architecture Documentation**: Comprehensive ARCHITECTURE.md update with Scanner Module, API Module, Systemd Services, and Scripts Reference sections
 - **Periodicals Sync**: Enhanced parent/child hierarchy support for podcast episodes
 - **Hardcoded Paths Fix**: Fixed 2 hardcoded paths in shell scripts, removed invalid inline comments from systemd files

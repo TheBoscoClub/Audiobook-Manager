@@ -13,6 +13,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.11.0] - 2026-01-14
+
+### Added
+- **Periodicals Sorting**: Reading Room now supports multiple sort options:
+  - By title (A-Z, Z-A)
+  - By release date (newest/oldest first)
+  - By subscription status (subscribed first)
+  - By download status (downloaded first)
+- **Whispersync Position Sync**: Periodicals now support Audible position synchronization
+  - Individual episode sync via `/api/periodicals/<asin>/sync-position`
+  - Batch sync for all episodes via `/api/periodicals/sync-all-positions`
+  - Real-time progress via SSE endpoint
+- **Auto-Download for Subscribed Podcasts**: Automatically queue downloads for new episodes of subscribed series
+- **Podcast Expungement**: Complete removal of unsubscribed podcast content including:
+  - Audio files, covers, chapter data
+  - Database entries with cascade to episodes
+  - Index file cleanup
+- **ASIN Sync**: Periodicals table now syncs `is_downloaded` status when audiobooks are imported
+
+### Changed
+- **Database Path Handling**: Clarified and fixed database path configuration across the codebase
+- **Index Rebuilds**: Prevented destructive index rebuilds, added database sync protection
+
+### Fixed
+- **Test Schema**: Made periodicals sync conditional to prevent test failures
+- **Duplicates Test**: Fixed path validation assertion for out-of-bounds paths
+- **SSE Headers**: Removed hop-by-hop `Connection` header for PEP 3333 compliance
+- **API Test Expectations**: Added 503 status for unavailable Audible, 400 for missing VERSION
+- **Unused Code**: Removed unused `EXPUNGEABLE_TYPES` variable
+- **CodeQL Alerts**: Resolved security and lint issues from static analysis
+
 ## [3.10.1] - 2026-01-14
 
 ### Added
