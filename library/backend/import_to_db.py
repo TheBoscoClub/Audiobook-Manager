@@ -169,18 +169,22 @@ def import_audiobooks(conn):
 
     conn.commit()
 
-    # Sync is_downloaded status for periodicals
+    # Sync is_downloaded status for periodicals (if table exists)
     # When an audiobook is imported, mark matching periodicals as downloaded
-    cursor.execute("""
-        UPDATE periodicals
-        SET is_downloaded = 1
-        WHERE is_downloaded = 0
-        AND asin IN (SELECT asin FROM audiobooks WHERE asin IS NOT NULL AND asin <> '')
-    """)
-    synced_periodicals = cursor.rowcount
-    if synced_periodicals > 0:
-        conn.commit()
-        print(f"\n✓ Synced is_downloaded for {synced_periodicals} periodicals")
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='periodicals'"
+    )
+    if cursor.fetchone():
+        cursor.execute("""
+            UPDATE periodicals
+            SET is_downloaded = 1
+            WHERE is_downloaded = 0
+            AND asin IN (SELECT asin FROM audiobooks WHERE asin IS NOT NULL AND asin <> '')
+        """)
+        synced_periodicals = cursor.rowcount
+        if synced_periodicals > 0:
+            conn.commit()
+            print(f"\n✓ Synced is_downloaded for {synced_periodicals} periodicals")
 
     print(f"\n✓ Imported {len(audiobooks)} audiobooks")
     print(f"✓ Restored {len(preserved_narrators)} narrator records")

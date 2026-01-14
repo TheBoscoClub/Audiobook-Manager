@@ -108,8 +108,8 @@ class TestSyncAllPositions:
         with flask_app.test_client() as client:
             response = client.post("/api/position/sync-all")
 
-        # May fail if Audible not configured, but should return valid JSON
-        assert response.status_code in [200, 400, 500]
+        # May fail if Audible not configured (503), but should return valid JSON
+        assert response.status_code in [200, 400, 500, 503]
         data = response.get_json()
         assert isinstance(data, dict)
 

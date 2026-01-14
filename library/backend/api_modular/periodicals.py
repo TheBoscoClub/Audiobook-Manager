@@ -565,9 +565,6 @@ def init_periodicals_routes(db_path: str) -> None:
         import shutil
         from pathlib import Path
 
-        # Allowed content types for expungement (NOT 'Product' which is paid audiobooks)
-        EXPUNGEABLE_TYPES = ('Podcast', 'Show', 'Newspaper / Magazine', 'Radio/TV Program', None)
-
         if not validate_asin(asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
@@ -767,7 +764,6 @@ def init_periodicals_routes(db_path: str) -> None:
             mimetype="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",  # Disable nginx buffering
             },
         )

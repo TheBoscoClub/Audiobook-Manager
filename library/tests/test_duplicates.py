@@ -188,8 +188,8 @@ class TestDeleteByPath:
 
         assert response.status_code == 400
 
-    def test_delete_nonexistent_file(self, flask_app):
-        """Test deleting file that doesn't exist."""
+    def test_delete_path_outside_allowed_directory(self, flask_app):
+        """Test deleting file outside allowed directory is rejected as unsafe."""
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/duplicates/delete-by-path",
@@ -199,7 +199,8 @@ class TestDeleteByPath:
         assert response.status_code == 200
         data = response.get_json()
         assert data["success"] is True
-        assert len(data["skipped_not_found"]) >= 1
+        # Path outside allowed directory goes to skipped_unsafe, not skipped_not_found
+        assert len(data["skipped_unsafe"]) >= 1
 
 
 class TestVerifyDeletion:

@@ -481,6 +481,9 @@ class TestStartUpgrade:
         mock_read.return_value = {"running": False}
         mock_write.return_value = True
 
+        # Create VERSION file to pass project validation
+        (temp_dir / "VERSION").write_text("1.0.0")
+
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade",
