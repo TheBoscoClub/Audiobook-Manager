@@ -1307,7 +1307,7 @@ EOF
     if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
         echo -e "${BLUE}Setting up Python virtual environment...${NC}"
         sudo python3 -m venv "${LIB_DIR}/library/venv"
-        sudo "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask flask-cors
+        sudo "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 
     # Generate SSL certificate if needed
@@ -1879,7 +1879,7 @@ EOF
     if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
         echo -e "${BLUE}Setting up Python virtual environment...${NC}"
         python3 -m venv "${LIB_DIR}/library/venv"
-        "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask flask-cors
+        "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 
     # Generate SSL certificate if needed

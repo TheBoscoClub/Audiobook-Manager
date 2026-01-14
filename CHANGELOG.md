@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.7.1] - 2026-01-13
+
+### Fixed (Audit Fixes)
+- **PIL Rebuild for Python 3.14**: Rebuilt Pillow wheel in virtual environment to fix compatibility
+  with Python 3.14 (CachyOS rolling release). PIL was compiled against older Python, causing
+  import failures during audiobook cover processing.
+- **flask-cors Removal**: Removed deprecated flask-cors from `install.sh` and `install-user.sh`.
+  CORS has been handled natively since v3.2.0; the pip install was a no-op that could fail on
+  systems without the package available.
+- **systemd ConditionPathExists**: Fixed incorrect `ConditionPathExists` paths in multiple
+  systemd service files that referenced non-existent queue/trigger files, causing services
+  to skip activation silently.
+
 ## [3.9.7] - 2026-01-13
 
 ### Fixed

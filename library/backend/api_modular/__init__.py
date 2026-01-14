@@ -19,35 +19,28 @@ For backward compatibility, this module also exports:
 import os
 import sys
 from pathlib import Path
+
 from flask import Flask, Response
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
-
-from .core import get_db as _get_db_with_path, add_cors_headers
-from .audiobooks import audiobooks_bp, init_audiobooks_routes
-from .collections import (
-    collections_bp,
-    init_collections_routes,
-    COLLECTIONS,
-    genre_query,
-    multi_genre_query,
-)
-from .editions import (
-    editions_bp,
-    init_editions_routes,
-    has_edition_marker,
-    normalize_base_title,
-)
-from .duplicates import duplicates_bp, init_duplicates_routes
-from .supplements import supplements_bp, init_supplements_routes
-from .utilities import utilities_bp, init_utilities_routes
-from .position_sync import position_bp, init_position_routes
-from .periodicals import periodicals_bp, init_periodicals_routes
-
 # Type alias for Flask route return types (backward compatibility)
 from typing import Optional, Union
+
+from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
+
+from .audiobooks import audiobooks_bp, init_audiobooks_routes
+from .collections import (COLLECTIONS, collections_bp, genre_query,
+                          init_collections_routes, multi_genre_query)
+from .core import add_cors_headers
+from .core import get_db as _get_db_with_path
+from .duplicates import duplicates_bp, init_duplicates_routes
+from .editions import (editions_bp, has_edition_marker, init_editions_routes,
+                       normalize_base_title)
+from .periodicals import init_periodicals_routes, periodicals_bp
+from .position_sync import init_position_routes, position_bp
+from .supplements import init_supplements_routes, supplements_bp
+from .utilities import init_utilities_routes, utilities_bp
 
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
@@ -115,7 +108,7 @@ def create_app(
     init_supplements_routes(database_path, supplements_dir)
     init_utilities_routes(database_path, project_root)
     init_position_routes(database_path)
-    init_periodicals_routes(database_path)
+    init_periodicals_routes(str(database_path))
 
     # Register blueprints
     flask_app.register_blueprint(audiobooks_bp)
@@ -154,7 +147,9 @@ def run_server(
     if flask_app is None:
         flask_app = app
     if flask_app is None:
-        raise RuntimeError("No Flask application provided and global app is not initialized. Call create_app() first.")
+        raise RuntimeError(
+            "No Flask application provided and global app is not initialized. Call create_app() first."
+        )
     port = port or API_PORT
 
     print("Starting Audiobook Library API...")

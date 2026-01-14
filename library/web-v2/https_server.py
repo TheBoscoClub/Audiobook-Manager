@@ -2,20 +2,16 @@
 """Simple HTTPS server for serving static files with HTTP redirect."""
 
 import http.server
-import ssl
 import os
+import ssl
 import sys
 import threading
 from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import (
-    AUDIOBOOKS_WEB_PORT,
-    AUDIOBOOKS_HTTP_REDIRECT_PORT,
-    AUDIOBOOKS_HTTP_REDIRECT_ENABLED,
-    AUDIOBOOKS_CERTS,
-)
+from config import (AUDIOBOOKS_CERTS, AUDIOBOOKS_HTTP_REDIRECT_ENABLED,
+                    AUDIOBOOKS_HTTP_REDIRECT_PORT, AUDIOBOOKS_WEB_PORT)
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 HTTP_PORT = AUDIOBOOKS_HTTP_REDIRECT_PORT
@@ -50,13 +46,13 @@ class HTTPToHTTPSRedirectHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Location", https_url)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
-        body = f'''<!DOCTYPE html>
+        body = f"""<!DOCTYPE html>
 <html>
 <head><title>Redirecting...</title></head>
 <body>
 <p>Redirecting to <a href="{https_url}">{https_url}</a></p>
 </body>
-</html>'''
+</html>"""
         self.wfile.write(body.encode())
 
     def log_message(self, format, *args):

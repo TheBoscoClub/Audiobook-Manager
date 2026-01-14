@@ -47,14 +47,15 @@ API Documentation: https://librivox.org/api/info
 
 import os
 import re
-import requests
 import sys
 import time
-from pathlib import Path
 from argparse import ArgumentParser
-from typing import Optional, List, Dict
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional
 from xml.etree import ElementTree
+
+import requests
 
 # Add parent directory for config
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -85,7 +86,7 @@ class LibrivoxBook:
     copyright_year: Optional[int]
     num_sections: int
     total_time: str
-    sections: List[Dict] = None
+    sections: Optional[List[Dict]] = None
 
     def __post_init__(self):
         if self.sections is None:
@@ -225,7 +226,8 @@ class LibrivoxDownloader:
         else:
             # Download individual sections from RSS
             if self._download_sections(book, book_dir):
-                print(f"Downloaded {len(book.sections)} sections to: {book_dir}")
+                sections_count = len(book.sections) if book.sections else 0
+                print(f"Downloaded {sections_count} sections to: {book_dir}")
                 return book_dir
 
         return None
@@ -279,7 +281,7 @@ class LibrivoxDownloader:
                 continue
 
             print(f"  [{i}/{len(book.sections)}] Downloading: {title}")
-            if self._download_file(url, output_file):
+            if url and self._download_file(url, output_file):
                 success_count += 1
                 time.sleep(1)  # Rate limiting
             else:

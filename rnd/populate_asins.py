@@ -28,6 +28,10 @@ except ImportError:
 
 from credential_manager import retrieve_credential
 
+# Add library directory to path for common import
+sys.path.insert(0, str(Path(__file__).parent.parent / "library"))
+from common import normalize_title
+
 # Configuration - use bosco's audible config even when running as root
 REAL_USER_HOME = Path(os.environ.get("SUDO_USER_HOME", os.environ.get("HOME", "/home/bosco")))
 if os.environ.get("SUDO_USER"):
@@ -37,19 +41,6 @@ AUTH_FILE = AUDIBLE_CONFIG_DIR / "audible.json"
 CREDENTIAL_FILE_PATH = AUDIBLE_CONFIG_DIR / "position_sync_credentials.enc"
 DB_PATH = Path("/var/lib/audiobooks/audiobooks.db")  # default system install path
 COUNTRY_CODE = "us"
-
-
-def normalize_title(title: str) -> str:
-    """Normalize title for comparison."""
-    if not title:
-        return ""
-    # Remove common suffixes
-    title = re.sub(r'\s*:\s*A Novel$', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'\s*\(Unabridged\)$', '', title, flags=re.IGNORECASE)
-    # Remove punctuation and lowercase
-    title = re.sub(r'[^\w\s]', '', title)
-    title = ' '.join(title.lower().split())
-    return title
 
 
 def calculate_similarity(s1: str, s2: str) -> float:

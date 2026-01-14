@@ -10,12 +10,12 @@ Features:
 - Suggests which copies to keep (based on path/format preferences)
 """
 
-import sqlite3
 import json
+import sqlite3
 import sys
-from pathlib import Path
-from datetime import datetime
 from argparse import ArgumentParser
+from datetime import datetime
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -36,14 +36,16 @@ def format_size(size_bytes: float) -> str:
 def find_duplicates(conn: sqlite3.Connection) -> list:
     """Find all duplicate groups"""
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT sha256_hash, COUNT(*) as count
         FROM audiobooks
         WHERE sha256_hash IS NOT NULL
         GROUP BY sha256_hash
         HAVING count > 1
         ORDER BY count DESC
-    """)
+    """
+    )
     return cursor.fetchall()
 
 
@@ -84,7 +86,7 @@ def suggest_keep(files: list) -> int:
             score += 25
 
         # Prefer shorter paths (better organization)
-        score -= len(path) / 10
+        score -= int(len(path) / 10)
 
         scored.append((score, file_id))
 
@@ -92,7 +94,7 @@ def suggest_keep(files: list) -> int:
     return scored[0][1]
 
 
-def generate_report(export_json: bool = False, export_path: str = None):
+def generate_report(export_json: bool = False, export_path: str | None = None):
     """Generate duplicate report"""
     if not DB_PATH.exists():
         print(f"Error: Database not found at {DB_PATH}")

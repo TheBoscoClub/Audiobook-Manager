@@ -26,7 +26,8 @@ sys.path.insert(0, str(RND_PATH))
 
 try:
     import audible
-    from credential_manager import retrieve_credential, has_stored_credential
+    from credential_manager import has_stored_credential, retrieve_credential
+
     AUDIBLE_AVAILABLE = True
 except ImportError as e:
     AUDIBLE_AVAILABLE = False
@@ -34,13 +35,15 @@ except ImportError as e:
 
 
 # Blueprint for position sync routes
-position_bp = Blueprint('position', __name__, url_prefix='/api/position')
+position_bp = Blueprint("position", __name__, url_prefix="/api/position")
 
 # Configuration
 AUDIBLE_CONFIG_DIR = Path.home() / ".audible"
 AUTH_FILE = AUDIBLE_CONFIG_DIR / "audible.json"
 COUNTRY_CODE = "us"
-BATCH_CHUNK_SIZE = 25  # Audible API limit: "No more than 25 asins allowed in request at once"
+BATCH_CHUNK_SIZE = (
+    25  # Audible API limit: "No more than 25 asins allowed in request at once"
+)
 
 # Module-level database path (set by init function)
 _db_path = None
@@ -69,8 +72,11 @@ def ms_to_human(ms: int) -> str:
 def get_db():
     """Get database connection using module's database path."""
     import sqlite3
+
     if _db_path is None:
-        raise RuntimeError("Position routes not initialized. Call init_position_routes first.")
+        raise RuntimeError(
+            "Position routes not initialized. Call init_position_routes first."
+        )
     conn = sqlite3.connect(_db_path)
     conn.row_factory = sqlite3.Row
     return conn
@@ -93,7 +99,9 @@ async def get_audible_client():
 
     # Fall back to stored credential for password-protected auth files
     if not has_stored_credential():
-        raise RuntimeError("No stored Audible credential. Run position_sync_test.py first to set up.")
+        raise RuntimeError(
+            "No stored Audible credential. Run position_sync_test.py first to set up."
+        )
 
     password = retrieve_credential()
     if not password:
@@ -107,8 +115,7 @@ async def fetch_audible_position(client, asin: str) -> dict:
     """Fetch position from Audible for a single ASIN."""
     try:
         response = await client.get(
-            "1.0/annotations/lastpositions",
-            params={"asins": asin}
+            "1.0/annotations/lastpositions", params={"asins": asin}
         )
 
         annotations = response.get("asin_last_position_heard_annots", [])
@@ -139,13 +146,12 @@ async def fetch_audible_positions_batch(client, asins: list[str]) -> dict:
 
     # Process ASINs in chunks to avoid CloudFront 413 errors
     for i in range(0, len(asins), BATCH_CHUNK_SIZE):
-        chunk = asins[i:i + BATCH_CHUNK_SIZE]
+        chunk = asins[i : i + BATCH_CHUNK_SIZE]
 
         try:
             # API accepts comma-separated ASINs
             response = await client.get(
-                "1.0/annotations/lastpositions",
-                params={"asins": ",".join(chunk)}
+                "1.0/annotations/lastpositions", params={"asins": ",".join(chunk)}
             )
 
             annotations = response.get("asin_last_position_heard_annots", [])
@@ -180,7 +186,7 @@ async def push_audible_position(client, asin: str, position_ms: int) -> dict:
                 "drm_type": "Adrm",
                 "consumption_type": "Download",
                 "quality": "High",
-            }
+            },
         )
 
         content_license = license_response.get("content_license", {})
@@ -192,11 +198,7 @@ async def push_audible_position(client, asin: str, position_ms: int) -> dict:
         # Push position
         await client.put(
             f"1.0/lastpositions/{asin}",
-            body={
-                "acr": acr,
-                "asin": asin,
-                "position_ms": position_ms
-            }
+            body={"acr": acr, "asin": asin, "position_ms": position_ms},
         )
 
         return {"asin": asin, "success": True, "position_ms": position_ms}
@@ -218,7 +220,8 @@ def run_async(coro):
 # API Endpoints
 # ============================================================
 
-@position_bp.route('/status', methods=['GET'])
+
+@position_bp.route("/status", methods=["GET"])
 def position_status():
     """Check if position sync is available and configured."""
     status = {
@@ -233,54 +236,59 @@ def position_status():
     return jsonify(status)
 
 
-@position_bp.route('/<int:audiobook_id>', methods=['GET'])
+@position_bp.route("/<int:audiobook_id>", methods=["GET"])
 def get_position(audiobook_id: int):
     """Get playback position for a single audiobook."""
     conn = get_db()
     try:
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, asin, duration_hours,
                    playback_position_ms, playback_position_updated,
                    audible_position_ms, audible_position_updated,
                    position_synced_at
             FROM audiobooks WHERE id = ?
-        """, (audiobook_id,))
+        """,
+            (audiobook_id,),
+        )
 
         row = cursor.fetchone()
         if not row:
             return jsonify({"error": "Audiobook not found"}), 404
 
-        duration_ms = int((row['duration_hours'] or 0) * 3600000)
-        local_pos = row['playback_position_ms'] or 0
+        duration_ms = int((row["duration_hours"] or 0) * 3600000)
+        local_pos = row["playback_position_ms"] or 0
         percent = round(local_pos / duration_ms * 100, 1) if duration_ms > 0 else 0
 
-        return jsonify({
-            "id": row['id'],
-            "title": row['title'],
-            "asin": row['asin'],
-            "duration_ms": duration_ms,
-            "duration_human": ms_to_human(duration_ms),
-            "local_position_ms": local_pos,
-            "local_position_human": ms_to_human(local_pos),
-            "local_position_updated": row['playback_position_updated'],
-            "audible_position_ms": row['audible_position_ms'],
-            "audible_position_human": ms_to_human(row['audible_position_ms']),
-            "audible_position_updated": row['audible_position_updated'],
-            "position_synced_at": row['position_synced_at'],
-            "percent_complete": percent,
-            "syncable": bool(row['asin']),
-        })
+        return jsonify(
+            {
+                "id": row["id"],
+                "title": row["title"],
+                "asin": row["asin"],
+                "duration_ms": duration_ms,
+                "duration_human": ms_to_human(duration_ms),
+                "local_position_ms": local_pos,
+                "local_position_human": ms_to_human(local_pos),
+                "local_position_updated": row["playback_position_updated"],
+                "audible_position_ms": row["audible_position_ms"],
+                "audible_position_human": ms_to_human(row["audible_position_ms"]),
+                "audible_position_updated": row["audible_position_updated"],
+                "position_synced_at": row["position_synced_at"],
+                "percent_complete": percent,
+                "syncable": bool(row["asin"]),
+            }
+        )
     finally:
         conn.close()
 
 
-@position_bp.route('/<int:audiobook_id>', methods=['PUT'])
+@position_bp.route("/<int:audiobook_id>", methods=["PUT"])
 def update_position(audiobook_id: int):
     """Update local playback position for an audiobook."""
     data = request.get_json()
-    position_ms = data.get('position_ms')
+    position_ms = data.get("position_ms")
 
     if position_ms is None:
         return jsonify({"error": "position_ms required"}), 400
@@ -290,37 +298,45 @@ def update_position(audiobook_id: int):
         cursor = conn.cursor()
 
         now = datetime.now().isoformat()
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE audiobooks
             SET playback_position_ms = ?,
                 playback_position_updated = ?,
                 updated_at = ?
             WHERE id = ?
-        """, (position_ms, now, now, audiobook_id))
+        """,
+            (position_ms, now, now, audiobook_id),
+        )
 
         if cursor.rowcount == 0:
             return jsonify({"error": "Audiobook not found"}), 404
 
         # Record in history
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO playback_history (audiobook_id, position_ms, source)
             VALUES (?, ?, 'local')
-        """, (audiobook_id, position_ms))
+        """,
+            (audiobook_id, position_ms),
+        )
 
         conn.commit()
 
-        return jsonify({
-            "success": True,
-            "audiobook_id": audiobook_id,
-            "position_ms": position_ms,
-            "position_human": ms_to_human(position_ms),
-            "updated_at": now,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "audiobook_id": audiobook_id,
+                "position_ms": position_ms,
+                "position_human": ms_to_human(position_ms),
+                "updated_at": now,
+            }
+        )
     finally:
         conn.close()
 
 
-@position_bp.route('/sync/<int:audiobook_id>', methods=['POST'])
+@position_bp.route("/sync/<int:audiobook_id>", methods=["POST"])
 def sync_position(audiobook_id: int):
     """
     Sync position for a single audiobook with Audible.
@@ -338,20 +354,26 @@ def sync_position(audiobook_id: int):
         cursor = conn.cursor()
 
         # Get audiobook info
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, asin, playback_position_ms, duration_hours
             FROM audiobooks WHERE id = ?
-        """, (audiobook_id,))
+        """,
+            (audiobook_id,),
+        )
 
         row = cursor.fetchone()
         if not row:
             return jsonify({"error": "Audiobook not found"}), 404
 
-        if not row['asin']:
-            return jsonify({"error": "Audiobook has no ASIN, cannot sync with Audible"}), 400
+        if not row["asin"]:
+            return (
+                jsonify({"error": "Audiobook has no ASIN, cannot sync with Audible"}),
+                400,
+            )
 
-        asin = row['asin']
-        local_pos = row['playback_position_ms'] or 0
+        asin = row["asin"]
+        local_pos = row["playback_position_ms"] or 0
 
         async def do_sync():
             async with await get_audible_client() as client:
@@ -365,7 +387,7 @@ def sync_position(audiobook_id: int):
 
                 result = {
                     "audiobook_id": audiobook_id,
-                    "title": row['title'],
+                    "title": row["title"],
                     "asin": asin,
                     "local_position_ms": local_pos,
                     "local_position_human": ms_to_human(local_pos),
@@ -403,7 +425,8 @@ def sync_position(audiobook_id: int):
 
         # Update database with sync results
         final_pos = result["final_position_ms"]
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE audiobooks
             SET playback_position_ms = ?,
                 playback_position_updated = ?,
@@ -412,13 +435,18 @@ def sync_position(audiobook_id: int):
                 position_synced_at = ?,
                 updated_at = ?
             WHERE id = ?
-        """, (final_pos, now, audible_pos, now, now, now, audiobook_id))
+        """,
+            (final_pos, now, audible_pos, now, now, now, audiobook_id),
+        )
 
         # Record in history
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO playback_history (audiobook_id, position_ms, source)
             VALUES (?, ?, 'sync')
-        """, (audiobook_id, final_pos))
+        """,
+            (audiobook_id, final_pos),
+        )
 
         conn.commit()
 
@@ -427,13 +455,14 @@ def sync_position(audiobook_id: int):
     except Exception as e:
         # Log the actual error server-side, return generic message to client
         import logging
+
         logging.error(f"Position sync error: {e}")
         return jsonify({"error": "Internal server error during position sync"}), 500
     finally:
         conn.close()
 
 
-@position_bp.route('/sync-all', methods=['POST'])
+@position_bp.route("/sync-all", methods=["POST"])
 def sync_all_positions():
     """
     Sync positions for all audiobooks with ASINs.
@@ -448,18 +477,20 @@ def sync_all_positions():
         cursor = conn.cursor()
 
         # Get all syncable audiobooks
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, asin, playback_position_ms, duration_hours
             FROM audiobooks
             WHERE asin IS NOT NULL AND asin != ''
-        """)
+        """
+        )
 
         books = cursor.fetchall()
         if not books:
             return jsonify({"message": "No syncable audiobooks found", "synced": 0})
 
-        asins = [b['asin'] for b in books]
-        asin_to_book = {b['asin']: dict(b) for b in books}
+        asins = [b["asin"] for b in books]
+        asin_to_book = {b["asin"]: dict(b) for b in books}
 
         async def do_batch_sync():
             async with await get_audible_client() as client:
@@ -477,12 +508,12 @@ def sync_all_positions():
                     if not book:
                         continue
 
-                    local_pos = book['playback_position_ms'] or 0
+                    local_pos = book["playback_position_ms"] or 0
                     audible_pos = audible_data.get("position_ms") or 0
 
                     result = {
-                        "audiobook_id": book['id'],
-                        "title": book['title'],
+                        "audiobook_id": book["id"],
+                        "title": book["title"],
                         "asin": asin,
                         "local_position_ms": local_pos,
                         "audible_position_ms": audible_pos,
@@ -531,7 +562,8 @@ def sync_all_positions():
             final_pos = result["final_position_ms"]
             audible_pos = result["audible_position_ms"]
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE audiobooks
                 SET playback_position_ms = ?,
                     playback_position_updated = ?,
@@ -540,7 +572,9 @@ def sync_all_positions():
                     position_synced_at = ?,
                     updated_at = ?
                 WHERE id = ?
-            """, (final_pos, now, audible_pos, now, now, now, book_id))
+            """,
+                (final_pos, now, audible_pos, now, now, now, book_id),
+            )
 
         conn.commit()
 
@@ -550,92 +584,109 @@ def sync_all_positions():
         synced = sum(1 for r in results if r["action"] == "already_synced")
         failed = sum(1 for r in results if r["action"] == "push_failed")
 
-        return jsonify({
-            "total": len(results),
-            "pulled_from_audible": pulled,
-            "pushed_to_audible": pushed,
-            "already_synced": synced,
-            "failed": failed,
-            "results": results,
-        })
+        return jsonify(
+            {
+                "total": len(results),
+                "pulled_from_audible": pulled,
+                "pushed_to_audible": pushed,
+                "already_synced": synced,
+                "failed": failed,
+                "results": results,
+            }
+        )
 
     except Exception as e:
         # Log the actual error server-side, return generic message to client
         import logging
+
         logging.error(f"Batch sync error: {e}")
         return jsonify({"error": "Internal server error during batch sync"}), 500
     finally:
         conn.close()
 
 
-@position_bp.route('/syncable', methods=['GET'])
+@position_bp.route("/syncable", methods=["GET"])
 def list_syncable():
     """List all audiobooks that can be synced with Audible."""
     conn = get_db()
     try:
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, asin, duration_hours,
                    playback_position_ms, audible_position_ms, position_synced_at
             FROM audiobooks
             WHERE asin IS NOT NULL AND asin != ''
             ORDER BY title
-        """)
+        """
+        )
 
         books = []
         for row in cursor.fetchall():
-            duration_ms = int((row['duration_hours'] or 0) * 3600000)
-            local_pos = row['playback_position_ms'] or 0
+            duration_ms = int((row["duration_hours"] or 0) * 3600000)
+            local_pos = row["playback_position_ms"] or 0
             percent = round(local_pos / duration_ms * 100, 1) if duration_ms > 0 else 0
 
-            books.append({
-                "id": row['id'],
-                "title": row['title'],
-                "author": row['author'],
-                "asin": row['asin'],
-                "duration_human": ms_to_human(duration_ms),
-                "local_position_human": ms_to_human(local_pos),
-                "audible_position_human": ms_to_human(row['audible_position_ms']),
-                "percent_complete": percent,
-                "last_synced": row['position_synced_at'],
-            })
+            books.append(
+                {
+                    "id": row["id"],
+                    "title": row["title"],
+                    "author": row["author"],
+                    "asin": row["asin"],
+                    "duration_human": ms_to_human(duration_ms),
+                    "local_position_human": ms_to_human(local_pos),
+                    "audible_position_human": ms_to_human(row["audible_position_ms"]),
+                    "percent_complete": percent,
+                    "last_synced": row["position_synced_at"],
+                }
+            )
 
-        return jsonify({
-            "total": len(books),
-            "books": books,
-        })
+        return jsonify(
+            {
+                "total": len(books),
+                "books": books,
+            }
+        )
     finally:
         conn.close()
 
 
-@position_bp.route('/history/<int:audiobook_id>', methods=['GET'])
+@position_bp.route("/history/<int:audiobook_id>", methods=["GET"])
 def get_position_history(audiobook_id: int):
     """Get position history for an audiobook."""
     conn = get_db()
     try:
         cursor = conn.cursor()
 
-        limit = request.args.get('limit', 50, type=int)
+        limit = request.args.get("limit", 50, type=int)
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT position_ms, source, recorded_at
             FROM playback_history
             WHERE audiobook_id = ?
             ORDER BY recorded_at DESC
             LIMIT ?
-        """, (audiobook_id, limit))
+        """,
+            (audiobook_id, limit),
+        )
 
-        history = [{
-            "position_ms": row['position_ms'],
-            "position_human": ms_to_human(row['position_ms']),
-            "source": row['source'],
-            "recorded_at": row['recorded_at'],
-        } for row in cursor.fetchall()]
+        history = [
+            {
+                "position_ms": row["position_ms"],
+                "position_human": ms_to_human(row["position_ms"]),
+                "source": row["source"],
+                "recorded_at": row["recorded_at"],
+            }
+            for row in cursor.fetchall()
+        ]
 
-        return jsonify({
-            "audiobook_id": audiobook_id,
-            "history": history,
-        })
+        return jsonify(
+            {
+                "audiobook_id": audiobook_id,
+                "history": history,
+            }
+        )
     finally:
         conn.close()

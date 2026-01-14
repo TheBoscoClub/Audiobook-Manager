@@ -136,9 +136,7 @@ AUDIOBOOKS_DATABASE = Path(
     )
 )
 AUDIOBOOKS_COVERS = Path(
-    get_config(
-        "AUDIOBOOKS_COVERS", str(AUDIOBOOKS_DATA / ".covers")
-    )
+    get_config("AUDIOBOOKS_COVERS", str(AUDIOBOOKS_DATA / ".covers"))
 )
 AUDIOBOOKS_CERTS = Path(
     get_config("AUDIOBOOKS_CERTS", str(AUDIOBOOKS_HOME / "library" / "certs"))
@@ -188,7 +186,9 @@ DATABASE_PATH = Path(os.environ.get("DATABASE_PATH", str(AUDIOBOOKS_DATABASE)))
 COVER_DIR = Path(os.environ.get("COVER_DIR", str(AUDIOBOOKS_COVERS)))
 # DATA_DIR: uses get_config() to read from config files, not just env vars
 DATA_DIR = Path(
-    get_config("DATA_DIR", str(PROJECT_DIR / "library" / "data" if PROJECT_DIR else "."))
+    get_config(
+        "DATA_DIR", str(PROJECT_DIR / "library" / "data" if PROJECT_DIR else ".")
+    )
 )
 SOURCES_DIR = AUDIOBOOKS_SOURCES
 SUPPLEMENTS_DIR = Path(os.environ.get("SUPPLEMENTS_DIR", str(AUDIOBOOKS_SUPPLEMENTS)))

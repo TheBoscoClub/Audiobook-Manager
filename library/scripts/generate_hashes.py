@@ -12,19 +12,19 @@ Features:
 - Parallel processing support
 """
 
+import multiprocessing
 import sqlite3
 import sys
 import time
-from pathlib import Path
-from datetime import datetime
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import multiprocessing
+from datetime import datetime
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH
-from utils import calculate_sha256
+from common import calculate_sha256
 
 # Configuration
 DB_PATH = DATABASE_PATH
@@ -55,13 +55,14 @@ def format_duration(seconds: float) -> str:
         return f"{seconds / 3600:.1f}h"
 
 
-def format_size(size_bytes: int) -> str:
+def format_size(size_bytes: int | float) -> str:
     """Format bytes into human-readable size"""
+    size_float = float(size_bytes)
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size_bytes < 1024:
-            return f"{size_bytes:.1f}{unit}"
-        size_bytes /= 1024
-    return f"{size_bytes:.1f}PB"
+        if size_float < 1024:
+            return f"{size_float:.1f}{unit}"
+        size_float /= 1024
+    return f"{size_float:.1f}PB"
 
 
 def get_pending_files(conn: sqlite3.Connection, force: bool = False) -> list:
@@ -69,18 +70,22 @@ def get_pending_files(conn: sqlite3.Connection, force: bool = False) -> list:
     cursor = conn.cursor()
 
     if force:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, file_path, file_size_mb, title
             FROM audiobooks
             ORDER BY file_size_mb ASC
-        """)
+        """
+        )
     else:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, file_path, file_size_mb, title
             FROM audiobooks
             WHERE sha256_hash IS NULL
             ORDER BY file_size_mb ASC
-        """)
+        """
+        )
 
     return cursor.fetchall()
 
@@ -102,7 +107,8 @@ def update_hash(conn: sqlite3.Connection, audiobook_id: int, hash_value: str):
 def find_duplicates(conn: sqlite3.Connection) -> list:
     """Find audiobooks with duplicate hashes"""
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT sha256_hash, COUNT(*) as count,
                GROUP_CONCAT(id) as ids,
                GROUP_CONCAT(title, ' | ') as titles,
@@ -112,11 +118,12 @@ def find_duplicates(conn: sqlite3.Connection) -> list:
         GROUP BY sha256_hash
         HAVING count > 1
         ORDER BY total_size_mb DESC
-    """)
+    """
+    )
     return cursor.fetchall()
 
 
-def generate_hashes(force: bool = False, limit: int = None, parallel: int = None):
+def generate_hashes(force: bool = False, limit: int | None = None, parallel: int | None = None):
     """Main hash generation function"""
     if not DB_PATH.exists():
         print(f"Error: Database not found at {DB_PATH}")
@@ -440,7 +447,10 @@ def verify_hashes(sample_size: int = 10):
         else:
             print("  ✗ HASH MISMATCH!")
             print(f"    Stored:  {stored_hash[:32]}...")
-            print(f"    Current: {current_hash[:32]}...")
+            if current_hash:
+                print(f"    Current: {current_hash[:32]}...")
+            else:
+                print("    Current: (failed to calculate)")
             failed += 1
 
     print(f"\n{'=' * 60}")

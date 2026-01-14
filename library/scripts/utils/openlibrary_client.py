@@ -24,10 +24,11 @@ Usage:
     work = client.get_work('OL27479W')
 """
 
-import requests
 import time
-from typing import Optional, Dict, List
 from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+import requests
 
 
 @dataclass

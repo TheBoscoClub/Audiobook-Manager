@@ -4,9 +4,10 @@ Handles rescan, reimport, hash generation, vacuum, and export operations.
 """
 
 import subprocess
+
 from flask import Blueprint, Response, jsonify, send_file
 
-from .core import get_db, FlaskResponse
+from .core import FlaskResponse, get_db
 
 utilities_db_bp = Blueprint("utilities_db", __name__)
 
@@ -49,11 +50,13 @@ def init_db_routes(db_path, project_root):
                 }
             )
         except subprocess.TimeoutExpired:
-            return jsonify(
-                {"success": False, "error": "Scan timed out after 30 minutes"}
-            ), 500
+            return (
+                jsonify({"success": False, "error": "Scan timed out after 30 minutes"}),
+                500,
+            )
         except Exception:
             import logging
+
             logging.exception("Error during library rescan")
             return jsonify({"success": False, "error": "Library rescan failed"}), 500
 
@@ -96,11 +99,15 @@ def init_db_routes(db_path, project_root):
                 }
             )
         except subprocess.TimeoutExpired:
-            return jsonify(
-                {"success": False, "error": "Import timed out after 5 minutes"}
-            ), 500
+            return (
+                jsonify(
+                    {"success": False, "error": "Import timed out after 5 minutes"}
+                ),
+                500,
+            )
         except Exception:
             import logging
+
             logging.exception("Error during database reimport")
             return jsonify({"success": False, "error": "Database reimport failed"}), 500
 
@@ -112,9 +119,12 @@ def init_db_routes(db_path, project_root):
         hash_script = project_root / "scripts" / "generate_hashes.py"
 
         if not hash_script.exists():
-            return jsonify(
-                {"success": False, "error": "Hash generation script not found"}
-            ), 500
+            return (
+                jsonify(
+                    {"success": False, "error": "Hash generation script not found"}
+                ),
+                500,
+            )
 
         try:
             result = subprocess.run(
@@ -145,14 +155,18 @@ def init_db_routes(db_path, project_root):
                 }
             )
         except subprocess.TimeoutExpired:
-            return jsonify(
-                {
-                    "success": False,
-                    "error": "Hash generation timed out after 30 minutes",
-                }
-            ), 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Hash generation timed out after 30 minutes",
+                    }
+                ),
+                500,
+            )
         except Exception:
             import logging
+
             logging.exception("Error during hash generation")
             return jsonify({"success": False, "error": "Hash generation failed"}), 500
 
@@ -189,6 +203,7 @@ def init_db_routes(db_path, project_root):
             )
         except Exception:
             import logging
+
             logging.exception("Error during database vacuum")
             return jsonify({"success": False, "error": "Database vacuum failed"}), 500
 
@@ -210,17 +225,20 @@ def init_db_routes(db_path, project_root):
         """Export library as JSON"""
         import json
         from datetime import datetime
+
         from flask import current_app
 
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, narrator, publisher, series, series_sequence,
                    duration_hours, file_size_mb, file_path, published_year, asin, isbn
             FROM audiobooks
             ORDER BY title
-        """)
+        """
+        )
 
         audiobooks = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -248,17 +266,20 @@ def init_db_routes(db_path, project_root):
         import csv
         import io
         from datetime import datetime
+
         from flask import current_app
 
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, narrator, publisher, series, series_sequence,
                    duration_hours, duration_formatted, file_size_mb, published_year, asin, isbn, file_path
             FROM audiobooks
             ORDER BY title
-        """)
+        """
+        )
 
         audiobooks = cursor.fetchall()
         conn.close()

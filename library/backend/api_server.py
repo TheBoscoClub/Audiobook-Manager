@@ -12,9 +12,8 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, API_PORT, PROJECT_DIR, SUPPLEMENTS_DIR
-
 from api_modular import create_app, run_server
+from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
 
 
 def main():

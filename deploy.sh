@@ -221,7 +221,7 @@ deploy_to_system() {
     if [[ ! -d "$target/library/venv" ]] && [[ "$DRY_RUN" == "false" ]]; then
         echo -e "${BLUE}Creating Python virtual environment...${NC}"
         sudo python3 -m venv "$target/library/venv"
-        sudo "$target/library/venv/bin/pip" install --quiet flask flask-cors mutagen
+        sudo "$target/library/venv/bin/pip" install --quiet flask mutagen
     fi
 
     # Set permissions
@@ -296,7 +296,7 @@ deploy_to_user() {
     if [[ ! -d "$target/library/venv" ]] && [[ "$DRY_RUN" == "false" ]]; then
         echo -e "${BLUE}Creating Python virtual environment...${NC}"
         python3 -m venv "$target/library/venv"
-        "$target/library/venv/bin/pip" install --quiet flask flask-cors mutagen
+        "$target/library/venv/bin/pip" install --quiet flask mutagen
     fi
 
     echo ""

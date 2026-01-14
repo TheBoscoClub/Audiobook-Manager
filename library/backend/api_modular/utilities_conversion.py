@@ -3,11 +3,11 @@ Conversion monitoring for audiobook format conversion.
 Provides real-time status of FFmpeg conversion processes.
 """
 
-import subprocess
 import re
+import subprocess
 import sys
-from flask import Blueprint, jsonify
 from pathlib import Path
+from flask import Blueprint, jsonify
 
 from .core import FlaskResponse
 
@@ -25,11 +25,7 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
     cmdlines = {}
 
     try:
-        ps_aux = subprocess.run(
-            ["ps", "aux"],
-            capture_output=True,
-            text=True
-        )
+        ps_aux = subprocess.run(["ps", "aux"], capture_output=True, text=True)
 
         for line in ps_aux.stdout.split("\n"):
             if "ffmpeg" in line and "libopus" in line:
@@ -50,11 +46,7 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
 def get_ffmpeg_nice_value() -> str | None:
     """Get the nice value of ffmpeg processes."""
     try:
-        ps_ni = subprocess.run(
-            ["ps", "-eo", "ni,comm"],
-            capture_output=True,
-            text=True
-        )
+        ps_ni = subprocess.run(["ps", "-eo", "ni,comm"], capture_output=True, text=True)
         for line in ps_ni.stdout.split("\n"):
             if "ffmpeg" in line:
                 parts = line.strip().split()
@@ -109,7 +101,7 @@ def parse_conversion_job(pid: int, cmdline: str) -> dict | None:
     job_output_size: int = 0
 
     # Extract source AAXC file path
-    source_match = re.search(r'-i\s+(\S+\.aaxc)', cmdline)
+    source_match = re.search(r"-i\s+(\S+\.aaxc)", cmdline)
     if source_match:
         source_path = Path(source_match.group(1))
         if source_path.exists():
@@ -118,7 +110,7 @@ def parse_conversion_job(pid: int, cmdline: str) -> dict | None:
     # Extract output opus file path (quoted or unquoted)
     output_match = re.search(r'-f ogg "([^"]+)"', cmdline)
     if not output_match:
-        output_match = re.search(r'-f ogg (.+\.opus)$', cmdline)
+        output_match = re.search(r"-f ogg (.+\.opus)$", cmdline)
     if output_match:
         output_path = Path(output_match.group(1))
         job_filename = output_path.name
@@ -164,11 +156,7 @@ def get_system_stats() -> dict:
             load_avg = f.read().strip().split()[0]
 
         # tmpfs usage
-        df_result = subprocess.run(
-            ["df", "-h", "/tmp"],
-            capture_output=True,
-            text=True
-        )
+        df_result = subprocess.run(["df", "-h", "/tmp"], capture_output=True, text=True)
         if df_result.returncode == 0:
             lines = df_result.stdout.strip().split("\n")
             if len(lines) > 1:
@@ -186,7 +174,7 @@ def get_system_stats() -> dict:
     }
 
 
-def init_conversion_routes(project_root):
+def init_conversion_routes(project_root: str | Path):
     """Initialize conversion monitoring routes with project root."""
 
     @utilities_conversion_bp.route("/api/conversion/status", methods=["GET"])
@@ -197,18 +185,17 @@ def init_conversion_routes(project_root):
         """
         # Import config paths
         sys.path.insert(0, str(project_root))
-        from config import (
-            AUDIOBOOKS_SOURCES,
-            AUDIOBOOKS_LIBRARY,
-            AUDIOBOOKS_STAGING,
-        )
+        from config import (AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES,
+                            AUDIOBOOKS_STAGING)
 
         staging_dir = AUDIOBOOKS_STAGING
 
         try:
             # Count source AAXC files (recursive to handle nested download batches)
             sources_dir = AUDIOBOOKS_SOURCES
-            aaxc_count = len(list(sources_dir.rglob("*.aaxc"))) if sources_dir.exists() else 0
+            aaxc_count = (
+                len(list(sources_dir.rglob("*.aaxc"))) if sources_dir.exists() else 0
+            )
 
             # Count staged opus files (excluding covers) - recursively search subdirs
             staged_count = 0
@@ -231,8 +218,8 @@ def init_conversion_routes(project_root):
             # The queue uses smart title matching to avoid false positives
             queue_file = AUDIOBOOKS_SOURCES.parent / ".index" / "queue.txt"
             if queue_file.exists():
-                with open(queue_file) as f:
-                    queue_lines = [line.strip() for line in f if line.strip()]
+                with open(queue_file) as qf:
+                    queue_lines = [line.strip() for line in qf if line.strip()]
                     remaining = len(queue_lines)
             else:
                 # Fallback to simple arithmetic
@@ -244,7 +231,7 @@ def init_conversion_routes(project_root):
             ffmpeg_nice = get_ffmpeg_nice_value()
 
             active_conversions = []  # Legacy: just filenames for backward compat
-            conversion_jobs = []     # Detailed per-job info
+            conversion_jobs = []  # Detailed per-job info
             total_read_bytes = 0
             total_write_bytes = 0
 
@@ -270,39 +257,44 @@ def init_conversion_routes(project_root):
             effective_remaining = max(remaining, ffmpeg_count)
 
             # Only complete when no remaining AND no active conversions
-            is_complete = (
-                remaining == 0 and ffmpeg_count == 0 and aaxc_count > 0
-            )
+            is_complete = remaining == 0 and ffmpeg_count == 0 and aaxc_count > 0
 
-            return jsonify({
-                "success": True,
-                "status": {
-                    "source_count": aaxc_count,
-                    "library_count": library_count,
-                    "staged_count": staged_count,
-                    "total_converted": total_converted,
-                    "queue_count": effective_remaining,  # Use effective for consistency
-                    "remaining": effective_remaining,
-                    "percent_complete": percent,
-                    "is_complete": is_complete,
-                },
-                "processes": {
-                    "ffmpeg_count": ffmpeg_count,
-                    "ffmpeg_nice": ffmpeg_nice,
-                    "active_conversions": active_conversions[:12],  # Limit to 12 (legacy)
-                    "conversion_jobs": conversion_jobs[:12],  # Detailed per-job info
-                    "io_read_bytes": total_read_bytes,
-                    "io_write_bytes": total_write_bytes,
-                },
-                "system": system_stats
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "status": {
+                        "source_count": aaxc_count,
+                        "library_count": library_count,
+                        "staged_count": staged_count,
+                        "total_converted": total_converted,
+                        "queue_count": effective_remaining,  # Use effective for consistency
+                        "remaining": effective_remaining,
+                        "percent_complete": percent,
+                        "is_complete": is_complete,
+                    },
+                    "processes": {
+                        "ffmpeg_count": ffmpeg_count,
+                        "ffmpeg_nice": ffmpeg_nice,
+                        "active_conversions": active_conversions[
+                            :12
+                        ],  # Limit to 12 (legacy)
+                        "conversion_jobs": conversion_jobs[
+                            :12
+                        ],  # Detailed per-job info
+                        "io_read_bytes": total_read_bytes,
+                        "io_write_bytes": total_write_bytes,
+                    },
+                    "system": system_stats,
+                }
+            )
 
         except Exception:
             import logging
+
             logging.exception("Error getting conversion status")
-            return jsonify({
-                "success": False,
-                "error": "Failed to get conversion status"
-            }), 500
+            return (
+                jsonify({"success": False, "error": "Failed to get conversion status"}),
+                500,
+            )
 
     return utilities_conversion_bp

@@ -3,10 +3,11 @@ CRUD operations for audiobook records.
 Handles create, update, delete, and query operations for individual and bulk records.
 """
 
-from flask import Blueprint, Response, jsonify, request
 from pathlib import Path
 
-from .core import get_db, FlaskResponse
+from flask import Blueprint, Response, jsonify, request
+
+from .core import FlaskResponse, get_db
 
 utilities_crud_bp = Blueprint("utilities_crud", __name__)
 
@@ -48,9 +49,10 @@ def init_crud_routes(db_path):
 
         if not updates:
             conn.close()
-            return jsonify(
-                {"success": False, "error": "No valid fields to update"}
-            ), 400
+            return (
+                jsonify({"success": False, "error": "No valid fields to update"}),
+                400,
+            )
 
         values.append(id)
         query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"
@@ -67,6 +69,7 @@ def init_crud_routes(db_path):
                 return jsonify({"success": False, "error": "Audiobook not found"}), 404
         except Exception:
             import logging
+
             logging.exception("Error updating audiobook %d", id)
             conn.close()
             return jsonify({"success": False, "error": "Database update failed"}), 500
@@ -107,6 +110,7 @@ def init_crud_routes(db_path):
         except Exception:
             # Rollback on any error to prevent partial deletions
             import logging
+
             logging.exception("Error deleting audiobook %d", id)
             conn.rollback()
             conn.close()
@@ -118,12 +122,15 @@ def init_crud_routes(db_path):
         data = request.get_json()
 
         if not data or "ids" not in data or "field" not in data:
-            return jsonify(
-                {
-                    "success": False,
-                    "error": "Missing required fields: ids, field, value",
-                }
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Missing required fields: ids, field, value",
+                    }
+                ),
+                400,
+            )
 
         ids = data["ids"]
         field = data["field"]
@@ -132,17 +139,21 @@ def init_crud_routes(db_path):
         # Whitelist allowed fields for bulk update
         allowed_fields = ["narrator", "series", "publisher", "published_year"]
         if field not in allowed_fields:
-            return jsonify(
-                {
-                    "success": False,
-                    "error": f"Field not allowed for bulk update: {field}",
-                }
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Field not allowed for bulk update: {field}",
+                    }
+                ),
+                400,
+            )
 
         if not ids:
-            return jsonify(
-                {"success": False, "error": "No audiobook IDs provided"}
-            ), 400
+            return (
+                jsonify({"success": False, "error": "No audiobook IDs provided"}),
+                400,
+            )
 
         conn = get_db(db_path)
         cursor = conn.cursor()
@@ -158,6 +169,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": True, "updated_count": updated_count})
         except Exception:
             import logging
+
             logging.exception("Error in bulk update")
             conn.close()
             return jsonify({"success": False, "error": "Bulk update failed"}), 500
@@ -173,17 +185,19 @@ def init_crud_routes(db_path):
         data = request.get_json()
 
         if not data or "ids" not in data:
-            return jsonify(
-                {"success": False, "error": "Missing required field: ids"}
-            ), 400
+            return (
+                jsonify({"success": False, "error": "Missing required field: ids"}),
+                400,
+            )
 
         ids = data["ids"]
         delete_files = data.get("delete_files", False)
 
         if not ids:
-            return jsonify(
-                {"success": False, "error": "No audiobook IDs provided"}
-            ), 400
+            return (
+                jsonify({"success": False, "error": "No audiobook IDs provided"}),
+                400,
+            )
 
         conn = get_db(db_path)
         cursor = conn.cursor()
@@ -199,7 +213,8 @@ def init_crud_routes(db_path):
                     ids,
                 )
                 files_to_delete = [
-                    Path(row["file_path"]) for row in cursor.fetchall()
+                    Path(row["file_path"])
+                    for row in cursor.fetchall()
                     if row["file_path"]
                 ]
 
@@ -243,7 +258,9 @@ def init_crud_routes(db_path):
                             deleted_files.append(str(file_path))
                         except Exception as e:
                             # Log but don't fail - DB deletion succeeded
-                            failed_files.append({"path": str(file_path), "error": str(e)})
+                            failed_files.append(
+                                {"path": str(file_path), "error": str(e)}
+                            )
 
             return jsonify(
                 {
@@ -256,6 +273,7 @@ def init_crud_routes(db_path):
         except Exception:
             # Rollback on any error
             import logging
+
             logging.exception("Error in bulk delete")
             conn.rollback()
             conn.close()
@@ -267,13 +285,15 @@ def init_crud_routes(db_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE narrator IS NULL OR narrator = '' OR narrator = 'Unknown Narrator'
             ORDER BY title
             LIMIT 200
-        """)
+        """
+        )
 
         audiobooks = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -286,13 +306,15 @@ def init_crud_routes(db_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE sha256_hash IS NULL OR sha256_hash = ''
             ORDER BY title
             LIMIT 200
-        """)
+        """
+        )
 
         audiobooks = [dict(row) for row in cursor.fetchall()]
         conn.close()

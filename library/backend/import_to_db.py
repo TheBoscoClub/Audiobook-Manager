@@ -11,7 +11,7 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, DATA_DIR
+from config import DATA_DIR, DATABASE_PATH
 
 DB_PATH = DATABASE_PATH
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
@@ -63,13 +63,15 @@ def import_audiobooks(conn):
 
     # Save genre data (keyed by file_path)
     preserved_genres = {}
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT a.file_path, GROUP_CONCAT(g.name, '|||')
         FROM audiobooks a
         JOIN audiobook_genres ag ON a.id = ag.audiobook_id
         JOIN genres g ON ag.genre_id = g.id
         GROUP BY a.file_path
-    """)
+    """
+    )
     for row in cursor.fetchall():
         if row[1]:
             preserved_genres[row[0]] = row[1].split("|||")
@@ -227,11 +229,14 @@ def validate_json_source(json_path: Path) -> bool:
         print("   If not, ensure DATA_DIR points to production data.\n")
 
         import os
+
         if os.environ.get("SKIP_IMPORT_VALIDATION") != "1":
             sys.exit(1)
 
     # Safety check 2: Test audiobook titles
-    test_titles = [b.get("title", "") for b in audiobooks if "Test Audiobook" in b.get("title", "")]
+    test_titles = [
+        b.get("title", "") for b in audiobooks if "Test Audiobook" in b.get("title", "")
+    ]
     if test_titles:
         print("\n⚠️  WARNING: JSON file contains test audiobook titles!")
         print(f"   Found: {test_titles[:5]}")
@@ -240,6 +245,7 @@ def validate_json_source(json_path: Path) -> bool:
         print("   If this is intentional, set SKIP_IMPORT_VALIDATION=1\n")
 
         import os
+
         if os.environ.get("SKIP_IMPORT_VALIDATION") != "1":
             sys.exit(1)
 

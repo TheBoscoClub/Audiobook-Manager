@@ -10,22 +10,18 @@ Serves as a unified HTTPS endpoint that:
 """
 
 import http.server
-import ssl
-import urllib.request
-import urllib.error
-from pathlib import Path
-import os
-import sys
 import json
+import os
+import ssl
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import (
-    AUDIOBOOKS_WEB_PORT,
-    AUDIOBOOKS_API_PORT,
-    AUDIOBOOKS_CERTS,
-    AUDIOBOOKS_BIND_ADDRESS,
-)
+from config import (AUDIOBOOKS_API_PORT, AUDIOBOOKS_BIND_ADDRESS,
+                    AUDIOBOOKS_CERTS, AUDIOBOOKS_WEB_PORT)
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 API_PORT = AUDIOBOOKS_API_PORT

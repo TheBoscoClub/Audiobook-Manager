@@ -5,35 +5,21 @@ Update narrator information in the audiobooks database from Audible library expo
 This script matches audiobooks by title (fuzzy matching) and updates the narrator field.
 """
 
-import sqlite3
 import json
-import sys
 import re
-from pathlib import Path
-from difflib import SequenceMatcher
+import sqlite3
+import sys
 from argparse import ArgumentParser
+from difflib import SequenceMatcher
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, AUDIOBOOKS_DATA
+from config import AUDIOBOOKS_DATA, DATABASE_PATH
+from common import normalize_title
 
 DB_PATH = DATABASE_PATH
 AUDIBLE_EXPORT = AUDIOBOOKS_DATA / "library_metadata.json"
-
-
-def normalize_title(title):
-    """Normalize title for matching."""
-    if not title:
-        return ""
-    # Remove common suffixes
-    title = re.sub(r"\s*\(Unabridged\)\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*\[Unabridged\]\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*:\s*A Novel\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*:\s*A Memoir\s*$", "", title, flags=re.IGNORECASE)
-    # Remove punctuation and lowercase
-    title = re.sub(r"[^\w\s]", "", title)
-    title = " ".join(title.lower().split())
-    return title
 
 
 def similarity(a, b):
@@ -92,11 +78,13 @@ def update_narrators(dry_run=True):
     cursor = conn.cursor()
 
     # Get all audiobooks with Unknown Narrator
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, title, author, narrator, asin
         FROM audiobooks
         WHERE narrator = 'Unknown Narrator' OR narrator IS NULL OR narrator = ''
-    """)
+    """
+    )
     unknown_narrator_books = cursor.fetchall()
 
     print(f"Found {len(unknown_narrator_books)} books with unknown narrator")

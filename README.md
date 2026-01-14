@@ -6,10 +6,10 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-darkgreen)![6](https://img.shields.io/badge/6-green) | Latest patch | [v3.9.6](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.6) |
+| ![3](https://img.shields.io/badge/3-brightgreen)![9](https://img.shields.io/badge/9-darkgreen)![7](https://img.shields.io/badge/7-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v3.9.7.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.7.1) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![7](https://img.shields.io/badge/7-red) | Prior patch | [v3.9.7](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.7) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![6](https://img.shields.io/badge/6-red) | Prior patch | [v3.9.6](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.6) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![5](https://img.shields.io/badge/5-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v3.9.5.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5.1) |
-| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![5](https://img.shields.io/badge/5-red) | Prior patch | [v3.9.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.5) |
-| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v3.9.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.0) |
 
 <details>
 <summary>Badge Color Convention</summary>
@@ -1107,7 +1107,15 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.9.6 (Current)
+### v3.9.7.1 (Current)
+- **Audit Fixes**: PIL rebuilt for Python 3.14, flask-cors removed from install scripts, systemd ConditionPathExists paths fixed
+
+### v3.9.7
+- **Upgrade Script Path Bug**: Fixed `upgrade-helper-process` referencing wrong path (was `/opt/audiobooks/upgrade.sh`, now `/opt/audiobooks/scripts/upgrade.sh`)
+- **Duplicate Finder Endpoint**: Fixed JavaScript calling non-existent `/api/duplicates/by-hash` (now `/api/duplicates`)
+- **Upgrade Script Sync**: Root-level management scripts now properly sync during upgrades
+
+### v3.9.6
 - **Security Hardening**: Fix CVE-2025-43859 (h11 HTTP smuggling), enforce TLS 1.2 minimum, add SSRF path validation
 - **CodeQL Remediation**: Fix 30 code scanning alerts (stack trace exposure, empty except handlers, type errors)
 - **Code Quality**: Fix ruff linting errors, add missing type imports, improve error logging

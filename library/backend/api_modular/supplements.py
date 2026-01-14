@@ -2,10 +2,11 @@
 Supplement endpoints - PDF, ebook, and other companion files for audiobooks.
 """
 
-from flask import Blueprint, Response, jsonify, send_file
 from pathlib import Path
 
-from .core import get_db, FlaskResponse
+from flask import Blueprint, Response, jsonify, send_file
+
+from .core import FlaskResponse, get_db
 
 supplements_bp = Blueprint("supplements", __name__)
 
@@ -19,12 +20,14 @@ def init_supplements_routes(db_path, supplements_dir):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT s.*, a.title as audiobook_title, a.author as audiobook_author
             FROM supplements s
             LEFT JOIN audiobooks a ON s.audiobook_id = a.id
             ORDER BY s.filename
-        """)
+        """
+        )
 
         supplements = [dict(row) for row in cursor.fetchall()]
         conn.close()

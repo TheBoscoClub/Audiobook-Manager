@@ -16,12 +16,13 @@ This allows the API to run with NoNewPrivileges=yes while still supporting
 privileged operations like service control and application upgrades.
 """
 
-import os
 import json
-import time
+import os
 import subprocess
-from flask import Blueprint, jsonify, request
+import time
 from pathlib import Path
+
+from flask import Blueprint, jsonify, request
 
 from .core import FlaskResponse
 
@@ -104,7 +105,9 @@ def _wait_for_completion(timeout: float = 30.0, poll_interval: float = 0.5) -> d
                 if content:  # Not empty
                     status = json.loads(content)
                     # Only return if we have a completed operation (success is not None)
-                    if status.get("success") is not None and not status.get("running", True):
+                    if status.get("success") is not None and not status.get(
+                        "running", True
+                    ):
                         return status
             except (json.JSONDecodeError, PermissionError, OSError):
                 pass  # Keep waiting
@@ -159,129 +162,180 @@ def init_system_routes(project_root):
                 )
                 is_enabled = result_enabled.stdout.strip() == "enabled"
 
-                services.append({
-                    "name": service,
-                    "active": is_active,
-                    "enabled": is_enabled,
-                    "status": result.stdout.strip(),
-                })
+                services.append(
+                    {
+                        "name": service,
+                        "active": is_active,
+                        "enabled": is_enabled,
+                        "status": result.stdout.strip(),
+                    }
+                )
             except subprocess.TimeoutExpired:
-                services.append({
-                    "name": service,
-                    "active": False,
-                    "enabled": False,
-                    "status": "timeout",
-                    "error": "Timeout checking service status",
-                })
+                services.append(
+                    {
+                        "name": service,
+                        "active": False,
+                        "enabled": False,
+                        "status": "timeout",
+                        "error": "Timeout checking service status",
+                    }
+                )
             except Exception:
                 import logging
-                logging.exception("Error checking service status for %s", service)
-                services.append({
-                    "name": service,
-                    "active": False,
-                    "enabled": False,
-                    "status": "error",
-                    "error": "Service status check failed",
-                })
 
-        return jsonify({
-            "services": services,
-            "all_active": all(s["active"] for s in services),
-        })
+                logging.exception("Error checking service status for %s", service)
+                services.append(
+                    {
+                        "name": service,
+                        "active": False,
+                        "enabled": False,
+                        "status": "error",
+                        "error": "Service status check failed",
+                    }
+                )
+
+        return jsonify(
+            {
+                "services": services,
+                "all_active": all(s["active"] for s in services),
+            }
+        )
 
     # =========================================================================
     # Service Control Endpoints (via privileged helper)
     # =========================================================================
 
-    @utilities_system_bp.route("/api/system/services/<service_name>/start", methods=["POST"])
+    @utilities_system_bp.route(
+        "/api/system/services/<service_name>/start", methods=["POST"]
+    )
     def start_service(service_name: str) -> FlaskResponse:
         """Start a specific service."""
         if service_name not in SERVICES:
             return jsonify({"error": f"Unknown service: {service_name}"}), 400
 
         if not _write_request({"type": "service_start", "service": service_name}):
-            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+            return (
+                jsonify({"error": "Failed to write request (permission denied)"}),
+                500,
+            )
 
         status = _wait_for_completion(timeout=30.0)
 
         if status.get("success"):
             return jsonify({"success": True, "message": f"Started {service_name}"})
         else:
-            return jsonify({
-                "success": False,
-                "error": status.get("message", "Failed to start service")
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": status.get("message", "Failed to start service"),
+                    }
+                ),
+                500,
+            )
 
-    @utilities_system_bp.route("/api/system/services/<service_name>/stop", methods=["POST"])
+    @utilities_system_bp.route(
+        "/api/system/services/<service_name>/stop", methods=["POST"]
+    )
     def stop_service(service_name: str) -> FlaskResponse:
         """Stop a specific service."""
         if service_name not in SERVICES:
             return jsonify({"error": f"Unknown service: {service_name}"}), 400
 
         if not _write_request({"type": "service_stop", "service": service_name}):
-            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+            return (
+                jsonify({"error": "Failed to write request (permission denied)"}),
+                500,
+            )
 
         status = _wait_for_completion(timeout=30.0)
 
         if status.get("success"):
             return jsonify({"success": True, "message": f"Stopped {service_name}"})
         else:
-            return jsonify({
-                "success": False,
-                "error": status.get("message", "Failed to stop service")
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": status.get("message", "Failed to stop service"),
+                    }
+                ),
+                500,
+            )
 
-    @utilities_system_bp.route("/api/system/services/<service_name>/restart", methods=["POST"])
+    @utilities_system_bp.route(
+        "/api/system/services/<service_name>/restart", methods=["POST"]
+    )
     def restart_service(service_name: str) -> FlaskResponse:
         """Restart a specific service."""
         if service_name not in SERVICES:
             return jsonify({"error": f"Unknown service: {service_name}"}), 400
 
         if not _write_request({"type": "service_restart", "service": service_name}):
-            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+            return (
+                jsonify({"error": "Failed to write request (permission denied)"}),
+                500,
+            )
 
         status = _wait_for_completion(timeout=30.0)
 
         if status.get("success"):
             return jsonify({"success": True, "message": f"Restarted {service_name}"})
         else:
-            return jsonify({
-                "success": False,
-                "error": status.get("message", "Failed to restart service")
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": status.get("message", "Failed to restart service"),
+                    }
+                ),
+                500,
+            )
 
     @utilities_system_bp.route("/api/system/services/start-all", methods=["POST"])
     def start_all_services() -> FlaskResponse:
         """Start all audiobook services."""
         if not _write_request({"type": "services_start_all"}):
-            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+            return (
+                jsonify({"error": "Failed to write request (permission denied)"}),
+                500,
+            )
 
         status = _wait_for_completion(timeout=60.0)
 
         result = status.get("result") or {}
-        return jsonify({
-            "success": status.get("success", False),
-            "results": result.get("results", []),
-            "message": status.get("message", ""),
-        })
+        return jsonify(
+            {
+                "success": status.get("success", False),
+                "results": result.get("results", []),
+                "message": status.get("message", ""),
+            }
+        )
 
     @utilities_system_bp.route("/api/system/services/stop-all", methods=["POST"])
     def stop_all_services() -> FlaskResponse:
         """Stop audiobook services. By default keeps API and proxy for web access."""
         include_api = request.args.get("include_api", "false").lower() == "true"
 
-        if not _write_request({"type": "services_stop_all", "include_api": include_api}):
-            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+        if not _write_request(
+            {"type": "services_stop_all", "include_api": include_api}
+        ):
+            return (
+                jsonify({"error": "Failed to write request (permission denied)"}),
+                500,
+            )
 
         status = _wait_for_completion(timeout=60.0)
 
         result = status.get("result") or {}
-        return jsonify({
-            "success": status.get("success", False),
-            "results": result.get("results", []),
-            "note": result.get("note", ""),
-            "message": status.get("message", ""),
-        })
+        return jsonify(
+            {
+                "success": status.get("success", False),
+                "results": result.get("results", []),
+                "note": result.get("note", ""),
+                "message": status.get("message", ""),
+            }
+        )
 
     # =========================================================================
     # Upgrade Endpoints (via privileged helper, async with polling)
@@ -316,7 +370,7 @@ def init_system_routes(project_root):
         if source == "project" and not project_path:
             return jsonify({"error": "project_path required for project source"}), 400
 
-        if source == "project" and not os.path.isdir(project_path):
+        if source == "project" and project_path and not os.path.isdir(project_path):
             return jsonify({"error": f"Project path not found: {project_path}"}), 400
 
         # Write upgrade request
@@ -325,13 +379,18 @@ def init_system_routes(project_root):
             request_data["project_path"] = project_path
 
         if not _write_request(request_data):
-            return jsonify({"error": "Failed to write request (permission denied)"}), 500
+            return (
+                jsonify({"error": "Failed to write request (permission denied)"}),
+                500,
+            )
 
-        return jsonify({
-            "success": True,
-            "message": "Upgrade started",
-            "source": source,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": "Upgrade started",
+                "source": source,
+            }
+        )
 
     # =========================================================================
     # Version and Project Info (no privilege needed)
@@ -349,10 +408,12 @@ def init_system_routes(project_root):
         except Exception:
             version = "unknown"
 
-        return jsonify({
-            "version": version,
-            "project_root": str(project_root),
-        })
+        return jsonify(
+            {
+                "version": version,
+                "project_root": str(project_root),
+            }
+        )
 
     @utilities_system_bp.route("/api/system/projects", methods=["GET"])
     def list_projects() -> FlaskResponse:
@@ -387,11 +448,13 @@ def init_system_routes(project_root):
                                     version = f.read().strip()
                             except Exception:
                                 pass  # Non-critical: version stays None
-                        projects.append({
-                            "name": name,
-                            "path": project_path,
-                            "version": version,
-                        })
+                        projects.append(
+                            {
+                                "name": name,
+                                "path": project_path,
+                                "version": version,
+                            }
+                        )
             except Exception:
                 continue  # Skip inaccessible directories
 

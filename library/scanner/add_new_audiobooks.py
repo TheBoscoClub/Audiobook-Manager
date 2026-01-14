@@ -19,20 +19,15 @@ This script:
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
-
 # Import shared utilities from scanner package
-from scanner.metadata_utils import (
-    get_file_metadata,
-    extract_cover_art,
-    categorize_genre,
-    determine_literary_era,
-    extract_topics,
-)
+from scanner.metadata_utils import (categorize_genre, determine_literary_era,
+                                    extract_cover_art, extract_topics,
+                                    get_file_metadata)
 
 SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 
@@ -74,52 +69,52 @@ def find_new_audiobooks(library_dir: Path, existing_paths: set[str]) -> list[Pat
     return new_files
 
 
-def get_or_create_lookup_id(
-    cursor: sqlite3.Cursor,
-    table: str,
-    name: str
-) -> int:
+def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> int:
     """Get or create an ID in a lookup table (genres, eras, topics)."""
     cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))
     row = cursor.fetchone()
     if row:
         return row[0]
     cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (name,))
-    return cursor.lastrowid
+    lastrowid = cursor.lastrowid
+    if lastrowid is None:
+        raise RuntimeError(f"Failed to insert into {table}")
+    return lastrowid
 
 
 def insert_audiobook(
-    conn: sqlite3.Connection,
-    metadata: dict,
-    cover_path: Optional[str]
+    conn: sqlite3.Connection, metadata: dict, cover_path: Optional[str]
 ) -> Optional[int]:
     """Insert a single audiobook into the database. Returns the new ID."""
     cursor = conn.cursor()
 
     # Insert main record
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO audiobooks (
             title, author, narrator, publisher, series,
             duration_hours, duration_formatted, file_size_mb,
             file_path, cover_path, format, description,
             sha256_hash, hash_verified_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        metadata.get("title"),
-        metadata.get("author"),
-        metadata.get("narrator"),
-        metadata.get("publisher"),
-        metadata.get("series"),
-        metadata.get("duration_hours"),
-        metadata.get("duration_formatted"),
-        metadata.get("file_size_mb"),
-        metadata.get("file_path"),
-        cover_path,
-        metadata.get("format"),
-        metadata.get("description", ""),
-        metadata.get("sha256_hash"),
-        metadata.get("hash_verified_at"),
-    ))
+    """,
+        (
+            metadata.get("title"),
+            metadata.get("author"),
+            metadata.get("narrator"),
+            metadata.get("publisher"),
+            metadata.get("series"),
+            metadata.get("duration_hours"),
+            metadata.get("duration_formatted"),
+            metadata.get("file_size_mb"),
+            metadata.get("file_path"),
+            cover_path,
+            metadata.get("format"),
+            metadata.get("description", ""),
+            metadata.get("sha256_hash"),
+            metadata.get("hash_verified_at"),
+        ),
+    )
 
     audiobook_id = cursor.lastrowid
 
@@ -129,7 +124,7 @@ def insert_audiobook(
     genre_id = get_or_create_lookup_id(cursor, "genres", genre_cat["sub"])
     cursor.execute(
         "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-        (audiobook_id, genre_id)
+        (audiobook_id, genre_id),
     )
 
     # Insert era
@@ -137,7 +132,7 @@ def insert_audiobook(
     era_id = get_or_create_lookup_id(cursor, "eras", era)
     cursor.execute(
         "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-        (audiobook_id, era_id)
+        (audiobook_id, era_id),
     )
 
     # Insert topics
@@ -146,7 +141,7 @@ def insert_audiobook(
         topic_id = get_or_create_lookup_id(cursor, "topics", topic_name)
         cursor.execute(
             "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
-            (audiobook_id, topic_id)
+            (audiobook_id, topic_id),
         )
 
     return audiobook_id
@@ -157,7 +152,7 @@ def add_new_audiobooks(
     db_path: Path = DATABASE_PATH,
     cover_dir: Path = COVER_DIR,
     calculate_hashes: bool = True,
-    progress_callback: ProgressCallback = None
+    progress_callback: ProgressCallback = None,
 ) -> dict:
     """
     Find and add new audiobooks to the database.
@@ -198,7 +193,7 @@ def add_new_audiobooks(
             "added": added_count,
             "skipped": skipped_count,
             "errors": errors_count,
-            "new_files": new_files_list
+            "new_files": new_files_list,
         }
 
     # Ensure cover directory exists
@@ -215,15 +210,15 @@ def add_new_audiobooks(
             pct = 5 + int((idx / total) * 90)
 
             if progress_callback:
-                progress_callback(pct, 100, f"Processing {idx}/{total}: {filepath.name}")
+                progress_callback(
+                    pct, 100, f"Processing {idx}/{total}: {filepath.name}"
+                )
 
             print(f"[{idx:3d}/{total}] Adding: {filepath.name}")
 
             # Extract metadata using shared utility
             metadata = get_file_metadata(
-                filepath,
-                audiobook_dir=library_dir,
-                calculate_hash=calculate_hashes
+                filepath, audiobook_dir=library_dir, calculate_hash=calculate_hashes
             )
             if not metadata:
                 errors_count += 1
@@ -238,12 +233,14 @@ def add_new_audiobooks(
                 conn.commit()
 
                 added_count += 1
-                new_files_list.append({
-                    "id": audiobook_id,
-                    "title": metadata.get("title"),
-                    "author": metadata.get("author"),
-                    "file_path": str(filepath),
-                })
+                new_files_list.append(
+                    {
+                        "id": audiobook_id,
+                        "title": metadata.get("title"),
+                        "author": metadata.get("author"),
+                        "file_path": str(filepath),
+                    }
+                )
 
             except sqlite3.IntegrityError:
                 # File path already exists (race condition or duplicate)
@@ -265,7 +262,7 @@ def add_new_audiobooks(
         "added": added_count,
         "skipped": skipped_count,
         "errors": errors_count,
-        "new_files": new_files_list
+        "new_files": new_files_list,
     }
 
 
@@ -277,12 +274,14 @@ def main():
         description="Add new audiobooks to database (incremental scan)"
     )
     parser.add_argument(
-        "--no-hash", action="store_true",
-        help="Skip SHA-256 hash calculation (faster but no integrity verification)"
+        "--no-hash",
+        action="store_true",
+        help="Skip SHA-256 hash calculation (faster but no integrity verification)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Show what would be added without actually adding"
+        "--dry-run",
+        action="store_true",
+        help="Show what would be added without actually adding",
     )
     args = parser.parse_args()
 
@@ -307,9 +306,7 @@ def main():
         return
 
     # Run the incremental add
-    results = add_new_audiobooks(
-        calculate_hashes=not args.no_hash
-    )
+    results = add_new_audiobooks(calculate_hashes=not args.no_hash)
 
     print()
     print("=" * 60)

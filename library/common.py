@@ -34,6 +34,47 @@ def calculate_sha256(
         return None
 
 
+def normalize_title(title: str) -> str:
+    """
+    Normalize audiobook title for matching/comparison.
+
+    Performs the following normalizations:
+    - Removes common audiobook suffixes: (Unabridged), [Unabridged], [Tantor],
+      (Audible Audio Edition)
+    - Removes genre suffixes: ": A Novel", ": A Memoir"
+    - Removes all punctuation except spaces
+    - Converts to lowercase
+    - Collapses multiple spaces to single space
+
+    Args:
+        title: The title string to normalize
+
+    Returns:
+        Normalized title for comparison, or empty string if input is empty/None
+
+    Example:
+        >>> normalize_title("The Great Novel: A Novel (Unabridged)")
+        'the great novel'
+    """
+    if not title:
+        return ""
+    # Remove common audiobook suffixes (case-insensitive)
+    title = re.sub(r"\s*\(Unabridged\)\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\[Unabridged\]\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*\[Tantor\]\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(
+        r"\s*\(Audible Audio Edition\)\s*$", "", title, flags=re.IGNORECASE
+    )
+    # Remove genre suffixes
+    title = re.sub(r"\s*:\s*A Novel\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s*:\s*A Memoir\s*$", "", title, flags=re.IGNORECASE)
+    # Remove punctuation (keep only word characters and spaces)
+    title = re.sub(r"[^\w\s]", "", title)
+    # Lowercase and collapse whitespace
+    title = " ".join(title.lower().split())
+    return title
+
+
 def sanitize_filename(name: str, max_length: int = 255) -> str:
     """
     Sanitize a string for use as a filename.

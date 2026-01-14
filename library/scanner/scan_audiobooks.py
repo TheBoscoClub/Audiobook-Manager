@@ -8,23 +8,19 @@ Supports: .m4b, .opus, .m4a, .mp3
 import json
 import sys
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
-
 # Import shared utilities from scanner package
-from scanner.metadata_utils import (
-    get_file_metadata as _get_file_metadata,
-    extract_cover_art,
-    enrich_metadata,
-    # Re-export for backwards compatibility with tests
-    categorize_genre,
-    determine_literary_era,
-    extract_topics,
-)
+from scanner.metadata_utils import (categorize_genre, determine_literary_era,
+                                    enrich_metadata, extract_cover_art,
+                                    extract_topics)
+from scanner.metadata_utils import \
+    get_file_metadata as \
+    _get_file_metadata  # Re-export for backwards compatibility with tests
 
 # Re-export for backwards compatibility with tests
 __all__ = [
@@ -49,11 +45,11 @@ class ProgressTracker:
     """Track progress with visual progress bar, rate calculation, and ETA."""
 
     # ANSI color codes
-    CYAN = '\033[0;36m'
-    GREEN = '\033[0;32m'
-    YELLOW = '\033[1;33m'
-    BOLD = '\033[1m'
-    NC = '\033[0m'  # No Color
+    CYAN = "\033[0;36m"
+    GREEN = "\033[0;32m"
+    YELLOW = "\033[1;33m"
+    BOLD = "\033[1m"
+    NC = "\033[0m"  # No Color
 
     def __init__(self, total: int, bar_width: int = 40):
         self.total = total
@@ -68,7 +64,7 @@ class ProgressTracker:
         """Draw a visual progress bar using Unicode block characters."""
         filled = int(percent * self.bar_width / 100)
         empty = self.bar_width - filled
-        return '█' * filled + '░' * empty
+        return "█" * filled + "░" * empty
 
     def calculate_rate_and_eta(self) -> tuple:
         """Calculate processing rate and ETA."""
@@ -120,7 +116,7 @@ class ProgressTracker:
             f"{self.CYAN}{rate_str}{self.NC} files/min | "
             f"ETA: {self.YELLOW}{eta}{self.NC}",
             end="",
-            flush=True
+            flush=True,
         )
 
         # Print current file on next line if provided
@@ -151,6 +147,7 @@ class ProgressTracker:
 # =============================================================================
 # File Discovery
 # =============================================================================
+
 
 def find_audiobook_files(base_dir: Path, formats: list[str]) -> list[Path]:
     """
@@ -195,6 +192,7 @@ def find_audiobook_files(base_dir: Path, formats: list[str]) -> list[Path]:
 # Statistics and Output
 # =============================================================================
 
+
 def print_scan_statistics(audiobooks: list[dict]) -> None:
     """Print summary statistics for scanned audiobooks."""
     print("\n" + "=" * 60)
@@ -218,11 +216,10 @@ def print_scan_statistics(audiobooks: list[dict]) -> None:
     )
 
 
-
-
 # =============================================================================
 # Main Scanner
 # =============================================================================
+
 
 def scan_audiobooks() -> None:
     """Main scanning function."""

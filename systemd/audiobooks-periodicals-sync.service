@@ -3,7 +3,7 @@ Description=Audible periodicals index sync
 Documentation=file:///opt/audiobooks/docs/PERIODICALS.md
 After=network-online.target audiobooks-api.service
 Wants=network-online.target
-ConditionPathExists=/var/lib/audiobooks/audiobooks.db  # default
+ConditionPathExists=/var/lib/audiobooks/db/audiobooks.db  # default
 
 [Service]
 Type=oneshot

@@ -5,23 +5,23 @@ Extracts narrator, publisher, and description using mediainfo
 Updates database without re-converting files
 """
 
+import re
 import sqlite3
 import subprocess
 import sys
-import re
-from pathlib import Path
 from difflib import SequenceMatcher
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, AUDIOBOOKS_SOURCES
+from config import AUDIOBOOKS_SOURCES, DATABASE_PATH
 
 # Paths - use config
 DB_PATH = DATABASE_PATH
 SOURCES_DIR = AUDIOBOOKS_SOURCES
 
 
-def normalize_title(title):
+def normalize_source_filename(title):
     """Normalize title for matching (remove special chars, lowercase, etc.)"""
     # Remove common suffixes
     title = re.sub(r"-AAX_\d+_\d+$", "", title)
@@ -52,12 +52,12 @@ def find_source_file(book_title, book_path):
         return None
 
     # Normalize book title for matching
-    norm_book_title = normalize_title(book_basename)
+    norm_book_title = normalize_source_filename(book_basename)
 
     # First pass: Try exact prefix matching (handles cases where AAXC has subtitle)
     for aaxc_file in aaxc_files:
         aaxc_basename = aaxc_file.stem
-        norm_aaxc_title = normalize_title(aaxc_basename)
+        norm_aaxc_title = normalize_source_filename(aaxc_basename)
 
         # Check if AAXC title starts with the book title
         if norm_aaxc_title.startswith(norm_book_title):
@@ -70,7 +70,7 @@ def find_source_file(book_title, book_path):
     for aaxc_file in aaxc_files:
         # Normalize AAXC filename
         aaxc_basename = aaxc_file.stem
-        norm_aaxc_title = normalize_title(aaxc_basename)
+        norm_aaxc_title = normalize_source_filename(aaxc_basename)
 
         # Calculate similarity
         ratio = SequenceMatcher(None, norm_book_title, norm_aaxc_title).ratio()
@@ -200,11 +200,13 @@ def update_database():
     cursor = conn.cursor()
 
     # Get all audiobooks
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, title, author, narrator, publisher, file_path, description
         FROM audiobooks
         ORDER BY id
-    """)
+    """
+    )
 
     books = cursor.fetchall()
     total_books = len(books)

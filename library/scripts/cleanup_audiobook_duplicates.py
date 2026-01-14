@@ -18,8 +18,8 @@ SAFETY:
 
 import sqlite3
 import sys
-from pathlib import Path
 from argparse import ArgumentParser
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -44,14 +44,16 @@ def find_audiobook_folder_duplicates(conn):
     cursor = conn.cursor()
 
     # Find all entries from /Library/Audiobook/ folder
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, title, author, file_path, file_size_mb, duration_hours,
                LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
                ROUND(duration_hours, 1) as duration_group
         FROM audiobooks
         WHERE file_path LIKE '%/Library/Audiobook/%'
         ORDER BY title
-    """)
+    """
+    )
     audiobook_folder_entries = cursor.fetchall()
 
     duplicates_to_remove = []

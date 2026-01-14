@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -25,7 +24,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_simple_file(self, temp_dir):
         """Test hashing a simple file."""
-        from utils import calculate_sha256
+        from common import calculate_sha256
 
         test_file = temp_dir / "test.txt"
         test_file.write_text("Hello, World!")
@@ -39,7 +38,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_consistent(self, temp_dir):
         """Test that same content produces same hash."""
-        from utils import calculate_sha256
+        from common import calculate_sha256
 
         test_file = temp_dir / "test.txt"
         content = "Consistent content for hashing"
@@ -52,7 +51,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_different_content(self, temp_dir):
         """Test that different content produces different hash."""
-        from utils import calculate_sha256
+        from common import calculate_sha256
 
         file1 = temp_dir / "file1.txt"
         file2 = temp_dir / "file2.txt"
@@ -66,7 +65,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_nonexistent_file(self, temp_dir):
         """Test hashing a file that doesn't exist."""
-        from utils import calculate_sha256
+        from common import calculate_sha256
 
         nonexistent = temp_dir / "nonexistent.txt"
         result = calculate_sha256(nonexistent)
@@ -75,7 +74,7 @@ class TestCalculateSha256:
 
     def test_calculate_sha256_empty_file(self, temp_dir):
         """Test hashing an empty file."""
-        from utils import calculate_sha256
+        from common import calculate_sha256
 
         empty_file = temp_dir / "empty.txt"
         empty_file.write_text("")
@@ -377,7 +376,8 @@ class TestExtractCoverArt:
         def create_cover_file(*args, **kwargs):
             # Create the cover file that ffmpeg would create
             cover_path = (
-                output_dir / f"{hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()}.jpg"
+                output_dir
+                / f"{hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()}.jpg"
             )
             cover_path.write_bytes(b"fake jpeg")
             return MagicMock(returncode=0)
@@ -415,7 +415,9 @@ class TestExtractCoverArt:
         output_dir.mkdir()
 
         # Pre-create the cover file
-        cover_hash = hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()
+        cover_hash = hashlib.md5(
+            str(test_file).encode(), usedforsecurity=False
+        ).hexdigest()
         cover_path = output_dir / f"{cover_hash}.jpg"
         cover_path.write_bytes(b"existing cover")
 

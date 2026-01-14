@@ -4,8 +4,9 @@ Core API utilities - Database connection, CORS, and shared helpers.
 
 import sqlite3
 from pathlib import Path
-from flask import Response
 from typing import Union
+
+from flask import Response
 
 # Type alias for Flask route return types
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]

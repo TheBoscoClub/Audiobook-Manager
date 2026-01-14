@@ -250,12 +250,14 @@ class TestImportAudiobooks:
         assert genre_count == 2  # Fiction, Science Fiction
 
         # Check genre associations
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT g.name FROM genres g
             JOIN audiobook_genres ag ON g.id = ag.genre_id
             JOIN audiobooks a ON a.id = ag.audiobook_id
             WHERE a.title = 'The Great Test'
-        """)
+        """
+        )
         genres = {row[0] for row in cursor.fetchall()}
         assert "Fiction" in genres
         assert "Science Fiction" in genres
@@ -342,7 +344,8 @@ class TestImportAudiobooks:
         cursor = conn.cursor()
 
         # Minimal schema - just audiobooks table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE audiobooks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
@@ -350,20 +353,27 @@ class TestImportAudiobooks:
                 narrator TEXT,
                 file_path TEXT UNIQUE NOT NULL
             )
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             CREATE TABLE genres (id INTEGER PRIMARY KEY, name TEXT UNIQUE)
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             CREATE TABLE audiobook_genres (audiobook_id INTEGER, genre_id INTEGER)
-        """)
+        """
+        )
         conn.commit()
 
         # Insert initial data with NULL narrator
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO audiobooks (title, author, narrator, file_path)
             VALUES ('Another Book', 'Author', NULL, '/test/path/book2.opus')
-        """)
+        """
+        )
         conn.commit()
 
         # Manually update narrator (simulating Audible export sync)
@@ -399,29 +409,37 @@ class TestImportAudiobooks:
         cursor = conn.cursor()
 
         # Minimal schema
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE audiobooks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 file_path TEXT UNIQUE NOT NULL
             )
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             CREATE TABLE genres (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
             CREATE TABLE audiobook_genres (
                 audiobook_id INTEGER,
                 genre_id INTEGER,
                 PRIMARY KEY (audiobook_id, genre_id)
             )
-        """)
+        """
+        )
         conn.commit()
 
         # Insert book
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO audiobooks (title, file_path) VALUES ('Another Book', '/test/book.opus')
-        """)
+        """
+        )
         book_id = cursor.lastrowid
 
         # Add a manual genre (simulating user-added genre from Audible export)
@@ -434,13 +452,15 @@ class TestImportAudiobooks:
         conn.commit()
 
         # Test the preservation query that import_audiobooks uses
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT a.file_path, GROUP_CONCAT(g.name, '|||')
             FROM audiobooks a
             JOIN audiobook_genres ag ON a.id = ag.audiobook_id
             JOIN genres g ON ag.genre_id = g.id
             GROUP BY a.file_path
-        """)
+        """
+        )
         preserved = {}
         for row in cursor.fetchall():
             if row[1]:
@@ -500,7 +520,9 @@ class TestImportAudiobooks:
 class TestMain:
     """Test the main function."""
 
-    def test_main_success(self, temp_db_path, temp_schema_path, temp_json_path, capsys, monkeypatch):
+    def test_main_success(
+        self, temp_db_path, temp_schema_path, temp_json_path, capsys, monkeypatch
+    ):
         """Test successful main execution."""
         from backend import import_to_db
 
@@ -689,11 +711,13 @@ class TestEdgeCases:
         assert count == 1  # Should only be one "Fiction" genre
 
         # But both books should be associated with it
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM audiobook_genres ag
             JOIN genres g ON ag.genre_id = g.id
             WHERE g.name = 'Fiction'
-        """)
+        """
+        )
         assoc_count = cursor.fetchone()[0]
         assert assoc_count == 2
 

@@ -23,8 +23,12 @@ try:
 except ImportError:
     # Fallback to environment variables when running standalone
     _data_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
-    DATABASE_PATH = Path(os.environ.get("AUDIOBOOKS_DATABASE", f"{_data_dir}/audiobooks.db"))
-    DEFAULT_SUPPLEMENTS_DIR = Path(os.environ.get("AUDIOBOOKS_SUPPLEMENTS", f"{_data_dir}/Supplements"))
+    DATABASE_PATH = Path(
+        os.environ.get("AUDIOBOOKS_DATABASE", f"{_data_dir}/audiobooks.db")
+    )
+    DEFAULT_SUPPLEMENTS_DIR = Path(
+        os.environ.get("AUDIOBOOKS_SUPPLEMENTS", f"{_data_dir}/Supplements")
+    )
 
 
 def get_db():
@@ -36,7 +40,8 @@ def get_db():
 
 def ensure_supplements_table(cursor):
     """Ensure supplements table exists"""
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS supplements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             audiobook_id INTEGER,
@@ -48,7 +53,8 @@ def ensure_supplements_table(cursor):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE SET NULL
         )
-    """)
+    """
+    )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_supplements_audiobook_id ON supplements(audiobook_id)"
     )

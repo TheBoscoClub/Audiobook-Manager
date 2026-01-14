@@ -58,11 +58,12 @@ import zipfile
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import AUDIOBOOKS_COVERS, AUDIOBOOKS_LIBRARY, DATABASE_PATH  # noqa: E402
+from config import (AUDIOBOOKS_COVERS, AUDIOBOOKS_LIBRARY,  # noqa: E402
+                    DATABASE_PATH)
 
 
 def _set_low_priority():
@@ -72,10 +73,10 @@ def _set_low_priority():
 
 # Try to import mutagen for metadata handling
 try:
-    from mutagen.mp3 import MP3
-    from mutagen.id3 import APIC
-    from mutagen.oggopus import OggOpus
     from mutagen.flac import Picture
+    from mutagen.id3 import APIC
+    from mutagen.mp3 import MP3
+    from mutagen.oggopus import OggOpus
 
     HAS_MUTAGEN = True
 except ImportError:
@@ -121,7 +122,7 @@ class GooglePlayProcessor:
         self.enrich_metadata = enrich_metadata and HAS_OPENLIBRARY
         self.dry_run = dry_run
         self.verbose = verbose
-        self.temp_dir = None
+        self.temp_dir: Optional[Path] = None
 
         if self.enrich_metadata:
             self.ol_client = OpenLibraryClient()
@@ -213,7 +214,9 @@ class GooglePlayProcessor:
 
                 # Also save cover separately
                 cover_ext = "jpg" if "jpeg" in cover_mime else "png"
-                cover_hash = hashlib.md5(str(output_file).encode(), usedforsecurity=False).hexdigest()
+                cover_hash = hashlib.md5(
+                    str(output_file).encode(), usedforsecurity=False
+                ).hexdigest()
                 cover_path = self.covers_dir / f"{cover_hash}.{cover_ext}"
                 if not cover_path.exists():
                     self.covers_dir.mkdir(parents=True, exist_ok=True)
@@ -247,7 +250,7 @@ class GooglePlayProcessor:
 
     def _find_chapter_files(self, directory: Path) -> List[Path]:
         """Find and sort chapter audio files in directory (MP3, M4A, M4B)."""
-        audio_files = []
+        audio_files: list[Path] = []
 
         # Search recursively for common audiobook formats
         for pattern in [
@@ -276,9 +279,9 @@ class GooglePlayProcessor:
         audio_files.sort(key=sort_key)
         return audio_files
 
-    def _extract_metadata_from_chapters(self, chapter_files: List[Path]) -> Dict:
+    def _extract_metadata_from_chapters(self, chapter_files: List[Path]) -> Dict[str, Any]:
         """Extract metadata from chapter files using mutagen."""
-        metadata = {
+        metadata: Dict[str, Any] = {
             "title": None,
             "author": None,
             "narrator": None,
@@ -286,7 +289,7 @@ class GooglePlayProcessor:
             "genre": None,
             "year": None,
             "duration_seconds": 0,
-            "duration_hours": 0,
+            "duration_hours": 0.0,
             "chapter_count": len(chapter_files),
             "source": "google_play",
         }
@@ -392,7 +395,7 @@ class GooglePlayProcessor:
                 if self.verbose:
                     print(f"Warning: Could not read metadata from {chapter_file}: {e}")
 
-        metadata["duration_seconds"] = total_duration
+        metadata["duration_seconds"] = int(total_duration)
         metadata["duration_hours"] = round(total_duration / 3600, 2)
 
         # Fallback title from directory name
@@ -547,8 +550,9 @@ class GooglePlayProcessor:
 
             # Get image dimensions (optional, but helpful)
             try:
-                from PIL import Image
                 import io
+
+                from PIL import Image
 
                 img = Image.open(io.BytesIO(cover_data))
                 picture.width, picture.height = img.size
@@ -586,7 +590,7 @@ class GooglePlayProcessor:
 
     def _enrich_from_openlibrary(self, metadata: Dict) -> Dict:
         """Look up additional metadata from OpenLibrary."""
-        enriched = {}
+        enriched: dict[str, Any] = {}
 
         if not self.ol_client:
             return enriched

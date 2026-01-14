@@ -3,11 +3,12 @@ Duplicate detection endpoints - hash-based and title-based duplicate finding.
 """
 
 import os
-from typing import Any
-from flask import Blueprint, Response, jsonify, request
 from pathlib import Path
+from typing import Any
 
-from .core import get_db, FlaskResponse
+from flask import Blueprint, Response, jsonify, request
+
+from .core import FlaskResponse, get_db
 
 duplicates_bp = Blueprint("duplicates", __name__)
 
@@ -48,6 +49,7 @@ def remove_from_indexes(filepath: Path) -> dict:
         except Exception as e:
             # Log but continue - index update failures shouldn't break the operation
             import logging
+
             logging.warning(f"Failed to update index {idx_name}: {e}")
 
     return removed
@@ -86,14 +88,16 @@ def init_duplicates_routes(db_path):
         )
         hashed = cursor.fetchone()["count"]
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) as count FROM (
                 SELECT sha256_hash FROM audiobooks
                 WHERE sha256_hash IS NOT NULL
                 GROUP BY sha256_hash
                 HAVING COUNT(*) > 1
             )
-        """)
+        """
+        )
         duplicate_groups = cursor.fetchone()["count"]
 
         conn.close()
@@ -121,19 +125,22 @@ def init_duplicates_routes(db_path):
 
         if "sha256_hash" not in columns:
             conn.close()
-            return jsonify(
-                {"error": "Hash column not found. Run hash generation first."}
-            ), 400
+            return (
+                jsonify({"error": "Hash column not found. Run hash generation first."}),
+                400,
+            )
 
         # Get all duplicate groups
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT sha256_hash, COUNT(*) as count
             FROM audiobooks
             WHERE sha256_hash IS NOT NULL
             GROUP BY sha256_hash
             HAVING count > 1
             ORDER BY count DESC
-        """)
+        """
+        )
         groups = cursor.fetchall()
 
         duplicate_groups = []
@@ -203,7 +210,8 @@ def init_duplicates_routes(db_path):
 
         # Find duplicates by normalized title + real author (excluding "Audiobook")
         # Also require similar duration to avoid grouping different books
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
                 LOWER(TRIM(author)) as norm_author,
@@ -217,7 +225,8 @@ def init_duplicates_routes(db_path):
             GROUP BY norm_title, norm_author, duration_group
             HAVING count > 1
             ORDER BY count DESC, norm_title
-        """)
+        """
+        )
         groups = cursor.fetchall()
 
         duplicate_groups = []
@@ -461,8 +470,11 @@ def init_duplicates_routes(db_path):
 
             except Exception:
                 import logging
+
                 logging.exception("Error deleting audiobook %d", audiobook_id)
-                errors.append({"id": audiobook_id, "title": title, "error": "Deletion failed"})
+                errors.append(
+                    {"id": audiobook_id, "title": title, "error": "Deletion failed"}
+                )
 
         conn.commit()
         conn.close()
@@ -496,7 +508,7 @@ def init_duplicates_routes(db_path):
         check_type = request.args.get("type", "both")
         index_dir = os.environ.get("AUDIOBOOKS_DATA", "/raid0/Audiobooks") + "/.index"
 
-        result = {
+        result: dict[str, Any] = {
             "sources": None,
             "library": None,
         }
@@ -529,64 +541,75 @@ def init_duplicates_routes(db_path):
                 }
 
             # Find groups with >1 file (duplicates)
-            duplicate_groups = []
+            duplicate_groups: list[dict[str, Any]] = []
             total_duplicate_files = 0
             total_wasted_bytes = 0
 
             for checksum, files in checksums.items():
                 if len(files) > 1:
                     # Get file sizes
-                    file_infos = []
+                    file_infos: list[dict[str, Any]] = []
                     for fpath in files:
                         try:
-                            size = os.path.getsize(fpath) if os.path.exists(fpath) else 0
+                            size = (
+                                os.path.getsize(fpath) if os.path.exists(fpath) else 0
+                            )
                             basename = os.path.basename(fpath)
                             # Extract ASIN if present (first 10 alphanumeric chars before _)
                             asin = None
                             if "_" in basename and len(basename) > 10:
                                 potential_asin = basename.split("_")[0]
-                                if len(potential_asin) == 10 and potential_asin.isalnum():
+                                if (
+                                    len(potential_asin) == 10
+                                    and potential_asin.isalnum()
+                                ):
                                     asin = potential_asin
-                            file_infos.append({
-                                "path": fpath,
-                                "basename": basename,
-                                "asin": asin,
-                                "size_bytes": size,
-                                "size_mb": round(size / 1048576, 2),
-                                "exists": os.path.exists(fpath),
-                            })
+                            file_infos.append(
+                                {
+                                    "path": fpath,
+                                    "basename": basename,
+                                    "asin": asin,
+                                    "size_bytes": size,
+                                    "size_mb": round(size / 1048576, 2),
+                                    "exists": os.path.exists(fpath),
+                                }
+                            )
                         except Exception:
-                            file_infos.append({
-                                "path": fpath,
-                                "basename": os.path.basename(fpath),
-                                "asin": None,
-                                "size_bytes": 0,
-                                "size_mb": 0,
-                                "exists": False,
-                            })
+                            file_infos.append(
+                                {
+                                    "path": fpath,
+                                    "basename": os.path.basename(fpath),
+                                    "asin": None,
+                                    "size_bytes": 0,
+                                    "size_mb": 0,
+                                    "exists": False,
+                                }
+                            )
 
                     # Sort by size descending (keep largest)
-                    file_infos.sort(key=lambda x: x["size_bytes"], reverse=True)
+                    file_infos.sort(key=lambda x: int(x.get("size_bytes", 0)), reverse=True)
 
                     # Mark keeper and duplicates
-                    for i, f in enumerate(file_infos):
-                        f["is_keeper"] = i == 0
-                        f["is_duplicate"] = i > 0
+                    for i, file_info in enumerate(file_infos):
+                        file_info["is_keeper"] = i == 0
+                        file_info["is_duplicate"] = i > 0
 
                     # Calculate wasted space
-                    wasted = sum(f["size_bytes"] for f in file_infos[1:])
+                    wasted = sum(int(f.get("size_bytes", 0)) for f in file_infos[1:])
                     total_wasted_bytes += wasted
                     total_duplicate_files += len(files) - 1
 
-                    duplicate_groups.append({
-                        "checksum": checksum,
-                        "count": len(files),
-                        "wasted_mb": round(wasted / 1048576, 2),
-                        "files": file_infos,
-                    })
+                    duplicate_groups.append(
+                        {
+                            "checksum": checksum,
+                            "count": len(files),
+                            "wasted_mb": round(wasted / 1048576, 2),
+                            "files": file_infos,
+                        }
+                    )
 
             # Sort by count descending
-            duplicate_groups.sort(key=lambda x: x["count"], reverse=True)
+            duplicate_groups.sort(key=lambda x: int(x.get("count", 0)), reverse=True)
 
             return {
                 "exists": True,
@@ -636,12 +659,12 @@ def init_duplicates_routes(db_path):
             """Generate checksums for files matching pattern."""
             try:
                 # Use find + head + md5sum for efficiency
-                cmd = f'''
+                cmd = f"""
                 find "{scan_dir}" -name "{pattern}" -type f 2>/dev/null | sort | while read -r f; do
                     checksum=$(head -c 1048576 "$f" 2>/dev/null | md5sum | cut -d" " -f1)
                     echo "${{checksum}}|${{f}}"
                 done > "{output_file}"
-                '''
+                """
                 subprocess.run(["bash", "-c", cmd], check=True, timeout=600)
 
                 # Count results
@@ -656,16 +679,12 @@ def init_duplicates_routes(db_path):
 
         if check_type in ("sources", "both"):
             results["sources"] = generate_checksums(
-                sources_dir,
-                os.path.join(index_dir, "source_checksums.idx"),
-                "*.aaxc"
+                sources_dir, os.path.join(index_dir, "source_checksums.idx"), "*.aaxc"
             )
 
         if check_type in ("library", "both"):
             results["library"] = generate_checksums(
-                library_dir,
-                os.path.join(index_dir, "library_checksums.idx"),
-                "*.opus"
+                library_dir, os.path.join(index_dir, "library_checksums.idx"), "*.opus"
             )
 
         return jsonify(results)
@@ -746,8 +765,13 @@ def init_duplicates_routes(db_path):
                         )
                     except Exception:
                         import logging
-                        logging.exception("Error deleting library file %s", filepath_str)
-                        errors.append({"path": filepath_str, "error": "Deletion failed"})
+
+                        logging.exception(
+                            "Error deleting library file %s", filepath_str
+                        )
+                        errors.append(
+                            {"path": filepath_str, "error": "Deletion failed"}
+                        )
                 else:
                     # Not in DB - just delete file if exists
                     if filepath.exists():
@@ -755,12 +779,19 @@ def init_duplicates_routes(db_path):
                             filepath.unlink()
                             remove_from_indexes(filepath)
                             deleted_files.append(
-                                {"path": filepath_str, "title": filepath.name, "id": None}
+                                {
+                                    "path": filepath_str,
+                                    "title": filepath.name,
+                                    "id": None,
+                                }
                             )
                         except Exception:
                             import logging
+
                             logging.exception("Error deleting file %s", filepath_str)
-                            errors.append({"path": filepath_str, "error": "Deletion failed"})
+                            errors.append(
+                                {"path": filepath_str, "error": "Deletion failed"}
+                            )
                     else:
                         skipped_not_found.append(filepath_str)
 
@@ -775,8 +806,11 @@ def init_duplicates_routes(db_path):
                         )
                     except Exception:
                         import logging
+
                         logging.exception("Error deleting source file %s", filepath_str)
-                        errors.append({"path": filepath_str, "error": "Deletion failed"})
+                        errors.append(
+                            {"path": filepath_str, "error": "Deletion failed"}
+                        )
                 else:
                     skipped_not_found.append(filepath_str)
 

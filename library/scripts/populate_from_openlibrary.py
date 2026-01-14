@@ -35,18 +35,19 @@ Usage:
     python3 populate_from_openlibrary.py --id 1234 --execute
 """
 
+import re
 import sqlite3
 import sys
-import re
-from pathlib import Path
 from argparse import ArgumentParser
-from difflib import SequenceMatcher
-from typing import Optional, List
 from dataclasses import dataclass
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import List, Optional
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH
+from common import normalize_title
 
 # Import OpenLibrary client
 from utils.openlibrary_client import OpenLibraryClient
@@ -67,27 +68,6 @@ class EnrichmentResult:
     isbn_found: Optional[str] = None
     work_id: Optional[str] = None
     similarity: Optional[float] = None
-
-
-def normalize_title(title: str) -> str:
-    """
-    Normalize title for matching.
-
-    Follows existing pattern from populate_genres.py:
-    - Remove (Unabridged), [Unabridged]
-    - Remove ": A Novel", ": A Memoir"
-    - Remove punctuation
-    - Lowercase and collapse whitespace
-    """
-    if not title:
-        return ""
-    title = re.sub(r"\s*\(Unabridged\)\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*\[Unabridged\]\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*:\s*A Novel\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"\s*:\s*A Memoir\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(r"[^\w\s]", "", title)
-    title = " ".join(title.lower().split())
-    return title
 
 
 def similarity(a: str, b: str) -> float:
@@ -138,9 +118,11 @@ def populate_from_openlibrary(
     else:
         if only_missing_genres:
             # Books with no genre associations
-            conditions.append("""
+            conditions.append(
+                """
                 a.id NOT IN (SELECT audiobook_id FROM audiobook_genres)
-            """)
+            """
+            )
         if only_non_audible:
             conditions.append("(a.asin IS NULL OR a.asin = '')")
 
@@ -212,12 +194,12 @@ def populate_from_openlibrary(
                 if normalize_title(book_title) == normalize_title(sr_title):
                     if ratio > best_ratio:
                         best_match = sr
-                        best_ratio = ratio
+                        best_ratio = int(ratio * 100)
                         best_method = "exact_title"
                 # Fuzzy match above threshold
-                elif ratio >= FUZZY_THRESHOLD and ratio > best_ratio:
+                elif ratio >= FUZZY_THRESHOLD and ratio > best_ratio / 100:
                     best_match = sr
-                    best_ratio = ratio
+                    best_ratio = int(ratio * 100)
                     best_method = f"fuzzy ({ratio:.0%})"
 
             if best_match:
@@ -363,7 +345,7 @@ def populate_from_openlibrary(
         print("TOP SUBJECTS FOUND:")
         print("=" * 70)
 
-        subject_counts = {}
+        subject_counts: dict[str, int] = {}
         for m in matches:
             for s in m.subjects_found:
                 subject_counts[s] = subject_counts.get(s, 0) + 1

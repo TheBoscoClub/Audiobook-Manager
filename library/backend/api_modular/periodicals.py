@@ -24,7 +24,8 @@ Endpoints:
 import os
 import re
 import subprocess
-from flask import Blueprint, Response, jsonify, request, g, current_app
+
+from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from .core import get_db
 
@@ -113,28 +114,32 @@ def init_periodicals_routes(db_path: str) -> None:
 
         periodicals = []
         for row in rows:
-            periodicals.append({
-                "asin": row[0],
-                "title": row[1],
-                "author": row[2],
-                "category": row[3],
-                "content_type": row[4],
-                "runtime_minutes": row[5],
-                "release_date": row[6],
-                "description": row[7],
-                "cover_url": row[8],
-                "is_downloaded": bool(row[9]),
-                "download_requested": bool(row[10]),
-                "last_synced": row[11],
-            })
+            periodicals.append(
+                {
+                    "asin": row[0],
+                    "title": row[1],
+                    "author": row[2],
+                    "category": row[3],
+                    "content_type": row[4],
+                    "runtime_minutes": row[5],
+                    "release_date": row[6],
+                    "description": row[7],
+                    "cover_url": row[8],
+                    "is_downloaded": bool(row[9]),
+                    "download_requested": bool(row[10]),
+                    "last_synced": row[11],
+                }
+            )
 
-        return jsonify({
-            "periodicals": periodicals,
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-            "total_pages": (total + per_page - 1) // per_page if total > 0 else 0,
-        })
+        return jsonify(
+            {
+                "periodicals": periodicals,
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": (total + per_page - 1) // per_page if total > 0 else 0,
+            }
+        )
 
     @periodicals_bp.route("/api/v1/periodicals/<asin>", methods=["GET"])
     def periodical_details(asin: str):
@@ -143,7 +148,8 @@ def init_periodicals_routes(db_path: str) -> None:
             return jsonify({"error": "Invalid ASIN format"}), 400
 
         db = get_db(g.db_path)
-        row = db.execute("""
+        row = db.execute(
+            """
             SELECT
                 asin,
                 title,
@@ -163,29 +169,33 @@ def init_periodicals_routes(db_path: str) -> None:
                 updated_at
             FROM periodicals
             WHERE asin = ?
-        """, [asin]).fetchone()
+        """,
+            [asin],
+        ).fetchone()
 
         if not row:
             return jsonify({"error": "Periodical not found"}), 404
 
-        return jsonify({
-            "asin": row[0],
-            "title": row[1],
-            "author": row[2],
-            "narrator": row[3],
-            "category": row[4],
-            "content_type": row[5],
-            "runtime_minutes": row[6],
-            "release_date": row[7],
-            "description": row[8],
-            "cover_url": row[9],
-            "is_downloaded": bool(row[10]),
-            "download_requested": bool(row[11]),
-            "download_priority": row[12],
-            "last_synced": row[13],
-            "created_at": row[14],
-            "updated_at": row[15],
-        })
+        return jsonify(
+            {
+                "asin": row[0],
+                "title": row[1],
+                "author": row[2],
+                "narrator": row[3],
+                "category": row[4],
+                "content_type": row[5],
+                "runtime_minutes": row[6],
+                "release_date": row[7],
+                "description": row[8],
+                "cover_url": row[9],
+                "is_downloaded": bool(row[10]),
+                "download_requested": bool(row[11]),
+                "download_priority": row[12],
+                "last_synced": row[13],
+                "created_at": row[14],
+                "updated_at": row[15],
+            }
+        )
 
     @periodicals_bp.route("/api/v1/periodicals/download", methods=["POST"])
     def queue_downloads():
@@ -220,7 +230,7 @@ def init_periodicals_routes(db_path: str) -> None:
             # Check current status
             row = db.execute(
                 "SELECT is_downloaded, download_requested FROM periodicals WHERE asin = ?",
-                [asin]
+                [asin],
             ).fetchone()
 
             if not row:
@@ -233,21 +243,26 @@ def init_periodicals_routes(db_path: str) -> None:
                 continue
 
             # Queue the download
-            db.execute("""
+            db.execute(
+                """
                 UPDATE periodicals
                 SET download_requested = 1, download_priority = ?
                 WHERE asin = ?
-            """, [priority, asin])
+            """,
+                [priority, asin],
+            )
             queued += 1
 
         db.commit()
 
-        return jsonify({
-            "queued": queued,
-            "already_downloaded": already_downloaded,
-            "already_queued": already_queued,
-            "total_requested": len(asins),
-        })
+        return jsonify(
+            {
+                "queued": queued,
+                "already_downloaded": already_downloaded,
+                "already_queued": already_queued,
+                "total_requested": len(asins),
+            }
+        )
 
     @periodicals_bp.route("/api/v1/periodicals/download/<asin>", methods=["DELETE"])
     def cancel_download(asin: str):
@@ -256,11 +271,14 @@ def init_periodicals_routes(db_path: str) -> None:
             return jsonify({"error": "Invalid ASIN format"}), 400
 
         db = get_db(g.db_path)
-        cursor = db.execute("""
+        cursor = db.execute(
+            """
             UPDATE periodicals
             SET download_requested = 0, download_priority = 0
             WHERE asin = ? AND download_requested = 1 AND is_downloaded = 0
-        """, [asin])
+        """,
+            [asin],
+        )
         db.commit()
 
         if cursor.rowcount == 0:
@@ -272,7 +290,8 @@ def init_periodicals_routes(db_path: str) -> None:
     def get_queue():
         """Get current download queue."""
         db = get_db(g.db_path)
-        cursor = db.execute("""
+        cursor = db.execute(
+            """
             SELECT
                 asin,
                 title,
@@ -282,23 +301,28 @@ def init_periodicals_routes(db_path: str) -> None:
                 queued_at
             FROM periodicals_download_queue
             LIMIT 100
-        """)
+        """
+        )
 
         queue = []
         for row in cursor.fetchall():
-            queue.append({
-                "asin": row[0],
-                "title": row[1],
-                "category": row[2],
-                "content_type": row[3],
-                "priority": row[4],
-                "queued_at": row[5],
-            })
+            queue.append(
+                {
+                    "asin": row[0],
+                    "title": row[1],
+                    "category": row[2],
+                    "content_type": row[3],
+                    "priority": row[4],
+                    "queued_at": row[5],
+                }
+            )
 
-        return jsonify({
-            "queue": queue,
-            "total": len(queue),
-        })
+        return jsonify(
+            {
+                "queue": queue,
+                "total": len(queue),
+            }
+        )
 
     @periodicals_bp.route("/api/v1/periodicals/sync/status", methods=["GET"])
     def sync_status_sse():
@@ -307,19 +331,22 @@ def init_periodicals_routes(db_path: str) -> None:
         Returns Server-Sent Events stream with sync progress updates.
         Connect via EventSource in browser.
         """
+
         def generate():
             db = get_db(g.db_path)
 
             # Send current status immediately
-            row = db.execute("""
+            row = db.execute(
+                """
                 SELECT sync_id, status, started_at, processed_parents,
                        total_parents, total_episodes, new_episodes
                 FROM periodicals_sync_status
                 ORDER BY created_at DESC LIMIT 1
-            """).fetchone()
+            """
+            ).fetchone()
 
             if row:
-                yield f"data: {{\"sync_id\":\"{row[0]}\",\"status\":\"{row[1]}\",\"started\":\"{row[2]}\",\"processed\":{row[3]},\"total\":{row[4]},\"items\":{row[5]},\"new\":{row[6]}}}\n\n"
+                yield f'data: {{"sync_id":"{row[0]}","status":"{row[1]}","started":"{row[2]}","processed":{row[3]},"total":{row[4]},"items":{row[5]},"new":{row[6]}}}\n\n'
             else:
                 yield 'data: {"status":"no_sync_history"}\n\n'
 
@@ -333,7 +360,7 @@ def init_periodicals_routes(db_path: str) -> None:
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",  # Disable nginx buffering
-            }
+            },
         )
 
     @periodicals_bp.route("/api/v1/periodicals/sync/trigger", methods=["POST"])
@@ -367,31 +394,39 @@ def init_periodicals_routes(db_path: str) -> None:
                 start_new_session=True,
             )
         except Exception as e:
-            current_app.logger.error(f"Failed to start periodicals sync for ASIN {asin}: {e}")
+            current_app.logger.error(
+                f"Failed to start periodicals sync for ASIN {asin}: {e}"
+            )
             return jsonify({"error": "Failed to start sync process"}), 500
 
-        return jsonify({
-            "status": "started",
-            "asin": asin,
-            "force": force,
-        })
+        return jsonify(
+            {
+                "status": "started",
+                "asin": asin,
+                "force": force,
+            }
+        )
 
     @periodicals_bp.route("/api/v1/periodicals/categories", methods=["GET"])
     def list_categories():
         """Get list of categories with counts."""
         db = get_db(g.db_path)
-        cursor = db.execute("""
+        cursor = db.execute(
+            """
             SELECT category, COUNT(*) as item_count
             FROM periodicals
             GROUP BY category
             ORDER BY item_count DESC
-        """)
+        """
+        )
 
         categories = []
         for row in cursor.fetchall():
-            categories.append({
-                "category": row[0],
-                "count": row[1],
-            })
+            categories.append(
+                {
+                    "category": row[0],
+                    "count": row[1],
+                }
+            )
 
         return jsonify({"categories": categories})

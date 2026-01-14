@@ -4,15 +4,16 @@ Fix audiobook metadata using Audible library export
 Matches titles and updates author/narrator info in the database
 """
 
-import sqlite3
 import csv
+import sqlite3
 import sys
-from pathlib import Path
 from difflib import SequenceMatcher
+from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH, AUDIOBOOKS_DATA
+from config import AUDIOBOOKS_DATA, DATABASE_PATH
+from common import normalize_title
 
 # Paths - use config or environment
 AUDIBLE_TSV = AUDIOBOOKS_DATA / "audible_library.tsv"
@@ -21,20 +22,6 @@ AUDIBLE_TSV = AUDIOBOOKS_DATA / "audible_library.tsv"
 def similarity(a, b):
     """Calculate string similarity ratio"""
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-
-def normalize_title(title):
-    """Normalize title for matching"""
-    # Remove common suffixes
-    for suffix in [
-        ": A Novel",
-        " (Unabridged)",
-        " [Unabridged]",
-        " [Tantor]",
-        " (Audible Audio Edition)",
-    ]:
-        title = title.replace(suffix, "")
-    return title.strip()
 
 
 def load_audible_library(tsv_path):
@@ -139,13 +126,15 @@ def main():
     print(f"\nUnique narrators after update: {narrator_count}")
 
     # Show top narrators
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT narrator, COUNT(*) as count
         FROM audiobooks
         GROUP BY narrator
         ORDER BY count DESC
         LIMIT 10
-    """)
+    """
+    )
     print("\nTop 10 narrators:")
     for narrator, count in cursor.fetchall():
         print(f"  {count:3d} - {narrator[:60]}")

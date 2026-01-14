@@ -96,3 +96,19 @@ AUDIOBOOKS_VENV="${AUDIOBOOKS_HOME}/library/venv"
 # AAXtoMP3 converter location
 # Default: ${AUDIOBOOKS_HOME}/converter/AAXtoMP3
 AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"
+
+# =============================================================================
+# Performance & Advanced Settings
+# =============================================================================
+
+# Number of parallel conversion jobs
+# Default: number of CPU cores
+AUDIOBOOKS_PARALLEL_JOBS="8"
+
+# Data directory for scan results and intermediate files
+# Default: /var/lib/audiobooks/data
+DATA_DIR="/var/lib/audiobooks/data"
+
+# Index directory for checksum files (duplicates detection)
+# Default: /var/lib/audiobooks/db/.index
+AUDIOBOOKS_INDEX="/var/lib/audiobooks/db/.index"

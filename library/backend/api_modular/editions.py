@@ -3,9 +3,10 @@ Edition detection helpers and routes.
 """
 
 import re
+
 from flask import Blueprint, jsonify
 
-from .core import get_db, FlaskResponse
+from .core import FlaskResponse, get_db
 
 editions_bp = Blueprint("editions", __name__)
 

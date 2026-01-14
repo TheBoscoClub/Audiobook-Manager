@@ -2,7 +2,7 @@
 Collection definitions and helpers for predefined audiobook groups.
 """
 
-from flask import Blueprint, jsonify, Response
+from flask import Blueprint, Response, jsonify
 
 from .core import get_db
 

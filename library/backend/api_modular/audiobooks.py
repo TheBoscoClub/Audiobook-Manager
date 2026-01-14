@@ -6,16 +6,18 @@ newspapers, etc.) which belong in the Reading Room, not the main library.
 """
 
 import sys
-from flask import Blueprint, Response, jsonify, request, send_from_directory, send_file
 from pathlib import Path
+
+from flask import (Blueprint, Response, jsonify, request, send_file,
+                   send_from_directory)
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import COVER_DIR
 
-from .core import get_db, FlaskResponse
-from .editions import has_edition_marker, normalize_base_title
 from .collections import COLLECTIONS
+from .core import FlaskResponse, get_db
+from .editions import has_edition_marker, normalize_base_title
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
 
@@ -36,35 +38,45 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         cursor = conn.cursor()
 
         # Total audiobooks (excluding periodicals)
-        cursor.execute(f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}")
+        cursor.execute(
+            f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+        )
         total_books = cursor.fetchone()["total"]
 
         # Total hours (excluding periodicals)
-        cursor.execute(f"SELECT SUM(duration_hours) as total_hours FROM audiobooks WHERE {AUDIOBOOK_FILTER}")
+        cursor.execute(
+            f"SELECT SUM(duration_hours) as total_hours FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+        )
         total_hours = cursor.fetchone()["total_hours"] or 0
 
         # Total storage used (sum of file sizes in MB, convert to GB)
-        cursor.execute(f"SELECT SUM(file_size_mb) as total_size FROM audiobooks WHERE {AUDIOBOOK_FILTER}")
+        cursor.execute(
+            f"SELECT SUM(file_size_mb) as total_size FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+        )
         total_size_mb = cursor.fetchone()["total_size"] or 0
         total_size_gb = total_size_mb / 1024
 
         # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT COUNT(DISTINCT author) as count FROM audiobooks
             WHERE {AUDIOBOOK_FILTER}
               AND author IS NOT NULL
               AND LOWER(TRIM(author)) != 'audiobook'
               AND LOWER(TRIM(author)) != 'unknown author'
-        """)
+        """
+        )
         unique_authors = cursor.fetchone()["count"]
 
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT COUNT(DISTINCT narrator) as count FROM audiobooks
             WHERE {AUDIOBOOK_FILTER}
               AND narrator IS NOT NULL
               AND LOWER(TRIM(narrator)) != 'unknown narrator'
               AND LOWER(TRIM(narrator)) != ''
-        """)
+        """
+        )
         unique_narrators = cursor.fetchone()["count"]
 
         cursor.execute(
@@ -166,7 +178,9 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         cursor = conn.cursor()
 
         # Build query - always filter to exclude periodicals from main library
-        where_clauses = [AUDIOBOOK_FILTER]  # Excludes periodicals (podcasts, news, etc.)
+        where_clauses = [
+            AUDIOBOOK_FILTER
+        ]  # Excludes periodicals (podcasts, news, etc.)
         params = []
 
         if search:
@@ -193,13 +207,15 @@ def init_audiobooks_routes(db_path, project_root, database_path):
             params.append(format_filter.lower())
 
         if genre:
-            where_clauses.append("""
+            where_clauses.append(
+                """
                 id IN (
                     SELECT audiobook_id FROM audiobook_genres ag
                     JOIN genres g ON ag.genre_id = g.id
                     WHERE g.name LIKE ?
                 )
-            """)
+            """
+            )
             params.append(f"%{genre}%")
 
         # Collection filter (predefined query from COLLECTIONS)
@@ -338,27 +354,33 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         cursor = conn.cursor()
 
         # Get unique authors (excluding periodicals)
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT DISTINCT author FROM audiobooks
             WHERE {AUDIOBOOK_FILTER} AND author IS NOT NULL
             ORDER BY author
-        """)
+        """
+        )
         authors = [row["author"] for row in cursor.fetchall()]
 
         # Get unique narrators (excluding periodicals)
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT DISTINCT narrator FROM audiobooks
             WHERE {AUDIOBOOK_FILTER} AND narrator IS NOT NULL
             ORDER BY narrator
-        """)
+        """
+        )
         narrators = [row["narrator"] for row in cursor.fetchall()]
 
         # Get unique publishers (excluding periodicals)
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT DISTINCT publisher FROM audiobooks
             WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
             ORDER BY publisher
-        """)
+        """
+        )
         publishers = [row["publisher"] for row in cursor.fetchall()]
 
         # Get genres
@@ -374,11 +396,13 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         topics = [row["name"] for row in cursor.fetchall()]
 
         # Get formats (excluding periodicals)
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT DISTINCT format FROM audiobooks
             WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
             ORDER BY format
-        """)
+        """
+        )
         formats = [row["format"] for row in cursor.fetchall()]
 
         conn.close()
@@ -401,7 +425,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT narrator, COUNT(*) as count
             FROM audiobooks
             WHERE {AUDIOBOOK_FILTER}
@@ -410,7 +435,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
               AND narrator != 'Unknown Narrator'
             GROUP BY narrator
             ORDER BY narrator
-        """)
+        """
+        )
 
         counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}
         conn.close()
@@ -523,10 +549,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         version_file = project_root.parent / "VERSION"
         if version_file.exists():
             version = version_file.read_text().strip()
-        return jsonify({
-            "status": "ok",
-            "database": str(db_path.exists()),
-            "version": version
-        })
+        return jsonify(
+            {"status": "ok", "database": str(db_path.exists()), "version": version}
+        )
 
     return audiobooks_bp

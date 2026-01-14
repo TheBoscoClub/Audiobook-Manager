@@ -9,14 +9,13 @@ import hashlib
 import json
 import subprocess
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils import calculate_sha256
-
+from common import calculate_sha256
 
 # =============================================================================
 # Genre and Topic Classification
@@ -26,10 +25,19 @@ from utils import calculate_sha256
 GENRE_TAXONOMY = {
     "fiction": {
         "mystery & thriller": [
-            "mystery", "thriller", "crime", "detective", "noir", "suspense"
+            "mystery",
+            "thriller",
+            "crime",
+            "detective",
+            "noir",
+            "suspense",
         ],
         "science fiction": [
-            "science fiction", "sci-fi", "scifi", "cyberpunk", "space opera"
+            "science fiction",
+            "sci-fi",
+            "scifi",
+            "cyberpunk",
+            "space opera",
         ],
         "fantasy": ["fantasy", "epic fantasy", "urban fantasy", "magical realism"],
         "literary fiction": ["literary", "contemporary", "historical fiction"],
@@ -113,6 +121,7 @@ def extract_topics(description: str) -> list[str]:
 # Metadata Extraction Helpers
 # =============================================================================
 
+
 def extract_author_from_path(filepath: Path) -> str | None:
     """
     Extract author name from file path structure.
@@ -188,8 +197,10 @@ def run_ffprobe(filepath: Path, timeout: int = 30) -> dict | None:
     """
     cmd = [
         "ffprobe",
-        "-v", "quiet",
-        "-print_format", "json",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
         "-show_format",
         "-show_streams",
         str(filepath),
@@ -211,9 +222,7 @@ def run_ffprobe(filepath: Path, timeout: int = 30) -> dict | None:
 
 
 def get_file_metadata(
-    filepath: Path,
-    audiobook_dir: Path,
-    calculate_hash: bool = True
+    filepath: Path, audiobook_dir: Path, calculate_hash: bool = True
 ) -> Optional[dict]:
     """
     Extract metadata from audiobook file using ffprobe.
@@ -296,7 +305,9 @@ def get_file_metadata(
         return None
 
 
-def extract_cover_art(filepath: Path, output_dir: Path, timeout: int = 30) -> str | None:
+def extract_cover_art(
+    filepath: Path, output_dir: Path, timeout: int = 30
+) -> str | None:
     """
     Extract cover art from audiobook file.
 
@@ -304,7 +315,9 @@ def extract_cover_art(filepath: Path, output_dir: Path, timeout: int = 30) -> st
     """
     try:
         # Generate unique filename based on file path
-        file_hash = hashlib.md5(str(filepath).encode(), usedforsecurity=False).hexdigest()
+        file_hash = hashlib.md5(
+            str(filepath).encode(), usedforsecurity=False
+        ).hexdigest()
         cover_path = output_dir / f"{file_hash}.jpg"
 
         # Skip if already extracted
@@ -313,10 +326,13 @@ def extract_cover_art(filepath: Path, output_dir: Path, timeout: int = 30) -> st
 
         cmd = [
             "ffmpeg",
-            "-v", "quiet",
-            "-i", str(filepath),
+            "-v",
+            "quiet",
+            "-i",
+            str(filepath),
             "-an",  # No audio
-            "-vcodec", "copy",
+            "-vcodec",
+            "copy",
             str(cover_path),
         ]
 

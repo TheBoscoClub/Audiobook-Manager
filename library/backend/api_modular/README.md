@@ -22,8 +22,7 @@ api_modular/
 ├── periodicals.py          # Episodic content management (podcasts, news, meditation)
 ├── utilities.py            # Blueprint aggregator for utilities modules
 ├── utilities_crud.py       # CRUD operations for audiobooks
-├── utilities_db.py         # Database maintenance (vacuum, reimport, export)
-├── utilities_ops.py        # Async operations with progress (scan, hashes, checksums)
+├── utilities_db.py         # Database maintenance (vacuum, reimport, scan, hashes)
 ├── utilities_conversion.py # Conversion monitoring with stats
 ├── utilities_system.py     # System administration (services, upgrades)
 ├── README.md               # This file
@@ -90,8 +89,7 @@ The utilities module is split into focused sub-modules for maintainability:
 
 - **`utilities.py`**: Blueprint aggregator that registers all utility routes
 - **`utilities_crud.py`**: Single audiobook CRUD (get, update, delete)
-- **`utilities_db.py`**: Database maintenance (vacuum, reimport, export JSON/CSV/DB)
-- **`utilities_ops.py`**: Async operations with progress tracking (scan, hashes, checksums)
+- **`utilities_db.py`**: Database maintenance (vacuum, reimport, export, scan, hash generation)
 - **`utilities_conversion.py`**: Conversion monitoring (queue status, active jobs, ETA)
 - **`utilities_system.py`**: System administration (services, upgrades, version info)
   - Uses privilege-separated helper pattern for operations requiring root
@@ -223,21 +221,20 @@ The modular architecture provides:
 
 | File | Lines | Primary Responsibility |
 |------|-------|----------------------|
-| `core.py` | ~50 | Database, CORS |
-| `collections.py` | ~230 | Genre collections |
-| `editions.py` | ~145 | Edition detection |
-| `audiobooks.py` | ~470 | Core listing/streaming |
-| `duplicates.py` | ~750 | Duplicate detection, index cleanup |
-| `supplements.py` | ~190 | Companion files |
-| `position_sync.py` | ~600 | Audible position sync |
-| `periodicals.py` | ~400 | Episodic content (podcasts, news) |
-| `utilities.py` | ~60 | Blueprint aggregator |
-| `utilities_crud.py` | ~260 | Audiobook CRUD |
-| `utilities_db.py` | ~290 | Database maintenance |
-| `utilities_ops.py` | ~470 | Async operations, checksums |
+| `core.py` | ~34 | Database, CORS |
+| `collections.py` | ~231 | Genre collections |
+| `editions.py` | ~161 | Edition detection |
+| `audiobooks.py` | ~556 | Core listing/streaming |
+| `duplicates.py` | ~914 | Duplicate detection, index cleanup |
+| `supplements.py` | ~226 | Companion files |
+| `position_sync.py` | ~692 | Audible position sync |
+| `periodicals.py` | ~432 | Episodic content (podcasts, news) |
+| `utilities.py` | ~67 | Blueprint aggregator |
+| `utilities_crud.py` | ~324 | Audiobook CRUD |
+| `utilities_db.py` | ~324 | Database maintenance, scan, hashes |
 | `utilities_conversion.py` | ~300 | Conversion monitoring |
-| `utilities_system.py` | ~430 | System administration |
-| `__init__.py` | ~200 | Package init/exports |
+| `utilities_system.py` | ~463 | System administration |
+| `__init__.py` | ~228 | Package init/exports |
 
 ## See Also
 

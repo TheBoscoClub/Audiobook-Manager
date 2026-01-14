@@ -16,15 +16,10 @@ from pathlib import Path
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import COVER_DIR, DATABASE_PATH
-
 # Import shared utilities
-from scanner.metadata_utils import (
-    get_file_metadata,
-    extract_cover_art,
-    categorize_genre,
-    determine_literary_era,
-    extract_topics,
-)
+from scanner.metadata_utils import (categorize_genre, determine_literary_era,
+                                    extract_cover_art, extract_topics,
+                                    get_file_metadata)
 
 SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 
@@ -36,36 +31,44 @@ def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> in
     if row:
         return row[0]
     cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (name,))
-    return cursor.lastrowid
+    lastrowid = cursor.lastrowid
+    if lastrowid is None:
+        raise RuntimeError(f"Failed to insert into {table}")
+    return lastrowid
 
 
-def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: str | None) -> int | None:
+def insert_audiobook(
+    conn: sqlite3.Connection, metadata: dict, cover_path: str | None
+) -> int | None:
     """Insert a single audiobook into the database."""
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO audiobooks (
             title, author, narrator, publisher, series,
             duration_hours, duration_formatted, file_size_mb,
             file_path, cover_path, format, description,
             sha256_hash, hash_verified_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        metadata.get("title"),
-        metadata.get("author"),
-        metadata.get("narrator"),
-        metadata.get("publisher"),
-        metadata.get("series"),
-        metadata.get("duration_hours"),
-        metadata.get("duration_formatted"),
-        metadata.get("file_size_mb"),
-        metadata.get("file_path"),
-        cover_path,
-        metadata.get("format"),
-        metadata.get("description", ""),
-        metadata.get("sha256_hash"),
-        metadata.get("hash_verified_at"),
-    ))
+    """,
+        (
+            metadata.get("title"),
+            metadata.get("author"),
+            metadata.get("narrator"),
+            metadata.get("publisher"),
+            metadata.get("series"),
+            metadata.get("duration_hours"),
+            metadata.get("duration_formatted"),
+            metadata.get("file_size_mb"),
+            metadata.get("file_path"),
+            cover_path,
+            metadata.get("format"),
+            metadata.get("description", ""),
+            metadata.get("sha256_hash"),
+            metadata.get("hash_verified_at"),
+        ),
+    )
 
     audiobook_id = cursor.lastrowid
 
@@ -75,7 +78,7 @@ def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: str |
     genre_id = get_or_create_lookup_id(cursor, "genres", genre_cat["sub"])
     cursor.execute(
         "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-        (audiobook_id, genre_id)
+        (audiobook_id, genre_id),
     )
 
     # Insert era
@@ -83,7 +86,7 @@ def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: str |
     era_id = get_or_create_lookup_id(cursor, "eras", era)
     cursor.execute(
         "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-        (audiobook_id, era_id)
+        (audiobook_id, era_id),
     )
 
     # Insert topics
@@ -92,13 +95,15 @@ def insert_audiobook(conn: sqlite3.Connection, metadata: dict, cover_path: str |
         topic_id = get_or_create_lookup_id(cursor, "topics", topic_name)
         cursor.execute(
             "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
-            (audiobook_id, topic_id)
+            (audiobook_id, topic_id),
         )
 
     return audiobook_id
 
 
-def import_directory(dir_path: Path, db_path: Path = DATABASE_PATH, cover_dir: Path = COVER_DIR) -> dict:
+def import_directory(
+    dir_path: Path, db_path: Path = DATABASE_PATH, cover_dir: Path = COVER_DIR
+) -> dict:
     """
     Import all audiobooks from a specific directory.
 
@@ -115,10 +120,15 @@ def import_directory(dir_path: Path, db_path: Path = DATABASE_PATH, cover_dir: P
     errors = 0
 
     if not dir_path.is_dir():
-        return {"added": 0, "skipped": 0, "errors": 1, "error": f"Not a directory: {dir_path}"}
+        return {
+            "added": 0,
+            "skipped": 0,
+            "errors": 1,
+            "error": f"Not a directory: {dir_path}",
+        }
 
     # Find audio files in this directory (recursive for nested structure)
-    audio_files = []
+    audio_files: list[Path] = []
     for ext in SUPPORTED_FORMATS:
         audio_files.extend(dir_path.rglob(f"*{ext}"))
 
@@ -126,7 +136,12 @@ def import_directory(dir_path: Path, db_path: Path = DATABASE_PATH, cover_dir: P
     audio_files = [f for f in audio_files if ".cover." not in f.name.lower()]
 
     if not audio_files:
-        return {"added": 0, "skipped": 0, "errors": 0, "message": "No audio files found"}
+        return {
+            "added": 0,
+            "skipped": 0,
+            "errors": 0,
+            "message": "No audio files found",
+        }
 
     # Check which files are already in DB
     conn = sqlite3.connect(db_path)
@@ -151,7 +166,9 @@ def import_directory(dir_path: Path, db_path: Path = DATABASE_PATH, cover_dir: P
     try:
         for filepath in new_files:
             # Extract metadata (skip hash for speed - mover already validated)
-            metadata = get_file_metadata(filepath, audiobook_dir=dir_path.parent, calculate_hash=False)
+            metadata = get_file_metadata(
+                filepath, audiobook_dir=dir_path.parent, calculate_hash=False
+            )
             if not metadata:
                 errors += 1
                 continue
@@ -163,7 +180,9 @@ def import_directory(dir_path: Path, db_path: Path = DATABASE_PATH, cover_dir: P
                 insert_audiobook(conn, metadata, cover_path)
                 conn.commit()
                 added += 1
-                print(f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}")
+                print(
+                    f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}"
+                )
             except sqlite3.IntegrityError:
                 skipped += 1
                 conn.rollback()
@@ -194,7 +213,9 @@ def main():
         print(f"Error: {result['error']}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Import complete: {result['added']} added, {result['skipped']} skipped, {result['errors']} errors")
+    print(
+        f"Import complete: {result['added']} added, {result['skipped']} skipped, {result['errors']} errors"
+    )
     sys.exit(0 if result["errors"] == 0 else 1)
 
 
