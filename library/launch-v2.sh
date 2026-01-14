@@ -19,9 +19,10 @@ echo -e "${BLUE}   Audiobook Library V2 (Database)${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Check if database exists
-if [ ! -f "backend/audiobooks.db" ]; then
-    echo -e "${YELLOW}Database not found. Creating database...${NC}"
+# Check if database exists (use config path, default to /var/lib/audiobooks/db)
+DB_PATH="${AUDIOBOOKS_DATABASE:-/var/lib/audiobooks/db/audiobooks.db}"
+if [ ! -f "$DB_PATH" ]; then
+    echo -e "${YELLOW}Database not found at $DB_PATH. Creating database...${NC}"
     if [ ! -f "data/audiobooks.json" ]; then
         echo -e "${RED}Error: audiobooks.json not found. Please run the scanner first:${NC}"
         echo -e "  cd scanner && python3 scan_audiobooks.py"

@@ -221,6 +221,29 @@ def run_ffprobe(filepath: Path, timeout: int = 30) -> dict | None:
         return None
 
 
+def extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
+    """
+    Extract ASIN from chapters.json in the same directory as the audiobook.
+
+    AAXtoMP3 creates chapters.json alongside converted audiobooks containing
+    the original Audible ASIN, which is needed to link to periodicals table.
+    The ASIN is nested at: content_metadata.content_reference.asin
+    """
+    chapters_path = filepath.parent / "chapters.json"
+    if not chapters_path.exists():
+        return None
+
+    try:
+        with open(chapters_path, "r") as f:
+            chapters_data = json.load(f)
+        # ASIN is nested in content_metadata.content_reference
+        content_metadata = chapters_data.get("content_metadata", {})
+        content_reference = content_metadata.get("content_reference", {})
+        return content_reference.get("asin")
+    except (json.JSONDecodeError, IOError):
+        return None
+
+
 def get_file_metadata(
     filepath: Path, audiobook_dir: Path, calculate_hash: bool = True
 ) -> Optional[dict]:
@@ -266,6 +289,9 @@ def get_file_metadata(
             if file_hash:
                 hash_verified_at = datetime.now().isoformat()
 
+        # Extract ASIN from chapters.json if present
+        asin = extract_asin_from_chapters_json(filepath)
+
         # Build metadata dict
         metadata = {
             "title": tags_normalized.get(
@@ -290,6 +316,7 @@ def get_file_metadata(
             "sha256_hash": file_hash,
             "hash_verified_at": hash_verified_at,
             "format": filepath.suffix.lower().replace(".", ""),
+            "asin": asin,
         }
 
         # Add relative path if audiobook_dir provided

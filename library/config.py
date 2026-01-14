@@ -129,10 +129,13 @@ AUDIOBOOKS_SUPPLEMENTS = Path(
 )
 
 # Application paths
+# Database should be in a data directory, NOT in the code directory
+# AUDIOBOOKS_VAR_DIR is the persistent state directory (default: /var/lib/audiobooks)
+_var_dir = get_config("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
 AUDIOBOOKS_DATABASE = Path(
     get_config(
         "AUDIOBOOKS_DATABASE",
-        str(AUDIOBOOKS_HOME / "library" / "backend" / "audiobooks.db"),
+        f"{_var_dir}/db/audiobooks.db",
     )
 )
 AUDIOBOOKS_COVERS = Path(
