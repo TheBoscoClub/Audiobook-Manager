@@ -520,6 +520,135 @@ def init_periodicals_routes(db_path: str) -> None:
 
         return jsonify({"cancelled": asin})
 
+    @periodicals_bp.route("/api/v1/periodicals/<asin>/expunge", methods=["DELETE"])
+    def expunge_periodical(asin: str):
+        """Completely expunge a periodical - delete from database AND filesystem.
+
+        If ASIN is a parent series, expunges all episodes of that series.
+        Deletes: audio files, covers, chapters.json, database entries.
+
+        Query params:
+            include_children: If true and ASIN is a parent, also expunge all episodes
+        """
+        import shutil
+        from pathlib import Path
+
+        if not validate_asin(asin):
+            return jsonify({"error": "Invalid ASIN format"}), 400
+
+        include_children = request.args.get("include_children", "true").lower() == "true"
+        db = get_db(g.db_path)
+
+        # Check if this is a parent (series) or episode
+        row = db.execute(
+            "SELECT asin, title, parent_asin FROM periodicals WHERE asin = ?",
+            [asin]
+        ).fetchone()
+
+        if not row:
+            return jsonify({"error": "Periodical not found"}), 404
+
+        is_parent = row[2] is None
+        asins_to_expunge = [asin]
+
+        # If parent and include_children, get all episode ASINs
+        if is_parent and include_children:
+            episodes = db.execute(
+                "SELECT asin FROM periodicals WHERE parent_asin = ?",
+                [asin]
+            ).fetchall()
+            asins_to_expunge.extend([ep[0] for ep in episodes])
+
+        expunged = {"database": 0, "files": 0, "errors": []}
+
+        for target_asin in asins_to_expunge:
+            # Find file path from audiobooks table (if downloaded/converted)
+            audiobook_row = db.execute(
+                "SELECT id, file_path FROM audiobooks WHERE asin = ?",
+                [target_asin]
+            ).fetchone()
+
+            if audiobook_row and audiobook_row[1]:
+                file_path = Path(audiobook_row[1])
+
+                # Delete the directory containing the audiobook
+                # (includes audio file, cover.jpg, chapters.json)
+                if file_path.exists():
+                    try:
+                        audiobook_dir = file_path.parent
+                        if audiobook_dir.is_dir():
+                            shutil.rmtree(audiobook_dir)
+                            expunged["files"] += 1
+                    except Exception as e:
+                        expunged["errors"].append(f"Failed to delete {file_path}: {str(e)}")
+
+                # Delete from audiobooks table
+                db.execute("DELETE FROM audiobooks WHERE id = ?", [audiobook_row[0]])
+
+            # Delete from periodicals table
+            cursor = db.execute("DELETE FROM periodicals WHERE asin = ?", [target_asin])
+            if cursor.rowcount > 0:
+                expunged["database"] += 1
+
+        db.commit()
+
+        return jsonify({
+            "expunged": asin,
+            "is_parent": is_parent,
+            "database_deleted": expunged["database"],
+            "files_deleted": expunged["files"],
+            "errors": expunged["errors"] if expunged["errors"] else None
+        })
+
+    @periodicals_bp.route("/api/v1/periodicals/stale", methods=["GET"])
+    def list_stale_periodicals():
+        """List periodicals that haven't been synced recently.
+
+        These may be unsubscribed from Audible. Sync runs every 10 minutes,
+        so items not synced in 24+ hours are likely no longer in Audible library.
+
+        Query params:
+            hours: Number of hours since last sync to consider stale (default: 24)
+        """
+        hours = int(request.args.get("hours", "24"))
+        db = get_db(g.db_path)
+
+        cursor = db.execute(
+            """
+            SELECT
+                p.asin,
+                p.title,
+                p.category,
+                p.is_downloaded,
+                p.last_synced,
+                parent.title as parent_title
+            FROM periodicals p
+            LEFT JOIN periodicals parent ON p.parent_asin = parent.asin
+            WHERE p.last_synced < datetime('now', '-' || ? || ' hours')
+            ORDER BY p.last_synced ASC
+            LIMIT 100
+        """,
+            [hours],
+        )
+
+        stale = []
+        for row in cursor.fetchall():
+            stale.append({
+                "asin": row[0],
+                "title": row[1],
+                "category": row[2],
+                "is_downloaded": bool(row[3]),
+                "last_synced": row[4],
+                "parent_title": row[5],
+            })
+
+        return jsonify({
+            "stale": stale,
+            "total": len(stale),
+            "threshold_hours": hours,
+            "message": f"Items not synced in {hours}+ hours (may be unsubscribed)"
+        })
+
     @periodicals_bp.route("/api/v1/periodicals/queue", methods=["GET"])
     def get_queue():
         """Get current download queue."""
