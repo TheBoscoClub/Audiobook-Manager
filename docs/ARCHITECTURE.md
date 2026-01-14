@@ -1511,6 +1511,122 @@ Tuning:
   no_heap
 ```
 
+### tmpfs and RAM-based Filesystem Considerations
+
+If your `/tmp` or `/var` directories (or subdirectories) are mounted as **tmpfs** (RAM-based filesystems), additional configuration is required. tmpfs partitions are cleared on every reboot, but Audiobook-Manager expects certain directories to exist for inter-service communication.
+
+#### tmpfs Overview
+
+```
+tmpfs (temporary filesystem):
+  • Resides entirely in RAM (and swap if needed)
+  • Contents are lost on reboot
+  • Extremely fast I/O (no disk latency)
+  • Common for /tmp, /var/run, sometimes /var/tmp
+
+Benefits:
+  • Reduces SSD/NVMe write wear
+  • Near-instant file operations
+  • Ideal for truly temporary data
+
+Risks for Audiobook-Manager:
+  • Inter-service directories disappear on reboot
+  • Services fail to start if directories don't exist
+  • Trigger files and FIFOs are lost
+```
+
+#### Required Directories
+
+Audiobook-Manager uses these directories for runtime operations:
+
+| Directory | Purpose | Filesystem Type |
+|-----------|---------|-----------------|
+| `/tmp/audiobook-staging` | In-progress downloads and conversions | tmpfs-safe (recreated at boot) |
+| `/tmp/audiobook-triggers` | Inter-service completion signals | tmpfs-safe (recreated at boot) |
+| `/var/lib/audiobooks/.control` | Privileged helper IPC | May be tmpfs |
+| `/var/lib/audiobooks/.run` | Runtime locks, temp files, FIFOs | May be tmpfs |
+
+**Note:** If `/var/lib` or `/var/lib/audiobooks` is on tmpfs, the `.control` and `.run` directories will also be cleared on reboot.
+
+#### tmpfiles.d Configuration
+
+The `audiobooks-tmpfiles.conf` file ensures these directories are recreated at boot:
+
+```ini
+# /etc/tmpfiles.d/audiobooks.conf
+
+# Control directory for privileged helper communication
+d /var/lib/audiobooks/.control 0755 audiobooks audiobooks -
+
+# Runtime directory for locks, temp files, and FIFOs
+d /var/lib/audiobooks/.run 0775 audiobooks audiobooks -
+
+# Staging directory for in-progress downloads and conversions
+d /tmp/audiobook-staging 0775 audiobooks audiobooks -
+
+# Triggers directory for inter-service signaling
+d /tmp/audiobook-triggers 0755 audiobooks audiobooks -
+```
+
+#### Setup and Verification
+
+```bash
+# Deploy tmpfiles.d configuration (if not installed automatically)
+sudo cp systemd/audiobooks-tmpfiles.conf /etc/tmpfiles.d/audiobooks.conf
+
+# Create directories immediately (without reboot)
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf
+
+# Verify directories exist with correct ownership
+for dir in /tmp/audiobook-staging /tmp/audiobook-triggers \
+           /var/lib/audiobooks/.control /var/lib/audiobooks/.run; do
+    stat -c '%U:%G %a %n' "$dir" 2>/dev/null || echo "MISSING: $dir"
+done
+```
+
+#### Detecting tmpfs Issues
+
+```bash
+# Check if /tmp is tmpfs
+mount | grep 'on /tmp type'
+# Output like "tmpfs on /tmp type tmpfs" indicates tmpfs
+
+# Check if /var or subdirectories are tmpfs
+mount | grep '/var'
+findmnt --target /var/lib/audiobooks
+
+# Look for symptoms in journal
+journalctl -u 'audiobook-*' --since today | \
+    grep -E '(No such file|Read-only|Permission denied|ENOENT)'
+```
+
+#### Symptoms of Missing tmpfs Configuration
+
+| Symptom | Likely Cause | Solution |
+|---------|--------------|----------|
+| Services fail after reboot | Missing tmpfiles.d | Deploy `audiobooks-tmpfiles.conf` |
+| "Read-only file system" errors | Trigger directory doesn't exist | Run `systemd-tmpfiles --create` |
+| Converter stops mid-queue | Trigger files can't be written | Check `/tmp/audiobook-triggers` exists |
+| Mover leaves files in staging | Can't signal completion | Verify directory permissions |
+| API can't control services | `.control` directory missing | Check `/var/lib/audiobooks/.control` |
+
+#### When to Keep /tmp as tmpfs
+
+Despite the configuration overhead, keeping `/tmp` as tmpfs is often beneficial:
+
+```
+✓ KEEP tmpfs for /tmp if:
+  • SSD/NVMe wear is a concern
+  • System has adequate RAM (4GB+)
+  • tmpfiles.d is properly configured
+  • You understand the reboot implications
+
+✗ CONSIDER persistent /tmp if:
+  • System has limited RAM (<2GB)
+  • Frequent reboots with in-flight conversions
+  • Simpler configuration is preferred
+```
+
 ### Kernel Version Compatibility
 
 | Filesystem | Minimum Kernel | Recommended Kernel | Notes |
@@ -1520,6 +1636,7 @@ Tuning:
 | **Btrfs** | 3.10 (single) | 6.1+ | RAID5/6 stable in 5.0+ |
 | **ZFS** | N/A (module) | Any with OpenZFS | Not in mainline |
 | **F2FS** | 3.8 | 5.4+ | Compression in 5.6+ |
+| **tmpfs** | 2.4+ | Any stable | RAM-based; requires tmpfiles.d |
 
 ---
 

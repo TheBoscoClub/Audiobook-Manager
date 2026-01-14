@@ -321,6 +321,42 @@ The installer automatically detects storage types (NVMe, SSD, HDD) and warns if 
 
 If the database path is on HDD, you'll see a warning with the option to cancel and adjust paths. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#storage-architecture) for detailed recommendations.
 
+### tmpfs Considerations
+
+If your `/tmp` directory is mounted as tmpfs (RAM-based filesystem), you'll need to ensure required directories are recreated on each boot. This is a common configuration to reduce SSD/NVMe wear.
+
+**Why tmpfs is recommended for /tmp:**
+- Reduces write wear on SSDs/NVMes (especially important for high-write workloads)
+- Faster I/O since it's RAM-backed
+- Auto-cleans on reboot
+
+**Required /tmp directories:**
+
+| Directory | Purpose | Created By |
+|-----------|---------|------------|
+| `/tmp/audiobook-staging` | In-progress conversions and downloads | tmpfiles.d |
+| `/tmp/audiobook-triggers` | Inter-service signaling | tmpfiles.d |
+
+**Setup:** The installer configures `/etc/tmpfiles.d/audiobooks.conf` to recreate these directories on boot. If you're experiencing issues with services failing after reboot, verify:
+
+```bash
+# Check tmpfiles.d config exists
+cat /etc/tmpfiles.d/audiobooks.conf
+
+# Manually recreate directories if needed
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf
+
+# Verify directories exist
+ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
+```
+
+**Symptoms of missing directories:**
+- Services fail with "No such file or directory" errors
+- Converter reports files stuck in queue but shows "idle"
+- Mover service fails silently
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#tmpfs-runtime-directories) for detailed tmpfs architecture.
+
 Both installation modes:
 - Create configuration files
 - Generate SSL certificates
@@ -567,7 +603,15 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 /etc/audiobooks/                    # System configuration
 ├── audiobooks.conf                 # Main config file
 └── certs/                          # SSL certificates
+
+/tmp/                               # Runtime directories (tmpfs recommended)
+├── audiobook-staging/              # In-progress conversions (cleared on reboot)
+│   └── [author]/[title]/           # Working directories per audiobook
+└── audiobook-triggers/             # Inter-service signaling
+    └── conversion-complete         # Signals mover when batch done
 ```
+
+> **Note:** If `/tmp` is a tmpfs (RAM-based), these directories are recreated on boot via `/etc/tmpfiles.d/audiobooks.conf`. See [tmpfs Considerations](#tmpfs-considerations) for setup details.
 
 **Architecture Notes:**
 - Scripts are installed to `/opt/audiobooks/scripts/` (canonical location)

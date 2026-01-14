@@ -46,6 +46,67 @@ For optimal performance, place components on appropriate storage tiers:
 
 See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md#storage-architecture) for detailed recommendations including BTRFS subvolume layouts and mount options.
 
+### tmpfs Considerations
+
+If your `/tmp` or `/var` filesystems are mounted as **tmpfs** (RAM-based filesystems), additional configuration is required. tmpfs partitions are cleared on every reboot, but the audiobook services expect certain directories to exist.
+
+#### Required Directories
+
+The system uses these temporary directories for inter-service communication:
+
+| Directory | Purpose | Used By |
+|-----------|---------|---------|
+| `/tmp/audiobook-staging` | In-progress downloads and conversions | downloader, converter, mover, API |
+| `/tmp/audiobook-triggers` | Inter-service completion signals | mover (writes), converter (watches) |
+| `/var/lib/audiobooks/.control` | Privileged helper communication | API, helper service |
+| `/var/lib/audiobooks/.run` | Runtime locks, temp files, FIFOs | All services |
+
+#### Setup for tmpfs Systems
+
+The installer automatically deploys a tmpfiles.d configuration that recreates these directories at boot:
+
+```bash
+# Verify tmpfiles.d configuration is deployed
+ls -la /etc/tmpfiles.d/audiobooks.conf
+
+# If missing, deploy it manually:
+sudo cp systemd/audiobooks-tmpfiles.conf /etc/tmpfiles.d/audiobooks.conf
+
+# Create directories immediately (without reboot):
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf
+```
+
+#### Verifying tmpfs Setup
+
+After a reboot, verify the directories exist:
+
+```bash
+# Check /tmp directories
+ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
+
+# Check /var directories
+ls -la /var/lib/audiobooks/.control /var/lib/audiobooks/.run
+
+# Verify correct ownership
+stat -c '%U:%G %a %n' /tmp/audiobook-staging /tmp/audiobook-triggers
+# Expected: audiobooks:audiobooks 775 ... and 755 ...
+```
+
+#### Symptoms of Missing tmpfs Configuration
+
+If tmpfiles.d is not configured correctly, you may experience:
+
+- **Services fail to start after reboot** with "No such file or directory" errors
+- **"Read-only file system"** errors when services try to write trigger files
+- **Conversion stops mid-queue** leaving downloads waiting
+- **Mover stops** leaving files stranded in staging
+- **Intermittent service deaths** that require manual restarts
+
+Check the journal for these errors:
+```bash
+journalctl -u 'audiobook-*' --since today | grep -E '(No such file|Read-only|Permission denied)'
+```
+
 ### Software
 - **Python**: 3.8 or higher
 - **ffmpeg**: 4.0 or higher (with ffprobe)
