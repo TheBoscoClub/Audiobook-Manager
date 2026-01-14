@@ -408,7 +408,7 @@ AUDIOBOOKS_LIBRARY = Path("{library_dir}")
         config_file.write_text("raise ImportError('test error')")
 
         with flask_app.test_client() as client:
-            response = client.get("/api/conversion/status")
+            client.get("/api/conversion/status")
 
         # May return 500 or could be cached from previous test
         # Either way, test that it doesn't crash

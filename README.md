@@ -1109,6 +1109,11 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 ## Changelog
 
 ### v3.10.0 (Current)
+- **BREAKING: Naming Convention Standardization**: All service names, CLI commands, and config files now use singular "audiobook-" prefix instead of plural "audiobooks-" to align with project name
+- **Status Script Enhancement**: `audiobook-status` now displays services and timers in separate sections
+- **Documentation Dates**: Updated last-modified dates in ARCHITECTURE.md and POSITION_SYNC.md
+
+### v3.9.8
 - **Major Refactoring**: Split monolithic `utilities_ops.py` (994 lines) into modular package with 5 focused modules
 - **Test Coverage**: Added 27 new test files, increased coverage from 77% to 85%
 - **Code Quality**: Removed unused imports, fixed incorrect default paths

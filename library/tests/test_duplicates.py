@@ -234,7 +234,7 @@ class TestRemoveFromIndexes:
         index_file.write_text("abc|/path/to/keep.aaxc\ndef|/path/to/remove.aaxc\n")
 
         with patch.dict(os.environ, {"AUDIOBOOKS_DATA": str(session_temp_dir)}):
-            result = remove_from_indexes(Path("/path/to/remove.aaxc"))
+            remove_from_indexes(Path("/path/to/remove.aaxc"))
 
         # Verify removal
         content = index_file.read_text()

@@ -10,7 +10,8 @@ Group=audiobooks
 
 # Load configuration
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
-Environment=HOME=/var/lib/audiobooks  # default for audiobooks user
+# HOME directory for audiobooks user
+Environment=HOME=/var/lib/audiobooks
 
 # Main script
 ExecStart=/usr/local/bin/audiobook-convert

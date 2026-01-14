@@ -28,7 +28,8 @@ SyslogIdentifier=audiobooks-api
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/audiobooks  # default
+# Data directory for audiobooks database and cache
+ReadWritePaths=/var/lib/audiobooks
 ProtectHome=yes
 # PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
 PrivateTmp=no

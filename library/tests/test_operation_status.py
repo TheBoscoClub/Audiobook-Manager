@@ -381,7 +381,7 @@ class TestOperationTracker:
             time.sleep(0.01)
 
         # Now create one more to trigger cleanup of the 5 completed ops
-        trigger_op = fresh_tracker.create_operation("trigger", "Trigger cleanup")
+        fresh_tracker.create_operation("trigger", "Trigger cleanup")
 
         # Should have max_history completed ops + 1 pending = 4 total
         all_ops = fresh_tracker.get_all_operations()

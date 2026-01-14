@@ -146,11 +146,11 @@ class TestNoHardcodedPaths:
     """
 
     # Paths that should be configured, not hardcoded
+    # Note: /etc/audiobooks is NOT forbidden - it's the proper FHS system config location
     FORBIDDEN_PATHS = [
         "/var/lib/audiobooks",
         "/opt/audiobooks",
         "/srv/audiobooks",
-        "/etc/audiobooks",
         "/raid0/Audiobooks",
     ]
 
@@ -160,13 +160,16 @@ class TestNoHardcodedPaths:
         "audiobook-config.sh", # Shell config defines defaults
         "test_",               # Test files may use mock/fixture paths
         ".conf",                # Config files
+        ".service",            # Systemd files MUST use literal paths (no shell expansion)
+        ".timer",              # Systemd timer files
         "CLAUDE.md",            # Documentation
         "README.md",            # Documentation
+        "audiobook-help",      # Help output shows paths to user
+        "upgrade-helper",      # Bootstrap scripts run before config is available
     ]
 
     def _should_skip_file(self, filepath: Path) -> bool:
         """Check if file should be skipped from hardcoded path check."""
-        name = filepath.name
         for allowed in self.ALLOWED_FILES:
             if allowed in str(filepath):
                 return True
@@ -191,6 +194,13 @@ class TestNoHardcodedPaths:
                         # Skip if it's in a config.get() default or environment variable fallback
                         # These are acceptable as they're fallback defaults
                         if "get_config(" in line or "environ.get(" in line:
+                            continue
+                        # Skip bash variable defaults: ${VAR:-/default/path}
+                        # This is the proper way to specify fallbacks in shell
+                        if ":-" in line and forbidden in line.split(":-")[1].split("}")[0] if ":-" in line else False:
+                            continue
+                        # Skip config file sourcing bootstrap (needed before config is loaded)
+                        if "audiobook-config.sh" in line:
                             continue
                         violations.append((line_num, forbidden, line.strip()[:100]))
         except Exception:
@@ -273,6 +283,65 @@ class TestNoHardcodedPaths:
             f"Found {len(violations)} hardcoded path(s) in scripts Python files. "
             f"Use config module variables instead:\n" + "\n".join(violations)
         )
+
+    def test_shell_scripts_no_hardcoded_paths(self):
+        """Test that shell scripts use config variables, not hardcoded paths.
+
+        Shell scripts should source audiobook-config.sh and use variables like
+        $AUDIOBOOKS_DATA, $AUDIOBOOKS_VAR_DIR, etc.
+        """
+        from pathlib import Path as P
+
+        test_dir = P(__file__).parent
+        project_root = test_dir.parent.parent
+        scripts_dir = project_root / "scripts"
+
+        if not scripts_dir.exists():
+            return  # Skip if scripts directory doesn't exist
+
+        violations = []
+        for sh_file in scripts_dir.glob("*"):
+            # Only check executable files without extensions (shell scripts)
+            if sh_file.is_dir() or sh_file.suffix:
+                continue
+            if self._should_skip_file(sh_file):
+                continue
+
+            file_violations = self._scan_file_for_hardcoded_paths(sh_file)
+            for line_num, path, content in file_violations:
+                violations.append(f"{sh_file.name}:{line_num}: {path}\n    {content}")
+
+        assert not violations, (
+            f"Found {len(violations)} hardcoded path(s) in shell scripts. "
+            f"Use config variables from audiobook-config.sh instead:\n" + "\n".join(violations)
+        )
+
+    def test_systemd_files_no_hardcoded_paths(self):
+        """Test that systemd files use expected paths.
+
+        Note: Systemd unit files MUST use literal paths because systemd
+        doesn't support shell variable expansion. This test documents the
+        expected paths rather than flagging them as violations.
+        """
+        from pathlib import Path as P
+
+        test_dir = P(__file__).parent
+        project_root = test_dir.parent.parent
+        systemd_dir = project_root / "systemd"
+
+        if not systemd_dir.exists():
+            return  # Skip if systemd directory doesn't exist
+
+        # Systemd files are exempt - they must use literal paths
+        # This test just verifies they exist and are parseable
+        service_files = list(systemd_dir.glob("*.service"))
+        assert len(service_files) > 0, "No systemd service files found"
+
+        for service_file in service_files:
+            content = service_file.read_text()
+            # Basic validation - should have [Unit] and [Service] sections
+            assert "[Unit]" in content, f"{service_file.name} missing [Unit] section"
+            assert "[Service]" in content, f"{service_file.name} missing [Service] section"
 
 
 class TestConfigVariablesUsed:

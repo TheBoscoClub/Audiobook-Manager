@@ -408,7 +408,7 @@ class TestAddNewAudiobooks:
         def track_progress(current, total, message):
             progress_calls.append((current, total, message))
 
-        result = add_new_audiobooks(
+        add_new_audiobooks(
             library_dir=library_dir,
             db_path=db_path,
             cover_dir=cover_dir,
@@ -489,7 +489,7 @@ class TestDeduplication:
         # Should only include the main library version
         result_paths = [str(f) for f in result]
         main_count = sum(1 for p in result_paths if "/Library/Audiobook/" not in p)
-        audiobook_count = sum(1 for p in result_paths if "/Library/Audiobook/" in p)
+        sum(1 for p in result_paths if "/Library/Audiobook/" in p)
 
         # The main library version should be included, audiobook folder version excluded
         assert main_count >= 1

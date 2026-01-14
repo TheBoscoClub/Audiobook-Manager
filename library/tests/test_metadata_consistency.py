@@ -92,7 +92,15 @@ def get_file_metadata(filepath: Path) -> Optional[dict]:
         return None
 
     format_data = data.get("format", {})
+
+    # Get tags from format level first, then fall back to stream level
+    # (Opus files often have metadata on stream level, not format level)
     tags = format_data.get("tags", {})
+    if not tags:
+        streams = data.get("streams", [])
+        if streams:
+            tags = streams[0].get("tags", {})
+
     tags_normalized = {k.lower(): v for k, v in tags.items()}
 
     return {
@@ -362,7 +370,7 @@ class TestAsinConsistency:
 
             # Find matching database record by title similarity
             title_from_file = source_file.name.split("_", 1)[1].rsplit("-AAX", 1)[0]
-            title_normalized = title_from_file.replace("_", " ")
+            title_from_file.replace("_", " ")
 
             cursor.execute(
                 "SELECT id, title, asin FROM audiobooks WHERE asin = ?",
