@@ -198,7 +198,7 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
     updates = [m for m in matches if m["asin"]]
     no_match = [m for m in matches if not m["asin"]]
 
-    print(f"📊 Match Results:")
+    print("📊 Match Results:")
     print(f"   ✅ Matched: {len(updates)}")
     print(f"   ❌ No match: {len(no_match)}")
 

@@ -157,7 +157,7 @@ class TestHashParsingLogic:
                     if numbers:
                         hashes_generated = int(numbers[0])
                 except ValueError:
-                    pass
+                    hashes_generated = 0  # Parsing failed, use default
 
         assert hashes_generated == 150
 
@@ -175,7 +175,7 @@ class TestHashParsingLogic:
                     if numbers:
                         hashes_generated = int(numbers[0])
                 except ValueError:
-                    pass
+                    hashes_generated = 0  # Parsing failed, use default
 
         assert hashes_generated == 0
 

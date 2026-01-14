@@ -132,7 +132,6 @@ def match_books_to_library(
         # Try fuzzy match
         best_match = None
         best_score = 0.0
-        best_lib_title = None
         best_confidence = "fuzzy"
 
         for lib_norm_title, lib_items in by_title.items():
@@ -140,8 +139,7 @@ def match_books_to_library(
             if score > best_score:
                 best_score = score
                 best_match = lib_items[0]
-                best_lib_title = lib_norm_title
-                best_confidence = "fuzzy"
+                # best_confidence stays "fuzzy" (initialized above)
 
             # Also check containment: if library title is contained in db title
             # E.g., "the crossing" in "the crossing harry bosch book 18"
@@ -164,7 +162,6 @@ def match_books_to_library(
                 if containment_score > best_score and containment_score >= 0.2:
                     best_score = containment_score
                     best_match = lib_items[0]
-                    best_lib_title = lib_norm_title
                     best_confidence = "containment"
 
         if best_match and best_score >= threshold:
@@ -191,7 +188,7 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
     if dry_run:
         print("\n🔸 DRY RUN - No changes will be made\n")
 
-    print(f"\n📊 Match Results:")
+    print("\n📊 Match Results:")
     print(f"   ✅ Matched: {len(matches)}")
 
     if not dry_run and matches:
@@ -247,7 +244,7 @@ def analyze_unmatched(unmatched: list[dict]):
         if book.get("best_match"):
             print(f"       Best match ({book['best_score']:.0%}): {book['best_match'][:50]}")
         else:
-            print(f"       No potential matches found")
+            print("       No potential matches found")
 
 
 def main():

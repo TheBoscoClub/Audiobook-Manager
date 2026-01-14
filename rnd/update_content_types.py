@@ -141,7 +141,7 @@ def main():
                 mismatches[category] = mismatches.get(category, 0) + 1
                 print(f"   {current_type} → {audible_type}: {title[:60]}")
 
-    print(f"\n📊 Content Type Changes:")
+    print("\n📊 Content Type Changes:")
     print(f"   Items needing update: {len(updates)}")
     for type_, count in mismatches.items():
         if count > 0:

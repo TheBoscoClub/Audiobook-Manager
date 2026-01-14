@@ -385,14 +385,14 @@ def init_maintenance_routes(project_root):
                             if numbers:
                                 matched_count = int(numbers[0])
                         except ValueError:
-                            pass
+                            matched_count = 0  # Parsing failed, use default
                     elif "Unmatched:" in line:
                         try:
                             numbers = re.findall(r"\d+", line)
                             if numbers:
                                 unmatched_count = int(numbers[0])
                         except ValueError:
-                            pass
+                            unmatched_count = 0  # Parsing failed, use default
 
                 if result.returncode == 0:
                     tracker.complete_operation(

@@ -13,6 +13,47 @@ from .core import FlaskResponse, get_db
 duplicates_bp = Blueprint("duplicates", __name__)
 
 
+def _sanitize_for_log(value: str) -> str:
+    """Sanitize a string for safe logging by removing control characters."""
+    # Remove newlines, carriage returns, tabs, and other control characters
+    # that could be used for log injection attacks
+    return "".join(c if c.isprintable() and c not in "\r\n\t" else "_" for c in value)
+
+
+def _is_safe_path(filepath: Path, allowed_bases: list[Path]) -> bool:
+    """
+    Validate that a path is safely contained within allowed directories.
+
+    Prevents path traversal attacks by:
+    1. Resolving the path to its canonical form (following symlinks)
+    2. Checking that the resolved path starts with one of the allowed bases
+
+    Args:
+        filepath: The path to validate
+        allowed_bases: List of allowed base directories
+
+    Returns:
+        True if the path is safely within an allowed directory, False otherwise
+    """
+    try:
+        # Resolve to canonical path (follows symlinks, resolves ..)
+        resolved = filepath.resolve()
+        # Check if it's under any of the allowed base directories
+        for base in allowed_bases:
+            try:
+                base_resolved = base.resolve()
+                # Check if resolved path is under the base directory
+                resolved.relative_to(base_resolved)
+                return True
+            except ValueError:
+                # Not under this base, try next
+                continue
+        return False
+    except (OSError, RuntimeError):
+        # Path resolution failed (broken symlink, permission error, etc.)
+        return False
+
+
 def remove_from_indexes(filepath: Path) -> dict:
     """
     Remove a file path from all checksum index files.
@@ -715,15 +756,35 @@ def init_duplicates_routes(db_path):
         if not paths_to_delete:
             return jsonify({"error": "No paths provided"}), 400
 
+        # Get allowed directories from environment for path safety validation
+        library_dir = Path(
+            os.environ.get("AUDIOBOOKS_LIBRARY", "/raid0/Audiobooks/Library")
+        )
+        sources_dir = Path(
+            os.environ.get("AUDIOBOOKS_SOURCES", "/raid0/Audiobooks/Sources")
+        )
+
+        # Determine which directories are allowed based on file type
+        if file_type == "library":
+            allowed_bases = [library_dir]
+        else:  # sources
+            allowed_bases = [sources_dir]
+
         conn = get_db(db_path)
         cursor = conn.cursor()
 
         deleted_files = []
         errors = []
         skipped_not_found = []
+        skipped_unsafe = []
 
         for filepath_str in paths_to_delete:
             filepath = Path(filepath_str)
+
+            # SECURITY: Validate path is within allowed directories
+            if not _is_safe_path(filepath, allowed_bases):
+                skipped_unsafe.append(filepath_str)
+                continue
 
             if file_type == "library":
                 # Library files: look up in database
@@ -767,7 +828,8 @@ def init_duplicates_routes(db_path):
                         import logging
 
                         logging.exception(
-                            "Error deleting library file %s", filepath_str
+                            "Error deleting library file %s",
+                            _sanitize_for_log(filepath_str),
                         )
                         errors.append(
                             {"path": filepath_str, "error": "Deletion failed"}
@@ -788,7 +850,9 @@ def init_duplicates_routes(db_path):
                         except Exception:
                             import logging
 
-                            logging.exception("Error deleting file %s", filepath_str)
+                            logging.exception(
+                                "Error deleting file %s", _sanitize_for_log(filepath_str)
+                            )
                             errors.append(
                                 {"path": filepath_str, "error": "Deletion failed"}
                             )
@@ -807,7 +871,10 @@ def init_duplicates_routes(db_path):
                     except Exception:
                         import logging
 
-                        logging.exception("Error deleting source file %s", filepath_str)
+                        logging.exception(
+                            "Error deleting source file %s",
+                            _sanitize_for_log(filepath_str),
+                        )
                         errors.append(
                             {"path": filepath_str, "error": "Deletion failed"}
                         )
@@ -823,6 +890,7 @@ def init_duplicates_routes(db_path):
                 "deleted_count": len(deleted_files),
                 "deleted_files": deleted_files,
                 "skipped_not_found": skipped_not_found,
+                "skipped_unsafe": skipped_unsafe,
                 "errors": errors,
             }
         )

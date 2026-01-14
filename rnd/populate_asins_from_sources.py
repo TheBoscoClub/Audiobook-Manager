@@ -109,8 +109,6 @@ def calculate_similarity(s1: str, s2: str) -> float:
 def match_sources_to_db(sources: list[dict], audiobooks: list[dict]) -> list[dict]:
     """Match source files to database entries by title."""
     matches = []
-    unmatched_sources = []
-    unmatched_books = list(audiobooks)  # Copy to track unmatched
 
     # Build lookup from sources by normalized title
     source_by_title = {}
@@ -156,8 +154,7 @@ def match_sources_to_db(sources: list[dict], audiobooks: list[dict]) -> list[dic
                 "confidence": f"fuzzy ({best_score:.0%})",
             })
             matched_ids.add(book["id"])
-        else:
-            unmatched_books.append(book)
+        # else: book is unmatched, counted below
 
     # Count unmatched
     unmatched_count = len(audiobooks) - len(matched_ids)
@@ -172,7 +169,7 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
 
     matched = [m for m in matches if m["asin"]]
 
-    print(f"📊 Match Results:")
+    print("📊 Match Results:")
     print(f"   ✅ Matched: {len(matched)}")
 
     if not dry_run and matched:

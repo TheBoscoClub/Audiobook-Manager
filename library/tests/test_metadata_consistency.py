@@ -29,8 +29,8 @@ LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 sys.path.insert(0, str(LIBRARY_DIR.parent / "rnd"))
 
-from config import AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES
-from scanner.metadata_utils import run_ffprobe, extract_author_from_tags
+from config import AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES  # noqa: E402
+from scanner.metadata_utils import run_ffprobe, extract_author_from_tags  # noqa: E402
 
 
 # =============================================================================

@@ -110,7 +110,7 @@ def retrieve_credential(
         data = json.loads(credential_file.read_text())
 
         if data.get("version") != 1:
-            print(f"⚠️  Unknown credential format version")
+            print("⚠️  Unknown credential format version")
             return None
 
         salt = base64.b64decode(data["salt"])

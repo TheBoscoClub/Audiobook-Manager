@@ -118,7 +118,7 @@ async def read_position(client: audible.AsyncClient, asin: str) -> dict:
     try:
         # Method 1: Try annotations/lastpositions endpoint
         response = await client.get(
-            f"1.0/annotations/lastpositions",
+            "1.0/annotations/lastpositions",
             params={"asins": asin}
         )
 
@@ -147,12 +147,12 @@ async def read_position(client: audible.AsyncClient, asin: str) -> dict:
 
         # Print parsed summary
         if result["position_ms"]:
-            print(f"\n✅ Position found:")
+            print("\n✅ Position found:")
             print(f"   Position: {result['position_human']} ({result['position_ms']} ms)")
             print(f"   Last updated: {result['last_updated']}")
             print(f"   Status: {result['status']}")
         else:
-            print(f"\n⚠️  No position found for this ASIN")
+            print("\n⚠️  No position found for this ASIN")
 
         return result
 
@@ -198,7 +198,7 @@ async def get_content_license(client: audible.AsyncClient, asin: str) -> dict:
             "content_license_keys": list(content_license.keys()) if isinstance(content_license, dict) else None,
         }
 
-        print(f"\n📋 License details:")
+        print("\n📋 License details:")
         print(f"   ACR: {result['acr'][:50] + '...' if result['acr'] else 'Not found'}")
         print(f"   License ID: {result['license_id']}")
         print(f"   Content license keys: {result['content_license_keys']}")
@@ -207,7 +207,7 @@ async def get_content_license(client: audible.AsyncClient, asin: str) -> dict:
             pos_ms = result["last_position_heard"].get("position_ms")
             print(f"   Last position heard: {ms_to_human(pos_ms)} ({pos_ms} ms)")
         else:
-            print(f"   Last position heard: Not in response")
+            print("   Last position heard: Not in response")
 
         return result
 
@@ -372,7 +372,7 @@ async def batch_sync_from_db(client: audible.AsyncClient, db_path: str, limit: i
     """
     import sqlite3
 
-    print(f"\n🔄 Batch Sync from Database")
+    print("\n🔄 Batch Sync from Database")
     print("=" * 60)
 
     # Connect to database
@@ -402,7 +402,7 @@ async def batch_sync_from_db(client: audible.AsyncClient, db_path: str, limit: i
     asins = [b['asin'] for b in books]
     asin_to_book = {b['asin']: dict(b) for b in books}
 
-    print(f"☁️  Fetching positions from Audible...")
+    print("☁️  Fetching positions from Audible...")
 
     # Fetch in batches - API limit: max 25 ASINs per request
     batch_size = 25
@@ -501,7 +501,7 @@ async def batch_sync_from_db(client: audible.AsyncClient, db_path: str, limit: i
     conn.close()
 
     # Print summary
-    print(f"\n📊 Sync Results:")
+    print("\n📊 Sync Results:")
     print(f"   ☁️→💾 Pulled from Audible: {len(results['pulled'])}")
     print(f"   💾→☁️ Pushed to Audible:  {len(results['pushed'])}")
     print(f"   ✅ Already synced:        {len(results['synced'])}")
@@ -509,12 +509,12 @@ async def batch_sync_from_db(client: audible.AsyncClient, db_path: str, limit: i
 
     # Show samples
     if results["pulled"]:
-        print(f"\n📋 Sample Pulled (Audible → Local):")
+        print("\n📋 Sample Pulled (Audible → Local):")
         for r in results["pulled"][:5]:
             print(f"   {r['title']}: {ms_to_human(r['audible_ms'])}")
 
     if results["pushed"]:
-        print(f"\n📋 Sample Pushed (Local → Audible):")
+        print("\n📋 Sample Pushed (Local → Audible):")
         for r in results["pushed"][:5]:
             print(f"   {r['title']}: {ms_to_human(r['local_ms'])}")
 
