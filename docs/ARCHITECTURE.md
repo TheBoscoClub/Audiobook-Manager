@@ -6,15 +6,21 @@ This document describes the system architecture, installation workflows, storage
 
 1. [System Overview](#system-overview)
 2. [Component Architecture](#component-architecture)
-3. [Position Sync Architecture](#position-sync-architecture)
-4. [Periodicals Architecture](#periodicals-architecture)
-5. [Installation Workflow](#installation-workflow)
-6. [Upgrade Workflow](#upgrade-workflow)
-7. [Migration Workflow](#migration-workflow)
-8. [Storage Layout](#storage-layout)
-9. [Storage Recommendations](#storage-recommendations)
-10. [Filesystem Recommendations](#filesystem-recommendations)
-11. [Kernel Compatibility](#kernel-compatibility)
+3. [Scanner Module Architecture](#scanner-module-architecture)
+4. [API Module Architecture](#api-module-architecture)
+5. [Position Sync Architecture](#position-sync-architecture)
+6. [Periodicals Architecture](#periodicals-architecture)
+7. [Systemd Services Reference](#systemd-services-reference)
+8. [Scripts Reference](#scripts-reference)
+9. [Installation Workflow](#installation-workflow)
+10. [Upgrade Workflow](#upgrade-workflow)
+11. [Migration Workflow](#migration-workflow)
+12. [Storage Layout](#storage-layout)
+13. [Storage Recommendations](#storage-recommendations)
+14. [Filesystem Recommendations](#filesystem-recommendations)
+15. [Kernel Compatibility](#kernel-compatibility)
+16. [Quick Reference](#quick-reference)
+17. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
 
 ---
 
@@ -204,6 +210,141 @@ for dir in /var/lib/audiobooks /srv/audiobooks/Sources /srv/audiobooks/Library; 
     [[ "$owner" != "audiobooks" ]] && echo "WARN: $dir owned by $owner"
 done
 ```
+
+---
+
+## Scanner Module Architecture
+
+The scanner subsystem handles metadata extraction, library scanning, and database imports. Located in `library/scanner/`.
+
+### Scanner Components
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       SCANNER MODULE HIERARCHY                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  library/scanner/
+  ├── metadata_utils.py      # Core metadata extraction (ffprobe wrapper)
+  ├── scan_audiobooks.py     # Full library scanner
+  ├── add_new_audiobooks.py  # Incremental scanner for new files
+  ├── import_single.py       # Single-directory inline importer
+  ├── find_missing_audiobooks.py  # Detect missing/moved files
+  └── create_priority_list.py     # Conversion queue prioritization
+```
+
+### Data Pipeline Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AUDIOBOOK DATA PIPELINE                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  STAGE 1: DOWNLOAD                      STAGE 2: CONVERT
+  ┌─────────────────────┐                ┌─────────────────────┐
+  │ download-new-       │                │ convert-audiobooks- │
+  │ audiobooks          │                │ opus-parallel       │
+  │                     │                │                     │
+  │ Audible CLI         │                │ FFmpeg + AAX keys   │
+  │     ↓               │                │     ↓               │
+  │ Sources/*.aaxc      ├───────────────▶│ Staging/*.opus      │
+  └─────────────────────┘                └─────────────────────┘
+                                                   │
+                                                   ▼
+  STAGE 4: IMPORT                        STAGE 3: MOVE
+  ┌─────────────────────┐                ┌─────────────────────┐
+  │ import_single.py    │                │ move-staged-        │
+  │                     │                │ audiobooks          │
+  │ Extract metadata    │                │                     │
+  │ Insert to SQLite    │◀───────────────│ rsync to Library/   │
+  │ Extract cover art   │                │ Generate checksums  │
+  └─────────────────────┘                └─────────────────────┘
+          │
+          ▼
+  ┌─────────────────────┐
+  │ SQLite Database     │
+  │ • audiobooks table  │
+  │ • FTS5 index        │
+  │ • Lookup tables     │
+  └─────────────────────┘
+```
+
+### Metadata Extraction
+
+The `metadata_utils.py` module wraps ffprobe for metadata extraction:
+
+```python
+# CRITICAL: Opus files store metadata differently
+def get_file_metadata(filepath):
+    data = run_ffprobe(filepath)
+
+    # Check format-level tags first (MP3, M4A, M4B)
+    tags = data.get("format", {}).get("tags", {})
+
+    # Fall back to stream-level tags (Opus/Ogg uses Vorbis comments)
+    if not tags:
+        streams = data.get("streams", [])
+        if streams:
+            tags = streams[0].get("tags", {})
+
+    return tags
+```
+
+**Why this matters**: Opus files store metadata in Vorbis comments on the audio stream (`streams[0].tags`), not in the container format. Code that only checks `format.tags` will get empty metadata for Opus files.
+
+### Import Single Module
+
+The `import_single.py` module provides inline database import called directly by `move-staged-audiobooks`:
+
+```bash
+# In move-staged-audiobooks:
+if python3 "${AUDIOBOOKS_HOME}/library/scanner/import_single.py" "$DEST"; then
+    log "✓ Imported: $DIR_NAME"
+fi
+```
+
+This eliminates the delay between file arrival and database visibility, making newly converted audiobooks immediately browsable in the web UI.
+
+---
+
+## API Module Architecture
+
+The Flask API uses a modular blueprint architecture (`library/backend/api_modular/`).
+
+### Blueprint Organization
+
+| Blueprint | Prefix | Purpose |
+|-----------|--------|---------|
+| `audiobooks_bp` | `/api` | Main listing, streaming, single book |
+| `collections_bp` | `/api` | Predefined genre-based collections |
+| `editions_bp` | `/api` | Edition detection and grouping |
+| `duplicates_bp` | `/api` | Duplicate detection (hash/title) |
+| `supplements_bp` | `/api` | PDF, ebook companion files |
+| `utilities_bp` | `/api` | CRUD, imports, exports, maintenance |
+| `position_bp` | `/api` | Playback position sync |
+| `periodicals_bp` | `/api/v1` | Periodicals/Reading Room |
+
+### Utilities Operations Submodules
+
+The `utilities_ops/` package contains specialized operation handlers (refactored from monolithic `utilities_ops.py` in v3.9.8):
+
+```
+library/backend/api_modular/utilities_ops/
+├── __init__.py      # Re-exports all operations
+├── audible.py       # Audible API operations (download, metadata sync)
+├── hashing.py       # Hash generation for duplicate detection
+├── library.py       # Library content management (rescan, cleanup)
+├── maintenance.py   # Database maintenance (vacuum, reindex, FTS rebuild)
+└── status.py        # Operation status endpoint handlers
+```
+
+| Module | Key Functions | API Endpoints |
+|--------|--------------|---------------|
+| `audible.py` | `download_audiobook()`, `sync_metadata()` | POST `/api/utilities/download` |
+| `hashing.py` | `generate_hashes()`, `update_checksums()` | POST `/api/utilities/generate-hashes` |
+| `library.py` | `rescan_library()`, `cleanup_missing()` | POST `/api/utilities/rescan` |
+| `maintenance.py` | `vacuum_database()`, `rebuild_fts()` | POST `/api/utilities/maintenance` |
+| `status.py` | `get_operation_status()` | GET `/api/utilities/status/<id>` |
 
 ---
 
@@ -601,6 +742,108 @@ RandomizedDelaySec=300    # Spread load across 5 minutes
 | `systemd/audiobook-periodicals-sync.timer` | Systemd timer |
 
 For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
+
+---
+
+## Systemd Services Reference
+
+All systemd units are located in `systemd/` and installed to `/etc/systemd/system/`.
+
+### Service Units
+
+| Unit | Type | Purpose |
+|------|------|---------|
+| `audiobook-api.service` | Service | Flask REST API (Waitress server on port 5001) |
+| `audiobook-proxy.service` | Service | HTTPS reverse proxy (port 8443 → 5001) |
+| `audiobook-redirect.service` | Service | HTTP→HTTPS redirect (port 8081 → 8443) |
+| `audiobook-converter.service` | Service | AAXC to Opus conversion daemon |
+| `audiobook-mover.service` | Service | Staging to Library file mover |
+| `audiobook-downloader.service` | Service | Audible download daemon |
+| `audiobook-periodicals-sync.service` | Service | Periodicals metadata sync |
+| `audiobook-upgrade-helper.service` | Service | Privileged operations helper (runs as root) |
+| `audiobook-shutdown-saver.service` | Service | Saves staging to disk on system shutdown |
+
+### Timer Units
+
+| Unit | Schedule | Purpose |
+|------|----------|---------|
+| `audiobook-downloader.timer` | Configurable | Triggers download checks |
+| `audiobook-periodicals-sync.timer` | 06:00, 18:00 | Syncs periodical metadata from Audible |
+
+### Path Units
+
+| Unit | Watches | Purpose |
+|------|---------|---------|
+| `audiobook-upgrade-helper.path` | `/var/lib/audiobooks/.control/upgrade-request` | Triggers helper on upgrade request |
+
+### Target Unit
+
+| Unit | Purpose |
+|------|---------|
+| `audiobook.target` | Groups all audiobook services for unified start/stop |
+
+### tmpfiles.d Configuration
+
+| File | Purpose |
+|------|---------|
+| `audiobooks-tmpfiles.conf` | Creates runtime directories on boot |
+
+---
+
+## Scripts Reference
+
+All scripts are located in `scripts/` and installed to `/opt/audiobooks/scripts/`.
+
+### Core Pipeline Scripts
+
+| Script | Purpose | Service |
+|--------|---------|---------|
+| `download-new-audiobooks` | Downloads new purchases from Audible | audiobook-downloader |
+| `convert-audiobooks-opus-parallel` | Parallel AAXC→Opus conversion | audiobook-converter |
+| `move-staged-audiobooks` | Moves completed conversions to Library | audiobook-mover |
+| `sync-periodicals-index` | Syncs periodical metadata from Audible API | audiobook-periodicals-sync |
+
+### Service Control Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `audiobook-start` | Start all audiobook services |
+| `audiobook-stop` | Stop all audiobook services |
+| `audiobook-status` | Show service and timer status |
+| `audiobook-enable` | Enable services for auto-start |
+| `audiobook-disable` | Disable services from auto-start |
+
+### Utility Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `audiobook-help` | Display help and usage information |
+| `build-conversion-queue` | Build/rebuild conversion priority queue |
+| `cleanup-stale-indexes` | Remove orphaned index entries |
+| `copy-audiobook-metadata` | Copy metadata between audiobook files |
+| `embed-cover-art.py` | Embed cover images into audio files |
+| `fix-wrong-chapters-json` | Repair malformed chapter metadata |
+| `monitor-audiobook-conversion` | Watch conversion progress in real-time |
+| `audiobook-download-monitor` | Watch download progress |
+| `audiobook-save-staging` | Manually save staging to persistent storage |
+| `audiobook-save-staging-auto` | Auto-save staging (called by shutdown service) |
+
+### Symlink Architecture
+
+Wrapper scripts in `/usr/local/bin/` provide system-wide access:
+
+```
+/usr/local/bin/audiobook-*  →  /opt/audiobooks/scripts/*
+```
+
+**Key wrappers:**
+- `audiobook-convert` → `convert-audiobooks-opus-parallel`
+- `audiobook-download` → `download-new-audiobooks`
+- `audiobook-move` → `move-staged-audiobooks`
+- `audiobook-upgrade` → `upgrade.sh`
+- `audiobook-migrate` → `migrate-api.sh`
+- `audiobook-status` → `audiobook-status`
+- `audiobook-help` → `audiobook-help`
 
 ---
 
