@@ -13,6 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.8] - 2026-01-14
+
+### Changed
+- **Major Refactoring**: Split monolithic `utilities_ops.py` (994 lines) into modular package
+  - `utilities_ops/audible.py` - Audible API operations (download, metadata sync)
+  - `utilities_ops/hashing.py` - Hash generation operations
+  - `utilities_ops/library.py` - Library content management
+  - `utilities_ops/maintenance.py` - Database and index maintenance
+  - `utilities_ops/status.py` - Status endpoint operations
+- **Shared Utilities**: Extract common code to `library/common.py` (replacing `library/utils.py`)
+- **Test Coverage**: Added 27 new test files, coverage increased from 77% to 85%
+  - New test files for all API modules (audiobooks, duplicates, supplements, position_sync)
+  - New test files for utilities_ops submodules
+  - Extended test coverage for edge cases and error handling
+
+### Fixed
+- **Unused Imports**: Removed `TextIO` from utilities_conversion.py, `Path` from utilities_ops/library.py
+- **Incorrect Default**: Fixed AUDIOBOOKS_DATA default in audible.py from `/var/lib/audiobooks` to `/srv/audiobooks`
+- **Example Config**: Added missing PARALLEL_JOBS, DATA_DIR, and INDEX variables to audiobooks.conf.example
+- **Documentation**: Updated api_modular/README.md to remove obsolete utilities_ops.py references
+
+### Security
+- **CVE-2025-43859 Documentation**: Documented h11 vulnerability as blocked by audible 0.8.2 dependency chain
+  (audible pins httpx<0.24.0 which requires h11<0.15). Monitor for audible updates.
+
 ## [3.9.7.1] - 2026-01-13
 
 ### Fixed (Audit Fixes)
