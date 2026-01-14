@@ -13,12 +13,13 @@ import pytest
 
 from tests.conftest import LIBRARY_DIR
 
-# Periodicals migration file path
+# Periodicals migration file paths
 PERIODICALS_MIGRATION = LIBRARY_DIR / "backend" / "migrations" / "006_periodicals.sql"
+PARENT_ASIN_MIGRATION = LIBRARY_DIR / "backend" / "migrations" / "008_periodicals_parent_asin.sql"
 
 
 def apply_periodicals_migration(db_path: Path) -> None:
-    """Apply periodicals migration to test database if not already applied."""
+    """Apply periodicals migrations to test database if not already applied."""
     conn = sqlite3.connect(db_path)
     # Check if table exists
     result = conn.execute(
@@ -26,6 +27,13 @@ def apply_periodicals_migration(db_path: Path) -> None:
     ).fetchone()
     if not result:
         with open(PERIODICALS_MIGRATION) as f:
+            conn.executescript(f.read())
+
+    # Check if parent_asin column exists
+    columns = conn.execute("PRAGMA table_info(periodicals)").fetchall()
+    column_names = [col[1] for col in columns]
+    if "parent_asin" not in column_names:
+        with open(PARENT_ASIN_MIGRATION) as f:
             conn.executescript(f.read())
     conn.close()
 
@@ -462,7 +470,7 @@ class TestQueueDownloads:
         conn.close()
 
         with flask_app.test_client() as client:
-            response = client.post(
+            client.post(
                 "/api/v1/periodicals/download",
                 json={"asins": ["B001234567"], "priority": "low"},
             )
@@ -820,3 +828,392 @@ class TestEnvironmentVariable:
         importlib.reload(periodicals)
 
         assert periodicals._audiobooks_home == "/opt/audiobooks"
+
+
+class TestParentChildHierarchy:
+    """Test parent/child relationship functionality."""
+
+    def test_parent_has_null_parent_asin(self, flask_app, clean_periodicals):
+        """Test parent items have parent_asin=NULL."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin)
+            VALUES (?, ?, ?, ?)""",
+            ("B001234567", "Parent Podcast", "podcast", None),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B001234567")
+
+        data = response.get_json()
+        assert data["parent_asin"] is None
+
+    def test_episode_has_parent_asin_set(self, flask_app, clean_periodicals):
+        """Test episode items have parent_asin set."""
+        conn = sqlite3.connect(clean_periodicals)
+        # Insert parent
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin)
+            VALUES (?, ?, ?, ?)""",
+            ("B001234567", "Parent Podcast", "podcast", None),
+        )
+        # Insert episode
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin, content_delivery_type)
+            VALUES (?, ?, ?, ?, ?)""",
+            ("B009876543", "Episode 1", "podcast", "B001234567", "PodcastEpisode"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B009876543")
+
+        data = response.get_json()
+        assert data["parent_asin"] == "B001234567"
+        assert data["content_delivery_type"] == "PodcastEpisode"
+
+    def test_filter_by_type_parents(self, flask_app, clean_periodicals):
+        """Test filtering by type=parents returns only parent items."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent 1", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "Episode", "podcast", "B001111111"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals?type=parents")
+
+        data = response.get_json()
+        assert len(data["periodicals"]) == 1
+        assert data["periodicals"][0]["asin"] == "B001111111"
+
+    def test_filter_by_type_episodes(self, flask_app, clean_periodicals):
+        """Test filtering by type=episodes returns only episode items."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "Episode 1", "podcast", "B001111111"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals?type=episodes")
+
+        data = response.get_json()
+        assert len(data["periodicals"]) == 1
+        assert data["periodicals"][0]["asin"] == "B002222222"
+
+    def test_filter_by_parent_asin(self, flask_app, clean_periodicals):
+        """Test filtering episodes by parent_asin."""
+        conn = sqlite3.connect(clean_periodicals)
+        # Insert two parents
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent 1", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B003333333", "Parent 2", "podcast", None),
+        )
+        # Insert episodes for both
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "Episode P1", "podcast", "B001111111"),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B004444444", "Episode P2", "podcast", "B003333333"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals?parent_asin=B001111111")
+
+        data = response.get_json()
+        assert len(data["periodicals"]) == 1
+        assert data["periodicals"][0]["asin"] == "B002222222"
+
+
+class TestListParents:
+    """Test the list_parents route."""
+
+    def test_returns_parents_with_episode_counts(self, flask_app, clean_periodicals):
+        """Test returns parent items with their episode counts."""
+        conn = sqlite3.connect(clean_periodicals)
+        # Insert parent
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent Podcast", "podcast", None),
+        )
+        # Insert 3 episodes
+        for i in range(3):
+            conn.execute(
+                """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+                (f"B00{i+2:07d}", f"Episode {i+1}", "podcast", "B001111111"),
+            )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/parents")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["parents"]) == 1
+        assert data["parents"][0]["asin"] == "B001111111"
+        assert data["parents"][0]["episode_count"] == 3
+
+    def test_excludes_episodes_from_parents_list(self, flask_app, clean_periodicals):
+        """Test episodes are not included in parents list."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "Episode", "podcast", "B001111111"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/parents")
+
+        data = response.get_json()
+        assert len(data["parents"]) == 1
+        assert data["parents"][0]["title"] == "Parent"
+
+    def test_filter_parents_by_category(self, flask_app, clean_periodicals):
+        """Test filtering parents by category."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Podcast Parent", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "Meditation Parent", "meditation", None),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/parents?category=meditation")
+
+        data = response.get_json()
+        assert len(data["parents"]) == 1
+        assert data["parents"][0]["category"] == "meditation"
+
+    def test_sort_parents_by_episode_count(self, flask_app, clean_periodicals):
+        """Test sorting parents by episode count."""
+        conn = sqlite3.connect(clean_periodicals)
+        # Parent with 2 episodes
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Few Episodes", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "EP1", "podcast", "B001111111"),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B003333333", "EP2", "podcast", "B001111111"),
+        )
+        # Parent with 5 episodes
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B004444444", "Many Episodes", "podcast", None),
+        )
+        for i in range(5):
+            conn.execute(
+                """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+                (f"B00{i+5:07d}", f"EP{i+1}", "podcast", "B004444444"),
+            )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/parents?sort=episode_count")
+
+        data = response.get_json()
+        assert data["parents"][0]["title"] == "Many Episodes"
+        assert data["parents"][0]["episode_count"] == 5
+        assert data["parents"][1]["title"] == "Few Episodes"
+        assert data["parents"][1]["episode_count"] == 2
+
+
+class TestListEpisodes:
+    """Test the list_episodes route."""
+
+    def test_returns_episodes_for_parent(self, flask_app, clean_periodicals):
+        """Test returns all episodes for a parent ASIN."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent Podcast", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin, release_date) VALUES (?, ?, ?, ?, ?)""",
+            ("B002222222", "Episode 1", "podcast", "B001111111", "2024-01-01"),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin, release_date) VALUES (?, ?, ?, ?, ?)""",
+            ("B003333333", "Episode 2", "podcast", "B001111111", "2024-01-02"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B001111111/episodes")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["parent_asin"] == "B001111111"
+        assert data["parent_title"] == "Parent Podcast"
+        assert data["total"] == 2
+        assert len(data["episodes"]) == 2
+
+    def test_episodes_sorted_by_release_date(self, flask_app, clean_periodicals):
+        """Test episodes are sorted by release date (newest first)."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin, release_date) VALUES (?, ?, ?, ?, ?)""",
+            ("B002222222", "Old Episode", "podcast", "B001111111", "2024-01-01"),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin, release_date) VALUES (?, ?, ?, ?, ?)""",
+            ("B003333333", "New Episode", "podcast", "B001111111", "2024-02-01"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B001111111/episodes")
+
+        data = response.get_json()
+        assert data["episodes"][0]["title"] == "New Episode"
+        assert data["episodes"][1]["title"] == "Old Episode"
+
+    def test_episodes_pagination(self, flask_app, clean_periodicals):
+        """Test pagination for episodes list."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent", "podcast", None),
+        )
+        for i in range(10):
+            conn.execute(
+                """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+                (f"B00{i+2:07d}", f"Episode {i+1}", "podcast", "B001111111"),
+            )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B001111111/episodes?page=2&per_page=3")
+
+        data = response.get_json()
+        assert len(data["episodes"]) == 3
+        assert data["page"] == 2
+        assert data["total"] == 10
+        assert data["total_pages"] == 4
+
+    def test_returns_404_for_episode_asin(self, flask_app, clean_periodicals):
+        """Test returns 404 when ASIN is an episode, not a parent."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "Episode", "podcast", "B001111111"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B002222222/episodes")
+
+        assert response.status_code == 404
+
+    def test_returns_404_for_nonexistent_parent(self, flask_app, clean_periodicals):
+        """Test returns 404 for nonexistent parent ASIN."""
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B999999999/episodes")
+
+        assert response.status_code == 404
+
+    def test_returns_400_for_invalid_asin(self, flask_app):
+        """Test returns 400 for invalid ASIN format."""
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/invalid/episodes")
+
+        assert response.status_code == 400
+
+
+class TestPeriodicalDetailsWithEpisodeCount:
+    """Test periodical_details includes episode_count for parents."""
+
+    def test_parent_includes_episode_count(self, flask_app, clean_periodicals):
+        """Test parent item response includes episode_count."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent", "podcast", None),
+        )
+        for i in range(5):
+            conn.execute(
+                """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+                (f"B00{i+2:07d}", f"Episode {i+1}", "podcast", "B001111111"),
+            )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B001111111")
+
+        data = response.get_json()
+        assert "episode_count" in data
+        assert data["episode_count"] == 5
+
+    def test_episode_does_not_include_episode_count(self, flask_app, clean_periodicals):
+        """Test episode item response does not include episode_count."""
+        conn = sqlite3.connect(clean_periodicals)
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B001111111", "Parent", "podcast", None),
+        )
+        conn.execute(
+            """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
+            ("B002222222", "Episode", "podcast", "B001111111"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/v1/periodicals/B002222222")
+
+        data = response.get_json()
+        assert "episode_count" not in data

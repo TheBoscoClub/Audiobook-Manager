@@ -29,7 +29,8 @@ SyslogIdentifier=audiobooks-redirect
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadOnlyPaths=/etc/audiobooks /opt/audiobooks
-ReadWritePaths=/var/lib/audiobooks  # default
+# Data directory for audiobooks database and cache
+ReadWritePaths=/var/lib/audiobooks
 ProtectHome=yes
 PrivateTmp=yes
 

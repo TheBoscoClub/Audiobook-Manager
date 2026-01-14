@@ -255,7 +255,7 @@ class TestEditionMatchingLogic:
 
         # All should normalize to roughly the same base title
         # (may have slight variations in punctuation handling)
-        first_base = base_titles[0]
+        base_titles[0]
         for base in base_titles[1:]:
             # Check that the core "gatsby" is present in all
             assert "gatsby" in base

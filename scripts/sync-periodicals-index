@@ -22,7 +22,7 @@ export AUDIBLE_CONFIG_DIR=/etc/audiobooks/audible
 
 # Script config
 SYNC_ID=$(uuidgen)
-DB="${AUDIOBOOKS_DATA}/audiobooks.db"
+DB="${AUDIOBOOKS_DATABASE:-${AUDIOBOOKS_DATA}/audiobooks.db}"
 SSE_FIFO="${AUDIOBOOKS_RUN_DIR}/periodicals-sse"
 SKIP_FILE="/etc/audiobooks/periodicals-skip.txt"
 
@@ -152,11 +152,13 @@ EOF
     emit_sse '{"event":"sync_completed","status":"'"$status"'"}'
 }
 
-# Sync a single library item
+# Sync a single library item (parent or episode)
+# Args: item_json, parent_asin (optional, for episodes)
 sync_item() {
     local item_json="$1"
+    local parent_asin="${2:-}"
 
-    local asin title author content_type runtime cover_url description release_date
+    local asin title author content_type runtime cover_url description release_date content_delivery_type
     asin=$(echo "$item_json" | jq -r '.asin')
     title=$(echo "$item_json" | jq -r '.title // "Unknown"')
     author=$(echo "$item_json" | jq -r '.authors[0].name // "Unknown"')
@@ -165,17 +167,25 @@ sync_item() {
     cover_url=$(echo "$item_json" | jq -r '.product_images."500" // ""')
     description=$(echo "$item_json" | jq -r '.publisher_summary // ""' | head -c 500)
     release_date=$(echo "$item_json" | jq -r '.release_date // null')
+    content_delivery_type=$(echo "$item_json" | jq -r '.content_delivery_type // null')
 
     # Map content type to our category
     local category
     category=$(get_category "$content_type" "$title")
 
-    log "Syncing $asin: $title (content_type: $content_type -> category: $category)"
+    log "Syncing $asin: $title (content_type: $content_type -> category: $category, delivery: $content_delivery_type)"
 
     # Escape single quotes for SQL
     title_sql=$(echo "$title" | sed "s/'/''/g")
     author_sql=$(echo "$author" | sed "s/'/''/g")
     description_sql=$(echo "$description" | sed "s/'/''/g")
+
+    # Handle NULL values for SQL
+    local parent_asin_sql="NULL"
+    [[ -n "$parent_asin" ]] && parent_asin_sql="'$parent_asin'"
+
+    local content_delivery_sql="NULL"
+    [[ -n "$content_delivery_type" && "$content_delivery_type" != "null" ]] && content_delivery_sql="'$content_delivery_type'"
 
     # Check if already exists
     local exists
@@ -188,23 +198,79 @@ sync_item() {
 
     # Upsert into periodicals table (asin is unique primary identifier)
     sqlite3 "$DB" <<EOF
-INSERT INTO periodicals (asin, title, author, category, content_type,
-    runtime_minutes, cover_url, description, release_date, last_synced)
-VALUES ('$asin', '$title_sql', '$author_sql', '$category', '$content_type',
-    $runtime, '$cover_url', '$description_sql', '$release_date', datetime('now'))
+INSERT INTO periodicals (asin, title, author, category, content_type, content_delivery_type,
+    runtime_minutes, cover_url, description, release_date, parent_asin, last_synced)
+VALUES ('$asin', '$title_sql', '$author_sql', '$category', '$content_type', $content_delivery_sql,
+    $runtime, '$cover_url', '$description_sql', '$release_date', $parent_asin_sql, datetime('now'))
 ON CONFLICT(asin) DO UPDATE SET
     title = excluded.title,
     author = excluded.author,
     category = excluded.category,
     content_type = excluded.content_type,
+    content_delivery_type = excluded.content_delivery_type,
     runtime_minutes = excluded.runtime_minutes,
     cover_url = excluded.cover_url,
     description = excluded.description,
     release_date = excluded.release_date,
+    parent_asin = excluded.parent_asin,
     last_synced = excluded.last_synced;
 EOF
 
     echo "$is_new"
+}
+
+# Sync episodes for a parent item (podcast, show, etc.)
+# Returns: number of new episodes synced
+sync_episodes() {
+    local parent_asin="$1"
+    local parent_title="$2"
+
+    log "Fetching episodes for $parent_asin ($parent_title)..."
+
+    # Query episodes for this parent
+    local episodes_data
+    episodes_data=$(audible api -p response_groups="product_desc,media,product_attrs" \
+        "/1.0/library?parent_asin=$parent_asin&num_results=500" 2>/dev/null || echo "{}")
+
+    if [[ -z "$episodes_data" || "$episodes_data" == "{}" ]]; then
+        log "No episodes found for $parent_asin"
+        echo "0"
+        return
+    fi
+
+    local episode_count
+    episode_count=$(echo "$episodes_data" | jq -r '.items | length')
+
+    if [[ "$episode_count" == "0" || -z "$episode_count" ]]; then
+        log "No episodes in response for $parent_asin"
+        echo "0"
+        return
+    fi
+
+    log "Found $episode_count episodes for $parent_title"
+
+    local new_episodes=0
+
+    # Process each episode
+    while read -r episode; do
+        [[ -z "$episode" ]] && continue
+
+        local ep_asin
+        ep_asin=$(echo "$episode" | jq -r '.asin')
+
+        if is_skipped "$ep_asin"; then
+            log "Skipping episode $ep_asin (in skip list)"
+            continue
+        fi
+
+        local is_new
+        is_new=$(sync_item "$episode" "$parent_asin" 2>/dev/null) || continue
+
+        ((new_episodes += is_new)) || true
+    done < <(echo "$episodes_data" | jq -c '.items[]')
+
+    log "Synced $episode_count episodes for $parent_title ($new_episodes new)"
+    echo "$new_episodes"
 }
 
 # Main sync logic
@@ -217,7 +283,7 @@ main() {
     # Ensure database has schema
     if ! sqlite3 "$DB" "SELECT 1 FROM periodicals LIMIT 1;" 2>/dev/null; then
         log "Applying periodicals schema..."
-        sqlite3 "$DB" < /opt/audiobooks/library/backend/migrations/006_periodicals.sql
+        sqlite3 "$DB" < "${AUDIOBOOKS_HOME}/library/backend/migrations/006_periodicals.sql"
     fi
 
     init_sync
@@ -244,15 +310,19 @@ main() {
     log "Found $total periodical items in library"
 
     local processed=0
-    local total_new=0
+    local total_new_parents=0
+    local total_episodes=0
+    local total_new_episodes=0
 
-    # Process each periodical item
+    # Process each periodical item (parent)
     while read -r item; do
         [[ -z "$item" ]] && continue
 
-        # Extract ASIN and check skip list
-        local item_asin
+        # Extract ASIN and title, check skip list
+        local item_asin item_title
         item_asin=$(echo "$item" | jq -r '.asin')
+        item_title=$(echo "$item" | jq -r '.title')
+
         if is_skipped "$item_asin"; then
             log "Skipping $item_asin (in skip list)"
             continue
@@ -260,16 +330,26 @@ main() {
 
         ((processed++)) || true
 
+        # Sync the parent item
         local is_new
         is_new=$(sync_item "$item" 2>/dev/null) || continue
+        ((total_new_parents += is_new)) || true
 
-        ((total_new += is_new)) || true
+        # Sync episodes for this parent (podcasts, shows with episodes)
+        local new_eps
+        new_eps=$(sync_episodes "$item_asin" "$item_title" 2>/dev/null) || new_eps=0
+        ((total_new_episodes += new_eps)) || true
 
-        update_sync_status "$processed" "$total" "$processed" "$total_new"
+        # Get current episode count for this parent
+        local parent_eps
+        parent_eps=$(sqlite3 "$DB" "SELECT COUNT(*) FROM periodicals WHERE parent_asin='$item_asin';")
+        ((total_episodes += parent_eps)) || true
+
+        update_sync_status "$processed" "$total" "$total_episodes" "$total_new_episodes"
     done < <(echo "$periodicals_json" | jq -c '.[]')
 
     complete_sync "completed"
-    log "=== Sync complete: $processed items ($total_new new) ==="
+    log "=== Sync complete: $processed parents ($total_new_parents new), $total_episodes episodes ($total_new_episodes new) ==="
 }
 
 # Run with error handling
