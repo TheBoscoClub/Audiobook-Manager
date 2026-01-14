@@ -6,11 +6,9 @@ using a privilege-separated helper service pattern.
 """
 
 import json
-import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 class TestEnsureControlDir:
@@ -262,7 +260,7 @@ class TestStartService:
         mock_wait.return_value = {"success": True, "message": "Started"}
 
         with flask_app.test_client() as client:
-            response = client.post("/api/system/services/audiobooks-converter/start")
+            response = client.post("/api/system/services/audiobook-converter/start")
 
         assert response.status_code == 200
         data = response.get_json()
@@ -275,7 +273,7 @@ class TestStartService:
         mock_write.return_value = False
 
         with flask_app.test_client() as client:
-            response = client.post("/api/system/services/audiobooks-converter/start")
+            response = client.post("/api/system/services/audiobook-converter/start")
 
         assert response.status_code == 500
         assert "permission denied" in response.get_json()["error"]
@@ -299,7 +297,7 @@ class TestStopService:
         mock_wait.return_value = {"success": True, "message": "Stopped"}
 
         with flask_app.test_client() as client:
-            response = client.post("/api/system/services/audiobooks-converter/stop")
+            response = client.post("/api/system/services/audiobook-converter/stop")
 
         assert response.status_code == 200
         data = response.get_json()
@@ -317,7 +315,7 @@ class TestRestartService:
         mock_wait.return_value = {"success": True, "message": "Restarted"}
 
         with flask_app.test_client() as client:
-            response = client.post("/api/system/services/audiobooks-converter/restart")
+            response = client.post("/api/system/services/audiobook-converter/restart")
 
         assert response.status_code == 200
         data = response.get_json()
@@ -331,7 +329,7 @@ class TestRestartService:
         mock_wait.return_value = {"success": False, "message": "Failed to restart"}
 
         with flask_app.test_client() as client:
-            response = client.post("/api/system/services/audiobooks-converter/restart")
+            response = client.post("/api/system/services/audiobook-converter/restart")
 
         assert response.status_code == 500
 

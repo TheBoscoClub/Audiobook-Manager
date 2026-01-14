@@ -195,7 +195,7 @@ ffprobe -version
 audiobooks-config
 
 # Or source config manually
-source lib/audiobooks-config.sh
+source lib/audiobook-config.sh
 audiobooks_print_config
 ```
 
@@ -289,11 +289,11 @@ python3 import_to_db.py
 
 ```bash
 # Enable core services at boot
-sudo systemctl enable audiobooks-api audiobooks-proxy audiobooks-redirect \
-  audiobooks-converter audiobooks-mover audiobooks-downloader.timer
+sudo systemctl enable audiobook-api audiobook-proxy audiobook-redirect \
+  audiobook-converter audiobook-mover audiobook-downloader.timer
 
 # Start services
-sudo systemctl start audiobooks.target
+sudo systemctl start audiobook.target
 ```
 
 #### Using Launch Script
@@ -306,7 +306,7 @@ sudo systemctl start audiobooks.target
 
 ```bash
 # Terminal 1: API Server
-audiobooks-api
+audiobook-api
 
 # Terminal 2: Web Server
 audiobooks-web
@@ -323,32 +323,32 @@ https://localhost:8443
 
 ### Service Management
 
-All audiobook services are grouped under `audiobooks.target`, allowing single-command control:
+All audiobook services are grouped under `audiobook.target`, allowing single-command control:
 
 ```bash
-# Control ALL services at once using audiobooks.target
-sudo systemctl start audiobooks.target     # Start all
-sudo systemctl stop audiobooks.target      # Stop all
-sudo systemctl restart audiobooks.target   # Restart all
-sudo systemctl status audiobooks.target    # Status of all
+# Control ALL services at once using audiobook.target
+sudo systemctl start audiobook.target     # Start all
+sudo systemctl stop audiobook.target      # Stop all
+sudo systemctl restart audiobook.target   # Restart all
+sudo systemctl status audiobook.target    # Status of all
 
 # Individual service management
 sudo systemctl status 'audiobooks-*'       # Check all services
-sudo systemctl restart audiobooks-api      # Restart specific service
+sudo systemctl restart audiobook-api      # Restart specific service
 
 # View logs
-journalctl -u audiobooks-api -f            # Follow API logs
+journalctl -u audiobook-api -f            # Follow API logs
 journalctl -u 'audiobooks-*' --since today # All logs since today
 ```
 
-**Services in `audiobooks.target`:**
+**Services in `audiobook.target`:**
 | Service | Purpose |
 |---------|---------|
-| `audiobooks-api` | REST API (port 5001) |
-| `audiobooks-proxy` | HTTPS server (port 8443) |
-| `audiobooks-converter` | AAXC → Opus conversion |
-| `audiobooks-mover` | Move converted files |
-| `audiobooks-downloader.timer` | Scheduled downloads |
+| `audiobook-api` | REST API (port 5001) |
+| `audiobook-proxy` | HTTPS server (port 8443) |
+| `audiobook-converter` | AAXC → Opus conversion |
+| `audiobook-mover` | Move converted files |
+| `audiobook-downloader.timer` | Scheduled downloads |
 
 All services are **automatically enabled** at installation and start at boot.
 
@@ -448,7 +448,7 @@ source ~/.zshrc
 cat ~/.config/audiobooks/audiobooks.conf
 
 # Verify config loads correctly
-source lib/audiobooks-config.sh
+source lib/audiobook-config.sh
 audiobooks_print_config
 ```
 
@@ -490,8 +490,8 @@ sudo ./install-system.sh --uninstall
 If you encounter issues not covered here:
 
 1. **Check Logs**: Look for error messages in:
-   - `journalctl --user -u audiobooks-api`
-   - `journalctl --user -u audiobooks-proxy`
+   - `journalctl --user -u audiobook-api`
+   - `journalctl --user -u audiobook-proxy`
    - Browser console (F12)
 
 2. **Verify Setup**:

@@ -2,7 +2,7 @@
 Description=Audiobook Downloader (Audible sync)
 After=network-online.target local-fs.target
 Wants=network-online.target
-PartOf=audiobooks.target
+PartOf=audiobook.target
 
 [Service]
 Type=oneshot
@@ -14,7 +14,7 @@ EnvironmentFile=-/etc/audiobooks/audiobooks.conf
 Environment=HOME=/var/lib/audiobooks  # default for audiobooks user
 
 # Main script
-ExecStart=/usr/local/bin/audiobooks-download
+ExecStart=/usr/local/bin/audiobook-download
 
 # Don't restart automatically (triggered by timer)
 Restart=no
@@ -26,4 +26,4 @@ ProtectHome=read-only
 PrivateTmp=no
 
 [Install]
-WantedBy=audiobooks.target
+WantedBy=audiobook.target

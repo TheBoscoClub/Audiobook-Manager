@@ -5,12 +5,9 @@ Tests background thread functions and checksum generation logic.
 """
 
 import hashlib
-import os
 import subprocess
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 class TestGenerateHashesBackgroundThread:

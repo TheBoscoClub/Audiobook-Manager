@@ -69,7 +69,7 @@ EOF
 build_release() {
     local version
     version=$(get_version)
-    local release_name="audiobooks-${version}"
+    local release_name="audiobook-manager-${version}"
     local staging_dir="${BUILD_DIR}/${release_name}"
     local tarball="${BUILD_DIR}/${release_name}.tar.gz"
 
@@ -109,7 +109,7 @@ build_release() {
     # Lib (shell config)
     log_info "Copying lib..."
     mkdir -p "${staging_dir}/lib"
-    cp "${SCRIPT_DIR}/lib/audiobooks-config.sh" "${staging_dir}/lib/"
+    cp "${SCRIPT_DIR}/lib/audiobook-config.sh" "${staging_dir}/lib/"
 
     # Scripts (management scripts)
     log_info "Copying scripts..."

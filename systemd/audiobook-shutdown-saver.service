@@ -16,7 +16,7 @@ StandardOutput=journal
 StandardError=journal
 
 # Save staging files before shutdown
-ExecStart=/usr/local/bin/audiobooks-save-staging
+ExecStart=/usr/local/bin/audiobook-save-staging
 
 # Run only at shutdown
 RemainAfterExit=yes

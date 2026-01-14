@@ -1,7 +1,7 @@
 [Unit]
 Description=Audiobook Continuous Converter (AAXC to Opus)
-After=network.target audiobooks-mover.service
-PartOf=audiobooks.target
+After=network.target audiobook-mover.service
+PartOf=audiobook.target
 
 [Service]
 Type=simple
@@ -13,7 +13,7 @@ EnvironmentFile=-/etc/audiobooks/audiobooks.conf
 Environment=HOME=/var/lib/audiobooks  # default for audiobooks user
 
 # Main script
-ExecStart=/usr/local/bin/audiobooks-convert
+ExecStart=/usr/local/bin/audiobook-convert
 
 # Restart on failure
 Restart=always
@@ -32,4 +32,4 @@ ProtectHome=read-only
 PrivateTmp=no
 
 [Install]
-WantedBy=audiobooks.target multi-user.target
+WantedBy=audiobook.target multi-user.target

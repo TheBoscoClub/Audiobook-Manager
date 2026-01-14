@@ -59,7 +59,7 @@ def _load_config_file(filepath: Path) -> dict[str, str]:
 def _find_project_root() -> Optional[Path]:
     """Find project root by looking for marker files."""
     current = Path(__file__).parent
-    markers = ["config.env", "lib/audiobooks-config.sh", "library/config.py"]
+    markers = ["config.env", "lib/audiobook-config.sh", "library/config.py"]
 
     while current != current.parent:
         for marker in markers:

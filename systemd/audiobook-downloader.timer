@@ -1,6 +1,6 @@
 [Unit]
 Description=Audiobook Download Timer (check for new audiobooks)
-PartOf=audiobooks.target
+PartOf=audiobook.target
 
 [Timer]
 # Run 30 minutes after boot
@@ -16,4 +16,4 @@ RandomizedDelaySec=5min
 Persistent=true
 
 [Install]
-WantedBy=audiobooks.target timers.target
+WantedBy=audiobook.target timers.target

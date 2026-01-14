@@ -2,7 +2,7 @@
 # Pre-commit hook: Block hardcoded paths in audiobooks project
 #
 # This hook prevents commits containing hardcoded paths that should use
-# configuration variables from lib/audiobooks-config.sh instead.
+# configuration variables from lib/audiobook-config.sh instead.
 
 set -e
 
@@ -46,7 +46,7 @@ fi
 VIOLATIONS=""
 for file in $STAGED_FILES; do
     # Skip files that are supposed to define defaults (config files)
-    if [[ "$file" == "lib/audiobooks-config.sh" ]] || \
+    if [[ "$file" == "lib/audiobook-config.sh" ]] || \
        [[ "$file" == "etc/audiobooks.conf.example" ]] || \
        [[ "$file" == "CLAUDE.md" ]] || \
        [[ "$file" == "README.md" ]] || \
@@ -87,13 +87,13 @@ if [[ -n "$VIOLATIONS" ]]; then
     echo -e "${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "The following files contain hardcoded paths that should use"
-    echo -e "configuration variables from lib/audiobooks-config.sh:"
+    echo -e "configuration variables from lib/audiobook-config.sh:"
     echo ""
     echo -e "$VIOLATIONS"
     echo ""
     echo -e "To fix:"
     echo -e "  1. Replace hardcoded paths with the appropriate variable"
-    echo -e "  2. If no variable exists, add one to lib/audiobooks-config.sh"
+    echo -e "  2. If no variable exists, add one to lib/audiobook-config.sh"
     echo -e "  3. Stage your changes and commit again"
     echo ""
     echo -e "See CLAUDE.md for the list of available variables."

@@ -3,8 +3,8 @@ System administration utilities - service control and application upgrades.
 
 Uses a privilege-separated helper service pattern:
 - API writes request to $AUDIOBOOKS_VAR_DIR/.control/upgrade-request
-- audiobooks-upgrade-helper.path unit detects the file
-- audiobooks-upgrade-helper.service runs operations with root privileges
+- audiobook-upgrade-helper.path unit detects the file
+- audiobook-upgrade-helper.service runs operations with root privileges
 - API polls $AUDIOBOOKS_VAR_DIR/.control/upgrade-status for progress
 
 Using $AUDIOBOOKS_VAR_DIR/.control/ because:
@@ -127,12 +127,12 @@ def init_system_routes(project_root):
     """Initialize system administration routes."""
 
     # List of services that can be controlled
-    # Note: audiobooks-api and audiobooks-proxy are intentionally excluded -
+    # Note: audiobook-api and audiobook-proxy are intentionally excluded -
     # they are core infrastructure that should not be stopped via the UI
     SERVICES = [
-        "audiobooks-converter",
-        "audiobooks-mover",
-        "audiobooks-downloader.timer",
+        "audiobook-converter",
+        "audiobook-mover",
+        "audiobook-downloader.timer",
     ]
 
     # =========================================================================

@@ -9,9 +9,7 @@ Tests the supplements endpoints:
 - POST /api/supplements/scan - scan and import supplements
 """
 
-from pathlib import Path
 
-import pytest
 
 
 class TestGetAllSupplements:

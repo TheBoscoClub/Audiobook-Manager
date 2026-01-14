@@ -329,7 +329,7 @@ Both installation modes:
 
 After installation, use these commands:
 ```bash
-audiobooks-api      # Start API server
+audiobook-api      # Start API server
 audiobooks-web      # Start web server (HTTPS)
 audiobooks-scan     # Scan audiobook library
 audiobooks-import   # Import to database
@@ -377,13 +377,13 @@ Upgrade your installation directly from GitHub releases:
 
 ```bash
 # Upgrade to latest version
-audiobooks-upgrade
+audiobook-upgrade
 
 # Upgrade to specific version
-audiobooks-upgrade --version 3.2.0
+audiobook-upgrade --version 3.2.0
 
 # Check for updates without installing
-audiobooks-upgrade --check
+audiobook-upgrade --check
 ```
 
 ### From Local Project
@@ -466,7 +466,7 @@ Audiobooks/
 ├── etc/
 │   └── audiobooks.conf.example  # Config template
 ├── lib/
-│   └── audiobooks-config.sh     # Config loader (shell)
+│   └── audiobook-config.sh     # Config loader (shell)
 ├── install.sh                   # Unified installer (interactive)
 ├── install-user.sh              # User installation (standalone)
 ├── install-system.sh            # System installation (standalone)
@@ -524,7 +524,7 @@ After system installation, files are organized as follows:
 ```
 /opt/audiobooks/                    # Application installation (AUDIOBOOKS_HOME)
 ├── scripts/                        # Canonical script location
-│   ├── convert-audiobooks-opus-parallel
+│   ├── audiobook-convert
 │   ├── download-new-audiobooks
 │   ├── move-staged-audiobooks
 │   ├── cleanup-stale-indexes       # Remove deleted files from indexes
@@ -540,8 +540,8 @@ After system installation, files are organized as follows:
 └── VERSION
 
 /usr/local/bin/                     # Symlinks for PATH accessibility
-├── audiobooks-api                  # Wrapper script
-├── audiobooks-convert -> /opt/audiobooks/scripts/convert-audiobooks-opus-parallel
+├── audiobook-api                  # Wrapper script
+├── audiobooks-convert -> /opt/audiobooks/scripts/audiobook-convert
 ├── audiobooks-download -> /opt/audiobooks/scripts/download-new-audiobooks
 ├── audiobooks-move-staged -> /opt/audiobooks/scripts/move-staged-audiobooks
 └── ...
@@ -572,7 +572,7 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 **Architecture Notes:**
 - Scripts are installed to `/opt/audiobooks/scripts/` (canonical location)
 - Symlinks in `/usr/local/bin/` point to canonical scripts, so upgrades automatically update commands
-- Wrapper scripts source from `/opt/audiobooks/lib/audiobooks-config.sh` (canonical path)
+- Wrapper scripts source from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path)
 - Backward-compat symlink: `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
 - User data (`${AUDIOBOOKS_DATA}`) is separate from application code (`/opt/audiobooks/`)
 - Database is placed in `/var/lib/` for fast storage (NVMe/SSD recommended)
@@ -999,13 +999,13 @@ All services use the `audiobooks-*` naming convention for easy management.
 
 | Service | Description | Type |
 |---------|-------------|------|
-| `audiobooks-api` | Flask REST API (Waitress) on localhost:5001 | always running |
-| `audiobooks-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
-| `audiobooks-converter` | AAXC → OPUS conversion | always running |
-| `audiobooks-mover` | Move converted files from tmpfs to storage | always running |
-| `audiobooks-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
+| `audiobook-api` | Flask REST API (Waitress) on localhost:5001 | always running |
+| `audiobook-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
+| `audiobook-converter` | AAXC → OPUS conversion | always running |
+| `audiobook-mover` | Move converted files from tmpfs to storage | always running |
+| `audiobook-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
 | `audiobooks-library-update.timer` | Update database with new audiobooks | timer |
-| `audiobooks-shutdown-saver` | Save staging files before shutdown | on shutdown |
+| `audiobook-shutdown-saver` | Save staging files before shutdown | on shutdown |
 | `audiobooks-conversion-trigger.path` | Watch for new downloads | path watcher |
 | `audiobooks-database-trigger.path` | Watch for completed conversions | path watcher |
 
@@ -1020,22 +1020,22 @@ All services use the `audiobooks-*` naming convention for easy management.
 
 System services run at boot without requiring login. The installer automatically enables all services.
 
-#### The `audiobooks.target` Unit
+#### The `audiobook.target` Unit
 
-All audiobook services are grouped under `audiobooks.target`, allowing you to control them all with a single command:
+All audiobook services are grouped under `audiobook.target`, allowing you to control them all with a single command:
 
 ```bash
 # Start ALL audiobook services at once
-sudo systemctl start audiobooks.target
+sudo systemctl start audiobook.target
 
 # Stop ALL audiobook services at once
-sudo systemctl stop audiobooks.target
+sudo systemctl stop audiobook.target
 
 # Restart ALL audiobook services at once
-sudo systemctl restart audiobooks.target
+sudo systemctl restart audiobook.target
 
 # Check status of the target (shows all member services)
-sudo systemctl status audiobooks.target
+sudo systemctl status audiobook.target
 ```
 
 #### Individual Service Management
@@ -1047,24 +1047,24 @@ You can also manage individual services when needed:
 sudo systemctl status 'audiobooks-*'
 
 # Restart just the API server
-sudo systemctl restart audiobooks-api
+sudo systemctl restart audiobook-api
 
 # View logs for a specific service
-journalctl -u audiobooks-api -f
+journalctl -u audiobook-api -f
 
 # View all audiobook service logs since today
 journalctl -u 'audiobooks-*' --since today
 ```
 
-#### Services Included in `audiobooks.target`
+#### Services Included in `audiobook.target`
 
 | Service | Purpose |
 |---------|---------|
-| `audiobooks-api` | REST API backend (port 5001) |
-| `audiobooks-proxy` | HTTPS reverse proxy (port 8443) |
-| `audiobooks-converter` | Continuous AAXC → Opus conversion |
-| `audiobooks-mover` | Moves converted files to library |
-| `audiobooks-downloader.timer` | Scheduled Audible downloads |
+| `audiobook-api` | REST API backend (port 5001) |
+| `audiobook-proxy` | HTTPS reverse proxy (port 8443) |
+| `audiobook-converter` | Continuous AAXC → Opus conversion |
+| `audiobook-mover` | Moves converted files to library |
+| `audiobook-downloader.timer` | Scheduled Audible downloads |
 
 ### Conversion Priority
 
@@ -1222,7 +1222,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ### v3.2.0
 - **GitHub Releases**: Standalone installation via `bootstrap-install.sh`
-- **Upgrade System**: GitHub-based upgrades with `audiobooks-upgrade --from-github`
+- **Upgrade System**: GitHub-based upgrades with `audiobook-upgrade --from-github`
 - **Release Automation**: CI/CD workflow and release tarball builder
 - **Repository Renamed**: `audiobook-toolkit` → `Audiobook-Manager`
 - **Removed Flask-CORS**: CORS now handled natively by the application

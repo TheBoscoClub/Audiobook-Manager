@@ -1,38 +1,37 @@
 [Unit]
-Description=Audiobooks Library HTTPS Reverse Proxy
+Description=Audiobooks Library API Server (Waitress)
 Documentation=https://github.com/greogory/Audiobook-Manager
-After=network-online.target audiobooks-api.service
-Requires=audiobooks-api.service
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=audiobooks
 Group=audiobooks
-WorkingDirectory=/opt/audiobooks/library/web-v2
+WorkingDirectory=/opt/audiobooks/library/backend
 
 # Load configuration from /etc/audiobooks/audiobooks.conf
 EnvironmentFile=/etc/audiobooks/audiobooks.conf
 Environment=PYTHONUNBUFFERED=1
 
 # Only start if port is not already in use
-ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_WEB_PORT} >/dev/null 2>&1'
-ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/proxy_server.py
+ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
+ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
 RestartSec=5
-# Use journal logging (query with: journalctl -u audiobooks-proxy)
+# Use journal logging for better log management (query with: journalctl -u audiobooks-api)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobooks-proxy
+SyslogIdentifier=audiobooks-api
 
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadOnlyPaths=/etc/audiobooks /opt/audiobooks
 ReadWritePaths=/var/lib/audiobooks  # default
 ProtectHome=yes
-PrivateTmp=yes
+# PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
+PrivateTmp=no
 
 [Install]
-WantedBy=audiobooks.target multi-user.target
+WantedBy=audiobook.target multi-user.target

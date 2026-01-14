@@ -102,7 +102,7 @@ Test running directly:
 ### Step 4: Stop Current Service
 
 ```bash
-sudo systemctl stop audiobooks-api
+sudo systemctl stop audiobook-api
 ```
 
 ### Step 5: Update Systemd Service
@@ -110,7 +110,7 @@ sudo systemctl stop audiobooks-api
 Edit the service file to use the new entry point:
 
 ```bash
-sudo nano /etc/systemd/system/audiobooks-api.service
+sudo nano /etc/systemd/system/audiobook-api.service
 ```
 
 Change the `ExecStart` line:
@@ -129,8 +129,8 @@ ExecStart=/opt/audiobooks/.venv/bin/python /opt/audiobooks/library/backend/api_s
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl start audiobooks-api
-sudo systemctl status audiobooks-api
+sudo systemctl start audiobook-api
+sudo systemctl status audiobook-api
 ```
 
 ### Step 7: Verify Production
@@ -259,17 +259,17 @@ If issues occur, rollback is simple:
 
 ```bash
 # Stop service
-sudo systemctl stop audiobooks-api
+sudo systemctl stop audiobook-api
 
 # Edit service file
-sudo nano /etc/systemd/system/audiobooks-api.service
+sudo nano /etc/systemd/system/audiobook-api.service
 
 # Change ExecStart back to:
 # ExecStart=/opt/audiobooks/.venv/bin/python /opt/audiobooks/library/backend/api.py
 
 # Reload and start
 sudo systemctl daemon-reload
-sudo systemctl start audiobooks-api
+sudo systemctl start audiobook-api
 ```
 
 ### Verify Rollback

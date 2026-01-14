@@ -15,7 +15,7 @@
 set -euo pipefail
 
 # Load config
-source /usr/local/lib/audiobooks/audiobooks-config.sh
+source /usr/local/lib/audiobooks/audiobook-config.sh
 
 # Audible CLI config location (for service user access)
 export AUDIBLE_CONFIG_DIR=/etc/audiobooks/audible

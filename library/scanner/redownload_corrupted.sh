@@ -5,7 +5,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
-source "$SCRIPT_DIR/../../lib/audiobooks-config.sh"
+source "$SCRIPT_DIR/../../lib/audiobook-config.sh"
 
 PRIORITY_LIST="$SCRIPT_DIR/priority_audiobooks_to_redownload.txt"
 DOWNLOAD_DIR="$AUDIOBOOKS_SOURCES"

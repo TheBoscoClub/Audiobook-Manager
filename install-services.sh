@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
-source "$SCRIPT_DIR/lib/audiobooks-config.sh"
+source "$SCRIPT_DIR/lib/audiobook-config.sh"
 
 echo -e "${GREEN}=== Audiobooks Library User Service Installer ===${NC}"
 echo ""
@@ -118,7 +118,7 @@ SYSTEMD_DIR="$HOME/.config/systemd/user"
 mkdir -p "$SYSTEMD_DIR"
 
 # API Service - uses waitress WSGI server (production-ready)
-cat > "$SYSTEMD_DIR/audiobooks-api.service" << EOF
+cat > "$SYSTEMD_DIR/audiobook-api.service" << EOF
 [Unit]
 Description=Audiobooks Library API Server (Waitress)
 Documentation=https://github.com/greogory/Audiobook-Manager
@@ -152,15 +152,15 @@ StandardError=append:$AUDIOBOOKS_DATA/logs/api-error.log
 WantedBy=default.target
 EOF
 
-echo "  Created: audiobooks-api.service"
+echo "  Created: audiobook-api.service"
 
 # Proxy Service (HTTPS reverse proxy) - replaces audiobooks-web.service
-cat > "$SYSTEMD_DIR/audiobooks-proxy.service" << EOF
+cat > "$SYSTEMD_DIR/audiobook-proxy.service" << EOF
 [Unit]
 Description=Audiobooks Library HTTPS Reverse Proxy
 Documentation=https://github.com/greogory/Audiobook-Manager
-After=audiobooks-api.service
-Requires=audiobooks-api.service
+After=audiobook-api.service
+Requires=audiobook-api.service
 
 [Service]
 Type=simple
@@ -184,15 +184,15 @@ StandardError=append:$AUDIOBOOKS_DATA/logs/proxy-error.log
 WantedBy=default.target
 EOF
 
-echo "  Created: audiobooks-proxy.service"
+echo "  Created: audiobook-proxy.service"
 
 # HTTP Redirect Service (optional)
-cat > "$SYSTEMD_DIR/audiobooks-redirect.service" << EOF
+cat > "$SYSTEMD_DIR/audiobook-redirect.service" << EOF
 [Unit]
 Description=Audiobooks Library HTTP to HTTPS Redirect
 Documentation=https://github.com/greogory/Audiobook-Manager
-After=audiobooks-proxy.service
-Wants=audiobooks-proxy.service
+After=audiobook-proxy.service
+Wants=audiobook-proxy.service
 
 [Service]
 Type=simple
@@ -215,14 +215,14 @@ StandardError=append:$AUDIOBOOKS_DATA/logs/redirect-error.log
 WantedBy=default.target
 EOF
 
-echo "  Created: audiobooks-redirect.service (optional)"
+echo "  Created: audiobook-redirect.service (optional)"
 
 # Target (groups all services)
 cat > "$SYSTEMD_DIR/audiobooks.target" << EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/greogory/Audiobook-Manager
-Wants=audiobooks-api.service audiobooks-proxy.service audiobooks-redirect.service
+Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service
 
 [Install]
 WantedBy=default.target
@@ -238,7 +238,7 @@ echo ""
 echo -e "${YELLOW}Step 3: Enabling systemd services...${NC}"
 
 systemctl --user daemon-reload
-systemctl --user enable audiobooks-api.service audiobooks-proxy.service audiobooks-redirect.service 2>&1 | grep -v "^$" || true
+systemctl --user enable audiobook-api.service audiobook-proxy.service audiobook-redirect.service 2>&1 | grep -v "^$" || true
 
 echo ""
 
@@ -278,11 +278,11 @@ if [[ "$START_NOW" != "n" && "$START_NOW" != "N" ]]; then
 
     echo ""
     echo -e "${GREEN}Service status:${NC}"
-    systemctl --user status audiobooks-api.service --no-pager | head -5
+    systemctl --user status audiobook-api.service --no-pager | head -5
     echo ""
-    systemctl --user status audiobooks-proxy.service --no-pager | head -5
+    systemctl --user status audiobook-proxy.service --no-pager | head -5
     echo ""
-    systemctl --user status audiobooks-redirect.service --no-pager | head -5
+    systemctl --user status audiobook-redirect.service --no-pager | head -5
 fi
 
 echo ""
@@ -301,8 +301,8 @@ echo "Management commands:"
 echo "  systemctl --user status audiobooks.target"
 echo "  systemctl --user restart audiobooks.target"
 echo "  systemctl --user stop audiobooks.target"
-echo "  journalctl --user -u audiobooks-api -f"
-echo "  journalctl --user -u audiobooks-proxy -f"
+echo "  journalctl --user -u audiobook-api -f"
+echo "  journalctl --user -u audiobook-proxy -f"
 echo ""
 echo "Certificate location: $CERT_DIR"
 echo "Certificate expires:  $(openssl x509 -in "$CERT_FILE" -noout -enddate | cut -d= -f2)"

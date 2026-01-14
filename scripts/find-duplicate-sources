@@ -11,10 +11,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
-elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobooks-config.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobook-config.sh"
 fi
 
 SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/raid0/Audiobooks/Sources}"

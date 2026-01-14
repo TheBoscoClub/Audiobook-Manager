@@ -1,7 +1,7 @@
 [Unit]
 Description=Audiobook Staging Mover (tmpfs to permanent storage)
 After=network.target
-PartOf=audiobooks.target
+PartOf=audiobook.target
 
 [Service]
 Type=simple
@@ -13,7 +13,7 @@ EnvironmentFile=-/etc/audiobooks/audiobooks.conf
 Environment=HOME=/var/lib/audiobooks  # default for audiobooks user
 
 # Main script
-ExecStart=/usr/local/bin/audiobooks-move-staged
+ExecStart=/usr/local/bin/audiobook-move-staged
 
 # Restart on failure
 Restart=always
@@ -29,4 +29,4 @@ ProtectHome=read-only
 PrivateTmp=no
 
 [Install]
-WantedBy=audiobooks.target multi-user.target
+WantedBy=audiobook.target multi-user.target

@@ -8,7 +8,6 @@ These tests cover the complete lifecycle: create -> start -> update -> complete/
 import threading
 import time
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 import pytest
 

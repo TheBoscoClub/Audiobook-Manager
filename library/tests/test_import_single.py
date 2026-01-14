@@ -6,7 +6,6 @@ It's designed to be called after a successful move operation.
 """
 
 import sqlite3
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest

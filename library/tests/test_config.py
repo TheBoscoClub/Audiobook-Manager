@@ -157,7 +157,7 @@ class TestNoHardcodedPaths:
     # Files/patterns that are allowed to have these paths (e.g., config defaults)
     ALLOWED_FILES = [
         "config.py",           # Config module defines defaults
-        "audiobooks-config.sh", # Shell config defines defaults
+        "audiobook-config.sh", # Shell config defines defaults
         "test_",               # Test files may use mock/fixture paths
         ".conf",                # Config files
         "CLAUDE.md",            # Documentation
@@ -199,7 +199,6 @@ class TestNoHardcodedPaths:
 
     def test_library_python_files_no_hardcoded_paths(self):
         """Test that library Python files use config variables, not hardcoded paths."""
-        import sys
         from pathlib import Path as P
 
         # Find project root

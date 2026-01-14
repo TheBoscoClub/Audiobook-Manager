@@ -1,7 +1,7 @@
 [Unit]
 Description=Audiobooks Upgrade Helper Service
 Documentation=https://github.com/greogory/Audiobook-Manager
-# Started by audiobooks-upgrade-helper.path when trigger file appears
+# Started by audiobook-upgrade-helper.path when trigger file appears
 
 [Service]
 Type=oneshot

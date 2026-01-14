@@ -9,7 +9,7 @@ Tests position sync functionality including:
 - Audible sync operations (mocked)
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

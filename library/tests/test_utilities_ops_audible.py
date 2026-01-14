@@ -10,7 +10,6 @@ Tests the audible sub-module of utilities_ops package:
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 class TestDownloadAudiobooksAsync:

@@ -183,7 +183,7 @@ deploy_to_system() {
 
     # Deploy lib (config library)
     echo -e "${BLUE}Deploying configuration library...${NC}"
-    do_copy "${SCRIPT_DIR}/lib/audiobooks-config.sh" "$target/lib/" "$use_sudo"
+    do_copy "${SCRIPT_DIR}/lib/audiobook-config.sh" "$target/lib/" "$use_sudo"
 
     # Deploy converter
     echo -e "${BLUE}Deploying converter...${NC}"
@@ -234,7 +234,7 @@ deploy_to_system() {
     # Update /usr/local/lib/audiobooks if it exists (for compatibility)
     if [[ -d "/usr/local/lib/audiobooks" ]]; then
         echo -e "${BLUE}Updating /usr/local/lib/audiobooks...${NC}"
-        do_copy "$target/lib/audiobooks-config.sh" "/usr/local/lib/audiobooks/" "$use_sudo"
+        do_copy "$target/lib/audiobook-config.sh" "/usr/local/lib/audiobooks/" "$use_sudo"
     fi
 
     echo ""
@@ -280,7 +280,7 @@ deploy_to_user() {
 
     # Deploy lib
     echo -e "${BLUE}Deploying configuration library...${NC}"
-    cp "${SCRIPT_DIR}/lib/audiobooks-config.sh" "$target/lib/"
+    cp "${SCRIPT_DIR}/lib/audiobook-config.sh" "$target/lib/"
 
     # Deploy converter
     echo -e "${BLUE}Deploying converter...${NC}"
@@ -353,7 +353,7 @@ deploy_to_custom() {
 
     # Deploy lib
     echo -e "${BLUE}Deploying configuration library...${NC}"
-    do_copy "${SCRIPT_DIR}/lib/audiobooks-config.sh" "$target/lib/" "$use_sudo"
+    do_copy "${SCRIPT_DIR}/lib/audiobook-config.sh" "$target/lib/" "$use_sudo"
 
     # Deploy systemd templates if directory exists
     if [[ -d "$target/systemd" ]]; then

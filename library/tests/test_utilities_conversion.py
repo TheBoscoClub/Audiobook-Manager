@@ -8,7 +8,6 @@ real-time status updates including I/O stats and progress.
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-import pytest
 
 
 class TestGetFfmpegProcesses:

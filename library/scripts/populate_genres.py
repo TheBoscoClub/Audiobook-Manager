@@ -7,7 +7,6 @@ and audiobook_genres junction table.
 """
 
 import json
-import re
 import sqlite3
 import sys
 from argparse import ArgumentParser

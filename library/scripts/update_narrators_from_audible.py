@@ -6,7 +6,6 @@ This script matches audiobooks by title (fuzzy matching) and updates the narrato
 """
 
 import json
-import re
 import sqlite3
 import sys
 from argparse import ArgumentParser

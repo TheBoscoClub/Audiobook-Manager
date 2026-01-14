@@ -80,10 +80,10 @@ Audiobook-Manager consists of six logical component groups:
 ```
 /usr/local/bin/                          /opt/audiobooks/scripts/
 ┌──────────────────────┐                 ┌──────────────────────────────────┐
-│ audiobooks-convert ──┼────symlink────▶ │ convert-audiobooks-opus-parallel │
+│ audiobooks-convert ──┼────symlink────▶ │ audiobook-convert │
 │ audiobooks-download ─┼────symlink────▶ │ download-new-audiobooks          │
 │ audiobooks-move ─────┼────symlink────▶ │ move-staged-audiobooks           │
-│ audiobooks-upgrade ──┼────symlink────▶ │ upgrade.sh                       │
+│ audiobook-upgrade ──┼────symlink────▶ │ upgrade.sh                       │
 │ audiobooks-migrate ──┼────symlink────▶ │ migrate-api.sh                   │
 └──────────────────────┘                 └──────────────────────────────────┘
          │                                              │
@@ -123,7 +123,7 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
      │                           │      helper service       │
      │                           │                           │
      │                           │                           │  systemctl stop
-     │                           │                           │  audiobooks-mover
+     │                           │                           │  audiobook-mover
      │                           │                           │
      │                           │  Write status JSON to     │
      │                           │  .control/upgrade-status  │
@@ -142,8 +142,8 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
 
 | Unit | Purpose |
 |------|---------|
-| `audiobooks-upgrade-helper.path` | Watches `/var/lib/audiobooks/.control/upgrade-request` |
-| `audiobooks-upgrade-helper.service` | Runs as root, processes privileged operations |
+| `audiobook-upgrade-helper.path` | Watches `/var/lib/audiobooks/.control/upgrade-request` |
+| `audiobook-upgrade-helper.service` | Runs as root, processes privileged operations |
 | `/var/lib/audiobooks/.control/` | IPC directory (owned by audiobooks user) |
 
 **Supported Operations:**
@@ -577,8 +577,8 @@ The Reading Room UI receives real-time sync status via Server-Sent Events:
 
 | Unit | Type | Purpose |
 |------|------|---------|
-| `audiobooks-periodicals-sync.timer` | Timer | Triggers sync at 06:00 and 18:00 daily |
-| `audiobooks-periodicals-sync.service` | Service | Runs the sync script |
+| `audiobook-periodicals-sync.timer` | Timer | Triggers sync at 06:00 and 18:00 daily |
+| `audiobook-periodicals-sync.service` | Service | Runs the sync script |
 
 Timer configuration:
 ```ini
@@ -597,8 +597,8 @@ RandomizedDelaySec=300    # Spread load across 5 minutes
 | `library/web-v2/periodicals.html` | Reading Room UI |
 | `library/web-v2/css/periodicals.css` | Dedicated CSS module |
 | `scripts/sync-periodicals-index` | Sync script (Bash) |
-| `systemd/audiobooks-periodicals-sync.service` | Systemd service |
-| `systemd/audiobooks-periodicals-sync.timer` | Systemd timer |
+| `systemd/audiobook-periodicals-sync.service` | Systemd service |
+| `systemd/audiobook-periodicals-sync.timer` | Systemd timer |
 
 For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
 
@@ -656,7 +656,7 @@ For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
                                   ▼
                     ┌───────────────────────────────┐
                     │   Create wrapper scripts      │
-                    │   • audiobooks-api            │
+                    │   • audiobook-api            │
                     │   • audiobooks-web            │
                     │   • audiobooks-scan           │
                     │   • audiobooks-import         │
@@ -680,13 +680,13 @@ For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
                                   ▼
                     ┌───────────────────────────────┐
                     │   Install systemd services    │
-                    │   • audiobooks-api.service    │
-                    │   • audiobooks-proxy.service  │
-                    │   • audiobooks-converter      │
-                    │   • audiobooks-mover          │
-                    │   • audiobooks-upgrade-helper │
+                    │   • audiobook-api.service    │
+                    │   • audiobook-proxy.service  │
+                    │   • audiobook-converter      │
+                    │   • audiobook-mover          │
+                    │   • audiobook-upgrade-helper │
                     │     .service + .path          │
-                    │   • audiobooks.target         │
+                    │   • audiobook.target         │
                     └───────────────────────────────┘
                                   │
                                   ▼
@@ -709,9 +709,9 @@ For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
                     ┌───────────────────────────────┐
                     │   Enable & start services     │
                     │   • systemctl enable          │
-                    │     audiobooks.target         │
+                    │     audiobook.target         │
                     │   • systemctl start           │
-                    │     audiobooks.target         │
+                    │     audiobook.target         │
                     │   • Verify services running   │
                     └───────────────────────────────┘
                                   │
@@ -721,7 +721,7 @@ For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
                          └───────────────┘
 ```
 
-**Note:** Wrapper scripts in `/usr/local/bin/` source configuration from `/opt/audiobooks/lib/audiobooks-config.sh` (canonical path). The backward-compat symlink at `/usr/local/lib/audiobooks` ensures older scripts continue to work.
+**Note:** Wrapper scripts in `/usr/local/bin/` source configuration from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path). The backward-compat symlink at `/usr/local/lib/audiobooks` ensures older scripts continue to work.
 
 ### User Installation Flow
 
@@ -779,7 +779,7 @@ For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
 └─────────────────────────────────────────────────────────────────────────────┘
 
                     ┌───────────────────────────────┐
-                    │   audiobooks-upgrade          │
+                    │   audiobook-upgrade          │
                     │        OR                     │
                     │   upgrade.sh --from-project   │
                     │   upgrade.sh --from-github    │
@@ -1419,8 +1419,8 @@ export AUDIOBOOKS_BIND_ADDRESS=0.0.0.0
 ./install.sh --uninstall           # Remove installation
 
 # Upgrade
-audiobooks-upgrade                 # From GitHub
-audiobooks-upgrade --check         # Check for updates
+audiobook-upgrade                 # From GitHub
+audiobook-upgrade --check         # Check for updates
 upgrade.sh --from-project /path    # From local project
 
 # Migration
@@ -1429,9 +1429,9 @@ audiobooks-migrate --to modular    # Switch to modular
 audiobooks-migrate --to monolithic # Switch to monolithic
 
 # Services
-sudo systemctl start audiobooks.target
-sudo systemctl status audiobooks-api
-sudo systemctl restart audiobooks-proxy
+sudo systemctl start audiobook.target
+sudo systemctl status audiobook-api
+sudo systemctl restart audiobook-proxy
 ```
 
 ### Health Checks
@@ -1447,7 +1447,7 @@ curl -sk https://localhost:8443/ -o /dev/null -w '%{http_code}\n'
 sqlite3 /var/lib/audiobooks/db/audiobooks.db 'SELECT COUNT(*) FROM audiobooks;'
 
 # Service status
-systemctl status audiobooks.target --no-pager
+systemctl status audiobook.target --no-pager
 ```
 
 ---
@@ -1499,4 +1499,4 @@ systemctl status audiobooks.target --no-pager
 ---
 
 *Document Version: 3.9.8*
-*Last Updated: 2026-01-13*
+*Last Updated: 2026-01-14*

@@ -13,7 +13,6 @@ Note: These tests use mocking to avoid session-scoped database conflicts.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 class TestUpdateAudiobook:

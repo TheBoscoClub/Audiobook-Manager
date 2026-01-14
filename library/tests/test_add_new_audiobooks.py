@@ -6,10 +6,8 @@ It queries existing paths from the DB and only processes new files.
 """
 
 import sqlite3
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
 
 class TestGetExistingPaths:

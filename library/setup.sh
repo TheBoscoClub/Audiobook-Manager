@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Load configuration
-source "$PROJECT_DIR/lib/audiobooks-config.sh"
+source "$PROJECT_DIR/lib/audiobook-config.sh"
 
 # Use configured audiobook library path
 AUDIOBOOK_DIR="$AUDIOBOOKS_LIBRARY"

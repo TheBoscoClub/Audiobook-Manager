@@ -122,7 +122,7 @@ POST /api/v1/periodicals/download
 
 ### systemd Timer (twice daily)
 
-**File:** `/etc/systemd/system/audiobooks-periodicals-sync.timer`
+**File:** `/etc/systemd/system/audiobook-periodicals-sync.timer`
 ```ini
 [Unit]
 Description=Sync Audible periodicals index twice daily
@@ -137,7 +137,7 @@ RandomizedDelaySec=300
 WantedBy=timers.target
 ```
 
-**File:** `/etc/systemd/system/audiobooks-periodicals-sync.service`
+**File:** `/etc/systemd/system/audiobook-periodicals-sync.service`
 ```ini
 [Unit]
 Description=Audible periodicals index sync
@@ -217,8 +217,8 @@ library/
 scripts/
 └── sync-periodicals-index        # Sync script
 systemd/
-├── audiobooks-periodicals-sync.service
-└── audiobooks-periodicals-sync.timer
+├── audiobook-periodicals-sync.service
+└── audiobook-periodicals-sync.timer
 ```
 
 ## Security Considerations

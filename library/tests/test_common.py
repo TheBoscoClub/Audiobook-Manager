@@ -7,7 +7,6 @@ The common module provides shared utilities used across the audiobook library:
 - sanitize_filename: Filename sanitization for safe file operations
 """
 
-import pytest
 
 
 class TestCalculateSha256:

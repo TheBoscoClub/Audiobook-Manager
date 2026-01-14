@@ -5,17 +5,17 @@ After=network-online.target
 Wants=network-online.target
 
 # Core services - these are the main services that must start
-Wants=audiobooks-api.service
-Wants=audiobooks-proxy.service
-Wants=audiobooks-redirect.service
+Wants=audiobook-api.service
+Wants=audiobook-proxy.service
+Wants=audiobook-redirect.service
 
 # Background workers - conversion and file moving
-Wants=audiobooks-converter.service
-Wants=audiobooks-mover.service
+Wants=audiobook-converter.service
+Wants=audiobook-mover.service
 
 # Scheduled tasks - timers trigger their corresponding .service units
-Wants=audiobooks-downloader.timer
-Wants=audiobooks-periodicals-sync.timer
+Wants=audiobook-downloader.timer
+Wants=audiobook-periodicals-sync.timer
 
 [Install]
 WantedBy=multi-user.target

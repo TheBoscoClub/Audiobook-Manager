@@ -17,4 +17,4 @@ RandomizedDelaySec=300
 WakeSystem=false
 
 [Install]
-WantedBy=audiobooks.target timers.target
+WantedBy=audiobook.target timers.target

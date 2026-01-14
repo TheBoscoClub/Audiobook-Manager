@@ -10,11 +10,7 @@ Note: These tests use mocking instead of direct DB insertion to avoid
 session-scoped database conflicts.
 """
 
-import sqlite3
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 class TestStreamAudiobook:

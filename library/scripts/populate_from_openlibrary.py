@@ -35,7 +35,6 @@ Usage:
     python3 populate_from_openlibrary.py --id 1234 --execute
 """
 
-import re
 import sqlite3
 import sys
 from argparse import ArgumentParser

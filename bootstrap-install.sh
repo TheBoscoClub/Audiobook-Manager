@@ -75,7 +75,7 @@ get_latest_version() {
 
 get_tarball_url() {
     local version="$1"
-    echo "https://github.com/${GITHUB_REPO}/releases/download/v${version}/audiobooks-${version}.tar.gz"
+    echo "https://github.com/${GITHUB_REPO}/releases/download/v${version}/audiobook-manager-${version}.tar.gz"
 }
 
 cleanup() {
@@ -160,7 +160,7 @@ EOF
     # Download tarball
     local tarball_url
     tarball_url=$(get_tarball_url "$version")
-    local tarball="${TEMP_DIR}/audiobooks-${version}.tar.gz"
+    local tarball="${TEMP_DIR}/audiobook-manager-${version}.tar.gz"
 
     log_info "Downloading from: ${tarball_url}"
     if ! curl -sL -o "$tarball" "$tarball_url"; then
@@ -186,7 +186,7 @@ EOF
 
     # Find extracted directory
     local extract_dir
-    extract_dir=$(find . -maxdepth 1 -type d -name "audiobooks-*" | head -1)
+    extract_dir=$(find . -maxdepth 1 -type d -name "audiobook-manager-*" | head -1)
     if [[ -z "$extract_dir" ]] || [[ ! -d "$extract_dir" ]]; then
         log_error "Could not find extracted directory"
         exit 1

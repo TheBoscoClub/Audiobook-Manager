@@ -21,9 +21,9 @@ NC='\033[0m'
 
 # PID files (persistent in /var/tmp)
 PID_DIR="/var/tmp"
-API_PID_FILE="$PID_DIR/audiobooks-api.pid"
-PROXY_PID_FILE="$PID_DIR/audiobooks-proxy.pid"
-REDIRECT_PID_FILE="$PID_DIR/audiobooks-redirect.pid"
+API_PID_FILE="$PID_DIR/audiobook-api.pid"
+PROXY_PID_FILE="$PID_DIR/audiobook-proxy.pid"
+REDIRECT_PID_FILE="$PID_DIR/audiobook-redirect.pid"
 
 # Ports (from config or defaults)
 API_PORT=${AUDIOBOOKS_API_PORT:-5001}

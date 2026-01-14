@@ -35,7 +35,7 @@ Thank you for your interest in contributing to the Audiobooks project!
 
 - **NEVER** write literal paths like `/var/lib/audiobooks`, `/srv/audiobooks`, `/run/audiobooks`
 - **ALWAYS** use environment variables: `$AUDIOBOOKS_DATA`, `$AUDIOBOOKS_VAR_DIR`, etc.
-- If a path variable doesn't exist, **add it** to `lib/audiobooks-config.sh` first
+- If a path variable doesn't exist, **add it** to `lib/audiobook-config.sh` first
 
 ### Why This Matters
 
@@ -57,7 +57,7 @@ End users configure their own paths. Hardcoded paths:
 | `AUDIOBOOKS_DATABASE` | SQLite database |
 | `AUDIOBOOKS_LOGS` | Log files |
 
-See `lib/audiobooks-config.sh` for the complete list with defaults.
+See `lib/audiobook-config.sh` for the complete list with defaults.
 
 ---
 

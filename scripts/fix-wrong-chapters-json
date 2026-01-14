@@ -12,10 +12,10 @@
 # Removed set -euo pipefail - causes issues with ((counter++)) when counter is 0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobooks-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobooks-config.sh"
-elif [[ -f "/opt/audiobooks/lib/audiobooks-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobooks-config.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
+elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
+    source "/opt/audiobooks/lib/audiobook-config.sh"
 fi
 
 LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/raid0/Audiobooks/Library}"

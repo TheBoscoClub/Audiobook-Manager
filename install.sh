@@ -1159,19 +1159,19 @@ EOF
     echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
 
     # API server wrapper
-    sudo tee "${BIN_DIR}/audiobooks-api" > /dev/null << EOF
+    sudo tee "${BIN_DIR}/audiobook-api" > /dev/null << EOF
 #!/bin/bash
 # Audiobook Library API Server
-source /opt/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobook-config.sh
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
 EOF
-    sudo chmod 755 "${BIN_DIR}/audiobooks-api"
+    sudo chmod 755 "${BIN_DIR}/audiobook-api"
 
     # Web server wrapper
     sudo tee "${BIN_DIR}/audiobooks-web" > /dev/null << 'EOF'
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
-source /opt/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobook-config.sh
 exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-web"
@@ -1180,7 +1180,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-scan" > /dev/null << 'EOF'
 #!/bin/bash
 # Audiobook Library Scanner
-source /opt/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-scan"
@@ -1189,7 +1189,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-import" > /dev/null << 'EOF'
 #!/bin/bash
 # Audiobook Library Database Import
-source /opt/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-import"
@@ -1198,7 +1198,7 @@ EOF
     sudo tee "${BIN_DIR}/audiobooks-config" > /dev/null << 'EOF'
 #!/bin/bash
 # Show audiobook library configuration
-source /opt/audiobooks/lib/audiobooks-config.sh
+source /opt/audiobooks/lib/audiobook-config.sh
 audiobooks_print_config
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-config"
@@ -1250,7 +1250,7 @@ EOF
         ["audiobook-download-monitor"]="audiobooks-download-monitor"
         ["embed-cover-art.py"]="audiobooks-embed-cover"
         ["build-conversion-queue"]="audiobooks-build-queue"
-        ["upgrade.sh"]="audiobooks-upgrade"
+        ["upgrade.sh"]="audiobook-upgrade"
         ["migrate-api.sh"]="audiobooks-migrate"
     )
 
@@ -1284,14 +1284,14 @@ EOF
     sudo chmod 644 "/opt/audiobooks/.release-info"
 
     # Create upgrade wrapper
-    sudo tee "${BIN_DIR}/audiobooks-upgrade" > /dev/null << 'EOF'
+    sudo tee "${BIN_DIR}/audiobook-upgrade" > /dev/null << 'EOF'
 #!/bin/bash
 # Audiobook Toolkit Upgrade Script
 # Fetches and applies updates from GitHub releases
 exec /opt/audiobooks/scripts/upgrade.sh --target /opt/audiobooks "$@"
 EOF
-    sudo chmod 755 "${BIN_DIR}/audiobooks-upgrade"
-    echo "  Installed: audiobooks-upgrade"
+    sudo chmod 755 "${BIN_DIR}/audiobook-upgrade"
+    echo "  Installed: audiobook-upgrade"
 
     # Create migrate wrapper
     sudo tee "${BIN_DIR}/audiobooks-migrate" > /dev/null << 'EOF'
@@ -1329,7 +1329,7 @@ EOF
         echo -e "${BLUE}Installing systemd services...${NC}"
 
         # API service
-        sudo tee "${SYSTEMD_DIR}/audiobooks-api.service" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/audiobook-api.service" > /dev/null << EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/greogory/Audiobook-Manager
@@ -1339,7 +1339,7 @@ After=network.target
 Type=simple
 EnvironmentFile=${CONFIG_DIR}/audiobooks.conf
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:\${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobooks-api
+ExecStart=${BIN_DIR}/audiobook-api
 Restart=on-failure
 RestartSec=5
 
@@ -1352,8 +1352,8 @@ EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/greogory/Audiobook-Manager
-After=audiobooks-api.service
-Wants=audiobooks-api.service
+After=audiobook-api.service
+Wants=audiobook-api.service
 
 [Service]
 Type=simple
@@ -1385,9 +1385,9 @@ EOF
         fi
 
         # Install tmpfiles.d configuration for runtime directories
-        if [[ -f "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" ]]; then
+        if [[ -f "${SCRIPT_DIR}/systemd/audiobook-tmpfiles.conf" ]]; then
             echo -e "${BLUE}Installing tmpfiles.d configuration...${NC}"
-            sudo cp "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+            sudo cp "${SCRIPT_DIR}/systemd/audiobook-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
             sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
             # Create the runtime directories immediately
             sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
@@ -1401,11 +1401,11 @@ EOF
         fi
 
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
-        if [[ -f "${SYSTEMD_DIR}/audiobooks-upgrade-helper.path" ]]; then
+        if [[ -f "${SYSTEMD_DIR}/audiobook-upgrade-helper.path" ]]; then
             echo -e "${BLUE}Enabling privileged operations helper...${NC}"
-            sudo systemctl enable audiobooks-upgrade-helper.path 2>/dev/null || true
-            sudo systemctl start audiobooks-upgrade-helper.path 2>/dev/null || true
-            echo "  Enabled: audiobooks-upgrade-helper.path"
+            sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
+            sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
+            echo "  Enabled: audiobook-upgrade-helper.path"
         fi
 
         # Target (includes all services)
@@ -1413,7 +1413,7 @@ EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/greogory/Audiobook-Manager
-Wants=audiobooks-api.service audiobooks-web.service audiobooks-converter.service audiobooks-mover.service audiobooks-downloader.timer
+Wants=audiobook-api.service audiobooks-web.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
 
 [Install]
 WantedBy=multi-user.target
@@ -1427,7 +1427,7 @@ EOF
 
         # Enable the target and all individual services
         sudo systemctl enable audiobooks.target 2>/dev/null || true
-        for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover audiobooks-downloader.timer; do
+        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
 
@@ -1435,7 +1435,7 @@ EOF
         # Start the target (which starts all wanted services)
         sudo systemctl start audiobooks.target 2>/dev/null || {
             # Fallback: start individual services
-            for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+            for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
                 sudo systemctl start "$svc" 2>/dev/null || true
             done
         }
@@ -1444,7 +1444,7 @@ EOF
         echo ""
         echo -e "${BLUE}Service status:${NC}"
         local all_ok=true
-        for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
             local status
             status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
             if [[ "$status" == "active" ]]; then
@@ -1463,19 +1463,19 @@ EOF
 
         echo ""
         echo -e "${DIM}Available services:${NC}"
-        echo "  audiobooks-api          - API server"
-        echo "  audiobooks-proxy        - HTTPS proxy server"
-        echo "  audiobooks-converter    - Continuous audiobook converter"
-        echo "  audiobooks-mover        - Moves staged files to library"
-        echo "  audiobooks-downloader   - Downloads new audiobooks (timer-triggered)"
+        echo "  audiobook-api          - API server"
+        echo "  audiobook-proxy        - HTTPS proxy server"
+        echo "  audiobook-converter    - Continuous audiobook converter"
+        echo "  audiobook-mover        - Moves staged files to library"
+        echo "  audiobook-downloader   - Downloads new audiobooks (timer-triggered)"
     fi
 
     # Create /etc/profile.d script
     echo -e "${BLUE}Creating environment profile...${NC}"
     sudo tee /etc/profile.d/audiobooks.sh > /dev/null << 'EOF'
 # Audiobook Library Environment
-if [[ -f /opt/audiobooks/lib/audiobooks-config.sh ]]; then
-    source /opt/audiobooks/lib/audiobooks-config.sh
+if [[ -f /opt/audiobooks/lib/audiobook-config.sh ]]; then
+    source /opt/audiobooks/lib/audiobook-config.sh
 fi
 EOF
     sudo chmod 644 /etc/profile.d/audiobooks.sh
@@ -1487,7 +1487,7 @@ EOF
     echo "Data directory: ${data_dir}"
     echo ""
     echo "Commands available:"
-    echo "  audiobooks-api             - Start API server"
+    echo "  audiobook-api             - Start API server"
     echo "  audiobooks-web             - Start web server"
     echo "  audiobooks-scan            - Scan audiobook library"
     echo "  audiobooks-import          - Import to database"
@@ -1521,19 +1521,19 @@ do_system_uninstall() {
     # Stop and disable services
     echo -e "${BLUE}Stopping services...${NC}"
     sudo systemctl stop audiobooks.target 2>/dev/null || true
-    sudo systemctl stop audiobooks-api.service audiobooks-web.service 2>/dev/null || true
-    sudo systemctl stop audiobooks-converter.service audiobooks-mover.service 2>/dev/null || true
-    sudo systemctl stop audiobooks-downloader.timer audiobooks-downloader.service 2>/dev/null || true
-    sudo systemctl stop audiobooks-shutdown-saver.service 2>/dev/null || true
+    sudo systemctl stop audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    sudo systemctl stop audiobook-converter.service audiobook-mover.service 2>/dev/null || true
+    sudo systemctl stop audiobook-downloader.timer audiobook-downloader.service 2>/dev/null || true
+    sudo systemctl stop audiobook-shutdown-saver.service 2>/dev/null || true
     sudo systemctl disable audiobooks.target 2>/dev/null || true
-    sudo systemctl disable audiobooks-api.service audiobooks-web.service 2>/dev/null || true
-    sudo systemctl disable audiobooks-converter.service audiobooks-mover.service 2>/dev/null || true
-    sudo systemctl disable audiobooks-downloader.timer audiobooks-shutdown-saver.service 2>/dev/null || true
+    sudo systemctl disable audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    sudo systemctl disable audiobook-converter.service audiobook-mover.service 2>/dev/null || true
+    sudo systemctl disable audiobook-downloader.timer audiobook-shutdown-saver.service 2>/dev/null || true
 
     # Remove application files
     echo -e "${BLUE}Removing application files...${NC}"
     # Core wrappers
-    sudo rm -f "${BIN_DIR}/audiobooks-api"
+    sudo rm -f "${BIN_DIR}/audiobook-api"
     sudo rm -f "${BIN_DIR}/audiobooks-web"
     sudo rm -f "${BIN_DIR}/audiobooks-scan"
     sudo rm -f "${BIN_DIR}/audiobooks-import"
@@ -1557,13 +1557,13 @@ do_system_uninstall() {
     # Library
     sudo rm -rf "${LIB_DIR}"
     # Systemd services
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks-api.service"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook-api.service"
     sudo rm -f "${SYSTEMD_DIR}/audiobooks-web.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks-converter.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks-mover.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks-downloader.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks-downloader.timer"
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks-shutdown-saver.service"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook-converter.service"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook-mover.service"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook-downloader.service"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook-downloader.timer"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook-shutdown-saver.service"
     sudo rm -f "${SYSTEMD_DIR}/audiobooks.target"
     sudo rm -f /etc/profile.d/audiobooks.sh
 
@@ -1714,19 +1714,19 @@ EOF
     echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
 
     # API server wrapper
-    cat > "${BIN_DIR}/audiobooks-api" << EOF
+    cat > "${BIN_DIR}/audiobook-api" << EOF
 #!/bin/bash
 # Audiobook Library API Server
-source "${LIB_DIR}/lib/audiobooks-config.sh"
+source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobooks-api"
+    chmod 755 "${BIN_DIR}/audiobook-api"
 
     # Web server wrapper
     cat > "${BIN_DIR}/audiobooks-web" << EOF
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
-source "${LIB_DIR}/lib/audiobooks-config.sh"
+source "${LIB_DIR}/lib/audiobook-config.sh"
 exec python3 "\${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "\$@"
 EOF
     chmod 755 "${BIN_DIR}/audiobooks-web"
@@ -1735,7 +1735,7 @@ EOF
     cat > "${BIN_DIR}/audiobooks-scan" << EOF
 #!/bin/bash
 # Audiobook Library Scanner
-source "${LIB_DIR}/lib/audiobooks-config.sh"
+source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
 EOF
     chmod 755 "${BIN_DIR}/audiobooks-scan"
@@ -1744,7 +1744,7 @@ EOF
     cat > "${BIN_DIR}/audiobooks-import" << EOF
 #!/bin/bash
 # Audiobook Library Database Import
-source "${LIB_DIR}/lib/audiobooks-config.sh"
+source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
 EOF
     chmod 755 "${BIN_DIR}/audiobooks-import"
@@ -1753,7 +1753,7 @@ EOF
     cat > "${BIN_DIR}/audiobooks-config" << EOF
 #!/bin/bash
 # Show audiobook library configuration
-source "${LIB_DIR}/lib/audiobooks-config.sh"
+source "${LIB_DIR}/lib/audiobook-config.sh"
 audiobooks_print_config
 EOF
     chmod 755 "${BIN_DIR}/audiobooks-config"
@@ -1856,14 +1856,14 @@ EOF
     chmod 644 "${LIB_DIR}/.release-info"
 
     # Create upgrade wrapper
-    cat > "${BIN_DIR}/audiobooks-upgrade" << EOF
+    cat > "${BIN_DIR}/audiobook-upgrade" << EOF
 #!/bin/bash
 # Audiobook Toolkit Upgrade Script
 # Fetches and applies updates from GitHub releases
 exec "${LIB_DIR}/scripts/upgrade.sh" --target "${LIB_DIR}" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobooks-upgrade"
-    echo "  Installed: audiobooks-upgrade"
+    chmod 755 "${BIN_DIR}/audiobook-upgrade"
+    echo "  Installed: audiobook-upgrade"
 
     # Create migrate wrapper
     cat > "${BIN_DIR}/audiobooks-migrate" << EOF
@@ -1903,7 +1903,7 @@ EOF
         echo -e "${BLUE}Installing systemd user services...${NC}"
 
         # API service
-        cat > "${SYSTEMD_DIR}/audiobooks-api.service" << EOF
+        cat > "${SYSTEMD_DIR}/audiobook-api.service" << EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/greogory/Audiobook-Manager
@@ -1926,7 +1926,7 @@ Environment=AUDIOBOOKS_WEB_PORT=${WEB_PORT}
 Environment=AUDIOBOOKS_HTTP_REDIRECT_PORT=${HTTP_REDIRECT_PORT}
 
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${API_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobooks-api
+ExecStart=${BIN_DIR}/audiobook-api
 Restart=on-failure
 RestartSec=5
 
@@ -1939,8 +1939,8 @@ EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/greogory/Audiobook-Manager
-After=audiobooks-api.service
-Wants=audiobooks-api.service
+After=audiobook-api.service
+Wants=audiobook-api.service
 
 [Service]
 Type=simple
@@ -1964,7 +1964,7 @@ EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/greogory/Audiobook-Manager
-Wants=audiobooks-api.service audiobooks-web.service
+Wants=audiobook-api.service audiobooks-web.service
 
 [Install]
 WantedBy=default.target
@@ -1976,12 +1976,12 @@ EOF
         # Enable and start services by default
         echo -e "${BLUE}Enabling and starting user services...${NC}"
         systemctl --user enable audiobooks.target 2>/dev/null || true
-        systemctl --user enable audiobooks-api.service audiobooks-web.service 2>/dev/null || true
+        systemctl --user enable audiobook-api.service audiobooks-web.service 2>/dev/null || true
 
         # Start services
         systemctl --user start audiobooks.target 2>/dev/null || {
             # Fallback: start individual services
-            systemctl --user start audiobooks-api.service 2>/dev/null || true
+            systemctl --user start audiobook-api.service 2>/dev/null || true
             systemctl --user start audiobooks-web.service 2>/dev/null || true
         }
 
@@ -2009,7 +2009,7 @@ EOF
     echo "Logs: ${LOG_DIR}"
     echo ""
     echo "Commands available:"
-    echo "  audiobooks-api             - Start API server"
+    echo "  audiobook-api             - Start API server"
     echo "  audiobooks-web             - Start web server"
     echo "  audiobooks-scan            - Scan audiobook library"
     echo "  audiobooks-import          - Import to database"
@@ -2029,7 +2029,7 @@ EOF
     echo "Service management:"
     echo "  systemctl --user status audiobooks.target"
     echo "  systemctl --user restart audiobooks.target"
-    echo "  journalctl --user -u audiobooks-converter -f"
+    echo "  journalctl --user -u audiobook-converter -f"
     echo ""
     echo "Access the library at: https://localhost:${WEB_PORT}"
     echo ""
@@ -2053,18 +2053,18 @@ do_user_uninstall() {
     # Stop and disable services
     echo -e "${BLUE}Stopping services...${NC}"
     systemctl --user stop audiobooks.target 2>/dev/null || true
-    systemctl --user stop audiobooks-api.service audiobooks-web.service 2>/dev/null || true
-    systemctl --user stop audiobooks-converter.service audiobooks-mover.service 2>/dev/null || true
-    systemctl --user stop audiobooks-downloader.timer audiobooks-downloader.service 2>/dev/null || true
+    systemctl --user stop audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    systemctl --user stop audiobook-converter.service audiobook-mover.service 2>/dev/null || true
+    systemctl --user stop audiobook-downloader.timer audiobook-downloader.service 2>/dev/null || true
     systemctl --user disable audiobooks.target 2>/dev/null || true
-    systemctl --user disable audiobooks-api.service audiobooks-web.service 2>/dev/null || true
-    systemctl --user disable audiobooks-converter.service audiobooks-mover.service 2>/dev/null || true
-    systemctl --user disable audiobooks-downloader.timer 2>/dev/null || true
+    systemctl --user disable audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    systemctl --user disable audiobook-converter.service audiobook-mover.service 2>/dev/null || true
+    systemctl --user disable audiobook-downloader.timer 2>/dev/null || true
 
     # Remove application files
     echo -e "${BLUE}Removing application files...${NC}"
     # Core wrappers
-    rm -f "${BIN_DIR}/audiobooks-api"
+    rm -f "${BIN_DIR}/audiobook-api"
     rm -f "${BIN_DIR}/audiobooks-web"
     rm -f "${BIN_DIR}/audiobooks-scan"
     rm -f "${BIN_DIR}/audiobooks-import"
@@ -2088,12 +2088,12 @@ do_user_uninstall() {
     # Library
     rm -rf "${LIB_DIR}"
     # Systemd services
-    rm -f "${SYSTEMD_DIR}/audiobooks-api.service"
+    rm -f "${SYSTEMD_DIR}/audiobook-api.service"
     rm -f "${SYSTEMD_DIR}/audiobooks-web.service"
-    rm -f "${SYSTEMD_DIR}/audiobooks-converter.service"
-    rm -f "${SYSTEMD_DIR}/audiobooks-mover.service"
-    rm -f "${SYSTEMD_DIR}/audiobooks-downloader.service"
-    rm -f "${SYSTEMD_DIR}/audiobooks-downloader.timer"
+    rm -f "${SYSTEMD_DIR}/audiobook-converter.service"
+    rm -f "${SYSTEMD_DIR}/audiobook-mover.service"
+    rm -f "${SYSTEMD_DIR}/audiobook-downloader.service"
+    rm -f "${SYSTEMD_DIR}/audiobook-downloader.timer"
     rm -f "${SYSTEMD_DIR}/audiobooks.target"
 
     # Remove database and logs

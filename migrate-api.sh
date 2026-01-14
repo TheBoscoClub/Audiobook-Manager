@@ -177,7 +177,7 @@ detect_installation() {
     fi
 
     # Check which architecture is active
-    local api_script="$dir/bin/audiobooks-api"
+    local api_script="$dir/bin/audiobook-api"
     if [[ -f "$api_script" ]]; then
         if grep -q "api_server.py" "$api_script" 2>/dev/null; then
             echo "modular"
@@ -365,10 +365,10 @@ migrate_to_modular() {
 
     # Update wrapper scripts
     echo -e "${BOLD}Updating wrapper scripts...${NC}"
-    for wrapper in "$target/bin/audiobooks-api" \
+    for wrapper in "$target/bin/audiobook-api" \
                    "$target/bin/audiobooks" \
-                   "/usr/local/bin/audiobooks-api" \
-                   "$HOME/.local/bin/audiobooks-api"; do
+                   "/usr/local/bin/audiobook-api" \
+                   "$HOME/.local/bin/audiobook-api"; do
         if [[ -f "$wrapper" ]]; then
             update_wrapper_script "$wrapper" "api_server.py" $DRY_RUN
         fi
@@ -377,8 +377,8 @@ migrate_to_modular() {
 
     # Update systemd services
     echo -e "${BOLD}Checking systemd services...${NC}"
-    for service in /etc/systemd/system/audiobooks-api.service \
-                   "$HOME/.config/systemd/user/audiobooks-api.service"; do
+    for service in /etc/systemd/system/audiobook-api.service \
+                   "$HOME/.config/systemd/user/audiobook-api.service"; do
         if [[ -f "$service" ]]; then
             update_systemd_service "$service" "api_server.py" $DRY_RUN
         fi
@@ -441,10 +441,10 @@ migrate_to_monolithic() {
 
     # Update wrapper scripts
     echo -e "${BOLD}Updating wrapper scripts...${NC}"
-    for wrapper in "$target/bin/audiobooks-api" \
+    for wrapper in "$target/bin/audiobook-api" \
                    "$target/bin/audiobooks" \
-                   "/usr/local/bin/audiobooks-api" \
-                   "$HOME/.local/bin/audiobooks-api"; do
+                   "/usr/local/bin/audiobook-api" \
+                   "$HOME/.local/bin/audiobook-api"; do
         if [[ -f "$wrapper" ]]; then
             update_wrapper_script "$wrapper" "api.py" $DRY_RUN
         fi
@@ -453,8 +453,8 @@ migrate_to_monolithic() {
 
     # Update systemd services
     echo -e "${BOLD}Checking systemd services...${NC}"
-    for service in /etc/systemd/system/audiobooks-api.service \
-                   "$HOME/.config/systemd/user/audiobooks-api.service"; do
+    for service in /etc/systemd/system/audiobook-api.service \
+                   "$HOME/.config/systemd/user/audiobook-api.service"; do
         if [[ -f "$service" ]]; then
             update_systemd_service "$service" "api.py" $DRY_RUN
         fi
@@ -505,13 +505,13 @@ stop_services() {
     if $is_system; then
         # System-level services
         sudo systemctl stop audiobooks.target 2>/dev/null || true
-        for svc in audiobooks-api audiobooks-proxy audiobooks-redirect audiobooks-converter audiobooks-mover; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover; do
             sudo systemctl stop "$svc" 2>/dev/null || true
         done
     else
         # User-level services
         systemctl --user stop audiobooks.target 2>/dev/null || true
-        for svc in audiobooks-api audiobooks-proxy audiobooks-redirect; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect; do
             systemctl --user stop "$svc" 2>/dev/null || true
         done
     fi
@@ -519,7 +519,7 @@ stop_services() {
     # Verify services stopped
     sleep 1
     local still_running=false
-    for svc in audiobooks-api audiobooks-proxy; do
+    for svc in audiobook-api audiobook-proxy; do
         local status
         if $is_system; then
             status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
@@ -558,14 +558,14 @@ start_services() {
     if $is_system; then
         sudo systemctl daemon-reload
         sudo systemctl start audiobooks.target 2>/dev/null || {
-            for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+            for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
                 sudo systemctl start "$svc" 2>/dev/null || true
             done
         }
     else
         systemctl --user daemon-reload 2>/dev/null || true
         systemctl --user start audiobooks.target 2>/dev/null || {
-            for svc in audiobooks-api audiobooks-proxy; do
+            for svc in audiobook-api audiobook-proxy; do
                 systemctl --user start "$svc" 2>/dev/null || true
             done
         }
@@ -574,7 +574,7 @@ start_services() {
     # Verify services started
     echo ""
     echo -e "${BLUE}Service status:${NC}"
-    for svc in audiobooks-api audiobooks-proxy; do
+    for svc in audiobook-api audiobook-proxy; do
         local status
         if $is_system; then
             status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")

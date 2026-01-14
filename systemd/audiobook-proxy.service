@@ -1,8 +1,9 @@
 [Unit]
-Description=Audiobooks Library HTTP to HTTPS Redirect
+Description=Audiobooks Library HTTPS Reverse Proxy
 Documentation=https://github.com/greogory/Audiobook-Manager
-After=network-online.target audiobooks-proxy.service
-Wants=audiobooks-proxy.service network-online.target
+After=network-online.target audiobook-api.service
+Requires=audiobook-api.service
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -15,15 +16,15 @@ EnvironmentFile=/etc/audiobooks/audiobooks.conf
 Environment=PYTHONUNBUFFERED=1
 
 # Only start if port is not already in use
-ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_HTTP_REDIRECT_PORT} >/dev/null 2>&1'
-ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/redirect_server.py
+ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_WEB_PORT} >/dev/null 2>&1'
+ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/proxy_server.py
 
 Restart=on-failure
 RestartSec=5
-# Use journal logging (query with: journalctl -u audiobooks-redirect)
+# Use journal logging (query with: journalctl -u audiobooks-proxy)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobooks-redirect
+SyslogIdentifier=audiobooks-proxy
 
 # Security hardening
 NoNewPrivileges=yes
@@ -34,4 +35,4 @@ ProtectHome=yes
 PrivateTmp=yes
 
 [Install]
-WantedBy=audiobooks.target multi-user.target
+WantedBy=audiobook.target multi-user.target

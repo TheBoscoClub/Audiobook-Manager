@@ -1,7 +1,7 @@
 [Unit]
 Description=Audible periodicals index sync
 Documentation=file:///opt/audiobooks/docs/PERIODICALS.md
-After=network-online.target audiobooks-api.service
+After=network-online.target audiobook-api.service
 Wants=network-online.target
 ConditionPathExists=/var/lib/audiobooks/db/audiobooks.db  # default
 
@@ -35,4 +35,4 @@ ProtectHome=true
 PrivateTmp=true
 
 [Install]
-WantedBy=audiobooks.target multi-user.target
+WantedBy=audiobook.target multi-user.target

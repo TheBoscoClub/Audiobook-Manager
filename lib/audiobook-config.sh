@@ -3,8 +3,8 @@
 # Audiobook Library - Shell Configuration Loader
 # =============================================================================
 # Source this file in shell scripts to load configuration:
-#   source /usr/local/lib/audiobooks/audiobooks-config.sh
-#   source "${AUDIOBOOKS_HOME}/lib/audiobooks-config.sh"
+#   source /usr/local/lib/audiobooks/audiobook-config.sh
+#   source "${AUDIOBOOKS_HOME}/lib/audiobook-config.sh"
 #
 # Configuration priority (later overrides earlier):
 #   1. Built-in defaults

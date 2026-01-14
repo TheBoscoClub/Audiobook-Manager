@@ -9,7 +9,6 @@ Tests the library sub-module of utilities_ops package:
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 class TestAddNewAudiobooks:

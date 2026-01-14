@@ -5,7 +5,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
-source "$SCRIPT_DIR/lib/audiobooks-config.sh"
+source "$SCRIPT_DIR/lib/audiobook-config.sh"
 
 # Legacy variable mapping for this script
 PROJECT_DIR="$AUDIOBOOKS_HOME"

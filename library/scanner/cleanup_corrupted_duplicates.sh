@@ -7,7 +7,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
-source "$SCRIPT_DIR/../../lib/audiobooks-config.sh"
+source "$SCRIPT_DIR/../../lib/audiobook-config.sh"
 
 CORRUPTED_DIR="$AUDIOBOOKS_LIBRARY"
 LOG_FILE="$AUDIOBOOKS_LOGS/cleanup_duplicates.log"

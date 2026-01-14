@@ -14,8 +14,8 @@ KNOWN ISSUES:
 - ZIP extraction may fail for certain archive formats
 
 The ONLY fully tested and verified format is Audible's AAXC format, which is
-handled by the main audiobook conversion pipeline (convert-audiobooks-opus-parallel,
-download-new-audiobooks, etc.)
+handled by the main audiobook conversion pipeline (audiobook-convert,
+audiobook-download, etc.)
 
 This script is part of the multi-source audiobook support feature which has been
 moved to "Phase Maybe" in the roadmap. The code exists and may work, but it is

@@ -88,16 +88,16 @@ if [[ "$UNINSTALL" == "true" ]]; then
     echo -e "${YELLOW}=== Uninstalling Audiobook Library (System) ===${NC}"
 
     # Stop and disable services
-    systemctl stop audiobooks-api.service audiobooks-web.service 2>/dev/null || true
-    systemctl disable audiobooks-api.service audiobooks-web.service 2>/dev/null || true
+    systemctl stop audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    systemctl disable audiobook-api.service audiobooks-web.service 2>/dev/null || true
 
     # Remove files
-    rm -f "${BIN_DIR}/audiobooks-api"
+    rm -f "${BIN_DIR}/audiobook-api"
     rm -f "${BIN_DIR}/audiobooks-web"
     rm -f "${BIN_DIR}/audiobooks-scan"
     rm -f "${BIN_DIR}/audiobooks-import"
     rm -rf "${LIB_DIR}"
-    rm -f "${SYSTEMD_DIR}/audiobooks-api.service"
+    rm -f "${SYSTEMD_DIR}/audiobook-api.service"
     rm -f "${SYSTEMD_DIR}/audiobooks-web.service"
     rm -f "${SYSTEMD_DIR}/audiobooks.target"
 
@@ -172,19 +172,19 @@ fi
 echo -e "${BLUE}Creating executable wrappers...${NC}"
 
 # API server wrapper
-cat > "${BIN_DIR}/audiobooks-api" << 'EOF'
+cat > "${BIN_DIR}/audiobook-api" << 'EOF'
 #!/bin/bash
 # Audiobook Library API Server
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/api.py" "$@"
 EOF
-chmod 755 "${BIN_DIR}/audiobooks-api"
+chmod 755 "${BIN_DIR}/audiobook-api"
 
 # Web server wrapper
 cat > "${BIN_DIR}/audiobooks-web" << 'EOF'
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobooks-web"
@@ -193,7 +193,7 @@ chmod 755 "${BIN_DIR}/audiobooks-web"
 cat > "${BIN_DIR}/audiobooks-scan" << 'EOF'
 #!/bin/bash
 # Audiobook Library Scanner
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobooks-scan"
@@ -202,7 +202,7 @@ chmod 755 "${BIN_DIR}/audiobooks-scan"
 cat > "${BIN_DIR}/audiobooks-import" << 'EOF'
 #!/bin/bash
 # Audiobook Library Database Import
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobooks-import"
@@ -211,7 +211,7 @@ chmod 755 "${BIN_DIR}/audiobooks-import"
 cat > "${BIN_DIR}/audiobooks-config" << 'EOF'
 #!/bin/bash
 # Show audiobook library configuration
-source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 audiobooks_print_config
 EOF
 chmod 755 "${BIN_DIR}/audiobooks-config"
@@ -242,7 +242,7 @@ if [[ "$INSTALL_SERVICES" == "true" ]]; then
     echo -e "${BLUE}Installing systemd services...${NC}"
 
     # API service
-    cat > "${SYSTEMD_DIR}/audiobooks-api.service" << EOF
+    cat > "${SYSTEMD_DIR}/audiobook-api.service" << EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/greogory/Audiobook-Manager
@@ -252,7 +252,7 @@ After=network.target
 Type=simple
 EnvironmentFile=${CONFIG_DIR}/audiobooks.conf
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:\${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobooks-api
+ExecStart=${BIN_DIR}/audiobook-api
 Restart=on-failure
 RestartSec=5
 
@@ -265,8 +265,8 @@ EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/greogory/Audiobook-Manager
-After=audiobooks-api.service
-Wants=audiobooks-api.service
+After=audiobook-api.service
+Wants=audiobook-api.service
 
 [Service]
 Type=simple
@@ -285,7 +285,7 @@ EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/greogory/Audiobook-Manager
-Wants=audiobooks-api.service audiobooks-web.service
+Wants=audiobook-api.service audiobooks-web.service
 
 [Install]
 WantedBy=multi-user.target
@@ -296,10 +296,10 @@ EOF
 
     echo ""
     echo -e "${YELLOW}To enable services at boot:${NC}"
-    echo "  sudo systemctl enable audiobooks-api audiobooks-web"
+    echo "  sudo systemctl enable audiobook-api audiobooks-web"
     echo ""
     echo -e "${YELLOW}To start services now:${NC}"
-    echo "  sudo systemctl start audiobooks-api audiobooks-web"
+    echo "  sudo systemctl start audiobook-api audiobooks-web"
 fi
 
 # Create /etc/profile.d script for environment
@@ -307,8 +307,8 @@ echo -e "${BLUE}Creating environment profile...${NC}"
 cat > /etc/profile.d/audiobooks.sh << 'EOF'
 # Audiobook Library Environment
 # Source the config loader to get all variables
-if [[ -f /usr/local/lib/audiobooks/lib/audiobooks-config.sh ]]; then
-    source /usr/local/lib/audiobooks/lib/audiobooks-config.sh
+if [[ -f /usr/local/lib/audiobooks/lib/audiobook-config.sh ]]; then
+    source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 fi
 EOF
 chmod 644 /etc/profile.d/audiobooks.sh
@@ -320,7 +320,7 @@ echo "Configuration: ${CONFIG_DIR}/audiobooks.conf"
 echo "Data directory: ${DATA_DIR}"
 echo ""
 echo "Commands available:"
-echo "  audiobooks-api      - Start API server"
+echo "  audiobook-api      - Start API server"
 echo "  audiobooks-web      - Start web server"
 echo "  audiobooks-scan     - Scan audiobook library"
 echo "  audiobooks-import   - Import to database"

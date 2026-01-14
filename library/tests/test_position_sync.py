@@ -6,8 +6,6 @@ between the local audiobook library and Audible cloud.
 """
 
 import sqlite3
-from datetime import datetime
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -629,7 +627,6 @@ class TestBatchChunking:
 
     def test_processes_in_chunks(self):
         """Test processes large ASIN lists in chunks."""
-        from backend.api_modular import position_sync
         from backend.api_modular.position_sync import fetch_audible_positions_batch, run_async
 
         # Create 50 ASINs (should result in 2 chunks with BATCH_CHUNK_SIZE=25)

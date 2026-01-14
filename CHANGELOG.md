@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Upgrade Script Path Bug**: Fixed `upgrade-helper-process` referencing wrong path
   - Was: `/opt/audiobooks/upgrade.sh` (root level, doesn't exist)
   - Now: `/opt/audiobooks/scripts/upgrade.sh` (correct location)
-  - This broke the web UI upgrade button and `audiobooks-upgrade` command
+  - This broke the web UI upgrade button and `audiobook-upgrade` command
 - **Duplicate Finder Endpoint**: Fixed JavaScript calling non-existent API endpoint
   - Was: `/api/duplicates/by-hash` (doesn't exist)
   - Now: `/api/duplicates` (correct endpoint)
@@ -114,7 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed from `read_bytes` to `rchar` in `/proc/PID/io` parsing
   - `read_bytes` only counts actual disk I/O; `rchar` includes cached reads
   - FFmpeg typically reads from kernel cache, so `read_bytes` was always 0
-- **UI Safety**: Removed `audiobooks-api` and `audiobooks-proxy` from web UI service controls
+- **UI Safety**: Removed `audiobook-api` and `audiobook-proxy` from web UI service controls
   - These are core infrastructure services that should not be stoppable via UI
   - Prevents accidental self-destruction of the running application
 
@@ -246,10 +246,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.9.1] - 2026-01-08
 
 ### Fixed
-- **Systemd Target**: All services now properly bind to `audiobooks.target` for correct stop/start behavior during upgrades
-  - Added `audiobooks.target` to WantedBy for: api, proxy, redirect, periodicals-sync services and timer
-  - Added explicit `Wants=` in audiobooks.target for all core services and timers
-  - Previously only converter/mover responded to `systemctl stop/start audiobooks.target`
+- **Systemd Target**: All services now properly bind to `audiobook.target` for correct stop/start behavior during upgrades
+  - Added `audiobook.target` to WantedBy for: api, proxy, redirect, periodicals-sync services and timer
+  - Added explicit `Wants=` in audiobook.target for all core services and timers
+  - Previously only converter/mover responded to `systemctl stop/start audiobook.target`
 
 ## [3.9.0] - 2026-01-08
 
@@ -272,7 +272,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `POST /api/v1/periodicals/sync/trigger` - Manually trigger sync
   - `GET /api/v1/periodicals/categories` - List categories with counts
 - **New Database Tables**: `periodicals` (content index), `periodicals_sync_status` (sync tracking)
-- **New Systemd Units**: `audiobooks-periodicals-sync.service`, `audiobooks-periodicals-sync.timer`
+- **New Systemd Units**: `audiobook-periodicals-sync.service`, `audiobook-periodicals-sync.timer`
 - **Security**: XSS-safe DOM rendering using textContent and createElement (no innerHTML)
 - **Technology**: HTMX for declarative interactions, SSE for real-time updates
 
@@ -352,7 +352,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Architecture Docs**: Added Position Sync Architecture section with data flow diagrams
 - **README**: Added Position Sync section with quick setup guide
-- **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobooks-downloader.timer` in API
+- **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobook-downloader.timer` in API
   and helper script to match actual systemd unit name
 
 ### Fixed
@@ -361,7 +361,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Vacuum Database**: Fixed "disk I/O error" when vacuuming database
   - Added `PRAGMA temp_store = MEMORY` to avoid temp file creation in sandboxed environment
 - **Service Timer Control**: Fixed "Unit not found" error when starting/stopping timer
-  - Updated service name from `audiobooks-scanner.timer` to `audiobooks-downloader.timer`
+  - Updated service name from `audiobooks-scanner.timer` to `audiobook-downloader.timer`
 
 ## [3.7.1] - 2026-01-05
 
@@ -373,7 +373,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed "manual deletion required" notice - duplicates can now be deleted from the UI
 
 ### Changed
-- **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobooks-downloader.timer` in API
+- **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobook-downloader.timer` in API
   and helper script to match actual systemd unit name
 - **API Service**: Updated systemd service `ReadWritePaths` to include Library and Sources directories
   - Required for API to delete duplicate files (previously had read-only access)
@@ -384,7 +384,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Vacuum Database**: Fixed "disk I/O error" when vacuuming database
   - Added `PRAGMA temp_store = MEMORY` to avoid temp file creation in sandboxed environment
 - **Service Timer Control**: Fixed "Unit not found" error when starting/stopping timer
-  - Updated service name from `audiobooks-scanner.timer` to `audiobooks-downloader.timer`
+  - Updated service name from `audiobooks-scanner.timer` to `audiobook-downloader.timer`
 
 ## [3.7.0.1] - 2026-01-04
 
@@ -465,8 +465,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Privilege-separated helper service**: System operations (service control, upgrades) now work
   with the API's `NoNewPrivileges=yes` security hardening via a helper service pattern
-  - `audiobooks-upgrade-helper.service`: Runs privileged operations as root
-  - `audiobooks-upgrade-helper.path`: Watches for request files to trigger helper
+  - `audiobook-upgrade-helper.service`: Runs privileged operations as root
+  - `audiobook-upgrade-helper.path`: Watches for request files to trigger helper
   - Control files stored in `/var/lib/audiobooks/.control/` (avoids systemd namespace issues)
 ### Changed
 - **API utilities_system.py**: Refactored from direct sudo calls to file-based IPC with helper
@@ -580,7 +580,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Installed directory structure documentation in README.md
 ### Changed
 - `install.sh` now uses `/opt/audiobooks` as canonical install location instead of `/usr/local/lib/audiobooks`
-- Wrapper scripts now source from `/opt/audiobooks/lib/audiobooks-config.sh` (canonical path)
+- Wrapper scripts now source from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path)
 - Added backward-compatibility symlink `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
 - `install.sh` now automatically enables and starts services after installation (no manual step needed)
 - `migrate-api.sh` now stops services before migration and starts them after (proper lifecycle management)
@@ -648,7 +648,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker build job to release workflow for automated container builds
 ### Changed
 - Increased default parallel conversion jobs from 8 to 12
-- Removed redundant config fallbacks from scripts (single source of truth in audiobooks-config.sh)
+- Removed redundant config fallbacks from scripts (single source of truth in audiobook-config.sh)
 ### Fixed
 - Updated documentation to v3.2.0 and fixed obsolete paths
 
@@ -656,7 +656,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Standalone installation via GitHub releases (`bootstrap-install.sh`)
-- GitHub-based upgrade system (`audiobooks-upgrade --from-github`)
+- GitHub-based upgrade system (`audiobook-upgrade --from-github`)
 - Release automation workflow (`.github/workflows/release.yml`)
 - Release tarball builder (`create-release.sh`)
 ### Changed

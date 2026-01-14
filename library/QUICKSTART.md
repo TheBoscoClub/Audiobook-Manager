@@ -6,10 +6,10 @@
 
 ```bash
 # Start all services
-sudo systemctl start audiobooks.target
+sudo systemctl start audiobook.target
 
 # Or start individually
-sudo systemctl start audiobooks-api audiobooks-proxy audiobooks-redirect
+sudo systemctl start audiobook-api audiobook-proxy audiobook-redirect
 ```
 
 ### Manual Launch
@@ -61,8 +61,8 @@ You'll see a self-signed certificate warning. Click:
 
 **Solution:**
 ```bash
-sudo systemctl status audiobooks-api
-sudo systemctl start audiobooks-api
+sudo systemctl status audiobook-api
+sudo systemctl start audiobook-api
 ```
 
 ### Page loads but no books appear
@@ -72,7 +72,7 @@ sudo systemctl start audiobooks-api
 **Solution:**
 1. Verify API is running: `curl -sk https://localhost:8443/api/stats`
 2. Check browser console for JavaScript errors
-3. Restart services: `sudo systemctl restart audiobooks.target`
+3. Restart services: `sudo systemctl restart audiobook.target`
 
 ### Port already in use
 
@@ -84,10 +84,10 @@ sudo systemctl start audiobooks-api
 ss -tlnp | grep -E "5001|8443"
 
 # Stop existing services
-sudo systemctl stop audiobooks-api audiobooks-proxy
+sudo systemctl stop audiobook-api audiobook-proxy
 
 # Restart
-sudo systemctl start audiobooks-api audiobooks-proxy
+sudo systemctl start audiobook-api audiobook-proxy
 ```
 
 ---
@@ -134,10 +134,10 @@ python3 import_to_db.py
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `audiobooks-api` | 5001 (localhost) | Flask REST API |
-| `audiobooks-proxy` | 8443 (public) | HTTPS reverse proxy |
-| `audiobooks-converter` | - | AAXC → OPUS conversion |
-| `audiobooks-mover` | - | Move files from tmpfs |
+| `audiobook-api` | 5001 (localhost) | Flask REST API |
+| `audiobook-proxy` | 8443 (public) | HTTPS reverse proxy |
+| `audiobook-converter` | - | AAXC → OPUS conversion |
+| `audiobook-mover` | - | Move files from tmpfs |
 
 ---
 

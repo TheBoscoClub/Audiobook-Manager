@@ -17,7 +17,7 @@
 #
 # The ONLY fully tested and verified format is Audible's AAXC format,
 # which is handled by the main audiobook conversion pipeline
-# (convert-audiobooks-opus-parallel, download-new-audiobooks, etc.)
+# (audiobook-convert, audiobook-download, etc.)
 #
 # TO ENABLE EXPERIMENTAL FORMAT SUPPORT AT YOUR OWN RISK:
 # 1. Uncomment the WATCH_DIRS array entries below
@@ -30,10 +30,10 @@ set -euo pipefail
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "/usr/local/lib/audiobooks/audiobooks-config.sh" ]]; then
-    source /usr/local/lib/audiobooks/audiobooks-config.sh
-elif [[ -f "$SCRIPT_DIR/../../lib/audiobooks-config.sh" ]]; then
-    source "$SCRIPT_DIR/../../lib/audiobooks-config.sh"
+if [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
+    source /usr/local/lib/audiobooks/audiobook-config.sh
+elif [[ -f "$SCRIPT_DIR/../../lib/audiobook-config.sh" ]]; then
+    source "$SCRIPT_DIR/../../lib/audiobook-config.sh"
 fi
 
 # Configuration - use environment or defaults
@@ -330,7 +330,7 @@ main() {
         log "formats have not been fully tested and may not work as expected."
         log ""
         log "The ONLY fully tested format is Audible's AAXC format, which is"
-        log "handled by the main audiobook pipeline (convert-audiobooks-opus-parallel)."
+        log "handled by the main audiobook pipeline (audiobook-convert)."
         log ""
         log "To enable experimental format support at your own risk:"
         log "  1. Edit this script: $0"

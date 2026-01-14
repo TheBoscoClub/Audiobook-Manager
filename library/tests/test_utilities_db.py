@@ -10,10 +10,8 @@ This module provides Flask routes for database maintenance:
 """
 
 import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 class TestRescanLibrary:

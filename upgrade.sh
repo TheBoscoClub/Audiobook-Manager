@@ -24,11 +24,11 @@
 #
 # Examples:
 #   # Upgrade from GitHub (recommended for standalone installations):
-#   audiobooks-upgrade
+#   audiobook-upgrade
 #   ./upgrade.sh --from-github --target /opt/audiobooks
 #
 #   # Upgrade to specific version:
-#   audiobooks-upgrade --version 3.2.0
+#   audiobook-upgrade --version 3.2.0
 #
 #   # From local project directory:
 #   ./upgrade.sh --from-project /path/to/Audiobook-Manager --target /opt/audiobooks
@@ -150,7 +150,7 @@ detect_architecture() {
 
     # Check wrapper script for api_server.py (modular) vs api.py (monolithic)
     local wrapper=""
-    for w in "$target/bin/audiobooks-api" "/usr/local/bin/audiobooks-api" "$HOME/.local/bin/audiobooks-api"; do
+    for w in "$target/bin/audiobook-api" "/usr/local/bin/audiobook-api" "$HOME/.local/bin/audiobook-api"; do
         if [[ -f "$w" ]]; then
             wrapper="$w"
             break
@@ -197,11 +197,11 @@ switch_architecture() {
     fi
 
     # Find and update wrapper scripts
-    local wrappers=("$target/bin/audiobooks-api")
+    local wrappers=("$target/bin/audiobook-api")
     if [[ "$use_sudo" == "true" ]]; then
-        wrappers+=("/usr/local/bin/audiobooks-api")
+        wrappers+=("/usr/local/bin/audiobook-api")
     else
-        wrappers+=("$HOME/.local/bin/audiobooks-api")
+        wrappers+=("$HOME/.local/bin/audiobook-api")
     fi
 
     for wrapper in "${wrappers[@]}"; do
@@ -342,14 +342,14 @@ do_upgrade() {
     if [[ -d "$target/lib" ]]; then
         echo -e "${BLUE}Upgrading configuration library...${NC}"
         if [[ "$DRY_RUN" == "true" ]]; then
-            echo "  [DRY-RUN] Would update: audiobooks-config.sh"
+            echo "  [DRY-RUN] Would update: audiobook-config.sh"
         else
             if [[ -n "$use_sudo" ]]; then
-                sudo cp "${project}/lib/audiobooks-config.sh" "$target/lib/"
+                sudo cp "${project}/lib/audiobook-config.sh" "$target/lib/"
             else
-                cp "${project}/lib/audiobooks-config.sh" "$target/lib/"
+                cp "${project}/lib/audiobook-config.sh" "$target/lib/"
             fi
-            echo "  Updated: audiobooks-config.sh"
+            echo "  Updated: audiobook-config.sh"
         fi
     fi
 
@@ -434,11 +434,11 @@ do_upgrade() {
         done
 
         # Install/update tmpfiles.d configuration for runtime directories
-        if [[ -f "${project}/systemd/audiobooks-tmpfiles.conf" ]]; then
+        if [[ -f "${project}/systemd/audiobook-tmpfiles.conf" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo "  [DRY-RUN] Would update tmpfiles.d configuration"
             else
-                sudo cp "${project}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+                sudo cp "${project}/systemd/audiobook-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
                 sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
                 # Ensure runtime directories exist
                 sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
@@ -459,9 +459,9 @@ do_upgrade() {
             sudo systemctl daemon-reload
 
             # Enable and start the privileged helper path unit if not already running
-            if [[ -f "/etc/systemd/system/audiobooks-upgrade-helper.path" ]]; then
-                sudo systemctl enable audiobooks-upgrade-helper.path 2>/dev/null || true
-                sudo systemctl start audiobooks-upgrade-helper.path 2>/dev/null || true
+            if [[ -f "/etc/systemd/system/audiobook-upgrade-helper.path" ]]; then
+                sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
+                sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
             fi
         fi
     fi
@@ -525,7 +525,7 @@ stop_services() {
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl stop audiobooks.target 2>/dev/null || true
             # Also stop individual services in case target doesn't exist
-            for svc in audiobooks-api audiobooks-proxy audiobooks-redirect audiobooks-converter audiobooks-mover; do
+            for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover; do
                 sudo systemctl stop "$svc" 2>/dev/null || true
             done
         fi
@@ -533,7 +533,7 @@ stop_services() {
     elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
         # User-level services
         systemctl --user stop audiobooks.target 2>/dev/null || true
-        for svc in audiobooks-api audiobooks-proxy audiobooks-redirect; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect; do
             systemctl --user stop "$svc" 2>/dev/null || true
         done
         echo -e "${GREEN}  User services stopped${NC}"
@@ -566,7 +566,7 @@ start_services() {
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl start audiobooks.target 2>/dev/null || {
                 # Fallback: start individual services
-                for svc in audiobooks-api audiobooks-proxy audiobooks-redirect audiobooks-converter audiobooks-mover; do
+                for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover; do
                     sudo systemctl start "$svc" 2>/dev/null || true
                 done
             }
@@ -576,7 +576,7 @@ start_services() {
         # Show service status summary
         echo ""
         echo -e "${BLUE}Service status:${NC}"
-        for svc in audiobooks-api audiobooks-proxy audiobooks-converter audiobooks-mover; do
+        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
             local status
             status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
             if [[ "$status" == "active" ]]; then
@@ -588,7 +588,7 @@ start_services() {
     elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
         # User-level services
         systemctl --user start audiobooks.target 2>/dev/null || {
-            for svc in audiobooks-api audiobooks-proxy audiobooks-redirect; do
+            for svc in audiobook-api audiobook-proxy audiobook-redirect; do
                 systemctl --user start "$svc" 2>/dev/null || true
             done
         }
@@ -673,7 +673,7 @@ verify_installation_permissions() {
 
     # Verify no symlinks point to project source directory
     echo -n "  Checking for project source dependencies... "
-    local project_links=$(find /usr/local/bin -name "audiobooks-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
+    local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
     if [[ "$project_links" -gt 0 ]]; then
         echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
         issues_found=$((issues_found + 1))
@@ -817,7 +817,7 @@ download_and_extract_release() {
     # Find the extracted directory (flexible pattern for self-healing upgrades)
     # Try multiple patterns to handle naming changes without bootstrap problems
     local extract_dir=""
-    for pattern in "audiobook-manager-*" "audiobooks-*" "Audiobook-Manager-*"; do
+    for pattern in "audiobook-manager-*" "audiobook-*" "Audiobook-Manager-*"; do
         extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "$pattern" 2>/dev/null | head -1)
         [[ -n "$extract_dir" ]] && break
     done

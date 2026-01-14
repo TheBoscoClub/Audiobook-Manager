@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import subprocess
 
-import pytest
 
 
 class TestExtractTopics:

@@ -8,7 +8,7 @@ Documentation=https://github.com/greogory/Audiobook-Manager
 PathExists=/var/lib/audiobooks/.control/upgrade-request
 # Also trigger on modification (in case file already exists)
 PathModified=/var/lib/audiobooks/.control/upgrade-request
-Unit=audiobooks-upgrade-helper.service
+Unit=audiobook-upgrade-helper.service
 
 [Install]
 WantedBy=multi-user.target
