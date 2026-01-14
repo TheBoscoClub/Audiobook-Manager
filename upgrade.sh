@@ -319,6 +319,25 @@ do_upgrade() {
         done
     fi
 
+    # Upgrade root-level management scripts (upgrade.sh, migrate-api.sh)
+    # These live at project root but get installed to target/scripts/
+    for script in upgrade.sh migrate-api.sh; do
+        if [[ -f "${project}/${script}" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would update: $script"
+            else
+                if [[ -n "$use_sudo" ]]; then
+                    sudo cp "${project}/${script}" "$target/scripts/"
+                    sudo chmod +x "$target/scripts/${script}"
+                else
+                    cp "${project}/${script}" "$target/scripts/"
+                    chmod +x "$target/scripts/${script}"
+                fi
+                echo "  Updated: $script"
+            fi
+        fi
+    done
+
     # Upgrade lib
     if [[ -d "$target/lib" ]]; then
         echo -e "${BLUE}Upgrading configuration library...${NC}"
@@ -423,10 +442,13 @@ do_upgrade() {
                 sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
                 # Ensure runtime directories exist
                 sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
-                    sudo mkdir -p /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
-                    sudo chown audiobooks:audiobooks /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
-                    sudo chmod 755 /var/lib/audiobooks/.control
-                    sudo chmod 775 /var/lib/audiobooks/.run /tmp/audiobook-staging
+                    # Fallback: create directories manually if tmpfiles fails
+                    local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+                    local staging="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
+                    sudo mkdir -p "${var_dir}/.control" "${var_dir}/.run" "$staging"
+                    sudo chown audiobooks:audiobooks "${var_dir}/.control" "${var_dir}/.run" "$staging"
+                    sudo chmod 755 "${var_dir}/.control"
+                    sudo chmod 775 "${var_dir}/.run" "$staging"
                 }
                 echo "  Updated: tmpfiles.d/audiobooks.conf"
             fi

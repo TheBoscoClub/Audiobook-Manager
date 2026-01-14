@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.9.7] - 2026-01-13
+
+### Fixed
+- **Upgrade Script Path Bug**: Fixed `upgrade-helper-process` referencing wrong path
+  - Was: `/opt/audiobooks/upgrade.sh` (root level, doesn't exist)
+  - Now: `/opt/audiobooks/scripts/upgrade.sh` (correct location)
+  - This broke the web UI upgrade button and `audiobooks-upgrade` command
+- **Duplicate Finder Endpoint**: Fixed JavaScript calling non-existent API endpoint
+  - Was: `/api/duplicates/by-hash` (doesn't exist)
+  - Now: `/api/duplicates` (correct endpoint)
+  - This silently broke "Find Duplicates" for hash-based detection in Back Office
+- **Upgrade Script Sync**: Added root-level management scripts to `do_upgrade()` sync
+  - `upgrade.sh` and `migrate-api.sh` now properly sync from project root to `target/scripts/`
+  - Previously these were only installed by `install.sh`, not synced during upgrades
+
 ## [3.9.6] - 2026-01-13
 
 ### Security

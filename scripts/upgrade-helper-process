@@ -276,7 +276,7 @@ do_upgrade() {
     # Stage 2: Run upgrade
     write_status "true" "upgrading" "Running upgrade..." "null" "null" "${OUTPUT_LINES[@]}"
 
-    local upgrade_script="$INSTALL_DIR/upgrade.sh"
+    local upgrade_script="$INSTALL_DIR/scripts/upgrade.sh"
     [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobooks-upgrade"
 
     if [[ ! -x "$upgrade_script" ]]; then

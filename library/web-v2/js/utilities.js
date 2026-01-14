@@ -415,7 +415,7 @@ async function findDuplicates() {
 
     let endpoint;
     if (method === 'hash') {
-        endpoint = '/api/duplicates/by-hash';
+        endpoint = '/api/duplicates';  // Main endpoint is hash-based
     } else if (method === 'source-checksum') {
         endpoint = '/api/duplicates/by-checksum?type=sources';
     } else if (method === 'library-checksum') {
