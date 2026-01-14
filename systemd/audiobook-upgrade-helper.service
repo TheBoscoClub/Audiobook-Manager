@@ -2,6 +2,8 @@
 Description=Audiobooks Upgrade Helper Service
 Documentation=https://github.com/greogory/Audiobook-Manager
 # Started by audiobook-upgrade-helper.path when trigger file appears
+# Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
+RequiresMountsFor=/opt/audiobooks
 
 [Service]
 Type=oneshot

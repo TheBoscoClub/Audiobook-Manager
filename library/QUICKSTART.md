@@ -90,6 +90,27 @@ sudo systemctl stop audiobook-api audiobook-proxy
 sudo systemctl start audiobook-api audiobook-proxy
 ```
 
+### Services fail after reboot (tmpfs systems)
+
+**Problem:** If `/tmp` or `/var` is mounted as tmpfs, required directories are cleared on reboot
+
+**Solution:**
+```bash
+# Check if tmpfiles.d is configured
+ls /etc/tmpfiles.d/audiobooks.conf
+
+# If missing, deploy it:
+sudo cp /opt/audiobooks/systemd/audiobooks-tmpfiles.conf /etc/tmpfiles.d/
+
+# Create directories immediately:
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf
+
+# Verify directories exist:
+ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
+```
+
+See [INSTALL.md](INSTALL.md#tmpfs-considerations) for details.
+
 ---
 
 ## 📊 API Endpoints

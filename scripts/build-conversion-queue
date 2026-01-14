@@ -129,15 +129,26 @@ extract_asin_from_chapters() {
     grep -o '"asin": *"[^"]*"' "$chapters_file" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/'
 }
 
-# Build converted ASIN index from library chapters.json files AND title matching
-# Note: chapters.json may be corrupted, so we also backfill by matching
-# library opus titles to source ASIN filenames
+# Build converted ASIN index from multiple sources:
+# 1. PRESERVE existing index entries (don't lose quick-update additions)
+# 2. Scan library chapters.json files (contain ASIN metadata)
+# 3. Backfill by matching library titles to source ASINs
+# 4. Sync from database (authoritative source of truth)
 build_converted_asin_index() {
     log "Building converted ASIN index..."
     local index_file="$INDEX_DIR/converted_asins.idx"
     local temp_file="$INDEX_DIR/converted_asins.idx.tmp"
+    local db_path="${AUDIOBOOKS_DATABASE:-/var/lib/audiobooks/db/audiobooks.db}"
 
-    : > "$temp_file"
+    # CRITICAL: Preserve existing entries instead of clearing!
+    # This prevents loss of ASINs added by quick-update that can't be rediscovered
+    if [[ -f "$index_file" ]]; then
+        cp "$index_file" "$temp_file"
+        local preserved_count=$(wc -l < "$temp_file")
+        log "  Preserved: $preserved_count existing entries"
+    else
+        : > "$temp_file"
+    fi
 
     local count=0
     # Method 1: Scan library for chapters.json files (contain ASIN metadata)
@@ -201,12 +212,28 @@ build_converted_asin_index() {
 
     rm -f "$lib_titles_file" "$backfill_file"
 
+    # Method 3: Sync from database (authoritative source of truth)
+    # The database contains all imported audiobooks with their ASINs
+    local db_count=0
+    if [[ -f "$db_path" ]] && command -v sqlite3 &>/dev/null; then
+        log "  Syncing from database..."
+        local db_asins
+        db_asins=$(sqlite3 "$db_path" "SELECT DISTINCT asin FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''" 2>/dev/null)
+        if [[ -n "$db_asins" ]]; then
+            echo "$db_asins" >> "$temp_file"
+            db_count=$(echo "$db_asins" | wc -l)
+        fi
+        log "  From database: $db_count ASINs"
+    else
+        log "  Database sync skipped (database not found or sqlite3 not available)"
+    fi
+
     # Sort and deduplicate
     sort -u "$temp_file" > "$index_file"
     rm -f "$temp_file"
 
     local unique_count=$(wc -l < "$index_file")
-    log "Converted ASIN index: $unique_count unique ASINs (after backfill)"
+    log "Converted ASIN index: $unique_count unique ASINs (merged from all sources)"
 }
 
 # Build source ASIN index

@@ -167,13 +167,12 @@ while true; do
                 touch "${TRIGGER_DIR}/conversion-complete"
                 log "Signaled database updater (new files ready)"
 
-                # Update queue index (so converter doesn't re-process moved books)
-                # Use flock -n to prevent multiple concurrent rebuilds (non-blocking)
-                if [[ -x "${AUDIOBOOKS_HOME}/scripts/build-conversion-queue" ]]; then
-                    mkdir -p "${AUDIOBOOKS_RUN_DIR}"
-                    flock -n "${AUDIOBOOKS_RUN_DIR}/queue-rebuild.lock" \
-                        "${AUDIOBOOKS_HOME}/scripts/build-conversion-queue" --rebuild >/dev/null 2>&1 &
-                fi
+                # NOTE: We no longer trigger --rebuild here because:
+                # 1. The converter already updates indexes via --quick-update after each conversion
+                # 2. Full rebuilds are destructive and clear ASINs that can't be rediscovered
+                #    (e.g., series-style files where source filename differs from library title)
+                # 3. This was causing orphaned rebuild processes to accumulate
+                # If a full rebuild is needed, run manually: build-conversion-queue --rebuild
             fi
         fi
     fi
