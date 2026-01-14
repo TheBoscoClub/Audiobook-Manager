@@ -205,7 +205,7 @@
         }
 
         // ========================================
-        // Periodicals List Loading & Rendering
+        // Periodicals List Loading & Rendering (Tree Structure)
         // ========================================
         async function loadPeriodicalsList() {
             const container = document.getElementById('parent-list');
@@ -213,7 +213,8 @@
             container.appendChild(createElement('div', { className: 'loading-indicator', textContent: 'Loading...' }));
 
             try {
-                let url = API_BASE;
+                // Load PARENTS only (series/shows) - not individual episodes
+                let url = API_BASE + '/parents';
                 if (currentCategory !== 'all') {
                     url += '?category=' + encodeURIComponent(currentCategory);
                 }
@@ -222,7 +223,7 @@
                     throw new Error('HTTP ' + response.status + ': ' + response.statusText);
                 }
                 const data = await response.json();
-                renderPeriodicalsList(data.periodicals || []);
+                renderPeriodicalsList(data.parents || []);
             } catch (error) {
                 console.error('Failed to load periodicals:', error);
                 clearElement(container);
@@ -230,19 +231,19 @@
             }
         }
 
-        function renderPeriodicalsList(periodicals) {
+        function renderPeriodicalsList(parents) {
             const container = document.getElementById('parent-list');
             const countEl = document.getElementById('parent-count');
 
-            countEl.textContent = String(periodicals.length);
+            countEl.textContent = String(parents.length);
             clearElement(container);
 
-            if (periodicals.length === 0) {
-                container.appendChild(createEmptyState('📭', 'No periodicals in this category'));
+            if (parents.length === 0) {
+                container.appendChild(createEmptyState('📭', 'No series in this category'));
                 return;
             }
 
-            periodicals.forEach(function(p) {
+            parents.forEach(function(p) {
                 container.appendChild(createPeriodicalCard(p));
             });
         }
@@ -254,6 +255,16 @@
 
             // Status badges
             const badges = [];
+
+            // Episode count badge (for parent series)
+            if (p.episode_count && p.episode_count > 0) {
+                badges.push(createElement('span', {
+                    className: 'episode-count-badge',
+                    textContent: p.episode_count + ' episode' + (p.episode_count !== 1 ? 's' : ''),
+                    title: p.episode_count + ' episodes in this series'
+                }));
+            }
+
             if (p.content_type) {
                 badges.push(createElement('span', {
                     className: 'type-badge',
@@ -276,8 +287,8 @@
             const card = createElement('button', {
                 className: 'parent-card' + (p.asin === currentAsin ? ' active' : ''),
                 dataAsin: p.asin,
-                title: p.title + ' - ' + (p.content_type || 'Periodical'),
-                onClick: function() { selectPeriodical(p.asin); }
+                title: p.title + (p.episode_count ? ' (' + p.episode_count + ' episodes)' : ''),
+                onClick: function() { selectPeriodical(p.asin, p.episode_count || 0); }
             }, [
                 createElement('div', { className: 'parent-cover' }, [coverContent]),
                 createElement('div', { className: 'parent-info' }, [
@@ -298,9 +309,9 @@
         }
 
         // ========================================
-        // Periodical Details View
+        // Periodical Details View (Tree Structure)
         // ========================================
-        async function selectPeriodical(asin) {
+        async function selectPeriodical(asin, episodeCount) {
             currentAsin = asin;
 
             // Update active state in list
@@ -309,16 +320,38 @@
             });
 
             const container = document.getElementById('episode-list');
+            const titleEl = document.getElementById('episode-panel-title');
+            const countEl = document.getElementById('episode-count');
+
             clearElement(container);
-            container.appendChild(createElement('div', { className: 'loading-indicator', textContent: 'Loading details...' }));
+            container.appendChild(createElement('div', { className: 'loading-indicator', textContent: 'Loading...' }));
 
             try {
-                const response = await fetch(API_BASE + '/' + encodeURIComponent(asin));
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                // Load parent details first
+                const parentResponse = await fetch(API_BASE + '/' + encodeURIComponent(asin));
+                if (!parentResponse.ok) {
+                    throw new Error('HTTP ' + parentResponse.status);
                 }
-                const data = await response.json();
-                renderPeriodicalDetails(data);
+                const parentData = await parentResponse.json();
+
+                // Update header
+                titleEl.textContent = parentData.title;
+
+                // If parent has episodes, load them
+                if (episodeCount > 0) {
+                    countEl.textContent = episodeCount + ' episode' + (episodeCount !== 1 ? 's' : '');
+                    const episodesResponse = await fetch(API_BASE + '/' + encodeURIComponent(asin) + '/episodes?sort=release_date&order=desc');
+                    if (episodesResponse.ok) {
+                        const episodesData = await episodesResponse.json();
+                        renderSeriesWithEpisodes(parentData, episodesData.episodes || []);
+                    } else {
+                        renderPeriodicalDetails(parentData);
+                    }
+                } else {
+                    // No episodes - just show parent details
+                    countEl.textContent = parentData.content_type || 'Episode';
+                    renderPeriodicalDetails(parentData);
+                }
             } catch (error) {
                 console.error('Failed to load details:', error);
                 clearElement(container);
@@ -326,17 +359,129 @@
             }
         }
 
-        function renderPeriodicalDetails(item) {
+        function renderSeriesWithEpisodes(parent, episodes) {
             const container = document.getElementById('episode-list');
-            const titleEl = document.getElementById('episode-panel-title');
-            const countEl = document.getElementById('episode-count');
-
-            titleEl.textContent = item.title;
-            countEl.textContent = item.content_type || 'Periodical';
-
             clearElement(container);
 
-            // Build details card
+            // Series header card (compact)
+            const headerCard = createElement('div', { className: 'series-header-card' }, [
+                parent.cover_url
+                    ? createElement('img', { src: parent.cover_url, alt: '', className: 'series-cover' })
+                    : createElement('div', { className: 'series-cover no-cover', textContent: '📻' }),
+                createElement('div', { className: 'series-info' }, [
+                    createElement('h3', { className: 'series-title', textContent: parent.title }),
+                    createElement('p', { className: 'series-author', textContent: 'By ' + (parent.author || 'Unknown') }),
+                    parent.description
+                        ? createElement('p', { className: 'series-desc', textContent: parent.description.substring(0, 200) + (parent.description.length > 200 ? '...' : '') })
+                        : null
+                ]),
+                createElement('div', { className: 'series-actions' }, [
+                    createElement('button', {
+                        className: 'download-all-btn',
+                        title: 'Queue all episodes for download',
+                        onClick: function() { queueAllEpisodes(episodes); }
+                    }, [
+                        createElement('span', { textContent: '↓ Download All' })
+                    ])
+                ])
+            ]);
+            container.appendChild(headerCard);
+
+            // Episodes list
+            const episodesList = createElement('div', { className: 'episodes-list' });
+
+            if (episodes.length === 0) {
+                episodesList.appendChild(createEmptyState('📭', 'No episodes found'));
+            } else {
+                episodes.forEach(function(ep, index) {
+                    episodesList.appendChild(createEpisodeCard(ep, index + 1));
+                });
+            }
+
+            container.appendChild(episodesList);
+        }
+
+        function createEpisodeCard(ep, index) {
+            // Determine action button based on status
+            let actionBtn;
+            if (ep.is_downloaded) {
+                actionBtn = createElement('button', {
+                    className: 'play-btn',
+                    title: 'Play this episode',
+                    onClick: function() { playEpisode(ep.asin); }
+                }, [
+                    createElement('span', { textContent: '▶ Play' })
+                ]);
+            } else if (ep.download_requested) {
+                actionBtn = createElement('div', { className: 'status-queued-small' }, [
+                    createElement('span', { textContent: '⏳ Queued' })
+                ]);
+            } else {
+                actionBtn = createElement('button', {
+                    className: 'download-btn-small',
+                    title: 'Queue for download',
+                    onClick: function() { queueDownload(ep.asin); }
+                }, [
+                    createElement('span', { textContent: '↓ Download' })
+                ]);
+            }
+
+            return createElement('div', { className: 'episode-card' + (ep.is_downloaded ? ' downloaded' : '') }, [
+                createElement('div', { className: 'episode-number', textContent: '#' + index }),
+                ep.cover_url
+                    ? createElement('img', { src: ep.cover_url, alt: '', className: 'episode-thumb', loading: 'lazy' })
+                    : null,
+                createElement('div', { className: 'episode-info' }, [
+                    createElement('span', { className: 'episode-title', textContent: ep.title }),
+                    createElement('span', { className: 'episode-meta' }, [
+                        ep.runtime_minutes ? formatDuration(ep.runtime_minutes) : '',
+                        ep.release_date ? ' • ' + formatDate(ep.release_date) : ''
+                    ].join(''))
+                ]),
+                createElement('div', { className: 'episode-action' }, [actionBtn])
+            ]);
+        }
+
+        async function queueAllEpisodes(episodes) {
+            const asinsToQueue = episodes
+                .filter(function(ep) { return !ep.is_downloaded && !ep.download_requested; })
+                .map(function(ep) { return ep.asin; });
+
+            if (asinsToQueue.length === 0) {
+                showQueueToast('All episodes already downloaded or queued', false);
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ asins: asinsToQueue })
+                });
+                const data = await response.json();
+                showQueueToast(data.queued + ' episode(s) queued for download', false);
+                // Refresh the view
+                if (currentAsin) {
+                    selectPeriodical(currentAsin, episodes.length);
+                }
+            } catch (error) {
+                showQueueToast('Failed to queue episodes', true);
+            }
+        }
+
+        function playEpisode(asin) {
+            // Open player or navigate to audiobook in library
+            // For now, just show a toast - the actual playback would need integration
+            showQueueToast('Opening player for ' + asin + '...', false);
+            // TODO: Implement actual playback - could redirect to library player
+            // window.location.href = '/player.html?asin=' + encodeURIComponent(asin);
+        }
+
+        function renderPeriodicalDetails(item) {
+            const container = document.getElementById('episode-list');
+            clearElement(container);
+
+            // Build details card (for standalone items or items without episodes)
             const detailsCard = createElement('div', { className: 'details-card' }, [
                 // Cover and basic info
                 createElement('div', { className: 'details-header' }, [
@@ -353,7 +498,7 @@
                         item.narrator
                             ? createElement('p', { className: 'details-narrator', textContent: 'Narrated by ' + item.narrator })
                             : null,
-                        createElement('p', { className: 'details-type', textContent: item.content_type + ' • ' + item.category }),
+                        createElement('p', { className: 'details-type', textContent: (item.content_type || 'Periodical') + ' • ' + (item.category || 'Other') }),
                         item.runtime_minutes
                             ? createElement('p', { className: 'details-runtime', textContent: formatDuration(item.runtime_minutes) })
                             : null,
@@ -374,9 +519,13 @@
                 // Status & Actions
                 createElement('div', { className: 'details-actions' }, [
                     item.is_downloaded
-                        ? createElement('div', { className: 'status-downloaded' }, [
-                            createElement('span', { className: 'status-icon', textContent: '✓' }),
-                            createElement('span', { textContent: 'Downloaded to Library' })
+                        ? createElement('button', {
+                            className: 'play-btn-large',
+                            title: 'Play this item',
+                            onClick: function() { playEpisode(item.asin); }
+                        }, [
+                            createElement('span', { className: 'play-icon', textContent: '▶' }),
+                            createElement('span', { textContent: 'Play Now' })
                         ])
                         : item.download_requested
                             ? createElement('div', { className: 'status-queued' }, [

@@ -108,8 +108,8 @@ def import_audiobooks(conn):
                 title, author, narrator, publisher, series,
                 duration_hours, duration_formatted, file_size_mb,
                 file_path, cover_path, format, quality, description,
-                sha256_hash, hash_verified_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sha256_hash, hash_verified_at, asin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 book.get("title"),
@@ -127,6 +127,7 @@ def import_audiobooks(conn):
                 book.get("description", ""),
                 book.get("sha256_hash"),
                 book.get("hash_verified_at"),
+                book.get("asin"),
             ),
         )
 
@@ -168,6 +169,19 @@ def import_audiobooks(conn):
 
     conn.commit()
 
+    # Sync is_downloaded status for periodicals
+    # When an audiobook is imported, mark matching periodicals as downloaded
+    cursor.execute("""
+        UPDATE periodicals
+        SET is_downloaded = 1
+        WHERE is_downloaded = 0
+        AND asin IN (SELECT asin FROM audiobooks WHERE asin IS NOT NULL AND asin <> '')
+    """)
+    synced_periodicals = cursor.rowcount
+    if synced_periodicals > 0:
+        conn.commit()
+        print(f"\n✓ Synced is_downloaded for {synced_periodicals} periodicals")
+
     print(f"\n✓ Imported {len(audiobooks)} audiobooks")
     print(f"✓ Restored {len(preserved_narrators)} narrator records")
     print(f"✓ Restored genres for {len(preserved_genres)} audiobooks")
@@ -195,6 +209,9 @@ def import_audiobooks(conn):
     cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
     hashed_count = cursor.fetchone()[0]
 
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''")
+    asin_count = cursor.fetchone()[0]
+
     print("\n=== Database Statistics ===")
     print(f"Total audiobooks: {total:,}")
     print(f"Total hours: {int(total_hours):,} ({int(total_hours / 24):,} days)")
@@ -202,6 +219,7 @@ def import_audiobooks(conn):
     print(f"Unique narrators: {unique_narrators}")
     print(f"Unique genres: {len(genres_map)}")
     print(f"With SHA-256 hashes: {hashed_count:,}")
+    print(f"With ASINs: {asin_count:,}")
 
     # Optimize database
     print("\nOptimizing database...")

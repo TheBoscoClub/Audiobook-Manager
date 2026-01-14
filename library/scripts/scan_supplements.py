@@ -22,9 +22,11 @@ try:
     DEFAULT_SUPPLEMENTS_DIR = SUPPLEMENTS_DIR
 except ImportError:
     # Fallback to environment variables when running standalone
+    # Database is in AUDIOBOOKS_VAR_DIR/db, NOT in data directory
     _data_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
+    _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
     DATABASE_PATH = Path(
-        os.environ.get("AUDIOBOOKS_DATABASE", f"{_data_dir}/audiobooks.db")
+        os.environ.get("AUDIOBOOKS_DATABASE", f"{_var_dir}/db/audiobooks.db")
     )
     DEFAULT_SUPPLEMENTS_DIR = Path(
         os.environ.get("AUDIOBOOKS_SUPPLEMENTS", f"{_data_dir}/Supplements")
