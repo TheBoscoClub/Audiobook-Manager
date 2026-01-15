@@ -208,6 +208,20 @@ deploy_to_system() {
         done
     fi
 
+    # Deploy root-level management scripts (upgrade.sh, migrate-api.sh)
+    echo -e "${BLUE}Deploying management scripts...${NC}"
+    for script in upgrade.sh migrate-api.sh; do
+        if [[ -f "${SCRIPT_DIR}/${script}" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would copy: ${script} -> $target/scripts/"
+            else
+                sudo cp "${SCRIPT_DIR}/${script}" "$target/scripts/"
+                sudo chmod +x "$target/scripts/${script}"
+                echo "  Copied: ${script}"
+            fi
+        fi
+    done
+
     # Deploy systemd templates
     echo -e "${BLUE}Deploying systemd templates...${NC}"
     do_mkdir "$target/systemd" "$use_sudo"
@@ -347,6 +361,25 @@ deploy_to_custom() {
                     chmod +x "$target/scripts/$(basename "$script")"
                 fi
                 echo "  Deployed: $(basename "$script")"
+            fi
+        fi
+    done
+
+    # Deploy root-level management scripts (upgrade.sh, migrate-api.sh)
+    echo -e "${BLUE}Deploying management scripts...${NC}"
+    for script in upgrade.sh migrate-api.sh; do
+        if [[ -f "${SCRIPT_DIR}/${script}" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would copy: ${script}"
+            else
+                if [[ -n "$use_sudo" ]]; then
+                    sudo cp "${SCRIPT_DIR}/${script}" "$target/scripts/"
+                    sudo chmod +x "$target/scripts/${script}"
+                else
+                    cp "${SCRIPT_DIR}/${script}" "$target/scripts/"
+                    chmod +x "$target/scripts/${script}"
+                fi
+                echo "  Deployed: ${script}"
             fi
         fi
     done
