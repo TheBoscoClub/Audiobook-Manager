@@ -1153,7 +1153,10 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v3.11.0 (Current)
+### v3.11.1 (Current)
+- **Deploy Fix**: Fixed `deploy.sh` to include root-level management scripts (`upgrade.sh`, `migrate-api.sh`) that were being silently skipped during deployment
+
+### v3.11.0
 - **Periodicals Sorting**: Reading Room supports title, date, subscription, and download status sorting
 - **Whispersync Position Sync**: Periodicals now sync listening positions with Audible
 - **Auto-Download**: Subscribed podcast series automatically queue new episodes

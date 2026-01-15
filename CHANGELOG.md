@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.11.1] - 2026-01-14
+
+### Fixed
+- **Deploy Script**: Fixed `deploy.sh` to include root-level management scripts (`upgrade.sh`, `migrate-api.sh`) that were being silently skipped during deployment. These scripts live in the project root but need to be copied to `$target/scripts/` for the `audiobook-upgrade` wrapper to function.
+
 ## [3.11.0] - 2026-01-14
 
 ### Added
