@@ -92,26 +92,35 @@ echo ""
 # Note: Queue file is authoritative - it already does normalized title matching
 # We only need to check for downloads in progress here
 convert_file() {
-    local AAXC_FILE="$1"
-    local BASENAME=$(basename "$AAXC_FILE" .aaxc)
+    local SOURCE_FILE="$1"
+    local IS_MP3=0
+    local BASENAME
+
+    # Determine file type and basename
+    if [[ "$SOURCE_FILE" == *.mp3 ]]; then
+        IS_MP3=1
+        BASENAME=$(basename "$SOURCE_FILE" .mp3)
+    else
+        BASENAME=$(basename "$SOURCE_FILE" .aaxc)
+    fi
     local LOG_FILE="$LOG_DIR/conversion_${BASENAME}.log"
 
     # Check if source file still exists (queue might be stale)
-    if [[ ! -f "$AAXC_FILE" ]]; then
+    if [[ ! -f "$SOURCE_FILE" ]]; then
         echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (source file missing)"
         return 0
     fi
 
     # Check if file is still being downloaded (modified in last 2 minutes)
-    if find "$AAXC_FILE" -mmin -2 2>/dev/null | grep -q .; then
+    if find "$SOURCE_FILE" -mmin -2 2>/dev/null | grep -q .; then
         echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (still downloading - modified recently)"
         return 0
     fi
 
     # Also check file size stability (file should not be growing)
-    local SIZE1=$(stat -c%s "$AAXC_FILE" 2>/dev/null)
+    local SIZE1=$(stat -c%s "$SOURCE_FILE" 2>/dev/null)
     sleep 2
-    local SIZE2=$(stat -c%s "$AAXC_FILE" 2>/dev/null)
+    local SIZE2=$(stat -c%s "$SOURCE_FILE" 2>/dev/null)
     if [ "$SIZE1" != "$SIZE2" ]; then
         echo -e "${YELLOW}⊘ SKIP${NC}: $BASENAME (file size changing - download in progress)"
         return 0
@@ -125,16 +134,38 @@ convert_file() {
     # Get converter directory
     local CONVERTER_DIR=$(dirname "$CONVERTER_PATH")
 
-    # Convert using audible-cli voucher data (required for AAXC files)
-    # Use -D to skip genre level (avoid nested Audiobook/Author/Title structure)
-    # ionice -c2 -n0: best-effort class, highest priority (0) for faster I/O
-    if cd "$CONVERTER_DIR" && \
+    # MP3 files (podcasts): simple ffmpeg conversion, no DRM
+    # AAXC files (audiobooks): use AAXtoMP3 with audible-cli data for DRM decryption
+    if [[ $IS_MP3 -eq 1 ]]; then
+        # Extract ASIN from filename for output directory structure
+        local ASIN=""
+        if [[ "$BASENAME" =~ ^([A-Z0-9]{10})_ ]]; then
+            ASIN="${BASH_REMATCH[1]}"
+        fi
+
+        # Create output directory: OUTPUT_DIR/Podcasts/ASIN or title
+        local PODCAST_DIR="$OUTPUT_DIR/Podcasts/${ASIN:-$BASENAME}"
+        mkdir -p "$PODCAST_DIR"
+
+        # Simple ffmpeg conversion: MP3 → Opus (no DRM, just transcode)
+        local OUTPUT_FILE="$PODCAST_DIR/${BASENAME}.opus"
+        if ionice -c2 -n0 ffmpeg -y -loglevel error -stats \
+               -i "$SOURCE_FILE" \
+               -vn -codec:a libopus -b:a 48k -vbr on -compression_level "$OPUS_LEVEL" \
+               "$OUTPUT_FILE" > "$LOG_FILE" 2>&1; then
+            # Success - handled in the common success path below
+            :
+        else
+            echo -e "${RED}✗ FAIL${NC}: $BASENAME (ffmpeg error - see log)"
+            return 1
+        fi
+    elif cd "$CONVERTER_DIR" && \
        ionice -c2 -n0 bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
            --use-audible-cli-data \
            --target_dir "$OUTPUT_DIR" \
            -D '$artist/$title' \
            --loglevel 0 \
-           "$AAXC_FILE" > "$LOG_FILE" 2>&1; then
+           "$SOURCE_FILE" > "$LOG_FILE" 2>&1; then
 
         # Find newly created opus file (AAXtoMP3 renames to actual book title)
         # Look for .opus files created after conversion started, excluding cover files

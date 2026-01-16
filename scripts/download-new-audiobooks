@@ -232,24 +232,31 @@ while IFS=$'\t' read -r ASIN; do
     PERCENT=$((CURRENT * 100 / NEW_COUNT))
     notify "Downloading Audiobooks" "[$CURRENT/$NEW_COUNT] $DISPLAY_TITLE" "emblem-downloads"
 
-    "$AUDIBLE_CMD" download \
-        --aaxc \
-        --asin "$ASIN" \
-        --output-dir "$DOWNLOAD_DIR" \
-        --filename-mode asin_ascii \
-        --ignore-errors \
-        2>> "$LOG_FILE"
+    # Check if this is a podcast episode (requires --resolve-podcasts flag)
+    IS_PODCAST=""
+    if [ -n "$AUDIOBOOKS_DATABASE" ] && [ -f "$AUDIOBOOKS_DATABASE" ]; then
+        IS_PODCAST=$(sqlite3 "$AUDIOBOOKS_DATABASE" \
+            "SELECT 1 FROM periodicals WHERE asin='$ASIN' AND content_delivery_type IN ('PodcastEpisode', 'SinglePartIssue') LIMIT 1;" 2>/dev/null)
+    fi
 
-    DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
-    if [ -n "$DOWNLOADED_FILE" ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded: $DISPLAY_TITLE" >> "$LOG_FILE"
-        echo -e "${GREEN}✓ Downloaded:${NC} $DISPLAY_TITLE"
-        generate_source_checksum "$DOWNLOADED_FILE"
-        ((SUCCESS++))
-    else
-        echo "  Trying AAX fallback..." | tee -a "$LOG_FILE"
+    if [ -n "$IS_PODCAST" ]; then
+        # Podcast episode: use --resolve-podcasts, downloads as MP3
+        echo "  (Podcast episode - using resolve-podcasts)" | tee -a "$LOG_FILE"
         "$AUDIBLE_CMD" download \
-            --aax-fallback \
+            --resolve-podcasts \
+            --aaxc \
+            --asin "$ASIN" \
+            --output-dir "$DOWNLOAD_DIR" \
+            --filename-mode asin_ascii \
+            --ignore-errors \
+            2>> "$LOG_FILE"
+
+        # Podcasts download as MP3
+        DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.mp3" -o -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
+    else
+        # Regular audiobook: use AAXC format
+        "$AUDIBLE_CMD" download \
+            --aaxc \
             --asin "$ASIN" \
             --output-dir "$DOWNLOAD_DIR" \
             --filename-mode asin_ascii \
@@ -257,12 +264,36 @@ while IFS=$'\t' read -r ASIN; do
             2>> "$LOG_FILE"
 
         DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
-        if [ -n "$DOWNLOADED_FILE" ]; then
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded (AAX fallback): $DISPLAY_TITLE" >> "$LOG_FILE"
-            echo -e "${GREEN}✓ Downloaded (AAX):${NC} $DISPLAY_TITLE"
-            generate_source_checksum "$DOWNLOADED_FILE"
-            ((SUCCESS++))
-        else
+    fi
+
+    if [ -n "$DOWNLOADED_FILE" ]; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded: $DISPLAY_TITLE" >> "$LOG_FILE"
+        echo -e "${GREEN}✓ Downloaded:${NC} $DISPLAY_TITLE"
+        generate_source_checksum "$DOWNLOADED_FILE"
+        ((SUCCESS++))
+    else
+        # Fallback for regular audiobooks only (podcasts don't have AAX fallback)
+        if [ -z "$IS_PODCAST" ]; then
+            echo "  Trying AAX fallback..." | tee -a "$LOG_FILE"
+            "$AUDIBLE_CMD" download \
+                --aax-fallback \
+                --asin "$ASIN" \
+                --output-dir "$DOWNLOAD_DIR" \
+                --filename-mode asin_ascii \
+                --ignore-errors \
+                2>> "$LOG_FILE"
+
+            DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
+            if [ -n "$DOWNLOADED_FILE" ]; then
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded (AAX fallback): $DISPLAY_TITLE" >> "$LOG_FILE"
+                echo -e "${GREEN}✓ Downloaded (AAX):${NC} $DISPLAY_TITLE"
+                generate_source_checksum "$DOWNLOADED_FILE"
+                ((SUCCESS++))
+            fi
+        fi
+
+        # If still no file, mark as failed
+        if [ -z "$DOWNLOADED_FILE" ]; then
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ Failed (not downloadable): $DISPLAY_TITLE" >> "$LOG_FILE"
             echo -e "${RED}✗ Failed (not downloadable):${NC} $DISPLAY_TITLE"
             ((FAILED++))

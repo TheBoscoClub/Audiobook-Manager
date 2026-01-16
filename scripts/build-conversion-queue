@@ -110,9 +110,14 @@ normalize_title() {
 
 # Extract ASIN from source filename
 # Filenames are like: B002UZJTXM_Title_Here-AAX_22_64.aaxc
+# Or for podcasts:   B0GFG4TLQ4_Making_Sense_452-MPEG.mp3
 extract_asin() {
     local file="$1"
-    local bn=$(basename "$file" .aaxc)
+    # Remove extension (.aaxc, .aax, or .mp3)
+    local bn=$(basename "$file")
+    bn="${bn%.aaxc}"
+    bn="${bn%.aax}"
+    bn="${bn%.mp3}"
     # ASIN is the first 10 alphanumeric chars before underscore
     if [[ "$bn" =~ ^([A-Z0-9]{10})_ ]]; then
         echo "${BASH_REMATCH[1]}"
@@ -203,7 +208,7 @@ build_converted_asin_index() {
                 echo "$asin"
             fi
         fi
-    done < <(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null) >> "$backfill_file"
+    done < <(find "$SOURCES_DIR" \( -name "*.aaxc" -o -name "*.mp3" \) -type f 2>/dev/null) >> "$backfill_file"
 
     # Append backfilled ASINs to temp file
     cat "$backfill_file" >> "$temp_file"
@@ -256,7 +261,7 @@ build_source_asin_index() {
             echo "NOASIN_${bn}|${aaxc_file}" >> "$temp_file"
             count=$((count + 1))
         fi
-    done < <(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null | sort)
+    done < <(find "$SOURCES_DIR" \( -name "*.aaxc" -o -name "*.mp3" \) -type f 2>/dev/null | sort)
 
     sort "$temp_file" > "$index_file"
     rm -f "$temp_file"
@@ -681,7 +686,7 @@ indexes_current() {
     [[ -f "$source_asin_idx" ]] && [[ -f "$converted_asin_idx" ]] && [[ -f "$converted_title_idx" ]] || return 1
 
     # Check if any new aaxc files are newer than the source index (recursive for nested downloads)
-    local newest_source=$(find "$SOURCES_DIR" -name "*.aaxc" -type f -newer "$source_asin_idx" 2>/dev/null | head -1)
+    local newest_source=$(find "$SOURCES_DIR" \( -name "*.aaxc" -o -name "*.mp3" \) -type f -newer "$source_asin_idx" 2>/dev/null | head -1)
     [[ -z "$newest_source" ]] || return 1
 
     # Check if any new chapters.json files are newer than the converted ASIN index

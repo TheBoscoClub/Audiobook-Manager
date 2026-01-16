@@ -737,9 +737,11 @@ def init_periodicals_routes(db_path: str) -> None:
         Returns Server-Sent Events stream with sync progress updates.
         Connect via EventSource in browser.
         """
+        # Capture db_path before generator - g is only available in request context
+        db_path = g.db_path
 
         def generate():
-            db = get_db(g.db_path)
+            db = get_db(db_path)
 
             # Send current status immediately
             row = db.execute(
