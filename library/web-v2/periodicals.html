@@ -95,6 +95,25 @@
         </div>
     </div>
 
+    <!-- Expunge Confirmation Modal -->
+    <div class="modal-overlay" id="expunge-modal" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">🗑️ Confirm Delete</h3>
+                <button class="modal-close" id="modal-close" title="Cancel">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message" id="modal-message">Are you sure?</p>
+                <div class="modal-details" id="modal-details"></div>
+                <p class="modal-warning">⚠️ This action cannot be undone. Files will be permanently deleted.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" id="modal-cancel" title="Cancel deletion">Cancel</button>
+                <button class="modal-btn modal-btn-danger" id="modal-confirm" title="Permanently delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ========================================
         // Periodicals Reading Room - New Flat Schema
@@ -456,6 +475,13 @@
                         onClick: function() { queueAllEpisodes(cachedEpisodes); }
                     }, [
                         createElement('span', { textContent: '↓ Download All' })
+                    ]),
+                    createElement('button', {
+                        className: 'delete-all-btn',
+                        title: 'Delete this podcast and all episodes',
+                        onClick: function() { confirmExpunge(parent.asin, parent.title, true, parent.episode_count || cachedEpisodes.length); }
+                    }, [
+                        createElement('span', { textContent: '🗑️ Delete All' })
                     ])
                 ])
             ]);
@@ -517,6 +543,18 @@
                 ]);
             }
 
+            // Delete button for episode
+            const deleteBtn = createElement('button', {
+                className: 'delete-btn-small',
+                title: 'Delete this episode',
+                onClick: function(e) {
+                    e.stopPropagation();
+                    confirmExpunge(ep.asin, ep.title, false, 0);
+                }
+            }, [
+                createElement('span', { textContent: '🗑️' })
+            ]);
+
             return createElement('div', { className: 'episode-card' + (ep.is_downloaded ? ' downloaded' : '') }, [
                 createElement('div', { className: 'episode-number', textContent: '#' + index }),
                 ep.cover_url
@@ -529,7 +567,7 @@
                         ep.release_date ? ' • ' + formatDate(ep.release_date) : ''
                     ].join(''))
                 ]),
-                createElement('div', { className: 'episode-action' }, [actionBtn])
+                createElement('div', { className: 'episode-actions' }, [actionBtn, deleteBtn])
             ]);
         }
 
@@ -781,6 +819,108 @@
             if (mins === 0) return hours + ' hours';
             return hours + 'h ' + mins + 'm';
         }
+
+        // ========================================
+        // Expunge (Delete) Functionality
+        // ========================================
+        let pendingExpunge = null;  // { asin, title, isParent, episodeCount }
+
+        function confirmExpunge(asin, title, isParent, episodeCount) {
+            pendingExpunge = { asin, title, isParent, episodeCount };
+
+            const modal = document.getElementById('expunge-modal');
+            const message = document.getElementById('modal-message');
+            const details = document.getElementById('modal-details');
+
+            // Clear previous details
+            clearElement(details);
+
+            if (isParent && episodeCount > 0) {
+                message.textContent = 'Delete "' + title + '" and all its episodes?';
+                details.appendChild(createElement('p', { className: 'modal-details-header' }, [
+                    createElement('strong', { textContent: 'This will permanently delete:' })
+                ]));
+                const ul = createElement('ul', { className: 'modal-details-list' }, [
+                    createElement('li', { textContent: 'The podcast series from your library' }),
+                    createElement('li', { textContent: episodeCount + ' episode(s) and their audio files' }),
+                    createElement('li', { textContent: 'All associated metadata and cover images' })
+                ]);
+                details.appendChild(ul);
+            } else if (isParent) {
+                message.textContent = 'Delete "' + title + '"?';
+                details.appendChild(createElement('p', { textContent: 'This podcast has no episodes. Only the series entry will be removed.' }));
+            } else {
+                message.textContent = 'Delete episode "' + title + '"?';
+                details.appendChild(createElement('p', { textContent: 'This will permanently delete this episode and its audio file (if downloaded).' }));
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        function hideExpungeModal() {
+            document.getElementById('expunge-modal').style.display = 'none';
+            pendingExpunge = null;
+        }
+
+        async function executeExpunge() {
+            if (!pendingExpunge) return;
+
+            const { asin, title, isParent } = pendingExpunge;
+            const confirmBtn = document.getElementById('modal-confirm');
+            confirmBtn.textContent = 'Deleting...';
+            confirmBtn.disabled = true;
+
+            try {
+                const includeChildren = isParent ? 'true' : 'false';
+                const response = await fetch(API_BASE + '/' + encodeURIComponent(asin) + '/expunge?include_children=' + includeChildren, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to delete');
+                }
+
+                const result = await response.json();
+                hideExpungeModal();
+
+                // Show success message
+                const filesDeleted = result.files_deleted || 0;
+                const dbDeleted = result.database_deleted || 0;
+                showQueueToast('Deleted: ' + dbDeleted + ' item(s), ' + filesDeleted + ' file(s)', false);
+
+                // Refresh the view
+                if (isParent) {
+                    // If we deleted a parent, reload the parents list and clear detail view
+                    currentAsin = null;
+                    loadPeriodicalsList();
+                    const container = document.getElementById('episode-list');
+                    clearElement(container);
+                    container.appendChild(createEmptyState('📰', 'Select a publication from the left'));
+                } else {
+                    // If we deleted an episode, refresh the current parent view
+                    if (currentAsin && currentParent) {
+                        selectPeriodical(currentAsin, (currentParent.episode_count || cachedEpisodes.length) - 1);
+                    }
+                }
+            } catch (error) {
+                console.error('Expunge failed:', error);
+                showQueueToast('Delete failed: ' + error.message, true);
+            } finally {
+                const confirmBtn = document.getElementById('modal-confirm');
+                confirmBtn.textContent = 'Delete';
+                confirmBtn.disabled = false;
+                hideExpungeModal();
+            }
+        }
+
+        // Modal event listeners
+        document.getElementById('modal-close').addEventListener('click', hideExpungeModal);
+        document.getElementById('modal-cancel').addEventListener('click', hideExpungeModal);
+        document.getElementById('modal-confirm').addEventListener('click', executeExpunge);
+        document.getElementById('expunge-modal').addEventListener('click', function(e) {
+            if (e.target === this) hideExpungeModal();  // Click outside modal to close
+        });
 
         // ========================================
         // Initialize
