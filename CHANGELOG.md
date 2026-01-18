@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 - **After upgrading**: Run the cleanup migration
   ```bash
-  sqlite3 /path/to/audiobooks.db < migrations/010_drop_periodicals.sql
+  sqlite3 /path/to/audiobooks.db < /opt/audiobooks/library/backend/migrations/010_drop_periodicals.sql
   ```
 - **To restore periodicals**: Use tag `v3.11.2-with-periodicals` or branch `feature/periodicals-rnd`
 
