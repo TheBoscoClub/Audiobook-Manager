@@ -29,6 +29,11 @@
                     <span class="refresh-icon">↻</span>
                     <span class="refresh-text">Sync Now</span>
                 </button>
+                <button class="orphan-btn" id="orphan-btn"
+                        title="Find orphan episodes with missing parent series">
+                    <span class="orphan-icon">🔍</span>
+                    <span class="orphan-text">Find Orphans</span>
+                </button>
             </div>
         </div>
 
@@ -110,6 +115,24 @@
             <div class="modal-footer">
                 <button class="modal-btn modal-btn-cancel" id="modal-cancel" title="Cancel deletion">Cancel</button>
                 <button class="modal-btn modal-btn-danger" id="modal-confirm" title="Permanently delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orphan Detection Modal -->
+    <div class="modal-overlay" id="orphan-modal" style="display: none;">
+        <div class="modal-dialog modal-dialog-wide">
+            <div class="modal-header">
+                <h3 class="modal-title">🔍 Orphan Episodes</h3>
+                <button class="modal-close" id="orphan-modal-close" title="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message" id="orphan-message">Scanning for orphan episodes...</p>
+                <div class="orphan-list" id="orphan-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" id="orphan-modal-cancel" title="Close">Close</button>
+                <button class="modal-btn modal-btn-danger" id="orphan-delete-all" title="Delete all orphan episodes" style="display: none;">Delete All Orphans</button>
             </div>
         </div>
     </div>
@@ -920,6 +943,128 @@
         document.getElementById('modal-confirm').addEventListener('click', executeExpunge);
         document.getElementById('expunge-modal').addEventListener('click', function(e) {
             if (e.target === this) hideExpungeModal();  // Click outside modal to close
+        });
+
+        // ========================================
+        // Orphan Detection Functionality
+        // ========================================
+        let cachedOrphans = [];
+
+        function showOrphanModal() {
+            document.getElementById('orphan-modal').style.display = 'flex';
+        }
+
+        function hideOrphanModal() {
+            document.getElementById('orphan-modal').style.display = 'none';
+            cachedOrphans = [];
+        }
+
+        async function findOrphans() {
+            const message = document.getElementById('orphan-message');
+            const listContainer = document.getElementById('orphan-list');
+            const deleteAllBtn = document.getElementById('orphan-delete-all');
+
+            // Show modal with loading state
+            message.textContent = 'Scanning for orphan episodes...';
+            clearElement(listContainer);
+            deleteAllBtn.style.display = 'none';
+            showOrphanModal();
+
+            try {
+                const response = await fetch(API_BASE + '/orphans');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch orphans');
+                }
+
+                const data = await response.json();
+                cachedOrphans = data.orphans || [];
+
+                if (cachedOrphans.length === 0) {
+                    message.textContent = '✅ No orphan episodes found. Your library is clean!';
+                    deleteAllBtn.style.display = 'none';
+                } else {
+                    message.textContent = 'Found ' + cachedOrphans.length + ' orphan episode(s) with missing parent series:';
+                    deleteAllBtn.style.display = 'inline-block';
+
+                    // Group by parent_asin for better display
+                    const grouped = {};
+                    cachedOrphans.forEach(function(orphan) {
+                        const key = orphan.parent_asin || 'unknown';
+                        if (!grouped[key]) grouped[key] = [];
+                        grouped[key].push(orphan);
+                    });
+
+                    // Create list items
+                    const ul = createElement('ul', { className: 'orphan-details-list' });
+                    Object.keys(grouped).forEach(function(parentAsin) {
+                        const episodes = grouped[parentAsin];
+                        const li = createElement('li', { className: 'orphan-group' }, [
+                            createElement('strong', { textContent: 'Missing parent: ' + parentAsin }),
+                            createElement('span', { textContent: ' (' + episodes.length + ' episode' + (episodes.length > 1 ? 's' : '') + ')' })
+                        ]);
+
+                        const epList = createElement('ul', { className: 'orphan-episodes' });
+                        episodes.slice(0, 5).forEach(function(ep) {
+                            epList.appendChild(createElement('li', {
+                                textContent: ep.title + (ep.is_downloaded ? ' [Downloaded]' : '')
+                            }));
+                        });
+                        if (episodes.length > 5) {
+                            epList.appendChild(createElement('li', {
+                                className: 'orphan-more',
+                                textContent: '... and ' + (episodes.length - 5) + ' more'
+                            }));
+                        }
+                        li.appendChild(epList);
+                        ul.appendChild(li);
+                    });
+                    listContainer.appendChild(ul);
+                }
+            } catch (error) {
+                console.error('Orphan detection failed:', error);
+                message.textContent = '❌ Error: ' + error.message;
+                deleteAllBtn.style.display = 'none';
+            }
+        }
+
+        async function deleteAllOrphans() {
+            const deleteBtn = document.getElementById('orphan-delete-all');
+            const message = document.getElementById('orphan-message');
+
+            deleteBtn.textContent = 'Deleting...';
+            deleteBtn.disabled = true;
+
+            try {
+                const response = await fetch(API_BASE + '/orphans', { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error('Failed to delete orphans');
+                }
+
+                const data = await response.json();
+                hideOrphanModal();
+                showQueueToast(
+                    'Deleted ' + data.database_deleted + ' orphan(s), ' + data.files_deleted + ' file(s)',
+                    false
+                );
+
+                // Refresh the periodicals list in case any were displayed
+                loadPeriodicalsList();
+            } catch (error) {
+                console.error('Delete orphans failed:', error);
+                message.textContent = '❌ Delete failed: ' + error.message;
+            } finally {
+                deleteBtn.textContent = 'Delete All Orphans';
+                deleteBtn.disabled = false;
+            }
+        }
+
+        // Orphan modal event listeners
+        document.getElementById('orphan-btn').addEventListener('click', findOrphans);
+        document.getElementById('orphan-modal-close').addEventListener('click', hideOrphanModal);
+        document.getElementById('orphan-modal-cancel').addEventListener('click', hideOrphanModal);
+        document.getElementById('orphan-delete-all').addEventListener('click', deleteAllOrphans);
+        document.getElementById('orphan-modal').addEventListener('click', function(e) {
+            if (e.target === this) hideOrphanModal();
         });
 
         // ========================================

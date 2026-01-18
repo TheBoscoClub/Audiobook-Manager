@@ -91,7 +91,8 @@ def remove_from_indexes(filepath: Path) -> dict:
             # Log but continue - index update failures shouldn't break the operation
             import logging
 
-            logging.warning(f"Failed to update index {idx_name}: {e}")
+            # Use %s formatting to prevent log injection via exception messages
+            logging.warning("Failed to update index %s: %s", idx_name, e)
 
     return removed
 
@@ -628,7 +629,9 @@ def init_duplicates_routes(db_path):
                             )
 
                     # Sort by size descending (keep largest)
-                    file_infos.sort(key=lambda x: int(x.get("size_bytes", 0)), reverse=True)
+                    file_infos.sort(
+                        key=lambda x: int(x.get("size_bytes", 0)), reverse=True
+                    )
 
                     # Mark keeper and duplicates
                     for i, file_info in enumerate(file_infos):
@@ -851,7 +854,8 @@ def init_duplicates_routes(db_path):
                             import logging
 
                             logging.exception(
-                                "Error deleting file %s", _sanitize_for_log(filepath_str)
+                                "Error deleting file %s",
+                                _sanitize_for_log(filepath_str),
                             )
                             errors.append(
                                 {"path": filepath_str, "error": "Deletion failed"}

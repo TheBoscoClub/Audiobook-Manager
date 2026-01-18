@@ -894,9 +894,9 @@ class TestDuplicatesByTitleWithRealData:
                 found_group = group
                 break
 
-        assert (
-            found_group is not None
-        ), f"Test duplicate group for '{test_title}' not found"
+        assert found_group is not None, (
+            f"Test duplicate group for '{test_title}' not found"
+        )
         assert found_group["count"] == 2
         assert len(found_group["files"]) == 2
         assert found_group["author"] == "Real Author Name"

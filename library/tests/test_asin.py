@@ -12,7 +12,6 @@ import json
 import sys
 from pathlib import Path
 
-
 # Add parent dir for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "rnd"))
 
@@ -24,7 +23,9 @@ class TestAsinExtraction:
         """Test extraction from standard Audible filename format."""
         from populate_asins_from_sources import extract_asin_and_title
 
-        filename = "0062868071_The_End_Is_Always_Near_Apocalyptic_Moments-AAX_44_128.aaxc"
+        filename = (
+            "0062868071_The_End_Is_Always_Near_Apocalyptic_Moments-AAX_44_128.aaxc"
+        )
         asin, title = extract_asin_and_title(filename)
 
         assert asin == "0062868071"
@@ -183,8 +184,8 @@ class TestSimilarityCalculation:
 
     def test_similarity_case_insensitive(self):
         """Test that similarity is case-insensitive via normalization."""
-        from populate_asins_from_sources import calculate_similarity
         from common import normalize_title
+        from populate_asins_from_sources import calculate_similarity
 
         s1 = normalize_title("The Great Book")
         s2 = normalize_title("the great book")
@@ -307,8 +308,8 @@ class TestAsinSourceFileMatching:
 
     def test_exact_title_match(self):
         """Test exact title matching."""
-        from populate_asins_from_sources import calculate_similarity
         from common import normalize_title
+        from populate_asins_from_sources import calculate_similarity
 
         # Same title, normalized
         source_title = normalize_title("The Great Gatsby")
@@ -319,8 +320,8 @@ class TestAsinSourceFileMatching:
 
     def test_subtitle_differences(self):
         """Test handling of subtitle differences."""
-        from populate_asins_from_sources import calculate_similarity
         from common import normalize_title
+        from populate_asins_from_sources import calculate_similarity
 
         # With and without subtitle
         source_title = normalize_title("The Book")
@@ -332,8 +333,8 @@ class TestAsinSourceFileMatching:
 
     def test_series_info_in_title(self):
         """Test handling of series info in titles."""
-        from populate_asins_from_sources import calculate_similarity
         from common import normalize_title
+        from populate_asins_from_sources import calculate_similarity
 
         source_title = normalize_title("Trust No One X-Files Book 1")
         db_title = normalize_title("Trust No One: X-Files, Book 1")

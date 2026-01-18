@@ -10,7 +10,6 @@ Tests the library sub-module of utilities_ops package:
 from unittest.mock import MagicMock, patch
 
 
-
 class TestAddNewAudiobooks:
     """Test the add_new_audiobooks_endpoint."""
 

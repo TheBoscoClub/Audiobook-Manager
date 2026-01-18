@@ -164,6 +164,32 @@ body {
     font-size: 1rem;
 }
 
+/* Orphan Detection Button */
+.orphan-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    color: var(--rr-text-secondary);
+    border: 1px solid var(--rr-border);
+    border-radius: var(--rr-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--rr-transition);
+}
+
+.orphan-btn:hover {
+    background: var(--rr-bg-tertiary);
+    color: var(--rr-text-primary);
+    border-color: var(--rr-text-secondary);
+}
+
+.orphan-icon {
+    font-size: 1rem;
+}
+
 /* Category Tabs */
 .category-tabs {
     display: flex;
@@ -1258,6 +1284,66 @@ body {
 .modal-btn-danger:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* Wide Modal for Orphan Detection */
+.modal-dialog-wide {
+    max-width: 640px;
+}
+
+.orphan-list {
+    max-height: 400px;
+    overflow-y: auto;
+    background: var(--rr-bg-tertiary);
+    border-radius: var(--rr-radius-sm);
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.orphan-details-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.orphan-group {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--rr-border);
+}
+
+.orphan-group:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.orphan-group strong {
+    color: var(--rr-warning);
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.orphan-group > span {
+    color: var(--rr-text-muted);
+    font-size: 0.85rem;
+}
+
+.orphan-episodes {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+    list-style: disc;
+}
+
+.orphan-episodes li {
+    color: var(--rr-text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+.orphan-more {
+    color: var(--rr-text-muted);
+    font-style: italic;
 }
 
 /* ==========================================

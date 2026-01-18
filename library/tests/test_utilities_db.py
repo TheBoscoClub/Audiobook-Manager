@@ -13,7 +13,6 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 
-
 class TestRescanLibrary:
     """Test the rescan_library endpoint."""
 
@@ -200,7 +199,9 @@ class TestGenerateHashes:
         assert data["hashes_generated"] == 100
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_generate_hashes_handles_timeout(self, mock_run, flask_app, session_temp_dir):
+    def test_generate_hashes_handles_timeout(
+        self, mock_run, flask_app, session_temp_dir
+    ):
         """Test hash generation handles timeout."""
         hash_script = session_temp_dir / "library" / "scripts" / "generate_hashes.py"
         hash_script.parent.mkdir(parents=True, exist_ok=True)
@@ -216,7 +217,9 @@ class TestGenerateHashes:
         assert "timed out" in data["error"]
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_generate_hashes_handles_exception(self, mock_run, flask_app, session_temp_dir):
+    def test_generate_hashes_handles_exception(
+        self, mock_run, flask_app, session_temp_dir
+    ):
         """Test hash generation handles generic exceptions."""
         hash_script = session_temp_dir / "library" / "scripts" / "generate_hashes.py"
         hash_script.parent.mkdir(parents=True, exist_ok=True)
@@ -366,9 +369,19 @@ class TestExportCsv:
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                "Test Export Book", "Export Author", "Export Narrator",
-                "Export Publisher", "Export Series", 1, 5.5, "5h 30m", 250.0,
-                "2024", "B12345", "978-123456", "/path/to/export_test.opus"
+                "Test Export Book",
+                "Export Author",
+                "Export Narrator",
+                "Export Publisher",
+                "Export Series",
+                1,
+                5.5,
+                "5h 30m",
+                250.0,
+                "2024",
+                "B12345",
+                "978-123456",
+                "/path/to/export_test.opus",
             ),
         )
         conn.commit()
@@ -432,7 +445,9 @@ class TestParsingEdgeCases:
     """Test parsing edge cases in subprocess output."""
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_rescan_handles_malformed_file_count(self, mock_run, flask_app, session_temp_dir):
+    def test_rescan_handles_malformed_file_count(
+        self, mock_run, flask_app, session_temp_dir
+    ):
         """Test rescan handles malformed file count line."""
         scanner_path = session_temp_dir / "library" / "scanner" / "scan_audiobooks.py"
         scanner_path.parent.mkdir(parents=True, exist_ok=True)
@@ -452,7 +467,9 @@ class TestParsingEdgeCases:
         assert data["files_found"] == 0
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_reimport_handles_malformed_count(self, mock_run, flask_app, session_temp_dir):
+    def test_reimport_handles_malformed_count(
+        self, mock_run, flask_app, session_temp_dir
+    ):
         """Test reimport handles malformed import count."""
         import_path = session_temp_dir / "library" / "backend" / "import_to_db.py"
         import_path.parent.mkdir(parents=True, exist_ok=True)
@@ -471,7 +488,9 @@ class TestParsingEdgeCases:
         assert data["imported_count"] == 0
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_generate_hashes_parses_various_formats(self, mock_run, flask_app, session_temp_dir):
+    def test_generate_hashes_parses_various_formats(
+        self, mock_run, flask_app, session_temp_dir
+    ):
         """Test hash generation parses different output formats."""
         hash_script = session_temp_dir / "library" / "scripts" / "generate_hashes.py"
         hash_script.parent.mkdir(parents=True, exist_ok=True)

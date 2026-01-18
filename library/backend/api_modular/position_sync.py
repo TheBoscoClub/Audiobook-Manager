@@ -454,9 +454,10 @@ def sync_position(audiobook_id: int):
 
     except Exception as e:
         # Log the actual error server-side, return generic message to client
+        # Use %s formatting to prevent log injection via exception messages
         import logging
 
-        logging.error(f"Position sync error: {e}")
+        logging.error("Position sync error: %s", e)
         return jsonify({"error": "Internal server error during position sync"}), 500
     finally:
         conn.close()
@@ -553,7 +554,7 @@ def sync_all_positions():
         if isinstance(sync_result, dict) and "error" in sync_result:
             return jsonify(sync_result), 500
 
-        results, audible_positions = sync_result
+        results, _ = sync_result  # audible_positions not needed after sync
 
         # Update database
         now = datetime.now().isoformat()
@@ -597,9 +598,10 @@ def sync_all_positions():
 
     except Exception as e:
         # Log the actual error server-side, return generic message to client
+        # Use %s formatting to prevent log injection via exception messages
         import logging
 
-        logging.error(f"Batch sync error: {e}")
+        logging.error("Batch sync error: %s", e)
         return jsonify({"error": "Internal server error during batch sync"}), 500
     finally:
         conn.close()

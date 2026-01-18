@@ -122,6 +122,7 @@ class TestAudibleClientCreation:
     def test_raises_when_audible_unavailable(self):
         """Test raises RuntimeError when Audible library not available."""
         import asyncio
+
         from backend.api_modular.position_sync import get_audible_client
 
         with pytest.raises(RuntimeError) as exc_info:
@@ -134,6 +135,7 @@ class TestAudibleClientCreation:
     def test_raises_when_auth_file_missing(self, mock_auth_file):
         """Test raises RuntimeError when auth file missing."""
         import asyncio
+
         from backend.api_modular.position_sync import get_audible_client
 
         mock_auth_file.exists.return_value = False

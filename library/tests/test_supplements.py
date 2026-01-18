@@ -10,8 +10,6 @@ Tests the supplements endpoints:
 """
 
 
-
-
 class TestGetAllSupplements:
     """Test the get_all_supplements endpoint."""
 

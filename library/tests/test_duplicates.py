@@ -16,7 +16,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-
 class TestGetHashStats:
     """Test the get_hash_stats endpoint."""
 
@@ -182,9 +181,7 @@ class TestDeleteByPath:
     def test_empty_paths_returns_400(self, flask_app):
         """Test returns 400 when paths list is empty."""
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/duplicates/delete-by-path", json={"paths": []}
-            )
+            response = client.post("/api/duplicates/delete-by-path", json={"paths": []})
 
         assert response.status_code == 400
 

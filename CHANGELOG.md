@@ -8,10 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-
-### Changed
+- **Podcast Episode Download & Conversion**: Full support for downloading and converting podcast episodes from Audible
+  - `download-new-audiobooks`: Detects podcast episodes via database, uses `--resolve-podcasts` flag for proper MP3 download
+  - `convert-audiobooks-opus-parallel`: Handles MP3-to-Opus conversion for podcasts (no DRM, simple ffmpeg transcode)
+  - `build-conversion-queue`: Now includes `.mp3` files in source/converted indexing
 
 ### Fixed
+- **Periodicals SSE**: Fixed Flask request context issue in SSE generator by capturing `g.db_path` before generator starts
+
+### Changed
 
 ## [3.11.1] - 2026-01-14
 

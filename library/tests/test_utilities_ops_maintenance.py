@@ -11,7 +11,6 @@ Tests the maintenance sub-module of utilities_ops package:
 from unittest.mock import MagicMock, patch
 
 
-
 class TestRebuildQueueAsync:
     """Test the rebuild_queue_async endpoint."""
 
@@ -242,7 +241,9 @@ class TestFindSourceDuplicatesAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post("/api/utilities/find-source-duplicates-async", json={})
+            response = client.post(
+                "/api/utilities/find-source-duplicates-async", json={}
+            )
 
         assert response.status_code == 409
         data = response.get_json()
@@ -257,7 +258,9 @@ class TestFindSourceDuplicatesAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post("/api/utilities/find-source-duplicates-async", json={})
+            response = client.post(
+                "/api/utilities/find-source-duplicates-async", json={}
+            )
 
         assert response.status_code == 200
         data = response.get_json()

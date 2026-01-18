@@ -213,7 +213,9 @@ def import_audiobooks(conn):
     cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
     hashed_count = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''")
+    cursor.execute(
+        "SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''"
+    )
     asin_count = cursor.fetchone()[0]
 
     print("\n=== Database Statistics ===")

@@ -8,7 +8,6 @@ The common module provides shared utilities used across the audiobook library:
 """
 
 
-
 class TestCalculateSha256:
     """Test the calculate_sha256 function."""
 
@@ -272,7 +271,7 @@ class TestSanitizeFilename:
         from common import sanitize_filename
 
         # All invalid characters should result in "Unknown"
-        result = sanitize_filename("<>:\"\\|?*")
+        result = sanitize_filename('<>:"\\|?*')
         assert result == "Unknown"
 
     def test_preserves_valid_special_chars(self):

@@ -11,7 +11,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-
 class TestProgressTracker:
     """Test the ProgressTracker class."""
 
@@ -129,7 +128,8 @@ class TestFindAudiobookFiles:
 
     def test_finds_all_formats(self, temp_dir, capsys):
         """Test finds files of all supported formats."""
-        from scanner.scan_audiobooks import SUPPORTED_FORMATS, find_audiobook_files
+        from scanner.scan_audiobooks import (SUPPORTED_FORMATS,
+                                             find_audiobook_files)
 
         # Create test files
         (temp_dir / "book1.m4b").touch()
@@ -143,7 +143,8 @@ class TestFindAudiobookFiles:
 
     def test_filters_cover_files(self, temp_dir, capsys):
         """Test filters out .cover. files."""
-        from scanner.scan_audiobooks import SUPPORTED_FORMATS, find_audiobook_files
+        from scanner.scan_audiobooks import (SUPPORTED_FORMATS,
+                                             find_audiobook_files)
 
         (temp_dir / "book.opus").touch()
         (temp_dir / "book.cover.jpg").touch()  # Should not match
@@ -157,7 +158,8 @@ class TestFindAudiobookFiles:
 
     def test_searches_subdirectories(self, temp_dir, capsys):
         """Test recursively searches subdirectories."""
-        from scanner.scan_audiobooks import SUPPORTED_FORMATS, find_audiobook_files
+        from scanner.scan_audiobooks import (SUPPORTED_FORMATS,
+                                             find_audiobook_files)
 
         # Create nested structure
         subdir = temp_dir / "Author" / "Series"
@@ -173,7 +175,8 @@ class TestFindAudiobookFiles:
 
     def test_returns_empty_for_no_files(self, temp_dir, capsys):
         """Test returns empty list when no audiobook files found."""
-        from scanner.scan_audiobooks import SUPPORTED_FORMATS, find_audiobook_files
+        from scanner.scan_audiobooks import (SUPPORTED_FORMATS,
+                                             find_audiobook_files)
 
         # Empty directory
         result = find_audiobook_files(temp_dir, SUPPORTED_FORMATS)

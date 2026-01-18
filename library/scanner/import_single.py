@@ -23,9 +23,27 @@ from scanner.metadata_utils import (categorize_genre, determine_literary_era,
 
 SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 
+# Whitelist of allowed lookup tables for SQL queries - prevents SQL injection
+ALLOWED_LOOKUP_TABLES = frozenset({"genres", "eras", "topics"})
+
 
 def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> int:
-    """Get or create an ID in a lookup table."""
+    """Get or create an ID in a lookup table.
+
+    Args:
+        cursor: Database cursor
+        table: Table name - MUST be one of: genres, eras, topics
+        name: Value to insert/lookup
+
+    Raises:
+        ValueError: If table name is not in the whitelist
+    """
+    # SQL injection prevention: validate table name against whitelist
+    if table not in ALLOWED_LOOKUP_TABLES:
+        raise ValueError(
+            f"Invalid table name: {table}. Must be one of: {ALLOWED_LOOKUP_TABLES}"
+        )
+
     cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))
     row = cursor.fetchone()
     if row:

@@ -13,7 +13,7 @@ from pathlib import Path
 
 # Add parent directories to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import DATABASE_PATH, AUDIOBOOKS_LIBRARY
+from config import AUDIOBOOKS_LIBRARY, DATABASE_PATH
 
 
 def extract_asin(chapters_path: Path) -> str | None:
@@ -50,7 +50,9 @@ def main():
     cursor = conn.cursor()
 
     # Get all audiobooks
-    cursor.execute("SELECT id, file_path FROM audiobooks WHERE asin IS NULL OR asin = ''")
+    cursor.execute(
+        "SELECT id, file_path FROM audiobooks WHERE asin IS NULL OR asin = ''"
+    )
     audiobooks = cursor.fetchall()
     print(f"Found {len(audiobooks)} audiobooks without ASINs")
 
@@ -62,7 +64,7 @@ def main():
         if audiobook_dir in asin_map:
             cursor.execute(
                 "UPDATE audiobooks SET asin = ? WHERE id = ?",
-                (asin_map[audiobook_dir], audiobook_id)
+                (asin_map[audiobook_dir], audiobook_id),
             )
             updated += 1
 
@@ -82,7 +84,9 @@ def main():
         print(f"✓ Synced is_downloaded for {synced} periodicals")
 
     # Show final stats
-    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''")
+    cursor.execute(
+        "SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''"
+    )
     total_with_asin = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM audiobooks")
     total = cursor.fetchone()[0]

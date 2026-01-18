@@ -156,16 +156,16 @@ class TestNoHardcodedPaths:
 
     # Files/patterns that are allowed to have these paths (e.g., config defaults)
     ALLOWED_FILES = [
-        "config.py",           # Config module defines defaults
-        "audiobook-config.sh", # Shell config defines defaults
-        "test_",               # Test files may use mock/fixture paths
-        ".conf",                # Config files
-        ".service",            # Systemd files MUST use literal paths (no shell expansion)
-        ".timer",              # Systemd timer files
-        "CLAUDE.md",            # Documentation
-        "README.md",            # Documentation
-        "audiobook-help",      # Help output shows paths to user
-        "upgrade-helper",      # Bootstrap scripts run before config is available
+        "config.py",  # Config module defines defaults
+        "audiobook-config.sh",  # Shell config defines defaults
+        "test_",  # Test files may use mock/fixture paths
+        ".conf",  # Config files
+        ".service",  # Systemd files MUST use literal paths (no shell expansion)
+        ".timer",  # Systemd timer files
+        "CLAUDE.md",  # Documentation
+        "README.md",  # Documentation
+        "audiobook-help",  # Help output shows paths to user
+        "upgrade-helper",  # Bootstrap scripts run before config is available
     ]
 
     def _should_skip_file(self, filepath: Path) -> bool:
@@ -175,7 +175,9 @@ class TestNoHardcodedPaths:
                 return True
         return False
 
-    def _scan_file_for_hardcoded_paths(self, filepath: Path) -> list[tuple[int, str, str]]:
+    def _scan_file_for_hardcoded_paths(
+        self, filepath: Path
+    ) -> list[tuple[int, str, str]]:
         """Scan a file for hardcoded paths.
 
         Returns list of (line_number, path_found, line_content).
@@ -197,7 +199,12 @@ class TestNoHardcodedPaths:
                             continue
                         # Skip bash variable defaults: ${VAR:-/default/path}
                         # This is the proper way to specify fallbacks in shell
-                        if ":-" in line and forbidden in line.split(":-")[1].split("}")[0] if ":-" in line else False:
+                        if (
+                            ":-" in line
+                            and forbidden in line.split(":-")[1].split("}")[0]
+                            if ":-" in line
+                            else False
+                        ):
                             continue
                         # Skip config file sourcing bootstrap (needed before config is loaded)
                         if "audiobook-config.sh" in line:
@@ -313,7 +320,8 @@ class TestNoHardcodedPaths:
 
         assert not violations, (
             f"Found {len(violations)} hardcoded path(s) in shell scripts. "
-            f"Use config variables from audiobook-config.sh instead:\n" + "\n".join(violations)
+            f"Use config variables from audiobook-config.sh instead:\n"
+            + "\n".join(violations)
         )
 
     def test_systemd_files_no_hardcoded_paths(self):
@@ -341,7 +349,9 @@ class TestNoHardcodedPaths:
             content = service_file.read_text()
             # Basic validation - should have [Unit] and [Service] sections
             assert "[Unit]" in content, f"{service_file.name} missing [Unit] section"
-            assert "[Service]" in content, f"{service_file.name} missing [Service] section"
+            assert "[Service]" in content, (
+                f"{service_file.name} missing [Service] section"
+            )
 
 
 class TestConfigVariablesUsed:
@@ -351,7 +361,9 @@ class TestConfigVariablesUsed:
         """Test populate_asins_from_library.py imports config variables."""
         from pathlib import Path as P
 
-        script_path = P(__file__).parent.parent.parent / "rnd" / "populate_asins_from_library.py"
+        script_path = (
+            P(__file__).parent.parent.parent / "rnd" / "populate_asins_from_library.py"
+        )
         if not script_path.exists():
             return
 
@@ -367,7 +379,9 @@ class TestConfigVariablesUsed:
         """Test populate_asins_from_sources.py imports config variables."""
         from pathlib import Path as P
 
-        script_path = P(__file__).parent.parent.parent / "rnd" / "populate_asins_from_sources.py"
+        script_path = (
+            P(__file__).parent.parent.parent / "rnd" / "populate_asins_from_sources.py"
+        )
         if not script_path.exists():
             return
 
@@ -387,8 +401,11 @@ class TestConfigVariablesUsed:
         from pathlib import Path as P
 
         module_path = (
-            P(__file__).parent.parent / "backend" / "api_modular" /
-            "utilities_ops" / "maintenance.py"
+            P(__file__).parent.parent
+            / "backend"
+            / "api_modular"
+            / "utilities_ops"
+            / "maintenance.py"
         )
         if not module_path.exists():
             return
@@ -415,6 +432,7 @@ class TestInstalledAppConfig:
         """Test that the production installation exists."""
         if not self.PRODUCTION_PATH.exists():
             import pytest
+
             pytest.skip("Production installation not found at /opt/audiobooks")
 
         assert (self.PRODUCTION_PATH / "library").exists(), (
@@ -426,17 +444,17 @@ class TestInstalledAppConfig:
         config_path = self.PRODUCTION_PATH / "library" / "config.py"
         if not self.PRODUCTION_PATH.exists():
             import pytest
+
             pytest.skip("Production installation not found")
 
-        assert config_path.exists(), (
-            "Production installation missing config.py"
-        )
+        assert config_path.exists(), "Production installation missing config.py"
 
     def test_installed_rnd_scripts_use_config(self):
         """Test that installed rnd scripts import config module."""
         rnd_path = self.PRODUCTION_PATH / "rnd"
         if not rnd_path.exists():
             import pytest
+
             pytest.skip("Production rnd directory not found")
 
         for py_file in rnd_path.glob("populate_asins*.py"):
@@ -448,11 +466,16 @@ class TestInstalledAppConfig:
     def test_installed_maintenance_uses_config(self):
         """Test that installed maintenance.py imports config module."""
         maint_path = (
-            self.PRODUCTION_PATH / "library" / "backend" / "api_modular" /
-            "utilities_ops" / "maintenance.py"
+            self.PRODUCTION_PATH
+            / "library"
+            / "backend"
+            / "api_modular"
+            / "utilities_ops"
+            / "maintenance.py"
         )
         if not maint_path.exists():
             import pytest
+
             pytest.skip("Production maintenance.py not found")
 
         content = maint_path.read_text()

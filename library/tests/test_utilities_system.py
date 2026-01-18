@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-
 class TestEnsureControlDir:
     """Test the _ensure_control_dir function."""
 

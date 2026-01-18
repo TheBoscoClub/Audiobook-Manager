@@ -9,7 +9,6 @@ Tests the hashing sub-module of utilities_ops package:
 from unittest.mock import MagicMock, patch
 
 
-
 class TestGenerateHashesAsync:
     """Test the generate_hashes_async endpoint."""
 

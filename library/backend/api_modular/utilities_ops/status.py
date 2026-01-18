@@ -5,7 +5,6 @@ Provides endpoints for querying and managing background operation status.
 """
 
 from flask import Blueprint, jsonify
-
 from operation_status import get_tracker
 
 from ..core import FlaskResponse

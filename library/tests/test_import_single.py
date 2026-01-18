@@ -406,7 +406,12 @@ class TestMain:
         import_dir = temp_dir / "import"
         import_dir.mkdir()
 
-        mock_import.return_value = {"added": 0, "skipped": 0, "errors": 1, "error": "Not a directory"}
+        mock_import.return_value = {
+            "added": 0,
+            "skipped": 0,
+            "errors": 1,
+            "error": "Not a directory",
+        }
 
         monkeypatch.setattr("sys.argv", ["import_single", str(import_dir)])
 
