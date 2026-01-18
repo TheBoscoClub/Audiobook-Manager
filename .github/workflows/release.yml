@@ -120,9 +120,12 @@ jobs:
       with:
         images: ghcr.io/${{ github.repository }}
         tags: |
-          type=semver,pattern={{version}}
+          # Full version tag (works for both 3-digit and 4-digit versions)
+          type=raw,value=${{ steps.version.outputs.version }}
+          # Major.minor tag (only for 3-digit semver, skipped for 4-digit)
           type=semver,pattern={{major}}.{{minor}}
-          type=raw,value=latest,enable={{is_default_branch}}
+          # Latest tag
+          type=raw,value=latest
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
