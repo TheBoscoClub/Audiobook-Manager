@@ -375,7 +375,9 @@ def init_system_routes(project_root):
             # Must exist, be a directory, and contain a VERSION file (valid project marker)
             project_path_obj = Path(project_path)
             if not project_path_obj.is_dir():
-                return jsonify({"error": "Project path not found or not a directory"}), 400
+                return jsonify(
+                    {"error": "Project path not found or not a directory"}
+                ), 400
             # Verify it's an actual audiobooks project (has VERSION file)
             if not (project_path_obj / "VERSION").exists():
                 return (

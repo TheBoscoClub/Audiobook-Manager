@@ -9,7 +9,6 @@ import sys
 import threading
 
 from flask import Blueprint, jsonify, request
-
 from operation_status import create_progress_callback, get_tracker
 
 from ..core import FlaskResponse
@@ -59,11 +58,8 @@ def init_library_routes(db_path, project_root):
             try:
                 # Import here to avoid circular imports
                 sys.path.insert(0, str(project_root / "scanner"))
-                from add_new_audiobooks import (
-                    AUDIOBOOK_DIR,
-                    COVER_DIR,
-                    add_new_audiobooks,
-                )
+                from add_new_audiobooks import (AUDIOBOOK_DIR, COVER_DIR,
+                                                add_new_audiobooks)
 
                 results = add_new_audiobooks(
                     library_dir=AUDIOBOOK_DIR,

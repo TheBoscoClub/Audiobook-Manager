@@ -14,7 +14,6 @@ Note: These tests use mocking to avoid session-scoped database conflicts.
 from unittest.mock import MagicMock, patch
 
 
-
 class TestUpdateAudiobook:
     """Test the update_audiobook endpoint (PUT /api/audiobooks/<id>)."""
 

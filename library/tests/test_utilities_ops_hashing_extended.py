@@ -9,7 +9,6 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 
-
 class TestGenerateHashesBackgroundThread:
     """Test the background hash generation thread logic."""
 

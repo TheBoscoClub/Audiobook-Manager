@@ -568,13 +568,15 @@ def init_periodicals_routes(db_path: str) -> None:
         if not validate_asin(asin):
             return jsonify({"error": "Invalid ASIN format"}), 400
 
-        include_children = request.args.get("include_children", "true").lower() == "true"
+        include_children = (
+            request.args.get("include_children", "true").lower() == "true"
+        )
         db = get_db(g.db_path)
 
         # Check if this is a parent (series) or episode
         row = db.execute(
             "SELECT asin, title, parent_asin, content_type FROM periodicals WHERE asin = ?",
-            [asin]
+            [asin],
         ).fetchone()
 
         if not row:
@@ -582,12 +584,14 @@ def init_periodicals_routes(db_path: str) -> None:
 
         # SAFETY CHECK: Never expunge paid audiobooks
         content_type = row[3]
-        if content_type == 'Product':
-            return jsonify({
-                "error": "Cannot expunge paid audiobooks",
-                "message": "This is a purchased audiobook (content_type='Product'). "
-                           "Expungement is only allowed for periodical content like podcasts."
-            }), 403
+        if content_type == "Product":
+            return jsonify(
+                {
+                    "error": "Cannot expunge paid audiobooks",
+                    "message": "This is a purchased audiobook (content_type='Product'). "
+                    "Expungement is only allowed for periodical content like podcasts.",
+                }
+            ), 403
 
         is_parent = row[2] is None
         asins_to_expunge = [asin]
@@ -596,10 +600,10 @@ def init_periodicals_routes(db_path: str) -> None:
         if is_parent and include_children:
             episodes = db.execute(
                 "SELECT asin, content_type FROM periodicals WHERE parent_asin = ?",
-                [asin]
+                [asin],
             ).fetchall()
             # Filter out any Product types (extra safety)
-            safe_episodes = [ep[0] for ep in episodes if ep[1] != 'Product']
+            safe_episodes = [ep[0] for ep in episodes if ep[1] != "Product"]
             asins_to_expunge.extend(safe_episodes)
 
         expunged = {"database": 0, "files": 0, "errors": [], "protected": 0}
@@ -607,8 +611,7 @@ def init_periodicals_routes(db_path: str) -> None:
         for target_asin in asins_to_expunge:
             # Find file path from audiobooks table (if downloaded/converted)
             audiobook_row = db.execute(
-                "SELECT id, file_path FROM audiobooks WHERE asin = ?",
-                [target_asin]
+                "SELECT id, file_path FROM audiobooks WHERE asin = ?", [target_asin]
             ).fetchone()
 
             if audiobook_row and audiobook_row[1]:
@@ -623,7 +626,9 @@ def init_periodicals_routes(db_path: str) -> None:
                             shutil.rmtree(audiobook_dir)
                             expunged["files"] += 1
                     except Exception as e:
-                        expunged["errors"].append(f"Failed to delete {file_path}: {str(e)}")
+                        expunged["errors"].append(
+                            f"Failed to delete {file_path}: {str(e)}"
+                        )
 
                 # Delete from audiobooks table
                 db.execute("DELETE FROM audiobooks WHERE id = ?", [audiobook_row[0]])
@@ -635,13 +640,140 @@ def init_periodicals_routes(db_path: str) -> None:
 
         db.commit()
 
-        return jsonify({
-            "expunged": asin,
-            "is_parent": is_parent,
-            "database_deleted": expunged["database"],
-            "files_deleted": expunged["files"],
-            "errors": expunged["errors"] if expunged["errors"] else None
-        })
+        return jsonify(
+            {
+                "expunged": asin,
+                "is_parent": is_parent,
+                "database_deleted": expunged["database"],
+                "files_deleted": expunged["files"],
+                "errors": expunged["errors"] if expunged["errors"] else None,
+            }
+        )
+
+    @periodicals_bp.route("/api/v1/periodicals/orphans", methods=["GET"])
+    def list_orphan_episodes():
+        """Find episodes whose parent_asin doesn't exist in the periodicals table.
+
+        Orphans occur when a parent series is deleted but its episodes remain,
+        or when sync data becomes inconsistent.
+
+        Returns list of orphan episodes with their details.
+        """
+        db = get_db(g.db_path)
+
+        # Find episodes whose parent_asin references a non-existent parent
+        orphans = db.execute(
+            """
+            SELECT e.asin, e.title, e.parent_asin, e.content_type,
+                   e.is_downloaded, e.runtime_minutes, e.release_date,
+                   a.file_path
+            FROM periodicals e
+            LEFT JOIN audiobooks a ON e.asin = a.asin
+            WHERE e.parent_asin IS NOT NULL
+              AND e.parent_asin NOT IN (
+                  SELECT asin FROM periodicals WHERE parent_asin IS NULL
+              )
+            ORDER BY e.parent_asin, e.release_date DESC
+        """
+        ).fetchall()
+
+        result = []
+        for row in orphans:
+            result.append(
+                {
+                    "asin": row[0],
+                    "title": row[1],
+                    "parent_asin": row[2],
+                    "content_type": row[3],
+                    "is_downloaded": bool(row[4]),
+                    "runtime_minutes": row[5],
+                    "release_date": row[6],
+                    "file_path": row[7],
+                }
+            )
+
+        return jsonify({"orphans": result, "count": len(result)})
+
+    @periodicals_bp.route("/api/v1/periodicals/orphans", methods=["DELETE"])
+    def expunge_all_orphans():
+        """Delete all orphan episodes (files + database entries).
+
+        Uses the same safe deletion logic as expunge_periodical.
+        Only deletes episodes (not parents) to avoid accidental data loss.
+        """
+        import shutil
+        from pathlib import Path
+
+        db = get_db(g.db_path)
+
+        # Find orphan episodes
+        orphans = db.execute(
+            """
+            SELECT e.asin, e.title, e.content_type
+            FROM periodicals e
+            WHERE e.parent_asin IS NOT NULL
+              AND e.parent_asin NOT IN (
+                  SELECT asin FROM periodicals WHERE parent_asin IS NULL
+              )
+        """
+        ).fetchall()
+
+        if not orphans:
+            return jsonify(
+                {
+                    "orphans_found": 0,
+                    "database_deleted": 0,
+                    "files_deleted": 0,
+                    "errors": None,
+                }
+            )
+
+        expunged = {"database": 0, "files": 0, "errors": []}
+
+        for orphan in orphans:
+            target_asin = orphan[0]
+            content_type = orphan[2]
+
+            # SAFETY: Skip Product types (paid audiobooks)
+            if content_type == "Product":
+                continue
+
+            # Find and delete file
+            audiobook_row = db.execute(
+                "SELECT id, file_path FROM audiobooks WHERE asin = ?", [target_asin]
+            ).fetchone()
+
+            if audiobook_row and audiobook_row[1]:
+                file_path = Path(audiobook_row[1])
+                if file_path.exists():
+                    try:
+                        audiobook_dir = file_path.parent
+                        if audiobook_dir.is_dir():
+                            shutil.rmtree(audiobook_dir)
+                            expunged["files"] += 1
+                    except Exception as e:
+                        expunged["errors"].append(
+                            f"Failed to delete {file_path}: {str(e)}"
+                        )
+
+                # Delete from audiobooks table
+                db.execute("DELETE FROM audiobooks WHERE id = ?", [audiobook_row[0]])
+
+            # Delete from periodicals table
+            cursor = db.execute("DELETE FROM periodicals WHERE asin = ?", [target_asin])
+            if cursor.rowcount > 0:
+                expunged["database"] += 1
+
+        db.commit()
+
+        return jsonify(
+            {
+                "orphans_found": len(orphans),
+                "database_deleted": expunged["database"],
+                "files_deleted": expunged["files"],
+                "errors": expunged["errors"] if expunged["errors"] else None,
+            }
+        )
 
     @periodicals_bp.route("/api/v1/periodicals/stale", methods=["GET"])
     def list_stale_periodicals():
@@ -676,21 +808,25 @@ def init_periodicals_routes(db_path: str) -> None:
 
         stale = []
         for row in cursor.fetchall():
-            stale.append({
-                "asin": row[0],
-                "title": row[1],
-                "category": row[2],
-                "is_downloaded": bool(row[3]),
-                "last_synced": row[4],
-                "parent_title": row[5],
-            })
+            stale.append(
+                {
+                    "asin": row[0],
+                    "title": row[1],
+                    "category": row[2],
+                    "is_downloaded": bool(row[3]),
+                    "last_synced": row[4],
+                    "parent_title": row[5],
+                }
+            )
 
-        return jsonify({
-            "stale": stale,
-            "total": len(stale),
-            "threshold_hours": hours,
-            "message": f"Items not synced in {hours}+ hours (may be unsubscribed)"
-        })
+        return jsonify(
+            {
+                "stale": stale,
+                "total": len(stale),
+                "threshold_hours": hours,
+                "message": f"Items not synced in {hours}+ hours (may be unsubscribed)",
+            }
+        )
 
     @periodicals_bp.route("/api/v1/periodicals/queue", methods=["GET"])
     def get_queue():
@@ -902,7 +1038,12 @@ def init_periodicals_routes(db_path: str) -> None:
                         "supported": True,  # Audible returned data
                     }
 
-            return {"asin": asin, "position_ms": None, "status": "NotFound", "supported": False}
+            return {
+                "asin": asin,
+                "position_ms": None,
+                "status": "NotFound",
+                "supported": False,
+            }
 
         except Exception as e:
             return {"asin": asin, "error": str(e), "supported": None}
@@ -1048,10 +1189,9 @@ def init_periodicals_routes(db_path: str) -> None:
             return jsonify({"error": "Invalid ASIN format"}), 400
 
         if not AUDIBLE_AVAILABLE:
-            return jsonify({
-                "error": "Audible library not available",
-                "audible_available": False
-            }), 503
+            return jsonify(
+                {"error": "Audible library not available", "audible_available": False}
+            ), 503
 
         async def do_test():
             async with await get_audible_client() as client:
@@ -1059,16 +1199,18 @@ def init_periodicals_routes(db_path: str) -> None:
 
         try:
             result = run_async(do_test())
-            return jsonify({
-                "asin": asin,
-                "audible_response": result,
-                "supports_position_sync": result.get("supported", False),
-                "message": (
-                    "Audible supports position sync for this content"
-                    if result.get("supported")
-                    else "Audible may not track position for this content type"
-                )
-            })
+            return jsonify(
+                {
+                    "asin": asin,
+                    "audible_response": result,
+                    "supports_position_sync": result.get("supported", False),
+                    "message": (
+                        "Audible supports position sync for this content"
+                        if result.get("supported")
+                        else "Audible may not track position for this content type"
+                    ),
+                }
+            )
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -1119,7 +1261,7 @@ def init_periodicals_routes(db_path: str) -> None:
                 if not audible_data.get("supported"):
                     return {
                         "error": "Audible does not appear to track position for this content",
-                        "audible_response": audible_data
+                        "audible_response": audible_data,
                     }
 
                 audible_pos = audible_data.get("position_ms") or 0
@@ -1195,6 +1337,8 @@ def init_periodicals_routes(db_path: str) -> None:
             return jsonify(result)
 
         except Exception as e:
+            # Use %s formatting to prevent log injection via exception messages
             import logging
-            logging.error(f"Periodical position sync error: {e}")
+
+            logging.error("Periodical position sync error: %s", e)
             return jsonify({"error": "Internal server error during position sync"}), 500

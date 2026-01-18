@@ -12,7 +12,6 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 
-
 class TestRebuildQueueBackgroundThread:
     """Test the background rebuild queue thread logic."""
 
@@ -284,9 +283,7 @@ class TestDefaultDryRunBehavior:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/populate-sort-fields-async", json={}
-            )
+            response = client.post("/api/utilities/populate-sort-fields-async", json={})
 
         assert response.status_code == 200
         data = response.get_json()

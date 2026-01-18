@@ -10,9 +10,8 @@ import subprocess
 import threading
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
-
 from config import AUDIOBOOKS_DATABASE
+from flask import Blueprint, jsonify, request
 from operation_status import get_tracker
 
 from ..core import FlaskResponse
@@ -325,7 +324,9 @@ def init_maintenance_routes(project_root):
             # Two-step approach using Amazon as source of truth:
             # 1. Export Audible library (gets ASINs directly from Amazon)
             # 2. Match local audiobooks to library entries
-            library_script = project_root.parent / "rnd" / "populate_asins_from_library.py"
+            library_script = (
+                project_root.parent / "rnd" / "populate_asins_from_library.py"
+            )
             library_export = Path("/tmp/audible-library-export.json")
 
             try:
@@ -336,10 +337,15 @@ def init_maintenance_routes(project_root):
 
                 export_result = subprocess.run(
                     [
-                        "audible", "library", "export",
-                        "--format", "json",
-                        "--output", str(library_export),
-                        "--timeout", "120",
+                        "audible",
+                        "library",
+                        "export",
+                        "--format",
+                        "json",
+                        "--output",
+                        str(library_export),
+                        "--timeout",
+                        "120",
                         "--resolve-podcasts",
                     ],
                     capture_output=True,
@@ -410,9 +416,7 @@ def init_maintenance_routes(project_root):
                     )
 
             except subprocess.TimeoutExpired:
-                tracker.fail_operation(
-                    operation_id, "ASIN population timed out"
-                )
+                tracker.fail_operation(operation_id, "ASIN population timed out")
             except Exception as e:
                 tracker.fail_operation(operation_id, str(e))
 

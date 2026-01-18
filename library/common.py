@@ -62,9 +62,7 @@ def normalize_title(title: str) -> str:
     title = re.sub(r"\s*\(Unabridged\)\s*$", "", title, flags=re.IGNORECASE)
     title = re.sub(r"\s*\[Unabridged\]\s*$", "", title, flags=re.IGNORECASE)
     title = re.sub(r"\s*\[Tantor\]\s*$", "", title, flags=re.IGNORECASE)
-    title = re.sub(
-        r"\s*\(Audible Audio Edition\)\s*$", "", title, flags=re.IGNORECASE
-    )
+    title = re.sub(r"\s*\(Audible Audio Edition\)\s*$", "", title, flags=re.IGNORECASE)
     # Remove genre suffixes
     title = re.sub(r"\s*:\s*A Novel\s*$", "", title, flags=re.IGNORECASE)
     title = re.sub(r"\s*:\s*A Memoir\s*$", "", title, flags=re.IGNORECASE)

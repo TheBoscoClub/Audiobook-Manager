@@ -23,8 +23,8 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH
 from common import calculate_sha256
+from config import DATABASE_PATH
 
 # Configuration
 DB_PATH = DATABASE_PATH
@@ -123,7 +123,9 @@ def find_duplicates(conn: sqlite3.Connection) -> list:
     return cursor.fetchall()
 
 
-def generate_hashes(force: bool = False, limit: int | None = None, parallel: int | None = None):
+def generate_hashes(
+    force: bool = False, limit: int | None = None, parallel: int | None = None
+):
     """Main hash generation function"""
     if not DB_PATH.exists():
         print(f"Error: Database not found at {DB_PATH}")

@@ -95,7 +95,10 @@ class TestNormalizeBaseTitle:
         """Test numbered editions like '2nd Edition' are removed."""
         from backend.api_modular.editions import normalize_base_title
 
-        assert normalize_base_title("Python Crash Course - 2nd Edition") == "python crash course"
+        assert (
+            normalize_base_title("Python Crash Course - 2nd Edition")
+            == "python crash course"
+        )
         assert normalize_base_title("Clean Code - 1st Edition") == "clean code"
 
     def test_removes_unabridged_suffix(self):
@@ -167,23 +170,81 @@ class TestEditionsAPI:
 
         # Insert test audiobooks - same book, different editions
         test_books = [
-            (1, "The Great Gatsby", "F. Scott Fitzgerald", "Jake Gyllenhaal", 4.5, "4h 30m", 256.0),
-            (2, "The Great Gatsby (50th Anniversary Edition)", "F. Scott Fitzgerald", "Tim Robbins", 5.0, "5h 0m", 280.0),
-            (3, "The Great Gatsby: Unabridged", "F. Scott Fitzgerald", "Frank Muller", 5.2, "5h 12m", 290.0),
+            (
+                1,
+                "The Great Gatsby",
+                "F. Scott Fitzgerald",
+                "Jake Gyllenhaal",
+                4.5,
+                "4h 30m",
+                256.0,
+            ),
+            (
+                2,
+                "The Great Gatsby (50th Anniversary Edition)",
+                "F. Scott Fitzgerald",
+                "Tim Robbins",
+                5.0,
+                "5h 0m",
+                280.0,
+            ),
+            (
+                3,
+                "The Great Gatsby: Unabridged",
+                "F. Scott Fitzgerald",
+                "Frank Muller",
+                5.2,
+                "5h 12m",
+                290.0,
+            ),
             # Different author - should not be grouped
-            (4, "The Great Gatsby Analysis", "John Smith", "Narrator X", 2.0, "2h 0m", 100.0),
+            (
+                4,
+                "The Great Gatsby Analysis",
+                "John Smith",
+                "Narrator X",
+                2.0,
+                "2h 0m",
+                100.0,
+            ),
             # Same author, different book
-            (5, "Tender Is the Night", "F. Scott Fitzgerald", "Jake Gyllenhaal", 6.0, "6h 0m", 350.0),
+            (
+                5,
+                "Tender Is the Night",
+                "F. Scott Fitzgerald",
+                "Jake Gyllenhaal",
+                6.0,
+                "6h 0m",
+                350.0,
+            ),
         ]
 
-        for book_id, title, author, narrator, duration, duration_fmt, size in test_books:
+        for (
+            book_id,
+            title,
+            author,
+            narrator,
+            duration,
+            duration_fmt,
+            size,
+        ) in test_books:
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO audiobooks
                 (id, title, author, narrator, duration_hours, duration_formatted, file_size_mb, file_path, format)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (book_id, title, author, narrator, duration, duration_fmt, size, f"/test/{title}.opus", "opus"),
+                (
+                    book_id,
+                    title,
+                    author,
+                    narrator,
+                    duration,
+                    duration_fmt,
+                    size,
+                    f"/test/{title}.opus",
+                    "opus",
+                ),
             )
 
         conn.commit()

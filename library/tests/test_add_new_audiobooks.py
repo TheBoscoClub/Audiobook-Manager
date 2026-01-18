@@ -9,7 +9,6 @@ import sqlite3
 from unittest.mock import patch
 
 
-
 class TestGetExistingPaths:
     """Test the get_existing_paths function."""
 
@@ -589,6 +588,7 @@ class TestMainCLI:
 
         db_path = temp_dir / "test.db"
         from tests.conftest import init_test_database
+
         init_test_database(db_path)
 
         # Patch config values
@@ -614,6 +614,7 @@ class TestMainCLI:
 
         db_path = temp_dir / "test.db"
         from tests.conftest import init_test_database
+
         init_test_database(db_path)
 
         # Patch config values

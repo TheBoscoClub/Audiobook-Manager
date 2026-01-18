@@ -9,14 +9,14 @@ from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 
-
 class TestGetFfmpegProcesses:
     """Test the get_ffmpeg_processes function."""
 
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_finds_ffmpeg_opus_processes(self, mock_run):
         """Test finds FFmpeg processes with libopus codec."""
-        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import \
+            get_ffmpeg_processes
 
         mock_run.return_value = MagicMock(
             stdout=(
@@ -37,9 +37,12 @@ class TestGetFfmpegProcesses:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_returns_empty_when_no_ffmpeg(self, mock_run):
         """Test returns empty when no FFmpeg processes found."""
-        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import \
+            get_ffmpeg_processes
 
-        mock_run.return_value = MagicMock(stdout="user 1234 0.0 0.0 1234 123 pts/0 S 10:00 0:00 bash\n")
+        mock_run.return_value = MagicMock(
+            stdout="user 1234 0.0 0.0 1234 123 pts/0 S 10:00 0:00 bash\n"
+        )
 
         pids, cmdlines = get_ffmpeg_processes()
 
@@ -49,7 +52,8 @@ class TestGetFfmpegProcesses:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_handles_subprocess_exception(self, mock_run):
         """Test handles subprocess failures gracefully."""
-        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import \
+            get_ffmpeg_processes
 
         mock_run.side_effect = Exception("ps command failed")
 
@@ -61,7 +65,8 @@ class TestGetFfmpegProcesses:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_handles_malformed_ps_output(self, mock_run):
         """Test handles malformed ps output lines."""
-        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import \
+            get_ffmpeg_processes
 
         mock_run.return_value = MagicMock(
             stdout=(
@@ -83,14 +88,11 @@ class TestGetFfmpegNiceValue:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_returns_nice_value(self, mock_run):
         """Test returns nice value for FFmpeg process."""
-        from backend.api_modular.utilities_conversion import get_ffmpeg_nice_value
+        from backend.api_modular.utilities_conversion import \
+            get_ffmpeg_nice_value
 
         mock_run.return_value = MagicMock(
-            stdout=(
-                "  NI COMM\n"
-                "   0 python\n"
-                "  19 ffmpeg\n"
-            )
+            stdout=("  NI COMM\n   0 python\n  19 ffmpeg\n")
         )
 
         result = get_ffmpeg_nice_value()
@@ -100,7 +102,8 @@ class TestGetFfmpegNiceValue:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_returns_none_when_no_ffmpeg(self, mock_run):
         """Test returns None when no FFmpeg found."""
-        from backend.api_modular.utilities_conversion import get_ffmpeg_nice_value
+        from backend.api_modular.utilities_conversion import \
+            get_ffmpeg_nice_value
 
         mock_run.return_value = MagicMock(stdout="  NI COMM\n   0 python\n")
 
@@ -111,7 +114,8 @@ class TestGetFfmpegNiceValue:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_handles_exception(self, mock_run):
         """Test handles exception gracefully."""
-        from backend.api_modular.utilities_conversion import get_ffmpeg_nice_value
+        from backend.api_modular.utilities_conversion import \
+            get_ffmpeg_nice_value
 
         mock_run.side_effect = Exception("ps failed")
 
@@ -169,11 +173,14 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_parses_conversion_job(self, mock_io):
         """Test parses FFmpeg command line and returns job info."""
-        from backend.api_modular.utilities_conversion import parse_conversion_job
+        from backend.api_modular.utilities_conversion import \
+            parse_conversion_job
 
         mock_io.return_value = (1000000, 500000)
 
-        cmdline = 'ffmpeg -i /sources/book.aaxc -c:a libopus -f ogg "/staging/My Book.opus"'
+        cmdline = (
+            'ffmpeg -i /sources/book.aaxc -c:a libopus -f ogg "/staging/My Book.opus"'
+        )
 
         # Mock Path.exists and stat
         with patch.object(Path, "exists", return_value=True):
@@ -191,7 +198,8 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_returns_none_when_no_output_file(self, mock_io):
         """Test returns None when no output file in command."""
-        from backend.api_modular.utilities_conversion import parse_conversion_job
+        from backend.api_modular.utilities_conversion import \
+            parse_conversion_job
 
         mock_io.return_value = (0, 0)
         cmdline = "ffmpeg -i input.aaxc -c:a libopus"  # No output file
@@ -203,7 +211,8 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_truncates_long_filename(self, mock_io):
         """Test truncates filenames longer than 50 chars."""
-        from backend.api_modular.utilities_conversion import parse_conversion_job
+        from backend.api_modular.utilities_conversion import \
+            parse_conversion_job
 
         mock_io.return_value = (0, 0)
         long_name = "a" * 60 + ".opus"
@@ -219,7 +228,8 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_parses_unquoted_output_path(self, mock_io):
         """Test parses unquoted output path."""
-        from backend.api_modular.utilities_conversion import parse_conversion_job
+        from backend.api_modular.utilities_conversion import \
+            parse_conversion_job
 
         mock_io.return_value = (1000, 500)
         cmdline = "ffmpeg -i input.aaxc -c:a libopus -f ogg /output/book.opus"
@@ -233,7 +243,8 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_caps_percent_at_99(self, mock_io):
         """Test caps progress percent at 99."""
-        from backend.api_modular.utilities_conversion import parse_conversion_job
+        from backend.api_modular.utilities_conversion import \
+            parse_conversion_job
 
         # Read more bytes than source size
         mock_io.return_value = (3000000, 500000)
@@ -258,10 +269,12 @@ class TestGetSystemStats:
 
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout="Filesystem      Size  Used Avail Use% Mounted on\ntmpfs           8.0G  1.5G  6.5G  19% /tmp\n"
+            stdout="Filesystem      Size  Used Avail Use% Mounted on\ntmpfs           8.0G  1.5G  6.5G  19% /tmp\n",
         )
 
-        with patch("builtins.open", mock_open(read_data="0.75 0.50 0.25 1/200 12345\n")):
+        with patch(
+            "builtins.open", mock_open(read_data="0.75 0.50 0.25 1/200 12345\n")
+        ):
             result = get_system_stats()
 
         assert result["load_avg"] == "0.75"
@@ -305,13 +318,23 @@ class TestConversionStatusRoute:
     @patch("backend.api_modular.utilities_conversion.get_system_stats")
     @patch("backend.api_modular.utilities_conversion.parse_conversion_job")
     def test_returns_conversion_status(
-        self, mock_parse_job, mock_system, mock_nice, mock_procs, flask_app, session_temp_dir
+        self,
+        mock_parse_job,
+        mock_system,
+        mock_nice,
+        mock_procs,
+        flask_app,
+        session_temp_dir,
     ):
         """Test returns conversion status with file counts."""
         # Set up mocks
         mock_procs.return_value = ([], {})
         mock_nice.return_value = "19"
-        mock_system.return_value = {"load_avg": "0.5", "tmpfs_usage": "10%", "tmpfs_avail": "7G"}
+        mock_system.return_value = {
+            "load_avg": "0.5",
+            "tmpfs_usage": "10%",
+            "tmpfs_avail": "7G",
+        }
 
         # Create config module in project path
         config_dir = session_temp_dir / "library"
@@ -359,7 +382,11 @@ AUDIOBOOKS_LIBRARY = Path("{library_dir}")
         """Test handles active FFmpeg conversions."""
         mock_procs.return_value = ([1234], {1234: "ffmpeg -f ogg output.opus"})
         mock_nice.return_value = "19"
-        mock_system.return_value = {"load_avg": "1.0", "tmpfs_usage": "20%", "tmpfs_avail": "6G"}
+        mock_system.return_value = {
+            "load_avg": "1.0",
+            "tmpfs_usage": "20%",
+            "tmpfs_avail": "6G",
+        }
 
         # Create config
         config_dir = session_temp_dir / "library"
@@ -381,7 +408,9 @@ AUDIOBOOKS_LIBRARY = Path("{library_dir}")
 """)
 
         # Mock parse_conversion_job to return a valid job
-        with patch("backend.api_modular.utilities_conversion.parse_conversion_job") as mock_parse:
+        with patch(
+            "backend.api_modular.utilities_conversion.parse_conversion_job"
+        ) as mock_parse:
             mock_parse.return_value = {
                 "pid": 1234,
                 "filename": "test.opus",
@@ -426,7 +455,11 @@ class TestQueueFileFallback:
         """Test uses queue.txt for remaining count when available."""
         mock_procs.return_value = ([], {})
         mock_nice.return_value = None
-        mock_system.return_value = {"load_avg": None, "tmpfs_usage": None, "tmpfs_avail": None}
+        mock_system.return_value = {
+            "load_avg": None,
+            "tmpfs_usage": None,
+            "tmpfs_avail": None,
+        }
 
         # Create directories and config
         config_dir = session_temp_dir / "library"
@@ -480,7 +513,11 @@ class TestCompletionLogic:
         """Test marks complete when all files converted and no active processes."""
         mock_procs.return_value = ([], {})
         mock_nice.return_value = None
-        mock_system.return_value = {"load_avg": None, "tmpfs_usage": None, "tmpfs_avail": None}
+        mock_system.return_value = {
+            "load_avg": None,
+            "tmpfs_usage": None,
+            "tmpfs_avail": None,
+        }
 
         # Create directories and config
         config_dir = session_temp_dir / "library"

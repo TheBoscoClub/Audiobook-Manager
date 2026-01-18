@@ -10,12 +10,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from tests.conftest import LIBRARY_DIR
 
 # Periodicals migration file paths
 PERIODICALS_MIGRATION = LIBRARY_DIR / "backend" / "migrations" / "006_periodicals.sql"
-PARENT_ASIN_MIGRATION = LIBRARY_DIR / "backend" / "migrations" / "008_periodicals_parent_asin.sql"
+PARENT_ASIN_MIGRATION = (
+    LIBRARY_DIR / "backend" / "migrations" / "008_periodicals_parent_asin.sql"
+)
 
 
 def apply_periodicals_migration(db_path: Path) -> None:
@@ -620,7 +621,9 @@ class TestSyncStatusSSE:
     The route and response type are tested indirectly through other mechanisms.
     """
 
-    @pytest.mark.skip(reason="SSE generator runs outside request context in test client")
+    @pytest.mark.skip(
+        reason="SSE generator runs outside request context in test client"
+    )
     def test_returns_sse_stream(self, flask_app, clean_periodicals):
         """Test returns Server-Sent Events stream."""
         with flask_app.test_client() as client:
@@ -629,7 +632,9 @@ class TestSyncStatusSSE:
         assert response.status_code == 200
         assert response.mimetype == "text/event-stream"
 
-    @pytest.mark.skip(reason="SSE generator runs outside request context in test client")
+    @pytest.mark.skip(
+        reason="SSE generator runs outside request context in test client"
+    )
     def test_returns_no_sync_history(self, flask_app, clean_periodicals):
         """Test returns no_sync_history when no syncs exist."""
         with flask_app.test_client() as client:
@@ -638,7 +643,9 @@ class TestSyncStatusSSE:
         data = response.get_data(as_text=True)
         assert "no_sync_history" in data
 
-    @pytest.mark.skip(reason="SSE generator runs outside request context in test client")
+    @pytest.mark.skip(
+        reason="SSE generator runs outside request context in test client"
+    )
     def test_returns_sync_status(self, flask_app, clean_periodicals):
         """Test returns current sync status."""
         conn = sqlite3.connect(clean_periodicals)
@@ -658,7 +665,9 @@ class TestSyncStatusSSE:
         assert "running" in data
         assert "test-uuid" in data
 
-    @pytest.mark.skip(reason="SSE generator runs outside request context in test client")
+    @pytest.mark.skip(
+        reason="SSE generator runs outside request context in test client"
+    )
     def test_sse_headers(self, flask_app, clean_periodicals):
         """Test SSE response has correct headers."""
         with flask_app.test_client() as client:
@@ -964,7 +973,7 @@ class TestListParents:
         for i in range(3):
             conn.execute(
                 """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
-                (f"B00{i+2:07d}", f"Episode {i+1}", "podcast", "B001111111"),
+                (f"B00{i + 2:07d}", f"Episode {i + 1}", "podcast", "B001111111"),
             )
         conn.commit()
         conn.close()
@@ -1044,7 +1053,7 @@ class TestListParents:
         for i in range(5):
             conn.execute(
                 """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
-                (f"B00{i+5:07d}", f"EP{i+1}", "podcast", "B004444444"),
+                (f"B00{i + 5:07d}", f"EP{i + 1}", "podcast", "B004444444"),
             )
         conn.commit()
         conn.close()
@@ -1125,13 +1134,15 @@ class TestListEpisodes:
         for i in range(10):
             conn.execute(
                 """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
-                (f"B00{i+2:07d}", f"Episode {i+1}", "podcast", "B001111111"),
+                (f"B00{i + 2:07d}", f"Episode {i + 1}", "podcast", "B001111111"),
             )
         conn.commit()
         conn.close()
 
         with flask_app.test_client() as client:
-            response = client.get("/api/v1/periodicals/B001111111/episodes?page=2&per_page=3")
+            response = client.get(
+                "/api/v1/periodicals/B001111111/episodes?page=2&per_page=3"
+            )
 
         data = response.get_json()
         assert len(data["episodes"]) == 3
@@ -1186,7 +1197,7 @@ class TestPeriodicalDetailsWithEpisodeCount:
         for i in range(5):
             conn.execute(
                 """INSERT INTO periodicals (asin, title, category, parent_asin) VALUES (?, ?, ?, ?)""",
-                (f"B00{i+2:07d}", f"Episode {i+1}", "podcast", "B001111111"),
+                (f"B00{i + 2:07d}", f"Episode {i + 1}", "podcast", "B001111111"),
             )
         conn.commit()
         conn.close()

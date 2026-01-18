@@ -7,7 +7,6 @@ Tests the status sub-module of utilities_ops package.
 from unittest.mock import MagicMock, patch
 
 
-
 class TestGetOperationStatus:
     """Test the get_operation_status endpoint."""
 

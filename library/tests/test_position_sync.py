@@ -164,7 +164,8 @@ class TestFetchAudiblePosition:
 
     def test_returns_position_data(self):
         """Test returns position data for valid ASIN."""
-        from backend.api_modular.position_sync import fetch_audible_position, run_async
+        from backend.api_modular.position_sync import (fetch_audible_position,
+                                                       run_async)
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {
@@ -188,7 +189,8 @@ class TestFetchAudiblePosition:
 
     def test_returns_not_found_for_missing_asin(self):
         """Test returns NotFound status when ASIN not in response."""
-        from backend.api_modular.position_sync import fetch_audible_position, run_async
+        from backend.api_modular.position_sync import (fetch_audible_position,
+                                                       run_async)
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {"asin_last_position_heard_annots": []}
@@ -201,7 +203,8 @@ class TestFetchAudiblePosition:
 
     def test_returns_error_on_exception(self):
         """Test returns error dict on API exception."""
-        from backend.api_modular.position_sync import fetch_audible_position, run_async
+        from backend.api_modular.position_sync import (fetch_audible_position,
+                                                       run_async)
 
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("API timeout")
@@ -218,23 +221,32 @@ class TestFetchAudiblePositionsBatch:
 
     def test_returns_positions_for_multiple_asins(self):
         """Test returns positions for multiple ASINs."""
-        from backend.api_modular.position_sync import fetch_audible_positions_batch, run_async
+        from backend.api_modular.position_sync import (
+            fetch_audible_positions_batch, run_async)
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {
             "asin_last_position_heard_annots": [
                 {
                     "asin": "B11111",
-                    "last_position_heard": {"position_ms": 1000000, "status": "InProgress"},
+                    "last_position_heard": {
+                        "position_ms": 1000000,
+                        "status": "InProgress",
+                    },
                 },
                 {
                     "asin": "B22222",
-                    "last_position_heard": {"position_ms": 2000000, "status": "Complete"},
+                    "last_position_heard": {
+                        "position_ms": 2000000,
+                        "status": "Complete",
+                    },
                 },
             ]
         }
 
-        result = run_async(fetch_audible_positions_batch(mock_client, ["B11111", "B22222"]))
+        result = run_async(
+            fetch_audible_positions_batch(mock_client, ["B11111", "B22222"])
+        )
 
         assert "B11111" in result
         assert result["B11111"]["position_ms"] == 1000000
@@ -243,7 +255,8 @@ class TestFetchAudiblePositionsBatch:
 
     def test_marks_missing_asins_as_not_found(self):
         """Test marks ASINs not in response as NotFound."""
-        from backend.api_modular.position_sync import fetch_audible_positions_batch, run_async
+        from backend.api_modular.position_sync import (
+            fetch_audible_positions_batch, run_async)
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {
@@ -252,14 +265,17 @@ class TestFetchAudiblePositionsBatch:
             ]
         }
 
-        result = run_async(fetch_audible_positions_batch(mock_client, ["B11111", "B99999"]))
+        result = run_async(
+            fetch_audible_positions_batch(mock_client, ["B11111", "B99999"])
+        )
 
         assert result["B11111"]["position_ms"] == 1000000
         assert result["B99999"]["status"] == "NotFound"
 
     def test_returns_error_on_chunk_failure(self):
         """Test returns error when any chunk fails."""
-        from backend.api_modular.position_sync import fetch_audible_positions_batch, run_async
+        from backend.api_modular.position_sync import (
+            fetch_audible_positions_batch, run_async)
 
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("CloudFront error")
@@ -275,7 +291,8 @@ class TestPushAudiblePosition:
 
     def test_pushes_position_successfully(self):
         """Test successfully pushes position to Audible."""
-        from backend.api_modular.position_sync import push_audible_position, run_async
+        from backend.api_modular.position_sync import (push_audible_position,
+                                                       run_async)
 
         mock_client = AsyncMock()
         mock_client.post.return_value = {"content_license": {"acr": "test-acr-123"}}
@@ -289,7 +306,8 @@ class TestPushAudiblePosition:
 
     def test_returns_error_when_no_acr(self):
         """Test returns error when ACR not obtained."""
-        from backend.api_modular.position_sync import push_audible_position, run_async
+        from backend.api_modular.position_sync import (push_audible_position,
+                                                       run_async)
 
         mock_client = AsyncMock()
         mock_client.post.return_value = {"content_license": {}}  # No ACR
@@ -301,7 +319,8 @@ class TestPushAudiblePosition:
 
     def test_returns_error_on_exception(self):
         """Test returns error on API exception."""
-        from backend.api_modular.position_sync import push_audible_position, run_async
+        from backend.api_modular.position_sync import (push_audible_position,
+                                                       run_async)
 
         mock_client = AsyncMock()
         mock_client.post.side_effect = Exception("License request failed")
@@ -342,8 +361,17 @@ class TestGetPositionRoute:
                 playback_position_updated, audible_position_ms, file_path
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (9001, "Test Position Book", "Test Author", "B12345", 10.0, 5000000,
-             "2024-01-15", 4500000, "/test/position_book.opus"),
+            (
+                9001,
+                "Test Position Book",
+                "Test Author",
+                "B12345",
+                10.0,
+                5000000,
+                "2024-01-15",
+                4500000,
+                "/test/position_book.opus",
+            ),
         )
         conn.commit()
         conn.close()
@@ -549,7 +577,15 @@ class TestListSyncableRoute:
             INSERT INTO audiobooks (id, title, author, asin, duration_hours, playback_position_ms, file_path)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (9010, "Syncable Book", "Author Name", "B55555", 6.0, 2000000, "/test/syncable.opus"),
+            (
+                9010,
+                "Syncable Book",
+                "Author Name",
+                "B55555",
+                6.0,
+                2000000,
+                "/test/syncable.opus",
+            ),
         )
         conn.commit()
         conn.close()
@@ -627,7 +663,8 @@ class TestBatchChunking:
 
     def test_processes_in_chunks(self):
         """Test processes large ASIN lists in chunks."""
-        from backend.api_modular.position_sync import fetch_audible_positions_batch, run_async
+        from backend.api_modular.position_sync import (
+            fetch_audible_positions_batch, run_async)
 
         # Create 50 ASINs (should result in 2 chunks with BATCH_CHUNK_SIZE=25)
         asins = [f"B{i:05d}" for i in range(50)]
@@ -661,7 +698,9 @@ class TestSyncPositionWithMockedAudible:
     """Test sync position with mocked Audible client."""
 
     @patch("backend.api_modular.position_sync.run_async")
-    def test_sync_pulls_from_audible_when_ahead(self, mock_run_async, flask_app, session_temp_dir):
+    def test_sync_pulls_from_audible_when_ahead(
+        self, mock_run_async, flask_app, session_temp_dir
+    ):
         """Test sync pulls position from Audible when Audible is ahead."""
         from backend.api_modular import position_sync
 
@@ -674,7 +713,15 @@ class TestSyncPositionWithMockedAudible:
             INSERT INTO audiobooks (id, title, author, asin, duration_hours, playback_position_ms, file_path)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (9050, "Sync Pull Book", "Author", "B99001", 8.0, 1000000, "/test/syncpull.opus"),
+            (
+                9050,
+                "Sync Pull Book",
+                "Author",
+                "B99001",
+                8.0,
+                1000000,
+                "/test/syncpull.opus",
+            ),
         )
         conn.commit()
         conn.close()
@@ -711,7 +758,9 @@ class TestSyncPositionWithMockedAudible:
             position_sync.AUDIBLE_AVAILABLE = original
 
     @patch("backend.api_modular.position_sync.run_async")
-    def test_sync_handles_error_from_audible(self, mock_run_async, flask_app, session_temp_dir):
+    def test_sync_handles_error_from_audible(
+        self, mock_run_async, flask_app, session_temp_dir
+    ):
         """Test sync handles error returned from Audible."""
         from backend.api_modular import position_sync
 
@@ -747,7 +796,9 @@ class TestSyncAllWithMockedAudible:
     """Test sync all positions with mocked Audible client."""
 
     @patch("backend.api_modular.position_sync.run_async")
-    def test_sync_all_processes_multiple_books(self, mock_run_async, flask_app, session_temp_dir):
+    def test_sync_all_processes_multiple_books(
+        self, mock_run_async, flask_app, session_temp_dir
+    ):
         """Test sync all processes multiple syncable books."""
         from backend.api_modular import position_sync
 
@@ -760,8 +811,22 @@ class TestSyncAllWithMockedAudible:
             INSERT INTO audiobooks (id, title, author, asin, duration_hours, playback_position_ms, file_path)
             VALUES (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?)
             """,
-            (9060, "Batch Book 1", "Author", "B99010", 5.0, 1000000, "/test/batch1.opus",
-             9061, "Batch Book 2", "Author", "B99011", 6.0, 2000000, "/test/batch2.opus"),
+            (
+                9060,
+                "Batch Book 1",
+                "Author",
+                "B99010",
+                5.0,
+                1000000,
+                "/test/batch1.opus",
+                9061,
+                "Batch Book 2",
+                "Author",
+                "B99011",
+                6.0,
+                2000000,
+                "/test/batch2.opus",
+            ),
         )
         conn.commit()
         conn.close()
@@ -769,10 +834,20 @@ class TestSyncAllWithMockedAudible:
         # Mock batch sync returning success
         mock_run_async.return_value = (
             [
-                {"audiobook_id": 9060, "asin": "B99010", "action": "already_synced",
-                 "final_position_ms": 1000000, "audible_position_ms": 1000000},
-                {"audiobook_id": 9061, "asin": "B99011", "action": "pulled_from_audible",
-                 "final_position_ms": 3000000, "audible_position_ms": 3000000},
+                {
+                    "audiobook_id": 9060,
+                    "asin": "B99010",
+                    "action": "already_synced",
+                    "final_position_ms": 1000000,
+                    "audible_position_ms": 1000000,
+                },
+                {
+                    "audiobook_id": 9061,
+                    "asin": "B99011",
+                    "action": "pulled_from_audible",
+                    "final_position_ms": 3000000,
+                    "audible_position_ms": 3000000,
+                },
             ],
             {"B99010": {"position_ms": 1000000}, "B99011": {"position_ms": 3000000}},
         )
@@ -836,7 +911,15 @@ class TestPercentageCalculation:
             INSERT INTO audiobooks (id, title, author, asin, duration_hours, playback_position_ms, file_path)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (9030, "Percent Test", "Author", "B77777", 10.0, 18000000, "/test/percent.opus"),
+            (
+                9030,
+                "Percent Test",
+                "Author",
+                "B77777",
+                10.0,
+                18000000,
+                "/test/percent.opus",
+            ),
         )
         conn.commit()
         conn.close()

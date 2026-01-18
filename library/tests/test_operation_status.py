@@ -404,7 +404,9 @@ class TestOperationTracker:
         def create_and_complete():
             try:
                 for i in range(10):
-                    op_id = fresh_tracker.create_operation("thread_test", f"Thread op {i}")
+                    op_id = fresh_tracker.create_operation(
+                        "thread_test", f"Thread op {i}"
+                    )
                     results["created"].append(op_id)
                     fresh_tracker.start_operation(op_id)
                     fresh_tracker.update_progress(op_id, 50, "Half done")

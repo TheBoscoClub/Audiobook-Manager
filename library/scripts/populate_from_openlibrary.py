@@ -45,9 +45,8 @@ from typing import List, Optional
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATABASE_PATH
 from common import normalize_title
-
+from config import DATABASE_PATH
 # Import OpenLibrary client
 from utils.openlibrary_client import OpenLibraryClient
 

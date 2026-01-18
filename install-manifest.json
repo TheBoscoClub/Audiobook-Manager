@@ -93,68 +93,68 @@
 
   "services": [
     {
-      "name": "audiobooks-api.service",
+      "name": "audiobook-api.service",
       "type": "system",
       "expected_state": "active",
       "description": "API server (Waitress)",
       "health_endpoint": "http://localhost:${AUDIOBOOKS_API_PORT:-5001}/api/health"
     },
     {
-      "name": "audiobooks-proxy.service",
+      "name": "audiobook-proxy.service",
       "type": "system",
       "expected_state": "active",
       "description": "HTTPS reverse proxy for web interface"
     },
     {
-      "name": "audiobooks-redirect.service",
+      "name": "audiobook-redirect.service",
       "type": "system",
       "expected_state": "active",
       "description": "HTTP to HTTPS redirect"
     },
     {
-      "name": "audiobooks-converter.service",
+      "name": "audiobook-converter.service",
       "type": "system",
       "expected_state": "active",
       "description": "Continuous AAXC to Opus converter"
     },
     {
-      "name": "audiobooks-downloader.service",
+      "name": "audiobook-downloader.service",
       "type": "system",
       "expected_state": "inactive",
       "description": "Audible sync (triggered by timer)"
     },
     {
-      "name": "audiobooks-downloader.timer",
+      "name": "audiobook-downloader.timer",
       "type": "system",
       "expected_state": "active",
       "description": "Timer for Audible sync"
     },
     {
-      "name": "audiobooks-mover.service",
+      "name": "audiobook-mover.service",
       "type": "system",
       "expected_state": "inactive",
       "description": "Staging mover (runs on-demand)"
     },
     {
-      "name": "audiobooks-shutdown-saver.service",
+      "name": "audiobook-shutdown-saver.service",
       "type": "system",
       "expected_state": "inactive",
       "description": "Shutdown hook to save staging"
     },
     {
-      "name": "audiobooks-periodicals-sync.service",
+      "name": "audiobook-periodicals-sync.service",
       "type": "system",
       "expected_state": "inactive",
       "description": "Periodicals index sync (triggered by timer)"
     },
     {
-      "name": "audiobooks-periodicals-sync.timer",
+      "name": "audiobook-periodicals-sync.timer",
       "type": "system",
       "expected_state": "active",
       "description": "Timer for periodicals sync (06:00, 18:00 daily)"
     },
     {
-      "name": "audiobooks.target",
+      "name": "audiobook.target",
       "type": "system",
       "expected_state": "active",
       "description": "Target grouping all audiobook services"
@@ -238,21 +238,21 @@
     {
       "port": 5001,
       "protocol": "tcp",
-      "service": "audiobooks-api.service",
+      "service": "audiobook-api.service",
       "description": "REST API (default, configurable via AUDIOBOOKS_API_PORT)",
       "env_override": "AUDIOBOOKS_API_PORT"
     },
     {
       "port": 8443,
       "protocol": "tcp",
-      "service": "audiobooks-proxy.service",
+      "service": "audiobook-proxy.service",
       "description": "HTTPS web interface (default, configurable via AUDIOBOOKS_WEB_PORT)",
       "env_override": "AUDIOBOOKS_WEB_PORT"
     },
     {
       "port": 8081,
       "protocol": "tcp",
-      "service": "audiobooks-redirect.service",
+      "service": "audiobook-redirect.service",
       "description": "HTTP redirect (default, configurable via AUDIOBOOKS_HTTP_REDIRECT_PORT)",
       "env_override": "AUDIOBOOKS_HTTP_REDIRECT_PORT"
     }

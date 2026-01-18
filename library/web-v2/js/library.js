@@ -1592,7 +1592,12 @@ class DuplicateManager {
                 ` : '<p style="color: #27ae60;">All audiobooks have been hashed!</p>'}
             `;
         } catch (error) {
-            content.innerHTML = `<p style="color: #c0392b;">Error loading statistics: ${error.message}</p>`;
+            // Use safe DOM methods to avoid XSS - create element and set textContent
+            const errorP = document.createElement('p');
+            errorP.style.color = '#c0392b';
+            errorP.textContent = `Error loading statistics: ${error.message}`;
+            content.innerHTML = '';
+            content.appendChild(errorP);
         }
     }
 
@@ -1665,13 +1670,23 @@ class DuplicateManager {
 
         } catch (error) {
             summary.textContent = 'Error';
-            const helpText = currentMode === 'hash'
-                ? '<p>Make sure hashes have been generated first:</p><pre class="cli-command">cd library && python3 scripts/generate_hashes.py</pre>'
-                : '';
-            content.innerHTML = `
-                <p style="color: #c0392b;">Error loading duplicates: ${error.message}</p>
-                ${helpText}
-            `;
+            // Use safe DOM methods to avoid XSS - error.message could contain malicious content
+            content.innerHTML = '';
+            const errorP = document.createElement('p');
+            errorP.style.color = '#c0392b';
+            errorP.textContent = `Error loading duplicates: ${error.message}`;
+            content.appendChild(errorP);
+
+            // Add static help text (safe - no user input)
+            if (currentMode === 'hash') {
+                const helpP = document.createElement('p');
+                helpP.textContent = 'Make sure hashes have been generated first:';
+                content.appendChild(helpP);
+                const pre = document.createElement('pre');
+                pre.className = 'cli-command';
+                pre.textContent = 'cd library && python3 scripts/generate_hashes.py';
+                content.appendChild(pre);
+            }
         }
     }
 

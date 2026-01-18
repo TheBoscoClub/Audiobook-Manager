@@ -5,10 +5,9 @@ This module provides metadata extraction functions for audiobook files,
 including author/narrator extraction, topic detection, and ffprobe integration.
 """
 
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-import subprocess
-
 
 
 class TestExtractTopics:
@@ -353,8 +352,9 @@ class TestExtractCoverArt:
 
     def test_returns_existing_cover(self, temp_dir):
         """Test returns existing cover without re-extracting."""
-        from scanner.metadata_utils import extract_cover_art
         import hashlib
+
+        from scanner.metadata_utils import extract_cover_art
 
         test_file = temp_dir / "book.opus"
         test_file.touch()
@@ -362,7 +362,9 @@ class TestExtractCoverArt:
         cover_dir.mkdir()
 
         # Pre-create the cover file
-        file_hash = hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()
+        file_hash = hashlib.md5(
+            str(test_file).encode(), usedforsecurity=False
+        ).hexdigest()
         existing_cover = cover_dir / f"{file_hash}.jpg"
         existing_cover.touch()
 
@@ -381,7 +383,11 @@ class TestEnrichMetadata:
         """Test adds genre categorization fields."""
         from scanner.metadata_utils import enrich_metadata
 
-        metadata = {"genre": "Science Fiction", "year": "2020", "description": "A sci-fi story"}
+        metadata = {
+            "genre": "Science Fiction",
+            "year": "2020",
+            "description": "A sci-fi story",
+        }
 
         result = enrich_metadata(metadata)
 
@@ -398,7 +404,10 @@ class TestEnrichMetadata:
         result = enrich_metadata(metadata)
 
         assert "literary_era" in result
-        assert "Contemporary" in result["literary_era"] or "Modern" in result["literary_era"]
+        assert (
+            "Contemporary" in result["literary_era"]
+            or "Modern" in result["literary_era"]
+        )
 
     def test_adds_topics(self):
         """Test adds topics from description."""
