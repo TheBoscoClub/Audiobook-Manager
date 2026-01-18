@@ -13,6 +13,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.0.0] - 2026-01-17
+
+### Removed
+- **BREAKING: Periodicals Feature Extracted**: The entire "Reading Room" periodicals subsystem has been removed from the main codebase
+  - Removed `library/backend/api_modular/periodicals.py` - Flask Blueprint (~1,345 lines)
+  - Removed `library/tests/test_periodicals.py` - Test suite (~1,231 lines)
+  - Removed `library/web-v2/periodicals.html` - Reading Room UI (~1,079 lines)
+  - Removed `library/web-v2/css/periodicals.css` - CSS module (~1,405 lines)
+  - Removed `systemd/audiobook-periodicals-sync.service` - Systemd service
+  - Removed `systemd/audiobook-periodicals-sync.timer` - Systemd timer
+  - Removed `scripts/sync-periodicals-index` - Sync script (~391 lines)
+  - Removed `docs/PERIODICALS.md` - Feature documentation
+  - Total: ~5,700 lines removed
+
+### Changed
+- **Database Migration**: Added `010_drop_periodicals.sql` to clean up periodicals tables
+  - Drops `periodicals`, `periodicals_sync_status`, `periodicals_playback_history` tables
+  - Drops related views and triggers
+  - Note: `content_type` column in `audiobooks` table is retained
+- **Download Script**: Removed podcast episode detection logic from `download-new-audiobooks`
+- **Status Script**: Removed periodicals timer from `audiobook-status` service checks
+- **Web UI**: Removed "Reading Room" navigation link from main library header
+- **Documentation**: Updated README.md and ARCHITECTURE.md to remove periodicals references
+
+### Migration Notes
+- **Before upgrading**: Disable periodicals services
+  ```bash
+  sudo systemctl stop audiobook-periodicals-sync.timer
+  sudo systemctl disable audiobook-periodicals-sync.timer
+  ```
+- **After upgrading**: Run the cleanup migration
+  ```bash
+  sqlite3 /path/to/audiobooks.db < migrations/010_drop_periodicals.sql
+  ```
+- **To restore periodicals**: Use tag `v3.11.2-with-periodicals` or branch `feature/periodicals-rnd`
+
 ## [3.11.2] - 2026-01-17
 
 ### Added

@@ -62,7 +62,7 @@ echo ""
 echo "Timers:"
 
 # Check scheduled timers
-for TIMER in audiobook-downloader audiobook-periodicals-sync; do
+for TIMER in audiobook-downloader; do
     if systemctl is-active "$TIMER.timer" &>/dev/null; then
         STATUS=$(systemctl is-active "$TIMER.timer")
     else
