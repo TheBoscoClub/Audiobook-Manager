@@ -6,10 +6,10 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![3](https://img.shields.io/badge/3-brightgreen)![11](https://img.shields.io/badge/11-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v3.11.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.1) |
-| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v3.11.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.0) |
-| ![3](https://img.shields.io/badge/3-brightred)![10](https://img.shields.io/badge/10-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v3.10.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.10.1) |
-| ![3](https://img.shields.io/badge/3-brightred)![10](https://img.shields.io/badge/10-darkred)![0](https://img.shields.io/badge/0-red) | Prior patch | [v3.10.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.10.0) |
+| ![4](https://img.shields.io/badge/4-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest major | [v4.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0) |
+| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![2](https://img.shields.io/badge/2-red) | Prior minor | [v3.11.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.2) |
+| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v3.11.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.1) |
+| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![0](https://img.shields.io/badge/0-red) | Prior patch | [v3.11.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.0) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![8](https://img.shields.io/badge/8-red) | Prior patch | [v3.9.8](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.8) |
 | ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![7](https://img.shields.io/badge/7-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v3.9.7.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.7.1) |
 
