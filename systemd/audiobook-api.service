@@ -30,8 +30,9 @@ SyslogIdentifier=audiobooks-api
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-# Data directory for audiobooks database and cache
-ReadWritePaths=/var/lib/audiobooks
+# Writable paths - database state + data directory (adjust AUDIOBOOKS_DATA path for your installation)
+# NOTE: Systemd doesn't expand env vars in ReadWritePaths, so add your data path explicitly
+ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks
 ProtectHome=yes
 # PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
 PrivateTmp=no

@@ -62,10 +62,13 @@ generate_source_checksum() {
     # Generate MD5 checksum of first 1MB (fast duplicate detection)
     local checksum=$(head -c 1048576 "$filepath" 2>/dev/null | md5sum | cut -d' ' -f1)
     if [ -n "$checksum" ]; then
-        # Append to index (thread-safe with flock)
+        # Append to index (thread-safe with flock) - skip if filepath already exists
         (
             flock -x 201
-            echo "${checksum}|${filepath}" >> "$index_file"
+            # Check if filepath already in index (avoid duplicates)
+            if ! grep -qF "|${filepath}" "$index_file" 2>/dev/null; then
+                echo "${checksum}|${filepath}" >> "$index_file"
+            fi
         ) 201>"${index_file}.lock"
         log "Checksum: $checksum for $(basename "$filepath")"
     fi
