@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.0.1] - 2026-01-17
+
+### Fixed
+- **API**: Library rescan now streams real-time progress updates to the web UI. Previously showed "Starting scanner..." for the entire scan duration; now shows actual progress with file counts and percentages.
+- **Security**: Patched CVE-2025-43859 (h11 HTTP request smuggling) by upgrading to h11 0.16.0
+- **Security**: Patched CVE-2026-23490 (pyasn1 parsing issue) by upgrading to pyasn1 0.6.2
+- **Security**: Added CodeQL suppression comments for validated false positives in path handling and log sanitization code
+
 ## [4.0.0.2] - 2026-01-17
 
 ### Fixed

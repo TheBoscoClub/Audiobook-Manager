@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![4](https://img.shields.io/badge/4-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green)![2](https://img.shields.io/badge/2-yellow) | Latest tweak | [v4.0.0.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.2) |
+| ![4](https://img.shields.io/badge/4-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v4.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.1) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![2](https://img.shields.io/badge/2-orange) | Prior tweak | [v4.0.0.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.2) |
 | ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v4.0.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.1) |
 | ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v4.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0) |
 | ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![2](https://img.shields.io/badge/2-red) | Prior minor | [v3.11.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.2) |
