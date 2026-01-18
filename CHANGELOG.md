@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.0.0.2] - 2026-01-17
+
+### Fixed
+- **CI**: Fixed Docker workflow to support 4-digit tweak versions (X.Y.Z.W). The `docker/metadata-action` semver pattern doesn't handle 4-segment versions, so switched to raw tag extraction.
+
 ## [4.0.0.1] - 2026-01-17
 
 ### Fixed
