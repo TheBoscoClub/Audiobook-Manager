@@ -32,7 +32,7 @@ sys.path.insert(0, str(LIBRARY_DIR.parent / "rnd"))
 from config import (AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY,  # noqa: E402
                     AUDIOBOOKS_SOURCES)
 from scanner.metadata_utils import extract_author_from_tags  # noqa: E402
-from scanner.metadata_utils import run_ffprobe
+from scanner.metadata_utils import run_ffprobe  # noqa: E402
 
 # =============================================================================
 # Configuration - Uses config module for path resolution
