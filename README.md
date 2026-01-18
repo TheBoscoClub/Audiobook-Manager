@@ -1153,11 +1153,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### Unreleased
+### v3.11.2 (Current)
 - **Podcast Episode Download & Conversion**: Full support for downloading and converting podcast episodes from Audible
+- **Periodicals Orphan Detection**: Find and delete episodes whose parent series no longer exists
+- **Security Fixes**: SQL injection prevention, log injection fixes, XSS prevention in library.js
 - **Periodicals SSE Fix**: Fixed Flask request context issue in SSE generator
+- **Build Queue Fix**: Fixed to only process AAX/AAXC files, not MP3 podcasts
 
-### v3.11.1 (Current)
+### v3.11.1
 - **Deploy Fix**: Fixed `deploy.sh` to include root-level management scripts (`upgrade.sh`, `migrate-api.sh`) that were being silently skipped during deployment
 
 ### v3.11.0
