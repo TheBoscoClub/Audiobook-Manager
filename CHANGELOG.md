@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.0.0.1] - 2026-01-17
+
+### Fixed
+- **Documentation**: Corrected migration path in CHANGELOG.md - was `migrations/010_drop_periodicals.sql`, now correctly shows `library/backend/migrations/010_drop_periodicals.sql`
+
 ## [4.0.0] - 2026-01-17
 
 ### Removed

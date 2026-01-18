@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![4](https://img.shields.io/badge/4-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest major | [v4.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0) |
+| ![4](https://img.shields.io/badge/4-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v4.0.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.1) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v4.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0) |
 | ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![2](https://img.shields.io/badge/2-red) | Prior minor | [v3.11.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.2) |
 | ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v3.11.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.1) |
 | ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![0](https://img.shields.io/badge/0-red) | Prior patch | [v3.11.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.0) |
@@ -1142,7 +1143,10 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v4.0.0 (Current)
+### v4.0.0.1 (Current)
+- **Documentation Fix**: Corrected migration path in CHANGELOG.md (was `migrations/` now `library/backend/migrations/`)
+
+### v4.0.0
 - **BREAKING: Periodicals Feature Removed**: The "Reading Room" periodicals subsystem (podcasts, newspapers, meditation) has been extracted to a separate R&D branch (`feature/periodicals-rnd`). This simplifies the main codebase to focus on audiobooks only.
   - Migration `010_drop_periodicals.sql` removes periodicals tables
   - To restore periodicals, use tag `v3.11.2-with-periodicals`
