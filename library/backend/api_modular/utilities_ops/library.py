@@ -138,35 +138,49 @@ def init_library_routes(db_path, project_root):
                 # Pattern to extract progress: "99% | 1821/1828"
                 progress_pattern = re.compile(r"(\d+)%\s*\|\s*(\d+)/(\d+)")
 
-                # Stream stdout and parse progress
-                for line in iter(process.stdout.readline, ""):
-                    output_lines.append(line)
+                # Read stdout char-by-char to handle \r progress updates
+                # Scanner uses \r for in-place terminal updates, not \n
+                buffer = ""
+                while True:
+                    char = process.stdout.read(1)
+                    if not char:  # EOF
+                        if buffer:
+                            output_lines.append(buffer)
+                        break
 
-                    # Parse progress from ANSI output
-                    match = progress_pattern.search(line)
-                    if match:
-                        percent = int(match.group(1))
-                        current = int(match.group(2))
-                        total = int(match.group(3))
-                        files_found = total
+                    if char in ("\r", "\n"):
+                        if buffer:
+                            output_lines.append(buffer)
 
-                        # Only update if progress changed significantly (avoid spam)
-                        if percent > last_progress:
-                            # Scale to 5-95% range (leave room for start/end)
-                            scaled = 5 + int(percent * 0.9)
-                            tracker.update_progress(
-                                operation_id,
-                                scaled,
-                                f"Scanning: {current}/{total} files ({percent}%)",
-                            )
-                            last_progress = percent
+                            # Parse progress from ANSI output
+                            match = progress_pattern.search(buffer)
+                            if match:
+                                percent = int(match.group(1))
+                                current = int(match.group(2))
+                                total = int(match.group(3))
+                                files_found = total
 
-                    # Check for completion message
-                    if "Total files:" in line or "Total audiobooks:" in line:
-                        try:
-                            files_found = int(line.split(":")[1].strip())
-                        except (ValueError, IndexError):
-                            pass
+                                # Only update if progress changed (avoid spam)
+                                if percent > last_progress:
+                                    # Scale to 5-95% range
+                                    scaled = 5 + int(percent * 0.9)
+                                    tracker.update_progress(
+                                        operation_id,
+                                        scaled,
+                                        f"Scanning: {current}/{total} files ({percent}%)",
+                                    )
+                                    last_progress = percent
+
+                            # Check for completion message
+                            if "Total files:" in buffer or "Total audiobooks:" in buffer:
+                                try:
+                                    files_found = int(buffer.split(":")[1].strip())
+                                except (ValueError, IndexError):
+                                    pass
+
+                            buffer = ""
+                    else:
+                        buffer += char
 
                 process.wait(timeout=1800)
                 stderr = process.stderr.read()
