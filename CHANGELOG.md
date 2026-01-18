@@ -8,15 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [3.11.2] - 2026-01-17
+
+### Added
 - **Podcast Episode Download & Conversion**: Full support for downloading and converting podcast episodes from Audible
   - `download-new-audiobooks`: Detects podcast episodes via database, uses `--resolve-podcasts` flag for proper MP3 download
   - `convert-audiobooks-opus-parallel`: Handles MP3-to-Opus conversion for podcasts (no DRM, simple ffmpeg transcode)
   - `build-conversion-queue`: Now includes `.mp3` files in source/converted indexing
+- **Periodicals Orphan Detection**: Find and delete episodes whose parent series no longer exists
+  - `GET /api/v1/periodicals/orphans`: List orphaned episodes
+  - `DELETE /api/v1/periodicals/orphans`: Expunge all orphaned episodes (files + database)
+  - UI button "🔍 Find Orphans" in periodicals header with modal display
 
 ### Fixed
 - **Periodicals SSE**: Fixed Flask request context issue in SSE generator by capturing `g.db_path` before generator starts
-
-### Changed
+- **Security - SQL Injection**: Added table name whitelist (`ALLOWED_LOOKUP_TABLES`) in scanner modules to prevent SQL injection via genre/era/topic lookups
+- **Security - Log Injection**: Converted 4 files to use `%s` formatting instead of f-strings in log calls (`periodicals.py`, `add_new_audiobooks.py`, `position_sync.py`, `import_single.py`)
+- **Security - XSS**: Changed `innerHTML` to `textContent` for user-controlled content in `library.js`
+- **Build Queue**: Fixed `build-conversion-queue` to only process AAX/AAXC files, not MP3 podcasts (which don't need DRM removal)
+- **Lint**: Added missing `# noqa: E402` comment for module-level import in `test_metadata_consistency.py`
 
 ## [3.11.1] - 2026-01-14
 
