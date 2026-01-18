@@ -59,41 +59,122 @@ def init_audible_routes(project_root):
                 )
 
             try:
-                tracker.update_progress(operation_id, 5, "Starting download process...")
-
-                result = subprocess.run(
-                    ["bash", str(script_path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=3600,  # 1 hour timeout for downloads
-                    env={**os.environ, "TERM": "dumb"},  # Avoid terminal control chars
+                tracker.update_progress(
+                    operation_id, 2, "Initializing download process..."
                 )
 
-                output = result.stdout
-                downloaded_count = 0
-                for line in output.split("\n"):
-                    if "Downloaded" in line or "downloaded" in line:
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                downloaded_count = int(numbers[0])
-                        except ValueError:
-                            pass  # Non-critical: continue with default count
+                # Use Popen for streaming progress instead of blocking run()
+                process = subprocess.Popen(
+                    ["bash", str(script_path)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,  # Line buffered
+                    env={**os.environ, "TERM": "dumb"},
+                )
 
-                if result.returncode == 0:
+                output_lines = []
+                downloaded_count = 0
+                failed_count = 0
+                current_item = 0
+                total_items = 0
+                last_progress = 2
+
+                # Patterns to parse download script output
+                # [1/16] Downloading: Book Title
+                item_pattern = re.compile(r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)")
+                # ✓ Downloaded: Book Title
+                success_pattern = re.compile(r"[✓✔]\s*Downloaded.*:\s*(.+)")
+                # ✗ Failed: Book Title
+                fail_pattern = re.compile(r"[✗✘]\s*Failed.*:\s*(.+)")
+                # Download complete: X succeeded, Y failed
+                complete_pattern = re.compile(
+                    r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed"
+                )
+
+                # Read stdout line by line
+                buffer = ""
+                while True:
+                    char = process.stdout.read(1)
+                    if not char:  # EOF
+                        if buffer:
+                            output_lines.append(buffer)
+                        break
+
+                    if char in ("\r", "\n"):
+                        if buffer:
+                            output_lines.append(buffer)
+
+                            # Parse progress from output
+                            # Check for [X/Y] Downloading pattern
+                            match = item_pattern.search(buffer)
+                            if match:
+                                current_item = int(match.group(1))
+                                total_items = int(match.group(2))
+                                title = match.group(3).strip()[:50]
+
+                                # Scale progress: 2-90% for downloads
+                                if total_items > 0:
+                                    progress = 2 + int(
+                                        (current_item / total_items) * 88
+                                    )
+                                    if progress > last_progress:
+                                        tracker.update_progress(
+                                            operation_id,
+                                            progress,
+                                            f"[{current_item}/{total_items}] "
+                                            f"Downloading: {title}",
+                                        )
+                                        last_progress = progress
+
+                            # Check for success
+                            elif success_pattern.search(buffer):
+                                downloaded_count += 1
+                                title = (
+                                    success_pattern.search(buffer).group(1).strip()[:40]
+                                )
+                                tracker.update_progress(
+                                    operation_id,
+                                    last_progress,
+                                    f"✓ Downloaded: {title}",
+                                )
+
+                            # Check for failure
+                            elif fail_pattern.search(buffer):
+                                failed_count += 1
+
+                            # Check for completion summary
+                            elif complete_pattern.search(buffer):
+                                match = complete_pattern.search(buffer)
+                                downloaded_count = int(match.group(1))
+                                failed_count = int(match.group(2))
+
+                            buffer = ""
+                    else:
+                        buffer += char
+
+                process.wait(timeout=3600)  # 1 hour timeout
+                stderr = process.stderr.read()
+
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
                             "downloaded_count": downloaded_count,
+                            "failed_count": failed_count,
+                            "total_attempted": total_items,
                             "output": output[-2000:] if len(output) > 2000 else output,
                         },
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Download failed"
+                        operation_id, stderr or "Download failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(operation_id, "Download timed out after 1 hour")
             except Exception as e:
                 tracker.fail_operation(operation_id, str(e))
@@ -141,31 +222,81 @@ def init_audible_routes(project_root):
             script_path = project_root / "scripts" / "populate_genres.py"
 
             try:
-                tracker.update_progress(operation_id, 10, "Loading Audible metadata...")
+                tracker.update_progress(
+                    operation_id, 5, "Loading Audible metadata..."
+                )
 
-                cmd = ["python3", str(script_path)]
+                cmd = ["python3", "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:
                     cmd.append("--execute")
 
-                result = subprocess.run(
+                # Use Popen for streaming progress
+                process = subprocess.Popen(
                     cmd,
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=600,
+                    bufsize=1,
                 )
 
-                output = result.stdout
+                output_lines = []
                 updated_count = 0
-                for line in output.split("\n"):
-                    if "updated" in line.lower() or "would update" in line.lower():
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                updated_count = int(numbers[0])
-                        except ValueError:
-                            pass  # Non-critical: continue with default count
+                processed_count = 0
+                total_count = 0
+                last_progress = 5
 
-                if result.returncode == 0:
+                # Patterns for genre sync output
+                # Processing: Book Title or [X/Y] Processing...
+                processing_pattern = re.compile(r"\[(\d+)/(\d+)\].*Processing")
+                # Updated X / Would update X
+                update_pattern = re.compile(r"(?:would update|updated)\s*(\d+)", re.I)
+                # Loading X audiobooks
+                loading_pattern = re.compile(r"Loading\s*(\d+)\s*audiobooks", re.I)
+
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for loading count
+                        match = loading_pattern.search(line)
+                        if match:
+                            total_count = int(match.group(1))
+                            tracker.update_progress(
+                                operation_id,
+                                10,
+                                f"Found {total_count} audiobooks to process",
+                            )
+                            continue
+
+                        # Check for processing progress
+                        match = processing_pattern.search(line)
+                        if match:
+                            processed_count = int(match.group(1))
+                            total = int(match.group(2))
+                            if total > 0:
+                                progress = 10 + int((processed_count / total) * 80)
+                                if progress > last_progress:
+                                    tracker.update_progress(
+                                        operation_id,
+                                        progress,
+                                        f"Processing genres: {processed_count}/{total}",
+                                    )
+                                    last_progress = progress
+                            continue
+
+                        # Check for update count
+                        match = update_pattern.search(line)
+                        if match:
+                            updated_count = int(match.group(1))
+
+                process.wait(timeout=600)
+                stderr = process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -176,10 +307,11 @@ def init_audible_routes(project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Genre sync failed"
+                        operation_id, stderr or "Genre sync failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(
                     operation_id, "Genre sync timed out after 10 minutes"
                 )
@@ -229,31 +361,77 @@ def init_audible_routes(project_root):
             script_path = project_root / "scripts" / "update_narrators_from_audible.py"
 
             try:
-                tracker.update_progress(operation_id, 10, "Loading Audible metadata...")
+                tracker.update_progress(
+                    operation_id, 5, "Loading Audible metadata..."
+                )
 
-                cmd = ["python3", str(script_path)]
+                cmd = ["python3", "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:
                     cmd.append("--execute")
 
-                result = subprocess.run(
+                # Use Popen for streaming progress
+                process = subprocess.Popen(
                     cmd,
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=600,
+                    bufsize=1,
                 )
 
-                output = result.stdout
+                output_lines = []
                 updated_count = 0
-                for line in output.split("\n"):
-                    if "updated" in line.lower() or "would update" in line.lower():
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                updated_count = int(numbers[0])
-                        except ValueError:
-                            pass  # Non-critical: continue with default count
+                processed_count = 0
+                last_progress = 5
 
-                if result.returncode == 0:
+                # Patterns for narrator sync output
+                processing_pattern = re.compile(r"\[(\d+)/(\d+)\].*Processing")
+                update_pattern = re.compile(r"(?:would update|updated)\s*(\d+)", re.I)
+                loading_pattern = re.compile(r"Loading\s*(\d+)\s*audiobooks", re.I)
+
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for loading count
+                        match = loading_pattern.search(line)
+                        if match:
+                            total_count = int(match.group(1))
+                            tracker.update_progress(
+                                operation_id,
+                                10,
+                                f"Found {total_count} audiobooks to process",
+                            )
+                            continue
+
+                        # Check for processing progress
+                        match = processing_pattern.search(line)
+                        if match:
+                            processed_count = int(match.group(1))
+                            total = int(match.group(2))
+                            if total > 0:
+                                progress = 10 + int((processed_count / total) * 80)
+                                if progress > last_progress:
+                                    tracker.update_progress(
+                                        operation_id,
+                                        progress,
+                                        f"Processing narrators: {processed_count}/{total}",
+                                    )
+                                    last_progress = progress
+                            continue
+
+                        # Check for update count
+                        match = update_pattern.search(line)
+                        if match:
+                            updated_count = int(match.group(1))
+
+                process.wait(timeout=600)
+                stderr = process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -264,10 +442,11 @@ def init_audible_routes(project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Narrator sync failed"
+                        operation_id, stderr or "Narrator sync failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(
                     operation_id, "Narrator sync timed out after 10 minutes"
                 )

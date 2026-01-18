@@ -57,28 +57,70 @@ def init_maintenance_routes(project_root):
                 script_path = project_root.parent / "scripts" / "build-conversion-queue"
 
             try:
-                tracker.update_progress(operation_id, 10, "Rebuilding queue...")
+                tracker.update_progress(
+                    operation_id, 5, "Scanning source directory..."
+                )
 
-                result = subprocess.run(
+                # Use Popen for streaming progress
+                process = subprocess.Popen(
                     ["bash", str(script_path), "--rebuild"],
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=300,
+                    bufsize=1,
                     env={**os.environ, "TERM": "dumb"},
                 )
 
-                output = result.stdout
+                output_lines = []
                 queue_size = 0
-                for line in output.split("\n"):
-                    if "queue" in line.lower() and any(c.isdigit() for c in line):
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                queue_size = int(numbers[-1])
-                        except ValueError:
-                            pass  # Non-critical: continue with default count
+                files_scanned = 0
+                last_progress = 5
 
-                if result.returncode == 0:
+                # Patterns for queue build output
+                scanning_pattern = re.compile(r"(?:Scanning|Processing).*?(\d+)")
+                found_pattern = re.compile(r"Found\s*(\d+)\s*(?:files|items)")
+                queue_pattern = re.compile(r"Queue.*?(\d+)")
+
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for scanning progress
+                        match = scanning_pattern.search(line)
+                        if match:
+                            files_scanned = int(match.group(1))
+                            progress = min(5 + (files_scanned // 50), 80)
+                            if progress > last_progress:
+                                tracker.update_progress(
+                                    operation_id,
+                                    progress,
+                                    f"Scanning files: {files_scanned} processed",
+                                )
+                                last_progress = progress
+
+                        # Check for found files
+                        match = found_pattern.search(line)
+                        if match:
+                            found = int(match.group(1))
+                            tracker.update_progress(
+                                operation_id,
+                                85,
+                                f"Found {found} files to process",
+                            )
+
+                        # Check for queue size
+                        match = queue_pattern.search(line)
+                        if match:
+                            queue_size = int(match.group(1))
+
+                process.wait(timeout=300)
+                stderr = process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -88,10 +130,11 @@ def init_maintenance_routes(project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Queue rebuild failed"
+                        operation_id, stderr or "Queue rebuild failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(
                     operation_id, "Queue rebuild timed out after 5 minutes"
                 )
@@ -145,33 +188,81 @@ def init_maintenance_routes(project_root):
 
             try:
                 tracker.update_progress(
-                    operation_id, 10, "Scanning indexes for stale entries..."
+                    operation_id, 5, "Loading index files..."
                 )
 
                 cmd = ["bash", str(script_path)]
                 if dry_run:
                     cmd.append("--dry-run")
 
-                result = subprocess.run(
+                # Use Popen for streaming progress
+                process = subprocess.Popen(
                     cmd,
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=600,
+                    bufsize=1,
                     env={**os.environ, "TERM": "dumb"},
                 )
 
-                output = result.stdout
+                output_lines = []
                 removed_count = 0
-                for line in output.split("\n"):
-                    if "removed" in line.lower() or "would remove" in line.lower():
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                removed_count += int(numbers[0])
-                        except ValueError:
-                            pass  # Non-critical: continue with default count
+                checked_count = 0
+                last_progress = 5
 
-                if result.returncode == 0:
+                # Patterns for cleanup output
+                checking_pattern = re.compile(r"(?:Checking|Verifying).*?(\d+)")
+                progress_pattern = re.compile(r"\[(\d+)/(\d+)\]")
+                removed_pattern = re.compile(
+                    r"(?:removed|would remove|stale)\D*(\d+)", re.I
+                )
+
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for [X/Y] progress
+                        match = progress_pattern.search(line)
+                        if match:
+                            current = int(match.group(1))
+                            total = int(match.group(2))
+                            if total > 0:
+                                progress = 5 + int((current / total) * 85)
+                                if progress > last_progress:
+                                    tracker.update_progress(
+                                        operation_id,
+                                        progress,
+                                        f"Checking entries: {current}/{total}",
+                                    )
+                                    last_progress = progress
+                            continue
+
+                        # Check for checking progress
+                        match = checking_pattern.search(line)
+                        if match:
+                            checked_count = int(match.group(1))
+                            progress = min(5 + (checked_count // 100), 85)
+                            if progress > last_progress:
+                                tracker.update_progress(
+                                    operation_id,
+                                    progress,
+                                    f"Verified {checked_count} entries",
+                                )
+                                last_progress = progress
+
+                        # Check for removed count
+                        match = removed_pattern.search(line)
+                        if match:
+                            removed_count = int(match.group(1))
+
+                process.wait(timeout=600)
+                stderr = process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -182,10 +273,11 @@ def init_maintenance_routes(project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Cleanup failed"
+                        operation_id, stderr or "Cleanup failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(
                     operation_id, "Cleanup timed out after 10 minutes"
                 )
@@ -235,32 +327,92 @@ def init_maintenance_routes(project_root):
 
             try:
                 tracker.update_progress(
-                    operation_id, 10, "Analyzing titles and authors..."
+                    operation_id, 5, "Loading audiobooks from database..."
                 )
 
-                cmd = ["python3", str(script_path)]
+                cmd = ["python3", "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:
                     cmd.append("--execute")
 
-                result = subprocess.run(
+                # Use Popen for streaming progress
+                process = subprocess.Popen(
                     cmd,
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=300,
+                    bufsize=1,
                 )
 
-                output = result.stdout
+                output_lines = []
                 updated_count = 0
-                for line in output.split("\n"):
-                    if "updated" in line.lower() or "would update" in line.lower():
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                updated_count = int(numbers[0])
-                        except ValueError:
-                            pass  # Non-critical: continue with default count
+                processed_count = 0
+                last_progress = 5
 
-                if result.returncode == 0:
+                # Patterns for sort field output
+                loading_pattern = re.compile(r"Loading\s*(\d+)\s*audiobooks", re.I)
+                progress_pattern = re.compile(r"\[(\d+)/(\d+)\]")
+                processing_pattern = re.compile(r"Processing.*?(\d+)")
+                update_pattern = re.compile(
+                    r"(?:would update|updated)\s*(\d+)", re.I
+                )
+
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for loading count
+                        match = loading_pattern.search(line)
+                        if match:
+                            total = int(match.group(1))
+                            tracker.update_progress(
+                                operation_id,
+                                10,
+                                f"Found {total} audiobooks to process",
+                            )
+                            continue
+
+                        # Check for [X/Y] progress
+                        match = progress_pattern.search(line)
+                        if match:
+                            current = int(match.group(1))
+                            total = int(match.group(2))
+                            if total > 0:
+                                progress = 10 + int((current / total) * 80)
+                                if progress > last_progress:
+                                    tracker.update_progress(
+                                        operation_id,
+                                        progress,
+                                        f"Analyzing: {current}/{total}",
+                                    )
+                                    last_progress = progress
+                            continue
+
+                        # Check for processing progress
+                        match = processing_pattern.search(line)
+                        if match:
+                            processed_count = int(match.group(1))
+                            progress = min(10 + (processed_count // 20), 85)
+                            if progress > last_progress:
+                                tracker.update_progress(
+                                    operation_id,
+                                    progress,
+                                    f"Processed {processed_count} titles",
+                                )
+                                last_progress = progress
+
+                        # Check for update count
+                        match = update_pattern.search(line)
+                        if match:
+                            updated_count = int(match.group(1))
+
+                process.wait(timeout=300)
+                stderr = process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -271,10 +423,11 @@ def init_maintenance_routes(project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Sort field population failed"
+                        operation_id, stderr or "Sort field population failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(
                     operation_id, "Sort field population timed out after 5 minutes"
                 )
@@ -332,10 +485,11 @@ def init_maintenance_routes(project_root):
             try:
                 # Step 1: Export Audible library from Amazon
                 tracker.update_progress(
-                    operation_id, 10, "Exporting Audible library from Amazon..."
+                    operation_id, 5, "Connecting to Audible API..."
                 )
 
-                export_result = subprocess.run(
+                # Use Popen for export step
+                export_process = subprocess.Popen(
                     [
                         "audible",
                         "library",
@@ -348,59 +502,120 @@ def init_maintenance_routes(project_root):
                         "120",
                         "--resolve-podcasts",
                     ],
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=300,
+                    bufsize=1,
                 )
 
-                if export_result.returncode != 0:
+                export_lines = []
+                for line in iter(export_process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        export_lines.append(line)
+                        # Update progress with any status from audible CLI
+                        if "export" in line.lower() or "download" in line.lower():
+                            tracker.update_progress(
+                                operation_id,
+                                15,
+                                f"Exporting library: {line[:50]}",
+                            )
+
+                export_process.wait(timeout=300)
+
+                if export_process.returncode != 0:
+                    stderr = export_process.stderr.read()
                     tracker.fail_operation(
                         operation_id,
-                        f"Failed to export Audible library: {export_result.stderr}",
+                        f"Failed to export Audible library: {stderr}",
                     )
                     return
 
                 tracker.update_progress(
-                    operation_id, 40, "Matching audiobooks to library..."
+                    operation_id, 30, "Library exported, starting match process..."
                 )
 
                 # Step 2: Match using library export (conservative threshold)
-                cmd = ["python3", str(library_script)]
+                cmd = ["python3", "-u", str(library_script)]
                 cmd.extend(["--library", str(library_export)])
                 cmd.extend(["--db", str(AUDIOBOOKS_DATABASE)])
                 cmd.extend(["--threshold", "0.6"])  # Conservative threshold
                 if dry_run:
                     cmd.append("--dry-run")
 
-                result = subprocess.run(
+                # Use Popen for matching step
+                match_process = subprocess.Popen(
                     cmd,
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=300,
+                    bufsize=1,
                 )
 
-                output = result.stdout
+                output_lines = []
                 matched_count = 0
                 unmatched_count = 0
+                last_progress = 30
 
-                # Parse output for match statistics
-                for line in output.split("\n"):
-                    if "Matched:" in line:
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                matched_count = int(numbers[0])
-                        except ValueError:
-                            matched_count = 0  # Parsing failed, use default
-                    elif "Unmatched:" in line:
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                unmatched_count = int(numbers[0])
-                        except ValueError:
-                            unmatched_count = 0  # Parsing failed, use default
+                # Patterns for matching output
+                progress_pattern = re.compile(r"\[(\d+)/(\d+)\]")
+                matched_pattern = re.compile(r"Matched:\s*(\d+)")
+                unmatched_pattern = re.compile(r"Unmatched:\s*(\d+)")
+                processing_pattern = re.compile(r"(?:Processing|Matching).*?(\d+)")
 
-                if result.returncode == 0:
+                for line in iter(match_process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for [X/Y] progress
+                        match = progress_pattern.search(line)
+                        if match:
+                            current = int(match.group(1))
+                            total = int(match.group(2))
+                            if total > 0:
+                                progress = 30 + int((current / total) * 60)
+                                if progress > last_progress:
+                                    tracker.update_progress(
+                                        operation_id,
+                                        progress,
+                                        f"Matching: {current}/{total} audiobooks",
+                                    )
+                                    last_progress = progress
+                            continue
+
+                        # Check for processing progress
+                        match = processing_pattern.search(line)
+                        if match:
+                            count = int(match.group(1))
+                            progress = min(30 + (count // 10), 85)
+                            if progress > last_progress:
+                                tracker.update_progress(
+                                    operation_id,
+                                    progress,
+                                    f"Processing audiobook {count}",
+                                )
+                                last_progress = progress
+
+                        # Check for matched count
+                        match = matched_pattern.search(line)
+                        if match:
+                            matched_count = int(match.group(1))
+
+                        # Check for unmatched count
+                        match = unmatched_pattern.search(line)
+                        if match:
+                            unmatched_count = int(match.group(1))
+
+                match_process.wait(timeout=300)
+                stderr = match_process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if match_process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -412,7 +627,7 @@ def init_maintenance_routes(project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "ASIN population failed"
+                        operation_id, stderr or "ASIN population failed"
                     )
 
             except subprocess.TimeoutExpired:
@@ -466,32 +681,91 @@ def init_maintenance_routes(project_root):
                 script_path = project_root.parent / "scripts" / "find-duplicate-sources"
 
             try:
-                tracker.update_progress(operation_id, 10, "Scanning source files...")
+                tracker.update_progress(
+                    operation_id, 5, "Scanning source directory..."
+                )
 
                 cmd = ["bash", str(script_path)]
                 if dry_run:
                     cmd.append("--dry-run")
 
-                result = subprocess.run(
+                # Use Popen for streaming progress
+                process = subprocess.Popen(
                     cmd,
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=600,
+                    bufsize=1,
                     env={**os.environ, "TERM": "dumb"},
                 )
 
-                output = result.stdout
+                output_lines = []
                 duplicates_found = 0
-                for line in output.split("\n"):
-                    if "duplicate" in line.lower():
-                        try:
-                            numbers = re.findall(r"\d+", line)
-                            if numbers:
-                                duplicates_found = int(numbers[0])
-                        except ValueError:
-                            pass  # Non-critical: continue with default count
+                files_scanned = 0
+                last_progress = 5
 
-                if result.returncode == 0:
+                # Patterns for duplicate scan output
+                scanning_pattern = re.compile(r"(?:Scanning|Checking).*?(\d+)")
+                progress_pattern = re.compile(r"\[(\d+)/(\d+)\]")
+                found_pattern = re.compile(r"Found\s*(\d+)\s*(?:files|sources)")
+                duplicate_pattern = re.compile(r"(?:duplicate|dup).*?(\d+)", re.I)
+
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for [X/Y] progress
+                        match = progress_pattern.search(line)
+                        if match:
+                            current = int(match.group(1))
+                            total = int(match.group(2))
+                            if total > 0:
+                                progress = 5 + int((current / total) * 85)
+                                if progress > last_progress:
+                                    tracker.update_progress(
+                                        operation_id,
+                                        progress,
+                                        f"Comparing: {current}/{total} files",
+                                    )
+                                    last_progress = progress
+                            continue
+
+                        # Check for scanning progress
+                        match = scanning_pattern.search(line)
+                        if match:
+                            files_scanned = int(match.group(1))
+                            progress = min(5 + (files_scanned // 50), 80)
+                            if progress > last_progress:
+                                tracker.update_progress(
+                                    operation_id,
+                                    progress,
+                                    f"Scanned {files_scanned} files",
+                                )
+                                last_progress = progress
+
+                        # Check for found files
+                        match = found_pattern.search(line)
+                        if match:
+                            found = int(match.group(1))
+                            tracker.update_progress(
+                                operation_id,
+                                20,
+                                f"Found {found} source files to analyze",
+                            )
+
+                        # Check for duplicates
+                        match = duplicate_pattern.search(line)
+                        if match:
+                            duplicates_found = int(match.group(1))
+
+                process.wait(timeout=600)
+                stderr = process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -502,10 +776,11 @@ def init_maintenance_routes(project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Duplicate scan failed"
+                        operation_id, stderr or "Duplicate scan failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(
                     operation_id, "Duplicate scan timed out after 10 minutes"
                 )

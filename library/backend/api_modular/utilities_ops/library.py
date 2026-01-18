@@ -216,6 +216,8 @@ def init_library_routes(db_path, project_root):
     @utilities_ops_library_bp.route("/api/utilities/reimport-async", methods=["POST"])
     def reimport_database_async() -> FlaskResponse:
         """Reimport audiobooks to database with progress tracking."""
+        import re
+
         tracker = get_tracker()
 
         existing = tracker.is_operation_running("reimport")
@@ -240,43 +242,126 @@ def init_library_routes(db_path, project_root):
             import_path = project_root / "backend" / "import_to_db.py"
 
             try:
-                tracker.update_progress(operation_id, 10, "Starting import...")
+                tracker.update_progress(operation_id, 2, "Starting database import...")
 
-                result = subprocess.run(
-                    ["python3", str(import_path)],
-                    capture_output=True,
+                # Use Popen for streaming progress instead of blocking run()
+                process = subprocess.Popen(
+                    ["python3", "-u", str(import_path)],  # -u for unbuffered
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=300,
+                    bufsize=1,
                 )
 
-                output = result.stdout
+                output_lines = []
                 imported_count = 0
-                for line in output.split("\n"):
-                    if "Imported" in line and "audiobooks" in line:
-                        try:
-                            parts = line.split()
-                            for i, part in enumerate(parts):
-                                if part == "Imported" and i + 1 < len(parts):
-                                    imported_count = int(parts[i + 1])
-                                    break
-                        except (ValueError, IndexError):
-                            pass  # Non-critical: continue with default count
+                total_audiobooks = 0
+                last_progress = 2
 
-                if result.returncode == 0:
+                # Patterns for import script output
+                found_pattern = re.compile(r"Found\s+(\d+)\s+audiobooks")
+                processed_pattern = re.compile(r"Processed\s+(\d+)/(\d+)\s+audiobooks")
+                imported_pattern = re.compile(r"Imported\s+(\d+)\s+audiobooks")
+                preserved_pattern = re.compile(r"Preserved\s+(\d+)")
+                optimizing_pattern = re.compile(r"Optimizing database")
+
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line:
+                        output_lines.append(line)
+
+                        # Check for total count
+                        match = found_pattern.search(line)
+                        if match:
+                            total_audiobooks = int(match.group(1))
+                            tracker.update_progress(
+                                operation_id,
+                                5,
+                                f"Found {total_audiobooks:,} audiobooks to import",
+                            )
+                            last_progress = 5
+                            continue
+
+                        # Check for progress updates (every 100 audiobooks)
+                        match = processed_pattern.search(line)
+                        if match:
+                            current = int(match.group(1))
+                            total = int(match.group(2))
+                            if total > 0:
+                                # Scale progress: 10-85% for main import
+                                progress = 10 + int((current / total) * 75)
+                                if progress > last_progress:
+                                    tracker.update_progress(
+                                        operation_id,
+                                        progress,
+                                        f"Importing: {current:,}/{total:,} audiobooks",
+                                    )
+                                    last_progress = progress
+                            continue
+
+                        # Check for preserved metadata
+                        if "Preserving existing metadata" in line:
+                            tracker.update_progress(
+                                operation_id, 8, "Preserving existing metadata..."
+                            )
+                            continue
+
+                        # Check for import completion
+                        match = imported_pattern.search(line)
+                        if match:
+                            imported_count = int(match.group(1))
+                            tracker.update_progress(
+                                operation_id,
+                                90,
+                                f"Imported {imported_count:,} audiobooks",
+                            )
+                            last_progress = 90
+                            continue
+
+                        # Check for optimization phase
+                        if optimizing_pattern.search(line):
+                            tracker.update_progress(
+                                operation_id, 95, "Optimizing database..."
+                            )
+                            last_progress = 95
+                            continue
+
+                        # Check for database creation
+                        if "Creating database" in line:
+                            tracker.update_progress(
+                                operation_id, 3, "Creating database schema..."
+                            )
+                            continue
+
+                        if "Database schema created" in line:
+                            tracker.update_progress(
+                                operation_id, 5, "Database schema ready"
+                            )
+                            continue
+
+                process.wait(timeout=600)  # 10 minute timeout
+                stderr = process.stderr.read()
+                output = "\n".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
                             "imported_count": imported_count,
+                            "total_audiobooks": total_audiobooks,
                             "output": output[-2000:] if len(output) > 2000 else output,
                         },
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Import failed"
+                        operation_id, stderr or "Import failed"
                     )
 
             except subprocess.TimeoutExpired:
-                tracker.fail_operation(operation_id, "Import timed out after 5 minutes")
+                process.kill()
+                tracker.fail_operation(operation_id, "Import timed out after 10 minutes")
             except Exception as e:
                 tracker.fail_operation(operation_id, str(e))
 
