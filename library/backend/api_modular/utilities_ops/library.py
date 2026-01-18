@@ -114,29 +114,66 @@ def init_library_routes(db_path, project_root):
         operation_id = tracker.create_operation("rescan", "Scanning audiobook library")
 
         def run_rescan():
+            import re
+
             tracker.start_operation(operation_id)
             scanner_path = project_root / "scanner" / "scan_audiobooks.py"
 
             try:
-                tracker.update_progress(operation_id, 10, "Starting scanner...")
+                tracker.update_progress(operation_id, 5, "Starting scanner...")
 
-                result = subprocess.run(
-                    ["python3", str(scanner_path)],
-                    capture_output=True,
+                # Use Popen for streaming progress instead of blocking run()
+                process = subprocess.Popen(
+                    ["python3", "-u", str(scanner_path)],  # -u for unbuffered
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=1800,
+                    bufsize=1,  # Line buffered
                 )
 
-                output = result.stdout
+                output_lines = []
                 files_found = 0
-                for line in output.split("\n"):
-                    if "Total audiobook files:" in line:
+                last_progress = 5
+
+                # Pattern to extract progress: "99% | 1821/1828"
+                progress_pattern = re.compile(r"(\d+)%\s*\|\s*(\d+)/(\d+)")
+
+                # Stream stdout and parse progress
+                for line in iter(process.stdout.readline, ""):
+                    output_lines.append(line)
+
+                    # Parse progress from ANSI output
+                    match = progress_pattern.search(line)
+                    if match:
+                        percent = int(match.group(1))
+                        current = int(match.group(2))
+                        total = int(match.group(3))
+                        files_found = total
+
+                        # Only update if progress changed significantly (avoid spam)
+                        if percent > last_progress:
+                            # Scale to 5-95% range (leave room for start/end)
+                            scaled = 5 + int(percent * 0.9)
+                            tracker.update_progress(
+                                operation_id,
+                                scaled,
+                                f"Scanning: {current}/{total} files ({percent}%)",
+                            )
+                            last_progress = percent
+
+                    # Check for completion message
+                    if "Total files:" in line or "Total audiobooks:" in line:
                         try:
                             files_found = int(line.split(":")[1].strip())
                         except (ValueError, IndexError):
-                            pass  # Non-critical: continue with default count
+                            pass
 
-                if result.returncode == 0:
+                process.wait(timeout=1800)
+                stderr = process.stderr.read()
+
+                output = "".join(output_lines)
+
+                if process.returncode == 0:
                     tracker.complete_operation(
                         operation_id,
                         {
@@ -146,10 +183,11 @@ def init_library_routes(db_path, project_root):
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, result.stderr or "Scanner failed"
+                        operation_id, stderr or "Scanner failed"
                     )
 
             except subprocess.TimeoutExpired:
+                process.kill()
                 tracker.fail_operation(operation_id, "Scan timed out after 30 minutes")
             except Exception as e:
                 tracker.fail_operation(operation_id, str(e))
