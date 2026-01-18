@@ -6,9 +6,10 @@ audible>=0.8.0
 cryptography>=42.0.0
 # Security: Pin minimum versions for transitive deps with CVEs
 urllib3>=2.6.3      # CVE-2026-21441
-# NOTE: h11>=0.16.0 (CVE-2025-43859) conflicts with audible 0.8.2 which pins httpx<0.24.0
-# The audible library pins httpcore<0.17 -> h11<0.15. Monitor for audible updates.
-# h11>=0.16.0         # CVE-2025-43859 - BLOCKED by audible dependency chain
+h11>=0.16.0         # CVE-2025-43859
+httpcore>=1.0.9     # Updated to support h11>=0.16
+httpx>=0.28.1       # Updated with httpcore 1.x
+pyasn1>=0.6.2       # CVE-2026-23490
 aiohttp>=3.13.3     # CVE-2025-69223 through CVE-2025-69230
 brotli>=1.2.0       # CVE-2025-6176
 filelock>=3.20.1    # CVE-2025-68146
