@@ -9,15 +9,14 @@ This document describes the system architecture, installation workflows, storage
 3. [Scanner Module Architecture](#scanner-module-architecture)
 4. [API Module Architecture](#api-module-architecture)
 5. [Position Sync Architecture](#position-sync-architecture)
-6. [Periodicals Architecture](#periodicals-architecture)
-7. [Systemd Services Reference](#systemd-services-reference)
-8. [Scripts Reference](#scripts-reference)
-9. [Installation Workflow](#installation-workflow)
-10. [Upgrade Workflow](#upgrade-workflow)
-11. [Migration Workflow](#migration-workflow)
-12. [Storage Layout](#storage-layout)
-13. [Storage Recommendations](#storage-recommendations)
-14. [Filesystem Recommendations](#filesystem-recommendations)
+6. [Systemd Services Reference](#systemd-services-reference)
+7. [Scripts Reference](#scripts-reference)
+8. [Installation Workflow](#installation-workflow)
+9. [Upgrade Workflow](#upgrade-workflow)
+10. [Migration Workflow](#migration-workflow)
+11. [Storage Layout](#storage-layout)
+12. [Storage Recommendations](#storage-recommendations)
+13. [Filesystem Recommendations](#filesystem-recommendations)
 15. [Kernel Compatibility](#kernel-compatibility)
 16. [Quick Reference](#quick-reference)
 17. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
@@ -40,7 +39,7 @@ Audiobook-Manager consists of six logical component groups:
 │  │ • Web UI        │  │ • Sources/      │  │ • Indexes       │             │
 │  │ • Scripts       │  │ • Supplements/  │  │ • Metadata      │             │
 │  │ • Converter     │  │ • .covers/      │  │ • Positions     │             │
-│  │                 │  │ • logs/         │  │ • Periodicals   │             │
+│  │                 │  │ • logs/         │  │                 │             │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘             │
 │           │                    │                    │                       │
 │           ▼                    ▼                    ▼                       │
@@ -52,8 +51,7 @@ Audiobook-Manager consists of six logical component groups:
 │           ▼                                                                 │
 │  ┌─────────────────────────────────────────────────────────────┐           │
 │  │                    EXTERNAL INTEGRATIONS                     │           │
-│  │  Position Sync: Audible Cloud  |  Periodicals: Audible API   │           │
-│  │                Metadata: Audible Library                     │           │
+│  │     Position Sync: Audible Cloud  |  Metadata: Audible Library │         │
 │  └─────────────────────────────────────────────────────────────┘           │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -322,7 +320,6 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `supplements_bp` | `/api` | PDF, ebook companion files |
 | `utilities_bp` | `/api` | CRUD, imports, exports, maintenance |
 | `position_bp` | `/api` | Playback position sync |
-| `periodicals_bp` | `/api/v1` | Periodicals/Reading Room |
 
 ### Utilities Operations Submodules
 
@@ -478,12 +475,12 @@ The `content_type` field in the audiobooks table stores Audible's content classi
 | `Lecture` | Educational content (Great Courses, etc.) | Yes |
 | `Performance` | Dramatized productions | Yes |
 | `Speech` | Speeches, talks | Yes |
-| `Podcast` | Podcast episodes | No (Reading Room) |
-| `Newspaper/Magazine` | News content | No (Reading Room) |
-| `Radio/TV Program` | Broadcast content | No (Reading Room) |
-| `Show` | Series-based content | No (Reading Room) |
+| `Podcast` | Podcast episodes | No |
+| `Newspaper/Magazine` | News content | No |
+| `Radio/TV Program` | Broadcast content | No |
+| `Show` | Series-based content | No |
 
-The `library_audiobooks` view filters the main library to exclude periodical content types:
+The `library_audiobooks` view filters the main library to standard audiobook content types:
 
 ```sql
 CREATE VIEW library_audiobooks AS
@@ -492,7 +489,7 @@ WHERE content_type IN ('Product', 'Lecture', 'Performance', 'Speech')
    OR content_type IS NULL;
 ```
 
-This separation ensures the main library displays full-length audiobooks while periodical content is managed through the Reading Room.
+This view ensures the main library displays full-length audiobooks only.
 
 ### Security: Credential Storage
 
@@ -517,234 +514,6 @@ For complete setup instructions, see [Position Sync Guide](POSITION_SYNC.md).
 
 ---
 
-## Periodicals Architecture
-
-The Periodicals subsystem handles episodic Audible content (podcasts, newspapers, meditation series) separately from the main audiobook library. This separation provides cleaner organization and avoids cluttering the library with hundreds of short episodes.
-
-### Periodicals Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      PERIODICALS "READING ROOM"                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌──────────────────┐         ┌───────────────────┐         ┌──────────────────┐
-  │   Web Browser    │         │  Audiobook-Manager│         │   Audible API    │
-  │ (Reading Room)   │         │       API         │         │                  │
-  ├──────────────────┤         ├───────────────────┤         ├──────────────────┤
-  │                  │  REST   │                   │  Sync   │                  │
-  │  periodicals.html├────────▶│  periodicals.py  ─┼────────▶│  /library        │
-  │  (category tabs) │  API    │  Flask Blueprint  │  Timer  │  /episodes       │
-  │                  │         │                   │         │                  │
-  │  SSE Status ◀────┼─────────┤  sync_periodicals │         │                  │
-  │  (real-time)     │ stream  │  background job   │         │                  │
-  └──────────────────┘         └───────────────────┘         └──────────────────┘
-```
-
-### Content Categories
-
-| Category | Content Type | Examples |
-|----------|-------------|----------|
-| **podcast** | Audio shows, interviews | Michelle Obama: The Light Podcast |
-| **news** | Newspapers, magazines | NY Times Daily, Washington Post |
-| **meditation** | Guided meditation, wellness | Aaptiv Meditation, MoveWith |
-| **other** | Trailers, promos, misc | Book trailers, previews |
-
-### Data Flow: Parent/Child ASIN Structure
-
-Audible organizes episodic content using a parent/child relationship:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    PARENT/CHILD ASIN STRUCTURE                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  Parent ASIN (Series)                    Child ASINs (Episodes)
-  ┌─────────────────────┐                 ┌─────────────────────┐
-  │ B07G8DJNFV          │                 │ B07H1234AB (Ep 1)   │
-  │ "Aaptiv Meditation" │ ───contains───▶ │ B07H1234CD (Ep 2)   │
-  │ category: meditation│                 │ B07H1234EF (Ep 3)   │
-  │ episode_count: 47   │                 │ ... (47 total)      │
-  └─────────────────────┘                 └─────────────────────┘
-
-  The sync process:
-  1. User adds parent ASIN to skip list (main library ignores it)
-  2. Periodicals sync fetches episode list from Audible
-  3. Episodes stored in periodicals table with parent reference
-  4. User selects episodes for download via Reading Room UI
-```
-
-### Sync Mechanism
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    PERIODICALS SYNC FLOW                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  systemd timer                      sync-periodicals-index              Audible
-  (06:00, 18:00)                          script                          API
-       │                                    │                              │
-       │  Trigger service                   │                              │
-       ├───────────────────────────────────▶│                              │
-       │                                    │                              │
-       │                                    │  Read skip list              │
-       │                                    │  (parent ASINs)              │
-       │                                    │                              │
-       │                                    │  For each parent:            │
-       │                                    ├─────────────────────────────▶│
-       │                                    │  GET /library/{parent_asin}  │
-       │                                    │◀─────────────────────────────┤
-       │                                    │  {episodes: [...]}           │
-       │                                    │                              │
-       │                                    │  Rate limit: 1 req / 2 sec   │
-       │                                    │                              │
-       │                                    │  Update SQLite               │
-       │                                    │  • Insert new episodes       │
-       │                                    │  • Update metadata           │
-       │                                    │  • Emit SSE progress         │
-       │                                    │                              │
-       │                                    │  Complete                    │
-       │◀───────────────────────────────────┤                              │
-
-  Manual trigger via UI:
-  POST /api/v1/periodicals/sync/trigger  →  Same flow as above
-```
-
-### Database Schema
-
-```sql
--- Periodicals content index
-CREATE TABLE IF NOT EXISTS periodicals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    parent_asin TEXT NOT NULL,           -- Series/show ASIN
-    child_asin TEXT,                     -- Episode ASIN (NULL for parent entry)
-    title TEXT NOT NULL,                 -- Series title (parent) or episode title
-    episode_title TEXT,                  -- Episode-specific title
-    episode_number INTEGER,              -- Episode sequence number
-    category TEXT NOT NULL DEFAULT 'podcast',  -- podcast, news, meditation, other
-    duration_ms INTEGER,                 -- Episode duration
-    release_date TEXT,                   -- Episode release date
-    is_downloaded INTEGER DEFAULT 0,     -- 1 if episode is downloaded
-    download_requested INTEGER DEFAULT 0, -- 1 if queued for download
-    last_synced TEXT,                    -- Last sync timestamp
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(parent_asin, child_asin)
-);
-
--- Sync status tracking
-CREATE TABLE IF NOT EXISTS periodicals_sync_status (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    started_at TEXT NOT NULL,
-    completed_at TEXT,
-    status TEXT DEFAULT 'running',       -- running, completed, failed
-    parents_processed INTEGER DEFAULT 0,
-    episodes_found INTEGER DEFAULT 0,
-    error_message TEXT
-);
-
--- Views for common queries
-CREATE VIEW periodicals_download_queue AS
-SELECT * FROM periodicals
-WHERE download_requested = 1 AND is_downloaded = 0;
-
-CREATE VIEW periodicals_summary AS
-SELECT parent_asin, title, category,
-       COUNT(child_asin) as episode_count,
-       SUM(is_downloaded) as downloaded_count,
-       SUM(download_requested) as queued_count,
-       MAX(last_synced) as last_synced
-FROM periodicals
-WHERE child_asin IS NOT NULL
-GROUP BY parent_asin;
-```
-
-### API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/periodicals` | List all periodical parents with counts |
-| `GET` | `/api/v1/periodicals/<asin>` | List episodes for a parent |
-| `GET` | `/api/v1/periodicals/<asin>/<episode>` | Get episode details |
-| `POST` | `/api/v1/periodicals/download` | Queue episodes for download |
-| `DELETE` | `/api/v1/periodicals/download/<asin>` | Cancel queued download |
-| `GET` | `/api/v1/periodicals/sync/status` | **SSE stream** for real-time sync status |
-| `POST` | `/api/v1/periodicals/sync/trigger` | Manually trigger sync |
-| `GET` | `/api/v1/periodicals/categories` | List categories with counts |
-
-### Real-Time Updates via SSE
-
-The Reading Room UI receives real-time sync status via Server-Sent Events:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SERVER-SENT EVENTS (SSE)                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  Browser                                   Flask API
-     │                                          │
-     │  GET /api/v1/periodicals/sync/status     │
-     │  Accept: text/event-stream               │
-     ├─────────────────────────────────────────▶│
-     │                                          │
-     │  HTTP 200 OK                             │
-     │  Content-Type: text/event-stream         │
-     │◀─────────────────────────────────────────┤
-     │                                          │
-     │  data: {"status": "running",             │
-     │         "parent": "B07G8DJNFV",          │
-     │         "progress": "3/10"}              │
-     │◀─────────────────────────────────────────┤
-     │                                          │
-     │  data: {"status": "completed",           │
-     │         "episodes_found": 127}           │
-     │◀─────────────────────────────────────────┤
-     │                                          │
-
-  Advantages over WebSockets:
-  • Simpler: unidirectional (server → client)
-  • HTTP-native: works through proxies
-  • Auto-reconnect: browser handles reconnection
-  • No additional dependencies
-```
-
-### Security Considerations
-
-1. **ASIN Validation**: All ASIN inputs validated against regex `^[A-Z0-9]{10}$`
-2. **XSS Prevention**: UI uses `createElement`/`textContent` (no `innerHTML`)
-3. **Rate Limiting**: Audible API calls rate-limited to 1 request per 2 seconds
-4. **Skip List**: Parent ASINs stored in `/var/lib/audiobooks/audiobook-skip-list.txt`
-
-### Systemd Units
-
-| Unit | Type | Purpose |
-|------|------|---------|
-| `audiobook-periodicals-sync.timer` | Timer | Triggers sync at 06:00 and 18:00 daily |
-| `audiobook-periodicals-sync.service` | Service | Runs the sync script |
-
-Timer configuration:
-```ini
-[Timer]
-OnCalendar=*-*-* 06:00:00
-OnCalendar=*-*-* 18:00:00
-Persistent=true           # Run if missed (system was off)
-RandomizedDelaySec=300    # Spread load across 5 minutes
-```
-
-### File Locations
-
-| File | Purpose |
-|------|---------|
-| `library/backend/api_modular/periodicals.py` | Flask Blueprint with API endpoints |
-| `library/web-v2/periodicals.html` | Reading Room UI |
-| `library/web-v2/css/periodicals.css` | Dedicated CSS module |
-| `scripts/sync-periodicals-index` | Sync script (Bash) |
-| `systemd/audiobook-periodicals-sync.service` | Systemd service |
-| `systemd/audiobook-periodicals-sync.timer` | Systemd timer |
-
-For complete implementation details, see [Periodicals Guide](PERIODICALS.md).
-
----
-
 ## Systemd Services Reference
 
 All systemd units are located in `systemd/` and installed to `/etc/systemd/system/`.
@@ -759,7 +528,6 @@ All systemd units are located in `systemd/` and installed to `/etc/systemd/syste
 | `audiobook-converter.service` | Service | AAXC to Opus conversion daemon |
 | `audiobook-mover.service` | Service | Staging to Library file mover |
 | `audiobook-downloader.service` | Service | Audible download daemon |
-| `audiobook-periodicals-sync.service` | Service | Periodicals metadata sync |
 | `audiobook-upgrade-helper.service` | Service | Privileged operations helper (runs as root) |
 | `audiobook-shutdown-saver.service` | Service | Saves staging to disk on system shutdown |
 
@@ -768,7 +536,6 @@ All systemd units are located in `systemd/` and installed to `/etc/systemd/syste
 | Unit | Schedule | Purpose |
 |------|----------|---------|
 | `audiobook-downloader.timer` | Configurable | Triggers download checks |
-| `audiobook-periodicals-sync.timer` | 06:00, 18:00 | Syncs periodical metadata from Audible |
 
 ### Path Units
 
@@ -801,7 +568,6 @@ All scripts are located in `scripts/` and installed to `/opt/audiobooks/scripts/
 | `download-new-audiobooks` | Downloads new purchases from Audible | audiobook-downloader |
 | `convert-audiobooks-opus-parallel` | Parallel AAXC→Opus conversion | audiobook-converter |
 | `move-staged-audiobooks` | Moves completed conversions to Library | audiobook-mover |
-| `sync-periodicals-index` | Syncs periodical metadata from Audible API | audiobook-periodicals-sync |
 
 ### Service Control Scripts
 

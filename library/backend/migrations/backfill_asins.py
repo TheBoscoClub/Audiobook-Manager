@@ -71,18 +71,6 @@ def main():
     conn.commit()
     print(f"✓ Updated {updated} audiobooks with ASINs")
 
-    # Sync periodicals is_downloaded status
-    cursor.execute("""
-        UPDATE periodicals
-        SET is_downloaded = 1
-        WHERE is_downloaded = 0
-        AND asin IN (SELECT asin FROM audiobooks WHERE asin IS NOT NULL AND asin <> '')
-    """)
-    synced = cursor.rowcount
-    if synced > 0:
-        conn.commit()
-        print(f"✓ Synced is_downloaded for {synced} periodicals")
-
     # Show final stats
     cursor.execute(
         "SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''"

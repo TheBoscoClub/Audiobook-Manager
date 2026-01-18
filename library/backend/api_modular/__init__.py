@@ -37,7 +37,6 @@ from .core import get_db as _get_db_with_path
 from .duplicates import duplicates_bp, init_duplicates_routes
 from .editions import (editions_bp, has_edition_marker, init_editions_routes,
                        normalize_base_title)
-from .periodicals import init_periodicals_routes, periodicals_bp
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
 from .utilities import init_utilities_routes, utilities_bp
@@ -108,7 +107,6 @@ def create_app(
     init_supplements_routes(database_path, supplements_dir)
     init_utilities_routes(database_path, project_root)
     init_position_routes(database_path)
-    init_periodicals_routes(str(database_path))
 
     # Register blueprints
     flask_app.register_blueprint(audiobooks_bp)
@@ -118,7 +116,6 @@ def create_app(
     flask_app.register_blueprint(supplements_bp)
     flask_app.register_blueprint(utilities_bp)
     flask_app.register_blueprint(position_bp)
-    flask_app.register_blueprint(periodicals_bp)
 
     return flask_app
 
@@ -224,5 +221,4 @@ __all__ = [
     "supplements_bp",
     "utilities_bp",
     "position_bp",
-    "periodicals_bp",
 ]
