@@ -262,7 +262,7 @@ def init_library_routes(db_path, project_root):
                 found_pattern = re.compile(r"Found\s+(\d+)\s+audiobooks")
                 processed_pattern = re.compile(r"Processed\s+(\d+)/(\d+)\s+audiobooks")
                 imported_pattern = re.compile(r"Imported\s+(\d+)\s+audiobooks")
-                preserved_pattern = re.compile(r"Preserved\s+(\d+)")
+                _preserved_pattern = re.compile(r"Preserved\s+(\d+)")  # noqa: F841
                 optimizing_pattern = re.compile(r"Optimizing database")
 
                 for line in iter(process.stdout.readline, ""):

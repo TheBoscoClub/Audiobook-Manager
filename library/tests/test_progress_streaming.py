@@ -10,10 +10,8 @@ These tests ensure the UI won't appear "hung" during long-running operations.
 """
 
 import re
-from io import StringIO
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
-import pytest
 
 
 class TestProgressPatterns:
@@ -280,7 +278,7 @@ class TestOutputParsing:
 ✓ Downloaded: Book Five
 Download complete: 4 succeeded, 1 failed
 """
-        item_pattern = re.compile(r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)")
+        _item_pattern = re.compile(r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)")  # noqa: F841
         success_pattern = re.compile(r"[✓✔]\s*Downloaded.*:\s*(.+)")
         fail_pattern = re.compile(r"[✗✘]\s*Failed.*:\s*(.+)")
         complete_pattern = re.compile(r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed")
