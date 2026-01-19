@@ -10,6 +10,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify
 
+from .auth import auth_if_enabled
 from .core import FlaskResponse
 
 utilities_conversion_bp = Blueprint("utilities_conversion", __name__)
@@ -179,6 +180,7 @@ def init_conversion_routes(project_root: str | Path):
     """Initialize conversion monitoring routes with project root."""
 
     @utilities_conversion_bp.route("/api/conversion/status", methods=["GET"])
+    @auth_if_enabled
     def get_conversion_status() -> FlaskResponse:
         """
         Get current audiobook conversion status.

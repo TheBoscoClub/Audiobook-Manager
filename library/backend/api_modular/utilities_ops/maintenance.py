@@ -14,6 +14,7 @@ from config import AUDIOBOOKS_DATABASE
 from flask import Blueprint, jsonify, request
 from operation_status import get_tracker
 
+from ..auth import admin_if_enabled
 from ..core import FlaskResponse
 
 utilities_ops_maintenance_bp = Blueprint("utilities_ops_maintenance", __name__)
@@ -28,6 +29,7 @@ def init_maintenance_routes(project_root):
     @utilities_ops_maintenance_bp.route(
         "/api/utilities/rebuild-queue-async", methods=["POST"]
     )
+    @admin_if_enabled
     def rebuild_queue_async() -> FlaskResponse:
         """Rebuild the conversion queue with progress tracking."""
         tracker = get_tracker()
@@ -155,6 +157,7 @@ def init_maintenance_routes(project_root):
     @utilities_ops_maintenance_bp.route(
         "/api/utilities/cleanup-indexes-async", methods=["POST"]
     )
+    @admin_if_enabled
     def cleanup_indexes_async() -> FlaskResponse:
         """Cleanup stale index entries for deleted files."""
         tracker = get_tracker()
@@ -298,6 +301,7 @@ def init_maintenance_routes(project_root):
     @utilities_ops_maintenance_bp.route(
         "/api/utilities/populate-sort-fields-async", methods=["POST"]
     )
+    @admin_if_enabled
     def populate_sort_fields_async() -> FlaskResponse:
         """Populate sort fields for proper alphabetization with progress tracking."""
         tracker = get_tracker()
@@ -448,6 +452,7 @@ def init_maintenance_routes(project_root):
     @utilities_ops_maintenance_bp.route(
         "/api/utilities/populate-asins-async", methods=["POST"]
     )
+    @admin_if_enabled
     def populate_asins_async() -> FlaskResponse:
         """Populate ASINs by matching local audiobooks against Audible library."""
         tracker = get_tracker()
@@ -649,6 +654,7 @@ def init_maintenance_routes(project_root):
     @utilities_ops_maintenance_bp.route(
         "/api/utilities/find-source-duplicates-async", methods=["POST"]
     )
+    @admin_if_enabled
     def find_source_duplicates_async() -> FlaskResponse:
         """Find duplicate source files (.aaxc) with progress tracking."""
         tracker = get_tracker()

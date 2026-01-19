@@ -204,6 +204,72 @@ def localhost_only(f: Callable) -> Callable:
     return decorated
 
 
+def auth_if_enabled(f: Callable) -> Callable:
+    """
+    Decorator to require authentication only if auth is enabled.
+
+    When AUTH_ENABLED is False (single-user mode), allows through without auth.
+    When AUTH_ENABLED is True (multi-user mode), requires login.
+
+    Use this for endpoints that should work in both single-user and multi-user modes.
+    """
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if not current_app.config.get("AUTH_ENABLED", False):
+            # Auth disabled - allow through
+            return f(*args, **kwargs)
+        # Auth enabled - require login
+        user = get_current_user()
+        if user is None:
+            return jsonify({"error": "Authentication required"}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+
+def download_permission_required(f: Callable) -> Callable:
+    """
+    Decorator to require download permission.
+
+    When AUTH_ENABLED is False, allows through (single-user has all permissions).
+    When AUTH_ENABLED is True, requires login AND can_download permission.
+    """
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if not current_app.config.get("AUTH_ENABLED", False):
+            # Auth disabled - allow through
+            return f(*args, **kwargs)
+        # Auth enabled - require login + download permission
+        user = get_current_user()
+        if user is None:
+            return jsonify({"error": "Authentication required"}), 401
+        if not user.can_download:
+            return jsonify({"error": "Download permission required"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_if_enabled(f: Callable) -> Callable:
+    """
+    Decorator to require admin only if auth is enabled.
+
+    When AUTH_ENABLED is False, allows through (single-user is admin).
+    When AUTH_ENABLED is True, requires login AND admin flag.
+    """
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if not current_app.config.get("AUTH_ENABLED", False):
+            # Auth disabled - allow through (single-user mode = admin)
+            return f(*args, **kwargs)
+        # Auth enabled - require admin
+        user = get_current_user()
+        if user is None:
+            return jsonify({"error": "Authentication required"}), 401
+        if not user.is_admin:
+            return jsonify({"error": "Admin privileges required"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
 def set_session_cookie(response: Response, token: str) -> Response:
     """Set the session cookie on a response."""
     response.set_cookie(

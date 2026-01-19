@@ -7,6 +7,7 @@ import subprocess
 
 from flask import Blueprint, Response, jsonify, send_file
 
+from .auth import admin_if_enabled
 from .core import FlaskResponse, get_db
 
 utilities_db_bp = Blueprint("utilities_db", __name__)
@@ -16,6 +17,7 @@ def init_db_routes(db_path, project_root):
     """Initialize database operation routes with database path and project root."""
 
     @utilities_db_bp.route("/api/utilities/rescan", methods=["POST"])
+    @admin_if_enabled
     def rescan_library() -> FlaskResponse:
         """Trigger a library rescan"""
         scanner_path = project_root / "scanner" / "scan_audiobooks.py"
@@ -61,6 +63,7 @@ def init_db_routes(db_path, project_root):
             return jsonify({"success": False, "error": "Library rescan failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/reimport", methods=["POST"])
+    @admin_if_enabled
     def reimport_database() -> FlaskResponse:
         """Reimport audiobooks to database"""
         import_path = project_root / "backend" / "import_to_db.py"
@@ -112,6 +115,7 @@ def init_db_routes(db_path, project_root):
             return jsonify({"success": False, "error": "Database reimport failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/generate-hashes", methods=["POST"])
+    @admin_if_enabled
     def generate_hashes() -> FlaskResponse:
         """Generate SHA-256 hashes for audiobooks"""
         import re as regex
@@ -171,6 +175,7 @@ def init_db_routes(db_path, project_root):
             return jsonify({"success": False, "error": "Hash generation failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/vacuum", methods=["POST"])
+    @admin_if_enabled
     def vacuum_database() -> FlaskResponse:
         """Vacuum the SQLite database to reclaim space"""
         conn = get_db(db_path)
@@ -208,6 +213,7 @@ def init_db_routes(db_path, project_root):
             return jsonify({"success": False, "error": "Database vacuum failed"}), 500
 
     @utilities_db_bp.route("/api/utilities/export-db", methods=["GET"])
+    @admin_if_enabled
     def export_database() -> FlaskResponse:
         """Download the SQLite database file"""
         if db_path.exists():
@@ -221,6 +227,7 @@ def init_db_routes(db_path, project_root):
             return jsonify({"error": "Database not found"}), 404
 
     @utilities_db_bp.route("/api/utilities/export-json", methods=["GET"])
+    @admin_if_enabled
     def export_json() -> Response:
         """Export library as JSON"""
         import json
@@ -261,6 +268,7 @@ def init_db_routes(db_path, project_root):
         return response
 
     @utilities_db_bp.route("/api/utilities/export-csv", methods=["GET"])
+    @admin_if_enabled
     def export_csv() -> Response:
         """Export library as CSV"""
         import csv

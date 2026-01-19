@@ -40,7 +40,17 @@ from .editions import (editions_bp, has_edition_marker, init_editions_routes,
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
 from .utilities import init_utilities_routes, utilities_bp
-from .auth import auth_bp, init_auth_routes, login_required, admin_required, localhost_only, get_current_user
+from .auth import (
+    auth_bp,
+    init_auth_routes,
+    login_required,
+    admin_required,
+    localhost_only,
+    get_current_user,
+    auth_if_enabled,
+    download_permission_required,
+    admin_if_enabled,
+)
 
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
@@ -252,4 +262,7 @@ __all__ = [
     "admin_required",
     "localhost_only",
     "get_current_user",
+    "auth_if_enabled",
+    "download_permission_required",
+    "admin_if_enabled",
 ]

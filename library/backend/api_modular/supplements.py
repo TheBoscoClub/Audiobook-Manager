@@ -7,6 +7,7 @@ from pathlib import Path
 from flask import Blueprint, Response, jsonify, send_file
 
 from .core import FlaskResponse, get_db
+from .auth import auth_if_enabled, download_permission_required, admin_if_enabled
 
 supplements_bp = Blueprint("supplements", __name__)
 
@@ -15,6 +16,7 @@ def init_supplements_routes(db_path, supplements_dir):
     """Initialize routes with database path and supplements directory."""
 
     @supplements_bp.route("/api/supplements", methods=["GET"])
+    @auth_if_enabled
     def get_all_supplements() -> Response:
         """Get all supplements in the library"""
         conn = get_db(db_path)
@@ -35,6 +37,7 @@ def init_supplements_routes(db_path, supplements_dir):
         return jsonify({"supplements": supplements, "total": len(supplements)})
 
     @supplements_bp.route("/api/supplements/stats", methods=["GET"])
+    @auth_if_enabled
     def get_supplement_stats() -> Response:
         """Get supplement statistics"""
         conn = get_db(db_path)
@@ -69,6 +72,7 @@ def init_supplements_routes(db_path, supplements_dir):
     @supplements_bp.route(
         "/api/audiobooks/<int:audiobook_id>/supplements", methods=["GET"]
     )
+    @auth_if_enabled
     def get_audiobook_supplements(audiobook_id: int) -> Response:
         """Get supplements for a specific audiobook"""
         conn = get_db(db_path)
@@ -96,6 +100,7 @@ def init_supplements_routes(db_path, supplements_dir):
     @supplements_bp.route(
         "/api/supplements/<int:supplement_id>/download", methods=["GET"]
     )
+    @download_permission_required
     def download_supplement(supplement_id: int) -> FlaskResponse:
         """Download/serve a supplement file"""
         conn = get_db(db_path)
@@ -133,6 +138,7 @@ def init_supplements_routes(db_path, supplements_dir):
         )
 
     @supplements_bp.route("/api/supplements/scan", methods=["POST"])
+    @admin_if_enabled
     def scan_supplements() -> FlaskResponse:
         """
         Scan the supplements directory and update the database.

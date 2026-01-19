@@ -20,6 +20,8 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
+from .auth import admin_if_enabled, auth_if_enabled
+
 # Add rnd directory to path for credential_manager and audible imports
 RND_PATH = Path(__file__).parent.parent.parent.parent / "rnd"
 sys.path.insert(0, str(RND_PATH))
@@ -222,6 +224,7 @@ def run_async(coro):
 
 
 @position_bp.route("/status", methods=["GET"])
+@auth_if_enabled
 def position_status():
     """Check if position sync is available and configured."""
     status = {
@@ -237,6 +240,7 @@ def position_status():
 
 
 @position_bp.route("/<int:audiobook_id>", methods=["GET"])
+@auth_if_enabled
 def get_position(audiobook_id: int):
     """Get playback position for a single audiobook."""
     conn = get_db()
@@ -285,6 +289,7 @@ def get_position(audiobook_id: int):
 
 
 @position_bp.route("/<int:audiobook_id>", methods=["PUT"])
+@auth_if_enabled
 def update_position(audiobook_id: int):
     """Update local playback position for an audiobook."""
     data = request.get_json()
@@ -337,6 +342,7 @@ def update_position(audiobook_id: int):
 
 
 @position_bp.route("/sync/<int:audiobook_id>", methods=["POST"])
+@admin_if_enabled
 def sync_position(audiobook_id: int):
     """
     Sync position for a single audiobook with Audible.
@@ -464,6 +470,7 @@ def sync_position(audiobook_id: int):
 
 
 @position_bp.route("/sync-all", methods=["POST"])
+@admin_if_enabled
 def sync_all_positions():
     """
     Sync positions for all audiobooks with ASINs.
@@ -608,6 +615,7 @@ def sync_all_positions():
 
 
 @position_bp.route("/syncable", methods=["GET"])
+@auth_if_enabled
 def list_syncable():
     """List all audiobooks that can be synced with Audible."""
     conn = get_db()
@@ -655,6 +663,7 @@ def list_syncable():
 
 
 @position_bp.route("/history/<int:audiobook_id>", methods=["GET"])
+@auth_if_enabled
 def get_position_history(audiobook_id: int):
     """Get position history for an audiobook."""
     conn = get_db()
