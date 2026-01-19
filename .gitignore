@@ -332,3 +332,4 @@ pyproject.toml
 .markdownlint.*
 setup.cfg
 rnd/ui-test-logs/
+.claude-checkpoint.md

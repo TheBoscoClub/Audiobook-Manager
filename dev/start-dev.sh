@@ -133,6 +133,19 @@ if [ ! -f "$PROJECT_DIR/library/backend/audiobooks-dev.db" ]; then
     echo -e "  The API may fail to start."
 fi
 
+# Initialize auth database (encrypted with SQLCipher)
+AUTH_DB="$PROJECT_DIR/library/backend/auth-dev.db"
+AUTH_KEY="$PROJECT_DIR/dev/auth-dev.key"
+export AUTH_DATABASE="$AUTH_DB"
+export AUTH_KEY_FILE="$AUTH_KEY"
+
+echo -e "${BLUE}Initializing auth database...${NC}"
+if python auth/cli.py --dev -d "$AUTH_DB" -k "$AUTH_KEY" init 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} Auth database ready"
+else
+    echo -e "  ${YELLOW}!${NC} Auth database init failed (may need sqlcipher3)"
+fi
+
 # Cleanup function
 cleanup() {
     echo ""

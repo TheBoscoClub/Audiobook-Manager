@@ -1,9 +1,9 @@
 # Secure Remote Access Design Specification
 
-**Version:** 0.1.0 (Draft)
-**Branch:** `rd/secure-remote-access`
+**Version:** 0.2.0 (Draft)
+**Branch:** `secure-remote-access`
 **Last Updated:** 2026-01-19
-**Status:** Design Phase
+**Status:** Implementation Phase (Phase 2 Complete)
 
 ---
 
@@ -311,8 +311,27 @@ Permissions-Policy: geolocation=(), microphone=(), camera=()
 | `is_admin` | BOOLEAN | No | Admin flag (default: false) |
 | `created_at` | TIMESTAMP | Auto | Account creation time |
 | `last_login` | TIMESTAMP | No | Last successful login |
+| `recovery_email` | TEXT | No | Optional recovery email (user's choice to store) |
+| `recovery_phone` | TEXT | No | Optional recovery phone (user's choice to store) |
+| `recovery_enabled` | BOOLEAN | No | Whether contact-based recovery is enabled |
 
-### 5.3 Username Requirements
+### 5.3 Recovery Model
+
+Users choose at registration whether to store contact information for recovery:
+
+| Recovery Option | Contact Stored | Recovery Methods |
+|-----------------|----------------|------------------|
+| **No Contact Info** | No | Backup codes only (8 single-use codes) |
+| **Email Stored** | Yes (encrypted) | Backup codes + Magic link to email |
+| **Phone Stored** | Yes (encrypted) | Backup codes + Magic link via SMS |
+| **Both Stored** | Yes (encrypted) | Backup codes + Magic link (user's choice) |
+
+**Important Security Note:**
+- Backup codes are ALWAYS generated regardless of recovery setting
+- Users who choose not to store contact info are explicitly warned that losing both their authenticator AND all backup codes means the account is unrecoverable
+- Admin can delete the account and user can re-register, but listening positions are lost
+
+### 5.4 Username Requirements
 
 - **Length:** 5-16 characters
 - **Characters:** Any printable ASCII (0x20-0x7E)
@@ -603,6 +622,10 @@ CREATE TABLE users (
     is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
+    -- Recovery options (user's choice to store or not)
+    recovery_email TEXT,           -- Optional, stored encrypted in SQLCipher
+    recovery_phone TEXT,           -- Optional, stored encrypted in SQLCipher
+    recovery_enabled BOOLEAN DEFAULT FALSE,
 
     CHECK (length(username) >= 5 AND length(username) <= 16)
 );
@@ -694,6 +717,31 @@ CREATE TABLE contact_log (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Backup codes table (for account recovery)
+CREATE TABLE backup_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL,      -- SHA-256 of the backup code
+    used_at TIMESTAMP,            -- NULL if unused, timestamp when used
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_backup_codes_user_id ON backup_codes(user_id);
+CREATE INDEX idx_backup_codes_hash ON backup_codes(code_hash);
+
+-- Pending recovery requests (for magic link recovery)
+CREATE TABLE pending_recovery (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT UNIQUE NOT NULL,  -- SHA-256 of recovery token
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP                 -- NULL if unused
+);
+
+CREATE INDEX idx_pending_recovery_token ON pending_recovery(token_hash);
+CREATE INDEX idx_pending_recovery_user ON pending_recovery(user_id);
 ```
 
 ### 9.3 Session Token Format
@@ -1153,11 +1201,29 @@ $ audiobook-backup restore 2026-01-18
 
 | # | Question | Status |
 |---|----------|--------|
-| 1 | SQLCipher key management - where to store encryption key? | Open |
-| 2 | Email/SMS provider for verification and magic links | Open |
-| 3 | TOTP recovery - what if user loses authenticator device? | Open |
+| 1 | SQLCipher key management - where to store encryption key? | **Resolved**: Key stored in `auth.key` file, separate from database |
+| 2 | Email/SMS provider for verification and magic links | Open (SMTP available but not configured - Protonmail) |
+| 3 | TOTP recovery - what if user loses authenticator device? | **Resolved**: See Section 5.3 Recovery Model |
 | 4 | Account deletion - user-initiated or admin-only? | Open |
 | 5 | Position export - can users export their position data? | Open |
+
+### Resolved: Recovery Model (Question #3)
+
+Users have two recovery paths:
+
+1. **Backup Codes** (always available)
+   - 8 single-use codes generated at registration
+   - Format: `XXXX-XXXX-XXXX-XXXX` (alphanumeric, no confusing chars)
+   - User can regenerate codes when logged in (invalidates old codes)
+   - Each code allows one account recovery (generates new TOTP + new backup codes)
+
+2. **Magic Link Recovery** (only if user stored contact info)
+   - User chooses at registration whether to store email/phone
+   - If stored, can receive magic link for recovery
+   - Magic link expires in 15 minutes
+
+**Warning for users without stored contact:**
+If a user loses their authenticator AND all backup codes, the account is unrecoverable. Admin can delete the account so they can re-register, but listening positions are lost.
 
 ---
 
