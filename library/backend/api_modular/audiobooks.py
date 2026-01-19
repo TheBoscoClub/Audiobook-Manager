@@ -18,7 +18,7 @@ from config import COVER_DIR
 from .collections import COLLECTIONS
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
-from .auth import auth_if_enabled, get_current_user
+from .auth import auth_if_enabled, download_permission_required, get_current_user
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
 
@@ -511,7 +511,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         return send_from_directory(COVER_DIR, filename)
 
     @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
-    @auth_if_enabled
+    @download_permission_required
     def stream_audiobook(audiobook_id: int) -> FlaskResponse:
         """Stream audiobook file"""
         conn = get_db(db_path)

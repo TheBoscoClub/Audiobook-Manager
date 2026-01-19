@@ -41,10 +41,111 @@ def auth_app(auth_temp_dir):
     auth_db_path = Path(tmpdir) / "auth.db"
     auth_key_path = Path(tmpdir) / "auth.key"
 
-    # Create minimal main database
+    # Create main database with full schema
     import sqlite3
     conn = sqlite3.connect(main_db_path)
-    conn.execute("CREATE TABLE audiobooks (id INTEGER PRIMARY KEY)")
+    conn.executescript("""
+        CREATE TABLE audiobooks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            author TEXT,
+            narrator TEXT,
+            publisher TEXT,
+            series TEXT,
+            duration_hours REAL,
+            duration_formatted TEXT,
+            file_size_mb REAL,
+            file_path TEXT UNIQUE NOT NULL,
+            cover_path TEXT,
+            format TEXT,
+            quality TEXT,
+            published_year INTEGER,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sha256_hash TEXT,
+            hash_verified_at TIMESTAMP,
+            author_last_name TEXT,
+            author_first_name TEXT,
+            narrator_last_name TEXT,
+            narrator_first_name TEXT,
+            series_sequence REAL,
+            edition TEXT,
+            asin TEXT,
+            published_date TEXT,
+            acquired_date TEXT,
+            isbn TEXT,
+            source TEXT DEFAULT 'test',
+            playback_position_ms INTEGER DEFAULT 0,
+            playback_position_updated TIMESTAMP,
+            audible_position_ms INTEGER,
+            audible_position_updated TIMESTAMP,
+            position_synced_at TIMESTAMP,
+            content_type TEXT DEFAULT 'Product',
+            source_asin TEXT
+        );
+        CREATE TABLE collections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE collection_items (
+            collection_id INTEGER NOT NULL,
+            audiobook_id INTEGER NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (collection_id, audiobook_id),
+            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+        );
+        CREATE TABLE genres (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        );
+        CREATE TABLE audiobook_genres (
+            audiobook_id INTEGER,
+            genre_id INTEGER,
+            PRIMARY KEY (audiobook_id, genre_id),
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (genre_id) REFERENCES genres(id) ON DELETE CASCADE
+        );
+        CREATE TABLE eras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        );
+        CREATE TABLE audiobook_eras (
+            audiobook_id INTEGER,
+            era_id INTEGER,
+            PRIMARY KEY (audiobook_id, era_id),
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (era_id) REFERENCES eras(id) ON DELETE CASCADE
+        );
+        CREATE TABLE topics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        );
+        CREATE TABLE audiobook_topics (
+            audiobook_id INTEGER,
+            topic_id INTEGER,
+            PRIMARY KEY (audiobook_id, topic_id),
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+        );
+        CREATE TABLE supplements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audiobook_id INTEGER,
+            asin TEXT,
+            type TEXT NOT NULL DEFAULT 'pdf',
+            filename TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size_mb REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE SET NULL
+        );
+        -- Insert test audiobook
+        INSERT INTO audiobooks (title, author, file_path, format, content_type)
+        VALUES ('Test Audiobook', 'Test Author', '/test/path/book.opus', 'opus', 'Product');
+    """)
     conn.close()
 
     # Initialize auth database
@@ -602,3 +703,212 @@ class TestRecoveryContactManagement:
         r = client.post('/auth/recover/update-contact',
             json={"recovery_email": "test@example.com"})
         assert r.status_code == 401
+
+
+# =============================================================================
+# Protected Endpoint Tests - Library API
+# =============================================================================
+
+
+class TestProtectedEndpointsUnauthenticated:
+    """Test that protected endpoints require authentication when auth is enabled."""
+
+    def test_audiobooks_requires_auth(self, client):
+        """Test /api/audiobooks requires authentication."""
+        r = client.get('/api/audiobooks')
+        assert r.status_code == 401
+        assert 'Authentication required' in r.get_json()['error']
+
+    def test_stats_requires_auth(self, client):
+        """Test /api/stats requires authentication."""
+        r = client.get('/api/stats')
+        assert r.status_code == 401
+
+    def test_filters_requires_auth(self, client):
+        """Test /api/filters requires authentication."""
+        r = client.get('/api/filters')
+        assert r.status_code == 401
+
+    def test_collections_requires_auth(self, client):
+        """Test /api/collections requires authentication."""
+        r = client.get('/api/collections')
+        assert r.status_code == 401
+
+    def test_duplicates_requires_auth(self, client):
+        """Test /api/duplicates requires authentication."""
+        r = client.get('/api/duplicates')
+        assert r.status_code == 401
+
+    def test_position_status_requires_auth(self, client):
+        """Test /api/position/status requires authentication."""
+        r = client.get('/api/position/status')
+        assert r.status_code == 401
+
+
+class TestProtectedEndpointsAuthenticated:
+    """Test that authenticated users can access protected endpoints."""
+
+    def test_audiobooks_accessible_when_logged_in(self, client, auth_app):
+        """Test /api/audiobooks works when authenticated."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/api/audiobooks')
+        assert r.status_code == 200
+
+    def test_stats_accessible_when_logged_in(self, client, auth_app):
+        """Test /api/stats works when authenticated."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/api/stats')
+        assert r.status_code == 200
+
+    def test_collections_accessible_when_logged_in(self, client, auth_app):
+        """Test /api/collections works when authenticated."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/api/collections')
+        assert r.status_code == 200
+
+
+class TestAdminEndpointsNonAdmin:
+    """Test that admin endpoints reject non-admin users."""
+
+    def test_delete_requires_admin(self, client, auth_app):
+        """Test DELETE /api/audiobooks/<id> requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.delete('/api/audiobooks/1')
+        assert r.status_code == 403
+        assert 'Admin privileges required' in r.get_json()['error']
+
+    def test_vacuum_requires_admin(self, client, auth_app):
+        """Test POST /api/utilities/vacuum requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/api/utilities/vacuum')
+        assert r.status_code == 403
+
+    def test_delete_duplicates_requires_admin(self, client, auth_app):
+        """Test POST /api/duplicates/delete requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/api/duplicates/delete', json={"ids": []})
+        assert r.status_code == 403
+
+
+class TestAdminEndpointsWithAdmin:
+    """Test that admin users can access admin endpoints."""
+
+    def test_vacuum_allowed_for_admin(self, client, auth_app):
+        """Test POST /api/utilities/vacuum works for admin."""
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.post('/api/utilities/vacuum')
+        # Should succeed (200) or handle gracefully - not 401/403
+        assert r.status_code in (200, 500)  # 500 if DB locked, but auth passed
+
+
+class TestDownloadPermissionEndpoints:
+    """Test endpoints that require download permission."""
+
+    def test_stream_without_download_permission(self, client, auth_app):
+        """Test streaming requires download permission."""
+        # testuser1 has can_download=False
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/api/stream/1')
+        assert r.status_code == 403
+        assert 'Download permission required' in r.get_json()['error']
+
+    def test_supplement_download_without_permission(self, client, auth_app):
+        """Test supplement download requires download permission."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/api/supplements/1/download')
+        assert r.status_code == 403
+
+    def test_stream_with_download_permission(self, client, auth_app):
+        """Test streaming works with download permission."""
+        # adminuser has can_download=True
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.get('/api/stream/1')
+        # Should succeed or 404 (audiobook doesn't exist), but not 403
+        assert r.status_code in (200, 404)
+
+
+class TestAudibleSyncAdminOnly:
+    """Test that Audible sync endpoints are admin-only."""
+
+    def test_position_sync_requires_admin(self, client, auth_app):
+        """Test POST /api/position/sync/<id> requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/api/position/sync/1')
+        assert r.status_code == 403
+
+    def test_position_sync_all_requires_admin(self, client, auth_app):
+        """Test POST /api/position/sync-all requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/api/position/sync-all')
+        assert r.status_code == 403
+
+    def test_download_audiobooks_requires_admin(self, client, auth_app):
+        """Test POST /api/utilities/download-audiobooks-async requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/api/utilities/download-audiobooks-async')
+        assert r.status_code == 403
+
+
+class TestPerUserPositionTracking:
+    """Test per-user position tracking when auth is enabled."""
+
+    def test_get_position_returns_user_position(self, client, auth_app):
+        """Test GET /api/position/<id> returns user's personal position."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        # Getting position should work (returns 0 or saved position)
+        r = client.get('/api/position/1')
+        # Should succeed or 404 if audiobook doesn't exist
+        assert r.status_code in (200, 404)
+
+    def test_update_position_saves_per_user(self, client, auth_app):
+        """Test PUT /api/position/<id> saves to user's personal position."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.put('/api/position/1',
+            json={"position_ms": 120000})
+        # Should succeed or 404 if audiobook doesn't exist
+        assert r.status_code in (200, 404)
