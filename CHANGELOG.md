@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.0.3] - 2026-01-18
+
+### Fixed
+- **API**: All async operations (Audible download, library import, rescan) now stream real-time progress with detailed item counts, percentages, and status updates
+- **Docker**: Synced Dockerfile `ARG APP_VERSION` default to match VERSION file (4.0.2 → 4.0.3)
+- **Code Quality**: Removed unused imports and marked unused regex patterns in test and library code
+
 ## [4.0.2] - 2026-01-18
 
 ### Fixed
