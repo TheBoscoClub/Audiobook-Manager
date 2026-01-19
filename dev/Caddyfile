@@ -1,0 +1,63 @@
+# Audiobook-Manager Development Caddyfile
+# =========================================
+# This config is for LOCAL DEVELOPMENT ONLY.
+# Port 9443 (HTTPS) - does not conflict with production (8443)
+{
+	# Development settings
+	admin off
+
+	# Don't try to get real certs or bind port 80
+	auto_https disable_redirects
+	skip_install_trust
+}
+
+# Main development server - must specify hostname for internal TLS
+https://localhost:9443 {
+	# TLS with auto-generated internal certificate
+	tls internal
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+		-Server
+	}
+
+	# Logging for development
+	log {
+		output file /tmp/caddy-audiobooks-dev.log
+		format console
+		level INFO
+	}
+
+	# API routes - proxy to Flask dev server
+	handle /api/* {
+		reverse_proxy localhost:6001
+	}
+
+	# Cover images
+	handle /covers/* {
+		reverse_proxy localhost:6001
+	}
+
+	# Audio streaming
+	handle /stream/* {
+		reverse_proxy localhost:6001
+	}
+
+	# Health check passthrough
+	handle /health {
+		reverse_proxy localhost:6001
+	}
+
+	# Static files - serve directly from web-v2
+	handle {
+		root * {$PROJECT_DIR}/library/web-v2
+		file_server
+		try_files {path} /index.html
+	}
+}
