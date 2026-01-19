@@ -1,0 +1,1259 @@
+# Secure Remote Access Design Specification
+
+**Version:** 0.1.0 (Draft)
+**Branch:** `rd/secure-remote-access`
+**Last Updated:** 2026-01-19
+**Status:** Design Phase
+
+---
+
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+2. [Goals and Non-Goals](#2-goals-and-non-goals)
+3. [System Architecture](#3-system-architecture)
+4. [Security Model](#4-security-model)
+5. [User Model](#5-user-model)
+6. [Authentication](#6-authentication)
+7. [Session Management](#7-session-management)
+8. [Authorization](#8-authorization)
+9. [Data Model](#9-data-model)
+10. [API Design](#10-api-design)
+11. [User Interface](#11-user-interface)
+12. [Notifications and Contact](#12-notifications-and-contact)
+13. [Backup and Recovery](#13-backup-and-recovery)
+14. [Operational Considerations](#14-operational-considerations)
+15. [Implementation Phases](#15-implementation-phases)
+16. [Open Questions](#16-open-questions)
+17. [Appendices](#17-appendices)
+
+---
+
+## 1. Executive Summary
+
+### 1.1 Purpose
+
+Enable secure remote access to the Audiobook-Manager library for a small group of trusted users (friends and family) while maintaining strict security, privacy, and isolation guarantees.
+
+### 1.2 Key Design Principles
+
+| Principle | Implementation |
+|-----------|----------------|
+| **Zero PII Storage** | Email/phone used ephemerally for verification, never persisted |
+| **Passwordless Auth** | Passkeys, FIDO2, and TOTP only - no passwords to leak |
+| **Defense in Depth** | Multiple security layers, each independent |
+| **Least Privilege** | Users access only what they need, nothing more |
+| **Complete Isolation** | Users cannot access OS, other users' data, or admin functions |
+| **Fail Secure** | On error, deny access rather than grant it |
+
+### 1.3 User Base
+
+- **Scale:** ~12-16 users maximum
+- **Trust Level:** Personally known, but not trusted to avoid mistakes
+- **Access Pattern:** Remote, from anywhere on the internet
+- **Admin:** Single administrator (local access only)
+
+---
+
+## 2. Goals and Non-Goals
+
+### 2.1 Goals
+
+1. **Secure Authentication**
+   - Passwordless authentication (Passkey, FIDO2, TOTP)
+   - Self-service registration with ephemeral verification
+   - Single active session per user
+
+2. **Library Access**
+   - Browse audiobook catalog
+   - Stream audio files
+   - Track per-user listening positions
+   - Download files (with explicit permission)
+
+3. **Privacy Protection**
+   - No personally identifiable information stored
+   - Per-user data isolation
+   - Encrypted credential storage
+
+4. **Administrative Control**
+   - User management (create, modify, delete)
+   - Permission control (download access)
+   - Notification system for announcements
+   - Contact/inbox for user communication
+
+5. **Operational Security**
+   - TLS encryption for all traffic
+   - Rate limiting and abuse prevention
+   - Comprehensive logging (without PII)
+   - Backup and recovery procedures
+
+### 2.2 Non-Goals
+
+1. **Multi-tenancy** - This is not a SaaS product; single admin, shared library
+2. **Public Registration** - Users must complete verification; no open signup
+3. **Social Features** - No user-to-user interaction, reviews, or sharing
+4. **Offline Access** - Streaming only; no offline sync (except explicit downloads)
+5. **Mobile Apps** - Web-only; no native iOS/Android apps
+6. **Audible Sync for Users** - Position sync with Audible is admin-only
+
+---
+
+## 3. System Architecture
+
+### 3.1 High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    INTERNET                                              │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │ audiobooks.thebosco.club (DNS via Cloudflare)
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              ROUTER (Port 443 forwarded)                                 │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    SERVER                                                │
+│                                                                                         │
+│  ┌───────────────────────────────────────────────────────────────────────────────────┐ │
+│  │                              CADDY (Port 443)                                      │ │
+│  │  • TLS termination (Let's Encrypt auto-renewal)                                   │ │
+│  │  • Reverse proxy                                                                  │ │
+│  │  • Rate limiting                                                                  │ │
+│  │  • Security headers                                                               │ │
+│  │  • Back Office localhost restriction                                              │ │
+│  └───────────────────────────────────────────────────────────────────────────────────┘ │
+│              │                              │                              │            │
+│              ▼                              ▼                              ▼            │
+│  ┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐    │
+│  │   AUTH SERVICE      │      │  LIBRARY SERVICE    │      │   STATIC ASSETS     │    │
+│  │   (Port 5002)       │      │  (Port 5001)        │      │                     │    │
+│  │                     │      │                     │      │   • Web UI          │    │
+│  │   • Login/logout    │      │  • Browse catalog   │      │   • CSS/JS          │    │
+│  │   • Registration    │      │  • Stream audio     │      │   • Cover images    │    │
+│  │   • Session mgmt    │      │  • Positions        │      │                     │    │
+│  │   • TOTP/WebAuthn   │      │  • Downloads        │      │                     │    │
+│  └─────────────────────┘      └─────────────────────┘      └─────────────────────┘    │
+│              │                              │                                          │
+│              ▼                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              DATABASES                                           │  │
+│  │                                                                                  │  │
+│  │   ┌─────────────────────────┐      ┌─────────────────────────────────────┐      │  │
+│  │   │  auth.db (SQLCipher)    │      │  audiobooks.db (SQLite)             │      │  │
+│  │   │  ENCRYPTED AT REST      │      │  Standard (content not sensitive)   │      │  │
+│  │   │                         │      │                                     │      │  │
+│  │   │  • users                │      │  • audiobooks                       │      │  │
+│  │   │  • sessions             │      │  • genres                           │      │  │
+│  │   │  • user_positions       │      │  • supplements                      │      │  │
+│  │   │  • notifications        │      │                                     │      │  │
+│  │   │  • inbox                │      │                                     │      │  │
+│  │   │  • pending_registrations│      │                                     │      │  │
+│  │   └─────────────────────────┘      └─────────────────────────────────────┘      │  │
+│  │                                                                                  │  │
+│  └─────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                         EXISTING SERVICES (Unchanged)                            │  │
+│  │                         Admin-only, localhost access                             │  │
+│  │                                                                                  │  │
+│  │   • audiobook-converter.service                                                  │  │
+│  │   • audiobook-mover.service                                                      │  │
+│  │   • audiobook-downloader.timer                                                   │  │
+│  │   • Back Office (utilities.html)                                                 │  │
+│  └─────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              FILE STORAGE                                        │  │
+│  │                                                                                  │  │
+│  │   /srv/audiobooks/Library/    → Opus files (streamable to auth'd users)         │  │
+│  │   /srv/audiobooks/Sources/    → AAXC files (NEVER exposed)                      │  │
+│  │   /srv/audiobooks/.covers/    → Cover art (served to auth'd users)              │  │
+│  └─────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Network Architecture
+
+| Component | Port | Exposure | Protocol |
+|-----------|------|----------|----------|
+| Caddy | 443 | Internet | HTTPS (TLS 1.2+) |
+| Auth Service | 5002 | localhost only | HTTP |
+| Library Service | 5001 | localhost only | HTTP |
+| Back Office | N/A | localhost only | Via Caddy |
+
+### 3.3 DNS Configuration
+
+| Record | Type | Value | Purpose |
+|--------|------|-------|---------|
+| `thebosco.club` | A | Squarespace IP | Main website (unchanged) |
+| `audiobooks.thebosco.club` | A | Home server IP | Audiobook library |
+| MX records | MX | Proton | Email routing (unchanged) |
+
+### 3.4 Dynamic DNS
+
+- **Provider:** Cloudflare (free tier)
+- **Update Method:** Cron job every 5 minutes
+- **Fallback:** Manual update after extended outage
+
+---
+
+## 4. Security Model
+
+### 4.1 Threat Model
+
+#### 4.1.1 Threat Actors
+
+| Actor | Capability | Motivation |
+|-------|------------|------------|
+| Automated scanners | Port scanning, CVE probing | Opportunistic exploitation |
+| Credential stuffing bots | Large-scale login attempts | Account takeover |
+| Opportunistic hackers | Known vulnerability exploitation | Data theft, system access |
+| Curious users | Authorized access, boundary testing | Accidental exposure |
+
+#### 4.1.2 Assets to Protect
+
+| Asset | Sensitivity | Protection |
+|-------|-------------|------------|
+| Auth credentials | Critical | Encrypted at rest (SQLCipher) |
+| User sessions | High | Secure tokens, single-session |
+| Listening positions | Medium | Per-user isolation |
+| Audio files | Low | Authentication required |
+| Source files (AAXC) | High | Never exposed |
+| Admin functions | Critical | Localhost only |
+
+### 4.2 Defense Layers
+
+```
+LAYER 1: NETWORK
+├── Caddy as sole entry point
+├── TLS 1.2+ only
+├── Only port 443 exposed
+├── Rate limiting
+└── Optional: Cloudflare proxy
+
+LAYER 2: AUTHENTICATION
+├── No passwords
+├── Passkey/FIDO2/TOTP only
+├── Magic links expire in 15 minutes
+├── Single session per user
+└── Cryptographically random tokens
+
+LAYER 3: AUTHORIZATION
+├── Remote users: library functions only
+├── Back Office: localhost only
+├── Downloads: explicit permission required
+├── Positions: own data only
+└── Admin: localhost origin required
+
+LAYER 4: DATA PROTECTION
+├── Auth database encrypted (SQLCipher)
+├── No PII stored
+├── Pseudonymous usernames
+├── No passwords to leak
+└── Per-user data isolation
+
+LAYER 5: OPERATIONAL
+├── Minimal attack surface
+├── Sanitized logs
+├── Suspicious activity alerts
+├── BTRFS snapshots
+└── Least privilege
+```
+
+### 4.3 Security Headers
+
+```
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+```
+
+### 4.4 Rate Limiting
+
+| Endpoint | Limit | Window | Action on Exceed |
+|----------|-------|--------|------------------|
+| `/auth/login` | 5 attempts | 15 minutes | Block IP temporarily |
+| `/auth/register` | 3 attempts | 1 hour | Block IP temporarily |
+| `/auth/magic-link` | 3 requests | 15 minutes | Block IP temporarily |
+| `/api/*` (authenticated) | 100 requests | 1 minute | 429 response |
+| `/api/stream/*` | 10 concurrent | Per user | Queue additional |
+
+---
+
+## 5. User Model
+
+### 5.1 User Types
+
+| Type | Capabilities | Access Method |
+|------|--------------|---------------|
+| **Admin** | Full system access, user management, Back Office | Localhost only |
+| **Library User** | Browse, stream, positions, contact admin | Remote (authenticated) |
+| **Library User + Download** | Above + download opus files | Remote (authenticated) |
+
+### 5.2 User Attributes
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | INTEGER | Auto | Primary key |
+| `username` | TEXT | Yes | 5-16 printable characters, unique |
+| `auth_type` | TEXT | Yes | 'passkey', 'fido2', or 'totp' |
+| `auth_credential` | BLOB | Yes | Encrypted credential data |
+| `can_download` | BOOLEAN | No | Download permission (default: false) |
+| `is_admin` | BOOLEAN | No | Admin flag (default: false) |
+| `created_at` | TIMESTAMP | Auto | Account creation time |
+| `last_login` | TIMESTAMP | No | Last successful login |
+
+### 5.3 Username Requirements
+
+- **Length:** 5-16 characters
+- **Characters:** Any printable ASCII (0x20-0x7E)
+- **Uniqueness:** Case-sensitive (`Bob` ≠ `bob`)
+- **Validation:** Checked at registration, enforced at database level
+
+---
+
+## 6. Authentication
+
+### 6.1 Authentication Methods
+
+| Method | Description | Use Case |
+|--------|-------------|----------|
+| **Passkey** | WebAuthn/FIDO2 platform authenticator | Preferred, most secure |
+| **FIDO2 Key** | Hardware security key (YubiKey, Titan) | High security |
+| **TOTP** | Time-based one-time password (authenticator app) | Universal fallback |
+| **Magic Link** | One-time URL via email/SMS | When primary unavailable |
+
+### 6.2 Registration Flow
+
+```
+User visits /register
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 1: Choose Username                                         │
+│                                                                  │
+│  Username: [_______________] (5-16 characters)                  │
+│                                                                  │
+│  Verification method:                                            │
+│    ○ Email: [_______________]                                   │
+│    ○ SMS:   [_______________]                                   │
+│                                                                  │
+│  [ Continue ]                                                    │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         │  Server generates verification token
+         │  Sends link via email/SMS
+         │  Email/phone held in memory ONLY (never persisted)
+         │  Token stored as hash in pending_registrations
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 2: Click Verification Link (within 15 minutes)            │
+│                                                                  │
+│  Link format: /auth/verify?token=<256-bit-random>               │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         │  Token validated and consumed (single-use)
+         │  Email/phone discarded from memory
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 3: Choose Authentication Method                           │
+│                                                                  │
+│  How would you like to log in?                                  │
+│                                                                  │
+│    ○ Passkey (recommended)                                      │
+│      Use Face ID, fingerprint, or device PIN                    │
+│                                                                  │
+│    ○ Security Key                                               │
+│      Use a YubiKey or similar FIDO2 device                      │
+│                                                                  │
+│    ○ Authenticator App                                          │
+│      Use Google Authenticator, Authy, etc.                      │
+│                                                                  │
+│  [ Set Up ]                                                      │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         │  Passkey: WebAuthn registration ceremony
+         │  FIDO2: WebAuthn registration ceremony
+         │  TOTP: Generate secret, display QR code, verify code
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Registration Complete                                          │
+│                                                                  │
+│  Your account has been created. You may now log in.             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 6.3 Login Flow
+
+```
+User visits /login
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Username: [_______________]                                    │
+│  [ Continue ]                                                    │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+System checks user's registered auth method
+         │
+         ├── PASSKEY/FIDO2 + available in browser
+         │         │
+         │         ▼
+         │   WebAuthn authentication ceremony
+         │   (Touch key, Face ID, fingerprint, etc.)
+         │         │
+         │         ▼
+         │   Session Created ✓
+         │
+         ├── PASSKEY/FIDO2 + NOT available in browser
+         │         │
+         │         ▼
+         │   ┌─────────────────────────────────────────────────┐
+         │   │  Your passkey isn't available on this device.   │
+         │   │                                                  │
+         │   │  Send me a login link:                          │
+         │   │    ○ Email: [_______________]                   │
+         │   │    ○ SMS:   [_______________]                   │
+         │   │                                                  │
+         │   │  [ Send Link ]                                   │
+         │   └─────────────────────────────────────────────────┘
+         │         │
+         │         ▼
+         │   Magic link sent (15-min expiry)
+         │   Click link → Session Created ✓
+         │
+         └── TOTP
+                   │
+                   ▼
+             ┌─────────────────────────────────────────────────┐
+             │  Enter your 6-digit code:                       │
+             │                                                  │
+             │  Code: [______]                                 │
+             │                                                  │
+             │  [ Verify ]                                      │
+             └─────────────────────────────────────────────────┘
+                   │
+                   ▼
+             TOTP verified → Session Created ✓
+```
+
+### 6.4 Magic Link Security
+
+| Property | Value |
+|----------|-------|
+| Token length | 256 bits (cryptographically random) |
+| Expiration | 15 minutes |
+| Usage | Single-use (invalidated on first click) |
+| Storage | Hash only (SHA-256) |
+| Transport | Email or SMS (user's choice) |
+
+---
+
+## 7. Session Management
+
+### 7.1 Session Properties
+
+| Property | Value |
+|----------|-------|
+| Token format | 256-bit cryptographically random |
+| Storage | `auth.db` sessions table (encrypted) |
+| Duration | Indefinite (until logout or kicked) |
+| Disconnect grace | 30 minutes |
+| Concurrency | Single active session per user |
+
+### 7.2 Session Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              SESSION STATES                                              │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Login successful
+         │
+         ▼
+  ┌─────────────────────────────────────────────────────────────────────────────────────┐
+  │  ACTIVE                                                                              │
+  │  • User can browse, stream, track position                                           │
+  │  • Heartbeat updates last_seen every 60 seconds                                      │
+  └─────────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │  Connection lost
+         ▼
+  ┌─────────────────────────────────────────────────────────────────────────────────────┐
+  │  GRACE PERIOD (30 minutes)                                                           │
+  │  • Session token still valid                                                         │
+  │  • No heartbeat received                                                             │
+  │  • User can reconnect without re-authenticating                                      │
+  └─────────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ├── Reconnects within 30 min → ACTIVE
+         │
+         └── 30 minutes expire
+                   │
+                   ▼
+  ┌─────────────────────────────────────────────────────────────────────────────────────┐
+  │  EXPIRED                                                                             │
+  │  • Session invalid                                                                   │
+  │  • User must log in again                                                           │
+  └─────────────────────────────────────────────────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────────────────────────────────────────────────────────────┐
+  │  FORCED TERMINATION                                                                  │
+  │  Triggers:                                                                           │
+  │  • User logs in from another device → This session dies immediately                 │
+  │  • Admin revokes user → Session dies immediately                                    │
+  │  • User clicks logout → Session dies immediately                                    │
+  └─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.3 Single Session Enforcement
+
+When a user logs in:
+1. Query for existing sessions for this user
+2. Invalidate all existing sessions
+3. Create new session
+4. Return new session token
+
+If an old session tries to use an invalidated token:
+- Return 401 with message: "Session ended because you logged in elsewhere"
+
+---
+
+## 8. Authorization
+
+### 8.1 Access Control Matrix
+
+| Resource | Anonymous | Library User | User + Download | Admin (local) |
+|----------|-----------|--------------|-----------------|---------------|
+| `/auth/*` | ✓ | ✓ | ✓ | ✓ |
+| `/library` | ✗ | ✓ | ✓ | ✓ |
+| `/api/audiobooks` | ✗ | ✓ | ✓ | ✓ |
+| `/api/stream/*` | ✗ | ✓ | ✓ | ✓ |
+| `/api/position/*` (own) | ✗ | ✓ | ✓ | ✓ |
+| `/api/position/*` (others) | ✗ | ✗ | ✗ | ✓ |
+| `/api/download/*` | ✗ | ✗ | ✓ | ✓ |
+| `/covers/*` | ✗ | ✓ | ✓ | ✓ |
+| `/api/notifications` | ✗ | ✓ | ✓ | ✓ |
+| `/api/contact` | ✗ | ✓ | ✓ | ✓ |
+| `/utilities.html` | ✗ | ✗ | ✗ | ✓ |
+| `/api/utilities/*` | ✗ | ✗ | ✗ | ✓ |
+| `/api/system/*` | ✗ | ✗ | ✗ | ✓ |
+| `/api/admin/*` | ✗ | ✗ | ✗ | ✓ |
+
+### 8.2 Localhost Restriction
+
+Back Office and admin endpoints are blocked at the Caddy level:
+
+```
+# Caddyfile (conceptual)
+audiobooks.thebosco.club {
+    # Block Back Office from non-localhost
+    @backoffice path /utilities.html /api/utilities/* /api/system/* /api/admin/*
+    handle @backoffice {
+        @notlocal not remote_ip 127.0.0.1
+        respond @notlocal 404
+    }
+
+    # ... rest of config
+}
+```
+
+### 8.3 Download Permission
+
+- Stored as `can_download` boolean on user record
+- Checked on every download request
+- Only allows opus files and metadata
+- Never allows: AAXC sources, database files, config files
+
+---
+
+## 9. Data Model
+
+### 9.1 Database Overview
+
+| Database | Engine | Purpose | Encryption |
+|----------|--------|---------|------------|
+| `auth.db` | SQLCipher | Users, sessions, positions, notifications | AES-256 at rest |
+| `audiobooks.db` | SQLite | Book metadata, genres, supplements | None (not sensitive) |
+
+### 9.2 auth.db Schema
+
+```sql
+-- Users table
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    auth_type TEXT NOT NULL CHECK (auth_type IN ('passkey', 'fido2', 'totp')),
+    auth_credential BLOB NOT NULL,
+    can_download BOOLEAN DEFAULT FALSE,
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+
+    CHECK (length(username) >= 5 AND length(username) <= 16)
+);
+
+CREATE INDEX idx_users_username ON users(username);
+
+-- Sessions table
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT UNIQUE NOT NULL,  -- SHA-256 of session token
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,  -- NULL = no expiry (until logout/kick)
+    user_agent TEXT,
+    ip_address TEXT  -- For audit, not displayed to users
+);
+
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX idx_sessions_token_hash ON sessions(token_hash);
+
+-- User positions table
+CREATE TABLE user_positions (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    audiobook_id INTEGER NOT NULL,  -- References audiobooks.db
+    position_ms INTEGER DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (user_id, audiobook_id)
+);
+
+CREATE INDEX idx_user_positions_user_id ON user_positions(user_id);
+
+-- Pending registrations table
+CREATE TABLE pending_registrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    token_hash TEXT UNIQUE NOT NULL,  -- SHA-256 of verification token
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX idx_pending_token_hash ON pending_registrations(token_hash);
+
+-- Notifications table
+CREATE TABLE notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('info', 'maintenance', 'outage', 'personal')),
+    target_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,  -- NULL = all users
+    starts_at TIMESTAMP,  -- NULL = immediately
+    expires_at TIMESTAMP,  -- NULL = no expiry
+    dismissable BOOLEAN DEFAULT TRUE,
+    priority INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'admin'
+);
+
+CREATE INDEX idx_notifications_target ON notifications(target_user_id);
+CREATE INDEX idx_notifications_active ON notifications(starts_at, expires_at);
+
+-- Notification dismissals table
+CREATE TABLE notification_dismissals (
+    notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    dismissed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (notification_id, user_id)
+);
+
+-- Inbox table (user messages to admin)
+CREATE TABLE inbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    reply_via TEXT NOT NULL CHECK (reply_via IN ('in-app', 'email')),
+    reply_email TEXT,  -- Only if reply_via='email', deleted after reply
+    status TEXT DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'replied', 'archived')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP,
+    replied_at TIMESTAMP
+);
+
+CREATE INDEX idx_inbox_status ON inbox(status);
+
+-- Contact log (audit trail, no content)
+CREATE TABLE contact_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 9.3 Session Token Format
+
+```
+Session token: 256-bit cryptographically random bytes
+Encoded as: Base64URL (43 characters)
+Storage: SHA-256 hash of token (not the token itself)
+
+Example:
+  Token (given to user): xK9mP2nQ7rS3tU8vW1xY4zA6bC0dE5fG2hI7jK4lM9n
+  Stored (in database):  SHA256(token) = 3a7f8c9d...
+```
+
+---
+
+## 10. API Design
+
+### 10.1 Authentication Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `POST /auth/register/start` | POST | Start registration (send verification) |
+| `GET /auth/verify` | GET | Verify email/SMS link |
+| `POST /auth/register/complete` | POST | Complete registration (set up auth method) |
+| `POST /auth/login` | POST | Login with credentials |
+| `POST /auth/magic-link` | POST | Request magic link |
+| `GET /auth/magic-link/verify` | GET | Verify magic link |
+| `POST /auth/logout` | POST | End session |
+
+### 10.2 Library Endpoints (Existing, Auth-Protected)
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `GET /api/audiobooks` | GET | Required | List audiobooks |
+| `GET /api/audiobooks/<id>` | GET | Required | Get audiobook details |
+| `GET /api/stream/<id>` | GET | Required | Stream audio |
+| `GET /api/collections` | GET | Required | List collections |
+| `GET /covers/<file>` | GET | Required | Get cover image |
+
+### 10.3 Position Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `GET /api/position/<id>` | GET | Required | Get position for audiobook |
+| `PUT /api/position/<id>` | PUT | Required | Update position |
+| `GET /api/positions` | GET | Required | Get all positions for user |
+
+### 10.4 Download Endpoints
+
+| Endpoint | Method | Auth | Permission | Description |
+|----------|--------|------|------------|-------------|
+| `GET /api/download/<id>` | GET | Required | can_download | Download opus file |
+| `GET /api/download/<id>/metadata` | GET | Required | can_download | Download metadata JSON |
+
+### 10.5 Notification Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `GET /api/notifications` | GET | Required | Get active notifications for user |
+| `POST /api/notifications/<id>/dismiss` | POST | Required | Dismiss notification |
+
+### 10.6 Contact Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `POST /api/contact` | POST | Required | Send message to admin |
+
+### 10.7 Admin Endpoints (Localhost Only)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /api/admin/users` | GET | List users |
+| `POST /api/admin/users` | POST | Create user |
+| `PUT /api/admin/users/<id>` | PUT | Update user |
+| `DELETE /api/admin/users/<id>` | DELETE | Delete user |
+| `POST /api/admin/users/<id>/revoke` | POST | Revoke all sessions |
+| `GET /api/admin/inbox` | GET | List messages |
+| `POST /api/admin/inbox/<id>/reply` | POST | Reply to message |
+| `POST /api/admin/notifications` | POST | Create notification |
+| `DELETE /api/admin/notifications/<id>` | DELETE | Delete notification |
+
+---
+
+## 11. User Interface
+
+### 11.1 Pages
+
+| Page | URL | Access | Purpose |
+|------|-----|--------|---------|
+| Login | `/login` | Public | Username entry, auth flow |
+| Register | `/register` | Public | Account creation |
+| Library | `/library` | Authenticated | Browse audiobooks |
+| Player | `/player/<id>` | Authenticated | Audio player |
+| Contact | `/contact` | Authenticated | Message admin |
+| Profile | `/profile` | Authenticated | View account, logout |
+
+### 11.2 UI Components
+
+#### 11.2.1 Notification Banner
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ ⓘ Library updated with 12 new titles!                                     [ Dismiss ]  │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ ⚠ Scheduled maintenance: Saturday 2am-4am EST                             [ Dismiss ]  │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ 🔴 Experiencing issues. Working on it.                                                  │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ 📬 Hey Bob! Just added that series you asked about. - Bosco               [ Dismiss ]  │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 11.2.2 User Menu
+
+```
+┌─────────────────────┐
+│  Bob            ▾   │
+├─────────────────────┤
+│  Profile            │
+│  Contact Admin      │
+│  ──────────────     │
+│  Logout             │
+└─────────────────────┘
+```
+
+#### 11.2.3 Session Expired Modal
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│                          Session Ended                                                  │
+│                                                                                         │
+│   Your session ended because you logged in from another device.                        │
+│                                                                                         │
+│                              [ Log In Again ]                                           │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 12. Notifications and Contact
+
+### 12.1 Notification Types
+
+| Type | Color | Dismissable | Use Case |
+|------|-------|-------------|----------|
+| `info` | Blue | Yes | Announcements, new content |
+| `maintenance` | Yellow | Yes | Scheduled downtime |
+| `outage` | Red | No | Unplanned issues |
+| `personal` | Green | Yes | Direct message to user |
+
+### 12.2 Contact Flow
+
+```
+User submits message
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Store in inbox table                                            │
+│  • from_user_id                                                  │
+│  • message                                                       │
+│  • reply_via (in-app or email)                                   │
+│  • reply_email (if applicable, temporary)                        │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Send admin alert                                                │
+│  • Email to bosco@thebosco.club                                 │
+│  • SMS (optional): "New message from bob"                        │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+Admin reads via CLI: audiobook-inbox list
+         │
+         ▼
+Admin replies via CLI: audiobook-inbox reply <id> "message"
+         │
+         ├── reply_via = 'in-app'
+         │         │
+         │         ▼
+         │   Create personal notification for user
+         │
+         └── reply_via = 'email'
+                   │
+                   ▼
+             Send email to user's reply_email
+             Delete reply_email from database
+```
+
+### 12.3 Admin Alert Configuration
+
+```bash
+# /etc/audiobooks/admin.conf
+
+ADMIN_EMAIL="bosco@thebosco.club"
+ADMIN_SMS="+15551234567"  # Optional
+
+ALERT_VIA_EMAIL=true
+ALERT_VIA_SMS=true
+ALERT_COOLDOWN_MINUTES=15
+```
+
+---
+
+## 13. Backup and Recovery
+
+### 13.1 Backup Strategy
+
+| Method | Frequency | Retention | Purpose |
+|--------|-----------|-----------|---------|
+| BTRFS snapshots | Hourly | 24 hourly, 7 daily, 4 weekly | Quick rollback |
+| SQLite online backup | Daily | 30 days | Consistent database copy |
+| Litestream | Continuous | Point-in-time | Near-realtime recovery |
+
+### 13.2 Backup Procedures
+
+#### 13.2.1 SQLite Online Backup
+
+```bash
+# Safe backup while database is in use
+sqlite3 audiobooks.db ".backup '/backup/audiobooks-$(date +%Y%m%d).db'"
+
+# For SQLCipher (auth.db)
+sqlcipher auth.db "PRAGMA key='<key>'; .backup '/backup/auth-$(date +%Y%m%d).db'"
+```
+
+#### 13.2.2 BTRFS Snapshots
+
+```bash
+# Create snapshot
+sudo btrfs subvolume snapshot -r \
+    /path/to/db-subvol \
+    /path/to/db-subvol/.snapshots/$(date +%Y%m%d-%H%M%S)
+
+# Restore from snapshot
+sudo btrfs subvolume delete /path/to/db-subvol
+sudo btrfs subvolume snapshot \
+    /path/to/db-subvol/.snapshots/20260119-140000 \
+    /path/to/db-subvol
+```
+
+### 13.3 Recovery Scenarios
+
+| Scenario | Recovery Method |
+|----------|-----------------|
+| Accidental data deletion | Litestream point-in-time recovery |
+| Database corruption today | BTRFS snapshot from this morning |
+| Catastrophic failure | Daily backup from external storage |
+| User wants position reset | Admin modifies user_positions table |
+
+### 13.4 CLI Tools
+
+```bash
+# Create backup
+$ audiobook-backup create
+Creating backup...
+  auth.db → /backup/audiobooks/2026-01-19/auth.db ✓
+  audiobooks.db → /backup/audiobooks/2026-01-19/audiobooks.db ✓
+Verifying integrity... OK
+Backup complete.
+
+# List backups
+$ audiobook-backup list
+
+# Restore from backup
+$ audiobook-backup restore 2026-01-18
+```
+
+---
+
+## 14. Operational Considerations
+
+### 14.1 Logging
+
+#### 14.1.1 What to Log
+
+| Event | Log Level | Data Logged |
+|-------|-----------|-------------|
+| Login success | INFO | Username, timestamp, IP (hashed) |
+| Login failure | WARN | Username, timestamp, IP (hashed), reason |
+| Session created | INFO | Username, session ID prefix |
+| Session terminated | INFO | Username, reason |
+| Download | INFO | Username, audiobook ID |
+| Admin action | INFO | Action type, target |
+
+#### 14.1.2 What NOT to Log
+
+- Email addresses
+- Phone numbers
+- Session tokens (full)
+- TOTP codes
+- IP addresses (unhashed)
+- Message content
+
+### 14.2 Monitoring
+
+| Metric | Alert Threshold |
+|--------|-----------------|
+| Failed logins (per IP) | > 10 in 15 minutes |
+| Failed logins (per user) | > 5 in 15 minutes |
+| Active sessions | > 20 (unusual for 16-user base) |
+| API error rate | > 5% |
+| Response latency | > 2 seconds |
+
+### 14.3 CLI Tools Summary
+
+| Command | Purpose |
+|---------|---------|
+| `audiobook-user` | User management (create, list, modify, delete) |
+| `audiobook-session` | Session management (list, revoke) |
+| `audiobook-notify` | Notification management |
+| `audiobook-inbox` | Read and reply to user messages |
+| `audiobook-backup` | Backup and restore |
+| `audiobook-auth` | Test authentication methods |
+
+---
+
+## 15. Implementation Phases
+
+### Phase 0: Foundation
+
+**Goal:** Infrastructure without breaking existing functionality
+
+- [ ] Caddy configuration
+- [ ] DNS setup (Cloudflare)
+- [ ] DDNS updater script
+- [ ] Security headers
+- [ ] Rate limiting
+- [ ] Verify existing app works through Caddy
+
+**Deliverable:** HTTPS access to current app
+
+---
+
+### Phase 1: Auth Database & User Model
+
+**Goal:** Separate encrypted auth storage
+
+- [ ] SQLCipher integration
+- [ ] auth.db schema
+- [ ] User model implementation
+- [ ] Session model implementation
+- [ ] CLI: `audiobook-user`
+- [ ] Unit tests
+
+**Deliverable:** CLI user management
+
+---
+
+### Phase 2: Authentication Service
+
+**Goal:** Login/logout/session management
+
+- [ ] Auth service (port 5002)
+- [ ] TOTP registration/verification
+- [ ] WebAuthn registration/verification
+- [ ] Magic link generation/verification
+- [ ] Session creation/validation/invalidation
+- [ ] Single-session enforcement
+- [ ] Rate limiting
+- [ ] Integration tests
+
+**Deliverable:** Functional authentication
+
+---
+
+### Phase 3: Library Service Integration
+
+**Goal:** Protect library endpoints with auth
+
+- [ ] Session middleware
+- [ ] User context injection
+- [ ] Per-user positions
+- [ ] Download permission enforcement
+- [ ] Audible sync disabled for non-admin
+- [ ] Back Office localhost restriction
+- [ ] Integration tests
+
+**Deliverable:** Authenticated library access
+
+---
+
+### Phase 4: Public-Facing UI
+
+**Goal:** Login page, registration, auth flows
+
+- [ ] Login page
+- [ ] Registration page
+- [ ] Magic link landing page
+- [ ] TOTP setup (QR code)
+- [ ] Passkey setup flow
+- [ ] Session management UI
+- [ ] Error pages
+- [ ] Mobile-responsive
+
+**Deliverable:** Complete auth UI
+
+---
+
+### Phase 5: Notifications & Contact
+
+**Goal:** Admin-user communication
+
+- [ ] Notifications table and API
+- [ ] Notification display (banners)
+- [ ] Dismiss functionality
+- [ ] Contact form UI
+- [ ] Inbox table and CLI
+- [ ] Admin alerts (email/SMS)
+- [ ] Reply mechanism
+- [ ] CLI: `audiobook-notify`, `audiobook-inbox`
+
+**Deliverable:** Two-way communication
+
+---
+
+### Phase 6: Hardening & Audit
+
+**Goal:** Production-ready security
+
+- [ ] Security audit
+- [ ] Penetration testing
+- [ ] Log sanitization verification
+- [ ] Backup/restore testing
+- [ ] Failure mode documentation
+- [ ] Runbook
+- [ ] Performance testing
+
+**Deliverable:** Confidence to go live
+
+---
+
+### Phase 7: Go Live
+
+**Goal:** Public access
+
+- [ ] Open port 443 on router
+- [ ] Activate Cloudflare DDNS
+- [ ] Monitor logs (48 hours)
+- [ ] Invite first test user
+- [ ] Iterate on feedback
+
+**Deliverable:** Live system
+
+---
+
+## 16. Open Questions
+
+| # | Question | Status |
+|---|----------|--------|
+| 1 | SQLCipher key management - where to store encryption key? | Open |
+| 2 | Email/SMS provider for verification and magic links | Open |
+| 3 | TOTP recovery - what if user loses authenticator device? | Open |
+| 4 | Account deletion - user-initiated or admin-only? | Open |
+| 5 | Position export - can users export their position data? | Open |
+
+---
+
+## 17. Appendices
+
+### Appendix A: Caddyfile Template
+
+```
+audiobooks.thebosco.club {
+    # TLS configuration (automatic via Let's Encrypt)
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Content-Security-Policy "default-src 'self'"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Rate limiting
+    rate_limit {
+        zone login {
+            key {remote_host}
+            events 5
+            window 15m
+        }
+    }
+
+    # Block Back Office from non-localhost
+    @backoffice {
+        path /utilities.html /api/utilities/* /api/system/* /api/admin/*
+    }
+    @notlocal {
+        not remote_ip 127.0.0.1
+    }
+    handle @backoffice {
+        respond @notlocal 404
+    }
+
+    # Auth service
+    handle /auth/* {
+        reverse_proxy localhost:5002
+    }
+
+    # Library service
+    handle /api/* {
+        reverse_proxy localhost:5001
+    }
+
+    # Static files
+    handle {
+        root * /opt/audiobooks/library/web-v2
+        file_server
+    }
+}
+```
+
+### Appendix B: DDNS Update Script
+
+```bash
+#!/bin/bash
+# /opt/audiobooks/scripts/ddns-update.sh
+
+ZONE_ID="your-cloudflare-zone-id"
+RECORD_ID="your-dns-record-id"
+API_TOKEN="your-cloudflare-api-token"
+DOMAIN="audiobooks.thebosco.club"
+
+CURRENT_IP=$(curl -s https://api.ipify.org)
+CACHED_IP=$(cat /var/lib/audiobooks/.cached_ip 2>/dev/null)
+
+if [ "$CURRENT_IP" != "$CACHED_IP" ]; then
+    curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "{\"type\":\"A\",\"name\":\"$DOMAIN\",\"content\":\"$CURRENT_IP\",\"ttl\":300}"
+
+    echo "$CURRENT_IP" > /var/lib/audiobooks/.cached_ip
+    logger "DDNS updated: $DOMAIN -> $CURRENT_IP"
+fi
+```
+
+### Appendix C: Glossary
+
+| Term | Definition |
+|------|------------|
+| **FIDO2** | Fast Identity Online 2, passwordless authentication standard |
+| **Magic Link** | One-time URL sent via email/SMS for authentication |
+| **Passkey** | WebAuthn credential stored on device (Face ID, fingerprint, etc.) |
+| **SQLCipher** | SQLite extension providing transparent 256-bit AES encryption |
+| **TOTP** | Time-based One-Time Password (6-digit codes from authenticator apps) |
+| **WebAuthn** | Web Authentication API for passwordless authentication |
+
+---
+
+*End of Specification*
