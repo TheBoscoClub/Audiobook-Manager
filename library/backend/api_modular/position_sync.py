@@ -18,9 +18,16 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
-from .auth import admin_if_enabled, auth_if_enabled
+from .auth import admin_if_enabled, auth_if_enabled, get_auth_db, get_current_user
+
+# Import auth models for per-user position tracking
+try:
+    from auth import UserPosition, PositionRepository
+    POSITION_REPO_AVAILABLE = True
+except ImportError:
+    POSITION_REPO_AVAILABLE = False
 
 # Add rnd directory to path for credential_manager and audible imports
 RND_PATH = Path(__file__).parent.parent.parent.parent / "rnd"
@@ -82,6 +89,51 @@ def get_db():
     conn = sqlite3.connect(_db_path)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _is_auth_enabled() -> bool:
+    """Check if auth is enabled in the current app."""
+    return current_app.config.get("AUTH_ENABLED", False)
+
+
+def _get_user_position(user_id: int, audiobook_id: int) -> int:
+    """
+    Get user's position from the encrypted auth database.
+
+    Returns position in milliseconds, 0 if not found.
+    """
+    if not POSITION_REPO_AVAILABLE:
+        return 0
+
+    try:
+        auth_db = get_auth_db()
+        repo = PositionRepository(auth_db)
+        pos = repo.get(user_id, audiobook_id)
+        return pos.position_ms if pos else 0
+    except RuntimeError:
+        return 0
+
+
+def _save_user_position(user_id: int, audiobook_id: int, position_ms: int) -> bool:
+    """
+    Save user's position to the encrypted auth database.
+
+    Returns True on success, False on failure.
+    """
+    if not POSITION_REPO_AVAILABLE:
+        return False
+
+    try:
+        auth_db = get_auth_db()
+        pos = UserPosition(
+            user_id=user_id,
+            audiobook_id=audiobook_id,
+            position_ms=position_ms
+        )
+        pos.save(auth_db)
+        return True
+    except RuntimeError:
+        return False
 
 
 async def get_audible_client():
@@ -242,7 +294,12 @@ def position_status():
 @position_bp.route("/<int:audiobook_id>", methods=["GET"])
 @auth_if_enabled
 def get_position(audiobook_id: int):
-    """Get playback position for a single audiobook."""
+    """
+    Get playback position for a single audiobook.
+
+    When auth is enabled, returns the current user's personal position.
+    When auth is disabled, returns the global position.
+    """
     conn = get_db()
     try:
         cursor = conn.cursor()
@@ -263,7 +320,14 @@ def get_position(audiobook_id: int):
             return jsonify({"error": "Audiobook not found"}), 404
 
         duration_ms = int((row["duration_hours"] or 0) * 3600000)
-        local_pos = row["playback_position_ms"] or 0
+
+        # Get position: per-user when auth enabled, global otherwise
+        if _is_auth_enabled():
+            user = get_current_user()
+            local_pos = _get_user_position(user.id, audiobook_id) if user else 0
+        else:
+            local_pos = row["playback_position_ms"] or 0
+
         percent = round(local_pos / duration_ms * 100, 1) if duration_ms > 0 else 0
 
         return jsonify(
@@ -291,7 +355,12 @@ def get_position(audiobook_id: int):
 @position_bp.route("/<int:audiobook_id>", methods=["PUT"])
 @auth_if_enabled
 def update_position(audiobook_id: int):
-    """Update local playback position for an audiobook."""
+    """
+    Update playback position for an audiobook.
+
+    When auth is enabled, saves to the current user's personal position (encrypted).
+    When auth is disabled, saves to the global position in the library database.
+    """
     data = request.get_json()
     position_ms = data.get("position_ms")
 
@@ -302,31 +371,44 @@ def update_position(audiobook_id: int):
     try:
         cursor = conn.cursor()
 
-        now = datetime.now().isoformat()
-        cursor.execute(
-            """
-            UPDATE audiobooks
-            SET playback_position_ms = ?,
-                playback_position_updated = ?,
-                updated_at = ?
-            WHERE id = ?
-        """,
-            (position_ms, now, now, audiobook_id),
-        )
-
-        if cursor.rowcount == 0:
+        # Verify audiobook exists
+        cursor.execute("SELECT id FROM audiobooks WHERE id = ?", (audiobook_id,))
+        if not cursor.fetchone():
             return jsonify({"error": "Audiobook not found"}), 404
 
-        # Record in history
-        cursor.execute(
-            """
-            INSERT INTO playback_history (audiobook_id, position_ms, source)
-            VALUES (?, ?, 'local')
-        """,
-            (audiobook_id, position_ms),
-        )
+        now = datetime.now().isoformat()
 
-        conn.commit()
+        # Save position: per-user when auth enabled, global otherwise
+        if _is_auth_enabled():
+            user = get_current_user()
+            if user:
+                if not _save_user_position(user.id, audiobook_id, position_ms):
+                    return jsonify({"error": "Failed to save position"}), 500
+            else:
+                return jsonify({"error": "User not found"}), 401
+        else:
+            # Single-user mode: update global position
+            cursor.execute(
+                """
+                UPDATE audiobooks
+                SET playback_position_ms = ?,
+                    playback_position_updated = ?,
+                    updated_at = ?
+                WHERE id = ?
+            """,
+                (position_ms, now, now, audiobook_id),
+            )
+
+            # Record in global history
+            cursor.execute(
+                """
+                INSERT INTO playback_history (audiobook_id, position_ms, source)
+                VALUES (?, ?, 'local')
+            """,
+                (audiobook_id, position_ms),
+            )
+
+            conn.commit()
 
         return jsonify(
             {

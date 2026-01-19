@@ -32,6 +32,8 @@ from auth import (
     PendingRegistration,
     PendingRegistrationRepository,
     NotificationRepository,
+    UserPosition,
+    PositionRepository,
     hash_token,
 )
 from auth.totp import (
