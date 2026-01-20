@@ -333,7 +333,8 @@ class TestBulkOperations:
 
         # Make half the sessions stale
         with temp_db.connection() as conn:
-            old_time = (datetime.now() - timedelta(hours=2)).isoformat()
+            # Use SQLite-compatible format to match DEFAULT CURRENT_TIMESTAMP
+            old_time = (datetime.now() - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
             conn.execute(
                 "UPDATE sessions SET last_seen = ? WHERE id % 2 = 0",
                 (old_time,)

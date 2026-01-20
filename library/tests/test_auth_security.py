@@ -199,7 +199,8 @@ class TestTokenReuseAfterLogout:
 
         # Manually set last_seen to old timestamp to simulate staleness
         with temp_db.connection() as conn:
-            old_time = (datetime.now() - timedelta(hours=2)).isoformat()
+            # Use SQLite-compatible format to match DEFAULT CURRENT_TIMESTAMP
+            old_time = (datetime.now() - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
             conn.execute(
                 "UPDATE sessions SET last_seen = ? WHERE id = ?",
                 (old_time, session.id)

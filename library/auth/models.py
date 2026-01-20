@@ -342,10 +342,12 @@ class SessionRepository:
     def cleanup_stale(self, grace_minutes: int = 30) -> int:
         """Remove stale sessions. Returns count of deleted sessions."""
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
+        # Use SQLite-compatible format (space separator) to match DEFAULT CURRENT_TIMESTAMP
+        threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM sessions WHERE last_seen < ?",
-                (threshold.isoformat(),)
+                (threshold_str,)
             )
             return cursor.rowcount
 
