@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Library - Audiobook Collection</title>
     <link rel="stylesheet" href="css/library.css">
+    <link rel="stylesheet" href="css/auth.css">
 </head>
 <body>
     <!-- Header -->
@@ -15,6 +16,22 @@
                 <p class="library-subtitle">A Private Collection of Audiobooks</p>
             </div>
             <div class="header-nav">
+                <!-- User menu (shown when logged in) -->
+                <div id="user-menu" class="user-menu" hidden>
+                    <button class="user-button" id="user-menu-button" title="Account options">
+                        <span class="user-icon" id="user-initial">?</span>
+                        <span id="username-display">User</span>
+                    </button>
+                    <div class="user-dropdown" id="user-dropdown">
+                        <a href="#" class="user-dropdown-item" id="logout-button">Sign Out</a>
+                    </div>
+                </div>
+
+                <!-- Login link (shown when auth enabled but not logged in) -->
+                <a href="login.html" id="login-link" class="utilities-link" hidden title="Sign in to access The Library">
+                    <span class="utilities-text">Sign In</span>
+                </a>
+
                 <a href="utilities.html" class="utilities-link" title="Library Administration">
                     <span class="utilities-icon">&#9881;</span>
                     <span class="utilities-text">Back Office</span>
@@ -233,5 +250,39 @@
     </div>
 
     <script src="js/library.js"></script>
+    <script>
+        // User menu dropdown handling
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuButton = document.getElementById('user-menu-button');
+            const dropdown = document.getElementById('user-dropdown');
+            const logoutButton = document.getElementById('logout-button');
+
+            if (menuButton && dropdown) {
+                menuButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdown.classList.toggle('open');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', () => {
+                    dropdown.classList.remove('open');
+                });
+
+                dropdown.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+
+            if (logoutButton) {
+                logoutButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // Access the library instance and call logout
+                    if (window.library) {
+                        window.library.logout();
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

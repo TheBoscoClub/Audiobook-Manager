@@ -33,7 +33,123 @@ class AudiobookLibraryV2 {
         this.collections = [];
         this.currentCollection = '';
 
+        // Auth state
+        this.user = null;
+        this.authEnabled = false;
+
         this.init();
+    }
+
+    /**
+     * Check authentication status and get current user info.
+     * Returns true if user can access the library, false if redirect needed.
+     */
+    async checkAuth() {
+        try {
+            const response = await fetch('/auth/session', {
+                credentials: 'include'
+            });
+
+            if (response.status === 401) {
+                // Auth is enabled but user is not logged in
+                this.authEnabled = true;
+                window.location.href = 'login.html';
+                return false;
+            }
+
+            if (response.ok) {
+                const data = await response.json();
+                this.authEnabled = true;
+                this.user = data.user;
+                this.updateUserUI();
+                return true;
+            }
+
+            // Auth might not be enabled (404 or other)
+            this.authEnabled = false;
+            return true;
+        } catch (error) {
+            // Network error or auth not configured - allow access
+            console.log('Auth check skipped:', error.message);
+            this.authEnabled = false;
+            return true;
+        }
+    }
+
+    /**
+     * Update UI elements based on user auth state.
+     */
+    updateUserUI() {
+        const userMenu = document.getElementById('user-menu');
+        const loginLink = document.getElementById('login-link');
+
+        if (this.user) {
+            // Show user menu, hide login link
+            if (userMenu) {
+                userMenu.hidden = false;
+                const usernameEl = document.getElementById('username-display');
+                if (usernameEl) {
+                    usernameEl.textContent = this.user.username;
+                }
+                const userInitial = document.getElementById('user-initial');
+                if (userInitial) {
+                    userInitial.textContent = this.user.username.charAt(0).toUpperCase();
+                }
+            }
+            if (loginLink) {
+                loginLink.hidden = true;
+            }
+
+            // Show/hide download buttons based on permission
+            this.updateDownloadButtons();
+        } else if (this.authEnabled) {
+            // Auth enabled but no user - show login link
+            if (userMenu) userMenu.hidden = true;
+            if (loginLink) loginLink.hidden = false;
+        } else {
+            // Auth not enabled - hide both
+            if (userMenu) userMenu.hidden = true;
+            if (loginLink) loginLink.hidden = true;
+        }
+    }
+
+    /**
+     * Show/hide download buttons based on user's download permission.
+     */
+    updateDownloadButtons() {
+        const canDownload = this.user && this.user.can_download;
+        document.querySelectorAll('.download-button').forEach(btn => {
+            btn.style.display = canDownload ? '' : 'none';
+        });
+    }
+
+    /**
+     * Log out the current user.
+     */
+    async logout() {
+        try {
+            await fetch('/auth/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+        window.location.href = 'login.html';
+    }
+
+    /**
+     * Download an audiobook for offline listening.
+     * Triggers file download via the API.
+     */
+    downloadAudiobook(bookId) {
+        // Create a temporary link and trigger download
+        const link = document.createElement('a');
+        link.href = `${API_BASE}/download/${bookId}`;
+        link.download = ''; // Let server set filename
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     /**
@@ -103,6 +219,12 @@ class AudiobookLibraryV2 {
     }
 
     async init() {
+        // Check authentication first
+        const canAccess = await this.checkAuth();
+        if (!canAccess) {
+            return; // Redirect in progress
+        }
+
         await this.loadStats();
         await this.loadFilters();
         await this.loadCollections();
@@ -809,6 +931,9 @@ class AudiobookLibraryV2 {
             this.renderPagination(data.pagination);
             this.updateResultsInfo(data.pagination);
 
+            // Update download button visibility based on user permissions
+            this.updateDownloadButtons();
+
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
@@ -883,6 +1008,9 @@ class AudiobookLibraryV2 {
                     <button class="btn-play" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, false)">▶ Play</button>
                     <button class="btn-resume" ${!hasContinue ? 'disabled' : ''} onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, true)" title="${hasContinue ? 'Resume from ' + playbackManager.formatTime(savedPosition.position) : 'No saved position'}">
                         ${hasContinue ? '⏯ Resume' : '⏯ Resume'}
+                    </button>
+                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download for offline listening (requires .opus compatible player)">
+                        ⬇ Download
                     </button>
                 </div>
                 ${hasEditions ? '<div class="book-editions" data-book-id="' + book.id + '" style="display: none;"></div>' : ''}

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/help-tooltips.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- Decorative header -->
+        <div class="auth-header">
+            <div class="deco-ornament">&#9830;</div>
+            <h1 class="auth-title">The Library</h1>
+            <p class="auth-subtitle">A Private Collection</p>
+            <div class="deco-line"></div>
+        </div>
+
+        <!-- Login form -->
+        <form id="login-form" class="auth-form">
+            <div class="form-group">
+                <label for="username">
+                    Username
+                    <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
+                </label>
+                <input type="text"
+                       id="username"
+                       name="username"
+                       autocomplete="username"
+                       autocapitalize="none"
+                       spellcheck="false"
+                       required>
+                <div id="username-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is this?</strong>
+                        <p>This is the name you chose when you signed up. It's like your nickname for this website.</p>
+                        <strong>What do I type?</strong>
+                        <p>Type the exact username you picked when you created your account. It's case-sensitive (capital letters matter).</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="code">
+                    Authenticator Code
+                    <button type="button" class="help-icon" aria-label="Help" data-help="code-help">?</button>
+                </label>
+                <input type="text"
+                       id="code"
+                       name="code"
+                       inputmode="numeric"
+                       pattern="[0-9]*"
+                       maxlength="6"
+                       autocomplete="one-time-code"
+                       placeholder="000000"
+                       required>
+                <span class="field-hint">Enter the 6-digit code from your authenticator app</span>
+                <div id="code-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is this?</strong>
+                        <p>This is a 6-digit number that changes every 30 seconds. It proves it's really you signing in.</p>
+                        <strong>Where do I find it?</strong>
+                        <ol>
+                            <li>Open your authenticator app on your phone (like Google Authenticator, Authy, or 1Password)</li>
+                            <li>Find "The Library" in your list</li>
+                            <li>Look at the 6-digit number shown</li>
+                            <li>Type those numbers here before they change</li>
+                        </ol>
+                        <strong>The code changed while I was typing!</strong>
+                        <p>That's okay! Just wait for the new code and type that one instead. You have 30 seconds.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="error-message" class="error-message" hidden></div>
+
+            <button type="submit" class="auth-button" id="login-button">
+                <span class="button-text">Enter the Library</span>
+                <span class="button-loading" hidden>
+                    <span class="spinner"></span>
+                    Authenticating...
+                </span>
+            </button>
+        </form>
+
+        <!-- Alternative options -->
+        <div class="auth-options">
+            <a href="#" id="use-backup-code" class="auth-link">
+                Use backup code
+                <button type="button" class="help-icon small" aria-label="Help" data-help="backup-option-help">?</button>
+            </a>
+            <span class="auth-divider">|</span>
+            <a href="register.html" class="auth-link">Request access</a>
+        </div>
+
+        <div id="backup-option-help" class="help-tooltip" hidden>
+            <div class="help-content">
+                <strong>What is a backup code?</strong>
+                <p>When you signed up, you were given special one-time codes. These are for emergencies when you can't use your authenticator app.</p>
+                <strong>When should I use this?</strong>
+                <ul>
+                    <li>You lost your phone</li>
+                    <li>You deleted your authenticator app</li>
+                    <li>Your phone broke</li>
+                </ul>
+                <p><em>Each backup code only works once, then it's used up.</em></p>
+            </div>
+        </div>
+
+        <!-- Backup code form (hidden by default) -->
+        <form id="backup-form" class="auth-form" hidden>
+            <div class="form-group">
+                <label for="backup-username">
+                    Username
+                    <button type="button" class="help-icon" aria-label="Help" data-help="backup-username-help">?</button>
+                </label>
+                <input type="text"
+                       id="backup-username"
+                       name="username"
+                       autocomplete="username"
+                       autocapitalize="none"
+                       required>
+                <div id="backup-username-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <p>Type the same username you normally use to sign in.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="backup-code">
+                    Backup Code
+                    <button type="button" class="help-icon" aria-label="Help" data-help="backup-code-help">?</button>
+                </label>
+                <input type="text"
+                       id="backup-code"
+                       name="backup_code"
+                       autocomplete="off"
+                       placeholder="XXXXXXXX"
+                       maxlength="8"
+                       required>
+                <span class="field-hint">One-time use recovery code</span>
+                <div id="backup-code-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is this?</strong>
+                        <p>This is one of the 8-character codes you saved when you first signed up.</p>
+                        <strong>Where did I put them?</strong>
+                        <p>Check where you save important things:</p>
+                        <ul>
+                            <li>A piece of paper in a safe place</li>
+                            <li>A password manager</li>
+                            <li>A secure note on your computer</li>
+                        </ul>
+                        <p><em>Remember: Each code only works once!</em></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="backup-error-message" class="error-message" hidden></div>
+
+            <button type="submit" class="auth-button">
+                <span class="button-text">Recover Access</span>
+            </button>
+
+            <div class="auth-options">
+                <a href="#" id="back-to-login" class="auth-link">&larr; Back to login</a>
+            </div>
+        </form>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <div class="deco-ornament small">&#9830;</div>
+        </div>
+    </div>
+
+    <script>
+        // API base URL - adjust for your setup
+        const API_BASE = '';
+
+        // DOM elements
+        const loginForm = document.getElementById('login-form');
+        const backupForm = document.getElementById('backup-form');
+        const errorMessage = document.getElementById('error-message');
+        const backupErrorMessage = document.getElementById('backup-error-message');
+        const loginButton = document.getElementById('login-button');
+        const useBackupCode = document.getElementById('use-backup-code');
+        const backToLogin = document.getElementById('back-to-login');
+
+        // Help tooltip handling
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const helpId = icon.dataset.help;
+                const tooltip = document.getElementById(helpId);
+                if (tooltip) {
+                    // Close any other open tooltips
+                    document.querySelectorAll('.help-tooltip:not([hidden])').forEach(t => {
+                        if (t.id !== helpId) t.hidden = true;
+                    });
+                    tooltip.hidden = !tooltip.hidden;
+                }
+            });
+        });
+
+        // Close tooltips when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.help-icon') && !e.target.closest('.help-tooltip')) {
+                document.querySelectorAll('.help-tooltip').forEach(t => t.hidden = true);
+            }
+        });
+
+        // Check if already logged in
+        async function checkSession() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/session`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    window.location.href = 'index.html';
+                }
+            } catch (e) {
+                // Not logged in, stay on login page
+            }
+        }
+
+        function showError(element, message) {
+            element.textContent = message;
+            element.hidden = false;
+            element.classList.add('shake');
+            setTimeout(() => element.classList.remove('shake'), 500);
+        }
+
+        function clearError(element) {
+            element.hidden = true;
+            element.textContent = '';
+        }
+
+        function setLoading(button, loading) {
+            const text = button.querySelector('.button-text');
+            const spinner = button.querySelector('.button-loading');
+            if (loading) {
+                text.hidden = true;
+                spinner.hidden = false;
+                button.disabled = true;
+            } else {
+                text.hidden = false;
+                spinner.hidden = true;
+                button.disabled = false;
+            }
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError(errorMessage);
+
+            const username = document.getElementById('username').value.trim();
+            const code = document.getElementById('code').value.trim();
+
+            if (!username || !code) {
+                showError(errorMessage, 'Please enter both username and code');
+                return;
+            }
+
+            if (code.length !== 6 || !/^\d+$/.test(code)) {
+                showError(errorMessage, 'Code must be 6 digits');
+                return;
+            }
+
+            setLoading(loginButton, true);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, code })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = 'index.html';
+                } else {
+                    showError(errorMessage, data.error || 'Login failed');
+                }
+            } catch (e) {
+                showError(errorMessage, 'Connection error. Please try again.');
+            } finally {
+                setLoading(loginButton, false);
+            }
+        });
+
+        backupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError(backupErrorMessage);
+
+            const username = document.getElementById('backup-username').value.trim();
+            const backupCode = document.getElementById('backup-code').value.trim().toUpperCase();
+
+            if (!username || !backupCode) {
+                showError(backupErrorMessage, 'Please enter both username and backup code');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login/backup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, backup_code: backupCode })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.remaining_codes !== undefined && data.remaining_codes <= 2) {
+                        alert(`Warning: You have ${data.remaining_codes} backup code(s) remaining. Consider generating new ones.`);
+                    }
+                    window.location.href = 'index.html';
+                } else {
+                    showError(backupErrorMessage, data.error || 'Invalid backup code');
+                }
+            } catch (e) {
+                showError(backupErrorMessage, 'Connection error. Please try again.');
+            }
+        });
+
+        useBackupCode.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.hidden = true;
+            backupForm.hidden = false;
+            document.getElementById('backup-username').focus();
+        });
+
+        backToLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            backupForm.hidden = true;
+            loginForm.hidden = false;
+            document.getElementById('username').focus();
+        });
+
+        document.getElementById('code').addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        });
+
+        checkSession();
+    </script>
+</body>
+</html>
