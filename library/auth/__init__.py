@@ -29,6 +29,8 @@ from .models import (
     InboxRepository,
     PendingRegistration,
     PendingRegistrationRepository,
+    PendingRecovery,
+    PendingRecoveryRepository,
 )
 
 from .totp import (
@@ -70,6 +72,7 @@ __all__ = [
     "Notification",
     "InboxMessage",
     "PendingRegistration",
+    "PendingRecovery",
     # Repositories
     "UserRepository",
     "SessionRepository",
@@ -77,6 +80,7 @@ __all__ = [
     "NotificationRepository",
     "InboxRepository",
     "PendingRegistrationRepository",
+    "PendingRecoveryRepository",
     # TOTP
     "generate_totp_secret",
     "secret_to_base32",
