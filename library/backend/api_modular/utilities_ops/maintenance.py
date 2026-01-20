@@ -481,8 +481,11 @@ def init_maintenance_routes(project_root):
             library_script = (
                 project_root.parent / "rnd" / "populate_asins_from_library.py"
             )
-            # Use a unique temp file to avoid permission conflicts
-            library_export = Path(tempfile.mktemp(suffix=".json", prefix="audible-export-"))
+            # Use a secure temp file to avoid race conditions (CVE: insecure-temporary-file)
+            # mkstemp() atomically creates the file, preventing TOCTOU race conditions
+            fd, library_export_str = tempfile.mkstemp(suffix=".json", prefix="audible-export-")
+            os.close(fd)  # Close the file descriptor, subprocess will write to it
+            library_export = Path(library_export_str)
 
             try:
                 # Step 1: Export Audible library from Amazon
