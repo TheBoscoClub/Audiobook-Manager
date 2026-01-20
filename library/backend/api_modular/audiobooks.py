@@ -511,7 +511,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         return send_from_directory(COVER_DIR, filename)
 
     @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
-    @download_permission_required
+    @auth_if_enabled
     def stream_audiobook(audiobook_id: int) -> FlaskResponse:
         """Stream audiobook file"""
         conn = get_db(db_path)
