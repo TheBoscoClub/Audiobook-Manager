@@ -234,6 +234,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         # Get paginated audiobooks
         offset = (page - 1) * per_page
 
+        # CodeQL: sort_sql is from sort_mappings allowlist (lines 148-165), sort_order validated (line 174)
         query = f"""
             SELECT
                 id, title, author, narrator, publisher, series,
