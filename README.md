@@ -1113,6 +1113,61 @@ The converter service runs with low CPU and I/O priority to avoid impacting inte
 
 This ensures audiobook conversion happens in the background without affecting system responsiveness.
 
+### HDD and Network Storage Considerations
+
+If your audiobook library is stored on HDDs, NAS, or network mounts that may not be immediately available at boot, you need to configure the services to wait for those mounts.
+
+**Symptom:** Services fail at boot with errors like:
+```
+Failed at step NAMESPACE spawning /bin/sh: No such file or directory
+audiobook-api.service: Failed with result 'exit-code'.
+```
+
+The service typically recovers after a few restart attempts (once the mount is ready), but this can be fixed properly.
+
+**Solution:** Edit the service file to include your data path in `RequiresMountsFor`:
+
+```bash
+# Edit the API service
+sudo systemctl edit --full audiobook-api.service
+```
+
+In the `[Unit]` section, add your data path to `RequiresMountsFor`:
+
+```ini
+[Unit]
+# ... existing directives ...
+# Add your data mount path alongside /opt/audiobooks
+RequiresMountsFor=/opt/audiobooks /path/to/your/audiobooks
+```
+
+**Common scenarios:**
+
+| Storage Type | Example Path | Notes |
+|--------------|--------------|-------|
+| Secondary HDD | `/mnt/data/Audiobooks` | Add to RequiresMountsFor |
+| BTRFS subvolume | `/raid0/Audiobooks` | Add to RequiresMountsFor |
+| NFS mount | `/mnt/nas/audiobooks` | Also add `After=remote-fs.target` |
+| CIFS/SMB mount | `/mnt/share/audiobooks` | Also add `After=remote-fs.target` |
+
+**For network mounts**, also add network dependencies:
+
+```ini
+[Unit]
+After=network-online.target remote-fs.target
+Wants=network-online.target
+RequiresMountsFor=/opt/audiobooks /mnt/nas/audiobooks
+```
+
+After editing, reload and restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart audiobook-api.service
+```
+
+**Why this happens:** The `audiobook-api` service uses `ProtectSystem=strict` for security hardening, which requires all paths in `ReadWritePaths` to be available when setting up the service's filesystem namespace. If your data path uses `nofail` mount options (common for non-critical mounts), systemd won't wait for it by default.
+
 ## Acknowledgments
 
 This project would not be possible without the incredible work of many developers and open-source communities. I am deeply grateful to:
