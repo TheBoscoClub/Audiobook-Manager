@@ -332,3 +332,7 @@ pyproject.toml
 .markdownlint.*
 setup.cfg
 rnd/ui-test-logs/
+
+# Claude Code workflow files
+.claude-checkpoint
+.claude-checkpoint-*
