@@ -333,3 +333,9 @@ pyproject.toml
 setup.cfg
 rnd/ui-test-logs/
 .claude-checkpoint.md
+
+# Claude session checkpoint files
+.claude-checkpoint.md
+.claude-checkpoint-notes.md
+.claude-checkpoint-update.sh
+.claude-checkpoint.log
