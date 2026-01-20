@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.0.4] - 2026-01-20
+
+### Fixed
+- **Systemd**: Fixed API service failing at boot with NAMESPACE error on HDD/NAS storage. Added `/raid0/Audiobooks` to `RequiresMountsFor` so systemd waits for the data mount before setting up the security namespace. Previously only waited for `/opt/audiobooks`.
+- **Auth**: Fixed timestamp format mismatch in session cleanup causing incorrect stale session deletion. SQLite uses space separator (`YYYY-MM-DD HH:MM:SS`) while Python's `isoformat()` uses `T` separator, causing string comparison failures.
+
+### Added
+- **Documentation**: Added "HDD and Network Storage Considerations" section to README explaining how to configure `RequiresMountsFor` for slow mounts (HDDs, NAS, NFS, CIFS)
+
 ## [4.0.3] - 2026-01-18
 
 ### Fixed
