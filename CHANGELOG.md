@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.0.5] - 2026-01-20
+
+### Fixed
+- **Security**: Addressed 26 CodeQL alerts with TLS hardening and documentation:
+  - Enforce TLS 1.2 minimum version in HTTPS server (was allowing older versions)
+  - Replace stack trace exposure with generic error message in bulk delete API
+  - Added CodeQL suppression comments for validated false positives (SQL injection with allowlists, path injection with validation, SSRF with localhost-only access, XSS with escapeHtml sanitization)
+
 ## [4.0.4] - 2026-01-20
 
 ### Fixed
