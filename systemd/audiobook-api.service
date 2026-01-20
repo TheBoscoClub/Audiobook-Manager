@@ -3,8 +3,10 @@ Description=Audiobooks Library API Server (Waitress)
 Documentation=https://github.com/greogory/Audiobook-Manager
 After=network-online.target
 Wants=network-online.target
-# Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
-RequiresMountsFor=/opt/audiobooks
+# Ensure BTRFS subvolumes are mounted before starting
+# - /opt/audiobooks: Application code (prevents CHDIR failures)
+# - /raid0/Audiobooks: Data directory (prevents NAMESPACE failures with ProtectSystem=strict)
+RequiresMountsFor=/opt/audiobooks /raid0/Audiobooks
 
 [Service]
 Type=simple
