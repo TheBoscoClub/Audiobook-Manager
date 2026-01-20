@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.1.0] - 2026-01-20
+
+### Added
+- **Player**: Media Session API integration for OS-level media controls:
+  - Lock screen playback controls (play/pause, seek forward/back, skip)
+  - Notification center media controls
+  - Track metadata display (title, author, narrator, cover art)
+  - Progress bar with seek support
+- **Player**: Live Audible position sync during local playback:
+  - Automatically syncs position with Audible every 5 minutes while playing
+  - Uses "furthest ahead wins" logic to preserve furthest progress
+  - Graceful handling when Audible service is unavailable
+  - Only syncs books with ASIN (Audible-sourced audiobooks)
+
 ## [4.0.5] - 2026-01-20
 
 ### Fixed
