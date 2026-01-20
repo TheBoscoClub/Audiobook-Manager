@@ -934,3 +934,185 @@ class TestPerUserPositionTracking:
             json={"position_ms": 120000})
         # Should succeed or 404 if audiobook doesn't exist
         assert r.status_code in (200, 404)
+
+
+# =============================================================================
+# Magic Link Recovery Tests
+# =============================================================================
+
+
+class TestMagicLinkRequest:
+    """Tests for /auth/magic-link endpoint."""
+
+    def test_magic_link_request_missing_username(self, client):
+        """Test magic link request fails with missing username."""
+        r = client.post('/auth/magic-link', json={"username": ""})
+        assert r.status_code == 400
+        assert 'Username is required' in r.get_json()['error']
+
+    def test_magic_link_request_nonexistent_user(self, client):
+        """Test magic link request for nonexistent user returns success (privacy)."""
+        r = client.post('/auth/magic-link',
+            json={"username": "nonexistent_user_12345"})
+
+        # Should return success to prevent username enumeration
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+        assert 'If an account exists' in data['message']
+
+    def test_magic_link_request_user_without_recovery_email(self, client, auth_app):
+        """Test magic link for user without recovery email returns success (privacy)."""
+        # testuser1 was created without recovery email
+        r = client.post('/auth/magic-link',
+            json={"username": "testuser1"})
+
+        # Should return success to prevent revealing whether user has recovery
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+
+    def test_magic_link_request_user_with_recovery_email(self, client, auth_app):
+        """Test magic link request for user with recovery email."""
+        # Create a user with recovery email
+        r = client.post('/auth/register/start',
+            json={"username": "magicuser1"})
+        token = r.get_json()['verify_token']
+
+        r = client.post('/auth/register/verify',
+            json={
+                "token": token,
+                "auth_type": "totp",
+                "recovery_email": "magic@example.com"
+            })
+        assert r.status_code == 200
+
+        # Request magic link
+        r = client.post('/auth/magic-link',
+            json={"username": "magicuser1"})
+
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+        # Email won't actually send in test (no SMTP), but endpoint succeeds
+
+
+class TestMagicLinkVerify:
+    """Tests for /auth/magic-link/verify endpoint."""
+
+    def test_magic_link_verify_missing_token(self, client):
+        """Test magic link verify fails with missing token."""
+        r = client.post('/auth/magic-link/verify', json={"token": ""})
+        assert r.status_code == 400
+        assert 'Token is required' in r.get_json()['error']
+
+    def test_magic_link_verify_invalid_token(self, client):
+        """Test magic link verify fails with invalid token."""
+        r = client.post('/auth/magic-link/verify',
+            json={"token": "invalid_token_12345"})
+        assert r.status_code == 400
+        assert 'Invalid or expired' in r.get_json()['error']
+
+    def test_magic_link_verify_creates_session(self, client, auth_app):
+        """Test successful magic link verification creates a session."""
+        # Create user with recovery email
+        r = client.post('/auth/register/start',
+            json={"username": "verifuser1"})
+        verify_token = r.get_json()['verify_token']
+
+        r = client.post('/auth/register/verify',
+            json={
+                "token": verify_token,
+                "auth_type": "totp",
+                "recovery_email": "verify@example.com"
+            })
+        assert r.status_code == 200
+
+        # Manually create a recovery token through the database
+        from auth import PendingRecovery, PendingRecoveryRepository, UserRepository
+        db = auth_app.auth_db
+        user_repo = UserRepository(db)
+        user = user_repo.get_by_username("verifuser1")
+
+        recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
+
+        # Verify with the token
+        r = client.post('/auth/magic-link/verify',
+            json={"token": raw_token})
+
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+        assert data['username'] == 'verifuser1'
+        assert 'Set-Cookie' in r.headers
+
+        # Should be logged in now
+        r = client.get('/auth/check')
+        data = r.get_json()
+        assert data['authenticated'] is True
+        assert data['username'] == 'verifuser1'
+
+    def test_magic_link_token_single_use(self, client, auth_app):
+        """Test magic link token can only be used once."""
+        # Create user with recovery email
+        r = client.post('/auth/register/start',
+            json={"username": "singleuse1"})
+        verify_token = r.get_json()['verify_token']
+
+        r = client.post('/auth/register/verify',
+            json={
+                "token": verify_token,
+                "auth_type": "totp",
+                "recovery_email": "single@example.com"
+            })
+        assert r.status_code == 200
+
+        # Create recovery token
+        from auth import PendingRecovery, UserRepository
+        db = auth_app.auth_db
+        user_repo = UserRepository(db)
+        user = user_repo.get_by_username("singleuse1")
+
+        recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
+
+        # First use - should succeed
+        r = client.post('/auth/magic-link/verify',
+            json={"token": raw_token})
+        assert r.status_code == 200
+
+        # Second use - should fail
+        r = client.post('/auth/magic-link/verify',
+            json={"token": raw_token})
+        assert r.status_code == 400
+        assert 'already been used' in r.get_json()['error']
+
+    def test_magic_link_expired_token(self, client, auth_app):
+        """Test magic link verify fails with expired token."""
+        # Create user with recovery email
+        r = client.post('/auth/register/start',
+            json={"username": "expireuser"})
+        verify_token = r.get_json()['verify_token']
+
+        r = client.post('/auth/register/verify',
+            json={
+                "token": verify_token,
+                "auth_type": "totp",
+                "recovery_email": "expire@example.com"
+            })
+        assert r.status_code == 200
+
+        # Create expired recovery token (0 minutes = immediate expiry)
+        from auth import PendingRecovery, UserRepository
+        from datetime import datetime, timedelta
+        db = auth_app.auth_db
+        user_repo = UserRepository(db)
+        user = user_repo.get_by_username("expireuser")
+
+        # Create token and manually set it as expired
+        recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=0)
+
+        # Verify with expired token
+        r = client.post('/auth/magic-link/verify',
+            json={"token": raw_token})
+        assert r.status_code == 400
+        assert 'expired' in r.get_json()['error'].lower()

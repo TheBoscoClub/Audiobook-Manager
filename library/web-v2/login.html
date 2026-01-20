@@ -92,7 +92,28 @@
                 <button type="button" class="help-icon small" aria-label="Help" data-help="backup-option-help">?</button>
             </a>
             <span class="auth-divider">|</span>
+            <a href="#" id="use-magic-link" class="auth-link">
+                Email me a link
+                <button type="button" class="help-icon small" aria-label="Help" data-help="magic-link-option-help">?</button>
+            </a>
+            <span class="auth-divider">|</span>
             <a href="register.html" class="auth-link">Request access</a>
+        </div>
+
+        <div id="magic-link-option-help" class="help-tooltip" hidden>
+            <div class="help-content">
+                <strong>What is this?</strong>
+                <p>If you added an email address when you signed up, we can send you a special link that lets you sign in without your authenticator app.</p>
+                <strong>How does it work?</strong>
+                <ol>
+                    <li>Enter your username</li>
+                    <li>We send a link to your email</li>
+                    <li>Click the link in your email</li>
+                    <li>You're signed in!</li>
+                </ol>
+                <strong>I didn't add an email</strong>
+                <p>If you didn't save an email address during signup, you'll need to use a backup code instead.</p>
+            </div>
         </div>
 
         <div id="backup-option-help" class="help-tooltip" hidden>
@@ -169,6 +190,42 @@
             </div>
         </form>
 
+        <!-- Magic link request form (hidden by default) -->
+        <form id="magic-link-form" class="auth-form" hidden>
+            <div class="form-group">
+                <label for="magic-username">
+                    Username
+                    <button type="button" class="help-icon" aria-label="Help" data-help="magic-username-help">?</button>
+                </label>
+                <input type="text"
+                       id="magic-username"
+                       name="username"
+                       autocomplete="username"
+                       autocapitalize="none"
+                       required>
+                <div id="magic-username-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <p>Type the same username you normally use to sign in.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="magic-link-error" class="error-message" hidden></div>
+            <div id="magic-link-success" class="success-message-box" hidden></div>
+
+            <button type="submit" class="auth-button" id="magic-link-button">
+                <span class="button-text">Send Login Link</span>
+                <span class="button-loading" hidden>
+                    <span class="spinner"></span>
+                    Sending...
+                </span>
+            </button>
+
+            <div class="auth-options">
+                <a href="#" id="back-to-login-from-magic" class="auth-link">&larr; Back to login</a>
+            </div>
+        </form>
+
         <!-- Footer -->
         <div class="auth-footer">
             <div class="deco-ornament small">&#9830;</div>
@@ -182,11 +239,17 @@
         // DOM elements
         const loginForm = document.getElementById('login-form');
         const backupForm = document.getElementById('backup-form');
+        const magicLinkForm = document.getElementById('magic-link-form');
         const errorMessage = document.getElementById('error-message');
         const backupErrorMessage = document.getElementById('backup-error-message');
+        const magicLinkError = document.getElementById('magic-link-error');
+        const magicLinkSuccess = document.getElementById('magic-link-success');
         const loginButton = document.getElementById('login-button');
+        const magicLinkButton = document.getElementById('magic-link-button');
         const useBackupCode = document.getElementById('use-backup-code');
+        const useMagicLink = document.getElementById('use-magic-link');
         const backToLogin = document.getElementById('back-to-login');
+        const backToLoginFromMagic = document.getElementById('back-to-login-from-magic');
 
         // Help tooltip handling
         document.querySelectorAll('.help-icon').forEach(icon => {
@@ -340,6 +403,61 @@
             backupForm.hidden = true;
             loginForm.hidden = false;
             document.getElementById('username').focus();
+        });
+
+        // Magic link form handlers
+        useMagicLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.hidden = true;
+            backupForm.hidden = true;
+            magicLinkForm.hidden = false;
+            magicLinkSuccess.hidden = true;
+            magicLinkError.hidden = true;
+            document.getElementById('magic-username').focus();
+        });
+
+        backToLoginFromMagic.addEventListener('click', (e) => {
+            e.preventDefault();
+            magicLinkForm.hidden = true;
+            loginForm.hidden = false;
+            document.getElementById('username').focus();
+        });
+
+        magicLinkForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            magicLinkError.hidden = true;
+            magicLinkSuccess.hidden = true;
+
+            const username = document.getElementById('magic-username').value.trim();
+
+            if (!username) {
+                showError(magicLinkError, 'Please enter your username');
+                return;
+            }
+
+            setLoading(magicLinkButton, true);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/magic-link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    magicLinkSuccess.textContent = data.message || 'If an account exists with a registered email, a login link has been sent.';
+                    magicLinkSuccess.hidden = false;
+                    magicLinkButton.disabled = true;
+                } else {
+                    showError(magicLinkError, data.error || 'Unable to send login link');
+                }
+            } catch (e) {
+                showError(magicLinkError, 'Connection error. Please try again.');
+            } finally {
+                setLoading(magicLinkButton, false);
+            }
         });
 
         document.getElementById('code').addEventListener('input', (e) => {

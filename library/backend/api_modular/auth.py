@@ -31,6 +31,8 @@ from auth import (
     SessionRepository,
     PendingRegistration,
     PendingRegistrationRepository,
+    PendingRecovery,
+    PendingRecoveryRepository,
     NotificationRepository,
     UserPosition,
     PositionRepository,
@@ -820,6 +822,277 @@ def update_recovery_contact():
             "Recovery contact removed. Backup codes are now your only recovery option."
         )
     })
+
+
+# =============================================================================
+# Magic Link Recovery
+# =============================================================================
+
+@auth_bp.route("/magic-link", methods=["POST"])
+def request_magic_link():
+    """
+    Request a magic link for login recovery.
+
+    This endpoint sends a one-time login link to the user's registered
+    email address (if they have one).
+
+    Request body:
+        {
+            "username": "string"
+        }
+
+    Returns:
+        200: {"success": true, "message": "..."}  (always returns success for privacy)
+        400: {"error": "..."}  (only for invalid requests, not for user lookup)
+
+    Note: To prevent username enumeration, this endpoint always returns success
+    even if the username doesn't exist or has no recovery email. The message
+    is intentionally vague.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    # Generic message to prevent username enumeration
+    generic_message = (
+        "If an account exists with that username and has a registered email, "
+        "a login link has been sent. Please check your email."
+    )
+
+    user = user_repo.get_by_username(username)
+    if user is None:
+        # User doesn't exist, but don't reveal this
+        return jsonify({"success": True, "message": generic_message})
+
+    if not user.recovery_enabled or not user.recovery_email:
+        # User exists but has no recovery email
+        return jsonify({"success": True, "message": generic_message})
+
+    # Create recovery token
+    recovery_repo = PendingRecoveryRepository(db)
+    recovery_repo.delete_for_user(user.id)  # Remove any existing tokens
+
+    recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
+
+    # Send email with magic link
+    magic_link_url = f"/verify.html?token={raw_token}"
+
+    # Attempt to send email
+    email_sent = _send_magic_link_email(
+        to_email=user.recovery_email,
+        username=user.username,
+        magic_link=magic_link_url,
+        expires_minutes=15
+    )
+
+    if email_sent:
+        return jsonify({
+            "success": True,
+            "message": generic_message
+        })
+    else:
+        # Email failed, but still return success for privacy
+        # Log the error internally
+        current_app.logger.error(f"Failed to send magic link email to user {user.id}")
+        return jsonify({
+            "success": True,
+            "message": generic_message
+        })
+
+
+@auth_bp.route("/magic-link/verify", methods=["POST"])
+def verify_magic_link():
+    """
+    Verify a magic link token and create a session.
+
+    Request body:
+        {
+            "token": "verification_token"
+        }
+
+    Returns:
+        200: {"success": true, "message": "..."}
+        400: {"error": "..."}
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    token = data.get("token", "").strip()
+    if not token:
+        return jsonify({"error": "Token is required"}), 400
+
+    db = get_auth_db()
+    recovery_repo = PendingRecoveryRepository(db)
+
+    # Find the recovery request
+    recovery = recovery_repo.get_by_token(token)
+    if recovery is None:
+        return jsonify({"error": "Invalid or expired token"}), 400
+
+    if recovery.is_expired():
+        return jsonify({"error": "Token has expired. Please request a new link."}), 400
+
+    if recovery.is_used():
+        return jsonify({"error": "This link has already been used"}), 400
+
+    # Get the user
+    user_repo = UserRepository(db)
+    user = user_repo.get_by_id(recovery.user_id)
+    if user is None:
+        return jsonify({"error": "User not found"}), 400
+
+    # Mark recovery as used
+    recovery.mark_used(db)
+
+    # Create a new session
+    session_repo = SessionRepository(db)
+    session_repo.invalidate_user_sessions(user.id)  # Single session enforcement
+
+    user_agent = request.headers.get("User-Agent", "")
+    ip_address = request.remote_addr or ""
+
+    session, raw_token = Session.create_for_user(db, user.id, user_agent, ip_address)
+
+    # Update last login
+    user.last_login = datetime.now()
+    user.save(db)
+
+    # Set session cookie
+    response = jsonify({
+        "success": True,
+        "message": "Login successful",
+        "username": user.username,
+    })
+
+    response.set_cookie(
+        _session_cookie_name,
+        raw_token,
+        httponly=_session_cookie_httponly,
+        secure=_session_cookie_secure,
+        samesite=_session_cookie_samesite,
+        max_age=60 * 60 * 24 * 365,  # 1 year
+    )
+
+    return response
+
+
+def _send_magic_link_email(
+    to_email: str,
+    username: str,
+    magic_link: str,
+    expires_minutes: int
+) -> bool:
+    """
+    Send a magic link email for login recovery.
+
+    Returns True if email was sent successfully, False otherwise.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    # Email configuration - read from environment or config
+    smtp_host = os.environ.get("SMTP_HOST", "localhost")
+    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    base_url = os.environ.get("BASE_URL", "https://audiobooks.thebosco.club")
+
+    full_link = f"{base_url}{magic_link}"
+
+    subject = "Sign In to The Library"
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">The Library</h1>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            Hello {username},
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            You requested a sign-in link for The Library. Click the button below to sign in:
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{full_link}"
+               style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+                      color: #1a1a1a;
+                      padding: 15px 30px;
+                      text-decoration: none;
+                      font-weight: bold;
+                      letter-spacing: 2px;">
+                SIGN IN
+            </a>
+        </div>
+
+        <p style="color: #f5f5dc; line-height: 1.6; font-size: 0.9em;">
+            This link will expire in {expires_minutes} minutes.
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.6; font-size: 0.9em;">
+            If you didn't request this link, you can safely ignore this email.
+            Someone may have entered your username by mistake.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+
+        <p style="color: #888; font-size: 0.8em; text-align: center;">
+            If the button doesn't work, copy and paste this link into your browser:
+            <br>
+            <a href="{full_link}" style="color: #daa520;">{full_link}</a>
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+    text_content = f"""
+Hello {username},
+
+You requested a sign-in link for The Library.
+
+Click here to sign in: {full_link}
+
+This link will expire in {expires_minutes} minutes.
+
+If you didn't request this link, you can safely ignore this email.
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = to_email
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_pass:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+
+        return True
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to send magic link email: {e}")
+        return False
 
 
 # =============================================================================

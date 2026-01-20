@@ -138,7 +138,70 @@
             </form>
         </div>
 
-        <!-- Step 3: TOTP Setup -->
+        <!-- Step 3: Choose Authentication Method -->
+        <div id="step-auth-method" class="registration-step" hidden>
+            <h2 class="step-title">Choose How to Sign In</h2>
+            <p class="step-description">
+                Select how you want to verify your identity when signing in.
+            </p>
+
+            <div class="auth-method-options">
+                <div class="auth-method-card recommended" id="method-totp">
+                    <div class="method-header">
+                        <span class="method-icon">📱</span>
+                        <span class="method-badge">Available Now</span>
+                    </div>
+                    <h3 class="method-title">Authenticator App</h3>
+                    <p class="method-description">
+                        Use an app on your phone (like Google Authenticator) that shows a new 6-digit code every 30 seconds.
+                    </p>
+                    <ul class="method-pros">
+                        <li>Works on any device with your phone</li>
+                        <li>No internet needed on your phone</li>
+                        <li>Free apps available</li>
+                    </ul>
+                    <button type="button" class="auth-button method-select" data-method="totp">
+                        <span class="button-text">Use Authenticator App</span>
+                    </button>
+                </div>
+
+                <div class="auth-method-card coming-soon" id="method-passkey">
+                    <div class="method-header">
+                        <span class="method-icon">🔐</span>
+                        <span class="method-badge future">Coming Soon</span>
+                    </div>
+                    <h3 class="method-title">Passkey</h3>
+                    <p class="method-description">
+                        Use Face ID, fingerprint, or your device's built-in security to sign in instantly.
+                    </p>
+                    <ul class="method-pros">
+                        <li>Fastest and most secure</li>
+                        <li>No codes to remember or type</li>
+                        <li>Built into modern devices</li>
+                    </ul>
+                    <button type="button" class="auth-button method-select" disabled title="Passkey support coming soon">
+                        <span class="button-text">Coming Soon</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="auth-method-help">
+                <button type="button" class="help-icon" aria-label="Help" data-help="auth-method-help">?</button>
+                <span>Not sure which to choose?</span>
+            </div>
+            <div id="auth-method-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>Which should I pick?</strong>
+                    <p>Right now, <strong>Authenticator App</strong> is your only option, but it's very secure and works great!</p>
+                    <strong>What's a Passkey?</strong>
+                    <p>Passkeys are a newer technology that lets you sign in using Face ID, fingerprint, or your device's PIN. We're working on adding this feature.</p>
+                    <strong>Can I switch later?</strong>
+                    <p>Yes! Once passkeys are available, you'll be able to add one to your account.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: TOTP Setup -->
         <div id="step-totp" class="registration-step" hidden>
             <h2 class="step-title">
                 Set Up Authenticator
@@ -238,7 +301,7 @@
             </button>
         </div>
 
-        <!-- Step 4: Success / Pending Approval -->
+        <!-- Step 5: Success / Pending Approval -->
         <div id="step-pending" class="registration-step" hidden>
             <div class="success-message">
                 <div class="deco-ornament">&#10003;</div>
@@ -257,7 +320,7 @@
             </div>
         </div>
 
-        <!-- Step 5: Complete -->
+        <!-- Step 6: Complete -->
         <div id="step-complete" class="registration-step" hidden>
             <div class="success-message">
                 <div class="deco-ornament">&#10003;</div>
@@ -310,10 +373,14 @@
         const steps = {
             request: document.getElementById('step-request'),
             verify: document.getElementById('step-verify'),
+            authMethod: document.getElementById('step-auth-method'),
             totp: document.getElementById('step-totp'),
             pending: document.getElementById('step-pending'),
             complete: document.getElementById('step-complete')
         };
+
+        // Store verification data between steps
+        let pendingVerification = null;
 
         // Show a specific step
         function showStep(stepName) {
@@ -385,7 +452,7 @@
             }
         });
 
-        // Step 2: Verify token
+        // Step 2: Verify token - store data and move to auth method selection
         document.getElementById('verify-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             clearError('verify-error');
@@ -393,50 +460,75 @@
             const token = document.getElementById('verify-token').value.trim();
             const recoveryEmail = document.getElementById('recovery-email').value.trim();
 
-            try {
-                const response = await fetch(`${API_BASE}/auth/register/verify`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        token: token,
-                        auth_type: 'totp',
-                        recovery_email: recoveryEmail || undefined,
-                        include_qr: true
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Show TOTP setup
-                    if (data.totp_qr) {
-                        document.getElementById('qr-code').src = 'data:image/png;base64,' + data.totp_qr;
-                    }
-                    document.getElementById('totp-secret').textContent = data.totp_secret;
-
-                    // Display backup codes using safe DOM methods
-                    const codesList = document.getElementById('backup-codes-list');
-                    // Clear existing children safely
-                    while (codesList.firstChild) {
-                        codesList.removeChild(codesList.firstChild);
-                    }
-                    // Add each backup code as a text node
-                    data.backup_codes.forEach(code => {
-                        const span = document.createElement('span');
-                        span.textContent = code;
-                        codesList.appendChild(span);
-                    });
-
-                    showStep('totp');
-                } else {
-                    showError('verify-error', data.error || 'Verification failed');
-                }
-            } catch (e) {
-                showError('verify-error', 'Connection error. Please try again.');
+            if (!token) {
+                showError('verify-error', 'Please enter your verification code');
+                return;
             }
+
+            // Store for the next step
+            pendingVerification = {
+                token: token,
+                recovery_email: recoveryEmail || undefined
+            };
+
+            // Move to auth method selection
+            showStep('authMethod');
         });
 
-        // Step 3: Complete TOTP setup
+        // Step 3: Auth method selection
+        document.querySelectorAll('.method-select[data-method]').forEach(button => {
+            button.addEventListener('click', async () => {
+                const method = button.dataset.method;
+
+                if (method === 'totp' && pendingVerification) {
+                    // Call the API with TOTP method
+                    try {
+                        const response = await fetch(`${API_BASE}/auth/register/verify`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                token: pendingVerification.token,
+                                auth_type: 'totp',
+                                recovery_email: pendingVerification.recovery_email,
+                                include_qr: true
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            // Show TOTP setup
+                            if (data.totp_qr) {
+                                document.getElementById('qr-code').src = 'data:image/png;base64,' + data.totp_qr;
+                            }
+                            document.getElementById('totp-secret').textContent = data.totp_secret;
+
+                            // Display backup codes using safe DOM methods
+                            const codesList = document.getElementById('backup-codes-list');
+                            while (codesList.firstChild) {
+                                codesList.removeChild(codesList.firstChild);
+                            }
+                            data.backup_codes.forEach(code => {
+                                const span = document.createElement('span');
+                                span.textContent = code;
+                                codesList.appendChild(span);
+                            });
+
+                            showStep('totp');
+                        } else {
+                            // Token may have expired or been used
+                            showStep('verify');
+                            showError('verify-error', data.error || 'Verification failed. Please try again.');
+                        }
+                    } catch (e) {
+                        showStep('verify');
+                        showError('verify-error', 'Connection error. Please try again.');
+                    }
+                }
+            });
+        });
+
+        // Step 4: Complete TOTP setup
         document.getElementById('complete-button').addEventListener('click', () => {
             showStep('complete');
         });
@@ -481,6 +573,108 @@
 
         .step-title .help-icon {
             vertical-align: middle;
+        }
+
+        /* Auth method selection cards */
+        .auth-method-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .auth-method-card {
+            background: var(--deco-slate);
+            border: 1px solid var(--deco-gray);
+            padding: 1.25rem;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .auth-method-card.recommended {
+            border-color: var(--gold-dark);
+        }
+
+        .auth-method-card.coming-soon {
+            opacity: 0.7;
+        }
+
+        .method-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .method-icon {
+            font-size: 1.5rem;
+        }
+
+        .method-badge {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0.25rem 0.5rem;
+            background: var(--emerald);
+            color: var(--cream);
+        }
+
+        .method-badge.future {
+            background: var(--deco-gray);
+        }
+
+        .method-title {
+            font-family: Georgia, serif;
+            font-size: 1rem;
+            color: var(--gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .method-description {
+            color: var(--cream);
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin-bottom: 0.75rem;
+        }
+
+        .method-pros {
+            color: var(--cream);
+            font-size: 0.8rem;
+            line-height: 1.6;
+            margin: 0 0 1rem 1.25rem;
+            padding: 0;
+        }
+
+        .method-pros li {
+            margin-bottom: 0.25rem;
+        }
+
+        .method-select {
+            width: 100%;
+        }
+
+        .auth-method-help {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: var(--cream);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 480px) {
+            .auth-method-card {
+                padding: 1rem;
+            }
+
+            .method-title {
+                font-size: 0.95rem;
+            }
+
+            .method-description,
+            .method-pros {
+                font-size: 0.8rem;
+            }
         }
     </style>
 </body>

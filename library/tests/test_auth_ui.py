@@ -363,6 +363,142 @@ class TestDownloadButtonIntegration:
         assert ".btn-download" in mobile_section, "Download button should have mobile styles"
 
 
+class TestVerifyPage:
+    """Test magic link verification landing page."""
+
+    def test_verify_page_exists(self):
+        """Verify verify.html exists."""
+        verify_path = WEB_DIR / "verify.html"
+        assert verify_path.exists(), "verify.html should exist"
+
+    def test_verify_page_has_viewport_meta(self):
+        """Verify verify page has mobile viewport meta tag."""
+        verify_content = (WEB_DIR / "verify.html").read_text()
+        assert 'name="viewport"' in verify_content, "Verify page should have viewport meta tag"
+
+    def test_verify_page_has_token_form(self):
+        """Verify page has manual token entry form."""
+        verify_content = (WEB_DIR / "verify.html").read_text()
+
+        assert 'id="manual-form"' in verify_content, "Should have manual entry form"
+        assert 'id="manual-token"' in verify_content, "Should have manual token input field"
+        assert 'type="submit"' in verify_content, "Should have submit button"
+
+    def test_verify_page_has_state_containers(self):
+        """Verify page has containers for different states."""
+        verify_content = (WEB_DIR / "verify.html").read_text()
+
+        assert 'id="state-verifying"' in verify_content, "Should have verifying state"
+        assert 'id="state-success"' in verify_content, "Should have success state"
+        assert 'id="state-error"' in verify_content, "Should have error state"
+        assert 'id="state-manual"' in verify_content, "Should have manual entry state"
+
+    def test_verify_page_handles_url_token(self):
+        """Verify page JavaScript checks for token in URL."""
+        verify_content = (WEB_DIR / "verify.html").read_text()
+
+        assert "URLSearchParams" in verify_content, "Should parse URL parameters"
+        assert ".get('token')" in verify_content or 'get("token")' in verify_content, "Should get token param"
+
+    def test_verify_page_calls_correct_endpoint(self):
+        """Verify page calls magic-link/verify endpoint."""
+        verify_content = (WEB_DIR / "verify.html").read_text()
+
+        assert "/auth/magic-link/verify" in verify_content, "Should call verify endpoint"
+
+    def test_verify_page_includes_auth_css(self):
+        """Verify page includes auth.css."""
+        verify_content = (WEB_DIR / "verify.html").read_text()
+
+        assert 'href="css/auth.css"' in verify_content, "Should include auth.css"
+
+    def test_verify_page_has_art_deco_styling(self):
+        """Verify page uses Art Deco styling classes."""
+        verify_content = (WEB_DIR / "verify.html").read_text()
+
+        assert 'class="auth-page"' in verify_content, "Should use auth-page class"
+        assert 'class="auth-container"' in verify_content, "Should use auth-container class"
+
+
+class TestMagicLinkOption:
+    """Test magic link option in login page."""
+
+    def test_login_page_has_magic_link_option(self):
+        """Verify login page has magic link option."""
+        login_content = (WEB_DIR / "login.html").read_text()
+
+        assert 'id="use-magic-link"' in login_content, "Should have magic link option"
+        assert "Email me a link" in login_content, "Should have magic link text"
+
+    def test_login_page_has_magic_link_form(self):
+        """Verify login page has hidden magic link form."""
+        login_content = (WEB_DIR / "login.html").read_text()
+
+        assert 'id="magic-link-form"' in login_content, "Should have magic link form"
+        assert 'id="magic-username"' in login_content, "Should have magic link username input"
+
+    def test_magic_link_form_calls_correct_endpoint(self):
+        """Verify magic link form calls correct endpoint."""
+        login_content = (WEB_DIR / "login.html").read_text()
+
+        assert "/auth/magic-link" in login_content, "Should call magic-link endpoint"
+
+    def test_magic_link_has_help_tooltip(self):
+        """Verify magic link option has help tooltip."""
+        login_content = (WEB_DIR / "login.html").read_text()
+
+        assert 'data-help="magic-link-option-help"' in login_content or 'id="magic-link-help"' in login_content, \
+            "Magic link should have help tooltip"
+
+    def test_login_page_shows_success_message_for_magic_link(self):
+        """Verify login page can show success message after magic link request."""
+        login_content = (WEB_DIR / "login.html").read_text()
+
+        assert 'id="magic-link-success"' in login_content or "success-message-box" in login_content, \
+            "Should have success message container"
+
+
+class TestAuthMethodSelection:
+    """Test authentication method selection in registration."""
+
+    def test_register_page_has_auth_method_step(self):
+        """Verify register page has auth method selection step."""
+        register_content = (WEB_DIR / "register.html").read_text()
+
+        assert 'id="step-auth-method"' in register_content, "Should have auth method step"
+
+    def test_register_page_has_totp_option(self):
+        """Verify register page has TOTP authenticator option."""
+        register_content = (WEB_DIR / "register.html").read_text()
+
+        assert 'id="method-totp"' in register_content or 'Authenticator App' in register_content, \
+            "Should have TOTP option"
+
+    def test_register_page_has_passkey_option(self):
+        """Verify register page shows passkey option (even if disabled)."""
+        register_content = (WEB_DIR / "register.html").read_text()
+
+        assert "Passkey" in register_content or "passkey" in register_content, \
+            "Should mention passkey option"
+        assert "Coming Soon" in register_content, \
+            "Passkey should be marked as coming soon"
+
+    def test_register_page_auth_method_selection_javascript(self):
+        """Verify register page handles auth method selection."""
+        register_content = (WEB_DIR / "register.html").read_text()
+
+        # Check for auth method related JavaScript
+        assert "authMethod" in register_content.lower() or "method" in register_content, \
+            "Should have auth method handling"
+
+    def test_register_pending_verification_state(self):
+        """Verify register page tracks pending verification between steps."""
+        register_content = (WEB_DIR / "register.html").read_text()
+
+        assert "pendingVerification" in register_content, \
+            "Should track pending verification state"
+
+
 class TestSecurityAttributes:
     """Test security-related attributes in auth pages."""
 

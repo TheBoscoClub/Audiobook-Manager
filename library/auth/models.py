@@ -802,3 +802,119 @@ class PendingRegistrationRepository:
                 "DELETE FROM pending_registrations WHERE username = ?", (username,)
             )
             return cursor.rowcount
+
+
+@dataclass
+class PendingRecovery:
+    """
+    Pending account recovery awaiting verification (magic link).
+    """
+    id: Optional[int] = None
+    user_id: int = 0
+    token_hash: str = ""
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    used_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: tuple) -> "PendingRecovery":
+        """Create from database row."""
+        return cls(
+            id=row[0],
+            user_id=row[1],
+            token_hash=row[2],
+            created_at=datetime.fromisoformat(row[3]) if row[3] else None,
+            expires_at=datetime.fromisoformat(row[4]) if row[4] else None,
+            used_at=datetime.fromisoformat(row[5]) if row[5] else None,
+        )
+
+    @classmethod
+    def create(
+        cls,
+        db: AuthDatabase,
+        user_id: int,
+        expiry_minutes: int = 15
+    ) -> tuple["PendingRecovery", str]:
+        """
+        Create pending recovery request.
+
+        Returns:
+            Tuple of (PendingRecovery, raw_token)
+            - raw_token is sent to user via email/SMS
+        """
+        raw_token, token_hash = generate_verification_token()
+        expires_at = datetime.now() + timedelta(minutes=expiry_minutes)
+
+        with db.connection() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO pending_recovery (user_id, token_hash, expires_at)
+                VALUES (?, ?, ?)
+                """,
+                (user_id, token_hash, expires_at.isoformat())
+            )
+            recovery_id = cursor.lastrowid
+
+            cursor = conn.execute(
+                "SELECT * FROM pending_recovery WHERE id = ?", (recovery_id,)
+            )
+            recovery = cls.from_row(cursor.fetchone())
+
+        return recovery, raw_token
+
+    def is_expired(self) -> bool:
+        """Check if recovery has expired."""
+        if self.expires_at is None:
+            return True
+        return datetime.now() > self.expires_at
+
+    def is_used(self) -> bool:
+        """Check if recovery has been used."""
+        return self.used_at is not None
+
+    def mark_used(self, db: AuthDatabase) -> bool:
+        """Mark this recovery as used."""
+        if self.id is None:
+            return False
+        with db.connection() as conn:
+            conn.execute(
+                "UPDATE pending_recovery SET used_at = ? WHERE id = ?",
+                (datetime.now().isoformat(), self.id)
+            )
+        self.used_at = datetime.now()
+        return True
+
+
+class PendingRecoveryRepository:
+    """Repository for PendingRecovery operations."""
+
+    def __init__(self, db: AuthDatabase):
+        self.db = db
+
+    def get_by_token(self, raw_token: str) -> Optional[PendingRecovery]:
+        """Get pending recovery by raw token."""
+        token_hash = hash_token(raw_token)
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM pending_recovery WHERE token_hash = ?",
+                (token_hash,)
+            )
+            row = cursor.fetchone()
+            return PendingRecovery.from_row(row) if row else None
+
+    def cleanup_expired(self) -> int:
+        """Remove expired pending recoveries."""
+        now = datetime.now().isoformat()
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM pending_recovery WHERE expires_at < ?", (now,)
+            )
+            return cursor.rowcount
+
+    def delete_for_user(self, user_id: int) -> int:
+        """Delete all pending recoveries for a user."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM pending_recovery WHERE user_id = ?", (user_id,)
+            )
+            return cursor.rowcount

@@ -1,9 +1,9 @@
 # Secure Remote Access Design Specification
 
-**Version:** 0.2.0 (Draft)
-**Branch:** `secure-remote-access`
+**Version:** 0.4.0 (Draft)
+**Branch:** `rd/secure-remote-access`
 **Last Updated:** 2026-01-19
-**Status:** Implementation Phase (Phase 2 Complete)
+**Status:** Implementation Phase (Phase 4 Complete)
 
 ---
 
@@ -1070,83 +1070,88 @@ $ audiobook-backup restore 2026-01-18
 
 ## 15. Implementation Phases
 
-### Phase 0: Foundation
+### Phase 0: Foundation ✓
 
 **Goal:** Infrastructure without breaking existing functionality
 
-- [ ] Caddy configuration
-- [ ] DNS setup (Cloudflare)
-- [ ] DDNS updater script
-- [ ] Security headers
-- [ ] Rate limiting
-- [ ] Verify existing app works through Caddy
+- [x] Caddy configuration
+- [x] DNS setup (Cloudflare)
+- [x] DDNS updater script
+- [x] Security headers
+- [x] Rate limiting
+- [x] Verify existing app works through Caddy
 
 **Deliverable:** HTTPS access to current app
 
 ---
 
-### Phase 1: Auth Database & User Model
+### Phase 1: Auth Database & User Model ✓
 
 **Goal:** Separate encrypted auth storage
 
-- [ ] SQLCipher integration
-- [ ] auth.db schema
-- [ ] User model implementation
-- [ ] Session model implementation
-- [ ] CLI: `audiobook-user`
-- [ ] Unit tests
+- [x] SQLCipher integration
+- [x] auth.db schema
+- [x] User model implementation
+- [x] Session model implementation
+- [x] CLI: `audiobook-user`
+- [x] Unit tests
 
 **Deliverable:** CLI user management
 
 ---
 
-### Phase 2: Authentication Service
+### Phase 2: Authentication Service ✓
 
 **Goal:** Login/logout/session management
 
-- [ ] Auth service (port 5002)
-- [ ] TOTP registration/verification
-- [ ] WebAuthn registration/verification
-- [ ] Magic link generation/verification
-- [ ] Session creation/validation/invalidation
-- [ ] Single-session enforcement
-- [ ] Rate limiting
-- [ ] Integration tests
+- [x] Auth service (integrated into port 5001)
+- [x] TOTP registration/verification
+- [ ] WebAuthn registration/verification (deferred to Phase 5)
+- [x] Magic link generation/verification
+- [x] Session creation/validation/invalidation
+- [x] Single-session enforcement
+- [x] Rate limiting
+- [x] Integration tests
 
 **Deliverable:** Functional authentication
 
 ---
 
-### Phase 3: Library Service Integration
+### Phase 3: Library Service Integration ✓
 
 **Goal:** Protect library endpoints with auth
 
-- [ ] Session middleware
-- [ ] User context injection
-- [ ] Per-user positions
-- [ ] Download permission enforcement
-- [ ] Audible sync disabled for non-admin
-- [ ] Back Office localhost restriction
-- [ ] Integration tests
+- [x] Session middleware
+- [x] User context injection
+- [x] Per-user positions
+- [x] Download permission enforcement
+- [x] Audible sync disabled for non-admin
+- [x] Back Office localhost restriction
+- [x] Integration tests
 
 **Deliverable:** Authenticated library access
 
 ---
 
-### Phase 4: Public-Facing UI
+### Phase 4: Public-Facing UI ✓
 
 **Goal:** Login page, registration, auth flows
 
-- [ ] Login page
-- [ ] Registration page
-- [ ] Magic link landing page
-- [ ] TOTP setup (QR code)
-- [ ] Passkey setup flow
-- [ ] Session management UI
-- [ ] Error pages
-- [ ] Mobile-responsive
+- [x] Login page (with TOTP and backup code recovery)
+- [x] Registration page (multi-step with auth method selection)
+- [x] Magic link landing page (verify.html)
+- [x] TOTP setup (QR code)
+- [x] Passkey setup flow (UI ready, marked "Coming Soon")
+- [x] Session management UI (user menu in header)
+- [x] Error pages (401.html, 403.html)
+- [x] Mobile-responsive
+- [x] Help tooltips for layperson users
+- [x] Magic link email endpoint (SMTP config pending - Protonmail Bridge)
 
 **Deliverable:** Complete auth UI
+
+**Note:** Passkey/WebAuthn backend deferred to Phase 5. Magic link emails require
+Protonmail Bridge setup (scripts/setup-email.sh).
 
 ---
 
@@ -1202,7 +1207,7 @@ $ audiobook-backup restore 2026-01-18
 | # | Question | Status |
 |---|----------|--------|
 | 1 | SQLCipher key management - where to store encryption key? | **Resolved**: Key stored in `auth.key` file, separate from database |
-| 2 | Email/SMS provider for verification and magic links | Open (SMTP available but not configured - Protonmail) |
+| 2 | Email/SMS provider for verification and magic links | **Partial**: Protonmail Bridge installed, requires interactive login (scripts/setup-email.sh) |
 | 3 | TOTP recovery - what if user loses authenticator device? | **Resolved**: See Section 5.3 Recovery Model |
 | 4 | Account deletion - user-initiated or admin-only? | Open |
 | 5 | Position export - can users export their position data? | Open |
