@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.1.1] - 2026-01-20
+
+### Fixed
+- **Security**: Fixed insecure temporary file creation in ASIN population subprocess (CodeQL alert #187)
+  - Changed `tempfile.mktemp()` to `tempfile.mkstemp()` in `maintenance.py`
+  - Prevents TOCTOU (time-of-check-time-of-use) race condition vulnerability
+  - The atomically-created file descriptor is immediately closed so the subprocess can write to it
+
 ## [4.1.0] - 2026-01-20
 
 ### Added
