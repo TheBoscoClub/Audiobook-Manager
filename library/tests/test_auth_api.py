@@ -825,16 +825,16 @@ class TestAdminEndpointsWithAdmin:
 class TestDownloadPermissionEndpoints:
     """Test endpoints that require download permission."""
 
-    def test_stream_without_download_permission(self, client, auth_app):
-        """Test streaming requires download permission."""
-        # testuser1 has can_download=False
+    def test_stream_allowed_without_download_permission(self, client, auth_app):
+        """Test streaming works for any authenticated user (no download permission needed)."""
+        # testuser1 has can_download=False but should still be able to stream
         auth = TOTPAuthenticator(auth_app.test_user_secret)
         client.post('/auth/login',
             json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get('/api/stream/1')
-        assert r.status_code == 403
-        assert 'Download permission required' in r.get_json()['error']
+        # Should succeed or 404 (file doesn't exist on disk), but not 403
+        assert r.status_code in (200, 404)
 
     def test_supplement_download_without_permission(self, client, auth_app):
         """Test supplement download requires download permission."""
@@ -845,15 +845,15 @@ class TestDownloadPermissionEndpoints:
         r = client.get('/api/supplements/1/download')
         assert r.status_code == 403
 
-    def test_stream_with_download_permission(self, client, auth_app):
-        """Test streaming works with download permission."""
+    def test_supplement_download_with_permission(self, client, auth_app):
+        """Test supplement download works with download permission."""
         # adminuser has can_download=True
         auth = TOTPAuthenticator(auth_app.admin_secret)
         client.post('/auth/login',
             json={"username": "adminuser", "code": auth.current_code()})
 
-        r = client.get('/api/stream/1')
-        # Should succeed or 404 (audiobook doesn't exist), but not 403
+        r = client.get('/api/supplements/1/download')
+        # Should succeed or 404 (supplement doesn't exist), but not 403
         assert r.status_code in (200, 404)
 
 
