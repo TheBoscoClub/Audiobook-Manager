@@ -1116,3 +1116,385 @@ class TestMagicLinkVerify:
             json={"token": raw_token})
         assert r.status_code == 400
         assert 'expired' in r.get_json()['error'].lower()
+
+
+# =============================================================================
+# Phase 5: Contact & Notifications Tests
+# =============================================================================
+
+
+class TestContactEndpoint:
+    """Tests for /auth/contact endpoint (user-to-admin messaging)."""
+
+    def test_contact_requires_auth(self, client):
+        """Test contact endpoint requires authentication."""
+        r = client.post('/auth/contact',
+            json={"message": "Test message"})
+        assert r.status_code == 401
+
+    def test_contact_success_inapp_reply(self, client, auth_app):
+        """Test sending contact message with in-app reply."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact',
+            json={
+                "message": "I would like to request a new audiobook.",
+                "reply_via": "in-app"
+            })
+
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+        assert 'message_id' in data
+
+    def test_contact_success_email_reply(self, client, auth_app):
+        """Test sending contact message with email reply."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact',
+            json={
+                "message": "Please contact me via email.",
+                "reply_via": "email",
+                "reply_email": "user@example.com"
+            })
+
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+
+    def test_contact_missing_message(self, client, auth_app):
+        """Test contact fails with missing/empty message."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact', json={"message": "", "reply_via": "in-app"})
+        assert r.status_code == 400
+        assert 'message' in r.get_json()['error'].lower()
+
+    def test_contact_email_reply_requires_email(self, client, auth_app):
+        """Test contact with email reply requires email address."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact',
+            json={
+                "message": "Please reply via email",
+                "reply_via": "email"
+                # Missing reply_email
+            })
+
+        assert r.status_code == 400
+        assert 'email' in r.get_json()['error'].lower()
+
+    def test_contact_message_too_long(self, client, auth_app):
+        """Test contact fails with message over 2000 chars."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact',
+            json={
+                "message": "x" * 2001,
+                "reply_via": "in-app"
+            })
+
+        assert r.status_code == 400
+        assert '2000' in r.get_json()['error']
+
+
+class TestAdminNotificationsEndpoints:
+    """Tests for admin notification management endpoints."""
+
+    def test_list_notifications_requires_admin(self, client, auth_app):
+        """Test listing notifications requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/auth/admin/notifications')
+        assert r.status_code == 403
+
+    def test_list_notifications_as_admin(self, client, auth_app):
+        """Test admin can list notifications."""
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.get('/auth/admin/notifications')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'notifications' in data
+        assert isinstance(data['notifications'], list)
+
+    def test_create_notification_requires_admin(self, client, auth_app):
+        """Test creating notification requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/admin/notifications',
+            json={"message": "Test notification", "type": "info"})
+        assert r.status_code == 403
+
+    def test_create_notification_as_admin(self, client, auth_app):
+        """Test admin can create notification."""
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.post('/auth/admin/notifications',
+            json={
+                "message": "Library maintenance tonight at 2am.",
+                "type": "maintenance"
+            })
+
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+        assert 'notification_id' in data
+
+    def test_create_notification_personal_requires_user(self, client, auth_app):
+        """Test personal notification requires target user."""
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.post('/auth/admin/notifications',
+            json={
+                "message": "Personal message",
+                "type": "personal"
+                # Missing target_user_id
+            })
+
+        assert r.status_code == 400
+        assert 'target_user_id' in r.get_json()['error'].lower()
+
+    def test_delete_notification_requires_admin(self, client, auth_app):
+        """Test deleting notification requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.delete('/auth/admin/notifications/1')
+        assert r.status_code == 403
+
+    def test_delete_notification_as_admin(self, client, auth_app):
+        """Test admin can delete notification."""
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        # First create a notification
+        r = client.post('/auth/admin/notifications',
+            json={"message": "To be deleted", "type": "info"})
+        notification_id = r.get_json()['notification_id']
+
+        # Then delete it
+        r = client.delete(f'/auth/admin/notifications/{notification_id}')
+        assert r.status_code == 200
+        assert r.get_json()['success'] is True
+
+    def test_delete_nonexistent_notification(self, client, auth_app):
+        """Test deleting nonexistent notification fails gracefully."""
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.delete('/auth/admin/notifications/99999')
+        assert r.status_code == 404
+
+
+class TestAdminInboxEndpoints:
+    """Tests for admin inbox management endpoints."""
+
+    def test_inbox_list_requires_admin(self, client, auth_app):
+        """Test listing inbox requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/auth/admin/inbox')
+        assert r.status_code == 403
+
+    def test_inbox_list_as_admin(self, client, auth_app):
+        """Test admin can list inbox messages."""
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.get('/auth/admin/inbox')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'messages' in data
+        assert 'unread_count' in data
+
+    def test_inbox_read_message_requires_admin(self, client, auth_app):
+        """Test reading inbox message requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/auth/admin/inbox/1')
+        assert r.status_code == 403
+
+    def test_inbox_read_marks_as_read(self, client, auth_app):
+        """Test reading a message marks it as read."""
+        # First, create a message as a regular user
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact',
+            json={"message": "Test message for reading", "reply_via": "in-app"})
+        message_id = r.get_json()['message_id']
+
+        # Logout and login as admin
+        client.post('/auth/logout')
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        # Read the message
+        r = client.get(f'/auth/admin/inbox/{message_id}')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['message']['status'] == 'read'
+
+    def test_inbox_reply_requires_admin(self, client, auth_app):
+        """Test replying to inbox message requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/admin/inbox/1/reply',
+            json={"reply": "Thanks for your message!"})
+        assert r.status_code == 403
+
+    def test_inbox_reply_as_admin(self, client, auth_app):
+        """Test admin can reply to inbox message."""
+        # Create a message as regular user
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact',
+            json={"message": "Please add more sci-fi books!", "reply_via": "in-app"})
+        message_id = r.get_json()['message_id']
+
+        # Logout and login as admin
+        client.post('/auth/logout')
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        # Reply to message
+        r = client.post(f'/auth/admin/inbox/{message_id}/reply',
+            json={"reply": "I've added several new sci-fi titles!"})
+
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+
+    def test_inbox_archive_requires_admin(self, client, auth_app):
+        """Test archiving inbox message requires admin."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/admin/inbox/1/archive')
+        assert r.status_code == 403
+
+    def test_inbox_archive_as_admin(self, client, auth_app):
+        """Test admin can archive inbox message."""
+        # Create a message as regular user
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/contact',
+            json={"message": "Just wanted to say thanks!", "reply_via": "in-app"})
+        message_id = r.get_json()['message_id']
+
+        # Logout and login as admin
+        client.post('/auth/logout')
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        # Archive message
+        r = client.post(f'/auth/admin/inbox/{message_id}/archive')
+        assert r.status_code == 200
+        assert r.get_json()['success'] is True
+
+
+class TestNotificationDismiss:
+    """Tests for notification dismiss endpoint."""
+
+    def test_dismiss_requires_auth(self, client):
+        """Test dismissing notification requires authentication."""
+        r = client.post('/auth/notifications/dismiss/1')
+        assert r.status_code == 401
+
+    def test_dismiss_own_notification(self, client, auth_app):
+        """Test user can dismiss their own notification."""
+        # Admin creates a notification for testuser1
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        # Get testuser1's ID from the database
+        from auth import UserRepository
+        user_repo = UserRepository(auth_app.auth_db)
+        test_user = user_repo.get_by_username("testuser1")
+
+        r = client.post('/auth/admin/notifications',
+            json={
+                "message": "Personal message for testuser1",
+                "type": "personal",
+                "target_user_id": test_user.id,
+                "dismissable": True
+            })
+        notification_id = r.get_json()['notification_id']
+
+        # Logout and login as testuser1
+        client.post('/auth/logout')
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        # Dismiss the notification
+        r = client.post(f'/auth/notifications/dismiss/{notification_id}')
+        assert r.status_code == 200
+        assert r.get_json()['success'] is True
+
+    def test_dismiss_nonexistent_notification(self, client, auth_app):
+        """Test dismissing nonexistent notification fails gracefully."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.post('/auth/notifications/dismiss/99999')
+        # Should return an error (400 = not found/applicable, 404 = not found)
+        assert r.status_code in (400, 404)
+
+
+class TestNotificationsInAuthMe:
+    """Test that /auth/me includes notifications."""
+
+    def test_auth_me_includes_notifications(self, client, auth_app):
+        """Test /auth/me response includes notifications array."""
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/auth/me')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'notifications' in data
+        assert isinstance(data['notifications'], list)

@@ -11,8 +11,11 @@ All authentication data is stored in the encrypted auth.db (SQLCipher).
 """
 
 import os
+import smtplib
 import sys
 from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from functools import wraps
 from pathlib import Path
 from typing import Optional, Callable, Any
@@ -33,7 +36,13 @@ from auth import (
     PendingRegistrationRepository,
     PendingRecovery,
     PendingRecoveryRepository,
+    Notification,
+    NotificationType,
     NotificationRepository,
+    InboxMessage,
+    InboxStatus,
+    InboxRepository,
+    ReplyMethod,
     UserPosition,
     PositionRepository,
     hash_token,
@@ -1145,3 +1154,454 @@ def auth_health():
             "auth_db": False,
             "error": str(e),
         }), 500
+
+
+# =============================================================================
+# Contact (User to Admin messaging)
+# =============================================================================
+
+@auth_bp.route("/contact", methods=["POST"])
+@login_required
+def send_contact_message():
+    """
+    Send a message to the admin.
+
+    Request body:
+        {
+            "message": str,           # Required: message content
+            "reply_via": str,         # Optional: "in-app" (default) or "email"
+            "reply_email": str        # Required if reply_via is "email"
+        }
+
+    Returns:
+        200: {"success": true, "message_id": int}
+        400: {"error": "..."}
+    """
+    user = get_current_user()
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    message = data.get("message", "").strip()
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+
+    if len(message) > 2000:
+        return jsonify({"error": "Message too long (max 2000 characters)"}), 400
+
+    reply_via = data.get("reply_via", "in-app")
+    if reply_via not in ("in-app", "email"):
+        return jsonify({"error": "reply_via must be 'in-app' or 'email'"}), 400
+
+    reply_email = None
+    if reply_via == "email":
+        reply_email = data.get("reply_email", "").strip()
+        if not reply_email or "@" not in reply_email:
+            return jsonify({"error": "Valid reply_email required for email reply"}), 400
+
+    db = get_auth_db()
+
+    # Create the message
+    inbox_msg = InboxMessage(
+        from_user_id=user.id,
+        message=message,
+        reply_via=ReplyMethod(reply_via),
+        reply_email=reply_email
+    )
+    inbox_msg.save(db)
+
+    # Send admin alert email
+    _send_admin_alert(user.username, message[:100])
+
+    return jsonify({
+        "success": True,
+        "message_id": inbox_msg.id,
+        "info": "Your message has been sent to the admin."
+    })
+
+
+def _send_admin_alert(username: str, message_preview: str) -> bool:
+    """Send email alert to admin about new contact message."""
+    smtp_host = os.environ.get("SMTP_HOST", "localhost")
+    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    smtp_from = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    admin_email = os.environ.get("ADMIN_EMAIL", smtp_from)
+
+    if not smtp_user:
+        # SMTP not configured, skip alert
+        return False
+
+    subject = f"New message from {username} - The Library"
+    body = f"""You have a new message from {username} in The Library inbox.
+
+Preview: {message_preview}{'...' if len(message_preview) >= 100 else ''}
+
+View all messages:
+  audiobook-inbox list
+  audiobook-inbox read <id>
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = smtp_from
+        msg["To"] = admin_email
+
+        msg.attach(MIMEText(body, "plain"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            if smtp_user and smtp_pass:
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_from, admin_email, msg.as_string())
+
+        return True
+    except Exception as e:
+        print(f"Failed to send admin alert: {e}")
+        return False
+
+
+# =============================================================================
+# Admin Endpoints (localhost only in production)
+# =============================================================================
+
+@auth_bp.route("/admin/notifications", methods=["GET"])
+@admin_required
+def list_notifications():
+    """
+    List all notifications (admin only).
+
+    Returns:
+        200: {"notifications": [...]}
+    """
+    db = get_auth_db()
+    notif_repo = NotificationRepository(db)
+    notifications = notif_repo.list_all()
+
+    return jsonify({
+        "notifications": [
+            {
+                "id": n.id,
+                "message": n.message,
+                "type": n.type.value,
+                "target_user_id": n.target_user_id,
+                "starts_at": n.starts_at.isoformat() if n.starts_at else None,
+                "expires_at": n.expires_at.isoformat() if n.expires_at else None,
+                "dismissable": n.dismissable,
+                "priority": n.priority,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+                "created_by": n.created_by,
+            }
+            for n in notifications
+        ]
+    })
+
+
+@auth_bp.route("/admin/notifications", methods=["POST"])
+@admin_required
+def create_notification():
+    """
+    Create a new notification (admin only).
+
+    Request body:
+        {
+            "message": str,           # Required
+            "type": str,              # Optional: "info", "maintenance", "outage", "personal"
+            "target_user_id": int,    # Optional: null for global
+            "starts_at": str,         # Optional: ISO datetime
+            "expires_at": str,        # Optional: ISO datetime
+            "dismissable": bool,      # Optional: default true
+            "priority": int           # Optional: default 0
+        }
+
+    Returns:
+        200: {"success": true, "notification_id": int}
+        400: {"error": "..."}
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    message = data.get("message", "").strip()
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+
+    notif_type = data.get("type", "info")
+    if notif_type not in ("info", "maintenance", "outage", "personal"):
+        return jsonify({"error": "Invalid notification type"}), 400
+
+    # Personal notifications require a target user
+    if notif_type == "personal" and not data.get("target_user_id"):
+        return jsonify({"error": "Personal notifications require target_user_id"}), 400
+
+    db = get_auth_db()
+    user = get_current_user()
+
+    # Parse optional datetime fields
+    starts_at = None
+    expires_at = None
+    if data.get("starts_at"):
+        try:
+            starts_at = datetime.fromisoformat(data["starts_at"])
+        except ValueError:
+            return jsonify({"error": "Invalid starts_at format"}), 400
+
+    if data.get("expires_at"):
+        try:
+            expires_at = datetime.fromisoformat(data["expires_at"])
+        except ValueError:
+            return jsonify({"error": "Invalid expires_at format"}), 400
+
+    notification = Notification(
+        message=message,
+        type=NotificationType(notif_type),
+        target_user_id=data.get("target_user_id"),
+        starts_at=starts_at,
+        expires_at=expires_at,
+        dismissable=data.get("dismissable", True),
+        priority=data.get("priority", 0),
+        created_by=user.username,
+    )
+    notification.save(db)
+
+    return jsonify({
+        "success": True,
+        "notification_id": notification.id
+    })
+
+
+@auth_bp.route("/admin/notifications/<int:notification_id>", methods=["DELETE"])
+@admin_required
+def delete_notification(notification_id: int):
+    """
+    Delete a notification (admin only).
+
+    Returns:
+        200: {"success": true}
+        404: {"error": "Notification not found"}
+    """
+    db = get_auth_db()
+    notif_repo = NotificationRepository(db)
+
+    # Check if notification exists
+    notifications = notif_repo.list_all()
+    notif = next((n for n in notifications if n.id == notification_id), None)
+
+    if not notif:
+        return jsonify({"error": "Notification not found"}), 404
+
+    notif.delete(db)
+    return jsonify({"success": True})
+
+
+@auth_bp.route("/admin/inbox", methods=["GET"])
+@admin_required
+def list_inbox():
+    """
+    List inbox messages (admin only).
+
+    Query params:
+        include_archived: bool (default false)
+
+    Returns:
+        200: {"messages": [...], "unread_count": int}
+    """
+    include_archived = request.args.get("include_archived", "false").lower() == "true"
+
+    db = get_auth_db()
+    inbox_repo = InboxRepository(db)
+    user_repo = UserRepository(db)
+
+    messages = inbox_repo.list_all(include_archived=include_archived)
+    unread_count = inbox_repo.count_unread()
+
+    # Get usernames for messages
+    result = []
+    for m in messages:
+        user = user_repo.get_by_id(m.from_user_id)
+        result.append({
+            "id": m.id,
+            "from_user_id": m.from_user_id,
+            "from_username": user.username if user else "[deleted]",
+            "message": m.message,
+            "reply_via": m.reply_via.value,
+            "has_reply_email": bool(m.reply_email),
+            "status": m.status.value,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "read_at": m.read_at.isoformat() if m.read_at else None,
+            "replied_at": m.replied_at.isoformat() if m.replied_at else None,
+        })
+
+    return jsonify({
+        "messages": result,
+        "unread_count": unread_count
+    })
+
+
+@auth_bp.route("/admin/inbox/<int:message_id>", methods=["GET"])
+@admin_required
+def get_inbox_message(message_id: int):
+    """
+    Get a single inbox message and mark it as read (admin only).
+
+    Returns:
+        200: {"message": {...}}
+        404: {"error": "Message not found"}
+    """
+    db = get_auth_db()
+    inbox_repo = InboxRepository(db)
+    user_repo = UserRepository(db)
+
+    message = inbox_repo.get_by_id(message_id)
+    if not message:
+        return jsonify({"error": "Message not found"}), 404
+
+    # Mark as read
+    if message.status == InboxStatus.UNREAD:
+        message.mark_read(db)
+
+    user = user_repo.get_by_id(message.from_user_id)
+
+    return jsonify({
+        "message": {
+            "id": message.id,
+            "from_user_id": message.from_user_id,
+            "from_username": user.username if user else "[deleted]",
+            "message": message.message,
+            "reply_via": message.reply_via.value,
+            "reply_email": message.reply_email,
+            "status": message.status.value,
+            "created_at": message.created_at.isoformat() if message.created_at else None,
+            "read_at": message.read_at.isoformat() if message.read_at else None,
+            "replied_at": message.replied_at.isoformat() if message.replied_at else None,
+        }
+    })
+
+
+@auth_bp.route("/admin/inbox/<int:message_id>/reply", methods=["POST"])
+@admin_required
+def reply_to_message(message_id: int):
+    """
+    Reply to an inbox message (admin only).
+
+    Request body:
+        {
+            "reply": str  # Required: reply message
+        }
+
+    Returns:
+        200: {"success": true, "reply_method": "in-app"|"email"}
+        400: {"error": "..."}
+        404: {"error": "Message not found"}
+    """
+    db = get_auth_db()
+    inbox_repo = InboxRepository(db)
+    user_repo = UserRepository(db)
+
+    message = inbox_repo.get_by_id(message_id)
+    if not message:
+        return jsonify({"error": "Message not found"}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    reply_text = data.get("reply", "").strip()
+    if not reply_text:
+        return jsonify({"error": "Reply is required"}), 400
+
+    user = user_repo.get_by_id(message.from_user_id)
+    username = user.username if user else "User"
+
+    reply_method = message.reply_via.value
+
+    if message.reply_via == ReplyMethod.EMAIL and message.reply_email:
+        # Send email reply
+        success = _send_reply_email(message.reply_email, username, reply_text)
+        if not success:
+            return jsonify({"error": "Failed to send email reply"}), 500
+    else:
+        # Create in-app notification
+        admin_user = get_current_user()
+        notification = Notification(
+            message=f"Reply from {admin_user.username}: {reply_text}",
+            type=NotificationType.PERSONAL,
+            target_user_id=message.from_user_id,
+            dismissable=True,
+            created_by=admin_user.username,
+        )
+        notification.save(db)
+        reply_method = "in-app"
+
+    # Mark message as replied (clears reply_email for privacy)
+    message.mark_replied(db)
+
+    return jsonify({
+        "success": True,
+        "reply_method": reply_method
+    })
+
+
+def _send_reply_email(to_email: str, username: str, reply_text: str) -> bool:
+    """Send email reply to user."""
+    smtp_host = os.environ.get("SMTP_HOST", "localhost")
+    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    smtp_from = os.environ.get("SMTP_FROM", "library@thebosco.club")
+
+    subject = "Reply from The Library"
+    body = f"""Hi {username},
+
+{reply_text}
+
+---
+This is a reply to your message to The Library.
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = smtp_from
+        msg["To"] = to_email
+
+        msg.attach(MIMEText(body, "plain"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            if smtp_user and smtp_pass:
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_from, to_email, msg.as_string())
+
+        return True
+    except Exception as e:
+        print(f"Failed to send reply email: {e}")
+        return False
+
+
+@auth_bp.route("/admin/inbox/<int:message_id>/archive", methods=["POST"])
+@admin_required
+def archive_message(message_id: int):
+    """
+    Archive an inbox message (admin only).
+
+    Returns:
+        200: {"success": true}
+        404: {"error": "Message not found"}
+    """
+    db = get_auth_db()
+    inbox_repo = InboxRepository(db)
+
+    message = inbox_repo.get_by_id(message_id)
+    if not message:
+        return jsonify({"error": "Message not found"}), 404
+
+    message.status = InboxStatus.ARCHIVED
+    message.reply_email = None  # Clear PII
+    message.save(db)
+
+    return jsonify({"success": True})

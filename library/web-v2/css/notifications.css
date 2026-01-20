@@ -1,0 +1,151 @@
+/* ============================================
+   Notification Banners - Art Deco Theme
+   ============================================ */
+
+.notification-container {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.notification-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Notification types */
+.notification-banner.info {
+    background: linear-gradient(135deg, #1a365d 0%, #2a4a7f 100%);
+    color: #e2e8f0;
+    border-left: 4px solid #4299e1;
+}
+
+.notification-banner.maintenance {
+    background: linear-gradient(135deg, #744210 0%, #975a16 100%);
+    color: #fefcbf;
+    border-left: 4px solid #ecc94b;
+}
+
+.notification-banner.outage {
+    background: linear-gradient(135deg, #742a2a 0%, #9b2c2c 100%);
+    color: #fed7d7;
+    border-left: 4px solid #fc8181;
+}
+
+.notification-banner.personal {
+    background: linear-gradient(135deg, #234e52 0%, #2d5a5e 100%);
+    color: #c6f6d5;
+    border-left: 4px solid var(--gold);
+}
+
+/* Notification content */
+.notification-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.notification-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.notification-message {
+    flex: 1;
+}
+
+/* Dismiss button */
+.notification-dismiss {
+    background: transparent;
+    border: 1px solid currentColor;
+    color: inherit;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s, background 0.2s;
+    margin-left: 1rem;
+    flex-shrink: 0;
+}
+
+.notification-dismiss:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Non-dismissable notifications have no button */
+.notification-banner:not(.dismissable) .notification-dismiss {
+    display: none;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .notification-banner {
+        padding: 0.625rem 1rem;
+        font-size: 0.85rem;
+    }
+
+    .notification-content {
+        gap: 0.5rem;
+    }
+
+    .notification-dismiss {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .notification-banner {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .notification-content {
+        width: 100%;
+    }
+
+    .notification-dismiss {
+        margin-left: auto;
+    }
+}
+
+/* Animation for appearing/disappearing */
+.notification-banner {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.notification-banner.dismissing {
+    animation: slideUp 0.3s ease-in forwards;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+}

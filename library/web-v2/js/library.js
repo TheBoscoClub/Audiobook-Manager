@@ -139,6 +139,109 @@ class AudiobookLibraryV2 {
     }
 
     /**
+     * Load and display notifications for the current user.
+     */
+    async loadNotifications() {
+        if (!this.authEnabled || !this.user) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/auth/me', {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            const notifications = data.notifications || [];
+            this.displayNotifications(notifications);
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    }
+
+    /**
+     * Display notifications in the banner container using safe DOM methods.
+     */
+    displayNotifications(notifications) {
+        const container = document.getElementById('notification-container');
+        if (!container) {
+            return;
+        }
+
+        // Clear existing notifications
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+
+        const icons = {
+            info: 'ℹ️',
+            maintenance: '🔧',
+            outage: '🔴',
+            personal: '📬'
+        };
+
+        for (const notif of notifications) {
+            const banner = document.createElement('div');
+            banner.className = `notification-banner ${notif.type}${notif.dismissable ? ' dismissable' : ''}`;
+            banner.dataset.id = notif.id;
+
+            // Create content wrapper
+            const content = document.createElement('div');
+            content.className = 'notification-content';
+
+            // Create icon span
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'notification-icon';
+            iconSpan.textContent = icons[notif.type] || 'ℹ️';
+            content.appendChild(iconSpan);
+
+            // Create message span (textContent is safe)
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'notification-message';
+            messageSpan.textContent = notif.message;
+            content.appendChild(messageSpan);
+
+            banner.appendChild(content);
+
+            // Create dismiss button if dismissable
+            if (notif.dismissable) {
+                const dismissBtn = document.createElement('button');
+                dismissBtn.className = 'notification-dismiss';
+                dismissBtn.title = 'Dismiss notification';
+                dismissBtn.textContent = 'Dismiss';
+                dismissBtn.addEventListener('click', () => this.dismissNotification(notif.id, banner));
+                banner.appendChild(dismissBtn);
+            }
+
+            container.appendChild(banner);
+        }
+    }
+
+    /**
+     * Dismiss a notification.
+     */
+    async dismissNotification(notificationId, bannerElement) {
+        try {
+            const response = await fetch(`/auth/notifications/dismiss/${notificationId}`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                // Animate removal
+                bannerElement.classList.add('dismissing');
+                setTimeout(() => bannerElement.remove(), 300);
+            }
+        } catch (error) {
+            console.error('Error dismissing notification:', error);
+        }
+    }
+
+    /**
      * Download an audiobook for offline listening.
      * Triggers file download via the API.
      */
@@ -224,6 +327,9 @@ class AudiobookLibraryV2 {
         if (!canAccess) {
             return; // Redirect in progress
         }
+
+        // Load notifications if authenticated
+        await this.loadNotifications();
 
         await this.loadStats();
         await this.loadFilters();
