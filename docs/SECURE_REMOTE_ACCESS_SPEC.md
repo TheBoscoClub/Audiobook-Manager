@@ -1155,20 +1155,30 @@ Protonmail Bridge setup (scripts/setup-email.sh).
 
 ---
 
-### Phase 5: Notifications & Contact
+### Phase 5: Notifications & Contact ✓
 
 **Goal:** Admin-user communication
 
-- [ ] Notifications table and API
-- [ ] Notification display (banners)
-- [ ] Dismiss functionality
-- [ ] Contact form UI
-- [ ] Inbox table and CLI
-- [ ] Admin alerts (email/SMS)
-- [ ] Reply mechanism
-- [ ] CLI: `audiobook-notify`, `audiobook-inbox`
+- [x] Notifications table and API
+- [x] Notification display (banners)
+- [x] Dismiss functionality
+- [x] Contact form UI
+- [x] Inbox table and CLI
+- [x] Admin alerts (email/SMS)
+- [x] Reply mechanism (in-app and email)
+- [x] CLI: `audiobook-notify`, `audiobook-inbox`
 
 **Deliverable:** Two-way communication
+
+**Implementation Notes:**
+- Notification types: info, maintenance, outage, personal
+- Notifications shown as Art Deco styled banners on main library page
+- Personal notifications target specific users
+- Admin inbox stores user contact messages
+- Admin can reply via in-app notification or email
+- CLI tools for offline notification/inbox management
+- Email alerts sent to admin when new contact messages arrive
+- Reply emails use configured SMTP (Protonmail Bridge)
 
 ---
 

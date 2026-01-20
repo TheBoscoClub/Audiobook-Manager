@@ -6,6 +6,7 @@
     <title>The Library - Audiobook Collection</title>
     <link rel="stylesheet" href="css/library.css">
     <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/notifications.css">
 </head>
 <body>
     <!-- Header -->
@@ -23,6 +24,8 @@
                         <span id="username-display">User</span>
                     </button>
                     <div class="user-dropdown" id="user-dropdown">
+                        <a href="contact.html" class="user-dropdown-item" title="Send a message to the admin">Contact Admin</a>
+                        <div class="user-dropdown-divider"></div>
                         <a href="#" class="user-dropdown-item" id="logout-button">Sign Out</a>
                     </div>
                 </div>
@@ -58,6 +61,9 @@
             </div>
         </div>
     </header>
+
+    <!-- Notification Banners -->
+    <div id="notification-container" class="notification-container"></div>
 
     <!-- Search and Filters -->
     <div class="search-section">
