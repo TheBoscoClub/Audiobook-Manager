@@ -1100,7 +1100,8 @@ If you didn't request this link, you can safely ignore this email.
         return True
 
     except Exception as e:
-        current_app.logger.error(f"Failed to send magic link email: {e}")
+        # Log error type only, not full message (may contain email address)
+        current_app.logger.error(f"Failed to send magic link email: {type(e).__name__}")
         return False
 
 
@@ -1260,7 +1261,8 @@ View all messages:
 
         return True
     except Exception as e:
-        print(f"Failed to send admin alert: {e}")
+        # Log error type only, not full message (may contain email addresses)
+        current_app.logger.error(f"Failed to send admin alert: {type(e).__name__}")
         return False
 
 
@@ -1579,7 +1581,8 @@ This is a reply to your message to The Library.
 
         return True
     except Exception as e:
-        print(f"Failed to send reply email: {e}")
+        # Log error type only, not full message (may contain email addresses)
+        current_app.logger.error(f"Failed to send reply email: {type(e).__name__}")
         return False
 
 
