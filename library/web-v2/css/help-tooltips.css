@@ -1,0 +1,177 @@
+/* ============================================
+   Help Tooltips - Layperson-friendly explanations
+   ============================================ */
+
+/* Help icon (question mark button) */
+.help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-left: 0.5rem;
+    padding: 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: var(--gold);
+    background: transparent;
+    border: 1px solid var(--gold);
+    border-radius: 50%;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+}
+
+.help-icon:hover {
+    background: var(--gold);
+    color: var(--deco-black);
+}
+
+.help-icon.small {
+    width: 16px;
+    height: 16px;
+    font-size: 0.65rem;
+}
+
+/* Tooltip container */
+.help-tooltip {
+    position: relative;
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.help-content {
+    background: var(--deco-slate);
+    border: 1px solid var(--gold-dark);
+    border-left: 3px solid var(--gold);
+    padding: 1rem 1.25rem;
+    box-shadow: var(--shadow-elevation-2);
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Tooltip content styling */
+.help-content strong {
+    display: block;
+    color: var(--gold);
+    font-size: 0.9rem;
+    margin-bottom: 0.375rem;
+    margin-top: 0.75rem;
+}
+
+.help-content strong:first-child {
+    margin-top: 0;
+}
+
+.help-content p {
+    color: var(--cream);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin: 0 0 0.5rem 0;
+}
+
+.help-content ul,
+.help-content ol {
+    color: var(--cream);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.help-content li {
+    margin-bottom: 0.375rem;
+}
+
+.help-content em {
+    color: var(--cream);
+    opacity: 0.8;
+}
+
+/* Recommendation callout */
+.help-recommend {
+    background: rgba(45, 90, 78, 0.2);
+    border: 1px solid var(--emerald-light);
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+}
+
+.help-recommend strong {
+    color: var(--emerald-light);
+    margin-top: 0;
+}
+
+/* Warning/important callout */
+.help-warning {
+    background: rgba(139, 37, 0, 0.15);
+    border: 1px solid var(--ruby);
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+}
+
+.help-warning strong {
+    color: #ff9999;
+    margin-top: 0;
+}
+
+/* Close button for tooltips on mobile */
+.help-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    color: var(--cream);
+    font-size: 1.25rem;
+    cursor: pointer;
+    opacity: 0.6;
+    line-height: 1;
+}
+
+.help-close:hover {
+    opacity: 1;
+}
+
+/* ============================================
+   Mobile adjustments
+   ============================================ */
+
+@media (max-width: 480px) {
+    .help-content {
+        padding: 0.875rem 1rem;
+    }
+
+    .help-content p,
+    .help-content ul,
+    .help-content ol {
+        font-size: 0.8rem;
+    }
+
+    .help-icon {
+        width: 24px;
+        height: 24px;
+        font-size: 0.8rem;
+    }
+
+    /* Make tooltips more prominent on mobile */
+    .help-tooltip {
+        position: fixed;
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+        top: auto;
+        z-index: 1000;
+        margin: 0;
+    }
+
+    .help-content {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+}

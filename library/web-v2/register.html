@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Access - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/help-tooltips.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- Decorative header -->
+        <div class="auth-header">
+            <div class="deco-ornament">&#9830;</div>
+            <h1 class="auth-title">The Library</h1>
+            <p class="auth-subtitle">Request Access</p>
+            <div class="deco-line"></div>
+        </div>
+
+        <!-- Step 1: Request access -->
+        <div id="step-request" class="registration-step">
+            <p class="step-description">
+                Access to The Library is by invitation only. Enter your desired username
+                to request access. An administrator will review your request.
+            </p>
+
+            <form id="request-form" class="auth-form">
+                <div class="form-group">
+                    <label for="username">
+                        Desired Username
+                        <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
+                    </label>
+                    <input type="text"
+                           id="username"
+                           name="username"
+                           minlength="5"
+                           maxlength="16"
+                           autocomplete="username"
+                           autocapitalize="none"
+                           spellcheck="false"
+                           pattern="[\x20-\x7E]+"
+                           required>
+                    <span class="field-hint">5-16 characters, letters and numbers</span>
+                    <div id="username-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is a username?</strong>
+                            <p>A username is your personal name for this website. Think of it like a nickname that only you use here.</p>
+                            <strong>How do I pick one?</strong>
+                            <ul>
+                                <li>Use something you'll remember easily</li>
+                                <li>It can be your name, a nickname, or anything you like</li>
+                                <li>It must be 5-16 letters or numbers</li>
+                                <li>Spaces are not allowed</li>
+                            </ul>
+                            <strong>Examples</strong>
+                            <p>JohnS, GrandmaRose, BookLover2024</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="request-error" class="error-message" hidden></div>
+
+                <button type="submit" class="auth-button">
+                    <span class="button-text">Request Access</span>
+                </button>
+            </form>
+
+            <div class="auth-options">
+                <a href="login.html" class="auth-link">&larr; Back to login</a>
+            </div>
+        </div>
+
+        <!-- Step 2: Verification token (shown in dev mode or via link) -->
+        <div id="step-verify" class="registration-step" hidden>
+            <p class="step-description">
+                Enter the verification code sent to you to complete your registration.
+            </p>
+
+            <form id="verify-form" class="auth-form">
+                <div class="form-group">
+                    <label for="verify-token">
+                        Verification Code
+                        <button type="button" class="help-icon" aria-label="Help" data-help="verify-token-help">?</button>
+                    </label>
+                    <input type="text"
+                           id="verify-token"
+                           name="token"
+                           autocomplete="off"
+                           required>
+                    <div id="verify-token-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is this?</strong>
+                            <p>This is a special code that proves the library administrator approved your access request.</p>
+                            <strong>Where do I get it?</strong>
+                            <p>The administrator will send you this code. It might come:</p>
+                            <ul>
+                                <li>In an email</li>
+                                <li>In a text message</li>
+                                <li>Verbally (if they're with you)</li>
+                            </ul>
+                            <strong>What if it's already filled in?</strong>
+                            <p>If you clicked a link the administrator sent you, the code is already entered. You're all set!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="recovery-email">
+                        Recovery Email (optional)
+                        <button type="button" class="help-icon" aria-label="Help" data-help="recovery-email-help">?</button>
+                    </label>
+                    <input type="email"
+                           id="recovery-email"
+                           name="recovery_email"
+                           autocomplete="email">
+                    <span class="field-hint">For account recovery via magic link</span>
+                    <div id="recovery-email-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is this for?</strong>
+                            <p>If you ever lose your phone or can't get into your account, we can send a special link to this email to help you get back in.</p>
+                            <strong>Should I add one?</strong>
+                            <div class="help-recommend">
+                                <strong>Recommended!</strong>
+                                <p>Adding an email gives you a safety net. If something goes wrong, you won't be locked out permanently.</p>
+                            </div>
+                            <strong>What if I don't add one?</strong>
+                            <p>You can still use backup codes (you'll get those in the next step). But having an email is an extra layer of protection.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="verify-error" class="error-message" hidden></div>
+
+                <button type="submit" class="auth-button">
+                    <span class="button-text">Complete Setup</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Step 3: TOTP Setup -->
+        <div id="step-totp" class="registration-step" hidden>
+            <h2 class="step-title">
+                Set Up Authenticator
+                <button type="button" class="help-icon" aria-label="Help" data-help="authenticator-help">?</button>
+            </h2>
+
+            <div id="authenticator-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>What is an authenticator app?</strong>
+                    <p>It's a free app on your phone that creates a special 6-digit code. This code changes every 30 seconds, and only your phone knows what the next code will be.</p>
+                    <strong>Why do I need this?</strong>
+                    <p>Even if someone learns your username, they can't get in without your phone. It's like having a lock that changes every 30 seconds!</p>
+                    <strong>Which app should I use?</strong>
+                    <ul>
+                        <li><strong>Google Authenticator</strong> - Simple and free (search "Google Authenticator" in your app store)</li>
+                        <li><strong>Authy</strong> - Free, can sync between devices</li>
+                        <li><strong>1Password</strong> - If you already use it for passwords</li>
+                    </ul>
+                    <strong>How do I set it up?</strong>
+                    <ol>
+                        <li>Download one of those apps from your phone's app store</li>
+                        <li>Open the app and look for "Add" or a "+" button</li>
+                        <li>Point your phone's camera at the square code below</li>
+                        <li>The app will beep and add "The Library" to your list</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="qr-instructions">
+                <p>Scan this QR code with your authenticator app:</p>
+            </div>
+
+            <div class="qr-container" id="qr-container">
+                <img id="qr-code" src="" alt="TOTP QR Code">
+                <button type="button" class="help-icon" aria-label="Help" data-help="qr-help" style="position: absolute; top: 0.5rem; right: 0.5rem;">?</button>
+            </div>
+
+            <div id="qr-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>How to scan this code</strong>
+                    <ol>
+                        <li>Open your authenticator app on your phone</li>
+                        <li>Tap the "+" or "Add" button</li>
+                        <li>Choose "Scan QR code" or "Scan barcode"</li>
+                        <li>Point your phone's camera at this square pattern</li>
+                        <li>Your phone will automatically read it and add The Library</li>
+                    </ol>
+                    <strong>Can't scan?</strong>
+                    <p>If the scan doesn't work, you can type the secret code shown below into your app instead. Look for "Enter code manually" or "Enter setup key" in your app.</p>
+                </div>
+            </div>
+
+            <p class="qr-instructions">Or enter this code manually:</p>
+            <div class="secret-key" id="totp-secret"></div>
+
+            <div class="backup-codes">
+                <h3>
+                    Backup Codes
+                    <button type="button" class="help-icon" aria-label="Help" data-help="backup-codes-help">?</button>
+                </h3>
+                <div id="backup-codes-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What are backup codes?</strong>
+                        <p>These are emergency codes that let you sign in if you ever lose your phone or can't use your authenticator app.</p>
+                        <strong>How do I save them?</strong>
+                        <p>Pick ONE of these methods:</p>
+                        <ol>
+                            <li><strong>Write them down</strong> on paper and put it somewhere safe (like with important documents)</li>
+                            <li><strong>Take a screenshot</strong> and save it to a place you'll remember</li>
+                            <li><strong>Print this page</strong> using Ctrl+P (or Cmd+P on Mac)</li>
+                        </ol>
+                        <div class="help-warning">
+                            <strong>Important!</strong>
+                            <p>You will NOT see these codes again after leaving this page. Please save them now before continuing.</p>
+                        </div>
+                        <strong>When would I use these?</strong>
+                        <ul>
+                            <li>Your phone is lost or broken</li>
+                            <li>You deleted the authenticator app by accident</li>
+                            <li>You got a new phone and forgot to transfer the app</li>
+                        </ul>
+                        <p>Each code only works once. After using a code, cross it off your list.</p>
+                    </div>
+                </div>
+                <p class="qr-instructions" style="margin-bottom: 0.75rem;">
+                    Save these codes in a safe place. Each can be used once to access your account
+                    if you lose your authenticator.
+                </p>
+                <div class="backup-codes-list" id="backup-codes-list"></div>
+                <p class="backup-codes-warning">
+                    These codes will not be shown again. Store them securely.
+                </p>
+            </div>
+
+            <button id="complete-button" class="auth-button">
+                <span class="button-text">I've Saved My Codes - Continue</span>
+            </button>
+        </div>
+
+        <!-- Step 4: Success / Pending Approval -->
+        <div id="step-pending" class="registration-step" hidden>
+            <div class="success-message">
+                <div class="deco-ornament">&#10003;</div>
+                <h2 class="step-title">Request Submitted</h2>
+                <p class="step-description">
+                    Your request for access has been submitted. You will be notified
+                    when an administrator approves your account.
+                </p>
+                <p class="step-description">
+                    Username: <strong id="pending-username"></strong>
+                </p>
+            </div>
+
+            <div class="auth-options">
+                <a href="login.html" class="auth-link">&larr; Back to login</a>
+            </div>
+        </div>
+
+        <!-- Step 5: Complete -->
+        <div id="step-complete" class="registration-step" hidden>
+            <div class="success-message">
+                <div class="deco-ornament">&#10003;</div>
+                <h2 class="step-title">Welcome to The Library</h2>
+                <p class="step-description">
+                    Your account is ready. You can now sign in with your username
+                    and authenticator code.
+                </p>
+            </div>
+
+            <a href="login.html" class="auth-button" style="display: block; text-align: center; text-decoration: none;">
+                <span class="button-text">Sign In</span>
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <div class="deco-ornament small">&#9830;</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        // Help tooltip handling
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const helpId = icon.dataset.help;
+                const tooltip = document.getElementById(helpId);
+                if (tooltip) {
+                    // Close any other open tooltips
+                    document.querySelectorAll('.help-tooltip:not([hidden])').forEach(t => {
+                        if (t.id !== helpId) t.hidden = true;
+                    });
+                    tooltip.hidden = !tooltip.hidden;
+                }
+            });
+        });
+
+        // Close tooltips when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.help-icon') && !e.target.closest('.help-tooltip')) {
+                document.querySelectorAll('.help-tooltip').forEach(t => t.hidden = true);
+            }
+        });
+
+        // DOM elements
+        const steps = {
+            request: document.getElementById('step-request'),
+            verify: document.getElementById('step-verify'),
+            totp: document.getElementById('step-totp'),
+            pending: document.getElementById('step-pending'),
+            complete: document.getElementById('step-complete')
+        };
+
+        // Show a specific step
+        function showStep(stepName) {
+            Object.values(steps).forEach(step => step.hidden = true);
+            steps[stepName].hidden = false;
+        }
+
+        // Check URL for verification token
+        function checkUrlToken() {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            if (token) {
+                document.getElementById('verify-token').value = token;
+                showStep('verify');
+            }
+        }
+
+        // Error handling
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.hidden = false;
+            el.classList.add('shake');
+            setTimeout(() => el.classList.remove('shake'), 500);
+        }
+
+        function clearError(elementId) {
+            const el = document.getElementById(elementId);
+            el.hidden = true;
+            el.textContent = '';
+        }
+
+        // Step 1: Request access
+        document.getElementById('request-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError('request-error');
+
+            const username = document.getElementById('username').value.trim();
+
+            if (username.length < 5) {
+                showError('request-error', 'Username must be at least 5 characters');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // In dev mode, we get the token directly
+                    if (data.verify_token) {
+                        document.getElementById('verify-token').value = data.verify_token;
+                        showStep('verify');
+                    } else {
+                        // Production: show pending approval
+                        document.getElementById('pending-username').textContent = username;
+                        showStep('pending');
+                    }
+                } else {
+                    showError('request-error', data.error || 'Registration failed');
+                }
+            } catch (e) {
+                showError('request-error', 'Connection error. Please try again.');
+            }
+        });
+
+        // Step 2: Verify token
+        document.getElementById('verify-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError('verify-error');
+
+            const token = document.getElementById('verify-token').value.trim();
+            const recoveryEmail = document.getElementById('recovery-email').value.trim();
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: token,
+                        auth_type: 'totp',
+                        recovery_email: recoveryEmail || undefined,
+                        include_qr: true
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show TOTP setup
+                    if (data.totp_qr) {
+                        document.getElementById('qr-code').src = 'data:image/png;base64,' + data.totp_qr;
+                    }
+                    document.getElementById('totp-secret').textContent = data.totp_secret;
+
+                    // Display backup codes using safe DOM methods
+                    const codesList = document.getElementById('backup-codes-list');
+                    // Clear existing children safely
+                    while (codesList.firstChild) {
+                        codesList.removeChild(codesList.firstChild);
+                    }
+                    // Add each backup code as a text node
+                    data.backup_codes.forEach(code => {
+                        const span = document.createElement('span');
+                        span.textContent = code;
+                        codesList.appendChild(span);
+                    });
+
+                    showStep('totp');
+                } else {
+                    showError('verify-error', data.error || 'Verification failed');
+                }
+            } catch (e) {
+                showError('verify-error', 'Connection error. Please try again.');
+            }
+        });
+
+        // Step 3: Complete TOTP setup
+        document.getElementById('complete-button').addEventListener('click', () => {
+            showStep('complete');
+        });
+
+        // Check for token in URL on load
+        checkUrlToken();
+    </script>
+
+    <style>
+        .step-title {
+            font-family: Georgia, serif;
+            font-size: 1.25rem;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .step-description {
+            color: var(--cream);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .success-message {
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .success-message .deco-ornament {
+            font-size: 2.5rem;
+            color: var(--emerald-light);
+            margin-bottom: 1rem;
+        }
+
+        .qr-container {
+            position: relative;
+        }
+
+        .step-title .help-icon {
+            vertical-align: middle;
+        }
+    </style>
+</body>
+</html>

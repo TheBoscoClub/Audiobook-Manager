@@ -145,7 +145,8 @@
 }
 
 .btn-play,
-.btn-resume {
+.btn-resume,
+.btn-download {
     flex: 1;
     padding: 8px 12px;
     border: 2px solid var(--gold);
@@ -158,6 +159,10 @@
     font-weight: bold;
 }
 
+.btn-download {
+    border-color: var(--emerald-light);
+}
+
 .btn-play:hover:not(:disabled),
 .btn-resume:hover:not(:disabled) {
     background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
@@ -166,8 +171,16 @@
     box-shadow: 0 4px 8px rgba(218, 165, 32, 0.3);
 }
 
+.btn-download:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--emerald-light) 0%, var(--emerald) 100%);
+    color: var(--cream-light);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(45, 90, 78, 0.4);
+}
+
 .btn-play:active:not(:disabled),
-.btn-resume:active:not(:disabled) {
+.btn-resume:active:not(:disabled),
+.btn-download:active:not(:disabled) {
     transform: translateY(0);
     box-shadow: 0 2px 4px rgba(218, 165, 32, 0.2);
 }
@@ -353,7 +366,19 @@
     }
 
     .btn-play-edition,
-    .btn-resume-edition {
+    .btn-resume-edition,
+    .btn-download {
         flex: 1;
+    }
+
+    /* Stack book card actions vertically on mobile */
+    .book-actions {
+        flex-direction: column;
+    }
+
+    .book-actions .btn-play,
+    .book-actions .btn-resume,
+    .book-actions .btn-download {
+        width: 100%;
     }
 }
