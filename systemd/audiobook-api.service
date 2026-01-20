@@ -17,6 +17,8 @@ WorkingDirectory=/opt/audiobooks/library/backend
 # Load configuration from /etc/audiobooks/audiobooks.conf
 EnvironmentFile=/etc/audiobooks/audiobooks.conf
 Environment=PYTHONUNBUFFERED=1
+# HOME is needed for audible-cli to find its config at ~/.audible/
+Environment=HOME=/var/lib/audiobooks
 
 # Only start if port is not already in use
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
@@ -32,9 +34,9 @@ SyslogIdentifier=audiobooks-api
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-# Writable paths - database state + data directory (adjust AUDIOBOOKS_DATA path for your installation)
+# Writable paths - database state + data directory + /tmp for temp files
 # NOTE: Systemd doesn't expand env vars in ReadWritePaths, so add your data path explicitly
-ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks
+ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks /tmp
 ProtectHome=yes
 # PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
 PrivateTmp=no
