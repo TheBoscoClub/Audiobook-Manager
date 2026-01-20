@@ -165,10 +165,10 @@
                     </button>
                 </div>
 
-                <div class="auth-method-card coming-soon" id="method-passkey">
+                <div class="auth-method-card" id="method-passkey">
                     <div class="method-header">
                         <span class="method-icon">🔐</span>
-                        <span class="method-badge future">Coming Soon</span>
+                        <span class="method-badge recommended">Recommended</span>
                     </div>
                     <h3 class="method-title">Passkey</h3>
                     <p class="method-description">
@@ -179,9 +179,12 @@
                         <li>No codes to remember or type</li>
                         <li>Built into modern devices</li>
                     </ul>
-                    <button type="button" class="auth-button method-select" disabled title="Passkey support coming soon">
-                        <span class="button-text">Coming Soon</span>
+                    <button type="button" class="auth-button method-select" data-method="passkey" id="passkey-button" title="Set up passkey authentication">
+                        <span class="button-text">Use Passkey</span>
                     </button>
+                    <p class="method-note" id="passkey-unsupported" style="display: none; color: #c9a227; font-size: 0.85em; margin-top: 0.5em;">
+                        Your browser doesn't support passkeys. Choose Authenticator App instead.
+                    </p>
                 </div>
             </div>
 
@@ -192,11 +195,10 @@
             <div id="auth-method-help" class="help-tooltip" hidden>
                 <div class="help-content">
                     <strong>Which should I pick?</strong>
-                    <p>Right now, <strong>Authenticator App</strong> is your only option, but it's very secure and works great!</p>
-                    <strong>What's a Passkey?</strong>
-                    <p>Passkeys are a newer technology that lets you sign in using Face ID, fingerprint, or your device's PIN. We're working on adding this feature.</p>
+                    <p><strong>Passkey</strong> is the easiest and most secure option - just use your face, fingerprint, or device PIN to sign in.</p>
+                    <p><strong>Authenticator App</strong> is great if you prefer typing a 6-digit code or if your device doesn't support passkeys.</p>
                     <strong>Can I switch later?</strong>
-                    <p>Yes! Once passkeys are available, you'll be able to add one to your account.</p>
+                    <p>Contact the administrator if you need to change your authentication method.</p>
                 </div>
             </div>
         </div>
@@ -342,8 +344,38 @@
         </div>
     </div>
 
+    <script src="/js/webauthn.js"></script>
     <script>
         const API_BASE = '';
+
+        // Check WebAuthn support on page load
+        (async function() {
+            if (!WebAuthn.isSupported()) {
+                // Disable passkey button, show warning
+                const passkeyBtn = document.getElementById('passkey-button');
+                const warning = document.getElementById('passkey-unsupported');
+                if (passkeyBtn) {
+                    passkeyBtn.disabled = true;
+                    passkeyBtn.querySelector('.button-text').textContent = 'Not Available';
+                }
+                if (warning) {
+                    warning.style.display = 'block';
+                }
+            } else {
+                // Check if platform authenticator is available
+                const hasPlatform = await WebAuthn.isPlatformAuthenticatorAvailable();
+                if (!hasPlatform) {
+                    // Still allow passkeys but update text
+                    const methodCard = document.getElementById('method-passkey');
+                    if (methodCard) {
+                        const desc = methodCard.querySelector('.method-description');
+                        if (desc) {
+                            desc.textContent = 'Use a security key (YubiKey, etc.) to sign in securely.';
+                        }
+                    }
+                }
+            }
+        })();
 
         // Help tooltip handling
         document.querySelectorAll('.help-icon').forEach(icon => {
@@ -480,7 +512,61 @@
             button.addEventListener('click', async () => {
                 const method = button.dataset.method;
 
-                if (method === 'totp' && pendingVerification) {
+                if (!pendingVerification) {
+                    showStep('verify');
+                    showError('verify-error', 'Session expired. Please verify again.');
+                    return;
+                }
+
+                if (method === 'passkey') {
+                    // Handle passkey registration
+                    try {
+                        button.disabled = true;
+                        button.querySelector('.button-text').textContent = 'Setting up...';
+
+                        const result = await WebAuthn.register(
+                            pendingVerification.token,
+                            'passkey',
+                            { email: pendingVerification.recovery_email }
+                        );
+
+                        // Display backup codes
+                        const codesList = document.getElementById('backup-codes-list');
+                        while (codesList.firstChild) {
+                            codesList.removeChild(codesList.firstChild);
+                        }
+                        result.backup_codes.forEach(code => {
+                            const span = document.createElement('span');
+                            span.textContent = code;
+                            codesList.appendChild(span);
+                        });
+
+                        // Hide QR code section (not needed for passkey)
+                        const qrSection = document.querySelector('.totp-qr-container');
+                        if (qrSection) qrSection.style.display = 'none';
+                        const secretSection = document.querySelector('.totp-secret-container');
+                        if (secretSection) secretSection.style.display = 'none';
+
+                        // Update step title
+                        const stepTitle = steps.totp.querySelector('.step-title');
+                        if (stepTitle) {
+                            stepTitle.childNodes[0].textContent = 'Passkey Created ';
+                        }
+
+                        // Show success message
+                        const stepDesc = steps.totp.querySelector('.step-description');
+                        if (stepDesc) {
+                            stepDesc.textContent = 'Your passkey has been set up successfully! Save your backup codes below.';
+                        }
+
+                        showStep('totp');
+                    } catch (e) {
+                        button.disabled = false;
+                        button.querySelector('.button-text').textContent = 'Use Passkey';
+                        showError('verify-error', e.message || 'Passkey setup failed');
+                        showStep('verify');
+                    }
+                } else if (method === 'totp') {
                     // Call the API with TOTP method
                     try {
                         const response = await fetch(`${API_BASE}/auth/register/verify`, {
@@ -497,6 +583,12 @@
                         const data = await response.json();
 
                         if (response.ok) {
+                            // Show QR code section (ensure visible for TOTP)
+                            const qrSection = document.querySelector('.totp-qr-container');
+                            if (qrSection) qrSection.style.display = '';
+                            const secretSection = document.querySelector('.totp-secret-container');
+                            if (secretSection) secretSection.style.display = '';
+
                             // Show TOTP setup
                             if (data.totp_qr) {
                                 document.getElementById('qr-code').src = 'data:image/png;base64,' + data.totp_qr;

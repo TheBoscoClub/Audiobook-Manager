@@ -46,6 +46,14 @@ from auth import (
     UserPosition,
     PositionRepository,
     hash_token,
+    # WebAuthn
+    WebAuthnCredential,
+    webauthn_registration_options,
+    webauthn_verify_registration,
+    webauthn_authentication_options,
+    webauthn_verify_authentication,
+    webauthn_get_pending_challenge,
+    webauthn_clear_challenge,
 )
 from auth.totp import (
     setup_totp,
@@ -637,6 +645,422 @@ def verify_registration():
         response_data["totp_qr"] = base64.b64encode(qr_png).decode('ascii')
 
     return jsonify(response_data)
+
+
+# =============================================================================
+# WebAuthn/Passkey Registration Endpoints
+# =============================================================================
+
+
+def get_webauthn_config() -> tuple[str, str, str]:
+    """Get WebAuthn configuration from environment or defaults."""
+    rp_id = os.environ.get("WEBAUTHN_RP_ID", "localhost")
+    rp_name = os.environ.get("WEBAUTHN_RP_NAME", "The Library")
+    origin = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5001")
+    return rp_id, rp_name, origin
+
+
+@auth_bp.route("/register/webauthn/begin", methods=["POST"])
+def register_webauthn_begin():
+    """
+    Start WebAuthn registration ceremony.
+
+    Request body:
+        {
+            "token": "verification_token",
+            "auth_type": "passkey" | "fido2",
+            "recovery_email": "optional",
+            "recovery_phone": "optional"
+        }
+
+    Returns:
+        200: {
+            "options": {...},  // WebAuthn registration options (JSON)
+            "challenge": "..."  // Base64URL challenge for completion
+        }
+        400: {"error": "..."}
+    """
+    from webauthn.helpers import bytes_to_base64url
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    token = data.get("token", "").strip()
+    auth_type = data.get("auth_type", "passkey").strip().lower()
+
+    if not token:
+        return jsonify({"error": "Verification token required"}), 400
+
+    if auth_type not in ("passkey", "fido2"):
+        return jsonify({"error": "Invalid auth type. Use 'passkey' or 'fido2'."}), 400
+
+    db = get_auth_db()
+    reg_repo = PendingRegistrationRepository(db)
+
+    # Find pending registration
+    reg = reg_repo.get_by_token(token)
+    if reg is None:
+        return jsonify({"error": "Invalid or expired verification token"}), 400
+
+    if reg.is_expired():
+        reg.consume(db)
+        return jsonify({"error": "Verification token has expired"}), 400
+
+    # Get WebAuthn configuration
+    rp_id, rp_name, _ = get_webauthn_config()
+
+    # Determine authenticator type
+    authenticator_type = "platform" if auth_type == "passkey" else "cross-platform"
+
+    # Generate registration options
+    options_json, challenge = webauthn_registration_options(
+        username=reg.username,
+        rp_id=rp_id,
+        rp_name=rp_name,
+        authenticator_type=authenticator_type,
+    )
+
+    return jsonify({
+        "options": options_json,  # Already JSON string
+        "challenge": bytes_to_base64url(challenge),
+        "token": token,  # Return for completion step
+    })
+
+
+@auth_bp.route("/register/webauthn/complete", methods=["POST"])
+def register_webauthn_complete():
+    """
+    Complete WebAuthn registration ceremony.
+
+    Request body:
+        {
+            "token": "verification_token",
+            "credential": {...},  // WebAuthn credential response
+            "challenge": "...",   // Base64URL challenge
+            "auth_type": "passkey" | "fido2",
+            "recovery_email": "optional",
+            "recovery_phone": "optional"
+        }
+
+    Returns:
+        200: {
+            "success": true,
+            "username": "...",
+            "backup_codes": [...],
+            "recovery_enabled": bool
+        }
+        400: {"error": "..."}
+    """
+    from webauthn.helpers import base64url_to_bytes
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    token = data.get("token", "").strip()
+    credential = data.get("credential")
+    challenge_b64 = data.get("challenge", "").strip()
+    auth_type = data.get("auth_type", "passkey").strip().lower()
+
+    # Recovery preferences
+    recovery_email = data.get("recovery_email", "").strip() or None
+    recovery_phone = data.get("recovery_phone", "").strip() or None
+    recovery_enabled = bool(recovery_email or recovery_phone)
+
+    if not token or not credential or not challenge_b64:
+        return jsonify({"error": "Token, credential, and challenge are required"}), 400
+
+    if auth_type not in ("passkey", "fido2"):
+        return jsonify({"error": "Invalid auth type"}), 400
+
+    db = get_auth_db()
+    reg_repo = PendingRegistrationRepository(db)
+
+    # Find pending registration
+    reg = reg_repo.get_by_token(token)
+    if reg is None:
+        return jsonify({"error": "Invalid or expired verification token"}), 400
+
+    if reg.is_expired():
+        reg.consume(db)
+        return jsonify({"error": "Verification token has expired"}), 400
+
+    # Get WebAuthn configuration
+    rp_id, _, origin = get_webauthn_config()
+
+    # Decode challenge
+    try:
+        challenge = base64url_to_bytes(challenge_b64)
+    except Exception:
+        return jsonify({"error": "Invalid challenge format"}), 400
+
+    # Convert credential to JSON string if it's a dict
+    import json
+    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
+
+    # Verify registration
+    webauthn_cred = webauthn_verify_registration(
+        credential_json=credential_json,
+        expected_challenge=challenge,
+        expected_origin=origin,
+        expected_rp_id=rp_id,
+    )
+
+    if webauthn_cred is None:
+        return jsonify({"error": "WebAuthn verification failed"}), 400
+
+    # Create user with WebAuthn credential
+    user = User(
+        username=reg.username,
+        auth_type=AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2,
+        auth_credential=webauthn_cred.to_json().encode("utf-8"),
+        can_download=True,
+        is_admin=False,
+        recovery_email=recovery_email,
+        recovery_phone=recovery_phone,
+        recovery_enabled=recovery_enabled,
+    )
+    user.save(db)
+
+    # Generate backup codes
+    backup_repo = BackupCodeRepository(db)
+    backup_codes = backup_repo.create_codes_for_user(user.id)
+
+    # Consume the pending registration
+    reg.consume(db)
+
+    # Build response
+    response_data = {
+        "success": True,
+        "username": user.username,
+        "user_id": user.id,
+        "backup_codes": backup_codes,
+        "recovery_enabled": recovery_enabled,
+        "message": "Account created successfully with passkey authentication.",
+    }
+
+    if recovery_enabled:
+        response_data["warning"] = (
+            "Save your backup codes in a safe place. You can also recover your account "
+            "using your registered email/phone if you lose your passkey."
+        )
+    else:
+        response_data["warning"] = (
+            "IMPORTANT: Save these backup codes in a safe place! Without stored contact "
+            "information, these codes are your ONLY way to recover your account if you "
+            "lose your passkey. Each code can only be used once."
+        )
+
+    return jsonify(response_data)
+
+
+# =============================================================================
+# WebAuthn/Passkey Authentication Endpoints
+# =============================================================================
+
+
+@auth_bp.route("/login/webauthn/begin", methods=["POST"])
+def login_webauthn_begin():
+    """
+    Start WebAuthn authentication ceremony.
+
+    Request body:
+        {
+            "username": "string"
+        }
+
+    Returns:
+        200: {
+            "options": {...},  // WebAuthn authentication options
+            "challenge": "..."  // Base64URL challenge
+        }
+        400: {"error": "..."} - User not found or not using WebAuthn
+    """
+    from webauthn.helpers import bytes_to_base64url
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"error": "Username required"}), 400
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    # Find user
+    user = user_repo.get_by_username(username)
+    if user is None:
+        # Don't reveal if user exists
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    # Check user uses WebAuthn
+    if user.auth_type not in (AuthType.PASSKEY, AuthType.FIDO2):
+        return jsonify({
+            "error": "User does not use passkey authentication",
+            "auth_type": user.auth_type.value
+        }), 400
+
+    # Parse stored credential
+    try:
+        webauthn_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Invalid stored credential"}), 500
+
+    # Get WebAuthn configuration
+    rp_id, _, _ = get_webauthn_config()
+
+    # Generate authentication options
+    options_json, challenge = webauthn_authentication_options(
+        user_id=user.id,
+        credential_id=webauthn_cred.credential_id,
+        rp_id=rp_id,
+        username=username,
+    )
+
+    return jsonify({
+        "options": options_json,
+        "challenge": bytes_to_base64url(challenge),
+    })
+
+
+@auth_bp.route("/login/webauthn/complete", methods=["POST"])
+def login_webauthn_complete():
+    """
+    Complete WebAuthn authentication ceremony.
+
+    Request body:
+        {
+            "username": "string",
+            "credential": {...},  // WebAuthn assertion response
+            "challenge": "..."    // Base64URL challenge
+        }
+
+    Returns:
+        200: {"success": true, "user": {...}}
+        401: {"error": "Invalid credentials"}
+    """
+    from webauthn.helpers import base64url_to_bytes
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    credential = data.get("credential")
+    challenge_b64 = data.get("challenge", "").strip()
+
+    if not username or not credential or not challenge_b64:
+        return jsonify({"error": "Username, credential, and challenge are required"}), 400
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    # Find user
+    user = user_repo.get_by_username(username)
+    if user is None:
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    # Check user uses WebAuthn
+    if user.auth_type not in (AuthType.PASSKEY, AuthType.FIDO2):
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    # Parse stored credential
+    try:
+        webauthn_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    # Decode challenge
+    try:
+        challenge = base64url_to_bytes(challenge_b64)
+    except Exception:
+        return jsonify({"error": "Invalid challenge format"}), 400
+
+    # Get WebAuthn configuration
+    rp_id, _, origin = get_webauthn_config()
+
+    # Convert credential to JSON string if it's a dict
+    import json
+    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
+
+    # Verify authentication
+    new_sign_count = webauthn_verify_authentication(
+        credential_json=credential_json,
+        expected_challenge=challenge,
+        credential_public_key=webauthn_cred.public_key,
+        credential_current_sign_count=webauthn_cred.sign_count,
+        expected_origin=origin,
+        expected_rp_id=rp_id,
+    )
+
+    if new_sign_count is None:
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    # Update sign count in stored credential
+    webauthn_cred.sign_count = new_sign_count
+    user.auth_credential = webauthn_cred.to_json().encode("utf-8")
+    user.save(db)
+
+    # Create session
+    session, token = Session.create_for_user(
+        db,
+        user.id,
+        user_agent=request.headers.get("User-Agent"),
+        ip_address=request.remote_addr,
+    )
+
+    # Update last login
+    user.update_last_login(db)
+
+    # Build response
+    response = jsonify({
+        "success": True,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "can_download": user.can_download,
+            "is_admin": user.is_admin,
+        }
+    })
+
+    return set_session_cookie(response, token)
+
+
+@auth_bp.route("/login/auth-type", methods=["POST"])
+def get_auth_type():
+    """
+    Get the authentication type for a user.
+
+    Used by the frontend to determine which login flow to use.
+
+    Request body:
+        {"username": "string"}
+
+    Returns:
+        200: {"auth_type": "totp" | "passkey" | "fido2"}
+        404: {"error": "User not found"}
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"error": "Username required"}), 400
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    user = user_repo.get_by_username(username)
+    if user is None:
+        # Don't reveal if user exists - return generic auth type
+        # This prevents username enumeration
+        return jsonify({"auth_type": "totp"}), 200
+
+    return jsonify({"auth_type": user.auth_type.value})
 
 
 # =============================================================================

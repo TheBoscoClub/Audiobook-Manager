@@ -53,6 +53,18 @@ from .backup_codes import (
     NUM_BACKUP_CODES,
 )
 
+from .webauthn import (
+    WebAuthnCredential,
+    WebAuthnChallenge,
+    create_registration_options as webauthn_registration_options,
+    verify_registration as webauthn_verify_registration,
+    create_authentication_options as webauthn_authentication_options,
+    verify_authentication as webauthn_verify_authentication,
+    get_pending_challenge as webauthn_get_pending_challenge,
+    clear_challenge as webauthn_clear_challenge,
+    cleanup_expired_challenges as webauthn_cleanup_challenges,
+)
+
 __all__ = [
     # Database
     "AuthDatabase",
@@ -97,4 +109,14 @@ __all__ = [
     "normalize_backup_code",
     "format_codes_for_display",
     "NUM_BACKUP_CODES",
+    # WebAuthn
+    "WebAuthnCredential",
+    "WebAuthnChallenge",
+    "webauthn_registration_options",
+    "webauthn_verify_registration",
+    "webauthn_authentication_options",
+    "webauthn_verify_authentication",
+    "webauthn_get_pending_challenge",
+    "webauthn_clear_challenge",
+    "webauthn_cleanup_challenges",
 ]

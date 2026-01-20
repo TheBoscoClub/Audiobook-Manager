@@ -475,13 +475,16 @@ class TestAuthMethodSelection:
             "Should have TOTP option"
 
     def test_register_page_has_passkey_option(self):
-        """Verify register page shows passkey option (even if disabled)."""
+        """Verify register page shows passkey option as enabled."""
         register_content = (WEB_DIR / "register.html").read_text()
 
         assert "Passkey" in register_content or "passkey" in register_content, \
             "Should mention passkey option"
-        assert "Coming Soon" in register_content, \
-            "Passkey should be marked as coming soon"
+        # Passkey is now enabled with WebAuthn support
+        assert "webauthn.js" in register_content, \
+            "Should include WebAuthn JavaScript"
+        assert "WebAuthn.register" in register_content, \
+            "Should have WebAuthn registration handler"
 
     def test_register_page_auth_method_selection_javascript(self):
         """Verify register page handles auth method selection."""
