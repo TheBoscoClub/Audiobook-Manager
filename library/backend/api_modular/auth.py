@@ -580,7 +580,7 @@ def verify_registration():
         username=reg.username,
         auth_type=AuthType.TOTP,
         auth_credential=secret,
-        can_download=False,  # Default: no download permission
+        can_download=True,  # Default: allow downloads for offline listening
         is_admin=False,
         recovery_email=recovery_email,
         recovery_phone=recovery_phone,

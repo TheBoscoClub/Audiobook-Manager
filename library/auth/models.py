@@ -65,7 +65,7 @@ class User:
     username: str = ""
     auth_type: AuthType = AuthType.TOTP
     auth_credential: bytes = b""
-    can_download: bool = False
+    can_download: bool = True  # Default: allow downloads for offline listening
     is_admin: bool = False
     created_at: Optional[datetime] = None
     last_login: Optional[datetime] = None

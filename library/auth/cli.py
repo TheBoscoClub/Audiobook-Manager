@@ -450,7 +450,8 @@ def main():
     auth_group.add_argument("--totp", action="store_true", default=True, help="Use TOTP auth (default)")
     auth_group.add_argument("--passkey", action="store_true", help="Use Passkey auth")
     auth_group.add_argument("--fido2", action="store_true", help="Use FIDO2 hardware key auth")
-    add_parser.add_argument("--download", action="store_true", help="Grant download permission")
+    add_parser.add_argument("--download", action=argparse.BooleanOptionalAction, default=True,
+                            help="Download permission (default: enabled, use --no-download to disable)")
     add_parser.add_argument("--admin", action="store_true", help="Make user an admin")
 
     # delete command
