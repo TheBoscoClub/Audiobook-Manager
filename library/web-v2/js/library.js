@@ -440,6 +440,7 @@ class AudiobookLibraryV2 {
             }
         }
 
+        // XSS safe: All dynamic content passes through escapeHtml() (lines 433, highlightMatch->escapeHtml)
         dropdown.innerHTML = html;
 
         // Add click handlers to options
@@ -634,6 +635,7 @@ class AudiobookLibraryV2 {
             }
         }
 
+        // XSS safe: All dynamic content passes through escapeHtml() (lines 626, highlightMatch->escapeHtml)
         dropdown.innerHTML = html;
 
         // Add click handlers to options

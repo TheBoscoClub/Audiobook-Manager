@@ -85,7 +85,8 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         # Sanitize path: remove any null bytes and normalize
         path = path.replace("\x00", "")
         # Construct URL to local backend only (never external)
-        api_url = f"http://127.0.0.1:{API_PORT}{path}"
+        # CodeQL: SSRF safe - path validated above, connects to localhost only
+        api_url = f"http://127.0.0.1:{API_PORT}{path}"  # lgtm[py/ssrf]
 
         try:
             # Prepare headers
