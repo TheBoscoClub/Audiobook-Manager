@@ -856,6 +856,28 @@ class TestDownloadPermissionEndpoints:
         # Should succeed or 404 (supplement doesn't exist), but not 403
         assert r.status_code in (200, 404)
 
+    def test_audiobook_download_without_permission(self, client, auth_app):
+        """Test audiobook download requires download permission."""
+        # testuser1 has can_download=False
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post('/auth/login',
+            json={"username": "testuser1", "code": auth.current_code()})
+
+        r = client.get('/api/download/1')
+        assert r.status_code == 403
+        assert 'Download permission required' in r.get_json()['error']
+
+    def test_audiobook_download_with_permission(self, client, auth_app):
+        """Test audiobook download works with download permission."""
+        # adminuser has can_download=True
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post('/auth/login',
+            json={"username": "adminuser", "code": auth.current_code()})
+
+        r = client.get('/api/download/1')
+        # Should succeed or 404 (file doesn't exist on disk), but not 403
+        assert r.status_code in (200, 404)
+
 
 class TestAudibleSyncAdminOnly:
     """Test that Audible sync endpoints are admin-only."""

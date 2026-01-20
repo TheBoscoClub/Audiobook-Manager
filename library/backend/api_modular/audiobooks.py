@@ -549,6 +549,64 @@ def init_audiobooks_routes(db_path, project_root, database_path):
             conditional=True,  # Enable range requests for seeking
         )
 
+    @audiobooks_bp.route("/api/download/<int:audiobook_id>")
+    @download_permission_required
+    def download_audiobook(audiobook_id: int) -> FlaskResponse:
+        """Download audiobook file for offline listening.
+
+        Requires download permission. The file is returned as an attachment
+        with a filename based on the audiobook title.
+        """
+        conn = get_db(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT title, author, file_path, format FROM audiobooks WHERE id = ?",
+            (audiobook_id,),
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return jsonify({"error": "Audiobook not found"}), 404
+
+        file_path = Path(row["file_path"])
+        if not file_path.exists():
+            return jsonify({"error": "File not found on disk"}), 404
+
+        # Build a clean filename from title and author
+        title = row["title"] or "audiobook"
+        author = row["author"]
+        file_format = row["format"] or file_path.suffix.lower().lstrip(".")
+
+        # Sanitize filename: remove/replace problematic characters
+        def sanitize(s: str) -> str:
+            # Replace characters that are problematic in filenames
+            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                s = s.replace(char, '-')
+            return s.strip()
+
+        if author:
+            download_name = f"{sanitize(title)} - {sanitize(author)}.{file_format}"
+        else:
+            download_name = f"{sanitize(title)}.{file_format}"
+
+        # Map file formats to MIME types
+        mime_types = {
+            "opus": "audio/ogg",
+            "m4b": "audio/mp4",
+            "m4a": "audio/mp4",
+            "mp3": "audio/mpeg",
+        }
+        mimetype = mime_types.get(file_format, "application/octet-stream")
+
+        return send_file(
+            file_path,
+            mimetype=mimetype,
+            as_attachment=True,
+            download_name=download_name,
+        )
+
     @audiobooks_bp.route("/health")
     def health() -> Response:
         """Health check endpoint with version info"""
