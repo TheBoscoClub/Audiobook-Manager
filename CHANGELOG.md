@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.1.2] - 2026-01-22
+
+### Added
+- **Web UI**: "Check for Updates" button in Utilities page for dry-run upgrade preview
+  - Shows verbose output of what would happen without making changes
+  - Displays current vs available version comparison
+  - Reports result of multi-installation detection
+
+### Fixed
+- **Upgrade**: Fixed `--from-github` and `--from-project` options not upgrading the correct installation
+  - `find_installed_dir()` now prioritizes system paths (`/opt/audiobooks`) over custom data locations
+  - Adds warning when multiple installations are found, showing versions of each
+  - Tells user to use `--target` if auto-selected location isn't correct
+
 ## [4.1.1] - 2026-01-20
 
 ### Fixed
