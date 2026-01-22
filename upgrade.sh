@@ -126,22 +126,38 @@ find_project_dir() {
 
 find_installed_dir() {
     # Try to find the installed application
+    # Priority: system paths first, then user paths, then custom locations
     local candidates=(
-        "/raid0/Audiobooks"
-        "/opt/audiobooks"
-        "/usr/local/lib/audiobooks"
-        "$HOME/.local/lib/audiobooks"
-        "/srv/audiobooks"
+        "/opt/audiobooks"           # Standard system installation
+        "/usr/local/lib/audiobooks" # Alternative system location
+        "$HOME/.local/lib/audiobooks" # User installation
+        "/srv/audiobooks"           # Server data location
+        "/raid0/Audiobooks"         # Custom location (data, not app)
     )
 
+    local found=()
     for dir in "${candidates[@]}"; do
         if [[ -d "$dir/scripts" ]] || [[ -d "$dir/library" ]]; then
-            echo "$dir"
-            return 0
+            found+=("$dir")
         fi
     done
 
-    return 1
+    if [[ ${#found[@]} -eq 0 ]]; then
+        return 1
+    fi
+
+    # Warn if multiple installations found
+    if [[ ${#found[@]} -gt 1 ]]; then
+        echo -e "${YELLOW}Warning: Multiple installations found:${NC}" >&2
+        for dir in "${found[@]}"; do
+            local ver=$(get_version "$dir")
+            echo "  - $dir (v$ver)" >&2
+        done
+        echo -e "${YELLOW}Using: ${found[0]} (use --target to specify)${NC}" >&2
+    fi
+
+    echo "${found[0]}"
+    return 0
 }
 
 detect_architecture() {

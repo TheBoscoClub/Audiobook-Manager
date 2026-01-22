@@ -347,6 +347,65 @@ def init_system_routes(project_root):
         status = _read_status()
         return jsonify(status)
 
+    @utilities_system_bp.route("/api/system/upgrade/check", methods=["POST"])
+    def check_upgrade() -> FlaskResponse:
+        """
+        Check for available upgrades (dry-run mode with verbose output).
+
+        This runs the upgrade script with --dry-run to show what would happen
+        without making any changes. Returns detailed output including version
+        comparison and files that would be updated.
+
+        Request body:
+        {
+            "source": "github" | "project",
+            "project_path": "/path/to/project"  // Required if source is "project"
+        }
+        """
+        # Check if an operation is already running
+        current_status = _read_status()
+        if current_status.get("running"):
+            return jsonify({"error": "An operation is already in progress"}), 400
+
+        data = request.get_json() or {}
+        source = data.get("source", "github")
+        project_path = data.get("project_path")
+
+        if source == "project" and not project_path:
+            return jsonify({"error": "project_path required for project source"}), 400
+
+        if source == "project" and project_path:
+            # SECURITY: Validate project_path is a real project directory
+            project_path_obj = Path(project_path)
+            if not project_path_obj.is_dir():
+                return jsonify(
+                    {"error": "Project path not found or not a directory"}
+                ), 400
+            if not (project_path_obj / "VERSION").exists():
+                return (
+                    jsonify({"error": "Invalid project: no VERSION file found"}),
+                    400,
+                )
+
+        # Write upgrade check request
+        request_data = {"type": "upgrade_check", "source": source}
+        if project_path:
+            request_data["project_path"] = project_path
+
+        if not _write_request(request_data):
+            return (
+                jsonify({"error": "Failed to write request (permission denied)"}),
+                500,
+            )
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Upgrade check started",
+                "source": source,
+            }
+        )
+
     @utilities_system_bp.route("/api/system/upgrade", methods=["POST"])
     def start_upgrade() -> FlaskResponse:
         """
