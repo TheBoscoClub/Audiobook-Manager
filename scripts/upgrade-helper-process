@@ -8,6 +8,8 @@
 # Request file format (JSON):
 #   Upgrade:     {"type": "upgrade", "source": "github"}
 #                {"type": "upgrade", "source": "project", "project_path": "/path"}
+#   Check:       {"type": "upgrade_check", "source": "github"}
+#                {"type": "upgrade_check", "source": "project", "project_path": "/path"}
 #   Service:     {"type": "service_start", "service": "audiobooks-converter"}
 #                {"type": "service_stop", "service": "audiobooks-converter"}
 #                {"type": "service_restart", "service": "audiobooks-api"}
@@ -243,8 +245,101 @@ do_services_stop_all() {
 }
 
 # =============================================================================
-# Upgrade Operation
+# Upgrade Operations
 # =============================================================================
+
+do_upgrade_check() {
+    # Dry-run check: shows what would be upgraded without making changes
+    local source="$1"
+    local project_path="$2"
+
+    OUTPUT_LINES+=("=== Upgrade Check (Dry Run) ===")
+    OUTPUT_LINES+=("Source: $source")
+    [[ -n "$project_path" ]] && OUTPUT_LINES+=("Project path: $project_path")
+
+    write_status "true" "checking" "Checking for updates..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    local upgrade_script="$INSTALL_DIR/scripts/upgrade.sh"
+    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobooks-upgrade"
+
+    if [[ ! -x "$upgrade_script" ]]; then
+        OUTPUT_LINES+=("ERROR: Upgrade script not found")
+        write_status "false" "error" "Upgrade script not found" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+
+    # Build upgrade command with --dry-run
+    local upgrade_cmd
+    if [[ "$source" == "github" ]]; then
+        upgrade_cmd=("$upgrade_script" "--from-github" "--dry-run")
+    elif [[ "$source" == "project" ]] && [[ -n "$project_path" ]]; then
+        if [[ ! -d "$project_path" ]]; then
+            OUTPUT_LINES+=("ERROR: Project path does not exist: $project_path")
+            write_status "false" "error" "Project path does not exist" "false" "null" "${OUTPUT_LINES[@]}"
+            return 1
+        fi
+        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--dry-run")
+    else
+        OUTPUT_LINES+=("ERROR: Invalid upgrade source")
+        write_status "false" "error" "Invalid upgrade source" "false" "null" "${OUTPUT_LINES[@]}"
+        return 1
+    fi
+
+    # Run upgrade check and capture output (no confirmation needed for dry-run)
+    local check_output check_exit
+    check_output=$("${upgrade_cmd[@]}" 2>&1)
+    check_exit=$?
+
+    # Parse output (strip ANSI codes)
+    while IFS= read -r line; do
+        local clean_line
+        clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
+        [[ -n "$clean_line" ]] && OUTPUT_LINES+=("$clean_line")
+    done <<< "$check_output"
+
+    # Determine if upgrade is available from output
+    local upgrade_available="false"
+    local current_version=""
+    local available_version=""
+
+    # Extract version info from output
+    for line in "${OUTPUT_LINES[@]}"; do
+        if [[ "$line" =~ "Upgrade available" ]] || [[ "$line" =~ "→" ]]; then
+            upgrade_available="true"
+        fi
+        if [[ "$line" =~ "Current version:" ]] || [[ "$line" =~ "Installed version:" ]]; then
+            current_version=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        fi
+        if [[ "$line" =~ "Latest version:" ]] || [[ "$line" =~ "Project version:" ]]; then
+            available_version=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        fi
+    done
+
+    # Build result JSON
+    local result_json="{\"upgrade_available\": $upgrade_available"
+    [[ -n "$current_version" ]] && result_json+=", \"current_version\": \"$current_version\""
+    [[ -n "$available_version" ]] && result_json+=", \"available_version\": \"$available_version\""
+    result_json+=", \"source\": \"$source\""
+    result_json+="}"
+
+    if [[ $check_exit -ne 0 ]]; then
+        # Non-zero exit might just mean "no upgrade needed" - check output
+        if [[ "$check_output" =~ "Already at version" ]] || [[ "$check_output" =~ "No upgrade needed" ]] || [[ "$check_output" =~ "Versions are identical" ]]; then
+            OUTPUT_LINES+=("No upgrade available")
+            write_status "false" "complete" "Already up to date" "true" "$result_json" "${OUTPUT_LINES[@]}"
+        else
+            OUTPUT_LINES+=("Check failed with exit code: $check_exit")
+            write_status "false" "error" "Check failed" "false" "$result_json" "${OUTPUT_LINES[@]}"
+        fi
+        return 0
+    fi
+
+    if [[ "$upgrade_available" == "true" ]]; then
+        write_status "false" "complete" "Upgrade available: $current_version → $available_version" "true" "$result_json" "${OUTPUT_LINES[@]}"
+    else
+        write_status "false" "complete" "Already up to date" "true" "$result_json" "${OUTPUT_LINES[@]}"
+    fi
+}
 
 do_upgrade() {
     local source="$1"
@@ -395,6 +490,13 @@ case "$REQUEST_TYPE" in
         PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
         [[ -z "$SOURCE" ]] && SOURCE="github"
         do_upgrade "$SOURCE" "$PROJECT_PATH"
+        ;;
+
+    upgrade_check)
+        SOURCE=$(get_json_field "$REQUEST" "source")
+        PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
+        [[ -z "$SOURCE" ]] && SOURCE="github"
+        do_upgrade_check "$SOURCE" "$PROJECT_PATH"
         ;;
 
     service_start)
