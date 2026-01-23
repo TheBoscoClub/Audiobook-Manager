@@ -68,7 +68,6 @@ from auth.totp import (
 )
 from auth.backup_codes import (
     BackupCodeRepository,
-    generate_backup_codes,
     format_codes_for_display,
 )
 
@@ -515,7 +514,7 @@ def start_registration():
     # First-user-is-admin bootstrap: if no users exist, auto-approve as admin
     if user_repo.count() == 0:
         # Create the first user as admin directly
-        totp_secret = setup_totp()
+        totp_secret, totp_base32, totp_uri = setup_totp(username)
         new_user = User(
             username=username,
             auth_type=AuthType.TOTP,
@@ -523,16 +522,12 @@ def start_registration():
             can_download=True,
             is_admin=True,  # First user becomes admin
         )
-        created_user = user_repo.create(new_user)
+        new_user.save(db)
+        created_user = new_user
 
         # Generate backup codes
         backup_repo = BackupCodeRepository(db)
-        codes = generate_backup_codes()
-        backup_repo.store_codes(created_user.id, codes)
-
-        # Return setup info
-        totp_uri = get_provisioning_uri(username, totp_secret)
-        totp_base32 = secret_to_base32(totp_secret)
+        codes = backup_repo.create_codes_for_user(created_user.id)
 
         return jsonify({
             "success": True,
@@ -2184,7 +2179,7 @@ def approve_access_request(request_id: int):
     admin_username = admin_user.username if admin_user else "system"
 
     # Create TOTP secret for the new user
-    totp_secret = setup_totp()
+    totp_secret, totp_base32, totp_uri = setup_totp(access_req.username)
 
     # Create the user
     new_user = User(
@@ -2194,19 +2189,15 @@ def approve_access_request(request_id: int):
         can_download=True,
         is_admin=False,
     )
-    created_user = user_repo.create(new_user)
+    new_user.save(db)
+    created_user = new_user
 
     # Generate backup codes for the user
     backup_repo = BackupCodeRepository(db)
-    codes = generate_backup_codes()
-    backup_repo.store_codes(created_user.id, codes)
+    codes = backup_repo.create_codes_for_user(created_user.id)
 
     # Mark request as approved
     request_repo.approve(request_id, admin_username)
-
-    # Return user info and TOTP setup details
-    totp_uri = get_provisioning_uri(access_req.username, totp_secret)
-    totp_base32 = secret_to_base32(totp_secret)
 
     return jsonify({
         "success": True,
@@ -2280,8 +2271,9 @@ def list_users():
     db = get_auth_db()
     user_repo = UserRepository(db)
 
-    users = user_repo.list_all(limit=limit)
-    total = user_repo.count()
+    all_users = user_repo.list_all()
+    total = len(all_users)
+    users = all_users[:limit]  # Apply limit in Python since list_all() doesn't support it
 
     return jsonify({
         "users": [
