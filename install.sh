@@ -1092,6 +1092,31 @@ do_system_install() {
     echo "  HTTP redirect: ${HTTP_REDIRECT_PORT}"
     echo ""
 
+    # Create audiobooks service account
+    echo -e "${BLUE}Setting up service account...${NC}"
+    if ! getent group audiobooks >/dev/null 2>&1; then
+        echo "  Creating 'audiobooks' group..."
+        sudo groupadd --system audiobooks
+    else
+        echo "  Group 'audiobooks' already exists"
+    fi
+
+    if ! getent passwd audiobooks >/dev/null 2>&1; then
+        echo "  Creating 'audiobooks' service user..."
+        sudo useradd --system --gid audiobooks --shell /usr/sbin/nologin \
+            --home-dir /var/lib/audiobooks --comment "Audiobook Library Service" audiobooks
+    else
+        echo "  User 'audiobooks' already exists"
+    fi
+
+    # Add installer to audiobooks group for file access
+    if ! groups "$USER" 2>/dev/null | grep -qw audiobooks; then
+        echo "  Adding $USER to 'audiobooks' group..."
+        sudo usermod -aG audiobooks "$USER"
+        echo -e "${YELLOW}  NOTE: Log out and back in for group membership to take effect${NC}"
+    fi
+    echo ""
+
     # Create directories
     echo -e "${BLUE}Creating directories...${NC}"
     sudo mkdir -p "${CONFIG_DIR}"
@@ -1148,8 +1173,33 @@ AUDIOBOOKS_HTTP_REDIRECT_PORT="${HTTP_REDIRECT_PORT}"
 AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
 AUDIOBOOKS_HTTPS_ENABLED="true"
 AUDIOBOOKS_HTTP_REDIRECT_ENABLED="true"
+
+# Authentication (multi-user support)
+# Set AUTH_ENABLED="true" to require login for remote access
+AUTH_ENABLED="false"
+AUTH_DATABASE="/var/lib/audiobooks/auth.db"
+AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 EOF
     fi
+
+    # Set up authentication key file (for multi-user support)
+    echo -e "${BLUE}Setting up authentication...${NC}"
+    local auth_key_file="${CONFIG_DIR}/auth.key"
+    if [[ ! -f "$auth_key_file" ]]; then
+        echo "  Generating encryption key for auth database..."
+        # Generate 32-byte random key, base64 encoded
+        sudo sh -c "head -c 32 /dev/urandom | base64 > '$auth_key_file'"
+        sudo chown root:audiobooks "$auth_key_file"
+        sudo chmod 640 "$auth_key_file"
+        echo "  Created: $auth_key_file"
+    else
+        echo "  Auth key file already exists"
+    fi
+
+    # Initialize auth database directory
+    sudo mkdir -p "/var/lib/audiobooks"
+    sudo chown audiobooks:audiobooks "/var/lib/audiobooks"
+    echo ""
 
     # Create wrapper scripts
     echo -e "${BLUE}Creating executable wrappers...${NC}"
@@ -1202,6 +1252,19 @@ source /opt/audiobooks/lib/audiobook-config.sh
 audiobooks_print_config
 EOF
     sudo chmod 755 "${BIN_DIR}/audiobooks-config"
+
+    # User management CLI (authentication)
+    sudo tee "${BIN_DIR}/audiobook-user" > /dev/null << 'EOF'
+#!/bin/bash
+# Audiobook Library User Management CLI
+# Manage authenticated users for multi-user access
+source /opt/audiobooks/lib/audiobook-config.sh
+exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/auth/cli.py" \
+    --database "${AUTH_DATABASE:-/var/lib/audiobooks/auth.db}" \
+    --key-file "${AUTH_KEY_FILE:-/etc/audiobooks/auth.key}" \
+    "$@"
+EOF
+    sudo chmod 755 "${BIN_DIR}/audiobook-user"
 
     # Install management scripts to /opt/audiobooks/scripts/ (canonical location)
     # Then create symlinks in /usr/local/bin/ for PATH accessibility
