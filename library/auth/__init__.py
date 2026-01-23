@@ -31,6 +31,9 @@ from .models import (
     PendingRegistrationRepository,
     PendingRecovery,
     PendingRecoveryRepository,
+    AccessRequestStatus,
+    AccessRequest,
+    AccessRequestRepository,
 )
 
 from .totp import (
@@ -53,7 +56,7 @@ from .backup_codes import (
     NUM_BACKUP_CODES,
 )
 
-from .webauthn import (
+from .passkey import (
     WebAuthnCredential,
     WebAuthnChallenge,
     create_registration_options as webauthn_registration_options,
@@ -93,6 +96,10 @@ __all__ = [
     "InboxRepository",
     "PendingRegistrationRepository",
     "PendingRecoveryRepository",
+    # Access Requests
+    "AccessRequestStatus",
+    "AccessRequest",
+    "AccessRequestRepository",
     # TOTP
     "generate_totp_secret",
     "secret_to_base32",

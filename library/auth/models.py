@@ -208,6 +208,40 @@ class UserRepository:
             cursor = conn.execute("SELECT COUNT(*) FROM users")
             return cursor.fetchone()[0]
 
+    def set_admin(self, user_id: int, is_admin: bool) -> bool:
+        """Set admin status for a user."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET is_admin = ? WHERE id = ?",
+                (is_admin, user_id)
+            )
+            return cursor.rowcount > 0
+
+    def set_download_permission(self, user_id: int, can_download: bool) -> bool:
+        """Set download permission for a user."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET can_download = ? WHERE id = ?",
+                (can_download, user_id)
+            )
+            return cursor.rowcount > 0
+
+    def delete(self, user_id: int) -> bool:
+        """Delete a user (cascades to sessions, positions, etc.)."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM users WHERE id = ?", (user_id,)
+            )
+            return cursor.rowcount > 0
+
+    def has_any_admin(self) -> bool:
+        """Check if any admin user exists."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1"
+            )
+            return cursor.fetchone() is not None
+
 
 @dataclass
 class Session:
@@ -920,3 +954,185 @@ class PendingRecoveryRepository:
                 "DELETE FROM pending_recovery WHERE user_id = ?", (user_id,)
             )
             return cursor.rowcount
+
+
+class AccessRequestStatus(Enum):
+    """Status of access requests."""
+    PENDING = "pending"
+    APPROVED = "approved"
+    DENIED = "denied"
+
+
+@dataclass
+class AccessRequest:
+    """
+    Access request awaiting admin approval.
+
+    Users submit requests which admins can approve or deny.
+    """
+    id: Optional[int] = None
+    username: str = ""
+    requested_at: Optional[datetime] = None
+    status: AccessRequestStatus = AccessRequestStatus.PENDING
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    deny_reason: Optional[str] = None
+
+    @classmethod
+    def from_row(cls, row: tuple) -> "AccessRequest":
+        """Create from database row."""
+        return cls(
+            id=row[0],
+            username=row[1],
+            requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
+            status=AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING,
+            reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
+            reviewed_by=row[5],
+            deny_reason=row[6],
+        )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "username": self.username,
+            "requested_at": self.requested_at.isoformat() if self.requested_at else None,
+            "status": self.status.value,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+            "reviewed_by": self.reviewed_by,
+            "deny_reason": self.deny_reason,
+        }
+
+
+class AccessRequestRepository:
+    """Repository for AccessRequest operations."""
+
+    def __init__(self, db: AuthDatabase):
+        self.db = db
+        self._ensure_table()
+
+    def _ensure_table(self):
+        """Create table if it doesn't exist."""
+        with self.db.connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS access_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied')),
+                    reviewed_at TIMESTAMP,
+                    reviewed_by TEXT,
+                    deny_reason TEXT,
+                    CHECK (length(username) >= 5 AND length(username) <= 16)
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_username ON access_requests(username)")
+
+    def create(self, username: str) -> AccessRequest:
+        """Create a new access request."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "INSERT INTO access_requests (username) VALUES (?)",
+                (username,)
+            )
+            request_id = cursor.lastrowid
+            cursor = conn.execute(
+                "SELECT * FROM access_requests WHERE id = ?", (request_id,)
+            )
+            return AccessRequest.from_row(cursor.fetchone())
+
+    def get_by_id(self, request_id: int) -> Optional[AccessRequest]:
+        """Get access request by ID."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM access_requests WHERE id = ?", (request_id,)
+            )
+            row = cursor.fetchone()
+            return AccessRequest.from_row(row) if row else None
+
+    def get_by_username(self, username: str) -> Optional[AccessRequest]:
+        """Get access request by username."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM access_requests WHERE username = ?", (username,)
+            )
+            row = cursor.fetchone()
+            return AccessRequest.from_row(row) if row else None
+
+    def list_pending(self, limit: int = 50) -> List[AccessRequest]:
+        """List all pending access requests."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM access_requests WHERE status = 'pending' ORDER BY requested_at ASC LIMIT ?",
+                (limit,)
+            )
+            return [AccessRequest.from_row(row) for row in cursor.fetchall()]
+
+    def list_all(self, limit: int = 100) -> List[AccessRequest]:
+        """List all access requests (any status)."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM access_requests ORDER BY requested_at DESC LIMIT ?",
+                (limit,)
+            )
+            return [AccessRequest.from_row(row) for row in cursor.fetchall()]
+
+    def approve(self, request_id: int, admin_username: str) -> bool:
+        """Approve an access request."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE access_requests
+                SET status = 'approved', reviewed_at = ?, reviewed_by = ?
+                WHERE id = ? AND status = 'pending'
+                """,
+                (datetime.now().isoformat(), admin_username, request_id)
+            )
+            return cursor.rowcount > 0
+
+    def deny(self, request_id: int, admin_username: str, reason: Optional[str] = None) -> bool:
+        """Deny an access request."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE access_requests
+                SET status = 'denied', reviewed_at = ?, reviewed_by = ?, deny_reason = ?
+                WHERE id = ? AND status = 'pending'
+                """,
+                (datetime.now().isoformat(), admin_username, reason, request_id)
+            )
+            return cursor.rowcount > 0
+
+    def delete(self, request_id: int) -> bool:
+        """Delete an access request."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM access_requests WHERE id = ?", (request_id,)
+            )
+            return cursor.rowcount > 0
+
+    def delete_for_username(self, username: str) -> int:
+        """Delete all access requests for a username."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM access_requests WHERE username = ?", (username,)
+            )
+            return cursor.rowcount
+
+    def has_pending_request(self, username: str) -> bool:
+        """Check if username has a pending request."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT 1 FROM access_requests WHERE username = ? AND status = 'pending'",
+                (username,)
+            )
+            return cursor.fetchone() is not None
+
+    def count_pending(self) -> int:
+        """Count pending access requests."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM access_requests WHERE status = 'pending'"
+            )
+            return cursor.fetchone()[0]

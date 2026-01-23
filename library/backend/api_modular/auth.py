@@ -46,6 +46,10 @@ from auth import (
     UserPosition,
     PositionRepository,
     hash_token,
+    # Access Requests
+    AccessRequest,
+    AccessRequestStatus,
+    AccessRequestRepository,
     # WebAuthn
     WebAuthnCredential,
     webauthn_registration_options,
@@ -468,11 +472,10 @@ def check_auth():
 @auth_bp.route("/register/start", methods=["POST"])
 def start_registration():
     """
-    Start the registration process.
+    Submit an access request for admin approval.
 
-    In a full implementation, this would send a verification email/SMS.
-    For now, it creates a pending registration and returns the token directly
-    (for development/testing).
+    Creates a pending access request that an admin must approve.
+    Once approved, the user receives TOTP credentials.
 
     Request body:
         {
@@ -480,7 +483,7 @@ def start_registration():
         }
 
     Returns:
-        200: {"success": true, "message": "...", "verify_token": "..." (dev only)}
+        200: {"success": true, "message": "..."}
         400: {"error": "..."}
     """
     data = request.get_json()
@@ -494,38 +497,115 @@ def start_registration():
         return jsonify({"error": "Username must be at least 5 characters"}), 400
     if len(username) > 16:
         return jsonify({"error": "Username must be at most 16 characters"}), 400
-    if not all(32 <= ord(c) <= 126 for c in username):
-        return jsonify({"error": "Username must contain only printable ASCII characters"}), 400
+    if not all(c.isalnum() for c in username):
+        return jsonify({"error": "Username must contain only letters and numbers"}), 400
 
     db = get_auth_db()
     user_repo = UserRepository(db)
-    reg_repo = PendingRegistrationRepository(db)
+    request_repo = AccessRequestRepository(db)
 
     # Check if username exists
     if user_repo.username_exists(username):
         return jsonify({"error": "Username already taken"}), 400
 
-    # Clean up any existing pending registrations for this username
-    reg_repo.delete_for_username(username)
+    # Check if there's already a pending request
+    if request_repo.has_pending_request(username):
+        return jsonify({"error": "Access request already pending for this username"}), 400
 
-    # Create pending registration (15 minute expiry)
-    reg, token = PendingRegistration.create(db, username, expiry_minutes=15)
+    # First-user-is-admin bootstrap: if no users exist, auto-approve as admin
+    if user_repo.count() == 0:
+        # Create the first user as admin directly
+        totp_secret = setup_totp()
+        new_user = User(
+            username=username,
+            auth_type=AuthType.TOTP,
+            auth_credential=totp_secret,
+            can_download=True,
+            is_admin=True,  # First user becomes admin
+        )
+        created_user = user_repo.create(new_user)
 
-    # In production, send verification email/SMS here
-    # For now, return the token directly (dev mode)
-    is_dev = current_app.config.get("AUTH_DEV_MODE", False)
+        # Generate backup codes
+        backup_repo = BackupCodeRepository(db)
+        codes = generate_backup_codes()
+        backup_repo.store_codes(created_user.id, codes)
 
-    response_data = {
+        # Return setup info
+        totp_uri = get_provisioning_uri(username, totp_secret)
+        totp_base32 = secret_to_base32(totp_secret)
+
+        return jsonify({
+            "success": True,
+            "first_user": True,
+            "message": "You are the first user and have been granted admin access.",
+            "totp_secret": totp_base32,
+            "totp_uri": totp_uri,
+            "backup_codes": format_codes_for_display(codes),
+        })
+
+    # Create access request for admin review
+    access_request = request_repo.create(username)
+
+    return jsonify({
         "success": True,
-        "message": "Registration started. Please check your email/SMS for verification.",
-        "expires_in_minutes": 15,
-    }
+        "message": "Access request submitted. An administrator will review your request.",
+        "request_id": access_request.id,
+    })
 
-    if is_dev:
-        response_data["verify_token"] = token
-        response_data["_dev_note"] = "Token returned directly in dev mode. In production, it would be sent via email/SMS."
 
-    return jsonify(response_data)
+@auth_bp.route("/register/status", methods=["POST"])
+def check_request_status():
+    """
+    Check the status of an access request.
+
+    Request body:
+        {
+            "username": "string"
+        }
+
+    Returns:
+        200: {"status": "pending|approved|denied", "message": "..."}
+        404: {"error": "No request found"}
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"error": "Username required"}), 400
+
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+    user_repo = UserRepository(db)
+
+    # Check if user already exists (approved)
+    if user_repo.username_exists(username):
+        return jsonify({
+            "status": "approved",
+            "message": "Your access has been approved. You can now log in.",
+        })
+
+    # Check access request
+    access_request = request_repo.get_by_username(username)
+    if not access_request:
+        return jsonify({"error": "No access request found for this username"}), 404
+
+    if access_request.status == AccessRequestStatus.PENDING:
+        return jsonify({
+            "status": "pending",
+            "message": "Your request is awaiting administrator review.",
+        })
+    elif access_request.status == AccessRequestStatus.DENIED:
+        return jsonify({
+            "status": "denied",
+            "message": access_request.deny_reason or "Your request was denied.",
+        })
+    else:
+        return jsonify({
+            "status": access_request.status.value,
+            "message": "Unknown status.",
+        })
 
 
 @auth_bp.route("/register/verify", methods=["POST"])
@@ -2032,3 +2112,287 @@ def archive_message(message_id: int):
     message.save(db)
 
     return jsonify({"success": True})
+
+
+# =============================================================================
+# Admin User Management Endpoints
+# =============================================================================
+
+@auth_bp.route("/admin/access-requests", methods=["GET"])
+@admin_required
+def list_access_requests():
+    """
+    List access requests (admin only).
+
+    Query params:
+        status: Filter by status ('pending', 'approved', 'denied', or 'all')
+        limit: Maximum number to return (default 50)
+
+    Returns:
+        200: {"requests": [...], "pending_count": int}
+    """
+    status_filter = request.args.get("status", "pending")
+    limit = min(int(request.args.get("limit", 50)), 100)
+
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+
+    if status_filter == "all":
+        requests = request_repo.list_all(limit=limit)
+    elif status_filter == "pending":
+        requests = request_repo.list_pending(limit=limit)
+    else:
+        # Filter by specific status
+        all_requests = request_repo.list_all(limit=limit)
+        requests = [r for r in all_requests if r.status.value == status_filter]
+
+    return jsonify({
+        "requests": [r.to_dict() for r in requests],
+        "pending_count": request_repo.count_pending(),
+    })
+
+
+@auth_bp.route("/admin/access-requests/<int:request_id>/approve", methods=["POST"])
+@admin_required
+def approve_access_request(request_id: int):
+    """
+    Approve an access request and create the user (admin only).
+
+    Returns:
+        200: {"success": true, "user": {...}, "totp_secret": "...", "totp_uri": "..."}
+        400: {"error": "..."}
+        404: {"error": "Request not found"}
+    """
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+    user_repo = UserRepository(db)
+
+    # Get the access request
+    access_req = request_repo.get_by_id(request_id)
+    if not access_req:
+        return jsonify({"error": "Request not found"}), 404
+
+    if access_req.status != AccessRequestStatus.PENDING:
+        return jsonify({"error": f"Request already {access_req.status.value}"}), 400
+
+    # Check if username is still available
+    if user_repo.username_exists(access_req.username):
+        return jsonify({"error": "Username already taken"}), 400
+
+    # Get admin username for audit
+    admin_user = get_current_user()
+    admin_username = admin_user.username if admin_user else "system"
+
+    # Create TOTP secret for the new user
+    totp_secret = setup_totp()
+
+    # Create the user
+    new_user = User(
+        username=access_req.username,
+        auth_type=AuthType.TOTP,
+        auth_credential=totp_secret,
+        can_download=True,
+        is_admin=False,
+    )
+    created_user = user_repo.create(new_user)
+
+    # Generate backup codes for the user
+    backup_repo = BackupCodeRepository(db)
+    codes = generate_backup_codes()
+    backup_repo.store_codes(created_user.id, codes)
+
+    # Mark request as approved
+    request_repo.approve(request_id, admin_username)
+
+    # Return user info and TOTP setup details
+    totp_uri = get_provisioning_uri(access_req.username, totp_secret)
+    totp_base32 = secret_to_base32(totp_secret)
+
+    return jsonify({
+        "success": True,
+        "user": {
+            "id": created_user.id,
+            "username": created_user.username,
+            "is_admin": created_user.is_admin,
+            "can_download": created_user.can_download,
+        },
+        "totp_secret": totp_base32,
+        "totp_uri": totp_uri,
+        "backup_codes": format_codes_for_display(codes),
+        "message": f"User '{access_req.username}' created. Share TOTP secret and backup codes securely.",
+    })
+
+
+@auth_bp.route("/admin/access-requests/<int:request_id>/deny", methods=["POST"])
+@admin_required
+def deny_access_request(request_id: int):
+    """
+    Deny an access request (admin only).
+
+    Request body (optional):
+        {"reason": "Optional denial reason"}
+
+    Returns:
+        200: {"success": true}
+        404: {"error": "Request not found"}
+    """
+    data = request.get_json() or {}
+    reason = data.get("reason")
+
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+
+    # Get the access request
+    access_req = request_repo.get_by_id(request_id)
+    if not access_req:
+        return jsonify({"error": "Request not found"}), 404
+
+    if access_req.status != AccessRequestStatus.PENDING:
+        return jsonify({"error": f"Request already {access_req.status.value}"}), 400
+
+    # Get admin username for audit
+    admin_user = get_current_user()
+    admin_username = admin_user.username if admin_user else "system"
+
+    # Mark request as denied
+    request_repo.deny(request_id, admin_username, reason)
+
+    return jsonify({
+        "success": True,
+        "message": f"Access request for '{access_req.username}' denied.",
+    })
+
+
+@auth_bp.route("/admin/users", methods=["GET"])
+@admin_required
+def list_users():
+    """
+    List all users (admin only).
+
+    Query params:
+        limit: Maximum number to return (default 100)
+
+    Returns:
+        200: {"users": [...], "total": int}
+    """
+    limit = min(int(request.args.get("limit", 100)), 500)
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    users = user_repo.list_all(limit=limit)
+    total = user_repo.count()
+
+    return jsonify({
+        "users": [
+            {
+                "id": u.id,
+                "username": u.username,
+                "auth_type": u.auth_type.value,
+                "can_download": u.can_download,
+                "is_admin": u.is_admin,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "last_login": u.last_login.isoformat() if u.last_login else None,
+            }
+            for u in users
+        ],
+        "total": total,
+    })
+
+
+@auth_bp.route("/admin/users/<int:user_id>/toggle-admin", methods=["POST"])
+@admin_required
+def toggle_user_admin(user_id: int):
+    """
+    Toggle admin status for a user (admin only).
+
+    Cannot demote yourself to prevent lockout.
+
+    Returns:
+        200: {"success": true, "is_admin": bool}
+        400: {"error": "..."}
+        404: {"error": "User not found"}
+    """
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    target_user = user_repo.get_by_id(user_id)
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Prevent self-demotion
+    current_user = get_current_user()
+    if current_user and current_user.id == user_id and target_user.is_admin:
+        return jsonify({"error": "Cannot demote yourself"}), 400
+
+    # Toggle admin status
+    new_admin_status = not target_user.is_admin
+    user_repo.set_admin(user_id, new_admin_status)
+
+    return jsonify({
+        "success": True,
+        "username": target_user.username,
+        "is_admin": new_admin_status,
+    })
+
+
+@auth_bp.route("/admin/users/<int:user_id>/toggle-download", methods=["POST"])
+@admin_required
+def toggle_user_download(user_id: int):
+    """
+    Toggle download permission for a user (admin only).
+
+    Returns:
+        200: {"success": true, "can_download": bool}
+        404: {"error": "User not found"}
+    """
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    target_user = user_repo.get_by_id(user_id)
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Toggle download permission
+    new_download_status = not target_user.can_download
+    user_repo.set_download_permission(user_id, new_download_status)
+
+    return jsonify({
+        "success": True,
+        "username": target_user.username,
+        "can_download": new_download_status,
+    })
+
+
+@auth_bp.route("/admin/users/<int:user_id>", methods=["DELETE"])
+@admin_required
+def delete_user(user_id: int):
+    """
+    Delete a user (admin only).
+
+    Cannot delete yourself.
+
+    Returns:
+        200: {"success": true}
+        400: {"error": "..."}
+        404: {"error": "User not found"}
+    """
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    target_user = user_repo.get_by_id(user_id)
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Prevent self-deletion
+    current_user = get_current_user()
+    if current_user and current_user.id == user_id:
+        return jsonify({"error": "Cannot delete yourself"}), 400
+
+    # Delete user (cascades to sessions, positions, etc.)
+    user_repo.delete(user_id)
+
+    return jsonify({
+        "success": True,
+        "message": f"User '{target_user.username}' deleted.",
+    })
