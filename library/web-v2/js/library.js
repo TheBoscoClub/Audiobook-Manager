@@ -1377,6 +1377,8 @@ class AudiobookLibraryV2 {
 let library;
 document.addEventListener('DOMContentLoaded', () => {
     library = new AudiobookLibraryV2();
+    // Expose to window for inline scripts (logout, etc.)
+    window.library = library;
 });
 
 // Audio Player Class
