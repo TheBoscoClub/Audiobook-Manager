@@ -16,7 +16,8 @@
     padding: 2rem;
 }
 
-.modal.show {
+.modal.show,
+.modal.active {
     display: flex;
 }
 

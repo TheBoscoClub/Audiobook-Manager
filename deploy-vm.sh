@@ -186,6 +186,7 @@ declare -A QUICK_DEPLOY_FILES=(
     ["library/web-v2/css/utilities.css"]="library/web-v2/css/"
     ["library/web-v2/css/library.css"]="library/web-v2/css/"
     ["library/web-v2/css/notifications.css"]="library/web-v2/css/"
+    ["library/web-v2/css/modals.css"]="library/web-v2/css/"
 )
 
 deploy_quick() {
