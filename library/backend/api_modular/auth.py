@@ -46,6 +46,7 @@ from auth import (
     UserPosition,
     PositionRepository,
     hash_token,
+    generate_verification_token,
     # Access Requests
     AccessRequest,
     AccessRequestStatus,
@@ -63,6 +64,7 @@ from auth.totp import (
     setup_totp,
     verify_code as verify_totp,
     secret_to_base32,
+    base32_to_secret,
     get_provisioning_uri,
     generate_qr_code,
 )
@@ -294,15 +296,21 @@ def admin_if_enabled(f: Callable) -> Callable:
     return decorated
 
 
-def set_session_cookie(response: Response, token: str) -> Response:
+# Session duration constants
+SESSION_DURATION_DEFAULT = None  # Session cookie (cleared on browser close)
+SESSION_DURATION_REMEMBER = 365 * 24 * 60 * 60  # 1 year in seconds (effectively permanent)
+
+
+def set_session_cookie(response: Response, token: str, remember_me: bool = False) -> Response:
     """Set the session cookie on a response."""
+    max_age = SESSION_DURATION_REMEMBER if remember_me else SESSION_DURATION_DEFAULT
     response.set_cookie(
         _session_cookie_name,
         token,
         httponly=_session_cookie_httponly,
         secure=_session_cookie_secure,
         samesite=_session_cookie_samesite,
-        max_age=None,  # Session cookie (cleared on browser close)
+        max_age=max_age,
         path="/",
     )
     return response
@@ -326,7 +334,8 @@ def login():
     Request body:
         {
             "username": "string",
-            "code": "123456"  // TOTP code
+            "code": "123456",  // TOTP code
+            "remember_me": false  // Optional: keep session for 30 days
         }
 
     Returns:
@@ -340,6 +349,7 @@ def login():
 
     username = data.get("username", "").strip()
     code = data.get("code", "").strip()
+    remember_me = data.get("remember_me", False)
 
     if not username or not code:
         return jsonify({"error": "Username and code are required"}), 400
@@ -383,8 +393,8 @@ def login():
         }
     })
 
-    # Set session cookie
-    return set_session_cookie(response, token)
+    # Set session cookie (persistent if remember_me is true)
+    return set_session_cookie(response, token, remember_me=remember_me)
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -424,6 +434,7 @@ def get_current_user_info():
         "user": {
             "id": user.id,
             "username": user.username,
+            "email": user.recovery_email,
             "can_download": user.can_download,
             "is_admin": user.is_admin,
             "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -443,6 +454,71 @@ def get_current_user_info():
             }
             for n in notifications
         ]
+    })
+
+
+@auth_bp.route("/me", methods=["PUT"])
+@login_required
+def update_current_user():
+    """
+    Update the currently authenticated user's profile.
+
+    JSON body:
+        username: New username (optional, 3-32 chars, alphanumeric + underscore)
+        email: New email (optional, or null to remove)
+
+    Returns:
+        200: {"success": true, "user": {...}}
+        400: {"error": "..."}
+        409: {"error": "Username already taken"}
+    """
+    import re
+    user = get_current_user()
+    data = request.get_json() or {}
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    new_username = data.get("username")
+    if new_username is not None:
+        # Validate username format
+        if not new_username or len(new_username) < 3:
+            return jsonify({"error": "Username must be at least 3 characters"}), 400
+        if len(new_username) > 32:
+            return jsonify({"error": "Username must be at most 32 characters"}), 400
+        # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
+        if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in new_username):
+            return jsonify({"error": "Username contains invalid characters"}), 400
+        # No leading/trailing whitespace
+        if new_username != new_username.strip():
+            return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+
+        if not user_repo.update_username(user.id, new_username):
+            return jsonify({"error": "Username already taken"}), 409
+
+    # Handle email update (can be set to null to remove)
+    if "email" in data:
+        new_email = data.get("email")
+        if new_email is not None and new_email != "":
+            # Validate email format
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, new_email):
+                return jsonify({"error": "Invalid email format"}), 400
+        else:
+            new_email = None  # Remove email
+        user_repo.update_email(user.id, new_email)
+
+    # Fetch updated user data
+    updated_user = user_repo.get_by_id(user.id)
+
+    return jsonify({
+        "success": True,
+        "user": {
+            "id": updated_user.id,
+            "username": updated_user.username,
+            "email": updated_user.recovery_email,
+            "can_download": updated_user.can_download,
+            "is_admin": updated_user.is_admin,
+        }
     })
 
 
@@ -474,15 +550,16 @@ def start_registration():
     Submit an access request for admin approval.
 
     Creates a pending access request that an admin must approve.
-    Once approved, the user receives TOTP credentials.
+    Returns a claim token that the user must save to retrieve credentials later.
 
     Request body:
         {
-            "username": "string"
+            "username": "string",
+            "contact_email": "string" (optional)
         }
 
     Returns:
-        200: {"success": true, "message": "..."}
+        200: {"success": true, "claim_token": "...", "message": "..."}
         400: {"error": "..."}
     """
     data = request.get_json()
@@ -490,14 +567,24 @@ def start_registration():
         return jsonify({"error": "Request body required"}), 400
 
     username = data.get("username", "").strip()
+    contact_email = data.get("contact_email", "").strip() or None
 
     # Validate username
     if len(username) < 5:
         return jsonify({"error": "Username must be at least 5 characters"}), 400
     if len(username) > 16:
         return jsonify({"error": "Username must be at most 16 characters"}), 400
-    if not all(c.isalnum() for c in username):
-        return jsonify({"error": "Username must contain only letters and numbers"}), 400
+    # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
+    if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in username):
+        return jsonify({"error": "Username contains invalid characters"}), 400
+    # No leading/trailing whitespace
+    if username != username.strip():
+        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+
+    # Basic email validation if provided
+    if contact_email:
+        if "@" not in contact_email or "." not in contact_email:
+            return jsonify({"error": "Invalid email address format"}), 400
 
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -513,6 +600,8 @@ def start_registration():
 
     # First-user-is-admin bootstrap: if no users exist, auto-approve as admin
     if user_repo.count() == 0:
+        import base64
+
         # Create the first user as admin directly
         totp_secret, totp_base32, totp_uri = setup_totp(username)
         new_user = User(
@@ -529,22 +618,158 @@ def start_registration():
         backup_repo = BackupCodeRepository(db)
         codes = backup_repo.create_codes_for_user(created_user.id)
 
+        # Generate QR code (convert base32 string back to bytes)
+        qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
+        qr_base64 = base64.b64encode(qr_png).decode('ascii')
+
         return jsonify({
             "success": True,
             "first_user": True,
             "message": "You are the first user and have been granted admin access.",
             "totp_secret": totp_base32,
             "totp_uri": totp_uri,
+            "totp_qr": qr_base64,
             "backup_codes": format_codes_for_display(codes),
         })
 
-    # Create access request for admin review
-    access_request = request_repo.create(username)
+    # Generate claim token for credential retrieval
+    raw_claim_token, _ = generate_verification_token()
+
+    # Truncate to 16 chars for user-friendly display (XXXX-XXXX-XXXX-XXXX)
+    truncated_token = raw_claim_token[:16]
+    formatted_token = "-".join(truncated_token[i:i+4] for i in range(0, 16, 4))
+
+    # Hash the truncated token (this is what user will provide when claiming)
+    claim_token_hash = hash_token(truncated_token)
+
+    # Create access request with claim token hash
+    access_request = request_repo.create(username, claim_token_hash, contact_email)
+
+    response_data = {
+        "success": True,
+        "message": "Access request submitted. Save your claim token - you'll need it to complete setup after approval.",
+        "request_id": access_request.id,
+        "claim_token": formatted_token,
+        "username": username,
+    }
+
+    if contact_email:
+        response_data["email_notification"] = True
+        response_data["message"] += f" We'll also notify you at {contact_email} when your request is reviewed."
+
+    return jsonify(response_data)
+
+
+@auth_bp.route("/register/claim", methods=["POST"])
+def claim_credentials():
+    """
+    Claim credentials using the claim token after admin approval.
+
+    This is a one-time operation. Once credentials are claimed, the user
+    can log in with their TOTP authenticator.
+
+    Request body:
+        {
+            "username": "string",
+            "claim_token": "XXXX-XXXX-XXXX-XXXX"
+        }
+
+    Returns:
+        200: {
+            "success": true,
+            "totp_secret": "...",      // Base32 secret
+            "totp_uri": "...",         // Provisioning URI
+            "totp_qr": "...",          // Base64 PNG QR code
+            "backup_codes": [...],
+            "message": "..."
+        }
+        400: {"error": "..."} - Invalid token or already claimed
+        404: {"error": "..."} - Request not found
+    """
+    import base64
+    import json as json_module
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    claim_token = data.get("claim_token", "").strip()
+
+    if not username or not claim_token:
+        return jsonify({"error": "Username and claim_token are required"}), 400
+
+    # Remove dashes from token if formatted
+    clean_token = claim_token.replace("-", "")
+
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+
+    # Hash the token for lookup
+    claim_token_hash = hash_token(clean_token)
+
+    # Find the access request
+    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    if not access_req:
+        return jsonify({"error": "Invalid username or claim token"}), 404
+
+    # Check status
+    if access_req.status == AccessRequestStatus.PENDING:
+        return jsonify({
+            "error": "Your request is still pending admin review",
+            "status": "pending"
+        }), 400
+
+    if access_req.status == AccessRequestStatus.DENIED:
+        return jsonify({
+            "error": access_req.deny_reason or "Your request was denied",
+            "status": "denied"
+        }), 400
+
+    # Check if already claimed
+    if access_req.credentials_claimed:
+        return jsonify({
+            "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page.",
+            "status": "already_claimed"
+        }), 400
+
+    # Check credentials are available
+    if not access_req.totp_secret or not access_req.totp_uri:
+        return jsonify({
+            "error": "Credentials not yet generated. Please contact the admin.",
+            "status": "no_credentials"
+        }), 400
+
+    # Mark as claimed (one-time retrieval)
+    request_repo.mark_credentials_claimed(access_req.id)
+
+    # Parse backup codes from JSON
+    backup_codes = []
+    if access_req.backup_codes_json:
+        try:
+            backup_codes = json_module.loads(access_req.backup_codes_json)
+        except json_module.JSONDecodeError:
+            backup_codes = []
+
+    # Generate QR code (convert base32 string back to bytes)
+    qr_png = generate_qr_code(base32_to_secret(access_req.totp_secret), access_req.username)
+    qr_base64 = base64.b64encode(qr_png).decode('ascii')
 
     return jsonify({
         "success": True,
-        "message": "Access request submitted. An administrator will review your request.",
-        "request_id": access_request.id,
+        "username": access_req.username,
+        "totp_secret": access_req.totp_secret,
+        "totp_uri": access_req.totp_uri,
+        "totp_qr": qr_base64,
+        "backup_codes": backup_codes,
+        "message": (
+            "Your account is ready! Set up your authenticator app using the QR code or "
+            "manual entry, then log in with your 6-digit code. Save your backup codes securely."
+        ),
+        "warning": (
+            "IMPORTANT: Save your backup codes in a safe place! These are your ONLY way to "
+            "recover your account if you lose your authenticator device."
+        )
     })
 
 
@@ -1604,6 +1829,265 @@ If you didn't request this link, you can safely ignore this email.
         return False
 
 
+def _send_approval_email(to_email: str, username: str) -> bool:
+    """
+    Send an email notifying the user their access request was approved.
+
+    Includes step-by-step instructions for setting up their authenticator
+    and claiming their credentials.
+
+    Returns True if email was sent successfully, False otherwise.
+    """
+    # Email configuration
+    smtp_host = os.environ.get("SMTP_HOST", "localhost")
+    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    base_url = os.environ.get("BASE_URL", "https://audiobooks.thebosco.club")
+
+    claim_url = f"{base_url}/claim.html"
+
+    subject = "Your Access to The Library Has Been Approved!"
+
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">📚 Welcome to The Library!</h1>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            Hello {username},
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            Great news! Your access request has been approved. You're almost ready to start
+            exploring the collection.
+        </p>
+
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+            Before You Log In
+        </h2>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            The Library uses an <strong>authenticator app</strong> instead of passwords.
+            This is more secure and means you never have to remember a password.
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            If you don't already have one installed, here are some free options:
+        </p>
+
+        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #daa520;">
+            <p style="color: #f5f5dc; margin: 5px 0;">
+                <strong>📱 Authy</strong> (Recommended - syncs across devices)<br>
+                <a href="https://apps.apple.com/app/authy/id494168017" style="color: #daa520;">iPhone/iPad</a> |
+                <a href="https://play.google.com/store/apps/details?id=com.authy.authy" style="color: #daa520;">Android</a> |
+                <a href="https://authy.com/download/" style="color: #daa520;">Desktop</a>
+            </p>
+            <p style="color: #f5f5dc; margin: 5px 0;">
+                <strong>📱 Google Authenticator</strong><br>
+                <a href="https://apps.apple.com/app/google-authenticator/id388497605" style="color: #daa520;">iPhone/iPad</a> |
+                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" style="color: #daa520;">Android</a>
+            </p>
+            <p style="color: #f5f5dc; margin: 5px 0;">
+                <strong>📱 Microsoft Authenticator</strong><br>
+                <a href="https://apps.apple.com/app/microsoft-authenticator/id983156458" style="color: #daa520;">iPhone/iPad</a> |
+                <a href="https://play.google.com/store/apps/details?id=com.azure.authenticator" style="color: #daa520;">Android</a>
+            </p>
+        </div>
+
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+            Step-by-Step Setup
+        </h2>
+
+        <ol style="color: #f5f5dc; line-height: 1.8;">
+            <li><strong>Install an authenticator app</strong> on your phone (if you don't have one)</li>
+            <li><strong>Get your claim token ready</strong> - this is the code you saved when you requested access
+                (it looks like: <code style="background: #3a3a3a; padding: 2px 6px;">XXXX-XXXX-XXXX-XXXX</code>)</li>
+            <li><strong>Visit the claim page:</strong>
+                <div style="text-align: center; margin: 15px 0;">
+                    <a href="{claim_url}"
+                       style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+                              color: #1a1a1a;
+                              padding: 12px 25px;
+                              text-decoration: none;
+                              font-weight: bold;
+                              letter-spacing: 1px;
+                              display: inline-block;">
+                        CLAIM YOUR CREDENTIALS
+                    </a>
+                </div>
+            </li>
+            <li><strong>Enter your username</strong> ({username}) and claim token</li>
+            <li><strong>Scan the QR code</strong> with your authenticator app
+                <div style="background-color: #3a3a3a; padding: 10px; margin: 10px 0; font-size: 0.9em;">
+                    <em>In your authenticator app, tap the + button, then "Scan QR code"</em>
+                </div>
+            </li>
+            <li><strong>Save your backup codes</strong> - write them down or save them somewhere safe.
+                These let you recover your account if you lose your phone.</li>
+            <li><strong>Log in</strong> using the 6-digit code shown in your authenticator app</li>
+        </ol>
+
+        <div style="background-color: #4a3a2a; padding: 15px; margin: 20px 0; border: 1px solid #8b7355;">
+            <p style="color: #ffcc00; margin: 0; font-weight: bold;">
+                ⚠️ Important: Can't find your claim token?
+            </p>
+            <p style="color: #f5f5dc; margin: 10px 0 0 0; font-size: 0.9em;">
+                The claim token was shown when you first requested access. If you didn't save it,
+                you'll need to contact the administrator to reset your request.
+            </p>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+
+        <p style="color: #888; font-size: 0.8em; text-align: center;">
+            If the button doesn't work, copy and paste this link:<br>
+            <a href="{claim_url}" style="color: #daa520;">{claim_url}</a>
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+    text_content = f"""Welcome to The Library!
+
+Hello {username},
+
+Great news! Your access request has been approved.
+
+BEFORE YOU LOG IN:
+The Library uses an authenticator app instead of passwords. If you don't have one, install one of these:
+
+- Authy (recommended): https://authy.com/download/
+- Google Authenticator: Search your app store
+- Microsoft Authenticator: Search your app store
+
+STEP-BY-STEP SETUP:
+1. Install an authenticator app on your phone (if needed)
+2. Get your claim token ready (the XXXX-XXXX-XXXX-XXXX code from registration)
+3. Visit: {claim_url}
+4. Enter your username ({username}) and claim token
+5. Scan the QR code with your authenticator app
+6. Save your backup codes somewhere safe
+7. Log in using the 6-digit code from your authenticator
+
+Can't find your claim token? Contact the administrator.
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = to_email
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_pass:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+
+        return True
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to send approval email: {type(e).__name__}")
+        return False
+
+
+def _send_denial_email(to_email: str, username: str, reason: Optional[str] = None) -> bool:
+    """
+    Send an email notifying the user their access request was denied.
+
+    Returns True if email was sent successfully, False otherwise.
+    """
+    smtp_host = os.environ.get("SMTP_HOST", "localhost")
+    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
+
+    subject = "Update on Your Access Request - The Library"
+
+    reason_text = reason if reason else "No specific reason was provided."
+
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">The Library</h1>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            Hello {username},
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            We've reviewed your access request, and unfortunately we're unable to
+            approve it at this time.
+        </p>
+
+        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #8b7355;">
+            <p style="color: #f5f5dc; margin: 0;">
+                <strong>Reason:</strong> {reason_text}
+            </p>
+        </div>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            If you believe this was in error, you may submit a new request.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+
+        <p style="color: #888; font-size: 0.8em; text-align: center;">
+            This is an automated message from The Library.
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+    text_content = f"""Hello {username},
+
+We've reviewed your access request, and unfortunately we're unable to approve it at this time.
+
+Reason: {reason_text}
+
+If you believe this was in error, you may submit a new request.
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = to_email
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_pass:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+
+        return True
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to send denial email: {type(e).__name__}")
+        return False
+
+
 # =============================================================================
 # Notification Endpoints
 # =============================================================================
@@ -2151,13 +2635,18 @@ def list_access_requests():
 @admin_required
 def approve_access_request(request_id: int):
     """
-    Approve an access request and create the user (admin only).
+    Approve an access request, create the user, and store credentials for claim.
+
+    The user can retrieve their credentials using their claim token.
+    If they provided an email, a notification email is sent.
 
     Returns:
-        200: {"success": true, "user": {...}, "totp_secret": "...", "totp_uri": "..."}
+        200: {"success": true, "user": {...}, "email_sent": bool}
         400: {"error": "..."}
         404: {"error": "Request not found"}
     """
+    import json as json_module
+
     db = get_auth_db()
     request_repo = AccessRequestRepository(db)
     user_repo = UserRepository(db)
@@ -2195,9 +2684,26 @@ def approve_access_request(request_id: int):
     # Generate backup codes for the user
     backup_repo = BackupCodeRepository(db)
     codes = backup_repo.create_codes_for_user(created_user.id)
+    codes_formatted = format_codes_for_display(codes)
+
+    # Store credentials in access_request for claim retrieval
+    request_repo.store_credentials(
+        request_id,
+        totp_base32,
+        totp_uri,
+        json_module.dumps(codes_formatted)
+    )
 
     # Mark request as approved
     request_repo.approve(request_id, admin_username)
+
+    # Send email notification if user provided email
+    email_sent = False
+    if access_req.contact_email:
+        email_sent = _send_approval_email(
+            to_email=access_req.contact_email,
+            username=access_req.username
+        )
 
     return jsonify({
         "success": True,
@@ -2207,10 +2713,11 @@ def approve_access_request(request_id: int):
             "is_admin": created_user.is_admin,
             "can_download": created_user.can_download,
         },
-        "totp_secret": totp_base32,
-        "totp_uri": totp_uri,
-        "backup_codes": format_codes_for_display(codes),
-        "message": f"User '{access_req.username}' created. Share TOTP secret and backup codes securely.",
+        "email_sent": email_sent,
+        "message": (
+            f"User '{access_req.username}' approved. "
+            + ("Email notification sent." if email_sent else "User can claim credentials with their token.")
+        ),
     })
 
 
@@ -2220,11 +2727,13 @@ def deny_access_request(request_id: int):
     """
     Deny an access request (admin only).
 
+    If the user provided an email, a notification is sent.
+
     Request body (optional):
         {"reason": "Optional denial reason"}
 
     Returns:
-        200: {"success": true}
+        200: {"success": true, "email_sent": bool}
         404: {"error": "Request not found"}
     """
     data = request.get_json() or {}
@@ -2248,8 +2757,18 @@ def deny_access_request(request_id: int):
     # Mark request as denied
     request_repo.deny(request_id, admin_username, reason)
 
+    # Send email notification if user provided email
+    email_sent = False
+    if access_req.contact_email:
+        email_sent = _send_denial_email(
+            to_email=access_req.contact_email,
+            username=access_req.username,
+            reason=reason
+        )
+
     return jsonify({
         "success": True,
+        "email_sent": email_sent,
         "message": f"Access request for '{access_req.username}' denied.",
     })
 
@@ -2280,6 +2799,7 @@ def list_users():
             {
                 "id": u.id,
                 "username": u.username,
+                "email": u.recovery_email,
                 "auth_type": u.auth_type.value,
                 "can_download": u.can_download,
                 "is_admin": u.is_admin,
@@ -2290,6 +2810,275 @@ def list_users():
         ],
         "total": total,
     })
+
+
+@auth_bp.route("/admin/users/invite", methods=["POST"])
+@admin_required
+def invite_user():
+    """
+    Invite a new user with pre-approval (admin only).
+
+    Creates a pre-approved access request and immediately sends a claim email
+    to the provided email address. The user can then claim their credentials
+    and set up their authenticator.
+
+    JSON body:
+        username: Username (5-16 chars, alphanumeric)
+        email: Email address to send invitation to (required)
+        can_download: Optional download permission (default: true)
+
+    Returns:
+        200: {"success": true, "user": {...}, "email_sent": bool, "claim_token": "..."}
+        400: {"error": "..."}
+        409: {"error": "Username already taken"}
+    """
+    import re
+    import json as json_module
+
+    data = request.get_json() or {}
+
+    username = data.get("username", "").strip()
+    email = data.get("email", "").strip()
+    can_download = data.get("can_download", True)
+
+    # Validate username
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+    if len(username) < 5:
+        return jsonify({"error": "Username must be at least 5 characters"}), 400
+    if len(username) > 16:
+        return jsonify({"error": "Username must be at most 16 characters"}), 400
+    # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
+    if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in username):
+        return jsonify({"error": "Username contains invalid characters"}), 400
+    # No leading/trailing whitespace
+    if username != username.strip():
+        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+
+    # Validate email (required for invitations)
+    if not email:
+        return jsonify({"error": "Email is required for invitations"}), 400
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, email):
+        return jsonify({"error": "Invalid email format"}), 400
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+    request_repo = AccessRequestRepository(db)
+
+    # Check if username exists
+    if user_repo.username_exists(username):
+        return jsonify({"error": "Username already taken"}), 409
+
+    # Check for existing pending request
+    existing = request_repo.get_by_username(username)
+    if existing:
+        return jsonify({"error": "Access request already exists for this username"}), 409
+
+    # Get admin username for audit
+    admin_user = get_current_user()
+    admin_username = admin_user.username if admin_user else "system"
+
+    # Generate claim token
+    raw_claim_token, _ = generate_verification_token()
+    truncated_token = raw_claim_token[:16]
+    formatted_token = "-".join(truncated_token[i:i+4] for i in range(0, 16, 4))
+    claim_token_hash = hash_token(truncated_token)
+
+    # Create access request with claim token hash
+    access_request = request_repo.create(username, claim_token_hash, email)
+
+    # Create TOTP secret
+    totp_secret, totp_base32, totp_uri = setup_totp(username)
+
+    # Create the user
+    new_user = User(
+        username=username,
+        auth_type=AuthType.TOTP,
+        auth_credential=totp_secret,
+        can_download=can_download,
+        is_admin=False,
+        recovery_email=email,
+    )
+    new_user.save(db)
+    created_user = user_repo.get_by_username(username)
+
+    # Generate backup codes
+    backup_repo = BackupCodeRepository(db)
+    codes = backup_repo.create_codes_for_user(created_user.id)
+
+    # Update access request with credentials for claim
+    request_repo.store_credentials(
+        access_request.id,
+        totp_base32,
+        totp_uri,
+        json_module.dumps(format_codes_for_display(codes))
+    )
+
+    # Mark as approved
+    request_repo.approve(access_request.id, admin_username)
+
+    # Send invitation email with claim token
+    email_sent = _send_invitation_email(
+        to_email=email,
+        username=username,
+        claim_token=formatted_token
+    )
+
+    return jsonify({
+        "success": True,
+        "user": {
+            "id": created_user.id,
+            "username": created_user.username,
+            "email": created_user.recovery_email,
+            "can_download": created_user.can_download,
+            "is_admin": created_user.is_admin,
+        },
+        "email_sent": email_sent,
+        "claim_token": formatted_token,  # Also return token so admin can share manually if email fails
+        "message": (
+            f"User '{username}' created. "
+            + ("Invitation email sent." if email_sent else "Email failed - share claim token manually.")
+        ),
+    })
+
+
+def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bool:
+    """
+    Send an invitation email to a pre-approved user with their claim token.
+
+    Returns True if email was sent successfully, False otherwise.
+    """
+    smtp_host = os.environ.get("SMTP_HOST", "localhost")
+    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    base_url = os.environ.get("BASE_URL", "https://audiobooks.thebosco.club")
+
+    claim_url = f"{base_url}/claim.html"
+
+    subject = "You've Been Invited to The Library!"
+
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">📚 Welcome to The Library!</h1>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            Hello {username},
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            You've been invited to join The Library - a private audiobook collection!
+        </p>
+
+        <div style="background-color: #3a3a3a; padding: 20px; margin: 20px 0; border: 2px solid #daa520; text-align: center;">
+            <p style="color: #f5f5dc; margin: 0 0 10px 0; font-size: 0.9em;">Your Claim Token:</p>
+            <p style="color: #daa520; font-family: 'Courier New', monospace; font-size: 1.5em; letter-spacing: 0.1em; margin: 0;">
+                {claim_token}
+            </p>
+        </div>
+
+        <p style="color: #ff9999; font-weight: bold;">
+            ⚠️ Save this token! You'll need it to complete your account setup.
+        </p>
+
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+            Before You Begin
+        </h2>
+
+        <p style="color: #f5f5dc; line-height: 1.6;">
+            The Library uses an <strong>authenticator app</strong> instead of passwords.
+            If you don't have one installed, here are some free options:
+        </p>
+
+        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #daa520;">
+            <p style="color: #f5f5dc; margin: 5px 0;">
+                <strong>📱 Authy</strong> (Recommended)<br>
+                <a href="https://authy.com/download/" style="color: #daa520;">authy.com/download</a>
+            </p>
+            <p style="color: #f5f5dc; margin: 5px 0;">
+                <strong>📱 Google Authenticator</strong> or <strong>Microsoft Authenticator</strong><br>
+                Available in your app store
+            </p>
+        </div>
+
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+            How to Set Up Your Account
+        </h2>
+
+        <ol style="color: #f5f5dc; line-height: 1.8;">
+            <li>Install an authenticator app on your phone</li>
+            <li>Visit: <a href="{claim_url}" style="color: #daa520;">{claim_url}</a></li>
+            <li>Enter your username: <strong>{username}</strong></li>
+            <li>Enter your claim token (shown above)</li>
+            <li>Scan the QR code with your authenticator app</li>
+            <li>Save your backup codes somewhere safe</li>
+            <li>Log in using the 6-digit code from your authenticator!</li>
+        </ol>
+
+        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+
+        <p style="color: #888; font-size: 0.8em; text-align: center;">
+            This is an automated invitation from The Library.
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+    text_content = f"""Welcome to The Library!
+
+Hello {username},
+
+You've been invited to join The Library - a private audiobook collection!
+
+YOUR CLAIM TOKEN:
+{claim_token}
+
+⚠️ Save this token! You'll need it to complete your account setup.
+
+BEFORE YOU BEGIN:
+The Library uses an authenticator app instead of passwords. Install one if needed:
+- Authy (recommended): https://authy.com/download/
+- Google Authenticator or Microsoft Authenticator from your app store
+
+HOW TO SET UP YOUR ACCOUNT:
+1. Install an authenticator app on your phone
+2. Visit: {claim_url}
+3. Enter your username: {username}
+4. Enter your claim token (shown above)
+5. Scan the QR code with your authenticator app
+6. Save your backup codes somewhere safe
+7. Log in using the 6-digit code from your authenticator!
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = to_email
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_pass:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+
+        return True
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to send invitation email: {type(e).__name__}")
+        return False
 
 
 @auth_bp.route("/admin/users/<int:user_id>/toggle-admin", methods=["POST"])
@@ -2353,6 +3142,77 @@ def toggle_user_download(user_id: int):
         "success": True,
         "username": target_user.username,
         "can_download": new_download_status,
+    })
+
+
+@auth_bp.route("/admin/users/<int:user_id>", methods=["PUT"])
+@admin_required
+def update_user(user_id: int):
+    """
+    Update a user's profile (admin only).
+
+    JSON body:
+        username: New username (optional, 3-32 chars, alphanumeric + underscore)
+        email: New email (optional, or null to remove)
+
+    Returns:
+        200: {"success": true, "user": {...}}
+        400: {"error": "..."}
+        404: {"error": "User not found"}
+        409: {"error": "Username already taken"}
+    """
+    import re
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    target_user = user_repo.get_by_id(user_id)
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json() or {}
+
+    new_username = data.get("username")
+    if new_username is not None:
+        # Validate username format
+        if not new_username or len(new_username) < 3:
+            return jsonify({"error": "Username must be at least 3 characters"}), 400
+        if len(new_username) > 32:
+            return jsonify({"error": "Username must be at most 32 characters"}), 400
+        # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
+        if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in new_username):
+            return jsonify({"error": "Username contains invalid characters"}), 400
+        # No leading/trailing whitespace
+        if new_username != new_username.strip():
+            return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+
+        # Update username
+        if not user_repo.update_username(user_id, new_username):
+            return jsonify({"error": "Username already taken"}), 409
+
+    # Handle email update (can be set to null to remove)
+    if "email" in data:
+        new_email = data.get("email")
+        if new_email is not None and new_email != "":
+            # Validate email format
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, new_email):
+                return jsonify({"error": "Invalid email format"}), 400
+        else:
+            new_email = None  # Remove email
+        user_repo.update_email(user_id, new_email)
+
+    # Fetch updated user data
+    updated_user = user_repo.get_by_id(user_id)
+
+    return jsonify({
+        "success": True,
+        "user": {
+            "id": updated_user.id,
+            "username": updated_user.username,
+            "email": updated_user.recovery_email,
+            "can_download": updated_user.can_download,
+            "is_admin": updated_user.is_admin,
+        }
     })
 
 

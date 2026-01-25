@@ -1201,6 +1201,13 @@ body.back-office {
     color: var(--ink);
 }
 
+.modal-description {
+    color: var(--ink-faded);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
 .modal-footer {
     padding: 1rem 1.5rem;
     background: var(--filing-label);
@@ -2471,5 +2478,292 @@ body.back-office {
     .upgrade-notice {
         flex-direction: column;
         text-align: center;
+    }
+}
+
+/* =============================================================================
+   User Management Styles
+   ============================================================================= */
+
+.user-management-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--ledger-line);
+    align-items: center;
+}
+
+.invite-user-btn {
+    margin-left: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+.user-tab {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--ink-faded);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.user-tab:hover {
+    color: var(--brass);
+}
+
+.user-tab.active {
+    color: var(--brass);
+    border-bottom-color: var(--brass);
+    background: rgba(212, 175, 55, 0.05);
+}
+
+.pending-badge {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    background: var(--red-ink);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.15rem 0.4rem;
+    border-radius: 10px;
+    min-width: 1rem;
+    text-align: center;
+}
+
+.user-tab-content {
+    display: none;
+}
+
+.user-tab-content.active {
+    display: block;
+}
+
+.user-list,
+.requests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.user-item,
+.request-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.user-item:hover,
+.request-item:hover {
+    background: rgba(212, 175, 55, 0.05);
+}
+
+.user-info,
+.request-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.user-name,
+.request-username {
+    font-weight: bold;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-meta,
+.request-meta {
+    font-size: 0.8rem;
+    color: var(--ink-faded);
+}
+
+.user-badges {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.user-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.user-badge.admin {
+    background: var(--brass);
+    color: var(--parchment-dark);
+}
+
+.user-badge.download {
+    background: var(--banker-green);
+    color: white;
+}
+
+.user-badge.no-download {
+    background: var(--ink-faded);
+    color: var(--parchment);
+}
+
+.user-badge.has-email {
+    background: rgba(52, 152, 219, 0.3);
+    color: var(--ink);
+}
+
+.request-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.status-badge.pending {
+    background: var(--brass-dark);
+    color: var(--parchment);
+}
+
+.status-badge.approved {
+    background: var(--banker-green);
+    color: white;
+}
+
+.status-badge.denied {
+    background: var(--red-ink);
+    color: white;
+}
+
+.user-actions,
+.request-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.user-action-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--ink);
+}
+
+.user-action-btn:hover {
+    background: var(--parchment-light);
+}
+
+.user-action-btn.approve {
+    border-color: var(--banker-green);
+    color: var(--banker-green);
+}
+
+.user-action-btn.approve:hover {
+    background: var(--banker-green);
+    color: white;
+}
+
+.user-action-btn.deny {
+    border-color: var(--red-ink);
+    color: var(--red-ink);
+}
+
+.user-action-btn.deny:hover {
+    background: var(--red-ink);
+    color: white;
+}
+
+.user-action-btn.toggle {
+    border-color: var(--brass);
+    color: var(--brass);
+}
+
+.user-action-btn.toggle:hover {
+    background: var(--brass);
+    color: var(--parchment-dark);
+}
+
+.user-action-btn.delete {
+    border-color: var(--red-ink);
+    color: var(--red-ink);
+}
+
+.user-action-btn.delete:hover {
+    background: var(--red-ink);
+    color: white;
+}
+
+.empty-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--ink-faded);
+    font-style: italic;
+}
+
+/* User Management Modal */
+.user-modal-content {
+    padding: 1rem;
+}
+
+.user-modal-content .form-group {
+    margin-bottom: 1rem;
+}
+
+.user-modal-content label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--ink-faded);
+    font-size: 0.85rem;
+}
+
+.user-modal-content textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 0.5rem;
+    border: 1px solid var(--ledger-line);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+}
+
+/* Responsive - User Management */
+@media (max-width: 768px) {
+    .user-item,
+    .request-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .user-actions,
+    .request-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .user-management-tabs {
+        flex-wrap: wrap;
     }
 }

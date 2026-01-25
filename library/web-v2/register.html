@@ -59,6 +59,32 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label for="contact-email">
+                        Email for Notification (optional)
+                        <button type="button" class="help-icon" aria-label="Help" data-help="contact-email-help">?</button>
+                    </label>
+                    <input type="email"
+                           id="contact-email"
+                           name="contact_email"
+                           autocomplete="email">
+                    <span class="field-hint">We'll email you when your request is reviewed</span>
+                    <div id="contact-email-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>Do I need to provide an email?</strong>
+                            <p><strong>No.</strong> This is completely optional. You can complete registration without providing any personal information.</p>
+                            <strong>Why would I provide one?</strong>
+                            <p>If you do, we'll send you an email when your request is approved, with helpful instructions for setting up your account.</p>
+                            <div class="help-warning">
+                                <strong>Privacy Notice</strong>
+                                <p>If you provide an email address, the administrator will have access to it. Only provide an email if you're comfortable with that.</p>
+                            </div>
+                            <strong>What if I don't provide one?</strong>
+                            <p>No problem! Just save your claim token (shown on the next screen) and check back later. You can complete setup using that token after approval.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="request-error" class="error-message" hidden></div>
 
                 <button type="submit" class="auth-button">
@@ -309,16 +335,62 @@
                 <div class="deco-ornament">&#10003;</div>
                 <h2 class="step-title">Request Submitted</h2>
                 <p class="step-description">
-                    Your request for access has been submitted. You will be notified
-                    when an administrator approves your account.
+                    Your request for access has been submitted and is awaiting administrator review.
                 </p>
                 <p class="step-description">
                     Username: <strong id="pending-username"></strong>
                 </p>
             </div>
 
+            <div class="claim-token-section">
+                <h3 class="claim-token-title">
+                    Your Claim Token
+                    <button type="button" class="help-icon" aria-label="Help" data-help="claim-token-help">?</button>
+                </h3>
+                <div id="claim-token-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is this?</strong>
+                        <p>This is your personal code that proves you're the one who requested this account. You'll need it to finish setting up after approval.</p>
+                        <strong>How should I save it?</strong>
+                        <ul>
+                            <li><strong>Write it down</strong> on paper</li>
+                            <li><strong>Take a screenshot</strong> of this screen</li>
+                            <li><strong>Copy it</strong> to a notes app on your phone</li>
+                        </ul>
+                        <div class="help-warning">
+                            <strong>Important!</strong>
+                            <p>This token will NOT be shown again. If you lose it and didn't provide an email, you'll need to contact the administrator.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="claim-token-display" id="claim-token-display"></div>
+                <p class="claim-token-warning">
+                    Save this token! You'll need it to complete setup after your request is approved.
+                    This token will not be shown again.
+                </p>
+                <button type="button" class="copy-token-button" id="copy-token-button" title="Copy token to clipboard">
+                    Copy Token
+                </button>
+            </div>
+
+            <div id="email-notification-info" class="email-notification-info" hidden>
+                <p>We'll also send you an email when your request is reviewed.</p>
+            </div>
+
+            <div class="next-steps">
+                <h3>What happens next?</h3>
+                <ol>
+                    <li>An administrator will review your request</li>
+                    <li id="next-step-notification">Check back at <a href="claim.html">the claim page</a> with your token</li>
+                    <li>Once approved, use your claim token to get your login credentials</li>
+                    <li>Set up your authenticator app and start using The Library!</li>
+                </ol>
+            </div>
+
             <div class="auth-options">
                 <a href="login.html" class="auth-link">&larr; Back to login</a>
+                <span class="auth-separator">|</span>
+                <a href="claim.html" class="auth-link">Claim credentials &rarr;</a>
             </div>
         </div>
 
@@ -451,6 +523,7 @@
             clearError('request-error');
 
             const username = document.getElementById('username').value.trim();
+            const contactEmail = document.getElementById('contact-email').value.trim();
 
             if (username.length < 5) {
                 showError('request-error', 'Username must be at least 5 characters');
@@ -458,29 +531,96 @@
             }
 
             try {
+                const requestBody = { username };
+                if (contactEmail) {
+                    requestBody.contact_email = contactEmail;
+                }
+
                 const response = await fetch(`${API_BASE}/auth/register/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    // In dev mode, we get the token directly
-                    if (data.verify_token) {
-                        document.getElementById('verify-token').value = data.verify_token;
-                        showStep('verify');
-                    } else {
-                        // Production: show pending approval
-                        document.getElementById('pending-username').textContent = username;
-                        showStep('pending');
+                    // First user bootstrap: get TOTP setup directly
+                    if (data.first_user && data.totp_secret) {
+                        // Show TOTP setup directly for first user
+                        if (data.totp_qr) {
+                            document.getElementById('qr-code').src = 'data:image/png;base64,' + data.totp_qr;
+                        }
+                        document.getElementById('totp-secret').textContent = data.totp_secret;
+
+                        const codesList = document.getElementById('backup-codes-list');
+                        while (codesList.firstChild) {
+                            codesList.removeChild(codesList.firstChild);
+                        }
+                        data.backup_codes.forEach(code => {
+                            const span = document.createElement('span');
+                            span.textContent = code;
+                            codesList.appendChild(span);
+                        });
+
+                        showStep('totp');
+                        return;
                     }
+
+                    // Normal flow: show claim token
+                    document.getElementById('pending-username').textContent = username;
+
+                    // Display claim token
+                    if (data.claim_token) {
+                        document.getElementById('claim-token-display').textContent = data.claim_token;
+                        // Store for copy button
+                        window.pendingClaimToken = data.claim_token;
+                    }
+
+                    // Show email notification if provided
+                    if (data.email_notification) {
+                        document.getElementById('email-notification-info').hidden = false;
+                        // Update next step text using safe DOM methods
+                        const nextStepEl = document.getElementById('next-step-notification');
+                        nextStepEl.textContent = '';
+                        nextStepEl.appendChild(document.createTextNode("You'll receive an email when approved, or check "));
+                        const claimLink = document.createElement('a');
+                        claimLink.href = 'claim.html';
+                        claimLink.textContent = 'the claim page';
+                        nextStepEl.appendChild(claimLink);
+                    }
+
+                    showStep('pending');
                 } else {
                     showError('request-error', data.error || 'Registration failed');
                 }
             } catch (e) {
                 showError('request-error', 'Connection error. Please try again.');
+            }
+        });
+
+        // Copy token button
+        document.getElementById('copy-token-button').addEventListener('click', async () => {
+            const token = window.pendingClaimToken;
+            if (!token) return;
+
+            try {
+                await navigator.clipboard.writeText(token);
+                const btn = document.getElementById('copy-token-button');
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy Token';
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (e) {
+                // Fallback for older browsers
+                const el = document.getElementById('claim-token-display');
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
             }
         });
 
@@ -767,6 +907,106 @@
             .method-pros {
                 font-size: 0.8rem;
             }
+        }
+
+        /* Claim token section */
+        .claim-token-section {
+            background: var(--deco-slate);
+            border: 2px solid var(--gold-dark);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .claim-token-title {
+            font-family: Georgia, serif;
+            font-size: 1rem;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .claim-token-display {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 0.15em;
+            color: var(--gold);
+            background: var(--charcoal);
+            padding: 1rem 1.5rem;
+            border: 1px solid var(--deco-gray);
+            user-select: all;
+            cursor: text;
+        }
+
+        .claim-token-warning {
+            color: var(--cream);
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            line-height: 1.5;
+        }
+
+        .copy-token-button {
+            margin-top: 1rem;
+            padding: 0.5rem 1.5rem;
+            background: var(--emerald);
+            color: var(--cream);
+            border: none;
+            font-family: Georgia, serif;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .copy-token-button:hover {
+            background: var(--emerald-light);
+        }
+
+        .copy-token-button.copied {
+            background: var(--gold-dark);
+        }
+
+        .email-notification-info {
+            background: rgba(218, 165, 32, 0.1);
+            border-left: 3px solid var(--gold);
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            color: var(--cream);
+            font-size: 0.9rem;
+        }
+
+        .next-steps {
+            background: var(--deco-slate);
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+            border-left: 3px solid var(--emerald);
+        }
+
+        .next-steps h3 {
+            font-family: Georgia, serif;
+            font-size: 0.9rem;
+            color: var(--gold);
+            margin-bottom: 0.75rem;
+        }
+
+        .next-steps ol {
+            color: var(--cream);
+            font-size: 0.85rem;
+            line-height: 1.8;
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+
+        .next-steps a {
+            color: var(--gold);
+        }
+
+        .auth-separator {
+            color: var(--deco-gray);
+            margin: 0 0.5rem;
         }
     </style>
 </body>

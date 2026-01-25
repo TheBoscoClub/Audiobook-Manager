@@ -971,6 +971,45 @@
                         </div>
                     </div>
 
+                    <!-- User Management Card -->
+                    <div class="catalog-card wide" id="user-management-card">
+                        <div class="card-header">
+                            <span>User Management</span>
+                            <span class="badge" id="users-count-badge">-</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="user-management-tabs">
+                                <button class="user-tab active" data-tab="users" title="Manage existing users">Users</button>
+                                <button class="user-tab" data-tab="requests" title="Review access requests">
+                                    Requests
+                                    <span class="pending-badge" id="pending-requests-count" hidden>0</span>
+                                </button>
+                                <button class="office-btn primary invite-user-btn" id="invite-user-btn" title="Invite a new user via email">
+                                    + Invite User
+                                </button>
+                            </div>
+
+                            <!-- Users List Tab -->
+                            <div class="user-tab-content active" id="users-tab">
+                                <div class="user-list" id="user-list">
+                                    <p class="placeholder-text">Loading users...</p>
+                                </div>
+                            </div>
+
+                            <!-- Access Requests Tab -->
+                            <div class="user-tab-content" id="requests-tab" hidden>
+                                <div class="requests-list" id="requests-list">
+                                    <p class="placeholder-text">Loading requests...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn" id="refresh-users" title="Reload user list">
+                                <span class="btn-icon">&#8635;</span> Refresh
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Upgrade Card -->
                     <div class="catalog-card wide">
                         <div class="card-header">Upgrade Application</div>
@@ -1043,6 +1082,81 @@
         </div>
     </div>
 
+    <!-- Invite User Modal -->
+    <div class="modal" id="invite-user-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Invite New User</h2>
+                <button class="modal-close" id="invite-user-close" title="Close dialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Create a new pre-approved user and send them an invitation email with their claim token.</p>
+                <form id="invite-user-form">
+                    <div class="form-group">
+                        <label for="invite-username">Username</label>
+                        <input type="text" id="invite-username" name="username"
+                               minlength="5" maxlength="16"
+                               title="5-16 characters"
+                               required>
+                        <span class="field-hint">5-16 characters (spaces allowed, no &lt; &gt; \\ characters)</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="invite-email">Email Address</label>
+                        <input type="email" id="invite-email" name="email"
+                               placeholder="user@example.com"
+                               required>
+                        <span class="field-hint">Invitation will be sent to this address</span>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="invite-can-download" name="can_download" checked>
+                            <span class="checkbox-text">Allow downloads</span>
+                        </label>
+                        <span class="field-hint">Permission to download audiobook files</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="office-btn secondary" id="invite-user-cancel" title="Cancel">Cancel</button>
+                <button class="office-btn primary" id="invite-user-send" title="Send invitation">Send Invitation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal" id="edit-user-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="edit-user-title">Edit User</h2>
+                <button class="modal-close" id="edit-user-close" title="Close dialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-user-form">
+                    <input type="hidden" id="edit-user-id">
+                    <div class="form-group">
+                        <label for="edit-username">Username</label>
+                        <input type="text" id="edit-username" name="username"
+                               minlength="3" maxlength="32"
+                               title="3-32 characters"
+                               required>
+                        <span class="field-hint">3-32 characters (spaces allowed, no &lt; &gt; \\ characters)</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-email">Email (optional)</label>
+                        <input type="email" id="edit-email" name="email"
+                               placeholder="user@example.com"
+                               title="Email address for notifications">
+                        <span class="field-hint">Used for account recovery and notifications</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="office-btn secondary" id="edit-user-cancel" title="Cancel changes">Cancel</button>
+                <button class="office-btn primary" id="edit-user-save" title="Save changes">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Operation Progress Modal -->
     <div class="modal" id="progress-modal">
         <div class="modal-content">
@@ -1072,6 +1186,49 @@
         </div>
     </div>
 
+    <!-- Admin authentication check - must be before utilities.js -->
+    <script>
+        // Check if user is authenticated admin before loading page
+        // This is a security gate - deny access unless we CONFIRM admin status
+        (async function checkAdminAuth() {
+            try {
+                const response = await fetch('/auth/me', {
+                    credentials: 'include'
+                });
+
+                if (response.status === 401) {
+                    // Not logged in - redirect to login
+                    window.location.href = 'login.html?redirect=utilities.html';
+                    return;
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data.user || !data.user.is_admin) {
+                        // Logged in but not admin - redirect to main page
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                    // Admin confirmed - store user info and allow page to load
+                    window.adminUser = data.user;
+                } else if (response.status === 404) {
+                    // Auth endpoint not found - API might not be running
+                    // Redirect to main page for safety
+                    window.location.href = 'index.html';
+                    return;
+                } else {
+                    // Unexpected status - redirect to main page for safety
+                    window.location.href = 'index.html';
+                    return;
+                }
+            } catch (error) {
+                // Network error or API not available - redirect to main page for safety
+                console.log('Auth check failed:', error.message);
+                window.location.href = 'index.html';
+                return;
+            }
+        })();
+    </script>
     <script src="js/utilities.js"></script>
 </body>
 </html>

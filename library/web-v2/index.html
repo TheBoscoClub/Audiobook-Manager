@@ -24,6 +24,7 @@
                         <span id="username-display">User</span>
                     </button>
                     <div class="user-dropdown" id="user-dropdown">
+                        <a href="#" class="user-dropdown-item" id="edit-profile-button" title="Change your username">Edit Profile</a>
                         <a href="contact.html" class="user-dropdown-item" title="Send a message to the admin">Contact Admin</a>
                         <div class="user-dropdown-divider"></div>
                         <a href="#" class="user-dropdown-item" id="logout-button">Sign Out</a>
@@ -35,7 +36,8 @@
                     <span class="utilities-text">Sign In</span>
                 </a>
 
-                <a href="utilities.html" class="utilities-link" title="Library Administration">
+                <!-- Back Office link (admin only - controlled by JavaScript) -->
+                <a href="utilities.html" id="admin-backoffice-link" class="utilities-link" hidden title="Library Administration">
                     <span class="utilities-icon">&#9881;</span>
                     <span class="utilities-text">Back Office</span>
                 </a>
@@ -255,6 +257,40 @@
         <audio id="audio-element"></audio>
     </div>
 
+    <!-- Edit Profile Modal -->
+    <div class="modal" id="edit-profile-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Profile</h2>
+                <button class="modal-close" id="edit-profile-close" title="Close dialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-profile-form">
+                    <div class="form-group">
+                        <label for="edit-profile-username">Username</label>
+                        <input type="text" id="edit-profile-username" name="username"
+                               minlength="3" maxlength="32"
+                               title="3-32 characters"
+                               required>
+                        <span class="field-hint">3-32 characters (spaces allowed, no &lt; &gt; \\ characters)</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-profile-email">Email (optional)</label>
+                        <input type="email" id="edit-profile-email" name="email"
+                               placeholder="user@example.com"
+                               title="Email address for notifications">
+                        <span class="field-hint">Used for account recovery and notifications</span>
+                    </div>
+                </form>
+                <div id="edit-profile-error" class="error-message" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="auth-button secondary" id="edit-profile-cancel" title="Cancel changes">Cancel</button>
+                <button class="auth-button" id="edit-profile-save" title="Save changes">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/library.js"></script>
     <script>
         // User menu dropdown handling
@@ -262,6 +298,7 @@
             const menuButton = document.getElementById('user-menu-button');
             const dropdown = document.getElementById('user-dropdown');
             const logoutButton = document.getElementById('logout-button');
+            const editProfileButton = document.getElementById('edit-profile-button');
 
             if (menuButton && dropdown) {
                 menuButton.addEventListener('click', (e) => {
@@ -288,7 +325,115 @@
                     }
                 });
             }
+
+            // Edit Profile handling
+            if (editProfileButton) {
+                editProfileButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    dropdown.classList.remove('open');
+                    showEditProfileModal();
+                });
+            }
         });
+
+        async function showEditProfileModal() {
+            const modal = document.getElementById('edit-profile-modal');
+            const usernameEl = document.getElementById('edit-profile-username');
+            const emailEl = document.getElementById('edit-profile-email');
+            const saveBtn = document.getElementById('edit-profile-save');
+            const cancelBtn = document.getElementById('edit-profile-cancel');
+            const closeBtn = document.getElementById('edit-profile-close');
+            const errorEl = document.getElementById('edit-profile-error');
+
+            // Fetch current user data including email
+            try {
+                const meRes = await fetch('/auth/me', { credentials: 'include' });
+                if (meRes.ok) {
+                    const meData = await meRes.json();
+                    usernameEl.value = meData.user.username || '';
+                    emailEl.value = meData.user.email || '';
+                }
+            } catch (e) {
+                // Fall back to displayed username
+                usernameEl.value = document.getElementById('username-display')?.textContent || '';
+                emailEl.value = '';
+            }
+            errorEl.style.display = 'none';
+
+            modal.classList.add('active');
+
+            const closeModal = () => modal.classList.remove('active');
+
+            // Clone buttons to remove old event listeners
+            const newSaveBtn = saveBtn.cloneNode(true);
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            const newCloseBtn = closeBtn.cloneNode(true);
+            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
+            newCancelBtn.addEventListener('click', closeModal);
+            newCloseBtn.addEventListener('click', closeModal);
+
+            newSaveBtn.addEventListener('click', async () => {
+                const newUsername = usernameEl.value.trim();
+                const newEmail = emailEl.value.trim();
+
+                if (!newUsername || newUsername.length < 3) {
+                    errorEl.textContent = 'Username must be at least 3 characters';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                if (newUsername.length > 32) {
+                    errorEl.textContent = 'Username must be at most 32 characters';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                if (/[<>\\]/.test(newUsername)) {
+                    errorEl.textContent = 'Username cannot contain < > or \\ characters';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                if (newUsername !== newUsername.trim()) {
+                    errorEl.textContent = 'Username cannot have leading or trailing spaces';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                if (newEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+                    errorEl.textContent = 'Invalid email format';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/auth/me', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            username: newUsername,
+                            email: newEmail || null
+                        })
+                    });
+
+                    if (res.ok) {
+                        // Update header display
+                        const usernameDisplay = document.getElementById('username-display');
+                        const userInitial = document.getElementById('user-initial');
+                        if (usernameDisplay) usernameDisplay.textContent = newUsername;
+                        if (userInitial) userInitial.textContent = newUsername.charAt(0).toUpperCase();
+                        closeModal();
+                    } else {
+                        const data = await res.json();
+                        errorEl.textContent = data.error || 'Failed to update profile';
+                        errorEl.style.display = 'block';
+                    }
+                } catch (error) {
+                    errorEl.textContent = 'Connection error';
+                    errorEl.style.display = 'block';
+                }
+            });
+        }
     </script>
 </body>
 </html>

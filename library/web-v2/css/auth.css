@@ -130,6 +130,37 @@
     font-style: italic;
 }
 
+/* Checkbox group */
+.checkbox-group {
+    margin-top: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-family: Georgia, serif;
+    font-size: 0.9rem;
+    color: var(--cream);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: auto;
+    margin-right: 0.75rem;
+    accent-color: var(--gold);
+    transform: scale(1.2);
+}
+
+.checkbox-text {
+    letter-spacing: 0.05em;
+}
+
+.checkbox-group .field-hint {
+    margin-left: 1.75rem;
+    margin-top: 0.25rem;
+}
+
 /* Error message */
 .error-message {
     background: rgba(139, 37, 0, 0.3);

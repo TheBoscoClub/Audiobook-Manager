@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claim Your Credentials - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/help-tooltips.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- Decorative header -->
+        <div class="auth-header">
+            <div class="deco-ornament">&#9830;</div>
+            <h1 class="auth-title">The Library</h1>
+            <p class="auth-subtitle">Claim Your Credentials</p>
+            <div class="deco-line"></div>
+        </div>
+
+        <!-- Step 1: Enter claim token -->
+        <div id="step-claim" class="registration-step">
+            <p class="step-description">
+                Enter your username and claim token to retrieve your login credentials.
+                You received the claim token when you submitted your access request.
+            </p>
+
+            <form id="claim-form" class="auth-form">
+                <div class="form-group">
+                    <label for="username">
+                        Username
+                        <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
+                    </label>
+                    <input type="text"
+                           id="username"
+                           name="username"
+                           autocomplete="username"
+                           autocapitalize="none"
+                           spellcheck="false"
+                           required>
+                    <div id="username-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is this?</strong>
+                            <p>This is the username you chose when you requested access to The Library.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="claim-token">
+                        Claim Token
+                        <button type="button" class="help-icon" aria-label="Help" data-help="claim-token-help">?</button>
+                    </label>
+                    <input type="text"
+                           id="claim-token"
+                           name="claim_token"
+                           placeholder="XXXX-XXXX-XXXX-XXXX"
+                           autocomplete="off"
+                           spellcheck="false"
+                           required>
+                    <span class="field-hint">The token you saved when requesting access</span>
+                    <div id="claim-token-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is a claim token?</strong>
+                            <p>This is a special code you received when you submitted your access request. It looks like: XXXX-XXXX-XXXX-XXXX</p>
+                            <strong>Where do I find it?</strong>
+                            <ul>
+                                <li>Written down where you saved it</li>
+                                <li>In a screenshot you took</li>
+                                <li>In your notes app</li>
+                            </ul>
+                            <strong>Lost your token?</strong>
+                            <p>If you provided an email during registration, check your inbox for the approval email. Otherwise, you'll need to contact the administrator.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="claim-error" class="error-message" hidden></div>
+                <div id="claim-info" class="info-message" hidden></div>
+
+                <button type="submit" class="auth-button">
+                    <span class="button-text">Claim Credentials</span>
+                </button>
+            </form>
+
+            <div class="auth-options">
+                <a href="login.html" class="auth-link">&larr; Back to login</a>
+                <span class="auth-separator">|</span>
+                <a href="register.html" class="auth-link">Request access &rarr;</a>
+            </div>
+        </div>
+
+        <!-- Step 2: Display credentials -->
+        <div id="step-credentials" class="registration-step" hidden>
+            <div class="success-header">
+                <div class="deco-ornament">&#10003;</div>
+                <h2 class="step-title">Account Ready!</h2>
+                <p class="step-description">
+                    Welcome, <strong id="credentials-username"></strong>! Set up your authenticator app below.
+                </p>
+            </div>
+
+            <div class="setup-instructions">
+                <h3>
+                    Step 1: Install an Authenticator App
+                    <button type="button" class="help-icon" aria-label="Help" data-help="app-install-help">?</button>
+                </h3>
+                <div id="app-install-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is an authenticator app?</strong>
+                        <p>It's a free app that generates a 6-digit code that changes every 30 seconds. This code is used to log in securely.</p>
+                        <strong>Which one should I choose?</strong>
+                        <p><strong>Authy</strong> is recommended because it can sync between devices. If you get a new phone, your codes transfer automatically.</p>
+                        <p><strong>Google Authenticator</strong> is simple and works well, but doesn't sync between devices.</p>
+                    </div>
+                </div>
+                <p class="instruction-text">If you don't have an authenticator app, install one of these free options:</p>
+                <div class="app-links">
+                    <div class="app-link">
+                        <strong>Authy</strong> (Recommended - syncs across devices)
+                        <div class="store-links">
+                            <a href="https://apps.apple.com/app/authy/id494168017" target="_blank" rel="noopener">iPhone/iPad</a>
+                            <span class="link-sep">|</span>
+                            <a href="https://play.google.com/store/apps/details?id=com.authy.authy" target="_blank" rel="noopener">Android</a>
+                            <span class="link-sep">|</span>
+                            <a href="https://authy.com/download/" target="_blank" rel="noopener">Desktop</a>
+                        </div>
+                    </div>
+                    <div class="app-link">
+                        <strong>Google Authenticator</strong>
+                        <div class="store-links">
+                            <a href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noopener">iPhone/iPad</a>
+                            <span class="link-sep">|</span>
+                            <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noopener">Android</a>
+                        </div>
+                    </div>
+                    <div class="app-link">
+                        <strong>Microsoft Authenticator</strong>
+                        <div class="store-links">
+                            <a href="https://apps.apple.com/app/microsoft-authenticator/id983156458" target="_blank" rel="noopener">iPhone/iPad</a>
+                            <span class="link-sep">|</span>
+                            <a href="https://play.google.com/store/apps/details?id=com.azure.authenticator" target="_blank" rel="noopener">Android</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="setup-instructions">
+                <h3>
+                    Step 2: Scan the QR Code
+                    <button type="button" class="help-icon" aria-label="Help" data-help="qr-scan-help">?</button>
+                </h3>
+                <div id="qr-scan-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>How to scan</strong>
+                        <ol>
+                            <li>Open your authenticator app</li>
+                            <li>Tap the + or "Add account" button</li>
+                            <li>Choose "Scan QR code" or "Scan barcode"</li>
+                            <li>Point your phone's camera at the code below</li>
+                            <li>The app will automatically add The Library</li>
+                        </ol>
+                        <strong>Can't scan?</strong>
+                        <p>If scanning doesn't work, you can manually enter the secret code shown below the QR code.</p>
+                    </div>
+                </div>
+                <p class="instruction-text">Open your authenticator app and scan this code:</p>
+                <div class="qr-container">
+                    <img id="qr-code" src="" alt="TOTP QR Code">
+                </div>
+                <p class="instruction-text">Or enter this code manually:</p>
+                <div class="secret-key" id="totp-secret"></div>
+            </div>
+
+            <div class="setup-instructions">
+                <h3>
+                    Step 3: Save Your Backup Codes
+                    <button type="button" class="help-icon" aria-label="Help" data-help="backup-codes-help">?</button>
+                </h3>
+                <div id="backup-codes-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What are backup codes?</strong>
+                        <p>These are emergency codes that let you sign in if you ever lose your phone or can't use your authenticator app.</p>
+                        <strong>How do I save them?</strong>
+                        <ul>
+                            <li><strong>Write them down</strong> on paper and keep it safe</li>
+                            <li><strong>Take a screenshot</strong> of this page</li>
+                            <li><strong>Save to a secure place</strong> like a password manager</li>
+                        </ul>
+                        <div class="help-warning">
+                            <strong>Important!</strong>
+                            <p>Each code can only be used once. After using a code, cross it off your list.</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="instruction-text warning-text">
+                    These codes will NOT be shown again. Save them somewhere safe!
+                </p>
+                <div class="backup-codes-list" id="backup-codes-list"></div>
+            </div>
+
+            <div class="final-step">
+                <h3>Step 4: Enter Your First Code</h3>
+                <p>Open your authenticator app and enter the 6-digit code shown for The Library:</p>
+                <form id="first-login-form" class="first-login-form">
+                    <div class="form-group">
+                        <input type="text"
+                               id="first-totp-code"
+                               name="code"
+                               placeholder="000000"
+                               autocomplete="one-time-code"
+                               inputmode="numeric"
+                               pattern="[0-9]{6}"
+                               maxlength="6"
+                               required>
+                    </div>
+                    <div id="first-login-error" class="error-message" hidden></div>
+                    <button type="submit" class="auth-button">
+                        <span class="button-text">Enter The Library</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <div class="deco-ornament small">&#9830;</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        // Help tooltip handling
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const helpId = icon.dataset.help;
+                const tooltip = document.getElementById(helpId);
+                if (tooltip) {
+                    document.querySelectorAll('.help-tooltip:not([hidden])').forEach(t => {
+                        if (t.id !== helpId) t.hidden = true;
+                    });
+                    tooltip.hidden = !tooltip.hidden;
+                }
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.help-icon') && !e.target.closest('.help-tooltip')) {
+                document.querySelectorAll('.help-tooltip').forEach(t => t.hidden = true);
+            }
+        });
+
+        // DOM elements
+        const steps = {
+            claim: document.getElementById('step-claim'),
+            credentials: document.getElementById('step-credentials')
+        };
+
+        function showStep(stepName) {
+            Object.values(steps).forEach(step => step.hidden = true);
+            steps[stepName].hidden = false;
+        }
+
+        function showError(message) {
+            const el = document.getElementById('claim-error');
+            el.textContent = message;
+            el.hidden = false;
+            document.getElementById('claim-info').hidden = true;
+            el.classList.add('shake');
+            setTimeout(() => el.classList.remove('shake'), 500);
+        }
+
+        function showInfo(message) {
+            const el = document.getElementById('claim-info');
+            el.textContent = message;
+            el.hidden = false;
+            document.getElementById('claim-error').hidden = true;
+        }
+
+        function clearMessages() {
+            document.getElementById('claim-error').hidden = true;
+            document.getElementById('claim-info').hidden = true;
+        }
+
+        // Store username for auto-login
+        let claimedUsername = null;
+
+        // Claim form submission
+        document.getElementById('claim-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearMessages();
+
+            const username = document.getElementById('username').value.trim();
+            const claimToken = document.getElementById('claim-token').value.trim();
+
+            if (!username) {
+                showError('Please enter your username');
+                return;
+            }
+
+            if (!claimToken) {
+                showError('Please enter your claim token');
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.querySelector('.button-text').textContent = 'Checking...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register/claim`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        claim_token: claimToken
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Store username for auto-login
+                    claimedUsername = data.username;
+
+                    // Display credentials
+                    document.getElementById('credentials-username').textContent = data.username;
+
+                    // QR code
+                    if (data.totp_qr) {
+                        document.getElementById('qr-code').src = 'data:image/png;base64,' + data.totp_qr;
+                    }
+
+                    // Secret key
+                    document.getElementById('totp-secret').textContent = data.totp_secret;
+
+                    // Backup codes
+                    const codesList = document.getElementById('backup-codes-list');
+                    while (codesList.firstChild) {
+                        codesList.removeChild(codesList.firstChild);
+                    }
+                    data.backup_codes.forEach(code => {
+                        const span = document.createElement('span');
+                        span.textContent = code;
+                        codesList.appendChild(span);
+                    });
+
+                    showStep('credentials');
+                } else {
+                    // Handle specific status cases
+                    if (data.status === 'pending') {
+                        showInfo('Your request is still pending administrator review. Please check back later.');
+                    } else if (data.status === 'denied') {
+                        showError(data.error || 'Your request was denied.');
+                    } else if (data.status === 'already_claimed') {
+                        showError('Credentials have already been claimed. If you lost your authenticator, use the recovery page.');
+                    } else {
+                        showError(data.error || 'Unable to claim credentials. Please check your username and token.');
+                    }
+                }
+            } catch (e) {
+                showError('Connection error. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('.button-text').textContent = 'Claim Credentials';
+            }
+        });
+
+        // First login form (auto-login after claiming)
+        document.getElementById('first-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const code = document.getElementById('first-totp-code').value.trim();
+            const errorEl = document.getElementById('first-login-error');
+            errorEl.hidden = true;
+
+            if (!code || code.length !== 6) {
+                errorEl.textContent = 'Please enter the 6-digit code from your authenticator app';
+                errorEl.hidden = false;
+                return;
+            }
+
+            if (!claimedUsername) {
+                errorEl.textContent = 'Session expired. Please refresh and try again.';
+                errorEl.hidden = false;
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.querySelector('.button-text').textContent = 'Logging in...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: claimedUsername,
+                        code: code
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Redirect to main library page
+                    window.location.href = 'index.html';
+                } else {
+                    errorEl.textContent = data.error || 'Invalid code. Check your authenticator app and try again.';
+                    errorEl.hidden = false;
+                    submitBtn.disabled = false;
+                    submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.hidden = false;
+                submitBtn.disabled = false;
+                submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+            }
+        });
+    </script>
+
+    <style>
+        .step-title {
+            font-family: Georgia, serif;
+            font-size: 1.25rem;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .step-description {
+            color: var(--cream);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .success-header {
+            text-align: center;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+
+        .success-header .deco-ornament {
+            font-size: 2.5rem;
+            color: var(--emerald-light);
+            margin-bottom: 0.5rem;
+        }
+
+        .setup-instructions {
+            background: var(--deco-slate);
+            border: 1px solid var(--deco-gray);
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .setup-instructions h3 {
+            font-family: Georgia, serif;
+            font-size: 1rem;
+            color: var(--gold);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .instruction-text {
+            color: var(--cream);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .instruction-text.warning-text {
+            color: var(--gold);
+            font-weight: bold;
+        }
+
+        .app-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .app-link {
+            background: var(--charcoal);
+            padding: 0.75rem 1rem;
+            border-left: 3px solid var(--gold-dark);
+        }
+
+        .app-link strong {
+            color: var(--gold);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .store-links {
+            font-size: 0.85rem;
+        }
+
+        .store-links a {
+            color: var(--cream);
+            text-decoration: underline;
+        }
+
+        .store-links a:hover {
+            color: var(--gold);
+        }
+
+        .link-sep {
+            color: var(--deco-gray);
+            margin: 0 0.25rem;
+        }
+
+        .qr-container {
+            display: flex;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+
+        .qr-container img {
+            max-width: 200px;
+            background: white;
+            padding: 0.5rem;
+        }
+
+        .secret-key {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1rem;
+            letter-spacing: 0.1em;
+            color: var(--gold);
+            background: var(--charcoal);
+            padding: 0.75rem 1rem;
+            text-align: center;
+            border: 1px solid var(--deco-gray);
+            user-select: all;
+            word-break: break-all;
+        }
+
+        .backup-codes-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .backup-codes-list span {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            color: var(--cream);
+            background: var(--charcoal);
+            padding: 0.5rem;
+            text-align: center;
+            border: 1px solid var(--deco-gray);
+            user-select: all;
+        }
+
+        .final-step {
+            background: var(--emerald);
+            background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-light) 100%);
+            padding: 1.5rem;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .final-step h3 {
+            font-family: Georgia, serif;
+            font-size: 1.1rem;
+            color: var(--charcoal);
+            margin-bottom: 0.75rem;
+        }
+
+        .final-step p {
+            color: var(--charcoal);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .info-message {
+            background: rgba(218, 165, 32, 0.1);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .auth-separator {
+            color: var(--deco-gray);
+            margin: 0 0.5rem;
+        }
+
+        .first-login-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .first-login-form .form-group {
+            margin: 0;
+        }
+
+        .first-login-form input {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.5rem;
+            letter-spacing: 0.3em;
+            text-align: center;
+            width: 10rem;
+            padding: 0.75rem;
+            background: var(--charcoal);
+            border: 2px solid var(--gold);
+            color: var(--gold);
+        }
+
+        .first-login-form input::placeholder {
+            color: var(--deco-gray);
+        }
+
+        .first-login-form .error-message {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            color: #ff6b6b;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .first-login-form .auth-button {
+            background: var(--gold);
+            color: var(--charcoal);
+        }
+
+        .first-login-form .auth-button:hover {
+            background: var(--gold-dark);
+        }
+
+        @media (max-width: 480px) {
+            .backup-codes-list {
+                grid-template-columns: 1fr;
+            }
+
+            .secret-key {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</body>
+</html>
