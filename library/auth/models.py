@@ -226,6 +226,47 @@ class UserRepository:
             )
             return cursor.rowcount > 0
 
+    def update_username(self, user_id: int, new_username: str) -> bool:
+        """
+        Update a user's username.
+
+        Args:
+            user_id: The user ID to update
+            new_username: The new username (must be unique)
+
+        Returns:
+            True if updated, False if user not found or username taken
+        """
+        # Check if new username is already taken by another user
+        existing = self.get_by_username(new_username)
+        if existing and existing.id != user_id:
+            return False
+
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET username = ? WHERE id = ?",
+                (new_username, user_id)
+            )
+            return cursor.rowcount > 0
+
+    def update_email(self, user_id: int, email: Optional[str]) -> bool:
+        """
+        Update a user's email address.
+
+        Args:
+            user_id: The user ID to update
+            email: The new email address, or None to remove
+
+        Returns:
+            True if updated, False if user not found
+        """
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET recovery_email = ? WHERE id = ?",
+                (email, user_id)
+            )
+            return cursor.rowcount > 0
+
     def delete(self, user_id: int) -> bool:
         """Delete a user (cascades to sessions, positions, etc.)."""
         with self.db.connection() as conn:
@@ -969,6 +1010,7 @@ class AccessRequest:
     Access request awaiting admin approval.
 
     Users submit requests which admins can approve or deny.
+    Includes claim token for secure credential retrieval without email.
     """
     id: Optional[int] = None
     username: str = ""
@@ -977,19 +1019,47 @@ class AccessRequest:
     reviewed_at: Optional[datetime] = None
     reviewed_by: Optional[str] = None
     deny_reason: Optional[str] = None
+    # Claim token for credential retrieval (hashed)
+    claim_token_hash: Optional[str] = None
+    # Optional contact email (user's choice to provide)
+    contact_email: Optional[str] = None
+    # Credentials stored after approval, retrieved via claim
+    totp_secret: Optional[str] = None  # Base32 encoded
+    totp_uri: Optional[str] = None
+    backup_codes_json: Optional[str] = None  # JSON array of codes
+    credentials_claimed: bool = False
 
     @classmethod
     def from_row(cls, row: tuple) -> "AccessRequest":
         """Create from database row."""
-        return cls(
-            id=row[0],
-            username=row[1],
-            requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
-            status=AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING,
-            reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
-            reviewed_by=row[5],
-            deny_reason=row[6],
-        )
+        # Handle both old (7 columns) and new (14 columns) schema
+        if len(row) >= 13:
+            return cls(
+                id=row[0],
+                username=row[1],
+                requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
+                status=AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING,
+                reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
+                reviewed_by=row[5],
+                deny_reason=row[6],
+                claim_token_hash=row[7],
+                contact_email=row[8],
+                totp_secret=row[9],
+                totp_uri=row[10],
+                backup_codes_json=row[11],
+                credentials_claimed=bool(row[12]) if row[12] is not None else False,
+            )
+        else:
+            # Old schema without claim fields
+            return cls(
+                id=row[0],
+                username=row[1],
+                requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
+                status=AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING,
+                reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
+                reviewed_by=row[5],
+                deny_reason=row[6],
+            )
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -1001,6 +1071,8 @@ class AccessRequest:
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
             "reviewed_by": self.reviewed_by,
             "deny_reason": self.deny_reason,
+            "has_email": bool(self.contact_email),
+            "credentials_claimed": self.credentials_claimed,
         }
 
 
@@ -1012,7 +1084,7 @@ class AccessRequestRepository:
         self._ensure_table()
 
     def _ensure_table(self):
-        """Create table if it doesn't exist."""
+        """Create table if it doesn't exist, and migrate if needed."""
         with self.db.connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS access_requests (
@@ -1023,18 +1095,43 @@ class AccessRequestRepository:
                     reviewed_at TIMESTAMP,
                     reviewed_by TEXT,
                     deny_reason TEXT,
+                    claim_token_hash TEXT,
+                    contact_email TEXT,
+                    totp_secret TEXT,
+                    totp_uri TEXT,
+                    backup_codes_json TEXT,
+                    credentials_claimed BOOLEAN DEFAULT FALSE,
                     CHECK (length(username) >= 5 AND length(username) <= 16)
                 )
             """)
+
+            # Migrate existing table if needed (add new columns) - MUST run before index creation
+            cursor = conn.execute("PRAGMA table_info(access_requests)")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "claim_token_hash" not in columns:
+                conn.execute("ALTER TABLE access_requests ADD COLUMN claim_token_hash TEXT")
+            if "contact_email" not in columns:
+                conn.execute("ALTER TABLE access_requests ADD COLUMN contact_email TEXT")
+            if "totp_secret" not in columns:
+                conn.execute("ALTER TABLE access_requests ADD COLUMN totp_secret TEXT")
+            if "totp_uri" not in columns:
+                conn.execute("ALTER TABLE access_requests ADD COLUMN totp_uri TEXT")
+            if "backup_codes_json" not in columns:
+                conn.execute("ALTER TABLE access_requests ADD COLUMN backup_codes_json TEXT")
+            if "credentials_claimed" not in columns:
+                conn.execute("ALTER TABLE access_requests ADD COLUMN credentials_claimed BOOLEAN DEFAULT FALSE")
+
+            # Create indexes AFTER columns exist
             conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_username ON access_requests(username)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_claim_token ON access_requests(claim_token_hash)")
 
-    def create(self, username: str) -> AccessRequest:
-        """Create a new access request."""
+    def create(self, username: str, claim_token_hash: str, contact_email: Optional[str] = None) -> AccessRequest:
+        """Create a new access request with claim token."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "INSERT INTO access_requests (username) VALUES (?)",
-                (username,)
+                "INSERT INTO access_requests (username, claim_token_hash, contact_email) VALUES (?, ?, ?)",
+                (username, claim_token_hash, contact_email)
             )
             request_id = cursor.lastrowid
             cursor = conn.execute(
@@ -1136,3 +1233,55 @@ class AccessRequestRepository:
                 "SELECT COUNT(*) FROM access_requests WHERE status = 'pending'"
             )
             return cursor.fetchone()[0]
+
+    def get_by_claim_token(self, claim_token_hash: str) -> Optional[AccessRequest]:
+        """Get access request by claim token hash."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM access_requests WHERE claim_token_hash = ?",
+                (claim_token_hash,)
+            )
+            row = cursor.fetchone()
+            return AccessRequest.from_row(row) if row else None
+
+    def store_credentials(
+        self,
+        request_id: int,
+        totp_secret: str,
+        totp_uri: str,
+        backup_codes_json: str
+    ) -> bool:
+        """Store TOTP credentials after approval for later claim."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE access_requests
+                SET totp_secret = ?, totp_uri = ?, backup_codes_json = ?
+                WHERE id = ?
+                """,
+                (totp_secret, totp_uri, backup_codes_json, request_id)
+            )
+            return cursor.rowcount > 0
+
+    def mark_credentials_claimed(self, request_id: int) -> bool:
+        """Mark credentials as claimed (one-time retrieval)."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE access_requests
+                SET credentials_claimed = TRUE
+                WHERE id = ? AND credentials_claimed = FALSE
+                """,
+                (request_id,)
+            )
+            return cursor.rowcount > 0
+
+    def get_pending_by_username_and_token(self, username: str, claim_token_hash: str) -> Optional[AccessRequest]:
+        """Get access request by username and claim token (for status check)."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM access_requests WHERE username = ? AND claim_token_hash = ?",
+                (username, claim_token_hash)
+            )
+            row = cursor.fetchone()
+            return AccessRequest.from_row(row) if row else None

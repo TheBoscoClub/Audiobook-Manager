@@ -46,7 +46,7 @@ class AudiobookLibraryV2 {
      */
     async checkAuth() {
         try {
-            const response = await fetch('/auth/session', {
+            const response = await fetch('/auth/me', {
                 credentials: 'include'
             });
 
@@ -82,6 +82,13 @@ class AudiobookLibraryV2 {
     updateUserUI() {
         const userMenu = document.getElementById('user-menu');
         const loginLink = document.getElementById('login-link');
+        const backOfficeLink = document.getElementById('admin-backoffice-link');
+
+        // Back Office is ONLY shown when we positively confirm user is admin
+        // In all other cases (not logged in, not admin, error, unknown), keep it hidden
+        if (backOfficeLink) {
+            backOfficeLink.hidden = !(this.user && this.user.is_admin);
+        }
 
         if (this.user) {
             // Show user menu, hide login link
@@ -107,7 +114,7 @@ class AudiobookLibraryV2 {
             if (userMenu) userMenu.hidden = true;
             if (loginLink) loginLink.hidden = false;
         } else {
-            // Auth not enabled - hide both
+            // Auth not enabled or unknown state - hide both user elements
             if (userMenu) userMenu.hidden = true;
             if (loginLink) loginLink.hidden = true;
         }

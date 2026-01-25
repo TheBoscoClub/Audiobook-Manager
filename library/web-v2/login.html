@@ -89,6 +89,15 @@
 
             <div id="error-message" class="error-message" hidden></div>
 
+            <!-- Stay logged in option -->
+            <div class="form-group checkbox-group" id="remember-me-group" hidden>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="remember-me" name="remember_me">
+                    <span class="checkbox-text">Stay logged in</span>
+                </label>
+                <span class="field-hint">Keep me logged in on this device until I sign out</span>
+            </div>
+
             <!-- Continue button - first step -->
             <button type="button" class="auth-button" id="continue-button">
                 <span class="button-text">Continue</span>
@@ -279,6 +288,8 @@
         const backToLogin = document.getElementById('back-to-login');
         const backToLoginFromMagic = document.getElementById('back-to-login-from-magic');
         const totpGroup = document.getElementById('totp-group');
+        const rememberMeGroup = document.getElementById('remember-me-group');
+        const rememberMeCheckbox = document.getElementById('remember-me');
         const webauthnGroup = document.getElementById('webauthn-group');
         const webauthnPromptText = document.getElementById('webauthn-prompt-text');
         const changeUsernameLink = document.getElementById('change-username-link');
@@ -311,7 +322,7 @@
         // Check if already logged in
         async function checkSession() {
             try {
-                const response = await fetch(`${API_BASE}/auth/session`, {
+                const response = await fetch(`${API_BASE}/auth/me`, {
                     credentials: 'include'
                 });
                 if (response.ok) {
@@ -388,6 +399,7 @@
                 } else {
                     // TOTP flow
                     totpGroup.hidden = false;
+                    rememberMeGroup.hidden = false;
                     loginButton.hidden = false;
                     changeUsernameLink.hidden = false;
                     document.getElementById('code').required = true;
@@ -398,6 +410,7 @@
                 // (Don't reveal if username exists)
                 currentAuthType = 'totp';
                 totpGroup.hidden = false;
+                rememberMeGroup.hidden = false;
                 continueButton.hidden = true;
                 loginButton.hidden = false;
                 changeUsernameLink.hidden = false;
@@ -455,11 +468,12 @@
                         return;
                     }
 
+                    const remember_me = rememberMeCheckbox.checked;
                     const response = await fetch(`${API_BASE}/auth/login`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
-                        body: JSON.stringify({ username, code })
+                        body: JSON.stringify({ username, code, remember_me })
                     });
 
                     const data = await response.json();
@@ -535,6 +549,7 @@
             document.getElementById('code').value = '';
             document.getElementById('code').required = false;
             totpGroup.hidden = true;
+            rememberMeGroup.hidden = true;
             webauthnGroup.hidden = true;
             changeUsernameLink.hidden = true;
             continueButton.hidden = false;
