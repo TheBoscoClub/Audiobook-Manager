@@ -121,6 +121,37 @@
     opacity: 0.8;
 }
 
+/* Input with edit button wrapper */
+.input-with-edit {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+}
+
+.input-with-edit input {
+    flex: 1;
+    padding-right: 2.5rem;
+}
+
+.edit-input-btn {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--gold);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.edit-input-btn:hover {
+    opacity: 1;
+}
+
 .field-hint {
     display: block;
     font-size: 0.75rem;
