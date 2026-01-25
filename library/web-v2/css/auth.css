@@ -146,10 +146,16 @@
     padding: 0.25rem 0.5rem;
     opacity: 0.7;
     transition: opacity 0.2s;
+    z-index: 10;
+    pointer-events: auto;
 }
 
 .edit-input-btn:hover {
     opacity: 1;
+}
+
+.edit-input-btn.hidden {
+    display: none;
 }
 
 .field-hint {
