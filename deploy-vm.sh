@@ -9,6 +9,7 @@
 #
 # Options:
 #   --host HOST     VM hostname or IP (default: test-vm-cachyos)
+#   --user USER     SSH username (default: testuser)
 #   --target PATH   Remote target path (default: /opt/audiobooks)
 #   --full          Deploy ALL project files (default: only recent changes)
 #   --dry-run       Show what would be deployed without making changes
@@ -39,6 +40,7 @@ VERSION_FILE="${SCRIPT_DIR}/VERSION"
 
 # Defaults
 VM_HOST="test-vm-cachyos"
+VM_USER="testuser"
 REMOTE_TARGET="/opt/audiobooks"
 DRY_RUN=false
 FULL_DEPLOY=false
@@ -95,6 +97,10 @@ while [[ $# -gt 0 ]]; do
             VM_HOST="$2"
             shift 2
             ;;
+        --user)
+            VM_USER="$2"
+            shift 2
+            ;;
         --target)
             REMOTE_TARGET="$2"
             shift 2
@@ -125,13 +131,16 @@ done
 # Main Deployment
 # -----------------------------------------------------------------------------
 
+# Build SSH target from user and host
+SSH_TARGET="${VM_USER}@${VM_HOST}"
+
 print_header
 
 VERSION=$(get_version)
 DEPLOY_MODE="recent changes"
 [[ "$FULL_DEPLOY" == "true" ]] && DEPLOY_MODE="full project"
 
-log_info "Deploying version ${BOLD}$VERSION${NC} to ${BOLD}$VM_HOST:$REMOTE_TARGET${NC}"
+log_info "Deploying version ${BOLD}$VERSION${NC} to ${BOLD}$SSH_TARGET:$REMOTE_TARGET${NC}"
 log_info "Mode: ${BOLD}$DEPLOY_MODE${NC}"
 
 if [[ "$DRY_RUN" == "true" ]]; then
@@ -140,8 +149,8 @@ fi
 
 # Check SSH connectivity
 log_info "Checking SSH connectivity..."
-if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$VM_HOST" "echo 'SSH OK'" &>/dev/null; then
-    log_error "Cannot connect to $VM_HOST via SSH"
+if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$SSH_TARGET" "echo 'SSH OK'" &>/dev/null; then
+    log_error "Cannot connect to $SSH_TARGET via SSH"
     log_info "Make sure SSH agent is running: eval \$(ssh-agent -s) && ssh-add"
     exit 1
 fi
@@ -180,7 +189,7 @@ declare -A QUICK_DEPLOY_FILES=(
 )
 
 deploy_quick() {
-    log_info "Deploying recent changes..."
+    echo -e "${BLUE}[INFO]${NC} Deploying recent changes..." >&2
     local count=0
 
     for src_file in "${!QUICK_DEPLOY_FILES[@]}"; do
@@ -190,11 +199,12 @@ deploy_quick() {
 
         if [[ -f "$full_src" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-                echo "  [DRY-RUN] $src_file -> $VM_HOST:$full_dest"
+                echo "  [DRY-RUN] $src_file -> $SSH_TARGET:$full_dest" >&2
             else
-                ssh "$VM_HOST" "mkdir -p '$full_dest'" 2>/dev/null || true
-                scp -q "$full_src" "$VM_HOST:$full_dest"
-                echo "  $src_file"
+                ssh "$SSH_TARGET" "sudo mkdir -p '$full_dest'" 2>/dev/null || true
+                # Use rsync with sudo for permissions
+                rsync -az --rsync-path="sudo rsync" "$full_src" "$SSH_TARGET:$full_dest"
+                echo "  $src_file" >&2
             fi
             ((count++))
         fi
@@ -204,7 +214,7 @@ deploy_quick() {
 }
 
 deploy_full() {
-    log_info "Deploying full project..."
+    echo -e "${BLUE}[INFO]${NC} Deploying full project..." >&2
     local count=0
 
     # Directories to sync
@@ -232,23 +242,27 @@ deploy_full() {
 
         if [[ -d "$src_dir" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-                echo "  [DRY-RUN] $dir/ -> $VM_HOST:$dest_dir/"
+                echo "  [DRY-RUN] $dir/ -> $SSH_TARGET:$dest_dir/" >&2
                 # Count files for dry-run
                 local dir_count=$(find "$src_dir" -type f | wc -l)
                 ((count += dir_count))
             else
-                ssh "$VM_HOST" "mkdir -p '$dest_dir'" 2>/dev/null || true
-                # Use rsync if available, fallback to scp
+                ssh "$SSH_TARGET" "sudo mkdir -p '$dest_dir'" 2>/dev/null || true
+                # Use rsync with sudo for permissions
                 if command -v rsync &>/dev/null; then
-                    rsync -az --delete \
+                    rsync -az --delete --rsync-path="sudo rsync" \
                         --exclude='__pycache__' \
                         --exclude='*.pyc' \
                         --exclude='.pytest_cache' \
                         --exclude='*.db' \
                         --exclude='*.log' \
-                        "$src_dir/" "$VM_HOST:$dest_dir/"
+                        "$src_dir/" "$SSH_TARGET:$dest_dir/"
                 else
-                    scp -rq "$src_dir/"* "$VM_HOST:$dest_dir/"
+                    # Fallback: copy to temp, then sudo mv
+                    local tmp_dir="/tmp/audiobook-deploy-$$"
+                    ssh "$SSH_TARGET" "mkdir -p '$tmp_dir'"
+                    scp -rq "$src_dir/"* "$SSH_TARGET:$tmp_dir/"
+                    ssh "$SSH_TARGET" "sudo cp -r '$tmp_dir/'* '$dest_dir/' && rm -rf '$tmp_dir'"
                 fi
                 local dir_count=$(find "$src_dir" -type f \
                     ! -name '*.pyc' \
@@ -257,7 +271,7 @@ deploy_full() {
                     ! -name '*.db' \
                     ! -name '*.log' | wc -l)
                 ((count += dir_count))
-                echo "  $dir/ ($dir_count files)"
+                echo "  $dir/ ($dir_count files)" >&2
             fi
         fi
     done
@@ -267,10 +281,10 @@ deploy_full() {
         local src_file="${SCRIPT_DIR}/${file}"
         if [[ -f "$src_file" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-                echo "  [DRY-RUN] $file -> $VM_HOST:$REMOTE_TARGET/"
+                echo "  [DRY-RUN] $file -> $SSH_TARGET:$REMOTE_TARGET/" >&2
             else
-                scp -q "$src_file" "$VM_HOST:$REMOTE_TARGET/"
-                echo "  $file"
+                rsync -az --rsync-path="sudo rsync" "$src_file" "$SSH_TARGET:$REMOTE_TARGET/"
+                echo "  $file" >&2
             fi
             ((count++))
         fi
@@ -294,7 +308,7 @@ if [[ "$RESTART_SERVICES" == "true" ]]; then
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "  [DRY-RUN] Would restart audiobook-api service"
     else
-        ssh "$VM_HOST" "sudo systemctl restart audiobook-api" 2>/dev/null || {
+        ssh "$SSH_TARGET" "sudo systemctl restart audiobook-api" 2>/dev/null || {
             log_warning "Could not restart audiobook-api (may need sudo password)"
         }
         log_success "Services restarted"
@@ -305,7 +319,7 @@ fi
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}Deployment complete!${NC}"
-echo -e "  Host:    ${BOLD}$VM_HOST${NC}"
+echo -e "  Host:    ${BOLD}$SSH_TARGET${NC}"
 echo -e "  Target:  ${BOLD}$REMOTE_TARGET${NC}"
 echo -e "  Version: ${BOLD}$VERSION${NC}"
 echo -e "  Mode:    ${BOLD}$DEPLOY_MODE${NC}"
