@@ -10,14 +10,16 @@
 # Options:
 #   --host HOST     VM hostname or IP (default: test-vm-cachyos)
 #   --target PATH   Remote target path (default: /opt/audiobooks)
+#   --full          Deploy ALL project files (default: only recent changes)
 #   --dry-run       Show what would be deployed without making changes
 #   --restart       Restart services after deployment
 #   --help          Show this help message
 #
 # Examples:
-#   ./deploy-vm.sh                              # Deploy to test-vm-cachyos
+#   ./deploy-vm.sh                              # Deploy recent changes only
+#   ./deploy-vm.sh --full                       # Deploy entire project
+#   ./deploy-vm.sh --full --restart             # Full deploy and restart
 #   ./deploy-vm.sh --host 192.168.122.100       # Deploy to specific IP
-#   ./deploy-vm.sh --restart                    # Deploy and restart services
 # =============================================================================
 
 set -e
@@ -39,6 +41,7 @@ VERSION_FILE="${SCRIPT_DIR}/VERSION"
 VM_HOST="test-vm-cachyos"
 REMOTE_TARGET="/opt/audiobooks"
 DRY_RUN=false
+FULL_DEPLOY=false
 RESTART_SERVICES=false
 
 # -----------------------------------------------------------------------------
@@ -78,7 +81,7 @@ log_error() {
 }
 
 show_help() {
-    head -25 "$0" | tail -20
+    head -27 "$0" | tail -22
     exit 0
 }
 
@@ -95,6 +98,10 @@ while [[ $# -gt 0 ]]; do
         --target)
             REMOTE_TARGET="$2"
             shift 2
+            ;;
+        --full)
+            FULL_DEPLOY=true
+            shift
             ;;
         --dry-run)
             DRY_RUN=true
@@ -121,7 +128,11 @@ done
 print_header
 
 VERSION=$(get_version)
+DEPLOY_MODE="recent changes"
+[[ "$FULL_DEPLOY" == "true" ]] && DEPLOY_MODE="full project"
+
 log_info "Deploying version ${BOLD}$VERSION${NC} to ${BOLD}$VM_HOST:$REMOTE_TARGET${NC}"
+log_info "Mode: ${BOLD}$DEPLOY_MODE${NC}"
 
 if [[ "$DRY_RUN" == "true" ]]; then
     log_warning "DRY RUN MODE - No changes will be made"
@@ -136,19 +147,26 @@ if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$VM_HOST" "echo 'SSH OK'" &>/dev/
 fi
 log_success "SSH connection OK"
 
-# Define files to deploy
-declare -A DEPLOY_FILES=(
+# -----------------------------------------------------------------------------
+# Define Files to Deploy
+# -----------------------------------------------------------------------------
+
+# Recent changes only (default) - auth/user management work
+declare -A QUICK_DEPLOY_FILES=(
     # Backend
     ["library/auth/models.py"]="library/auth/"
+    ["library/auth/database.py"]="library/auth/"
+    ["library/auth/__init__.py"]="library/auth/"
     ["library/backend/api_modular/auth.py"]="library/backend/api_modular/"
 
-    # Web frontend
+    # Web frontend HTML
     ["library/web-v2/index.html"]="library/web-v2/"
     ["library/web-v2/login.html"]="library/web-v2/"
     ["library/web-v2/register.html"]="library/web-v2/"
     ["library/web-v2/claim.html"]="library/web-v2/"
     ["library/web-v2/utilities.html"]="library/web-v2/"
     ["library/web-v2/admin.html"]="library/web-v2/"
+    ["library/web-v2/contact.html"]="library/web-v2/"
 
     # JavaScript
     ["library/web-v2/js/library.js"]="library/web-v2/js/"
@@ -157,31 +175,116 @@ declare -A DEPLOY_FILES=(
     # CSS
     ["library/web-v2/css/auth.css"]="library/web-v2/css/"
     ["library/web-v2/css/utilities.css"]="library/web-v2/css/"
+    ["library/web-v2/css/library.css"]="library/web-v2/css/"
+    ["library/web-v2/css/notifications.css"]="library/web-v2/css/"
 )
 
-# Deploy files
-log_info "Deploying files..."
-DEPLOY_COUNT=0
+deploy_quick() {
+    log_info "Deploying recent changes..."
+    local count=0
 
-for src_file in "${!DEPLOY_FILES[@]}"; do
-    dest_dir="${DEPLOY_FILES[$src_file]}"
-    full_src="${SCRIPT_DIR}/${src_file}"
-    full_dest="${REMOTE_TARGET}/${dest_dir}"
+    for src_file in "${!QUICK_DEPLOY_FILES[@]}"; do
+        dest_dir="${QUICK_DEPLOY_FILES[$src_file]}"
+        full_src="${SCRIPT_DIR}/${src_file}"
+        full_dest="${REMOTE_TARGET}/${dest_dir}"
 
-    if [[ -f "$full_src" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            echo "  [DRY-RUN] $src_file -> $VM_HOST:$full_dest"
-        else
-            # Ensure remote directory exists
-            ssh "$VM_HOST" "mkdir -p '$full_dest'" 2>/dev/null || true
-            scp -q "$full_src" "$VM_HOST:$full_dest"
-            echo "  $src_file -> $full_dest"
+        if [[ -f "$full_src" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] $src_file -> $VM_HOST:$full_dest"
+            else
+                ssh "$VM_HOST" "mkdir -p '$full_dest'" 2>/dev/null || true
+                scp -q "$full_src" "$VM_HOST:$full_dest"
+                echo "  $src_file"
+            fi
+            ((count++))
         fi
-        ((DEPLOY_COUNT++))
-    else
-        log_warning "File not found: $src_file"
-    fi
-done
+    done
+
+    echo "$count"
+}
+
+deploy_full() {
+    log_info "Deploying full project..."
+    local count=0
+
+    # Directories to sync
+    local SYNC_DIRS=(
+        "library/auth"
+        "library/backend"
+        "library/scanner"
+        "library/web-v2"
+        "library/tests"
+        "scripts"
+        "lib"
+    )
+
+    # Individual files in root
+    local ROOT_FILES=(
+        "VERSION"
+        "requirements.txt"
+        "config.env.example"
+    )
+
+    # Sync directories using rsync for efficiency
+    for dir in "${SYNC_DIRS[@]}"; do
+        local src_dir="${SCRIPT_DIR}/${dir}"
+        local dest_dir="${REMOTE_TARGET}/${dir}"
+
+        if [[ -d "$src_dir" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] $dir/ -> $VM_HOST:$dest_dir/"
+                # Count files for dry-run
+                local dir_count=$(find "$src_dir" -type f | wc -l)
+                ((count += dir_count))
+            else
+                ssh "$VM_HOST" "mkdir -p '$dest_dir'" 2>/dev/null || true
+                # Use rsync if available, fallback to scp
+                if command -v rsync &>/dev/null; then
+                    rsync -az --delete \
+                        --exclude='__pycache__' \
+                        --exclude='*.pyc' \
+                        --exclude='.pytest_cache' \
+                        --exclude='*.db' \
+                        --exclude='*.log' \
+                        "$src_dir/" "$VM_HOST:$dest_dir/"
+                else
+                    scp -rq "$src_dir/"* "$VM_HOST:$dest_dir/"
+                fi
+                local dir_count=$(find "$src_dir" -type f \
+                    ! -name '*.pyc' \
+                    ! -path '*__pycache__*' \
+                    ! -path '*.pytest_cache*' \
+                    ! -name '*.db' \
+                    ! -name '*.log' | wc -l)
+                ((count += dir_count))
+                echo "  $dir/ ($dir_count files)"
+            fi
+        fi
+    done
+
+    # Copy root files
+    for file in "${ROOT_FILES[@]}"; do
+        local src_file="${SCRIPT_DIR}/${file}"
+        if [[ -f "$src_file" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] $file -> $VM_HOST:$REMOTE_TARGET/"
+            else
+                scp -q "$src_file" "$VM_HOST:$REMOTE_TARGET/"
+                echo "  $file"
+            fi
+            ((count++))
+        fi
+    done
+
+    echo "$count"
+}
+
+# Execute deployment
+if [[ "$FULL_DEPLOY" == "true" ]]; then
+    DEPLOY_COUNT=$(deploy_full)
+else
+    DEPLOY_COUNT=$(deploy_quick)
+fi
 
 log_success "Deployed $DEPLOY_COUNT files"
 
@@ -205,6 +308,7 @@ echo -e "${GREEN}Deployment complete!${NC}"
 echo -e "  Host:    ${BOLD}$VM_HOST${NC}"
 echo -e "  Target:  ${BOLD}$REMOTE_TARGET${NC}"
 echo -e "  Version: ${BOLD}$VERSION${NC}"
+echo -e "  Mode:    ${BOLD}$DEPLOY_MODE${NC}"
 echo -e "  Files:   ${BOLD}$DEPLOY_COUNT${NC}"
 if [[ "$RESTART_SERVICES" == "false" ]]; then
     echo ""
