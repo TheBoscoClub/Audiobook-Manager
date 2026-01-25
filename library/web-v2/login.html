@@ -34,7 +34,7 @@
                            autocapitalize="none"
                            spellcheck="false"
                            required>
-                    <button type="button" id="edit-username-btn" class="edit-input-btn" hidden title="Edit username">✎</button>
+                    <button type="button" id="edit-username-btn" class="edit-input-btn hidden" title="Edit username">✎</button>
                 </div>
                 <div id="username-help" class="help-tooltip" hidden>
                     <div class="help-content">
@@ -300,20 +300,37 @@
         const editUsernameBtn = document.getElementById('edit-username-btn');
         const usernameInput = document.getElementById('username');
 
-        // Edit username button - allows inline editing when field is readonly
-        if (editUsernameBtn) {
-            editUsernameBtn.addEventListener('click', () => {
+        // Edit username - click on readonly input or edit button to enable editing
+        function enableUsernameEdit() {
+            if (usernameInput.readOnly) {
                 usernameInput.readOnly = false;
-                editUsernameBtn.hidden = true;
+                if (editUsernameBtn) editUsernameBtn.classList.add('hidden');
                 usernameInput.focus();
                 usernameInput.select();
+            }
+        }
+
+        if (editUsernameBtn) {
+            editUsernameBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                enableUsernameEdit();
             });
         }
+
+        // Also allow clicking on the readonly input itself to edit
+        usernameInput.addEventListener('click', () => {
+            enableUsernameEdit();
+        });
 
         // Helper to update edit button visibility based on readonly state
         function updateEditButtonVisibility() {
             if (editUsernameBtn) {
-                editUsernameBtn.hidden = !usernameInput.readOnly;
+                if (usernameInput.readOnly) {
+                    editUsernameBtn.classList.remove('hidden');
+                } else {
+                    editUsernameBtn.classList.add('hidden');
+                }
             }
         }
 
