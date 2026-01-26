@@ -339,3 +339,5 @@ rnd/ui-test-logs/
 .claude-checkpoint-notes.md
 .claude-checkpoint-update.sh
 .claude-checkpoint.log
+.claude-checkpoint
+.claude-checkpoint.pid

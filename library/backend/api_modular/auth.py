@@ -660,13 +660,13 @@ def start_registration():
     return jsonify(response_data)
 
 
-@auth_bp.route("/register/claim", methods=["POST"])
-def claim_credentials():
+@auth_bp.route("/register/claim/validate", methods=["POST"])
+def validate_claim_token():
     """
-    Claim credentials using the claim token after admin approval.
+    Validate a claim token and return the approval status.
 
-    This is a one-time operation. Once credentials are claimed, the user
-    can log in with their TOTP authenticator.
+    This is the first step in the claim flow - validate the token
+    before presenting auth method options to the user.
 
     Request body:
         {
@@ -676,19 +676,13 @@ def claim_credentials():
 
     Returns:
         200: {
-            "success": true,
-            "totp_secret": "...",      // Base32 secret
-            "totp_uri": "...",         // Provisioning URI
-            "totp_qr": "...",          // Base64 PNG QR code
-            "backup_codes": [...],
-            "message": "..."
+            "valid": true,
+            "status": "approved",
+            "username": "..."
         }
-        400: {"error": "..."} - Invalid token or already claimed
-        404: {"error": "..."} - Request not found
+        400: {"valid": false, "status": "pending|denied|already_claimed", "error": "..."}
+        404: {"valid": false, "error": "Invalid username or claim token"}
     """
-    import base64
-    import json as json_module
-
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body required"}), 400
@@ -704,6 +698,96 @@ def claim_credentials():
 
     db = get_auth_db()
     request_repo = AccessRequestRepository(db)
+    user_repo = UserRepository(db)
+
+    # Hash the token for lookup
+    claim_token_hash = hash_token(clean_token)
+
+    # Find the access request
+    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    if not access_req:
+        return jsonify({"valid": False, "error": "Invalid username or claim token"}), 404
+
+    # Check status
+    if access_req.status == AccessRequestStatus.PENDING:
+        return jsonify({
+            "valid": False,
+            "status": "pending",
+            "error": "Your request is still pending admin review"
+        }), 400
+
+    if access_req.status == AccessRequestStatus.DENIED:
+        return jsonify({
+            "valid": False,
+            "status": "denied",
+            "error": access_req.deny_reason or "Your request was denied"
+        }), 400
+
+    # Check if already claimed (user already exists)
+    if access_req.credentials_claimed or user_repo.username_exists(username):
+        return jsonify({
+            "valid": False,
+            "status": "already_claimed",
+            "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page."
+        }), 400
+
+    # Token is valid and approved
+    return jsonify({
+        "valid": True,
+        "status": "approved",
+        "username": access_req.username
+    })
+
+
+@auth_bp.route("/register/claim", methods=["POST"])
+def claim_credentials():
+    """
+    Claim credentials using TOTP authentication method.
+
+    Creates the user account with TOTP as the auth method.
+    For passkey/FIDO2, use the /register/claim/webauthn endpoints.
+
+    Request body:
+        {
+            "username": "string",
+            "claim_token": "XXXX-XXXX-XXXX-XXXX",
+            "recovery_email": "optional",
+            "recovery_phone": "optional"
+        }
+
+    Returns:
+        200: {
+            "success": true,
+            "totp_secret": "...",
+            "totp_uri": "...",
+            "totp_qr": "...",
+            "backup_codes": [...],
+            "message": "..."
+        }
+        400: {"error": "..."} - Invalid token or already claimed
+        404: {"error": "..."} - Request not found
+    """
+    import base64
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    claim_token = data.get("claim_token", "").strip()
+    recovery_email = data.get("recovery_email", "").strip() or None
+    recovery_phone = data.get("recovery_phone", "").strip() or None
+    recovery_enabled = bool(recovery_email or recovery_phone)
+
+    if not username or not claim_token:
+        return jsonify({"error": "Username and claim_token are required"}), 400
+
+    # Remove dashes from token if formatted
+    clean_token = claim_token.replace("-", "")
+
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+    user_repo = UserRepository(db)
 
     # Hash the token for lookup
     claim_token_hash = hash_token(clean_token)
@@ -727,41 +811,48 @@ def claim_credentials():
         }), 400
 
     # Check if already claimed
-    if access_req.credentials_claimed:
+    if access_req.credentials_claimed or user_repo.username_exists(username):
         return jsonify({
             "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page.",
             "status": "already_claimed"
         }), 400
 
-    # Check credentials are available
-    if not access_req.totp_secret or not access_req.totp_uri:
-        return jsonify({
-            "error": "Credentials not yet generated. Please contact the admin.",
-            "status": "no_credentials"
-        }), 400
+    # Create TOTP credentials and user account
+    totp_secret, totp_base32, totp_uri = setup_totp(username)
 
-    # Mark as claimed (one-time retrieval)
+    # Create the user with TOTP
+    new_user = User(
+        username=username,
+        auth_type=AuthType.TOTP,
+        auth_credential=totp_secret,
+        can_download=True,
+        is_admin=False,
+        recovery_email=recovery_email,
+        recovery_phone=recovery_phone,
+        recovery_enabled=recovery_enabled,
+    )
+    new_user.save(db)
+
+    # Generate backup codes
+    backup_repo = BackupCodeRepository(db)
+    backup_codes = backup_repo.create_codes_for_user(new_user.id)
+    backup_codes_formatted = format_codes_for_display(backup_codes)
+
+    # Mark as claimed
     request_repo.mark_credentials_claimed(access_req.id)
 
-    # Parse backup codes from JSON
-    backup_codes = []
-    if access_req.backup_codes_json:
-        try:
-            backup_codes = json_module.loads(access_req.backup_codes_json)
-        except json_module.JSONDecodeError:
-            backup_codes = []
-
-    # Generate QR code (convert base32 string back to bytes)
-    qr_png = generate_qr_code(base32_to_secret(access_req.totp_secret), access_req.username)
+    # Generate QR code
+    qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
     qr_base64 = base64.b64encode(qr_png).decode('ascii')
 
     return jsonify({
         "success": True,
-        "username": access_req.username,
-        "totp_secret": access_req.totp_secret,
-        "totp_uri": access_req.totp_uri,
+        "username": username,
+        "totp_secret": totp_base32,
+        "totp_uri": totp_uri,
         "totp_qr": qr_base64,
-        "backup_codes": backup_codes,
+        "backup_codes": backup_codes_formatted,
+        "recovery_enabled": recovery_enabled,
         "message": (
             "Your account is ready! Set up your authenticator app using the QR code or "
             "manual entry, then log in with your 6-digit code. Save your backup codes securely."
@@ -771,6 +862,217 @@ def claim_credentials():
             "recover your account if you lose your authenticator device."
         )
     })
+
+
+@auth_bp.route("/register/claim/webauthn/begin", methods=["POST"])
+def claim_webauthn_begin():
+    """
+    Start WebAuthn registration for claim flow.
+
+    Request body:
+        {
+            "username": "string",
+            "claim_token": "XXXX-XXXX-XXXX-XXXX",
+            "auth_type": "passkey" | "fido2"
+        }
+
+    Returns:
+        200: {
+            "options": {...},
+            "challenge": "..."
+        }
+        400: {"error": "..."}
+    """
+    from webauthn.helpers import bytes_to_base64url
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    claim_token = data.get("claim_token", "").strip()
+    auth_type = data.get("auth_type", "passkey").strip().lower()
+
+    if not username or not claim_token:
+        return jsonify({"error": "Username and claim_token are required"}), 400
+
+    if auth_type not in ("passkey", "fido2"):
+        return jsonify({"error": "Invalid auth type. Use 'passkey' or 'fido2'."}), 400
+
+    # Remove dashes from token if formatted
+    clean_token = claim_token.replace("-", "")
+
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+    user_repo = UserRepository(db)
+
+    # Hash the token for lookup
+    claim_token_hash = hash_token(clean_token)
+
+    # Find and validate the access request
+    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    if not access_req:
+        return jsonify({"error": "Invalid username or claim token"}), 400
+
+    if access_req.status != AccessRequestStatus.APPROVED:
+        return jsonify({"error": "Request not approved"}), 400
+
+    if access_req.credentials_claimed or user_repo.username_exists(username):
+        return jsonify({"error": "Credentials already claimed"}), 400
+
+    # Get WebAuthn configuration
+    rp_id, rp_name, _ = get_webauthn_config()
+
+    # Determine authenticator type
+    authenticator_type = "platform" if auth_type == "passkey" else "cross-platform"
+
+    # Generate registration options
+    options_json, challenge = webauthn_registration_options(
+        username=username,
+        rp_id=rp_id,
+        rp_name=rp_name,
+        authenticator_type=authenticator_type,
+    )
+
+    return jsonify({
+        "options": options_json,
+        "challenge": bytes_to_base64url(challenge),
+    })
+
+
+@auth_bp.route("/register/claim/webauthn/complete", methods=["POST"])
+def claim_webauthn_complete():
+    """
+    Complete WebAuthn registration for claim flow.
+
+    Request body:
+        {
+            "username": "string",
+            "claim_token": "XXXX-XXXX-XXXX-XXXX",
+            "credential": {...},
+            "challenge": "...",
+            "auth_type": "passkey" | "fido2",
+            "recovery_email": "optional",
+            "recovery_phone": "optional"
+        }
+
+    Returns:
+        200: {
+            "success": true,
+            "username": "...",
+            "backup_codes": [...]
+        }
+        400: {"error": "..."}
+    """
+    from webauthn.helpers import base64url_to_bytes
+    import json
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    username = data.get("username", "").strip()
+    claim_token = data.get("claim_token", "").strip()
+    credential = data.get("credential")
+    challenge_b64 = data.get("challenge", "").strip()
+    auth_type = data.get("auth_type", "passkey").strip().lower()
+    recovery_email = data.get("recovery_email", "").strip() or None
+    recovery_phone = data.get("recovery_phone", "").strip() or None
+    recovery_enabled = bool(recovery_email or recovery_phone)
+
+    if not username or not claim_token or not credential or not challenge_b64:
+        return jsonify({"error": "Username, claim_token, credential, and challenge are required"}), 400
+
+    if auth_type not in ("passkey", "fido2"):
+        return jsonify({"error": "Invalid auth type"}), 400
+
+    # Remove dashes from token if formatted
+    clean_token = claim_token.replace("-", "")
+
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+    user_repo = UserRepository(db)
+
+    # Hash the token for lookup
+    claim_token_hash = hash_token(clean_token)
+
+    # Find and validate the access request
+    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    if not access_req:
+        return jsonify({"error": "Invalid username or claim token"}), 400
+
+    if access_req.status != AccessRequestStatus.APPROVED:
+        return jsonify({"error": "Request not approved"}), 400
+
+    if access_req.credentials_claimed or user_repo.username_exists(username):
+        return jsonify({"error": "Credentials already claimed"}), 400
+
+    # Get WebAuthn configuration
+    rp_id, _, origin = get_webauthn_config()
+
+    # Decode challenge
+    try:
+        challenge = base64url_to_bytes(challenge_b64)
+    except Exception:
+        return jsonify({"error": "Invalid challenge format"}), 400
+
+    # Convert credential to JSON string if it's a dict
+    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
+
+    # Verify registration
+    webauthn_cred = webauthn_verify_registration(
+        credential_json=credential_json,
+        expected_challenge=challenge,
+        expected_origin=origin,
+        expected_rp_id=rp_id,
+    )
+
+    if webauthn_cred is None:
+        return jsonify({"error": "WebAuthn verification failed"}), 400
+
+    # Create user with WebAuthn credential
+    new_user = User(
+        username=username,
+        auth_type=AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2,
+        auth_credential=webauthn_cred.to_json().encode("utf-8"),
+        can_download=True,
+        is_admin=False,
+        recovery_email=recovery_email,
+        recovery_phone=recovery_phone,
+        recovery_enabled=recovery_enabled,
+    )
+    new_user.save(db)
+
+    # Generate backup codes
+    backup_repo = BackupCodeRepository(db)
+    backup_codes = backup_repo.create_codes_for_user(new_user.id)
+
+    # Mark as claimed
+    request_repo.mark_credentials_claimed(access_req.id)
+
+    # Build response
+    response_data = {
+        "success": True,
+        "username": username,
+        "user_id": new_user.id,
+        "backup_codes": backup_codes,
+        "recovery_enabled": recovery_enabled,
+        "message": f"Account created successfully with {auth_type} authentication.",
+    }
+
+    if recovery_enabled:
+        response_data["warning"] = (
+            "Save your backup codes in a safe place. You can also recover your account "
+            "using your registered email/phone if you lose your passkey."
+        )
+    else:
+        response_data["warning"] = (
+            "IMPORTANT: Save these backup codes in a safe place! Without stored contact "
+            "information, these codes are your ONLY way to recover your account if you "
+            "lose your passkey. Each code can only be used once."
+        )
+
+    return jsonify(response_data)
 
 
 @auth_bp.route("/register/status", methods=["POST"])
@@ -2635,18 +2937,19 @@ def list_access_requests():
 @admin_required
 def approve_access_request(request_id: int):
     """
-    Approve an access request, create the user, and store credentials for claim.
+    Approve an access request. User creation is deferred to claim time.
+
+    This allows users to choose their preferred authentication method
+    (TOTP, Passkey, or FIDO2 security key) when they claim their credentials.
 
     The user can retrieve their credentials using their claim token.
     If they provided an email, a notification email is sent.
 
     Returns:
-        200: {"success": true, "user": {...}, "email_sent": bool}
+        200: {"success": true, "username": "...", "email_sent": bool}
         400: {"error": "..."}
         404: {"error": "Request not found"}
     """
-    import json as json_module
-
     db = get_auth_db()
     request_repo = AccessRequestRepository(db)
     user_repo = UserRepository(db)
@@ -2667,34 +2970,8 @@ def approve_access_request(request_id: int):
     admin_user = get_current_user()
     admin_username = admin_user.username if admin_user else "system"
 
-    # Create TOTP secret for the new user
-    totp_secret, totp_base32, totp_uri = setup_totp(access_req.username)
-
-    # Create the user
-    new_user = User(
-        username=access_req.username,
-        auth_type=AuthType.TOTP,
-        auth_credential=totp_secret,
-        can_download=True,
-        is_admin=False,
-    )
-    new_user.save(db)
-    created_user = new_user
-
-    # Generate backup codes for the user
-    backup_repo = BackupCodeRepository(db)
-    codes = backup_repo.create_codes_for_user(created_user.id)
-    codes_formatted = format_codes_for_display(codes)
-
-    # Store credentials in access_request for claim retrieval
-    request_repo.store_credentials(
-        request_id,
-        totp_base32,
-        totp_uri,
-        json_module.dumps(codes_formatted)
-    )
-
-    # Mark request as approved
+    # Mark request as approved (user creation deferred to claim time)
+    # This allows the user to choose their auth method when claiming
     request_repo.approve(request_id, admin_username)
 
     # Send email notification if user provided email
@@ -2707,15 +2984,10 @@ def approve_access_request(request_id: int):
 
     return jsonify({
         "success": True,
-        "user": {
-            "id": created_user.id,
-            "username": created_user.username,
-            "is_admin": created_user.is_admin,
-            "can_download": created_user.can_download,
-        },
+        "username": access_req.username,
         "email_sent": email_sent,
         "message": (
-            f"User '{access_req.username}' approved. "
+            f"Access request for '{access_req.username}' approved. "
             + ("Email notification sent." if email_sent else "User can claim credentials with their token.")
         ),
     })
