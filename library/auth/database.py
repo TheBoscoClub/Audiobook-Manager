@@ -327,6 +327,7 @@ def generate_verification_token() -> tuple[str, str]:
     Returns:
         Tuple of (raw_token, token_hash)
     """
-    raw_token = secrets.token_urlsafe(32)
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    raw_token = "".join(secrets.choice(alphabet) for _ in range(32))
     token_hash = hash_token(raw_token)
     return raw_token, token_hash

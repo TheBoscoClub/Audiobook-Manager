@@ -24,7 +24,11 @@ from webauthn import (
     options_to_json,
     base64url_to_bytes,
 )
-from webauthn.helpers import bytes_to_base64url
+from webauthn.helpers import (
+    bytes_to_base64url,
+    parse_registration_credential_json,
+    parse_authentication_credential_json,
+)
 from webauthn.helpers.cose import COSEAlgorithmIdentifier
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
@@ -132,10 +136,20 @@ def create_registration_options(
     webauthn_user_id = secrets.token_bytes(32)
 
     # Set authenticator attachment based on type
-    if authenticator_type == "platform":
-        attachment = AuthenticatorAttachment.PLATFORM
+    # "platform" (passkey): no restriction — let browser offer all options
+    #   (phone, password manager, built-in biometrics, etc.)
+    # "cross-platform" (FIDO2): restrict to hardware security keys
+    if authenticator_type == "cross-platform":
+        authenticator_selection = AuthenticatorSelectionCriteria(
+            authenticator_attachment=AuthenticatorAttachment.CROSS_PLATFORM,
+            resident_key=ResidentKeyRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        )
     else:
-        attachment = AuthenticatorAttachment.CROSS_PLATFORM
+        authenticator_selection = AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        )
 
     # Build exclude list from existing credentials
     exclude_list = []
@@ -150,11 +164,7 @@ def create_registration_options(
         user_name=username,
         user_display_name=username,
         attestation=AttestationConveyancePreference.NONE,  # Don't need attestation for our use case
-        authenticator_selection=AuthenticatorSelectionCriteria(
-            authenticator_attachment=attachment,
-            resident_key=ResidentKeyRequirement.PREFERRED,
-            user_verification=UserVerificationRequirement.REQUIRED,
-        ),
+        authenticator_selection=authenticator_selection,
         exclude_credentials=exclude_list if exclude_list else None,
         supported_pub_key_algs=[
             COSEAlgorithmIdentifier.ECDSA_SHA_256,
@@ -208,7 +218,7 @@ def verify_registration(
 
     try:
         # Parse the credential JSON
-        credential = RegistrationCredential.model_validate_json(credential_json)
+        credential = parse_registration_credential_json(credential_json)
 
         verification = verify_registration_response(
             credential=credential,
@@ -235,8 +245,10 @@ def verify_registration(
         )
 
     except Exception as e:
-        # Log but don't expose error details
-        print(f"WebAuthn registration verification failed: {type(e).__name__}")
+        # Log full error for debugging
+        import traceback
+        print(f"WebAuthn registration verification failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return None
 
 
@@ -318,7 +330,7 @@ def verify_authentication(
 
     try:
         # Parse the credential JSON
-        credential = AuthenticationCredential.model_validate_json(credential_json)
+        credential = parse_authentication_credential_json(credential_json)
 
         verification = verify_authentication_response(
             credential=credential,

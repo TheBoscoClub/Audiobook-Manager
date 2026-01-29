@@ -775,8 +775,8 @@ def claim_credentials():
 
     username = data.get("username", "").strip()
     claim_token = data.get("claim_token", "").strip()
-    recovery_email = data.get("recovery_email", "").strip() or None
-    recovery_phone = data.get("recovery_phone", "").strip() or None
+    recovery_email = (data.get("recovery_email") or "").strip() or None
+    recovery_phone = (data.get("recovery_phone") or "").strip() or None
     recovery_enabled = bool(recovery_email or recovery_phone)
 
     if not username or not claim_token:
@@ -851,7 +851,7 @@ def claim_credentials():
         "totp_secret": totp_base32,
         "totp_uri": totp_uri,
         "totp_qr": qr_base64,
-        "backup_codes": backup_codes_formatted,
+        "backup_codes": backup_codes,
         "recovery_enabled": recovery_enabled,
         "message": (
             "Your account is ready! Set up your authenticator app using the QR code or "
@@ -976,8 +976,8 @@ def claim_webauthn_complete():
     credential = data.get("credential")
     challenge_b64 = data.get("challenge", "").strip()
     auth_type = data.get("auth_type", "passkey").strip().lower()
-    recovery_email = data.get("recovery_email", "").strip() or None
-    recovery_phone = data.get("recovery_phone", "").strip() or None
+    recovery_email = (data.get("recovery_email") or "").strip() or None
+    recovery_phone = (data.get("recovery_phone") or "").strip() or None
     recovery_enabled = bool(recovery_email or recovery_phone)
 
     if not username or not claim_token or not credential or not challenge_b64:
@@ -1050,6 +1050,15 @@ def claim_webauthn_complete():
     # Mark as claimed
     request_repo.mark_credentials_claimed(access_req.id)
 
+    # Create session so user is logged in immediately after claiming
+    session, token = Session.create_for_user(
+        db,
+        new_user.id,
+        user_agent=request.headers.get("User-Agent"),
+        ip_address=request.remote_addr,
+    )
+    new_user.update_last_login(db)
+
     # Build response
     response_data = {
         "success": True,
@@ -1072,7 +1081,8 @@ def claim_webauthn_complete():
             "lose your passkey. Each code can only be used once."
         )
 
-    return jsonify(response_data)
+    response = jsonify(response_data)
+    return set_session_cookie(response, token)
 
 
 @auth_bp.route("/register/status", methods=["POST"])
@@ -1171,8 +1181,8 @@ def verify_registration():
     include_qr = data.get("include_qr", False)
 
     # Recovery preferences (optional)
-    recovery_email = data.get("recovery_email", "").strip() or None
-    recovery_phone = data.get("recovery_phone", "").strip() or None
+    recovery_email = (data.get("recovery_email") or "").strip() or None
+    recovery_phone = (data.get("recovery_phone") or "").strip() or None
     recovery_enabled = bool(recovery_email or recovery_phone)
 
     if not token:
@@ -1366,8 +1376,8 @@ def register_webauthn_complete():
     auth_type = data.get("auth_type", "passkey").strip().lower()
 
     # Recovery preferences
-    recovery_email = data.get("recovery_email", "").strip() or None
-    recovery_phone = data.get("recovery_phone", "").strip() or None
+    recovery_email = (data.get("recovery_email") or "").strip() or None
+    recovery_phone = (data.get("recovery_phone") or "").strip() or None
     recovery_enabled = bool(recovery_email or recovery_phone)
 
     if not token or not credential or not challenge_b64:

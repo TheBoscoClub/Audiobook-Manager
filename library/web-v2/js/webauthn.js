@@ -180,7 +180,7 @@ const WebAuthn = {
      * @returns {Promise<Object>} - Result with challenge for completion
      */
     async startRegistration(token, authType = 'passkey') {
-        const response = await fetch('/api/auth/register/webauthn/begin', {
+        const response = await fetch('/auth/register/webauthn/begin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token, auth_type: authType })
@@ -231,7 +231,7 @@ const WebAuthn = {
         const encodedCredential = this.encodeRegistrationCredential(credential);
 
         // Send to server for verification
-        const response = await fetch('/api/auth/register/webauthn/complete', {
+        const response = await fetch('/auth/register/webauthn/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -273,7 +273,7 @@ const WebAuthn = {
      * @returns {Promise<Object>} - Result with challenge for completion
      */
     async startAuthentication(username) {
-        const response = await fetch('/api/auth/login/webauthn/begin', {
+        const response = await fetch('/auth/login/webauthn/begin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username })
@@ -318,7 +318,7 @@ const WebAuthn = {
         const encodedCredential = this.encodeAuthenticationCredential(credential);
 
         // Send to server for verification
-        const response = await fetch('/api/auth/login/webauthn/complete', {
+        const response = await fetch('/auth/login/webauthn/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',  // Important for session cookie
@@ -356,7 +356,7 @@ const WebAuthn = {
      * @returns {Promise<string>} - 'totp', 'passkey', or 'fido2'
      */
     async getAuthType(username) {
-        const response = await fetch('/api/auth/login/auth-type', {
+        const response = await fetch('/auth/login/auth-type', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username })
