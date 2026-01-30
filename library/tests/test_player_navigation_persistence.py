@@ -41,9 +41,9 @@ except ImportError:
     SELENIUM_AVAILABLE = False
 
 
-# Configuration
-WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", "https://localhost:8443")
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:5001")
+# Configuration — defaults to VM; override with env var for local dev
+WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", "https://192.168.122.100:8443")
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://192.168.122.100:5001")
 # Skip SSL verification for self-signed certs
 IGNORE_HTTPS_ERRORS = True
 
