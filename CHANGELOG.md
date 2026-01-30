@@ -13,6 +13,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [4.1.2] - 2026-01-22
+
+### Added
+- **Web UI**: "Check for Updates" button in Utilities page for dry-run upgrade preview
+  - Shows verbose output of what would happen without making changes
+  - Displays current vs available version comparison
+  - Reports result of multi-installation detection
+
+### Fixed
+- **Upgrade**: Fixed `--from-github` and `--from-project` options not upgrading the correct installation
+  - `find_installed_dir()` now prioritizes system paths (`/opt/audiobooks`) over custom data locations
+  - Adds warning when multiple installations are found, showing versions of each
+  - Tells user to use `--target` if auto-selected location isn't correct
+
+## [4.1.1] - 2026-01-20
+
+### Fixed
+- **Security**: Fixed insecure temporary file creation in ASIN population subprocess (CodeQL alert #187)
+  - Changed `tempfile.mktemp()` to `tempfile.mkstemp()` in `maintenance.py`
+  - Prevents TOCTOU (time-of-check-time-of-use) race condition vulnerability
+  - The atomically-created file descriptor is immediately closed so the subprocess can write to it
+
+## [4.1.0] - 2026-01-20
+
+### Added
+- **Player**: Media Session API integration for OS-level media controls:
+  - Lock screen playback controls (play/pause, seek forward/back, skip)
+  - Notification center media controls
+  - Track metadata display (title, author, narrator, cover art)
+  - Progress bar with seek support
+- **Player**: Live Audible position sync during local playback:
+  - Automatically syncs position with Audible every 5 minutes while playing
+  - Uses "furthest ahead wins" logic to preserve furthest progress
+  - Graceful handling when Audible service is unavailable
+  - Only syncs books with ASIN (Audible-sourced audiobooks)
+
+## [4.0.5] - 2026-01-20
+
+### Fixed
+- **Security**: Addressed 26 CodeQL alerts with TLS hardening and documentation:
+  - Enforce TLS 1.2 minimum version in HTTPS server (was allowing older versions)
+  - Replace stack trace exposure with generic error message in bulk delete API
+  - Added CodeQL suppression comments for validated false positives (SQL injection with allowlists, path injection with validation, SSRF with localhost-only access, XSS with escapeHtml sanitization)
+
+## [4.0.4] - 2026-01-20
+
+### Fixed
+- **Systemd**: Fixed API service failing at boot with NAMESPACE error on HDD/NAS storage. Added `/raid0/Audiobooks` to `RequiresMountsFor` so systemd waits for the data mount before setting up the security namespace. Previously only waited for `/opt/audiobooks`.
+- **Auth**: Fixed timestamp format mismatch in session cleanup causing incorrect stale session deletion. SQLite uses space separator (`YYYY-MM-DD HH:MM:SS`) while Python's `isoformat()` uses `T` separator, causing string comparison failures.
+
+### Added
+- **Documentation**: Added "HDD and Network Storage Considerations" section to README explaining how to configure `RequiresMountsFor` for slow mounts (HDDs, NAS, NFS, CIFS)
+
 ## [4.0.3] - 2026-01-18
 
 ### Fixed

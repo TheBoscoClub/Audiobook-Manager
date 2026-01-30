@@ -6,8 +6,10 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![4](https://img.shields.io/badge/4-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![3](https://img.shields.io/badge/3-green) | Latest patch | [v4.0.3](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.3) |
-| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v4.0.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.2) |
+| ![4](https://img.shields.io/badge/4-brightgreen)![1](https://img.shields.io/badge/1-darkgreen)![2](https://img.shields.io/badge/2-green) | Latest patch | [v4.1.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.2) |
+| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.1.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.1) |
+| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v4.1.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.0) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![5](https://img.shields.io/badge/5-red) | Prior patch | [v4.0.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.5) |
 | ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.1) |
 | ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![2](https://img.shields.io/badge/2-orange) | Prior tweak | [v4.0.0.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.2) |
 | ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v4.0.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.1) |
@@ -1112,6 +1114,61 @@ The converter service runs with low CPU and I/O priority to avoid impacting inte
 - **I/O**: `ionice -c 2 -n 7` (best-effort, lowest priority within class)
 
 This ensures audiobook conversion happens in the background without affecting system responsiveness.
+
+### HDD and Network Storage Considerations
+
+If your audiobook library is stored on HDDs, NAS, or network mounts that may not be immediately available at boot, you need to configure the services to wait for those mounts.
+
+**Symptom:** Services fail at boot with errors like:
+```
+Failed at step NAMESPACE spawning /bin/sh: No such file or directory
+audiobook-api.service: Failed with result 'exit-code'.
+```
+
+The service typically recovers after a few restart attempts (once the mount is ready), but this can be fixed properly.
+
+**Solution:** Edit the service file to include your data path in `RequiresMountsFor`:
+
+```bash
+# Edit the API service
+sudo systemctl edit --full audiobook-api.service
+```
+
+In the `[Unit]` section, add your data path to `RequiresMountsFor`:
+
+```ini
+[Unit]
+# ... existing directives ...
+# Add your data mount path alongside /opt/audiobooks
+RequiresMountsFor=/opt/audiobooks /path/to/your/audiobooks
+```
+
+**Common scenarios:**
+
+| Storage Type | Example Path | Notes |
+|--------------|--------------|-------|
+| Secondary HDD | `/mnt/data/Audiobooks` | Add to RequiresMountsFor |
+| BTRFS subvolume | `/raid0/Audiobooks` | Add to RequiresMountsFor |
+| NFS mount | `/mnt/nas/audiobooks` | Also add `After=remote-fs.target` |
+| CIFS/SMB mount | `/mnt/share/audiobooks` | Also add `After=remote-fs.target` |
+
+**For network mounts**, also add network dependencies:
+
+```ini
+[Unit]
+After=network-online.target remote-fs.target
+Wants=network-online.target
+RequiresMountsFor=/opt/audiobooks /mnt/nas/audiobooks
+```
+
+After editing, reload and restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart audiobook-api.service
+```
+
+**Why this happens:** The `audiobook-api` service uses `ProtectSystem=strict` for security hardening, which requires all paths in `ReadWritePaths` to be available when setting up the service's filesystem namespace. If your data path uses `nofail` mount options (common for non-critical mounts), systemd won't wait for it by default.
 
 ## Acknowledgments
 

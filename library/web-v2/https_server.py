@@ -141,12 +141,13 @@ class HTTPToHTTPSRedirectHandler(http.server.BaseHTTPRequestHandler):
 
         # Sanitize host and path to prevent HTTP response splitting
         # Remove any newlines, carriage returns, or null bytes
+        # CodeQL: safe_host/safe_path sanitized - no CRLF characters
         safe_host = "".join(c for c in host if c not in "\r\n\0")
         safe_path = "".join(c for c in self.path if c not in "\r\n\0")
 
         https_url = f"https://{safe_host}:{HTTPS_PORT}{safe_path}"
         self.send_response(301)
-        self.send_header("Location", https_url)
+        self.send_header("Location", https_url)  # lgtm[py/http-response-splitting]
         self.send_header("Content-Type", "text/html")
         self.end_headers()
         body = f"""<!DOCTYPE html>
@@ -195,8 +196,9 @@ def main():
 
     handler = APIProxyHandler
 
-    # Create SSL context
+    # Create SSL context with TLS 1.2+ minimum
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2  # CodeQL: Enforce TLS 1.2+
     context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
     # Create HTTPS server

@@ -179,6 +179,7 @@ def init_crud_routes(db_path):
 
         try:
             placeholders = ",".join("?" * len(ids))
+            # CodeQL: field is validated against allowed_fields allowlist (line 156)
             query = f"UPDATE audiobooks SET {field} = ? WHERE id IN ({placeholders})"
             cursor.execute(query, [value] + ids)
             conn.commit()
@@ -276,10 +277,11 @@ def init_crud_routes(db_path):
                         try:
                             file_path.unlink()
                             deleted_files.append(str(file_path))
-                        except Exception as e:
+                        except Exception:
                             # Log but don't fail - DB deletion succeeded
+                            # CodeQL: Generic error avoids stack trace exposure
                             failed_files.append(
-                                {"path": str(file_path), "error": str(e)}
+                                {"path": str(file_path), "error": "File deletion failed"}
                             )
 
             return jsonify(
