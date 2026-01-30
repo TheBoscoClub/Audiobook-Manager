@@ -34,27 +34,33 @@ BIND_ADDRESS = AUDIOBOOKS_BIND_ADDRESS
 class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     """Handler that proxies API requests and serves static files."""
 
+    # Paths that get proxied to the Flask API backend
+    PROXY_PREFIXES = ("/api/", "/auth/", "/covers/")
+
+    def _is_proxy_path(self):
+        return any(self.path.startswith(p) for p in self.PROXY_PREFIXES)
+
     def do_GET(self):
-        if self.path.startswith("/api/") or self.path.startswith("/covers/"):
+        if self._is_proxy_path():
             self.proxy_to_api("GET")
         else:
             # Serve static files
             super().do_GET()
 
     def do_POST(self):
-        if self.path.startswith("/api/"):
+        if self._is_proxy_path():
             self.proxy_to_api("POST")
         else:
             self.send_error(405, "Method Not Allowed")
 
     def do_PUT(self):
-        if self.path.startswith("/api/"):
+        if self._is_proxy_path():
             self.proxy_to_api("PUT")
         else:
             self.send_error(405, "Method Not Allowed")
 
     def do_DELETE(self):
-        if self.path.startswith("/api/"):
+        if self._is_proxy_path():
             self.proxy_to_api("DELETE")
         else:
             self.send_error(405, "Method Not Allowed")
@@ -75,10 +81,10 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     def proxy_to_api(self, method="GET"):
         """Proxy request to Flask API backend."""
-        # Validate the path to prevent SSRF - only allow /api/ and /covers/ paths
+        # Validate the path to prevent SSRF - only allow known prefixes
         # and sanitize to prevent path traversal
         path = self.path
-        if not (path.startswith("/api/") or path.startswith("/covers/")):
+        if not any(path.startswith(p) for p in self.PROXY_PREFIXES):
             self.send_error(403, "Forbidden - Invalid path")
             return
 
@@ -91,7 +97,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             # Prepare headers
             headers = {}
-            for header in ["Content-Type", "Range", "Accept"]:
+            for header in ["Content-Type", "Range", "Accept", "Cookie"]:
                 if header in self.headers:
                     headers[header] = self.headers[header]
 
