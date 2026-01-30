@@ -23,12 +23,21 @@ def main():
         print("Please run: python3 backend/import_to_db.py")
         sys.exit(1)
 
+    # Auth database configuration (optional - only enabled if AUTH_ENABLED=true)
+    auth_enabled = os.environ.get("AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
+    auth_db_path = os.environ.get("AUTH_DATABASE") if auth_enabled else None
+    auth_key_path = os.environ.get("AUTH_KEY_FILE") if auth_enabled else None
+    auth_dev_mode = os.environ.get("AUDIOBOOKS_DEV_MODE", "false").lower() in ("true", "1", "yes")
+
     # Create the Flask application
     app = create_app(
         database_path=DATABASE_PATH,
         project_dir=PROJECT_DIR,
         supplements_dir=SUPPLEMENTS_DIR,
         api_port=API_PORT,
+        auth_db_path=Path(auth_db_path) if auth_db_path else None,
+        auth_key_path=Path(auth_key_path) if auth_key_path else None,
+        auth_dev_mode=auth_dev_mode,
     )
 
     # Check if running with waitress (production mode)

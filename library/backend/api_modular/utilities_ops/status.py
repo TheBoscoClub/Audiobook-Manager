@@ -7,6 +7,7 @@ Provides endpoints for querying and managing background operation status.
 from flask import Blueprint, jsonify
 from operation_status import get_tracker
 
+from ..auth import admin_if_enabled, auth_if_enabled
 from ..core import FlaskResponse
 
 utilities_ops_status_bp = Blueprint("utilities_ops_status", __name__)
@@ -18,6 +19,7 @@ def init_status_routes():
     @utilities_ops_status_bp.route(
         "/api/operations/status/<operation_id>", methods=["GET"]
     )
+    @auth_if_enabled
     def get_operation_status(operation_id: str) -> FlaskResponse:
         """Get status of a specific operation."""
         tracker = get_tracker()
@@ -29,6 +31,7 @@ def init_status_routes():
         return jsonify(status)
 
     @utilities_ops_status_bp.route("/api/operations/active", methods=["GET"])
+    @auth_if_enabled
     def get_active_operations() -> FlaskResponse:
         """Get all active (running) operations."""
         tracker = get_tracker()
@@ -36,6 +39,7 @@ def init_status_routes():
         return jsonify({"operations": operations, "count": len(operations)})
 
     @utilities_ops_status_bp.route("/api/operations/all", methods=["GET"])
+    @auth_if_enabled
     def get_all_operations() -> FlaskResponse:
         """Get all tracked operations (including completed)."""
         tracker = get_tracker()
@@ -45,6 +49,7 @@ def init_status_routes():
     @utilities_ops_status_bp.route(
         "/api/operations/cancel/<operation_id>", methods=["POST"]
     )
+    @admin_if_enabled
     def cancel_operation(operation_id: str) -> FlaskResponse:
         """Cancel an operation (sets flag, actual cancellation depends on operation)."""
         tracker = get_tracker()

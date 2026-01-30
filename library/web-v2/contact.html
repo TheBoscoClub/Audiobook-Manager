@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Admin - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/help-tooltips.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container" style="max-width: 500px;">
+        <!-- Decorative header -->
+        <div class="auth-header">
+            <div class="deco-ornament">&#9830;</div>
+            <h1 class="auth-title">The Library</h1>
+            <p class="auth-subtitle">Contact the Administrator</p>
+            <div class="deco-line"></div>
+        </div>
+
+        <!-- Contact Form -->
+        <form id="contact-form" class="auth-form">
+            <div class="form-group">
+                <label for="message">
+                    Your Message
+                    <button type="button" class="help-icon" aria-label="Help" data-help="message-help">?</button>
+                </label>
+                <textarea id="message"
+                          name="message"
+                          rows="6"
+                          maxlength="2000"
+                          placeholder="What would you like to tell the admin?"
+                          required
+                          style="width: 100%; padding: 0.875rem 1rem; font-family: 'Courier New', monospace; font-size: 1rem; color: var(--cream-light); background: var(--deco-slate); border: 1px solid var(--deco-gray); resize: vertical;"></textarea>
+                <span class="field-hint"><span id="char-count">0</span>/2000 characters</span>
+                <div id="message-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What can I contact the admin about?</strong>
+                        <ul>
+                            <li>Request new audiobooks or series</li>
+                            <li>Report issues with playback</li>
+                            <li>Ask questions about the library</li>
+                            <li>Provide feedback or suggestions</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    How should the admin reply?
+                    <button type="button" class="help-icon" aria-label="Help" data-help="reply-help">?</button>
+                </label>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" name="reply_via" value="in-app" checked>
+                        <span>In-app notification</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" name="reply_via" value="email">
+                        <span>Email me</span>
+                    </label>
+                </div>
+                <div id="reply-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>In-app notification</strong>
+                        <p>You'll see the admin's reply as a notification banner when you next visit The Library.</p>
+                        <strong>Email</strong>
+                        <p>Provide your email and the admin will reply directly to your inbox. Your email is only used for this reply and then deleted.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="email-field" class="form-group" hidden>
+                <label for="reply-email">Your Email</label>
+                <input type="email"
+                       id="reply-email"
+                       name="reply_email"
+                       placeholder="your@email.com"
+                       autocomplete="email">
+                <span class="field-hint">Only used for this reply, then deleted</span>
+            </div>
+
+            <div id="error-message" class="error-message" hidden></div>
+            <div id="success-message" class="success-message-box" hidden></div>
+
+            <button type="submit" class="auth-button" id="submit-btn">
+                <span class="button-text">Send Message</span>
+                <span class="button-loading" hidden>
+                    <span class="spinner"></span>
+                    Sending...
+                </span>
+            </button>
+        </form>
+
+        <!-- Back link -->
+        <div class="auth-options">
+            <a href="index.html" class="auth-link">&larr; Back to Library</a>
+        </div>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <div class="deco-ornament small">&#9830;</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        // Help tooltip handling
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const helpId = icon.dataset.help;
+                const tooltip = document.getElementById(helpId);
+                if (tooltip) {
+                    document.querySelectorAll('.help-tooltip:not([hidden])').forEach(t => {
+                        if (t.id !== helpId) t.hidden = true;
+                    });
+                    tooltip.hidden = !tooltip.hidden;
+                }
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.help-icon') && !e.target.closest('.help-tooltip')) {
+                document.querySelectorAll('.help-tooltip').forEach(t => t.hidden = true);
+            }
+        });
+
+        // Character count
+        const messageInput = document.getElementById('message');
+        const charCount = document.getElementById('char-count');
+
+        messageInput.addEventListener('input', () => {
+            charCount.textContent = messageInput.value.length;
+        });
+
+        // Reply method toggle
+        const replyRadios = document.querySelectorAll('input[name="reply_via"]');
+        const emailField = document.getElementById('email-field');
+        const emailInput = document.getElementById('reply-email');
+
+        replyRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'email' && radio.checked) {
+                    emailField.hidden = false;
+                    emailInput.required = true;
+                } else if (radio.value === 'in-app' && radio.checked) {
+                    emailField.hidden = true;
+                    emailInput.required = false;
+                }
+            });
+        });
+
+        // Check auth on load
+        async function checkAuth() {
+            try {
+                const response = await fetch('/auth/check', { credentials: 'include' });
+                if (response.status === 401) {
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                return response.ok;
+            } catch (e) {
+                return true; // Allow if auth not configured
+            }
+        }
+
+        checkAuth();
+
+        // Form submission
+        document.getElementById('contact-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const errorEl = document.getElementById('error-message');
+            const successEl = document.getElementById('success-message');
+            const submitBtn = document.getElementById('submit-btn');
+            const buttonText = submitBtn.querySelector('.button-text');
+            const buttonLoading = submitBtn.querySelector('.button-loading');
+
+            errorEl.hidden = true;
+            successEl.hidden = true;
+
+            const message = messageInput.value.trim();
+            if (!message) {
+                errorEl.textContent = 'Please enter a message';
+                errorEl.hidden = false;
+                return;
+            }
+
+            const replyVia = document.querySelector('input[name="reply_via"]:checked').value;
+            const replyEmail = emailInput.value.trim();
+
+            if (replyVia === 'email' && !replyEmail) {
+                errorEl.textContent = 'Please enter your email address';
+                errorEl.hidden = false;
+                return;
+            }
+
+            // Show loading
+            buttonText.hidden = true;
+            buttonLoading.hidden = false;
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/contact`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        message: message,
+                        reply_via: replyVia,
+                        reply_email: replyVia === 'email' ? replyEmail : undefined
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successEl.textContent = data.info || 'Your message has been sent!';
+                    successEl.hidden = false;
+                    messageInput.value = '';
+                    charCount.textContent = '0';
+                    emailInput.value = '';
+                } else {
+                    errorEl.textContent = data.error || 'Failed to send message';
+                    errorEl.hidden = false;
+                }
+            } catch (err) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.hidden = false;
+            }
+
+            buttonText.hidden = false;
+            buttonLoading.hidden = true;
+            submitBtn.disabled = false;
+        });
+    </script>
+
+    <style>
+        textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: var(--shadow-inset), 0 0 0 1px var(--gold-dark);
+        }
+
+        textarea::placeholder {
+            color: var(--deco-gray);
+            opacity: 0.8;
+        }
+
+        input[type="radio"] {
+            accent-color: var(--gold);
+        }
+    </style>
+</body>
+</html>

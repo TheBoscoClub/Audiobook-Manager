@@ -18,6 +18,7 @@ from config import COVER_DIR
 from .collections import COLLECTIONS
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
+from .auth import auth_if_enabled, download_permission_required, get_current_user
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
 
@@ -32,6 +33,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
     """Initialize routes with database path and project directories."""
 
     @audiobooks_bp.route("/api/stats", methods=["GET"])
+    @auth_if_enabled
     def get_stats() -> Response:
         """Get library statistics (excludes periodicals)"""
         conn = get_db(db_path)
@@ -115,6 +117,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
 
     @audiobooks_bp.route("/api/audiobooks", methods=["GET"])
+    @auth_if_enabled
     def get_audiobooks() -> Response:
         """
         Get paginated audiobooks with optional filtering
@@ -349,6 +352,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
 
     @audiobooks_bp.route("/api/filters", methods=["GET"])
+    @auth_if_enabled
     def get_filters() -> Response:
         """Get all available filter options (excludes periodicals)"""
         conn = get_db(db_path)
@@ -421,6 +425,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
 
     @audiobooks_bp.route("/api/narrator-counts", methods=["GET"])
+    @auth_if_enabled
     def get_narrator_counts() -> Response:
         """Get narrator book counts for autocomplete (excludes periodicals)"""
         conn = get_db(db_path)
@@ -445,6 +450,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         return jsonify(counts)
 
     @audiobooks_bp.route("/api/audiobooks/<int:audiobook_id>", methods=["GET"])
+    @auth_if_enabled
     def get_audiobook(audiobook_id: int) -> FlaskResponse:
         """Get single audiobook details"""
         conn = get_db(db_path)
@@ -500,11 +506,13 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         return jsonify(book)
 
     @audiobooks_bp.route("/covers/<path:filename>")
+    @auth_if_enabled
     def serve_cover(filename: str) -> Response:
         """Serve cover images from configured COVER_DIR"""
         return send_from_directory(COVER_DIR, filename)
 
     @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
+    @auth_if_enabled
     def stream_audiobook(audiobook_id: int) -> FlaskResponse:
         """Stream audiobook file"""
         conn = get_db(db_path)
@@ -540,6 +548,64 @@ def init_audiobooks_routes(db_path, project_root, database_path):
             mimetype=mimetype,
             as_attachment=False,
             conditional=True,  # Enable range requests for seeking
+        )
+
+    @audiobooks_bp.route("/api/download/<int:audiobook_id>")
+    @download_permission_required
+    def download_audiobook(audiobook_id: int) -> FlaskResponse:
+        """Download audiobook file for offline listening.
+
+        Requires download permission. The file is returned as an attachment
+        with a filename based on the audiobook title.
+        """
+        conn = get_db(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT title, author, file_path, format FROM audiobooks WHERE id = ?",
+            (audiobook_id,),
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return jsonify({"error": "Audiobook not found"}), 404
+
+        file_path = Path(row["file_path"])
+        if not file_path.exists():
+            return jsonify({"error": "File not found on disk"}), 404
+
+        # Build a clean filename from title and author
+        title = row["title"] or "audiobook"
+        author = row["author"]
+        file_format = row["format"] or file_path.suffix.lower().lstrip(".")
+
+        # Sanitize filename: remove/replace problematic characters
+        def sanitize(s: str) -> str:
+            # Replace characters that are problematic in filenames
+            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
+                s = s.replace(char, '-')
+            return s.strip()
+
+        if author:
+            download_name = f"{sanitize(title)} - {sanitize(author)}.{file_format}"
+        else:
+            download_name = f"{sanitize(title)}.{file_format}"
+
+        # Map file formats to MIME types
+        mime_types = {
+            "opus": "audio/ogg",
+            "m4b": "audio/mp4",
+            "m4a": "audio/mp4",
+            "mp3": "audio/mpeg",
+        }
+        mimetype = mime_types.get(file_format, "application/octet-stream")
+
+        return send_file(
+            file_path,
+            mimetype=mimetype,
+            as_attachment=True,
+            download_name=download_name,
         )
 
     @audiobooks_bp.route("/health")

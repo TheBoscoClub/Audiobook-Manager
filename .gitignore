@@ -336,3 +336,26 @@ rnd/ui-test-logs/
 # Claude Code workflow files
 .claude-checkpoint
 .claude-checkpoint-*
+
+# -----------------------------------------------------------------------------
+# LOCAL/IDENTIFYING INFORMATION (Never push to remote)
+# -----------------------------------------------------------------------------
+
+# Session records (may contain credentials, IPs, tokens)
+SESSION_RECORD*.md
+*-session-record.md
+
+# VM credentials and configuration
+vm-credentials*
+*-vm-config*
+*.vm-credentials
+
+# API tokens stored locally
+*-token
+*_token
+*.token.txt
+
+# Local IP addresses and network config
+local-ips.txt
+vm-ips.txt
+*-local-config*

@@ -98,6 +98,28 @@ AUDIOBOOKS_VENV="${AUDIOBOOKS_HOME}/library/venv"
 AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"
 
 # =============================================================================
+# Authentication (Multi-user Support)
+# =============================================================================
+
+# Enable authentication for remote access
+# When enabled, users must log in to access the library
+# Default: false (local access only, no auth required)
+AUTH_ENABLED="false"
+
+# Authentication database path (SQLCipher encrypted)
+# Default: /var/lib/audiobooks/auth.db
+AUTH_DATABASE="/var/lib/audiobooks/auth.db"
+
+# Encryption key file for auth database
+# IMPORTANT: This file must be readable only by the audiobooks user (chmod 600)
+# Default: /etc/audiobooks/auth.key
+AUTH_KEY_FILE="/etc/audiobooks/auth.key"
+
+# Development mode for auth (relaxed key permissions, verbose logging)
+# Default: false
+AUDIOBOOKS_DEV_MODE="false"
+
+# =============================================================================
 # Performance & Advanced Settings
 # =============================================================================
 

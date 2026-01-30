@@ -14,6 +14,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify
 from operation_status import get_tracker
 
+from ..auth import admin_if_enabled
 from ..core import FlaskResponse
 
 utilities_ops_hashing_bp = Blueprint("utilities_ops_hashing", __name__)
@@ -25,6 +26,7 @@ def init_hashing_routes(project_root):
     @utilities_ops_hashing_bp.route(
         "/api/utilities/generate-hashes-async", methods=["POST"]
     )
+    @admin_if_enabled
     def generate_hashes_async() -> FlaskResponse:
         """Generate SHA-256 hashes with progress tracking."""
         tracker = get_tracker()
@@ -167,6 +169,7 @@ def init_hashing_routes(project_root):
     @utilities_ops_hashing_bp.route(
         "/api/utilities/generate-checksums-async", methods=["POST"]
     )
+    @admin_if_enabled
     def generate_checksums_async() -> FlaskResponse:
         """Generate MD5 checksums for Sources and Library with progress tracking."""
         tracker = get_tracker()

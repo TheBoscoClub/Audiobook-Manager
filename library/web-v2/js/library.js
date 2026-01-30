@@ -33,7 +33,233 @@ class AudiobookLibraryV2 {
         this.collections = [];
         this.currentCollection = '';
 
+        // Auth state
+        this.user = null;
+        this.authEnabled = false;
+
         this.init();
+    }
+
+    /**
+     * Check authentication status and get current user info.
+     * Returns true if user can access the library, false if redirect needed.
+     */
+    async checkAuth() {
+        try {
+            const response = await fetch('/auth/me', {
+                credentials: 'include'
+            });
+
+            if (response.status === 401) {
+                // Auth is enabled but user is not logged in
+                this.authEnabled = true;
+                window.location.href = 'login.html';
+                return false;
+            }
+
+            if (response.ok) {
+                const data = await response.json();
+                this.authEnabled = true;
+                this.user = data.user;
+                this.updateUserUI();
+                return true;
+            }
+
+            // Auth might not be enabled (404 or other)
+            this.authEnabled = false;
+            return true;
+        } catch (error) {
+            // Network error or auth not configured - allow access
+            console.log('Auth check skipped:', error.message);
+            this.authEnabled = false;
+            return true;
+        }
+    }
+
+    /**
+     * Update UI elements based on user auth state.
+     */
+    updateUserUI() {
+        const userMenu = document.getElementById('user-menu');
+        const loginLink = document.getElementById('login-link');
+        const backOfficeLink = document.getElementById('admin-backoffice-link');
+
+        // Back Office is ONLY shown when we positively confirm user is admin
+        // In all other cases (not logged in, not admin, error, unknown), keep it hidden
+        if (backOfficeLink) {
+            backOfficeLink.hidden = !(this.user && this.user.is_admin);
+        }
+
+        if (this.user) {
+            // Show user menu, hide login link
+            if (userMenu) {
+                userMenu.hidden = false;
+                const usernameEl = document.getElementById('username-display');
+                if (usernameEl) {
+                    usernameEl.textContent = this.user.username;
+                }
+                const userInitial = document.getElementById('user-initial');
+                if (userInitial) {
+                    userInitial.textContent = this.user.username.charAt(0).toUpperCase();
+                }
+            }
+            if (loginLink) {
+                loginLink.hidden = true;
+            }
+
+            // Show/hide download buttons based on permission
+            this.updateDownloadButtons();
+        } else if (this.authEnabled) {
+            // Auth enabled but no user - show login link
+            if (userMenu) userMenu.hidden = true;
+            if (loginLink) loginLink.hidden = false;
+        } else {
+            // Auth not enabled or unknown state - hide both user elements
+            if (userMenu) userMenu.hidden = true;
+            if (loginLink) loginLink.hidden = true;
+        }
+    }
+
+    /**
+     * Show/hide download buttons based on user's download permission.
+     */
+    updateDownloadButtons() {
+        const canDownload = this.user && this.user.can_download;
+        document.querySelectorAll('.download-button').forEach(btn => {
+            btn.style.display = canDownload ? '' : 'none';
+        });
+    }
+
+    /**
+     * Log out the current user.
+     */
+    async logout() {
+        try {
+            await fetch('/auth/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+        window.location.href = 'login.html';
+    }
+
+    /**
+     * Load and display notifications for the current user.
+     */
+    async loadNotifications() {
+        if (!this.authEnabled || !this.user) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/auth/me', {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            const notifications = data.notifications || [];
+            this.displayNotifications(notifications);
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    }
+
+    /**
+     * Display notifications in the banner container using safe DOM methods.
+     */
+    displayNotifications(notifications) {
+        const container = document.getElementById('notification-container');
+        if (!container) {
+            return;
+        }
+
+        // Clear existing notifications
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+
+        const icons = {
+            info: 'ℹ️',
+            maintenance: '🔧',
+            outage: '🔴',
+            personal: '📬'
+        };
+
+        for (const notif of notifications) {
+            const banner = document.createElement('div');
+            banner.className = `notification-banner ${notif.type}${notif.dismissable ? ' dismissable' : ''}`;
+            banner.dataset.id = notif.id;
+
+            // Create content wrapper
+            const content = document.createElement('div');
+            content.className = 'notification-content';
+
+            // Create icon span
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'notification-icon';
+            iconSpan.textContent = icons[notif.type] || 'ℹ️';
+            content.appendChild(iconSpan);
+
+            // Create message span (textContent is safe)
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'notification-message';
+            messageSpan.textContent = notif.message;
+            content.appendChild(messageSpan);
+
+            banner.appendChild(content);
+
+            // Create dismiss button if dismissable
+            if (notif.dismissable) {
+                const dismissBtn = document.createElement('button');
+                dismissBtn.className = 'notification-dismiss';
+                dismissBtn.title = 'Dismiss notification';
+                dismissBtn.textContent = 'Dismiss';
+                dismissBtn.addEventListener('click', () => this.dismissNotification(notif.id, banner));
+                banner.appendChild(dismissBtn);
+            }
+
+            container.appendChild(banner);
+        }
+    }
+
+    /**
+     * Dismiss a notification.
+     */
+    async dismissNotification(notificationId, bannerElement) {
+        try {
+            const response = await fetch(`/auth/notifications/dismiss/${notificationId}`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                // Animate removal
+                bannerElement.classList.add('dismissing');
+                setTimeout(() => bannerElement.remove(), 300);
+            }
+        } catch (error) {
+            console.error('Error dismissing notification:', error);
+        }
+    }
+
+    /**
+     * Download an audiobook for offline listening.
+     * Triggers file download via the API.
+     */
+    downloadAudiobook(bookId) {
+        // Create a temporary link and trigger download
+        const link = document.createElement('a');
+        link.href = `${API_BASE}/download/${bookId}`;
+        link.download = ''; // Let server set filename
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     /**
@@ -103,6 +329,15 @@ class AudiobookLibraryV2 {
     }
 
     async init() {
+        // Check authentication first
+        const canAccess = await this.checkAuth();
+        if (!canAccess) {
+            return; // Redirect in progress
+        }
+
+        // Load notifications if authenticated
+        await this.loadNotifications();
+
         await this.loadStats();
         await this.loadFilters();
         await this.loadCollections();
@@ -811,6 +1046,9 @@ class AudiobookLibraryV2 {
             this.renderPagination(data.pagination);
             this.updateResultsInfo(data.pagination);
 
+            // Update download button visibility based on user permissions
+            this.updateDownloadButtons();
+
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
@@ -885,6 +1123,9 @@ class AudiobookLibraryV2 {
                     <button class="btn-play" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, false)">▶ Play</button>
                     <button class="btn-resume" ${!hasContinue ? 'disabled' : ''} onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, true)" title="${hasContinue ? 'Resume from ' + playbackManager.formatTime(savedPosition.position) : 'No saved position'}">
                         ${hasContinue ? '⏯ Resume' : '⏯ Resume'}
+                    </button>
+                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download for offline listening (requires .opus compatible player)">
+                        ⬇ Download
                     </button>
                 </div>
                 ${hasEditions ? '<div class="book-editions" data-book-id="' + book.id + '" style="display: none;"></div>' : ''}
@@ -1138,6 +1379,8 @@ class AudiobookLibraryV2 {
 let library;
 document.addEventListener('DOMContentLoaded', () => {
     library = new AudiobookLibraryV2();
+    // Expose to window for inline scripts (logout, etc.)
+    window.library = library;
 });
 
 // Audio Player Class

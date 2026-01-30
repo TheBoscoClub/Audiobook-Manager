@@ -40,6 +40,17 @@ from .editions import (editions_bp, has_edition_marker, init_editions_routes,
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
 from .utilities import init_utilities_routes, utilities_bp
+from .auth import (
+    auth_bp,
+    init_auth_routes,
+    login_required,
+    admin_required,
+    localhost_only,
+    get_current_user,
+    auth_if_enabled,
+    download_permission_required,
+    admin_if_enabled,
+)
 
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
@@ -58,6 +69,9 @@ def create_app(
     project_dir: Optional[Path] = None,
     supplements_dir: Optional[Path] = None,
     api_port: Optional[int] = None,
+    auth_db_path: Optional[Path] = None,
+    auth_key_path: Optional[Path] = None,
+    auth_dev_mode: bool = False,
 ):
     """
     Create and configure the Flask application.
@@ -84,8 +98,17 @@ def create_app(
     flask_app.config["PROJECT_DIR"] = project_dir
     flask_app.config["SUPPLEMENTS_DIR"] = supplements_dir
     flask_app.config["API_PORT"] = api_port
+    flask_app.config["AUTH_DEV_MODE"] = auth_dev_mode
 
     project_root = project_dir / "library"
+
+    # Auth database paths (optional - auth endpoints disabled if not configured)
+    if auth_db_path and auth_key_path:
+        flask_app.config["AUTH_DB_PATH"] = auth_db_path
+        flask_app.config["AUTH_KEY_PATH"] = auth_key_path
+        flask_app.config["AUTH_ENABLED"] = True
+    else:
+        flask_app.config["AUTH_ENABLED"] = False
 
     # Register CORS handler
     @flask_app.after_request
@@ -108,6 +131,14 @@ def create_app(
     init_utilities_routes(database_path, project_root)
     init_position_routes(database_path)
 
+    # Initialize auth routes if configured
+    if flask_app.config["AUTH_ENABLED"]:
+        init_auth_routes(
+            auth_db_path=flask_app.config["AUTH_DB_PATH"],
+            auth_key_path=flask_app.config["AUTH_KEY_PATH"],
+            is_dev=auth_dev_mode,
+        )
+
     # Register blueprints
     flask_app.register_blueprint(audiobooks_bp)
     flask_app.register_blueprint(collections_bp)
@@ -116,6 +147,10 @@ def create_app(
     flask_app.register_blueprint(supplements_bp)
     flask_app.register_blueprint(utilities_bp)
     flask_app.register_blueprint(position_bp)
+
+    # Register auth blueprint if configured
+    if flask_app.config["AUTH_ENABLED"]:
+        flask_app.register_blueprint(auth_bp)
 
     return flask_app
 
@@ -221,4 +256,13 @@ __all__ = [
     "supplements_bp",
     "utilities_bp",
     "position_bp",
+    "auth_bp",
+    # Auth decorators
+    "login_required",
+    "admin_required",
+    "localhost_only",
+    "get_current_user",
+    "auth_if_enabled",
+    "download_permission_required",
+    "admin_if_enabled",
 ]
