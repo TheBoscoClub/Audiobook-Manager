@@ -13,6 +13,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [5.0.0] - 2026-01-29
+
+### Added
+- **Authentication**: Multi-user authentication system with three auth methods:
+  - **TOTP** (authenticator app) - time-based one-time passwords via Authy, Google Authenticator, etc.
+  - **Passkey** (platform authenticator) - biometrics, phone, password manager (Bitwarden, 1Password)
+  - **FIDO2** (hardware security key) - YubiKey, Titan Security Key, etc.
+- **Authentication**: Encrypted auth database using SQLCipher (AES-256 at rest)
+- **Authentication**: Admin approval flow for new user registrations with claim token system
+- **Authentication**: Backup code recovery (8 single-use codes per user)
+- **Authentication**: Session management with secure HTTP-only cookies
+- **Authentication**: Per-user playback position tracking
+- **Authentication**: WebAuthn/FIDO2 with dynamic origin detection from deployment config
+- **Web UI**: Login page with auth-method-aware form (TOTP code input vs WebAuthn tap prompt)
+- **Web UI**: Claim page for new users to set up credentials after admin approval
+- **Web UI**: Admin panel for user management (approve/deny requests, edit users, view sessions)
+- **Web UI**: Contact page and notification system
+- **API**: Auth-gated endpoints with conditional decorators (bypass when AUTH_ENABLED=false)
+- **API**: Download endpoint for offline audiobook listening
+- **Server**: HTTPS reverse proxy with TLS 1.2+ and HTTP-to-HTTPS redirect
+- **Infrastructure**: VM deployment script for remote testing
+- **Infrastructure**: Caddy-based development server configuration
+
+### Changed
+- **BREAKING**: All API endpoints now require authentication when AUTH_ENABLED=true
+- **BREAKING**: Web UI redirects to login page for unauthenticated users
+- Passkey registration no longer restricts to platform authenticators (allows phone, password manager, hardware key)
+- WebAuthn origin and RP ID auto-derived from AUDIOBOOKS_HOSTNAME, WEB_PORT, and HTTPS settings
+- Token generation uses alphanumeric-only alphabet to avoid dash ambiguity in formatted tokens
+
+### Fixed
+- WebAuthn registration parsing uses py-webauthn 2.7.0 helper functions (not Pydantic model methods)
+- NoneType.strip() crash on nullable recovery_email/recovery_phone fields
+- WebAuthn JS API paths corrected from /api/auth/ to /auth/
+- Backup codes returned as array (not formatted ASCII string) for frontend .forEach() compatibility
+- WebAuthn claim flow creates session for auto-login (matching TOTP behavior)
+- Hostname detection treats .localdomain and single-label hostnames as localhost for RP ID
+
 ## [4.1.2] - 2026-01-22
 
 ### Added
