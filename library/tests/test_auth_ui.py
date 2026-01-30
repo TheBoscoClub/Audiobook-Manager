@@ -262,7 +262,7 @@ class TestAuthJavaScript:
         library_js_content = (JS_DIR / "library.js").read_text()
 
         assert "checkAuth" in library_js_content, "Should have checkAuth function"
-        assert "/auth/session" in library_js_content, "Should call session endpoint"
+        assert "/auth/me" in library_js_content, "Should call session endpoint"
 
     def test_library_js_has_logout_function(self):
         """Verify library.js has logout functionality."""

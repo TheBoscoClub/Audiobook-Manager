@@ -32,7 +32,7 @@ from auth import (
     generate_session_token,
 )
 
-from auth.webauthn import (
+from auth.passkey import (
     WebAuthnCredential,
     WebAuthnChallenge,
     create_registration_options,
@@ -203,7 +203,8 @@ class TestRegistrationOptions:
 
         # Check authenticator selection
         auth_sel = options.get('authenticatorSelection', {})
-        assert auth_sel.get('authenticatorAttachment') == 'platform'
+        # Passkey: no authenticatorAttachment restriction (allows phone, password manager, biometrics)
+        assert 'authenticatorAttachment' not in auth_sel
         assert auth_sel.get('userVerification') == 'required'
 
     def test_create_registration_options_cross_platform(self):

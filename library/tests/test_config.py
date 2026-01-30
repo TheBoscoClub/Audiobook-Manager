@@ -166,6 +166,7 @@ class TestNoHardcodedPaths:
         "README.md",  # Documentation
         "audiobook-help",  # Help output shows paths to user
         "upgrade-helper",  # Bootstrap scripts run before config is available
+        "cli.py",  # CLI tools use argparse defaults with env var fallbacks
     ]
 
     def _should_skip_file(self, filepath: Path) -> bool:

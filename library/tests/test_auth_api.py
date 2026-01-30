@@ -347,7 +347,7 @@ class TestRegistration:
         assert r.status_code == 200
         data = r.get_json()
         assert data['success'] is True
-        assert 'verify_token' in data  # Dev mode returns token
+        assert 'claim_token' in data  # Dev mode returns token
 
     def test_registration_username_validation(self, client):
         """Test username validation during registration."""
@@ -376,7 +376,7 @@ class TestRegistration:
         r = client.post('/auth/register/start',
             json={"username": "flowuser1"})
         assert r.status_code == 200
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         # Verify and complete
         r = client.post('/auth/register/verify',
@@ -458,7 +458,7 @@ class TestRegistrationWithRecovery:
         # Start registration
         r = client.post('/auth/register/start',
             json={"username": "recovuser1"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         # Verify with recovery email
         r = client.post('/auth/register/verify',
@@ -480,7 +480,7 @@ class TestRegistrationWithRecovery:
         # Start registration
         r = client.post('/auth/register/start',
             json={"username": "norecov1"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         # Verify without recovery info
         r = client.post('/auth/register/verify',
@@ -502,7 +502,7 @@ class TestBackupCodeRecovery:
         # Create a user with backup codes
         r = client.post('/auth/register/start',
             json={"username": "rectest1"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={"token": token, "auth_type": "totp"})
@@ -530,7 +530,7 @@ class TestBackupCodeRecovery:
         # Create a user
         r = client.post('/auth/register/start',
             json={"username": "rectest2"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         client.post('/auth/register/verify',
             json={"token": token, "auth_type": "totp"})
@@ -550,7 +550,7 @@ class TestBackupCodeRecovery:
         # Create a user
         r = client.post('/auth/register/start',
             json={"username": "rectest3"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={"token": token, "auth_type": "totp"})
@@ -609,7 +609,7 @@ class TestBackupCodeManagement:
         # Create and login as new user
         r = client.post('/auth/register/start',
             json={"username": "regenuser"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={"token": token, "auth_type": "totp"})
@@ -646,7 +646,7 @@ class TestRecoveryContactManagement:
         # Create user without recovery
         r = client.post('/auth/register/start',
             json={"username": "contactuser"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={"token": token, "auth_type": "totp"})
@@ -673,7 +673,7 @@ class TestRecoveryContactManagement:
         # Create user with recovery
         r = client.post('/auth/register/start',
             json={"username": "rmcontact"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={
@@ -977,7 +977,7 @@ class TestMagicLinkRequest:
         # Create a user with recovery email
         r = client.post('/auth/register/start',
             json={"username": "magicuser1"})
-        token = r.get_json()['verify_token']
+        token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={
@@ -1018,7 +1018,7 @@ class TestMagicLinkVerify:
         # Create user with recovery email
         r = client.post('/auth/register/start',
             json={"username": "verifuser1"})
-        verify_token = r.get_json()['verify_token']
+        verify_token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={
@@ -1057,7 +1057,7 @@ class TestMagicLinkVerify:
         # Create user with recovery email
         r = client.post('/auth/register/start',
             json={"username": "singleuse1"})
-        verify_token = r.get_json()['verify_token']
+        verify_token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={
@@ -1091,7 +1091,7 @@ class TestMagicLinkVerify:
         # Create user with recovery email
         r = client.post('/auth/register/start',
             json={"username": "expireuser"})
-        verify_token = r.get_json()['verify_token']
+        verify_token = r.get_json()['claim_token']
 
         r = client.post('/auth/register/verify',
             json={
