@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [5.0.1] - 2026-01-30
+
+### Fixed
+- **Proxy**: HTTPS reverse proxy now routes `/auth/*` endpoints to Flask backend (was only proxying `/api/*` and `/covers/*`, causing auth endpoints to return 405)
+- **Proxy**: Forward `Cookie` header through reverse proxy for session-based authentication
+- **Docs**: Updated all project documentation for v5.0.0 authentication release
+
 ## [5.0.0] - 2026-01-29
 
 ### Added

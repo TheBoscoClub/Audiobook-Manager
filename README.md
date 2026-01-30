@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![5](https://img.shields.io/badge/5-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest major | [v5.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v5.0.0) |
+| ![5](https://img.shields.io/badge/5-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v5.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v5.0.1) |
+| ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v5.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v5.0.0) |
 | ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v4.1.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.2) |
 | ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.1.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.1) |
 | ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v4.1.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.0) |
@@ -1343,7 +1344,12 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v5.0.0 (Current)
+### v5.0.1 (Current)
+- **Proxy**: Route `/auth/*` endpoints through HTTPS reverse proxy to Flask backend
+- **Proxy**: Forward `Cookie` header for session-based authentication
+- **Docs**: Updated all project documentation for v5.0.0 authentication release
+
+### v5.0.0
 - **Authentication**: Multi-user auth system with TOTP, Passkey (WebAuthn), and FIDO2 hardware key support
 - **Authentication**: SQLCipher encrypted auth database (AES-256 at rest)
 - **Authentication**: Admin approval flow with claim token system for new user registration
