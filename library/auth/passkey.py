@@ -43,10 +43,12 @@ from webauthn.helpers.structs import (
 
 from .database import AuthDatabase
 
-# Configuration - should match your domain
-DEFAULT_RP_ID = "localhost"  # Override with actual domain in production
+# Default WebAuthn configuration (localhost development only)
+# Production values are auto-derived from deployment config by
+# get_webauthn_config() in api_modular/auth.py
+DEFAULT_RP_ID = "localhost"
 DEFAULT_RP_NAME = "The Library"
-DEFAULT_ORIGIN = "http://localhost:5001"  # Override with https://domain in production
+DEFAULT_ORIGIN = "http://localhost:5001"
 
 # Challenge expiry
 CHALLENGE_TIMEOUT_SECONDS = 300  # 5 minutes

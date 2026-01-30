@@ -110,6 +110,10 @@ def init_auth_routes(
     if is_dev:
         _session_cookie_secure = False
 
+    # Log WebAuthn configuration at startup
+    rp_id, rp_name, origin = get_webauthn_config()
+    print(f"WebAuthn config: rp_id={rp_id}, origin={origin}, rp_name={rp_name}")
+
 
 def get_auth_db() -> AuthDatabase:
     """Get the auth database instance."""
@@ -1265,10 +1269,44 @@ def verify_registration():
 
 
 def get_webauthn_config() -> tuple[str, str, str]:
-    """Get WebAuthn configuration from environment or defaults."""
-    rp_id = os.environ.get("WEBAUTHN_RP_ID", "localhost")
-    rp_name = os.environ.get("WEBAUTHN_RP_NAME", "The Library")
-    origin = os.environ.get("WEBAUTHN_ORIGIN", "http://localhost:5001")
+    """Get WebAuthn configuration, deriving from deployment config if not explicit.
+
+    Priority:
+    1. Explicit WEBAUTHN_RP_ID / WEBAUTHN_ORIGIN (env or audiobooks.conf)
+    2. Auto-derived from AUDIOBOOKS_HOSTNAME + AUDIOBOOKS_WEB_PORT + AUDIOBOOKS_HTTPS_ENABLED
+    3. Fallback to localhost defaults (development)
+    """
+    import socket
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from config import get_config
+
+    # Explicit overrides take priority
+    rp_id = get_config("WEBAUTHN_RP_ID")
+    rp_name = get_config("WEBAUTHN_RP_NAME", "The Library")
+    origin = get_config("WEBAUTHN_ORIGIN")
+
+    # Auto-derive RP ID from hostname if not set
+    if not rp_id:
+        hostname = get_config("AUDIOBOOKS_HOSTNAME") or socket.getfqdn()
+        if hostname in ("localhost", "127.0.0.1", "::1") or hostname.endswith(".local"):
+            rp_id = "localhost"
+        else:
+            rp_id = hostname
+
+    # Auto-derive origin from proxy config if not set
+    if not origin:
+        https_enabled = get_config("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() == "true"
+        web_port = int(get_config("AUDIOBOOKS_WEB_PORT") or get_config("WEB_PORT", "8443"))
+        scheme = "https" if https_enabled else "http"
+        default_port = 443 if https_enabled else 80
+
+        if rp_id == "localhost":
+            origin = f"{scheme}://localhost:{web_port}"
+        elif web_port == default_port:
+            origin = f"{scheme}://{rp_id}"
+        else:
+            origin = f"{scheme}://{rp_id}:{web_port}"
+
     return rp_id, rp_name, origin
 
 
