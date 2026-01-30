@@ -7,6 +7,7 @@ from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request
 
+from .auth import admin_if_enabled, auth_if_enabled
 from .core import FlaskResponse, get_db
 
 utilities_crud_bp = Blueprint("utilities_crud", __name__)
@@ -16,6 +17,7 @@ def init_crud_routes(db_path):
     """Initialize CRUD routes with database path."""
 
     @utilities_crud_bp.route("/api/audiobooks/<int:id>", methods=["PUT"])
+    @admin_if_enabled
     def update_audiobook(id: int) -> FlaskResponse:
         """Update audiobook metadata"""
         data = request.get_json()
@@ -79,6 +81,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": False, "error": "Database update failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/<int:id>", methods=["DELETE"])
+    @admin_if_enabled
     def delete_audiobook(id: int) -> FlaskResponse:
         """Delete audiobook from database (does not delete file)
 
@@ -121,6 +124,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": False, "error": "Database deletion failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/bulk-update", methods=["POST"])
+    @admin_if_enabled
     def bulk_update_audiobooks() -> FlaskResponse:
         """Update a field for multiple audiobooks"""
         data = request.get_json()
@@ -191,6 +195,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": False, "error": "Bulk update failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/bulk-delete", methods=["POST"])
+    @admin_if_enabled
     def bulk_delete_audiobooks() -> FlaskResponse:
         """Delete multiple audiobooks.
 
@@ -297,6 +302,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": False, "error": "Bulk deletion failed"}), 500
 
     @utilities_crud_bp.route("/api/audiobooks/missing-narrator", methods=["GET"])
+    @auth_if_enabled
     def get_audiobooks_missing_narrator() -> Response:
         """Get audiobooks without narrator information"""
         conn = get_db(db_path)
@@ -318,6 +324,7 @@ def init_crud_routes(db_path):
         return jsonify(audiobooks)
 
     @utilities_crud_bp.route("/api/audiobooks/missing-hash", methods=["GET"])
+    @auth_if_enabled
     def get_audiobooks_missing_hash() -> Response:
         """Get audiobooks without SHA-256 hash"""
         conn = get_db(db_path)

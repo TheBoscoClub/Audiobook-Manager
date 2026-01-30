@@ -13,6 +13,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request
 from operation_status import get_tracker
 
+from ..auth import admin_if_enabled
 from ..core import FlaskResponse
 
 utilities_ops_audible_bp = Blueprint("utilities_ops_audible", __name__)
@@ -27,6 +28,7 @@ def init_audible_routes(project_root):
     @utilities_ops_audible_bp.route(
         "/api/utilities/download-audiobooks-async", methods=["POST"]
     )
+    @admin_if_enabled
     def download_audiobooks_async() -> FlaskResponse:
         """Download new audiobooks from Audible with progress tracking."""
         tracker = get_tracker()
@@ -193,6 +195,7 @@ def init_audible_routes(project_root):
     @utilities_ops_audible_bp.route(
         "/api/utilities/sync-genres-async", methods=["POST"]
     )
+    @admin_if_enabled
     def sync_genres_async() -> FlaskResponse:
         """Sync genres from Audible metadata with progress tracking."""
         tracker = get_tracker()
@@ -332,6 +335,7 @@ def init_audible_routes(project_root):
     @utilities_ops_audible_bp.route(
         "/api/utilities/sync-narrators-async", methods=["POST"]
     )
+    @admin_if_enabled
     def sync_narrators_async() -> FlaskResponse:
         """Update narrator info from Audible metadata with progress tracking."""
         tracker = get_tracker()
@@ -467,6 +471,7 @@ def init_audible_routes(project_root):
     @utilities_ops_audible_bp.route(
         "/api/utilities/check-audible-prereqs", methods=["GET"]
     )
+    @admin_if_enabled
     def check_audible_prereqs() -> FlaskResponse:
         """Check if Audible library metadata file exists."""
         data_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")

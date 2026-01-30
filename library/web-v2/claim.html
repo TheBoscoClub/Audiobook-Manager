@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claim Your Credentials - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/help-tooltips.css">
+    <script src="js/webauthn.js"></script>
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- Decorative header -->
+        <div class="auth-header">
+            <div class="deco-ornament">&#9830;</div>
+            <h1 class="auth-title">The Library</h1>
+            <p class="auth-subtitle">Claim Your Credentials</p>
+            <div class="deco-line"></div>
+        </div>
+
+        <!-- Step 1: Enter claim token -->
+        <div id="step-claim" class="registration-step">
+            <p class="step-description">
+                Enter your username and claim token to set up your account.
+                You received the claim token when you submitted your access request.
+            </p>
+
+            <form id="claim-form" class="auth-form">
+                <div class="form-group">
+                    <label for="username">
+                        Username
+                        <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
+                    </label>
+                    <input type="text"
+                           id="username"
+                           name="username"
+                           autocomplete="username"
+                           autocapitalize="none"
+                           spellcheck="false"
+                           required>
+                    <div id="username-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is this?</strong>
+                            <p>This is the username you chose when you requested access to The Library.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="claim-token">
+                        Claim Token
+                        <button type="button" class="help-icon" aria-label="Help" data-help="claim-token-help">?</button>
+                    </label>
+                    <input type="text"
+                           id="claim-token"
+                           name="claim_token"
+                           placeholder="XXXX-XXXX-XXXX-XXXX"
+                           autocomplete="off"
+                           spellcheck="false"
+                           required>
+                    <span class="field-hint">The token you saved when requesting access</span>
+                    <div id="claim-token-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is a claim token?</strong>
+                            <p>This is a special code you received when you submitted your access request. It looks like: XXXX-XXXX-XXXX-XXXX</p>
+                            <strong>Where do I find it?</strong>
+                            <ul>
+                                <li>Written down where you saved it</li>
+                                <li>In a screenshot you took</li>
+                                <li>In your notes app</li>
+                            </ul>
+                            <strong>Lost your token?</strong>
+                            <p>If you provided an email during registration, check your inbox for the approval email. Otherwise, you'll need to contact the administrator.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="claim-error" class="error-message" hidden></div>
+                <div id="claim-info" class="info-message" hidden></div>
+
+                <button type="submit" class="auth-button" id="validate-btn">
+                    <span class="button-text">Continue</span>
+                    <span class="button-loading" hidden>
+                        <span class="spinner"></span>
+                        Checking...
+                    </span>
+                </button>
+            </form>
+
+            <div class="auth-options">
+                <a href="login.html" class="auth-link">&larr; Back to login</a>
+                <span class="auth-separator">|</span>
+                <a href="register.html" class="auth-link">Request access &rarr;</a>
+            </div>
+        </div>
+
+        <!-- Step 2: Choose Authentication Method -->
+        <div id="step-auth-method" class="registration-step" hidden>
+            <h2 class="step-title">Choose How to Sign In</h2>
+            <p class="step-description">
+                Welcome, <strong id="method-username"></strong>! Select how you want to verify your identity when signing in.
+            </p>
+
+            <div class="auth-method-options">
+                <div class="auth-method-card" id="method-passkey">
+                    <div class="method-header">
+                        <span class="method-icon">🔐</span>
+                        <span class="method-badge recommended">Recommended</span>
+                        <button type="button" class="help-icon" aria-label="Learn more about passkeys" data-help="passkey-method-help">?</button>
+                    </div>
+                    <h3 class="method-title">Passkey</h3>
+                    <p class="method-description">
+                        Use Face ID, fingerprint, Windows Hello, or your device's PIN to sign in instantly. Just unlock your device like you normally do!
+                    </p>
+                    <ul class="method-pros">
+                        <li><strong>Easiest to use</strong> - just unlock your device!</li>
+                        <li>Nothing to remember or type</li>
+                        <li>Most secure option available</li>
+                        <li>Built into iPhones, Androids, Macs, and Windows PCs</li>
+                    </ul>
+                    <button type="button" class="auth-button method-select" data-method="passkey" id="passkey-button" title="Set up passkey authentication">
+                        <span class="button-text">Use Passkey</span>
+                        <span class="button-loading" hidden>
+                            <span class="spinner"></span>
+                            Setting up...
+                        </span>
+                    </button>
+                    <p class="method-note" id="passkey-unsupported" style="display: none; color: #c9a227; font-size: 0.85em; margin-top: 0.5em;">
+                        Your browser doesn't support passkeys. Choose another option.
+                    </p>
+                </div>
+
+                <div class="auth-method-card" id="method-fido2">
+                    <div class="method-header">
+                        <span class="method-icon">🔑</span>
+                        <span class="method-badge">Hardware Key</span>
+                        <button type="button" class="help-icon" aria-label="Learn more about security keys" data-help="fido2-method-help">?</button>
+                    </div>
+                    <h3 class="method-title">Security Key</h3>
+                    <p class="method-description">
+                        Use a physical security key (like a YubiKey or Google Titan) that you plug in or tap to sign in.
+                    </p>
+                    <ul class="method-pros">
+                        <li>Works on any device - just bring your key</li>
+                        <li>Impossible to hack remotely</li>
+                        <li>No phone or battery needed</li>
+                    </ul>
+                    <p class="method-cons" style="color: var(--gold); font-size: 0.8rem; margin-bottom: 1rem;">
+                        ⚠️ Requires a security key device ($25-50)
+                    </p>
+                    <button type="button" class="auth-button method-select" data-method="fido2" id="fido2-button" title="Set up security key authentication">
+                        <span class="button-text">Use Security Key</span>
+                        <span class="button-loading" hidden>
+                            <span class="spinner"></span>
+                            Setting up...
+                        </span>
+                    </button>
+                    <p class="method-note" id="fido2-unsupported" style="display: none; color: #c9a227; font-size: 0.85em; margin-top: 0.5em;">
+                        Your browser doesn't support security keys.
+                    </p>
+                </div>
+
+                <div class="auth-method-card" id="method-totp">
+                    <div class="method-header">
+                        <span class="method-icon">📱</span>
+                        <span class="method-badge">Universal</span>
+                        <button type="button" class="help-icon" aria-label="Learn more about authenticator apps" data-help="totp-method-help">?</button>
+                    </div>
+                    <h3 class="method-title">Authenticator App</h3>
+                    <p class="method-description">
+                        Use a free app on your phone (like Google Authenticator or Authy) that shows a 6-digit code you type when signing in.
+                    </p>
+                    <ul class="method-pros">
+                        <li>Works everywhere - any device, any browser</li>
+                        <li>Free apps available for all phones</li>
+                        <li>Codes work without internet</li>
+                    </ul>
+                    <p class="method-cons" style="color: var(--gold); font-size: 0.8rem; margin-bottom: 1rem;">
+                        ⚠️ Need to type a code each time you sign in
+                    </p>
+                    <button type="button" class="auth-button method-select" data-method="totp" id="totp-button" title="Set up authenticator app">
+                        <span class="button-text">Use Authenticator App</span>
+                        <span class="button-loading" hidden>
+                            <span class="spinner"></span>
+                            Setting up...
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="method-error" class="error-message" hidden></div>
+
+            <div class="auth-method-help">
+                <button type="button" class="help-icon" aria-label="Help" data-help="auth-method-help">?</button>
+                <span>Not sure which to choose?</span>
+            </div>
+            <div id="auth-method-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>Which should I pick?</strong>
+                    <p>If you're unsure, <strong>Passkey</strong> is the best choice for most people. It's the easiest to use once set up - just unlock your device like you normally do!</p>
+
+                    <strong>Quick comparison:</strong>
+                    <ul>
+                        <li><strong>Passkey:</strong> Easiest daily use. Use your face, fingerprint, or PIN. Best for most people.</li>
+                        <li><strong>Security Key:</strong> Requires a physical device you plug in or tap. Best if you already own a YubiKey.</li>
+                        <li><strong>Authenticator App:</strong> Type a 6-digit code from your phone. Most universal option.</li>
+                    </ul>
+
+                    <strong>Can I switch later?</strong>
+                    <p>Contact the administrator if you need to change your authentication method.</p>
+                </div>
+            </div>
+
+            <!-- Individual method help tooltips -->
+            <div id="passkey-method-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>What is a Passkey?</strong>
+                    <p>A passkey uses your device's built-in security to sign you in. It's like using Face ID, Touch ID, Windows Hello, or your phone's PIN - whatever you normally use to unlock your device.</p>
+
+                    <strong>How does it work?</strong>
+                    <ol>
+                        <li>You set it up once (right now)</li>
+                        <li>Your device creates a secret key that only it knows</li>
+                        <li>When you sign in, your device proves it's you using your face, fingerprint, or PIN</li>
+                    </ol>
+
+                    <strong>Pros:</strong>
+                    <ul>
+                        <li>✅ Fastest way to sign in - just unlock your device!</li>
+                        <li>✅ Nothing to remember or type</li>
+                        <li>✅ Extremely secure - can't be phished or stolen</li>
+                        <li>✅ Already built into your iPhone, Android, Mac, or Windows PC</li>
+                    </ul>
+
+                    <strong>Cons:</strong>
+                    <ul>
+                        <li>⚠️ Only works on the device where you set it up</li>
+                        <li>⚠️ If you lose your device, you'll need backup codes</li>
+                        <li>⚠️ Very old devices may not support it</li>
+                    </ul>
+
+                    <div class="help-recommend">
+                        <strong>Best for:</strong> Most people! Especially if you'll mainly use one device.
+                    </div>
+                </div>
+            </div>
+
+            <div id="fido2-method-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>What is a Security Key?</strong>
+                    <p>A security key is a small physical device (like a USB stick or keychain fob) that you plug in or tap to prove your identity. Popular brands include YubiKey, Google Titan, and Feitian.</p>
+
+                    <strong>How does it work?</strong>
+                    <ol>
+                        <li>You plug the key into your device (USB) or tap it (NFC)</li>
+                        <li>Touch the key when prompted</li>
+                        <li>The key proves it's really you</li>
+                    </ol>
+
+                    <strong>Pros:</strong>
+                    <ul>
+                        <li>✅ Works on any device - just bring your key</li>
+                        <li>✅ Impossible to phish or hack remotely</li>
+                        <li>✅ No battery to charge</li>
+                        <li>✅ Very durable and long-lasting</li>
+                    </ul>
+
+                    <strong>Cons:</strong>
+                    <ul>
+                        <li>⚠️ You need to buy a security key (typically $25-50)</li>
+                        <li>⚠️ You must carry it with you</li>
+                        <li>⚠️ If you lose it, you'll need backup codes</li>
+                    </ul>
+
+                    <div class="help-recommend">
+                        <strong>Best for:</strong> Tech-savvy users who already own a YubiKey or want maximum security across multiple devices.
+                    </div>
+                </div>
+            </div>
+
+            <div id="totp-method-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>What is an Authenticator App?</strong>
+                    <p>An authenticator app (like Google Authenticator or Authy) shows you a 6-digit code that changes every 30 seconds. You type this code when signing in.</p>
+
+                    <strong>How does it work?</strong>
+                    <ol>
+                        <li>Download a free app on your phone</li>
+                        <li>Scan a QR code to set it up</li>
+                        <li>When signing in, open the app and type the code you see</li>
+                    </ol>
+
+                    <strong>Pros:</strong>
+                    <ul>
+                        <li>✅ Works everywhere - any browser, any device</li>
+                        <li>✅ Free apps available for all phones</li>
+                        <li>✅ No internet needed on your phone (codes work offline)</li>
+                        <li>✅ Can be backed up (with Authy or other cloud-sync apps)</li>
+                    </ul>
+
+                    <strong>Cons:</strong>
+                    <ul>
+                        <li>⚠️ Slower - you need to open an app and type a code</li>
+                        <li>⚠️ Need your phone nearby every time you sign in</li>
+                        <li>⚠️ Codes can theoretically be intercepted (though rare)</li>
+                    </ul>
+
+                    <div class="help-recommend">
+                        <strong>Best for:</strong> People who sign in from many different devices, or who want a backup option that doesn't require special hardware.
+                    </div>
+                </div>
+            </div>
+
+            <div class="auth-options">
+                <a href="#" id="back-to-token" class="auth-link">&larr; Use different token</a>
+            </div>
+        </div>
+
+        <!-- Step 3: Recovery Email (optional) -->
+        <div id="step-recovery" class="registration-step" hidden>
+            <h2 class="step-title">Recovery Options</h2>
+            <p class="step-description">
+                Add an optional email for account recovery if you ever lose access.
+            </p>
+
+            <form id="recovery-form" class="auth-form">
+                <div class="form-group">
+                    <label for="recovery-email">
+                        Recovery Email (optional)
+                        <button type="button" class="help-icon" aria-label="Help" data-help="recovery-email-help">?</button>
+                    </label>
+                    <input type="email"
+                           id="recovery-email"
+                           name="recovery_email"
+                           autocomplete="email">
+                    <span class="field-hint">For account recovery via magic link</span>
+                    <div id="recovery-email-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>What is this for?</strong>
+                            <p>If you ever lose your phone or can't get into your account, we can send a special link to this email to help you get back in.</p>
+                            <strong>Should I add one?</strong>
+                            <div class="help-recommend">
+                                <strong>Recommended!</strong>
+                                <p>Adding an email gives you a safety net. If something goes wrong, you won't be locked out permanently.</p>
+                            </div>
+                            <strong>What if I don't add one?</strong>
+                            <p>You can still use backup codes (you'll get those in the next step). But having an email is an extra layer of protection.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="auth-button" id="continue-setup-btn">
+                    <span class="button-text">Continue</span>
+                    <span class="button-loading" hidden>
+                        <span class="spinner"></span>
+                        Setting up...
+                    </span>
+                </button>
+
+                <p class="skip-link" style="text-align: center; margin-top: 1rem;">
+                    <a href="#" id="skip-recovery" class="auth-link">Skip (not recommended)</a>
+                </p>
+            </form>
+        </div>
+
+        <!-- Step 4: TOTP Setup (for TOTP method only) -->
+        <div id="step-totp" class="registration-step" hidden>
+            <div class="success-header">
+                <div class="deco-ornament">&#10003;</div>
+                <h2 class="step-title">Account Ready!</h2>
+                <p class="step-description">
+                    Welcome, <strong id="totp-username"></strong>! Set up your authenticator app below.
+                </p>
+            </div>
+
+            <div class="setup-instructions">
+                <h3>
+                    Step 1: Install an Authenticator App
+                    <button type="button" class="help-icon" aria-label="Help" data-help="app-install-help">?</button>
+                </h3>
+                <div id="app-install-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is an authenticator app?</strong>
+                        <p>It's a free app that generates a 6-digit code that changes every 30 seconds. This code is used to log in securely.</p>
+                        <strong>Which one should I choose?</strong>
+                        <p><strong>Authy</strong> is recommended because it can sync between devices. If you get a new phone, your codes transfer automatically.</p>
+                        <p><strong>Google Authenticator</strong> is simple and works well, but doesn't sync between devices.</p>
+                    </div>
+                </div>
+                <p class="instruction-text">If you don't have an authenticator app, install one of these free options:</p>
+                <div class="app-links">
+                    <div class="app-link">
+                        <strong>Authy</strong> (Recommended - syncs across devices)
+                        <div class="store-links">
+                            <a href="https://apps.apple.com/app/authy/id494168017" target="_blank" rel="noopener">iPhone/iPad</a>
+                            <span class="link-sep">|</span>
+                            <a href="https://play.google.com/store/apps/details?id=com.authy.authy" target="_blank" rel="noopener">Android</a>
+                            <span class="link-sep">|</span>
+                            <a href="https://authy.com/download/" target="_blank" rel="noopener">Desktop</a>
+                        </div>
+                    </div>
+                    <div class="app-link">
+                        <strong>Google Authenticator</strong>
+                        <div class="store-links">
+                            <a href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noopener">iPhone/iPad</a>
+                            <span class="link-sep">|</span>
+                            <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noopener">Android</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="setup-instructions">
+                <h3>
+                    Step 2: Scan the QR Code
+                    <button type="button" class="help-icon" aria-label="Help" data-help="qr-scan-help">?</button>
+                </h3>
+                <div id="qr-scan-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>How to scan</strong>
+                        <ol>
+                            <li>Open your authenticator app</li>
+                            <li>Tap the + or "Add account" button</li>
+                            <li>Choose "Scan QR code" or "Scan barcode"</li>
+                            <li>Point your phone's camera at the code below</li>
+                            <li>The app will automatically add The Library</li>
+                        </ol>
+                        <strong>Can't scan?</strong>
+                        <p>If scanning doesn't work, you can manually enter the secret code shown below the QR code.</p>
+                    </div>
+                </div>
+                <p class="instruction-text">Open your authenticator app and scan this code:</p>
+                <div class="qr-container">
+                    <img id="qr-code" src="" alt="TOTP QR Code">
+                </div>
+                <p class="instruction-text">Or enter this code manually:</p>
+                <div class="secret-key" id="totp-secret"></div>
+            </div>
+
+            <div class="setup-instructions backup-codes-section">
+                <h3>
+                    Step 3: Save Your Backup Codes
+                    <button type="button" class="help-icon" aria-label="Help" data-help="backup-codes-help">?</button>
+                </h3>
+                <div id="backup-codes-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What are backup codes?</strong>
+                        <p>These are emergency codes that let you sign in if you ever lose your phone or can't use your authenticator app.</p>
+                        <strong>How do I save them?</strong>
+                        <ul>
+                            <li><strong>Write them down</strong> on paper and keep it safe</li>
+                            <li><strong>Take a screenshot</strong> of this page</li>
+                            <li><strong>Save to a secure place</strong> like a password manager</li>
+                        </ul>
+                        <div class="help-warning">
+                            <strong>Important!</strong>
+                            <p>Each code can only be used once. After using a code, cross it off your list.</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="instruction-text warning-text">
+                    These codes will NOT be shown again. Save them somewhere safe!
+                </p>
+                <div class="backup-codes-list" id="backup-codes-list"></div>
+            </div>
+
+            <div class="final-step">
+                <h3>Step 4: Enter Your First Code</h3>
+                <p>Open your authenticator app and enter the 6-digit code shown for The Library:</p>
+                <form id="first-login-form" class="first-login-form">
+                    <div class="form-group">
+                        <input type="text"
+                               id="first-totp-code"
+                               name="code"
+                               placeholder="000000"
+                               autocomplete="one-time-code"
+                               inputmode="numeric"
+                               pattern="[0-9]{6}"
+                               maxlength="6"
+                               required>
+                    </div>
+                    <div id="first-login-error" class="error-message" hidden></div>
+                    <button type="submit" class="auth-button">
+                        <span class="button-text">Enter The Library</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Step 5: Passkey/FIDO2 Success -->
+        <div id="step-webauthn-success" class="registration-step" hidden>
+            <div class="success-header">
+                <div class="deco-ornament">&#10003;</div>
+                <h2 class="step-title" id="webauthn-title">Passkey Created!</h2>
+                <p class="step-description">
+                    Welcome, <strong id="webauthn-username"></strong>! Your account is ready.
+                </p>
+            </div>
+
+            <div class="setup-instructions backup-codes-section">
+                <h3>
+                    Save Your Backup Codes
+                    <button type="button" class="help-icon" aria-label="Help" data-help="webauthn-backup-help">?</button>
+                </h3>
+                <div id="webauthn-backup-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What are backup codes?</strong>
+                        <p>These are emergency codes that let you sign in if you ever lose access to your passkey or security key.</p>
+                        <strong>How do I save them?</strong>
+                        <ul>
+                            <li><strong>Write them down</strong> on paper and keep it safe</li>
+                            <li><strong>Take a screenshot</strong> of this page</li>
+                            <li><strong>Save to a secure place</strong> like a password manager</li>
+                        </ul>
+                        <div class="help-warning">
+                            <strong>Important!</strong>
+                            <p>Each code can only be used once. After using a code, cross it off your list.</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="instruction-text warning-text">
+                    These codes will NOT be shown again. Save them somewhere safe!
+                </p>
+                <div class="backup-codes-list" id="webauthn-backup-codes"></div>
+            </div>
+
+            <a href="index.html" class="auth-button" style="display: block; text-align: center; text-decoration: none; margin-top: 1.5rem;">
+                <span class="button-text">Enter The Library</span>
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <div class="deco-ornament small">&#9830;</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        // State management
+        let claimState = {
+            username: null,
+            claimToken: null,
+            selectedMethod: null,
+            recoveryEmail: null
+        };
+
+        // Check WebAuthn support on page load
+        (async function() {
+            if (!WebAuthn.isSupported()) {
+                document.getElementById('passkey-button').disabled = true;
+                document.getElementById('passkey-button').querySelector('.button-text').textContent = 'Not Available';
+                document.getElementById('passkey-unsupported').style.display = 'block';
+
+                document.getElementById('fido2-button').disabled = true;
+                document.getElementById('fido2-button').querySelector('.button-text').textContent = 'Not Available';
+                document.getElementById('fido2-unsupported').style.display = 'block';
+            } else {
+                const hasPlatform = await WebAuthn.isPlatformAuthenticatorAvailable();
+                if (!hasPlatform) {
+                    const desc = document.querySelector('#method-passkey .method-description');
+                    if (desc) {
+                        desc.textContent = 'Your device may not support built-in passkeys, but you can try.';
+                    }
+                }
+            }
+        })();
+
+        // Help tooltip handling
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const helpId = icon.dataset.help;
+                const tooltip = document.getElementById(helpId);
+                if (tooltip) {
+                    document.querySelectorAll('.help-tooltip:not([hidden])').forEach(t => {
+                        if (t.id !== helpId) t.hidden = true;
+                    });
+                    tooltip.hidden = !tooltip.hidden;
+                }
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.help-icon') && !e.target.closest('.help-tooltip')) {
+                document.querySelectorAll('.help-tooltip').forEach(t => t.hidden = true);
+            }
+        });
+
+        // DOM elements
+        const steps = {
+            claim: document.getElementById('step-claim'),
+            authMethod: document.getElementById('step-auth-method'),
+            recovery: document.getElementById('step-recovery'),
+            totp: document.getElementById('step-totp'),
+            webauthnSuccess: document.getElementById('step-webauthn-success')
+        };
+
+        function showStep(stepName) {
+            Object.values(steps).forEach(step => step.hidden = true);
+            steps[stepName].hidden = false;
+        }
+
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.hidden = false;
+            el.classList.add('shake');
+            setTimeout(() => el.classList.remove('shake'), 500);
+        }
+
+        function clearError(elementId) {
+            const el = document.getElementById(elementId);
+            el.hidden = true;
+            el.textContent = '';
+        }
+
+        function setLoading(button, loading) {
+            const text = button.querySelector('.button-text');
+            const spinner = button.querySelector('.button-loading');
+            if (loading) {
+                if (text) text.hidden = true;
+                if (spinner) spinner.hidden = false;
+                button.disabled = true;
+            } else {
+                if (text) text.hidden = false;
+                if (spinner) spinner.hidden = true;
+                button.disabled = false;
+            }
+        }
+
+        // Step 1: Validate claim token
+        document.getElementById('claim-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError('claim-error');
+
+            const username = document.getElementById('username').value.trim();
+            const claimToken = document.getElementById('claim-token').value.trim();
+
+            if (!username || !claimToken) {
+                showError('claim-error', 'Please enter both username and claim token');
+                return;
+            }
+
+            const submitBtn = document.getElementById('validate-btn');
+            setLoading(submitBtn, true);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register/claim/validate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, claim_token: claimToken })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.valid) {
+                    // Store state
+                    claimState.username = data.username;
+                    claimState.claimToken = claimToken;
+
+                    // Show username in method step
+                    document.getElementById('method-username').textContent = data.username;
+
+                    // Show auth method selection
+                    showStep('authMethod');
+                } else {
+                    if (data.status === 'pending') {
+                        document.getElementById('claim-info').textContent = 'Your request is still pending admin review. Please check back later.';
+                        document.getElementById('claim-info').hidden = false;
+                    } else {
+                        showError('claim-error', data.error || 'Invalid username or claim token');
+                    }
+                }
+            } catch (e) {
+                showError('claim-error', 'Connection error. Please try again.');
+            } finally {
+                setLoading(submitBtn, false);
+            }
+        });
+
+        // Back to token entry
+        document.getElementById('back-to-token').addEventListener('click', (e) => {
+            e.preventDefault();
+            claimState = { username: null, claimToken: null, selectedMethod: null, recoveryEmail: null };
+            showStep('claim');
+        });
+
+        // Step 2: Select auth method
+        document.querySelectorAll('.method-select[data-method]').forEach(button => {
+            button.addEventListener('click', async () => {
+                const method = button.dataset.method;
+                claimState.selectedMethod = method;
+                clearError('method-error');
+
+                if (method === 'passkey' || method === 'fido2') {
+                    // For WebAuthn methods, show recovery step first
+                    showStep('recovery');
+                } else if (method === 'totp') {
+                    // For TOTP, show recovery step first
+                    showStep('recovery');
+                }
+            });
+        });
+
+        // Step 3: Recovery email (continue or skip)
+        document.getElementById('recovery-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            claimState.recoveryEmail = document.getElementById('recovery-email').value.trim() || null;
+            await completeSetup();
+        });
+
+        document.getElementById('skip-recovery').addEventListener('click', async (e) => {
+            e.preventDefault();
+            claimState.recoveryEmail = null;
+            await completeSetup();
+        });
+
+        // Complete setup based on selected method
+        async function completeSetup() {
+            const continueBtn = document.getElementById('continue-setup-btn');
+            setLoading(continueBtn, true);
+
+            try {
+                if (claimState.selectedMethod === 'totp') {
+                    await setupTOTP();
+                } else {
+                    await setupWebAuthn(claimState.selectedMethod);
+                }
+            } catch (e) {
+                showStep('authMethod');
+                showError('method-error', e.message || 'Setup failed. Please try again.');
+            } finally {
+                setLoading(continueBtn, false);
+            }
+        }
+
+        // TOTP setup
+        async function setupTOTP() {
+            const response = await fetch(`${API_BASE}/auth/register/claim`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: claimState.username,
+                    claim_token: claimState.claimToken,
+                    recovery_email: claimState.recoveryEmail
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Display TOTP setup
+                document.getElementById('totp-username').textContent = data.username;
+                document.getElementById('qr-code').src = 'data:image/png;base64,' + data.totp_qr;
+                document.getElementById('totp-secret').textContent = data.totp_secret;
+
+                // Display backup codes
+                const codesList = document.getElementById('backup-codes-list');
+                while (codesList.firstChild) {
+                    codesList.removeChild(codesList.firstChild);
+                }
+                data.backup_codes.forEach(code => {
+                    const span = document.createElement('span');
+                    span.textContent = code;
+                    codesList.appendChild(span);
+                });
+
+                showStep('totp');
+            } else {
+                throw new Error(data.error || 'TOTP setup failed');
+            }
+        }
+
+        // WebAuthn setup (passkey or fido2)
+        async function setupWebAuthn(authType) {
+            // Step 1: Begin WebAuthn registration
+            const beginResponse = await fetch(`${API_BASE}/auth/register/claim/webauthn/begin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: claimState.username,
+                    claim_token: claimState.claimToken,
+                    auth_type: authType
+                })
+            });
+
+            const beginData = await beginResponse.json();
+
+            if (!beginResponse.ok) {
+                throw new Error(beginData.error || 'Failed to start registration');
+            }
+
+            // Step 2: Create credential using browser
+            const options = WebAuthn.parseRegistrationOptions(beginData.options);
+
+            let credential;
+            try {
+                credential = await navigator.credentials.create({ publicKey: options });
+            } catch (e) {
+                if (e.name === 'NotAllowedError') {
+                    throw new Error('Registration was cancelled or timed out');
+                } else if (e.name === 'InvalidStateError') {
+                    throw new Error('This device is already registered');
+                }
+                throw new Error('Failed to create credential: ' + e.message);
+            }
+
+            if (!credential) {
+                throw new Error('No credential created');
+            }
+
+            // Step 3: Complete registration
+            const encodedCredential = WebAuthn.encodeRegistrationCredential(credential);
+
+            const completeResponse = await fetch(`${API_BASE}/auth/register/claim/webauthn/complete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: claimState.username,
+                    claim_token: claimState.claimToken,
+                    credential: encodedCredential,
+                    challenge: beginData.challenge,
+                    auth_type: authType,
+                    recovery_email: claimState.recoveryEmail
+                })
+            });
+
+            const completeData = await completeResponse.json();
+
+            if (!completeResponse.ok || !completeData.success) {
+                throw new Error(completeData.error || 'Registration verification failed');
+            }
+
+            // Display success
+            const typeLabel = authType === 'passkey' ? 'Passkey' : 'Security Key';
+            document.getElementById('webauthn-title').textContent = `${typeLabel} Created!`;
+            document.getElementById('webauthn-username').textContent = completeData.username;
+
+            // Display backup codes
+            const codesList = document.getElementById('webauthn-backup-codes');
+            while (codesList.firstChild) {
+                codesList.removeChild(codesList.firstChild);
+            }
+            completeData.backup_codes.forEach(code => {
+                const span = document.createElement('span');
+                span.textContent = code;
+                codesList.appendChild(span);
+            });
+
+            showStep('webauthnSuccess');
+        }
+
+        // Step 4: First login (TOTP only)
+        document.getElementById('first-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const code = document.getElementById('first-totp-code').value.trim();
+            const errorEl = document.getElementById('first-login-error');
+            errorEl.hidden = true;
+
+            if (!code || code.length !== 6) {
+                errorEl.textContent = 'Please enter the 6-digit code from your authenticator app';
+                errorEl.hidden = false;
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.querySelector('.button-text').textContent = 'Logging in...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: claimState.username,
+                        code: code
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    window.location.href = 'index.html';
+                } else {
+                    errorEl.textContent = data.error || 'Invalid code. Check your authenticator app and try again.';
+                    errorEl.hidden = false;
+                    submitBtn.disabled = false;
+                    submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+                }
+            } catch (e) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.hidden = false;
+                submitBtn.disabled = false;
+                submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+            }
+        });
+
+        // Auto-format TOTP code input
+        document.getElementById('first-totp-code').addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        });
+    </script>
+
+    <style>
+        .step-title {
+            font-family: Georgia, serif;
+            font-size: 1.25rem;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .step-description {
+            color: var(--cream);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .success-header {
+            text-align: center;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+
+        .success-header .deco-ornament {
+            font-size: 2.5rem;
+            color: var(--emerald-light);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Auth method selection cards */
+        .auth-method-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .auth-method-card {
+            background: var(--deco-slate);
+            border: 1px solid var(--deco-gray);
+            padding: 1.25rem;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .method-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .method-icon {
+            font-size: 1.5rem;
+        }
+
+        .method-badge {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0.25rem 0.5rem;
+            background: var(--deco-gray);
+            color: var(--cream);
+        }
+
+        .method-badge.recommended {
+            background: var(--emerald);
+        }
+
+        .method-title {
+            font-family: Georgia, serif;
+            font-size: 1rem;
+            color: var(--gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .method-description {
+            color: var(--cream);
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin-bottom: 0.75rem;
+        }
+
+        .method-pros {
+            color: var(--cream);
+            font-size: 0.8rem;
+            line-height: 1.6;
+            margin: 0 0 1rem 1.25rem;
+            padding: 0;
+        }
+
+        .method-pros li {
+            margin-bottom: 0.25rem;
+        }
+
+        .method-select {
+            width: 100%;
+        }
+
+        .auth-method-help {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: var(--cream);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Setup instructions */
+        .setup-instructions {
+            background: var(--deco-slate);
+            border: 1px solid var(--deco-gray);
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .setup-instructions h3 {
+            font-family: Georgia, serif;
+            font-size: 1rem;
+            color: var(--gold);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .instruction-text {
+            color: var(--cream);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .instruction-text.warning-text {
+            color: var(--gold);
+            font-weight: bold;
+        }
+
+        .app-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .app-link {
+            background: var(--charcoal);
+            padding: 0.75rem 1rem;
+            border-left: 3px solid var(--gold-dark);
+        }
+
+        .app-link strong {
+            color: var(--gold);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .store-links {
+            font-size: 0.85rem;
+        }
+
+        .store-links a {
+            color: var(--cream);
+            text-decoration: underline;
+        }
+
+        .store-links a:hover {
+            color: var(--gold);
+        }
+
+        .link-sep {
+            color: var(--deco-gray);
+            margin: 0 0.25rem;
+        }
+
+        .qr-container {
+            display: flex;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+
+        .qr-container img {
+            max-width: 200px;
+            background: white;
+            padding: 0.5rem;
+        }
+
+        .secret-key {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1rem;
+            letter-spacing: 0.1em;
+            color: var(--gold);
+            background: var(--charcoal);
+            padding: 0.75rem 1rem;
+            text-align: center;
+            border: 1px solid var(--deco-gray);
+            user-select: all;
+            word-break: break-all;
+        }
+
+        .backup-codes-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .backup-codes-list span {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            color: var(--cream);
+            background: var(--charcoal);
+            padding: 0.5rem;
+            text-align: center;
+            border: 1px solid var(--deco-gray);
+            user-select: all;
+        }
+
+        .final-step {
+            background: var(--emerald);
+            background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-light) 100%);
+            padding: 1.5rem;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .final-step h3 {
+            font-family: Georgia, serif;
+            font-size: 1.1rem;
+            color: var(--charcoal);
+            margin-bottom: 0.75rem;
+        }
+
+        .final-step p {
+            color: var(--charcoal);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .info-message {
+            background: rgba(218, 165, 32, 0.1);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .auth-separator {
+            color: var(--deco-gray);
+            margin: 0 0.5rem;
+        }
+
+        .first-login-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .first-login-form .form-group {
+            margin: 0;
+        }
+
+        .first-login-form input {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.5rem;
+            letter-spacing: 0.3em;
+            text-align: center;
+            width: 10rem;
+            padding: 0.75rem;
+            background: var(--charcoal);
+            border: 2px solid var(--gold);
+            color: var(--gold);
+        }
+
+        .first-login-form input::placeholder {
+            color: var(--deco-gray);
+        }
+
+        .first-login-form .error-message {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            color: #ff6b6b;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .first-login-form .auth-button {
+            background: var(--gold);
+            color: var(--charcoal);
+        }
+
+        .first-login-form .auth-button:hover {
+            background: var(--gold-dark);
+        }
+
+        .skip-link {
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 480px) {
+            .auth-method-card {
+                padding: 1rem;
+            }
+
+            .method-title {
+                font-size: 0.95rem;
+            }
+
+            .method-description,
+            .method-pros {
+                font-size: 0.8rem;
+            }
+
+            .backup-codes-list {
+                grid-template-columns: 1fr;
+            }
+
+            .secret-key {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</body>
+</html>

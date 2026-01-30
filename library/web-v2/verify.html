@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Access - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/help-tooltips.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- Decorative header -->
+        <div class="auth-header">
+            <div class="deco-ornament">&#9830;</div>
+            <h1 class="auth-title">The Library</h1>
+            <p class="auth-subtitle">Access Verification</p>
+            <div class="deco-line"></div>
+        </div>
+
+        <!-- Verifying state -->
+        <div id="state-verifying" class="verification-state">
+            <div class="spinner-large"></div>
+            <p class="state-message">Verifying your access link...</p>
+        </div>
+
+        <!-- Success state -->
+        <div id="state-success" class="verification-state" hidden>
+            <div class="success-icon">&#10003;</div>
+            <h2 class="state-title">Verification Complete</h2>
+            <p class="state-message">
+                You have been signed in successfully.
+            </p>
+            <p class="state-message" id="redirect-message">
+                Redirecting to the library...
+            </p>
+        </div>
+
+        <!-- Error state -->
+        <div id="state-error" class="verification-state" hidden>
+            <div class="error-icon">&#10007;</div>
+            <h2 class="state-title">Verification Failed</h2>
+            <p class="state-message" id="error-message">
+                The link is invalid or has expired.
+            </p>
+            <div class="error-help">
+                <button type="button" class="help-icon" aria-label="Help" data-help="error-help">?</button>
+            </div>
+            <div id="error-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>Why did this happen?</strong>
+                    <ul>
+                        <li>The link may have expired (links are valid for 15 minutes)</li>
+                        <li>You may have already used this link</li>
+                        <li>The link may have been copied incorrectly</li>
+                    </ul>
+                    <strong>What can I do?</strong>
+                    <p>Request a new link by going to the login page and selecting "Use magic link" or "Can't access authenticator".</p>
+                </div>
+            </div>
+            <div class="auth-options" style="margin-top: 1.5rem;">
+                <a href="login.html" class="auth-button" style="display: inline-block; text-align: center; text-decoration: none; padding: 0.75rem 2rem;">
+                    <span class="button-text">Go to Login</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Manual entry state (fallback if no token in URL) -->
+        <div id="state-manual" class="verification-state" hidden>
+            <p class="step-description">
+                Enter the verification code you received to continue.
+            </p>
+
+            <form id="manual-form" class="auth-form">
+                <div class="form-group">
+                    <label for="manual-token">
+                        Verification Code
+                        <button type="button" class="help-icon" aria-label="Help" data-help="manual-token-help">?</button>
+                    </label>
+                    <input type="text"
+                           id="manual-token"
+                           name="token"
+                           autocomplete="off"
+                           placeholder="Paste your code here"
+                           required>
+                    <div id="manual-token-help" class="help-tooltip" hidden>
+                        <div class="help-content">
+                            <strong>Where is my code?</strong>
+                            <p>Check your email or text messages for a message from The Library. Copy the entire code or click the link in that message.</p>
+                            <strong>I don't see the message</strong>
+                            <ul>
+                                <li>Check your spam or junk folder</li>
+                                <li>Wait a few minutes and check again</li>
+                                <li>Make sure you entered the correct email/phone</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="manual-error" class="error-message" hidden></div>
+
+                <button type="submit" class="auth-button">
+                    <span class="button-text">Verify</span>
+                    <span class="button-loading" hidden>
+                        <span class="spinner"></span>
+                        Verifying...
+                    </span>
+                </button>
+            </form>
+
+            <div class="auth-options">
+                <a href="login.html" class="auth-link">&larr; Back to login</a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <div class="deco-ornament small">&#9830;</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        // Help tooltip handling
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const helpId = icon.dataset.help;
+                const tooltip = document.getElementById(helpId);
+                if (tooltip) {
+                    document.querySelectorAll('.help-tooltip:not([hidden])').forEach(t => {
+                        if (t.id !== helpId) t.hidden = true;
+                    });
+                    tooltip.hidden = !tooltip.hidden;
+                }
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.help-icon') && !e.target.closest('.help-tooltip')) {
+                document.querySelectorAll('.help-tooltip').forEach(t => t.hidden = true);
+            }
+        });
+
+        // State elements
+        const states = {
+            verifying: document.getElementById('state-verifying'),
+            success: document.getElementById('state-success'),
+            error: document.getElementById('state-error'),
+            manual: document.getElementById('state-manual')
+        };
+
+        function showState(stateName) {
+            Object.values(states).forEach(state => state.hidden = true);
+            states[stateName].hidden = false;
+        }
+
+        async function verifyToken(token) {
+            try {
+                const response = await fetch(`${API_BASE}/auth/magic-link/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ token })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showState('success');
+                    // Redirect to library after brief delay
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1500);
+                } else {
+                    document.getElementById('error-message').textContent =
+                        data.error || 'The link is invalid or has expired.';
+                    showState('error');
+                }
+            } catch (e) {
+                document.getElementById('error-message').textContent =
+                    'Connection error. Please check your internet and try again.';
+                showState('error');
+            }
+        }
+
+        // Check URL for token
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        if (token) {
+            // Auto-verify token from URL
+            verifyToken(token);
+        } else {
+            // Show manual entry form
+            showState('manual');
+        }
+
+        // Manual form submission
+        document.getElementById('manual-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const manualToken = document.getElementById('manual-token').value.trim();
+            const errorEl = document.getElementById('manual-error');
+            const button = e.target.querySelector('.auth-button');
+            const buttonText = button.querySelector('.button-text');
+            const buttonLoading = button.querySelector('.button-loading');
+
+            errorEl.hidden = true;
+
+            if (!manualToken) {
+                errorEl.textContent = 'Please enter your verification code';
+                errorEl.hidden = false;
+                return;
+            }
+
+            buttonText.hidden = true;
+            buttonLoading.hidden = false;
+            button.disabled = true;
+
+            await verifyToken(manualToken);
+
+            buttonText.hidden = false;
+            buttonLoading.hidden = true;
+            button.disabled = false;
+        });
+    </script>
+
+    <style>
+        .verification-state {
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .spinner-large {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--deco-gray);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .state-title {
+            font-family: Georgia, serif;
+            font-size: 1.25rem;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .state-message {
+            color: var(--cream);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+        }
+
+        .success-icon {
+            font-size: 3rem;
+            color: var(--emerald-light);
+            margin-bottom: 1rem;
+        }
+
+        .error-icon {
+            font-size: 3rem;
+            color: var(--ruby);
+            margin-bottom: 1rem;
+        }
+
+        .error-help {
+            margin-top: 1rem;
+        }
+
+        .step-description {
+            color: var(--cream);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</body>
+</html>

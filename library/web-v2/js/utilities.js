@@ -972,6 +972,33 @@ function hideConfirmModal() {
     }
 }
 
+/**
+ * Show confirmation modal with custom callback.
+ * Used for actions that need custom handling like delete user.
+ */
+function showConfirmModal(title, message, onConfirm) {
+    const modal = document.getElementById('confirm-modal');
+    const titleEl = document.getElementById('confirm-title');
+    const bodyEl = document.getElementById('confirm-body');
+    const confirmBtn = document.getElementById('confirm-action');
+
+    titleEl.textContent = title;
+    bodyEl.textContent = message;
+    confirmBtn.textContent = 'Confirm';
+    confirmBtn.className = 'office-btn danger';
+
+    modal.classList.add('active');
+
+    // Clone to remove old event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.addEventListener('click', () => {
+        modal.classList.remove('active');
+        if (onConfirm) onConfirm();
+    });
+}
+
 function showProgress(title, message) {
     document.getElementById('progress-title').textContent = title;
     document.getElementById('progress-message').textContent = message;
@@ -2103,11 +2130,686 @@ function initSystemSection() {
         loadServicesStatus();
         loadVersionInfo();
         loadPositionSyncStatus();
+        loadUsers();
+        loadAccessRequests();
     });
 
     // Position Sync buttons
     document.getElementById('refresh-sync-status')?.addEventListener('click', loadPositionSyncStatus);
     document.getElementById('sync-all-positions')?.addEventListener('click', syncAllPositions);
+
+    // User Management
+    initUserManagement();
+}
+
+// ============================================
+// User Management
+// ============================================
+
+function initUserManagement() {
+    // Tab switching
+    document.querySelectorAll('.user-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            document.querySelectorAll('.user-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            document.querySelectorAll('.user-tab-content').forEach(content => {
+                content.hidden = content.id !== `${tabName}-tab`;
+                content.classList.toggle('active', content.id === `${tabName}-tab`);
+            });
+        });
+    });
+
+    // Refresh users button
+    document.getElementById('refresh-users')?.addEventListener('click', () => {
+        loadUsers();
+        loadAccessRequests();
+    });
+
+    // Invite user button
+    document.getElementById('invite-user-btn')?.addEventListener('click', showInviteUserModal);
+}
+
+function showInviteUserModal() {
+    const modal = document.getElementById('invite-user-modal');
+    const usernameEl = document.getElementById('invite-username');
+    const emailEl = document.getElementById('invite-email');
+    const canDownloadEl = document.getElementById('invite-can-download');
+    const sendBtn = document.getElementById('invite-user-send');
+    const cancelBtn = document.getElementById('invite-user-cancel');
+    const closeBtn = document.getElementById('invite-user-close');
+
+    // Reset form
+    usernameEl.value = '';
+    emailEl.value = '';
+    canDownloadEl.checked = true;
+
+    modal.classList.add('active');
+
+    // Clone buttons to remove old event listeners
+    const newSendBtn = sendBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    const newCloseBtn = closeBtn.cloneNode(true);
+    sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
+    const closeModal = () => modal.classList.remove('active');
+
+    newCancelBtn.addEventListener('click', closeModal);
+    newCloseBtn.addEventListener('click', closeModal);
+
+    newSendBtn.addEventListener('click', async () => {
+        const username = usernameEl.value.trim();
+        const email = emailEl.value.trim();
+        const canDownload = canDownloadEl.checked;
+
+        // Validate
+        if (!username || username.length < 5) {
+            showToast('Username must be at least 5 characters', 'error');
+            return;
+        }
+        if (username.length > 16) {
+            showToast('Username must be at most 16 characters', 'error');
+            return;
+        }
+        if (/[<>\\]/.test(username)) {
+            showToast('Username cannot contain < > or \\ characters', 'error');
+            return;
+        }
+        if (!email) {
+            showToast('Email address is required', 'error');
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showToast('Invalid email format', 'error');
+            return;
+        }
+
+        // Disable send button
+        newSendBtn.disabled = true;
+        newSendBtn.textContent = 'Sending...';
+
+        try {
+            const res = await fetch(`${API_BASE}/auth/admin/users/invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    username: username,
+                    email: email,
+                    can_download: canDownload
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                closeModal();
+                if (data.email_sent) {
+                    showToast(`Invitation sent to ${email}`, 'success');
+                } else {
+                    // Email failed - show claim token
+                    showToast(`User created. Email failed - claim token: ${data.claim_token}`, 'warning');
+                }
+                loadUsers();
+            } else {
+                showToast(data.error || 'Failed to invite user', 'error');
+            }
+        } catch (error) {
+            showToast('Connection error', 'error');
+        } finally {
+            newSendBtn.disabled = false;
+            newSendBtn.textContent = 'Send Invitation';
+        }
+    });
+}
+
+async function loadUsers() {
+    const userList = document.getElementById('user-list');
+    const countBadge = document.getElementById('users-count-badge');
+    if (!userList) return;
+
+    // Clear and show loading
+    while (userList.firstChild) {
+        userList.removeChild(userList.firstChild);
+    }
+    const loadingP = document.createElement('p');
+    loadingP.className = 'placeholder-text';
+    loadingP.textContent = 'Loading users...';
+    userList.appendChild(loadingP);
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/admin/users`, {
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to load users');
+        }
+
+        const data = await res.json();
+
+        // Clear loading
+        while (userList.firstChild) {
+            userList.removeChild(userList.firstChild);
+        }
+
+        if (!data.users || data.users.length === 0) {
+            const emptyP = document.createElement('p');
+            emptyP.className = 'empty-message';
+            emptyP.textContent = 'No users found';
+            userList.appendChild(emptyP);
+            if (countBadge) countBadge.textContent = '0';
+            return;
+        }
+
+        if (countBadge) countBadge.textContent = data.users.length;
+
+        data.users.forEach(user => {
+            const item = createUserItem(user);
+            userList.appendChild(item);
+        });
+
+    } catch (error) {
+        console.error('Error loading users:', error);
+        while (userList.firstChild) {
+            userList.removeChild(userList.firstChild);
+        }
+        const errorP = document.createElement('p');
+        errorP.className = 'placeholder-text';
+        errorP.textContent = 'Failed to load users';
+        userList.appendChild(errorP);
+    }
+}
+
+function createUserItem(user) {
+    const item = document.createElement('div');
+    item.className = 'user-item';
+    item.dataset.userId = user.id;
+
+    // User info
+    const info = document.createElement('div');
+    info.className = 'user-info';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'user-name';
+    nameRow.textContent = user.username;
+
+    const badges = document.createElement('div');
+    badges.className = 'user-badges';
+
+    if (user.is_admin) {
+        const adminBadge = document.createElement('span');
+        adminBadge.className = 'user-badge admin';
+        adminBadge.textContent = 'Admin';
+        badges.appendChild(adminBadge);
+    }
+
+    const downloadBadge = document.createElement('span');
+    downloadBadge.className = `user-badge ${user.can_download ? 'download' : 'no-download'}`;
+    downloadBadge.textContent = user.can_download ? 'Download' : 'No Download';
+    badges.appendChild(downloadBadge);
+
+    nameRow.appendChild(badges);
+    info.appendChild(nameRow);
+
+    const meta = document.createElement('div');
+    meta.className = 'user-meta';
+    const lastLogin = user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+    const emailInfo = user.email ? ` • ${user.email}` : '';
+    meta.textContent = `Last login: ${lastLogin}${emailInfo}`;
+    info.appendChild(meta);
+
+    item.appendChild(info);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'user-actions';
+
+    // Edit user
+    const editBtn = document.createElement('button');
+    editBtn.className = 'user-action-btn edit';
+    editBtn.textContent = 'Edit';
+    editBtn.title = `Edit ${user.username}`;
+    editBtn.addEventListener('click', () => showEditUserModal(user));
+    actions.appendChild(editBtn);
+
+    // Toggle admin status (not for self - can't remove your own admin)
+    const adminBtn = document.createElement('button');
+    adminBtn.className = `user-action-btn ${user.is_admin ? 'revoke-admin' : 'grant-admin'}`;
+    adminBtn.textContent = user.is_admin ? 'Revoke Admin' : 'Make Admin';
+    adminBtn.title = user.is_admin ? `Remove admin privileges from ${user.username}` : `Grant admin privileges to ${user.username}`;
+    adminBtn.addEventListener('click', () => toggleUserAdmin(user));
+    actions.appendChild(adminBtn);
+
+    // Toggle download permission
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'user-action-btn toggle';
+    toggleBtn.textContent = user.can_download ? 'Disable Download' : 'Enable Download';
+    toggleBtn.title = `Toggle download permission for ${user.username}`;
+    toggleBtn.addEventListener('click', () => toggleUserDownload(user.id, !user.can_download));
+    actions.appendChild(toggleBtn);
+
+    // Delete user (not for admins)
+    if (!user.is_admin) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'user-action-btn delete';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.title = `Delete user ${user.username}`;
+        deleteBtn.addEventListener('click', () => confirmDeleteUser(user));
+        actions.appendChild(deleteBtn);
+    }
+
+    item.appendChild(actions);
+    return item;
+}
+
+async function toggleUserDownload(userId, canDownload) {
+    try {
+        const res = await fetch(`${API_BASE}/auth/admin/users/${userId}/permissions`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ can_download: canDownload })
+        });
+
+        if (res.ok) {
+            showToast(`Download permission ${canDownload ? 'enabled' : 'disabled'}`, 'success');
+            loadUsers();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Failed to update permission', 'error');
+        }
+    } catch (error) {
+        showToast('Connection error', 'error');
+    }
+}
+
+async function toggleUserAdmin(user) {
+    // Confirm the action
+    const action = user.is_admin ? 'revoke admin privileges from' : 'grant admin privileges to';
+    const confirmed = await new Promise(resolve => {
+        showConfirmModal(
+            user.is_admin ? 'Revoke Admin' : 'Grant Admin',
+            `Are you sure you want to ${action} "${user.username}"?`,
+            () => resolve(true),
+            () => resolve(false)
+        );
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/admin/users/${user.id}/toggle-admin`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            const status = data.is_admin ? 'granted' : 'revoked';
+            showToast(`Admin privileges ${status} for ${user.username}`, 'success');
+            loadUsers();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Failed to update admin status', 'error');
+        }
+    } catch (error) {
+        showToast('Connection error', 'error');
+    }
+}
+
+function confirmDeleteUser(user) {
+    showConfirmModal(
+        'Delete User',
+        `Are you sure you want to delete user "${user.username}"? This action cannot be undone.`,
+        async () => {
+            try {
+                const res = await fetch(`${API_BASE}/auth/admin/users/${user.id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                if (res.ok) {
+                    showToast(`User ${user.username} deleted`, 'success');
+                    loadUsers();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || 'Failed to delete user', 'error');
+                }
+            } catch (error) {
+                showToast('Connection error', 'error');
+            }
+        }
+    );
+}
+
+function showEditUserModal(user, isProfile = false) {
+    const modal = document.getElementById('edit-user-modal');
+    const titleEl = document.getElementById('edit-user-title');
+    const userIdEl = document.getElementById('edit-user-id');
+    const usernameEl = document.getElementById('edit-username');
+    const emailEl = document.getElementById('edit-email');
+    const saveBtn = document.getElementById('edit-user-save');
+    const cancelBtn = document.getElementById('edit-user-cancel');
+    const closeBtn = document.getElementById('edit-user-close');
+
+    titleEl.textContent = isProfile ? 'Edit Profile' : `Edit User: ${user.username}`;
+    userIdEl.value = user.id;
+    usernameEl.value = user.username;
+    emailEl.value = user.email || '';
+
+    modal.classList.add('active');
+
+    // Clone buttons to remove old event listeners
+    const newSaveBtn = saveBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    const newCloseBtn = closeBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
+    const closeModal = () => modal.classList.remove('active');
+
+    newCancelBtn.addEventListener('click', closeModal);
+    newCloseBtn.addEventListener('click', closeModal);
+
+    newSaveBtn.addEventListener('click', async () => {
+        const newUsername = usernameEl.value.trim();
+        const newEmail = emailEl.value.trim();
+
+        if (!newUsername || newUsername.length < 3) {
+            showToast('Username must be at least 3 characters', 'error');
+            return;
+        }
+        if (newUsername.length > 32) {
+            showToast('Username must be at most 32 characters', 'error');
+            return;
+        }
+        // Check for invalid characters
+        if (/[<>\\]/.test(newUsername)) {
+            showToast('Username cannot contain < > or \\ characters', 'error');
+            return;
+        }
+        if (newUsername !== newUsername.trim()) {
+            showToast('Username cannot have leading or trailing spaces', 'error');
+            return;
+        }
+        // Validate email if provided
+        if (newEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            showToast('Invalid email format', 'error');
+            return;
+        }
+
+        try {
+            // Use different endpoints for profile vs admin edit
+            const endpoint = isProfile
+                ? `${API_BASE}/auth/me`
+                : `${API_BASE}/auth/admin/users/${user.id}`;
+
+            const res = await fetch(endpoint, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    username: newUsername,
+                    email: newEmail || null  // Send null to clear email
+                })
+            });
+
+            if (res.ok) {
+                showToast('User updated successfully', 'success');
+                closeModal();
+                if (isProfile) {
+                    // Update header display
+                    const usernameDisplay = document.getElementById('username-display');
+                    if (usernameDisplay) usernameDisplay.textContent = newUsername;
+                } else {
+                    loadUsers();
+                }
+            } else {
+                const data = await res.json();
+                showToast(data.error || 'Failed to update user', 'error');
+            }
+        } catch (error) {
+            showToast('Connection error', 'error');
+        }
+    });
+}
+
+async function loadAccessRequests() {
+    const requestsList = document.getElementById('requests-list');
+    const pendingBadge = document.getElementById('pending-requests-count');
+    if (!requestsList) return;
+
+    // Clear and show loading
+    while (requestsList.firstChild) {
+        requestsList.removeChild(requestsList.firstChild);
+    }
+    const loadingP = document.createElement('p');
+    loadingP.className = 'placeholder-text';
+    loadingP.textContent = 'Loading requests...';
+    requestsList.appendChild(loadingP);
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/admin/access-requests`, {
+            credentials: 'include'
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to load requests');
+        }
+
+        const data = await res.json();
+
+        // Clear loading
+        while (requestsList.firstChild) {
+            requestsList.removeChild(requestsList.firstChild);
+        }
+
+        // Count pending
+        const pendingCount = data.requests.filter(r => r.status === 'pending').length;
+        if (pendingBadge) {
+            pendingBadge.textContent = pendingCount;
+            pendingBadge.hidden = pendingCount === 0;
+        }
+
+        if (!data.requests || data.requests.length === 0) {
+            const emptyP = document.createElement('p');
+            emptyP.className = 'empty-message';
+            emptyP.textContent = 'No access requests';
+            requestsList.appendChild(emptyP);
+            return;
+        }
+
+        data.requests.forEach(req => {
+            const item = createRequestItem(req);
+            requestsList.appendChild(item);
+        });
+
+    } catch (error) {
+        console.error('Error loading requests:', error);
+        while (requestsList.firstChild) {
+            requestsList.removeChild(requestsList.firstChild);
+        }
+        const errorP = document.createElement('p');
+        errorP.className = 'placeholder-text';
+        errorP.textContent = 'Failed to load requests';
+        requestsList.appendChild(errorP);
+    }
+}
+
+function createRequestItem(req) {
+    const item = document.createElement('div');
+    item.className = 'request-item';
+    item.dataset.requestId = req.id;
+
+    // Request info
+    const info = document.createElement('div');
+    info.className = 'request-info';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'request-username';
+    nameRow.textContent = req.username;
+
+    if (req.has_email) {
+        const emailBadge = document.createElement('span');
+        emailBadge.className = 'user-badge has-email';
+        emailBadge.textContent = 'Has Email';
+        emailBadge.title = 'User provided an email for notification';
+        nameRow.appendChild(emailBadge);
+    }
+
+    info.appendChild(nameRow);
+
+    const meta = document.createElement('div');
+    meta.className = 'request-meta';
+    const requestedAt = req.requested_at ? new Date(req.requested_at).toLocaleString() : 'Unknown';
+    meta.textContent = `Requested: ${requestedAt}`;
+    info.appendChild(meta);
+
+    // Status badge
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'request-status';
+
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `status-badge ${req.status}`;
+    statusBadge.textContent = req.status;
+    statusDiv.appendChild(statusBadge);
+
+    if (req.status !== 'pending' && req.reviewed_by) {
+        const reviewMeta = document.createElement('span');
+        reviewMeta.className = 'request-meta';
+        reviewMeta.textContent = `by ${req.reviewed_by}`;
+        statusDiv.appendChild(reviewMeta);
+    }
+
+    info.appendChild(statusDiv);
+    item.appendChild(info);
+
+    // Actions (only for pending)
+    if (req.status === 'pending') {
+        const actions = document.createElement('div');
+        actions.className = 'request-actions';
+
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'user-action-btn approve';
+        approveBtn.textContent = 'Approve';
+        approveBtn.title = `Approve access for ${req.username}`;
+        approveBtn.addEventListener('click', () => approveRequest(req.id, req.username));
+        actions.appendChild(approveBtn);
+
+        const denyBtn = document.createElement('button');
+        denyBtn.className = 'user-action-btn deny';
+        denyBtn.textContent = 'Deny';
+        denyBtn.title = `Deny access for ${req.username}`;
+        denyBtn.addEventListener('click', () => showDenyModal(req.id, req.username));
+        actions.appendChild(denyBtn);
+
+        item.appendChild(actions);
+    }
+
+    return item;
+}
+
+async function approveRequest(requestId, username) {
+    try {
+        const res = await fetch(`${API_BASE}/auth/admin/access-requests/${requestId}/approve`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            let msg = `Access approved for ${username}`;
+            if (data.email_sent) {
+                msg += ' (notification email sent)';
+            }
+            showToast(msg, 'success');
+            loadUsers();
+            loadAccessRequests();
+        } else {
+            showToast(data.error || 'Failed to approve request', 'error');
+        }
+    } catch (error) {
+        showToast('Connection error', 'error');
+    }
+}
+
+function showDenyModal(requestId, username) {
+    // Create modal content with reason textarea
+    const modalBody = document.getElementById('confirm-body');
+    while (modalBody.firstChild) {
+        modalBody.removeChild(modalBody.firstChild);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'user-modal-content';
+
+    const message = document.createElement('p');
+    message.textContent = `Deny access request from "${username}"?`;
+    content.appendChild(message);
+
+    const formGroup = document.createElement('div');
+    formGroup.className = 'form-group';
+
+    const label = document.createElement('label');
+    label.textContent = 'Reason (optional):';
+    formGroup.appendChild(label);
+
+    const textarea = document.createElement('textarea');
+    textarea.id = 'deny-reason-input';
+    textarea.placeholder = 'Enter reason for denial...';
+    formGroup.appendChild(textarea);
+
+    content.appendChild(formGroup);
+    modalBody.appendChild(content);
+
+    // Update confirm button
+    const confirmBtn = document.getElementById('confirm-action');
+    confirmBtn.textContent = 'Deny Request';
+    confirmBtn.className = 'office-btn danger';
+
+    // Show modal
+    const modal = document.getElementById('confirm-modal');
+    const title = document.getElementById('confirm-title');
+    title.textContent = 'Deny Access Request';
+    modal.classList.add('active');
+
+    // Handle confirm
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    newConfirmBtn.addEventListener('click', async () => {
+        const reason = document.getElementById('deny-reason-input')?.value.trim();
+        modal.classList.remove('active');
+
+        try {
+            const res = await fetch(`${API_BASE}/auth/admin/access-requests/${requestId}/deny`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ reason: reason || null })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                let msg = `Access denied for ${username}`;
+                if (data.email_sent) {
+                    msg += ' (notification email sent)';
+                }
+                showToast(msg, 'success');
+                loadAccessRequests();
+            } else {
+                showToast(data.error || 'Failed to deny request', 'error');
+            }
+        } catch (error) {
+            showToast('Connection error', 'error');
+        }
+    });
 }
 
 async function loadServicesStatus() {

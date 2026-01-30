@@ -24,6 +24,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
+from .auth import admin_if_enabled, auth_if_enabled, localhost_only
 from .core import FlaskResponse
 
 utilities_system_bp = Blueprint("utilities_system", __name__)
@@ -140,6 +141,8 @@ def init_system_routes(project_root):
     # =========================================================================
 
     @utilities_system_bp.route("/api/system/services", methods=["GET"])
+    @localhost_only
+    @admin_if_enabled
     def get_services_status() -> FlaskResponse:
         """Get status of all audiobook services."""
         services = []
@@ -208,6 +211,8 @@ def init_system_routes(project_root):
     @utilities_system_bp.route(
         "/api/system/services/<service_name>/start", methods=["POST"]
     )
+    @localhost_only
+    @admin_if_enabled
     def start_service(service_name: str) -> FlaskResponse:
         """Start a specific service."""
         if service_name not in SERVICES:
@@ -237,6 +242,8 @@ def init_system_routes(project_root):
     @utilities_system_bp.route(
         "/api/system/services/<service_name>/stop", methods=["POST"]
     )
+    @localhost_only
+    @admin_if_enabled
     def stop_service(service_name: str) -> FlaskResponse:
         """Stop a specific service."""
         if service_name not in SERVICES:
@@ -266,6 +273,8 @@ def init_system_routes(project_root):
     @utilities_system_bp.route(
         "/api/system/services/<service_name>/restart", methods=["POST"]
     )
+    @localhost_only
+    @admin_if_enabled
     def restart_service(service_name: str) -> FlaskResponse:
         """Restart a specific service."""
         if service_name not in SERVICES:
@@ -293,6 +302,8 @@ def init_system_routes(project_root):
             )
 
     @utilities_system_bp.route("/api/system/services/start-all", methods=["POST"])
+    @localhost_only
+    @admin_if_enabled
     def start_all_services() -> FlaskResponse:
         """Start all audiobook services."""
         if not _write_request({"type": "services_start_all"}):
@@ -313,6 +324,8 @@ def init_system_routes(project_root):
         )
 
     @utilities_system_bp.route("/api/system/services/stop-all", methods=["POST"])
+    @localhost_only
+    @admin_if_enabled
     def stop_all_services() -> FlaskResponse:
         """Stop audiobook services. By default keeps API and proxy for web access."""
         include_api = request.args.get("include_api", "false").lower() == "true"
@@ -342,6 +355,8 @@ def init_system_routes(project_root):
     # =========================================================================
 
     @utilities_system_bp.route("/api/system/upgrade/status", methods=["GET"])
+    @localhost_only
+    @admin_if_enabled
     def get_upgrade_status() -> FlaskResponse:
         """Get current upgrade/operation status."""
         status = _read_status()
@@ -407,6 +422,8 @@ def init_system_routes(project_root):
         )
 
     @utilities_system_bp.route("/api/system/upgrade", methods=["POST"])
+    @localhost_only
+    @admin_if_enabled
     def start_upgrade() -> FlaskResponse:
         """
         Start an upgrade operation.
@@ -469,6 +486,7 @@ def init_system_routes(project_root):
     # =========================================================================
 
     @utilities_system_bp.route("/api/system/version", methods=["GET"])
+    @auth_if_enabled
     def get_version() -> FlaskResponse:
         """Get current application version."""
         version_file = Path(project_root).parent / "VERSION"
@@ -488,6 +506,8 @@ def init_system_routes(project_root):
         )
 
     @utilities_system_bp.route("/api/system/projects", methods=["GET"])
+    @localhost_only
+    @admin_if_enabled
     def list_projects() -> FlaskResponse:
         """List available project directories for upgrade source."""
         # Check common development project locations

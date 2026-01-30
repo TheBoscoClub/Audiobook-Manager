@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/help-tooltips.css">
+    <script src="js/webauthn.js"></script>
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- Decorative header -->
+        <div class="auth-header">
+            <div class="deco-ornament">&#9830;</div>
+            <h1 class="auth-title">The Library</h1>
+            <p class="auth-subtitle">A Private Collection</p>
+            <div class="deco-line"></div>
+        </div>
+
+        <!-- Login form - Step 1: Username -->
+        <form id="login-form" class="auth-form">
+            <div class="form-group">
+                <label for="username">
+                    Username
+                    <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
+                </label>
+                <div class="input-with-edit">
+                    <input type="text"
+                           id="username"
+                           name="username"
+                           autocomplete="username"
+                           autocapitalize="none"
+                           spellcheck="false"
+                           required>
+                    <button type="button" id="edit-username-btn" class="edit-input-btn hidden" title="Edit username">✎</button>
+                </div>
+                <div id="username-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is this?</strong>
+                        <p>This is the name you chose when you signed up. It's like your nickname for this website.</p>
+                        <strong>What do I type?</strong>
+                        <p>Type the exact username you picked when you created your account. It's case-sensitive (capital letters matter).</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOTP code field - shown only for TOTP users -->
+            <div class="form-group" id="totp-group" hidden>
+                <label for="code">
+                    Authenticator Code
+                    <button type="button" class="help-icon" aria-label="Help" data-help="code-help">?</button>
+                </label>
+                <input type="text"
+                       id="code"
+                       name="code"
+                       inputmode="numeric"
+                       pattern="[0-9]*"
+                       maxlength="6"
+                       autocomplete="one-time-code"
+                       placeholder="000000">
+                <span class="field-hint">Enter the 6-digit code from your authenticator app</span>
+                <div id="code-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is this?</strong>
+                        <p>This is a 6-digit number that changes every 30 seconds. It proves it's really you signing in.</p>
+                        <strong>Where do I find it?</strong>
+                        <ol>
+                            <li>Open your authenticator app on your phone (like Google Authenticator, Authy, or 1Password)</li>
+                            <li>Find "The Library" in your list</li>
+                            <li>Look at the 6-digit number shown</li>
+                            <li>Type those numbers here before they change</li>
+                        </ol>
+                        <strong>The code changed while I was typing!</strong>
+                        <p>That's okay! Just wait for the new code and type that one instead. You have 30 seconds.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WebAuthn prompt - shown for passkey/fido2 users -->
+            <div class="form-group" id="webauthn-group" hidden>
+                <div class="webauthn-prompt" style="text-align: center; padding: 1rem; background: var(--color-bg-subtle, #f5f5f5); border-radius: 4px;">
+                    <p id="webauthn-prompt-text" style="margin: 0; color: var(--color-text, #333);">Click Continue to authenticate with your passkey.</p>
+                </div>
+            </div>
+
+            <!-- Change username link - shown after auth type detected -->
+            <div id="change-username-link" class="form-group" hidden style="text-align: center; margin-top: -0.5rem;">
+                <a href="#" id="change-username" class="auth-link" style="font-size: 0.9em;">&larr; Use different username</a>
+            </div>
+
+            <div id="error-message" class="error-message" hidden></div>
+
+            <!-- Stay logged in option -->
+            <div class="form-group checkbox-group" id="remember-me-group" hidden>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="remember-me" name="remember_me">
+                    <span class="checkbox-text">Stay logged in</span>
+                </label>
+                <span class="field-hint">Keep me logged in on this device until I sign out</span>
+            </div>
+
+            <!-- Continue button - first step -->
+            <button type="button" class="auth-button" id="continue-button">
+                <span class="button-text">Continue</span>
+                <span class="button-loading" hidden>
+                    <span class="spinner"></span>
+                    Checking...
+                </span>
+            </button>
+
+            <!-- Login button - shown after auth type detected -->
+            <button type="submit" class="auth-button" id="login-button" hidden>
+                <span class="button-text">Enter the Library</span>
+                <span class="button-loading" hidden>
+                    <span class="spinner"></span>
+                    Authenticating...
+                </span>
+            </button>
+        </form>
+
+        <!-- Alternative options -->
+        <div class="auth-options">
+            <a href="#" id="use-backup-code" class="auth-link">
+                Use backup code
+                <button type="button" class="help-icon small" aria-label="Help" data-help="backup-option-help">?</button>
+            </a>
+            <span class="auth-divider">|</span>
+            <a href="#" id="use-magic-link" class="auth-link">
+                Email me a link
+                <button type="button" class="help-icon small" aria-label="Help" data-help="magic-link-option-help">?</button>
+            </a>
+            <span class="auth-divider">|</span>
+            <a href="register.html" class="auth-link">Request access</a>
+        </div>
+
+        <div id="magic-link-option-help" class="help-tooltip" hidden>
+            <div class="help-content">
+                <strong>What is this?</strong>
+                <p>If you added an email address when you signed up, we can send you a special link that lets you sign in without your authenticator app.</p>
+                <strong>How does it work?</strong>
+                <ol>
+                    <li>Enter your username</li>
+                    <li>We send a link to your email</li>
+                    <li>Click the link in your email</li>
+                    <li>You're signed in!</li>
+                </ol>
+                <strong>I didn't add an email</strong>
+                <p>If you didn't save an email address during signup, you'll need to use a backup code instead.</p>
+            </div>
+        </div>
+
+        <div id="backup-option-help" class="help-tooltip" hidden>
+            <div class="help-content">
+                <strong>What is a backup code?</strong>
+                <p>When you signed up, you were given special one-time codes. These are for emergencies when you can't use your authenticator app.</p>
+                <strong>When should I use this?</strong>
+                <ul>
+                    <li>You lost your phone</li>
+                    <li>You deleted your authenticator app</li>
+                    <li>Your phone broke</li>
+                </ul>
+                <p><em>Each backup code only works once, then it's used up.</em></p>
+            </div>
+        </div>
+
+        <!-- Backup code form (hidden by default) -->
+        <form id="backup-form" class="auth-form" hidden>
+            <div class="form-group">
+                <label for="backup-username">
+                    Username
+                    <button type="button" class="help-icon" aria-label="Help" data-help="backup-username-help">?</button>
+                </label>
+                <input type="text"
+                       id="backup-username"
+                       name="username"
+                       autocomplete="username"
+                       autocapitalize="none"
+                       required>
+                <div id="backup-username-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <p>Type the same username you normally use to sign in.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="backup-code">
+                    Backup Code
+                    <button type="button" class="help-icon" aria-label="Help" data-help="backup-code-help">?</button>
+                </label>
+                <input type="text"
+                       id="backup-code"
+                       name="backup_code"
+                       autocomplete="off"
+                       placeholder="XXXXXXXX"
+                       maxlength="8"
+                       required>
+                <span class="field-hint">One-time use recovery code</span>
+                <div id="backup-code-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What is this?</strong>
+                        <p>This is one of the 8-character codes you saved when you first signed up.</p>
+                        <strong>Where did I put them?</strong>
+                        <p>Check where you save important things:</p>
+                        <ul>
+                            <li>A piece of paper in a safe place</li>
+                            <li>A password manager</li>
+                            <li>A secure note on your computer</li>
+                        </ul>
+                        <p><em>Remember: Each code only works once!</em></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="backup-error-message" class="error-message" hidden></div>
+
+            <button type="submit" class="auth-button">
+                <span class="button-text">Recover Access</span>
+            </button>
+
+            <div class="auth-options">
+                <a href="#" id="back-to-login" class="auth-link">&larr; Back to login</a>
+            </div>
+        </form>
+
+        <!-- Magic link request form (hidden by default) -->
+        <form id="magic-link-form" class="auth-form" hidden>
+            <div class="form-group">
+                <label for="magic-username">
+                    Username
+                    <button type="button" class="help-icon" aria-label="Help" data-help="magic-username-help">?</button>
+                </label>
+                <input type="text"
+                       id="magic-username"
+                       name="username"
+                       autocomplete="username"
+                       autocapitalize="none"
+                       required>
+                <div id="magic-username-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <p>Type the same username you normally use to sign in.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="magic-link-error" class="error-message" hidden></div>
+            <div id="magic-link-success" class="success-message-box" hidden></div>
+
+            <button type="submit" class="auth-button" id="magic-link-button">
+                <span class="button-text">Send Login Link</span>
+                <span class="button-loading" hidden>
+                    <span class="spinner"></span>
+                    Sending...
+                </span>
+            </button>
+
+            <div class="auth-options">
+                <a href="#" id="back-to-login-from-magic" class="auth-link">&larr; Back to login</a>
+            </div>
+        </form>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <div class="deco-ornament small">&#9830;</div>
+        </div>
+    </div>
+
+    <script>
+        // API base URL - adjust for your setup
+        const API_BASE = '';
+
+        // Current auth state
+        let currentAuthType = null;
+        let currentUsername = null;
+
+        // DOM elements
+        const loginForm = document.getElementById('login-form');
+        const backupForm = document.getElementById('backup-form');
+        const magicLinkForm = document.getElementById('magic-link-form');
+        const errorMessage = document.getElementById('error-message');
+        const backupErrorMessage = document.getElementById('backup-error-message');
+        const magicLinkError = document.getElementById('magic-link-error');
+        const magicLinkSuccess = document.getElementById('magic-link-success');
+        const continueButton = document.getElementById('continue-button');
+        const loginButton = document.getElementById('login-button');
+        const magicLinkButton = document.getElementById('magic-link-button');
+        const useBackupCode = document.getElementById('use-backup-code');
+        const useMagicLink = document.getElementById('use-magic-link');
+        const backToLogin = document.getElementById('back-to-login');
+        const backToLoginFromMagic = document.getElementById('back-to-login-from-magic');
+        const totpGroup = document.getElementById('totp-group');
+        const rememberMeGroup = document.getElementById('remember-me-group');
+        const rememberMeCheckbox = document.getElementById('remember-me');
+        const webauthnGroup = document.getElementById('webauthn-group');
+        const webauthnPromptText = document.getElementById('webauthn-prompt-text');
+        const changeUsernameLink = document.getElementById('change-username-link');
+        const changeUsername = document.getElementById('change-username');
+        const editUsernameBtn = document.getElementById('edit-username-btn');
+        const usernameInput = document.getElementById('username');
+
+        // Edit username - click on readonly input or edit button to enable editing
+        function enableUsernameEdit() {
+            if (usernameInput.readOnly) {
+                usernameInput.readOnly = false;
+                if (editUsernameBtn) editUsernameBtn.classList.add('hidden');
+                usernameInput.focus();
+                usernameInput.select();
+            }
+        }
+
+        if (editUsernameBtn) {
+            editUsernameBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                enableUsernameEdit();
+            });
+        }
+
+        // Also allow clicking on the readonly input itself to edit
+        usernameInput.addEventListener('click', () => {
+            enableUsernameEdit();
+        });
+
+        // Helper to update edit button visibility based on readonly state
+        function updateEditButtonVisibility() {
+            if (editUsernameBtn) {
+                if (usernameInput.readOnly) {
+                    editUsernameBtn.classList.remove('hidden');
+                } else {
+                    editUsernameBtn.classList.add('hidden');
+                }
+            }
+        }
+
+        // Help tooltip handling
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const helpId = icon.dataset.help;
+                const tooltip = document.getElementById(helpId);
+                if (tooltip) {
+                    // Close any other open tooltips
+                    document.querySelectorAll('.help-tooltip:not([hidden])').forEach(t => {
+                        if (t.id !== helpId) t.hidden = true;
+                    });
+                    tooltip.hidden = !tooltip.hidden;
+                }
+            });
+        });
+
+        // Close tooltips when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.help-icon') && !e.target.closest('.help-tooltip')) {
+                document.querySelectorAll('.help-tooltip').forEach(t => t.hidden = true);
+            }
+        });
+
+        // Check if already logged in
+        async function checkSession() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    window.location.href = 'index.html';
+                }
+            } catch (e) {
+                // Not logged in, stay on login page
+            }
+        }
+
+        function showError(element, message) {
+            element.textContent = message;
+            element.hidden = false;
+            element.classList.add('shake');
+            setTimeout(() => element.classList.remove('shake'), 500);
+        }
+
+        function clearError(element) {
+            element.hidden = true;
+            element.textContent = '';
+        }
+
+        function setLoading(button, loading) {
+            const text = button.querySelector('.button-text');
+            const spinner = button.querySelector('.button-loading');
+            if (loading) {
+                text.hidden = true;
+                spinner.hidden = false;
+                button.disabled = true;
+            } else {
+                text.hidden = false;
+                spinner.hidden = true;
+                button.disabled = false;
+            }
+        }
+
+        // Step 1: Check auth type when Continue is clicked
+        continueButton.addEventListener('click', async () => {
+            clearError(errorMessage);
+
+            const username = document.getElementById('username').value.trim();
+
+            if (!username) {
+                showError(errorMessage, 'Please enter your username');
+                return;
+            }
+
+            currentUsername = username;
+            setLoading(continueButton, true);
+
+            try {
+                // Get the user's auth type
+                currentAuthType = await WebAuthn.getAuthType(username);
+
+                // Hide continue button, show appropriate UI
+                continueButton.hidden = true;
+                usernameInput.readOnly = true;
+                updateEditButtonVisibility();
+
+                if (currentAuthType === 'passkey' || currentAuthType === 'fido2') {
+                    // WebAuthn flow
+                    if (!WebAuthn.isSupported()) {
+                        showError(errorMessage, 'Your browser does not support passkeys. Please use a backup code instead.');
+                        continueButton.hidden = false;
+                        usernameInput.readOnly = false;
+                        updateEditButtonVisibility();
+                        return;
+                    }
+
+                    const typeLabel = currentAuthType === 'passkey' ? 'passkey' : 'security key';
+                    webauthnPromptText.textContent = `Ready to authenticate with your ${typeLabel}.`;
+                    webauthnGroup.hidden = false;
+                    loginButton.hidden = false;
+                    loginButton.querySelector('.button-text').textContent = `Use ${typeLabel === 'passkey' ? 'Passkey' : 'Security Key'}`;
+                    changeUsernameLink.hidden = false;
+                } else {
+                    // TOTP flow
+                    totpGroup.hidden = false;
+                    rememberMeGroup.hidden = false;
+                    loginButton.hidden = false;
+                    changeUsernameLink.hidden = false;
+                    document.getElementById('code').required = true;
+                    document.getElementById('code').focus();
+                }
+            } catch (e) {
+                // User not found or error - default to TOTP flow
+                // (Don't reveal if username exists)
+                currentAuthType = 'totp';
+                totpGroup.hidden = false;
+                rememberMeGroup.hidden = false;
+                continueButton.hidden = true;
+                loginButton.hidden = false;
+                changeUsernameLink.hidden = false;
+                usernameInput.readOnly = true;
+                updateEditButtonVisibility();
+                document.getElementById('code').required = true;
+                document.getElementById('code').focus();
+            } finally {
+                setLoading(continueButton, false);
+            }
+        });
+
+        // Handle Enter key on username field
+        document.getElementById('username').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !continueButton.hidden) {
+                e.preventDefault();
+                continueButton.click();
+            }
+        });
+
+        // Step 2: Submit login
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError(errorMessage);
+
+            const username = currentUsername || document.getElementById('username').value.trim();
+
+            if (!username) {
+                showError(errorMessage, 'Please enter your username');
+                return;
+            }
+
+            setLoading(loginButton, true);
+
+            try {
+                if (currentAuthType === 'passkey' || currentAuthType === 'fido2') {
+                    // WebAuthn authentication flow
+                    const result = await WebAuthn.authenticate(username);
+
+                    if (result.success) {
+                        window.location.href = 'index.html';
+                    } else {
+                        showError(errorMessage, result.error || 'Authentication failed');
+                    }
+                } else {
+                    // TOTP authentication flow
+                    const code = document.getElementById('code').value.trim();
+
+                    if (!code) {
+                        showError(errorMessage, 'Please enter the code');
+                        return;
+                    }
+
+                    if (code.length !== 6 || !/^\d+$/.test(code)) {
+                        showError(errorMessage, 'Code must be 6 digits');
+                        return;
+                    }
+
+                    const remember_me = rememberMeCheckbox.checked;
+                    const response = await fetch(`${API_BASE}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ username, code, remember_me })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        window.location.href = 'index.html';
+                    } else {
+                        showError(errorMessage, data.error || 'Login failed');
+                    }
+                }
+            } catch (e) {
+                showError(errorMessage, e.message || 'Connection error. Please try again.');
+            } finally {
+                setLoading(loginButton, false);
+            }
+        });
+
+        backupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearError(backupErrorMessage);
+
+            const username = document.getElementById('backup-username').value.trim();
+            const backupCode = document.getElementById('backup-code').value.trim().toUpperCase();
+
+            if (!username || !backupCode) {
+                showError(backupErrorMessage, 'Please enter both username and backup code');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login/backup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, backup_code: backupCode })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.remaining_codes !== undefined && data.remaining_codes <= 2) {
+                        alert(`Warning: You have ${data.remaining_codes} backup code(s) remaining. Consider generating new ones.`);
+                    }
+                    window.location.href = 'index.html';
+                } else {
+                    showError(backupErrorMessage, data.error || 'Invalid backup code');
+                }
+            } catch (e) {
+                showError(backupErrorMessage, 'Connection error. Please try again.');
+            }
+        });
+
+        useBackupCode.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.hidden = true;
+            backupForm.hidden = false;
+            document.getElementById('backup-username').focus();
+        });
+
+        backToLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            backupForm.hidden = true;
+            loginForm.hidden = false;
+            resetLoginForm();
+        });
+
+        // Reset login form to initial state
+        function resetLoginForm() {
+            currentAuthType = null;
+            currentUsername = null;
+            usernameInput.value = '';
+            usernameInput.readOnly = false;
+            updateEditButtonVisibility();
+            document.getElementById('code').value = '';
+            document.getElementById('code').required = false;
+            totpGroup.hidden = true;
+            rememberMeGroup.hidden = true;
+            webauthnGroup.hidden = true;
+            changeUsernameLink.hidden = true;
+            continueButton.hidden = false;
+            loginButton.hidden = true;
+            loginButton.querySelector('.button-text').textContent = 'Enter the Library';
+            clearError(errorMessage);
+            usernameInput.focus();
+        }
+
+        changeUsername.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetLoginForm();
+        });
+
+        // Magic link form handlers
+        useMagicLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.hidden = true;
+            backupForm.hidden = true;
+            magicLinkForm.hidden = false;
+            magicLinkSuccess.hidden = true;
+            magicLinkError.hidden = true;
+            document.getElementById('magic-username').focus();
+        });
+
+        backToLoginFromMagic.addEventListener('click', (e) => {
+            e.preventDefault();
+            magicLinkForm.hidden = true;
+            loginForm.hidden = false;
+            resetLoginForm();
+        });
+
+        magicLinkForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            magicLinkError.hidden = true;
+            magicLinkSuccess.hidden = true;
+
+            const username = document.getElementById('magic-username').value.trim();
+
+            if (!username) {
+                showError(magicLinkError, 'Please enter your username');
+                return;
+            }
+
+            setLoading(magicLinkButton, true);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/magic-link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    magicLinkSuccess.textContent = data.message || 'If an account exists with a registered email, a login link has been sent.';
+                    magicLinkSuccess.hidden = false;
+                    magicLinkButton.disabled = true;
+                } else {
+                    showError(magicLinkError, data.error || 'Unable to send login link');
+                }
+            } catch (e) {
+                showError(magicLinkError, 'Connection error. Please try again.');
+            } finally {
+                setLoading(magicLinkButton, false);
+            }
+        });
+
+        document.getElementById('code').addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        });
+
+        checkSession();
+    </script>
+</body>
+</html>

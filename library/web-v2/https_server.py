@@ -1,24 +1,122 @@
 #!/usr/bin/env python3
-"""Simple HTTPS server for serving static files with HTTP redirect."""
+"""HTTPS server for serving static files with API proxying and HTTP redirect."""
 
 import http.server
+import http.client
 import os
 import ssl
 import sys
 import threading
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import (AUDIOBOOKS_CERTS, AUDIOBOOKS_HTTP_REDIRECT_ENABLED,
-                    AUDIOBOOKS_HTTP_REDIRECT_PORT, AUDIOBOOKS_WEB_PORT)
+                    AUDIOBOOKS_HTTP_REDIRECT_PORT, AUDIOBOOKS_WEB_PORT,
+                    AUDIOBOOKS_API_PORT)
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 HTTP_PORT = AUDIOBOOKS_HTTP_REDIRECT_PORT
 HTTP_REDIRECT_ENABLED = AUDIOBOOKS_HTTP_REDIRECT_ENABLED
+API_PORT = AUDIOBOOKS_API_PORT
 CERT_DIR = AUDIOBOOKS_CERTS
 CERT_FILE = CERT_DIR / "server.crt"
 KEY_FILE = CERT_DIR / "server.key"
+
+# Paths that should be proxied to the API server
+API_PREFIXES = ('/auth/', '/auth', '/api/', '/api')
+
+
+class APIProxyHandler(http.server.SimpleHTTPRequestHandler):
+    """Handler that serves static files and proxies API requests."""
+
+    def do_GET(self):
+        if self._is_api_request():
+            self._proxy_to_api()
+        else:
+            super().do_GET()
+
+    def do_POST(self):
+        if self._is_api_request():
+            self._proxy_to_api()
+        else:
+            self.send_error(405, "Method Not Allowed")
+
+    def do_DELETE(self):
+        if self._is_api_request():
+            self._proxy_to_api()
+        else:
+            self.send_error(405, "Method Not Allowed")
+
+    def do_PUT(self):
+        if self._is_api_request():
+            self._proxy_to_api()
+        else:
+            self.send_error(405, "Method Not Allowed")
+
+    def do_PATCH(self):
+        if self._is_api_request():
+            self._proxy_to_api()
+        else:
+            self.send_error(405, "Method Not Allowed")
+
+    def do_OPTIONS(self):
+        if self._is_api_request():
+            self._proxy_to_api()
+        else:
+            self.send_error(405, "Method Not Allowed")
+
+    def _is_api_request(self):
+        """Check if this request should be proxied to the API."""
+        return self.path.startswith(API_PREFIXES)
+
+    def _proxy_to_api(self):
+        """Proxy the request to the Flask API server."""
+        try:
+            # Read request body if present
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length) if content_length > 0 else None
+
+            # Connect to API server
+            conn = http.client.HTTPConnection('127.0.0.1', API_PORT, timeout=30)
+
+            # Forward headers (filter out hop-by-hop headers)
+            headers = {}
+            hop_by_hop = {'connection', 'keep-alive', 'proxy-authenticate',
+                          'proxy-authorization', 'te', 'trailers', 'transfer-encoding',
+                          'upgrade', 'host'}
+            for key, value in self.headers.items():
+                if key.lower() not in hop_by_hop:
+                    headers[key] = value
+
+            # Add forwarding headers
+            client_ip = self.client_address[0]
+            headers['X-Forwarded-For'] = client_ip
+            headers['X-Forwarded-Proto'] = 'https'
+            headers['X-Real-IP'] = client_ip
+
+            # Make the request to the API
+            conn.request(self.command, self.path, body=body, headers=headers)
+            response = conn.getresponse()
+
+            # Send response status
+            self.send_response(response.status)
+
+            # Forward response headers (filter hop-by-hop)
+            for key, value in response.getheaders():
+                if key.lower() not in hop_by_hop:
+                    self.send_header(key, value)
+            self.end_headers()
+
+            # Forward response body
+            self.wfile.write(response.read())
+            conn.close()
+
+        except ConnectionRefusedError:
+            self.send_error(502, "API server unavailable (connection refused)")
+        except Exception as e:
+            self.send_error(502, f"API proxy error: {str(e)}")
 
 
 class HTTPToHTTPSRedirectHandler(http.server.BaseHTTPRequestHandler):
@@ -96,7 +194,7 @@ def main():
         http_thread = threading.Thread(target=run_http_redirect_server, daemon=True)
         http_thread.start()
 
-    handler = http.server.SimpleHTTPRequestHandler
+    handler = APIProxyHandler
 
     # Create SSL context with TLS 1.2+ minimum
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -108,6 +206,7 @@ def main():
     server.socket = context.wrap_socket(server.socket, server_side=True)
 
     print(f"Serving HTTPS on https://0.0.0.0:{HTTPS_PORT}/ ...")
+    print(f"API proxy: /auth/* and /api/* -> http://127.0.0.1:{API_PORT}/")
     print(f"Certificate: {CERT_FILE}")
     print(f"Key: {KEY_FILE}")
 

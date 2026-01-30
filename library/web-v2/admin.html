@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Administration - The Back Office</title>
+    <link rel="stylesheet" href="css/library.css">
+    <link rel="stylesheet" href="css/utilities.css">
+    <style>
+        /* Admin-specific styles */
+        .admin-section {
+            background: var(--color-surface, #fff);
+            border: 1px solid var(--color-border, #ccc);
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: var(--color-bg-subtle, #f5f5f5);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--color-border, #ccc);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--color-text, #333);
+        }
+
+        .badge {
+            background: var(--color-accent, #c9a227);
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-pending {
+            background: #e67e22;
+        }
+
+        /* Table styles */
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .admin-table th,
+        .admin-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--color-border-light, #eee);
+        }
+
+        .admin-table th {
+            background: var(--color-bg-subtle, #f9f9f9);
+            font-weight: 600;
+            color: var(--color-text-muted, #666);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .admin-table tr:hover {
+            background: var(--color-bg-hover, #f5f5f5);
+        }
+
+        .admin-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Permission toggles */
+        .toggle-btn {
+            padding: 0.35rem 0.75rem;
+            border: 1px solid var(--color-border, #ccc);
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn:hover {
+            background: var(--color-bg-subtle, #f5f5f5);
+        }
+
+        .toggle-btn.active {
+            background: var(--color-success, #27ae60);
+            color: #fff;
+            border-color: var(--color-success, #27ae60);
+        }
+
+        .toggle-btn.admin.active {
+            background: var(--color-accent, #c9a227);
+            border-color: var(--color-accent, #c9a227);
+        }
+
+        /* Action buttons */
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            margin-right: 0.5rem;
+        }
+
+        .action-btn:last-child {
+            margin-right: 0;
+        }
+
+        .btn-approve {
+            background: var(--color-success, #27ae60);
+            color: #fff;
+        }
+
+        .btn-approve:hover {
+            background: #219a52;
+        }
+
+        .btn-deny {
+            background: var(--color-danger, #c0392b);
+            color: #fff;
+        }
+
+        .btn-deny:hover {
+            background: #a33025;
+        }
+
+        .btn-delete {
+            background: transparent;
+            color: var(--color-danger, #c0392b);
+            border: 1px solid var(--color-danger, #c0392b);
+        }
+
+        .btn-delete:hover {
+            background: var(--color-danger, #c0392b);
+            color: #fff;
+        }
+
+        /* Status indicators */
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.admin {
+            background: var(--color-accent, #c9a227);
+        }
+
+        .status-dot.active {
+            background: var(--color-success, #27ae60);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--color-text-muted, #666);
+        }
+
+        .empty-state p {
+            margin: 0;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            display: block !important; /* Override utilities.css display:none */
+            background: #fff;
+            color: #333; /* Force dark text on white background */
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow: auto;
+        }
+
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #ccc;
+            background: #8b6914;
+            color: #fff;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #fff;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            color: #333;
+        }
+
+        .modal-body p,
+        .modal-body label,
+        .modal-body span,
+        .modal-body code,
+        .modal-body pre {
+            color: #333;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #ccc;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        /* Credentials display */
+        .credentials-box {
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            word-break: break-all;
+            color: #333;
+        }
+
+        .credentials-label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: block;
+            color: #8b6914;
+        }
+
+        .backup-codes {
+            white-space: pre;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        /* Loading state */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .admin-table th,
+            .admin-table td {
+                padding: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            .toggle-btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            .action-btn {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body class="back-office">
+    <!-- Header -->
+    <header class="office-header">
+        <div class="header-content">
+            <div class="header-left">
+                <a href="utilities.html" class="back-link" title="Return to Back Office">
+                    <span class="back-icon">&#8592;</span>
+                    <span class="back-text">Back Office</span>
+                </a>
+            </div>
+            <div class="header-center">
+                <h1 class="office-title">User Administration</h1>
+                <p class="office-subtitle">Manage Access &amp; Permissions</p>
+            </div>
+            <div class="header-right">
+                <a href="index.html" class="back-link" title="Return to The Library">
+                    <span class="back-text">The Library</span>
+                    <span class="back-icon">&#8594;</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="office-main">
+        <div class="container">
+            <!-- Pending Access Requests Section -->
+            <section class="admin-section" id="requests-section">
+                <div class="section-header">
+                    <h2 class="section-title">Pending Access Requests</h2>
+                    <span class="badge badge-pending" id="pending-count">0</span>
+                </div>
+                <div id="requests-content">
+                    <div class="empty-state">
+                        <p>Loading...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Users Section -->
+            <section class="admin-section" id="users-section">
+                <div class="section-header">
+                    <h2 class="section-title">Registered Users</h2>
+                    <span class="badge" id="users-count">0</span>
+                </div>
+                <div id="users-content">
+                    <div class="empty-state">
+                        <p>Loading...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Approval Success Modal -->
+    <div class="modal-overlay" id="credentials-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>User Created Successfully</h3>
+            </div>
+            <div class="modal-body">
+                <p>Share these credentials securely with <strong id="new-username"></strong>:</p>
+
+                <div class="credentials-box">
+                    <span class="credentials-label">TOTP Secret (for authenticator app):</span>
+                    <code id="totp-secret"></code>
+                </div>
+
+                <div class="credentials-box">
+                    <span class="credentials-label">Setup Link:</span>
+                    <code id="totp-uri" style="font-size: 0.8rem;"></code>
+                </div>
+
+                <div class="credentials-box">
+                    <span class="credentials-label">Backup Codes:</span>
+                    <pre class="backup-codes" id="backup-codes"></pre>
+                </div>
+
+                <p style="color: var(--color-danger); font-weight: 600;">
+                    &#9888; These credentials will not be shown again. Make sure to save them!
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn btn-approve" onclick="closeCredentialsModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deny Reason Modal -->
+    <div class="modal-overlay" id="deny-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Deny Access Request</h3>
+            </div>
+            <div class="modal-body">
+                <p>Denying request for: <strong id="deny-username"></strong></p>
+                <label for="deny-reason">Reason (optional):</label>
+                <textarea id="deny-reason" rows="3" style="width: 100%; margin-top: 0.5rem; padding: 0.5rem;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn" onclick="closeDenyModal()" style="background: #ccc;">Cancel</button>
+                <button class="action-btn btn-deny" id="confirm-deny-btn">Deny Request</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="delete-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Delete User</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete user <strong id="delete-username"></strong>?</p>
+                <p style="color: var(--color-danger);">This action cannot be undone. All user data including listening positions will be permanently deleted.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn" onclick="closeDeleteModal()" style="background: #ccc;">Cancel</button>
+                <button class="action-btn btn-delete" id="confirm-delete-btn">Delete User</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentUserId = null;
+        let pendingDenyId = null;
+
+        // API helper
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            };
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            const response = await fetch(`/auth${endpoint}`, options);
+            return response.json();
+        }
+
+        // Escape HTML to prevent XSS - returns sanitized text for display
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+
+        // Format ISO date string for display
+        function formatDate(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Create table row for access request (DOM-safe construction)
+        function createRequestRow(req) {
+            const tr = document.createElement('tr');
+
+            const tdUsername = document.createElement('td');
+            const strong = document.createElement('strong');
+            strong.textContent = req.username;
+            tdUsername.appendChild(strong);
+
+            const tdDate = document.createElement('td');
+            tdDate.textContent = formatDate(req.requested_at);
+
+            const tdActions = document.createElement('td');
+
+            const approveBtn = document.createElement('button');
+            approveBtn.className = 'action-btn btn-approve';
+            approveBtn.title = 'Approve this request';
+            approveBtn.textContent = 'Approve';
+            approveBtn.addEventListener('click', () => approveRequest(req.id, req.username));
+
+            const denyBtn = document.createElement('button');
+            denyBtn.className = 'action-btn btn-deny';
+            denyBtn.title = 'Deny this request';
+            denyBtn.textContent = 'Deny';
+            denyBtn.addEventListener('click', () => showDenyModal(req.id, req.username));
+
+            tdActions.appendChild(approveBtn);
+            tdActions.appendChild(denyBtn);
+
+            tr.appendChild(tdUsername);
+            tr.appendChild(tdDate);
+            tr.appendChild(tdActions);
+
+            return tr;
+        }
+
+        // Create table row for user (DOM-safe construction)
+        function createUserRow(user) {
+            const tr = document.createElement('tr');
+            tr.dataset.userId = user.id;
+
+            // Username cell with status dot
+            const tdUsername = document.createElement('td');
+            const statusSpan = document.createElement('span');
+            statusSpan.className = 'status';
+            const dot = document.createElement('span');
+            dot.className = 'status-dot ' + (user.is_admin ? 'admin' : 'active');
+            const strong = document.createElement('strong');
+            strong.textContent = user.username;
+            statusSpan.appendChild(dot);
+            statusSpan.appendChild(strong);
+            tdUsername.appendChild(statusSpan);
+
+            // Auth type cell
+            const tdAuth = document.createElement('td');
+            tdAuth.textContent = user.auth_type.toUpperCase();
+
+            // Admin toggle cell
+            const tdAdmin = document.createElement('td');
+            const adminBtn = document.createElement('button');
+            adminBtn.className = 'toggle-btn admin' + (user.is_admin ? ' active' : '');
+            adminBtn.title = user.is_admin ? 'Remove admin privileges' : 'Grant admin privileges';
+            adminBtn.textContent = user.is_admin ? 'Yes' : 'No';
+            adminBtn.addEventListener('click', () => toggleAdmin(user.id, !user.is_admin));
+            tdAdmin.appendChild(adminBtn);
+
+            // Download toggle cell
+            const tdDownload = document.createElement('td');
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'toggle-btn' + (user.can_download ? ' active' : '');
+            downloadBtn.title = user.can_download ? 'Revoke download permission' : 'Grant download permission';
+            downloadBtn.textContent = user.can_download ? 'Yes' : 'No';
+            downloadBtn.addEventListener('click', () => toggleDownload(user.id, !user.can_download));
+            tdDownload.appendChild(downloadBtn);
+
+            // Last login cell
+            const tdLastLogin = document.createElement('td');
+            if (user.last_login) {
+                tdLastLogin.textContent = formatDate(user.last_login);
+            } else {
+                const em = document.createElement('em');
+                em.textContent = 'Never';
+                tdLastLogin.appendChild(em);
+            }
+
+            // Actions cell
+            const tdActions = document.createElement('td');
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'action-btn btn-delete';
+            deleteBtn.title = 'Delete this user';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', () => showDeleteModal(user.id, user.username));
+            tdActions.appendChild(deleteBtn);
+
+            tr.appendChild(tdUsername);
+            tr.appendChild(tdAuth);
+            tr.appendChild(tdAdmin);
+            tr.appendChild(tdDownload);
+            tr.appendChild(tdLastLogin);
+            tr.appendChild(tdActions);
+
+            return tr;
+        }
+
+        // Load pending access requests
+        async function loadRequests() {
+            const content = document.getElementById('requests-content');
+            try {
+                const data = await apiCall('/admin/access-requests');
+                document.getElementById('pending-count').textContent = data.pending_count || 0;
+
+                if (!data.requests || data.requests.length === 0) {
+                    content.textContent = '';
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'empty-state';
+                    const p = document.createElement('p');
+                    p.textContent = 'No pending access requests';
+                    emptyDiv.appendChild(p);
+                    content.appendChild(emptyDiv);
+                    return;
+                }
+
+                // Build table using DOM methods
+                const table = document.createElement('table');
+                table.className = 'admin-table';
+
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                ['Username', 'Requested', 'Actions'].forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                data.requests.forEach(req => {
+                    tbody.appendChild(createRequestRow(req));
+                });
+                table.appendChild(tbody);
+
+                content.textContent = '';
+                content.appendChild(table);
+            } catch (error) {
+                content.textContent = '';
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-state';
+                const p = document.createElement('p');
+                p.style.color = 'var(--color-danger)';
+                p.textContent = 'Error loading requests: ' + error.message;
+                emptyDiv.appendChild(p);
+                content.appendChild(emptyDiv);
+            }
+        }
+
+        // Load users
+        async function loadUsers() {
+            const content = document.getElementById('users-content');
+            try {
+                const data = await apiCall('/admin/users');
+                document.getElementById('users-count').textContent = data.total || 0;
+
+                if (!data.users || data.users.length === 0) {
+                    content.textContent = '';
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'empty-state';
+                    const p = document.createElement('p');
+                    p.textContent = 'No users registered';
+                    emptyDiv.appendChild(p);
+                    content.appendChild(emptyDiv);
+                    return;
+                }
+
+                // Build table using DOM methods
+                const table = document.createElement('table');
+                table.className = 'admin-table';
+
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                ['Username', 'Auth Type', 'Admin', 'Download', 'Last Login', 'Actions'].forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                data.users.forEach(user => {
+                    tbody.appendChild(createUserRow(user));
+                });
+                table.appendChild(tbody);
+
+                content.textContent = '';
+                content.appendChild(table);
+            } catch (error) {
+                content.textContent = '';
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-state';
+                const p = document.createElement('p');
+                p.style.color = 'var(--color-danger)';
+                p.textContent = 'Error loading users: ' + error.message;
+                emptyDiv.appendChild(p);
+                content.appendChild(emptyDiv);
+            }
+        }
+
+        // Approve request
+        async function approveRequest(requestId, username) {
+            if (!confirm('Approve access for ' + username + '?')) return;
+
+            try {
+                const data = await apiCall('/admin/access-requests/' + requestId + '/approve', 'POST');
+
+                if (data.success) {
+                    // Show credentials modal - use textContent for safe display
+                    document.getElementById('new-username').textContent = username;
+                    document.getElementById('totp-secret').textContent = data.totp_secret;
+                    document.getElementById('totp-uri').textContent = data.totp_uri;
+                    document.getElementById('backup-codes').textContent = data.backup_codes;
+                    document.getElementById('credentials-modal').classList.add('active');
+
+                    // Refresh lists
+                    loadRequests();
+                    loadUsers();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error approving request: ' + error.message);
+            }
+        }
+
+        // Show deny modal
+        function showDenyModal(requestId, username) {
+            pendingDenyId = requestId;
+            document.getElementById('deny-username').textContent = username;
+            document.getElementById('deny-reason').value = '';
+            document.getElementById('deny-modal').classList.add('active');
+
+            document.getElementById('confirm-deny-btn').onclick = function() { denyRequest(requestId); };
+        }
+
+        // Deny request
+        async function denyRequest(requestId) {
+            const reason = document.getElementById('deny-reason').value.trim();
+
+            try {
+                const data = await apiCall('/admin/access-requests/' + requestId + '/deny', 'POST', { reason: reason });
+
+                if (data.success) {
+                    closeDenyModal();
+                    loadRequests();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error denying request: ' + error.message);
+            }
+        }
+
+        function closeDenyModal() {
+            document.getElementById('deny-modal').classList.remove('active');
+            pendingDenyId = null;
+        }
+
+        function closeCredentialsModal() {
+            document.getElementById('credentials-modal').classList.remove('active');
+        }
+
+        // Toggle admin status
+        async function toggleAdmin(userId, newValue) {
+            try {
+                const data = await apiCall('/admin/users/' + userId + '/toggle-admin', 'POST');
+
+                if (data.success) {
+                    loadUsers();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error toggling admin status: ' + error.message);
+            }
+        }
+
+        // Toggle download permission
+        async function toggleDownload(userId, newValue) {
+            try {
+                const data = await apiCall('/admin/users/' + userId + '/toggle-download', 'POST');
+
+                if (data.success) {
+                    loadUsers();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error toggling download permission: ' + error.message);
+            }
+        }
+
+        // Show delete modal
+        function showDeleteModal(userId, username) {
+            currentUserId = userId;
+            document.getElementById('delete-username').textContent = username;
+            document.getElementById('delete-modal').classList.add('active');
+
+            document.getElementById('confirm-delete-btn').onclick = function() { deleteUser(userId); };
+        }
+
+        // Delete user
+        async function deleteUser(userId) {
+            try {
+                const data = await apiCall('/admin/users/' + userId, 'DELETE');
+
+                if (data.success) {
+                    closeDeleteModal();
+                    loadUsers();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error deleting user: ' + error.message);
+            }
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('active');
+            currentUserId = null;
+        }
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.classList.remove('active');
+                }
+            });
+        });
+
+        // Close modals on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.active').forEach(function(modal) {
+                    modal.classList.remove('active');
+                });
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRequests();
+            loadUsers();
+        });
+    </script>
+</body>
+</html>

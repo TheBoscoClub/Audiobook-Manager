@@ -8,6 +8,7 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
+from .auth import admin_if_enabled, auth_if_enabled
 from .core import FlaskResponse, get_db
 
 duplicates_bp = Blueprint("duplicates", __name__)
@@ -102,6 +103,7 @@ def init_duplicates_routes(db_path):
     """Initialize routes with database path."""
 
     @duplicates_bp.route("/api/hash-stats", methods=["GET"])
+    @auth_if_enabled
     def get_hash_stats() -> Response:
         """Get hash generation statistics"""
         conn = get_db(db_path)
@@ -157,6 +159,7 @@ def init_duplicates_routes(db_path):
         )
 
     @duplicates_bp.route("/api/duplicates", methods=["GET"])
+    @auth_if_enabled
     def get_duplicates() -> FlaskResponse:
         """Get all duplicate audiobook groups"""
         conn = get_db(db_path)
@@ -238,6 +241,7 @@ def init_duplicates_routes(db_path):
         )
 
     @duplicates_bp.route("/api/duplicates/by-title", methods=["GET"])
+    @auth_if_enabled
     def get_duplicates_by_title() -> Response:
         """
         Get duplicate audiobooks based on normalized title and REAL author.
@@ -351,6 +355,7 @@ def init_duplicates_routes(db_path):
         )
 
     @duplicates_bp.route("/api/duplicates/delete", methods=["POST"])
+    @admin_if_enabled
     def delete_duplicates() -> FlaskResponse:
         """
         Delete selected duplicate audiobooks.
@@ -535,6 +540,7 @@ def init_duplicates_routes(db_path):
         )
 
     @duplicates_bp.route("/api/duplicates/by-checksum", methods=["GET"])
+    @auth_if_enabled
     def get_duplicates_by_checksum() -> Response:
         """
         Get duplicate files based on filesystem checksum indexes.
@@ -679,6 +685,7 @@ def init_duplicates_routes(db_path):
         return jsonify(result)
 
     @duplicates_bp.route("/api/duplicates/regenerate-checksums", methods=["POST"])
+    @admin_if_enabled
     def regenerate_checksums() -> Response:
         """
         Regenerate checksum indexes for sources and/or library.
@@ -735,6 +742,7 @@ def init_duplicates_routes(db_path):
         return jsonify(results)
 
     @duplicates_bp.route("/api/duplicates/delete-by-path", methods=["POST"])
+    @admin_if_enabled
     def delete_duplicates_by_path() -> FlaskResponse:
         """
         Delete duplicate files by file path (for checksum-based duplicates).
@@ -907,6 +915,7 @@ def init_duplicates_routes(db_path):
         )
 
     @duplicates_bp.route("/api/duplicates/verify", methods=["POST"])
+    @auth_if_enabled
     def verify_deletion_safe() -> FlaskResponse:
         """
         Verify that a list of IDs can be safely deleted.

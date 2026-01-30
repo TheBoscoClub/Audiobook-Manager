@@ -11,6 +11,7 @@ import threading
 from flask import Blueprint, jsonify, request
 from operation_status import create_progress_callback, get_tracker
 
+from ..auth import admin_if_enabled
 from ..core import FlaskResponse
 
 utilities_ops_library_bp = Blueprint("utilities_ops_library", __name__)
@@ -20,6 +21,7 @@ def init_library_routes(db_path, project_root):
     """Initialize library management routes."""
 
     @utilities_ops_library_bp.route("/api/utilities/add-new", methods=["POST"])
+    @admin_if_enabled
     def add_new_audiobooks_endpoint() -> FlaskResponse:
         """
         Add new audiobooks incrementally (only files not in database).
@@ -90,6 +92,7 @@ def init_library_routes(db_path, project_root):
         )
 
     @utilities_ops_library_bp.route("/api/utilities/rescan-async", methods=["POST"])
+    @admin_if_enabled
     def rescan_library_async() -> FlaskResponse:
         """
         Trigger a library rescan with progress tracking.
@@ -214,6 +217,7 @@ def init_library_routes(db_path, project_root):
         )
 
     @utilities_ops_library_bp.route("/api/utilities/reimport-async", methods=["POST"])
+    @admin_if_enabled
     def reimport_database_async() -> FlaskResponse:
         """Reimport audiobooks to database with progress tracking."""
         import re
