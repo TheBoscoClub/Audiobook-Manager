@@ -2,6 +2,12 @@
 
 Practical guide for operating and maintaining the secure remote access authentication system.
 
+> **Related Documentation:**
+> - [README — Authentication Section](../README.md#authentication-v50) — User-facing setup guide
+> - [Architecture — Auth Module](ARCHITECTURE.md#authentication-module-architecture) — System design and database schema
+> - [Auth Failure Modes](AUTH_FAILURE_MODES.md) — Troubleshooting guide
+> - [Secure Remote Access Spec](SECURE_REMOTE_ACCESS_SPEC.md) — Full design specification
+
 ## Quick Reference
 
 | Task | Command |

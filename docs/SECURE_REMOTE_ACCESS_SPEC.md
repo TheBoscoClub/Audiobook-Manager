@@ -1,8 +1,14 @@
 # Secure Remote Access Design Specification
 
-**Version:** 0.6.0 (Release Candidate)
-**Branch:** `rd/secure-remote-access`
-**Last Updated:** 2026-01-19
+**Version:** 1.0.0 (Released in v5.0.0)
+**Branch:** Merged to `main`
+**Last Updated:** 2026-01-29
+
+> **Related Documentation:**
+> - [README — Authentication Section](../README.md#authentication-v50) — User-facing setup guide
+> - [Architecture — Auth Module](ARCHITECTURE.md#authentication-module-architecture) — System design and database schema
+> - [Auth Runbook](AUTH_RUNBOOK.md) — Operational procedures
+> - [Auth Failure Modes](AUTH_FAILURE_MODES.md) — Troubleshooting guide
 **Status:** Implementation Complete (Phase 6 Complete) - Ready for Go Live
 
 ---

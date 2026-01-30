@@ -2,6 +2,12 @@
 
 This document describes failure modes in the secure remote access authentication system, their symptoms, impacts, and recovery procedures.
 
+> **Related Documentation:**
+> - [Auth Runbook](AUTH_RUNBOOK.md) — Operational procedures and admin guide
+> - [Architecture — Auth Module](ARCHITECTURE.md#authentication-module-architecture) — System design and database schema
+> - [README — Authentication Section](../README.md#authentication-v50) — User-facing setup guide
+> - [Secure Remote Access Spec](SECURE_REMOTE_ACCESS_SPEC.md) — Full design specification
+
 ## Database Failures
 
 ### 1. Auth Database Unavailable

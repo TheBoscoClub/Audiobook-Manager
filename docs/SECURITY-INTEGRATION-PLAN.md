@@ -1,8 +1,11 @@
 # Security Branch Integration Plan
 
+> **Status: COMPLETED** — Branch `rd/secure-remote-access` was merged to `main` and released as v5.0.0 on 2026-01-29.
+> This document is retained for historical reference.
+
 ## Branch: `rd/secure-remote-access`
 
-This document tracks the requirements and gaps for integrating the security/auth branch into main.
+This document tracked the requirements and gaps for integrating the security/auth branch into main.
 
 ---
 

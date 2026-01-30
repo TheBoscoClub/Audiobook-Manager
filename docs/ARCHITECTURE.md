@@ -6,17 +6,18 @@ This document describes the system architecture, installation workflows, storage
 
 1. [System Overview](#system-overview)
 2. [Component Architecture](#component-architecture)
-3. [Scanner Module Architecture](#scanner-module-architecture)
-4. [API Module Architecture](#api-module-architecture)
-5. [Position Sync Architecture](#position-sync-architecture)
-6. [Systemd Services Reference](#systemd-services-reference)
-7. [Scripts Reference](#scripts-reference)
-8. [Installation Workflow](#installation-workflow)
-9. [Upgrade Workflow](#upgrade-workflow)
-10. [Migration Workflow](#migration-workflow)
-11. [Storage Layout](#storage-layout)
-12. [Storage Recommendations](#storage-recommendations)
-13. [Filesystem Recommendations](#filesystem-recommendations)
+3. [Authentication Module Architecture](#authentication-module-architecture)
+4. [Scanner Module Architecture](#scanner-module-architecture)
+5. [API Module Architecture](#api-module-architecture)
+6. [Position Sync Architecture](#position-sync-architecture)
+7. [Systemd Services Reference](#systemd-services-reference)
+8. [Scripts Reference](#scripts-reference)
+9. [Installation Workflow](#installation-workflow)
+10. [Upgrade Workflow](#upgrade-workflow)
+11. [Migration Workflow](#migration-workflow)
+12. [Storage Layout](#storage-layout)
+13. [Storage Recommendations](#storage-recommendations)
+14. [Filesystem Recommendations](#filesystem-recommendations)
 15. [Kernel Compatibility](#kernel-compatibility)
 16. [Quick Reference](#quick-reference)
 17. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
@@ -25,7 +26,7 @@ This document describes the system architecture, installation workflows, storage
 
 ## System Overview
 
-Audiobook-Manager consists of six logical component groups:
+Audiobook-Manager consists of seven logical component groups:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -42,7 +43,16 @@ Audiobook-Manager consists of six logical component groups:
 │  │                 │  │ • logs/         │  │                 │             │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘             │
 │           │                    │                    │                       │
-│           ▼                    ▼                    ▼                       │
+│           │              ┌─────────────────┐        │                       │
+│           │              │ AUTHENTICATION  │        │                       │
+│           │              │                 │        │                       │
+│           │              │ • SQLCipher DB  │        │                       │
+│           │              │ • WebAuthn      │        │                       │
+│           │              │ • TOTP/FIDO2    │        │                       │
+│           │              │ • Sessions      │        │                       │
+│           │              └────────┬────────┘        │                       │
+│           │                       │                 │                       │
+│           ▼                       ▼                 ▼                       │
 │  ┌─────────────────────────────────────────────────────────────┐           │
 │  │                      CONFIGURATION                          │           │
 │  │  /etc/audiobooks/audiobooks.conf  |  Environment Variables  │           │
@@ -76,6 +86,7 @@ Audiobook-Manager consists of six logical component groups:
 | **Library** | Converted audiobooks (Opus) | Sequential streaming | Medium |
 | **Sources** | Original AAXC files | Sequential read during conversion | Low |
 | **Database** | SQLite with metadata, indexes | Random read/write | **High** |
+| **Auth Database** | SQLCipher encrypted auth data | Random read/write | **High** |
 | **Covers** | Cover art images (JPEG/PNG) | Random read | Medium |
 | **Logs** | Application and conversion logs | Append-only write | Low |
 
@@ -211,6 +222,157 @@ done
 
 ---
 
+## Authentication Module Architecture
+
+The authentication subsystem (v5.0+) provides multi-user access control with WebAuthn, TOTP, and backup code recovery. Located in `library/auth/`.
+
+### Auth Module Components
+
+```
+library/auth/
+├── __init__.py       # Module entry point, exports public API
+├── database.py       # SQLCipher encryption wrapper, key management
+├── models.py         # ORM-like repositories (User, Session, AccessRequest, etc.)
+├── passkey.py        # WebAuthn/FIDO2 registration & authentication ceremonies
+├── totp.py           # TOTP (RFC 6238) with QR code generation
+├── backup_codes.py   # Single-use recovery codes (8 per user)
+├── cli.py            # Admin CLI tool (audiobook-user)
+├── inbox_cli.py      # Admin inbox management CLI
+├── notify_cli.py     # Notification management CLI
+└── schema.sql        # Auth database schema (14 tables, v3)
+```
+
+### Authentication Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    AUTHENTICATION ARCHITECTURE                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Browser                     Flask API                    Auth Database
+     │                            │                         (SQLCipher)
+     │  GET /library              │                             │
+     ├───────────────────────────▶│                             │
+     │                            │  Check session cookie       │
+     │                            ├────────────────────────────▶│
+     │                            │  token_hash lookup          │
+     │                            │◀────────────────────────────┤
+     │                            │                             │
+     │  ┌─ No valid session ──────┤                             │
+     │  │  302 → /auth/login      │                             │
+     │  │                         │                             │
+     │  └─ Valid session ─────────┤                             │
+     │     Serve page             │  Touch last_seen            │
+     │                            ├────────────────────────────▶│
+     │◀───────────────────────────┤                             │
+```
+
+### Claim Flow (New User Registration)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       CLAIM FLOW (ADMIN APPROVAL)                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  New User                    API                         Admin
+     │                         │                            │
+     │  POST /register/start   │                            │
+     │  {username, email?}     │                            │
+     ├────────────────────────▶│                            │
+     │                         │  Create access_request     │
+     │  ◀── claim_token ──────┤  (status: pending)         │
+     │  (ABCD-1234-EFGH-5678) │                            │
+     │                         │                            │
+     │                         │  GET /admin/access-requests│
+     │                         │◀───────────────────────────┤
+     │                         │                            │
+     │                         │  POST .../approve          │
+     │                         │◀───────────────────────────┤
+     │                         │  (status: approved)        │
+     │                         │                            │
+     │  POST /register/claim   │                            │
+     │  {username, claim_token}│                            │
+     ├────────────────────────▶│                            │
+     │                         │  Verify token hash         │
+     │                         │  Create user + TOTP secret │
+     │                         │  Generate 8 backup codes   │
+     │  ◀── TOTP QR + codes ──┤                            │
+     │                         │                            │
+
+  Special Case: First user → auto-approved as admin (no claim token needed)
+```
+
+### Auth Database Schema (SQLCipher)
+
+**Encryption:** AES-256 via SQLCipher. Key stored at `/etc/audiobooks/auth.key` (mode 0600).
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `users` | User accounts | username, auth_type, auth_credential, is_admin, can_download |
+| `sessions` | Active sessions | user_id, token_hash (SHA-256), expires_at, last_seen |
+| `user_positions` | Per-user playback | user_id + audiobook_id composite PK, position_ms |
+| `access_requests` | Registration queue | username, status, claim_token_hash, credentials_claimed |
+| `pending_registrations` | Verification tokens | username, token_hash, expires_at (15 min) |
+| `pending_recovery` | Magic link tokens | user_id, token_hash, expires_at, used_at |
+| `backup_codes` | Recovery codes | user_id, code_hash (SHA-256), used_at |
+| `notifications` | System announcements | message, type, target_user_id, starts_at, expires_at |
+| `notification_dismissals` | User dismissals | notification_id + user_id composite PK |
+| `inbox` | User→admin messages | from_user_id, message, status, reply_via |
+| `contact_log` | Audit trail | user_id, sent_at (no content stored) |
+| `schema_version` | Migration tracking | version, applied_at |
+
+### Session Management
+
+| Property | Value |
+|----------|-------|
+| **Cookie name** | `audiobooks_session` |
+| **Token** | 32-byte URL-safe random (`secrets.token_urlsafe(32)`) |
+| **Storage** | SHA-256 hash in `sessions` table |
+| **Cookie flags** | `HttpOnly`, `Secure`, `SameSite=Lax` |
+| **Policy** | One session per user (new login invalidates previous) |
+| **Staleness** | 30-minute inactivity grace period |
+
+### WebAuthn Auto-Configuration
+
+WebAuthn RP ID and origin are derived automatically from deployment config:
+
+```
+Priority chain:
+  1. Explicit: WEBAUTHN_RP_ID, WEBAUTHN_ORIGIN env vars
+  2. Derived:  AUDIOBOOKS_HOSTNAME + WEB_PORT + HTTPS setting
+  3. Local:    Hostnames ending in .local, .localdomain, or single-label → "localhost"
+  4. Default:  RP ID "localhost", Origin "http://localhost:5001"
+```
+
+**Challenge management:** In-memory dict, 5-minute expiry, auto-cleanup on each operation.
+
+### Backup Codes
+
+- **Count:** 8 per user
+- **Format:** `XXXX-XXXX-XXXX-XXXX` (16 chars, 4 groups)
+- **Alphabet:** `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no 0/O/1/I confusion)
+- **Storage:** SHA-256 hashed, single-use (marked with `used_at` timestamp)
+- **Entropy:** ~77 bits
+
+### Security Properties
+
+| Property | Implementation |
+|----------|---------------|
+| Token storage | All tokens SHA-256 hashed before DB storage |
+| Database encryption | SQLCipher AES-256 (key in `/etc/audiobooks/auth.key`) |
+| Session isolation | One session per user; new login invalidates previous |
+| Credential protection | WebAuthn credentials stored as encrypted BLOB |
+| CSRF protection | SameSite=Lax cookies prevent cross-origin requests |
+| Claim tokens | One-time use, hash-verified, username-bound |
+
+### Related Documentation
+
+- [Secure Remote Access Spec](SECURE_REMOTE_ACCESS_SPEC.md) — Full design specification
+- [Auth Runbook](AUTH_RUNBOOK.md) — Operational procedures and admin guide
+- [Auth Failure Modes](AUTH_FAILURE_MODES.md) — Troubleshooting authentication issues
+
+---
+
 ## Scanner Module Architecture
 
 The scanner subsystem handles metadata extraction, library scanning, and database imports. Located in `library/scanner/`.
@@ -313,6 +475,7 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 
 | Blueprint | Prefix | Purpose |
 |-----------|--------|---------|
+| `auth_bp` | `/auth` | Authentication, registration, admin (v5.0+) |
 | `audiobooks_bp` | `/api` | Main listing, streaming, single book |
 | `collections_bp` | `/api` | Predefined genre-based collections |
 | `editions_bp` | `/api` | Edition detection and grouping |
@@ -1624,5 +1787,5 @@ systemctl status audiobook.target --no-pager
 
 ---
 
-*Document Version: 4.0.0*
-*Last Updated: 2026-01-17*
+*Document Version: 5.0.0*
+*Last Updated: 2026-01-29*

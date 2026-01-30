@@ -89,6 +89,9 @@ Web-based audiobook library browser with:
 - **Genre sync** from Audible library export with 250+ genre categories
 - **Narrator metadata sync** from Audible library export
 - Production-ready HTTPS server with reverse proxy
+- **Multi-user authentication** with TOTP, Passkey, and FIDO2 support (v5.0+)
+- **Admin approval flow** for new user registration with secure claim tokens
+- **Per-user playback positions** with encrypted auth database (SQLCipher)
 
 ## Quick Start
 
@@ -511,10 +514,19 @@ Audiobooks/
 │   └── interactiveAAXtoMP3
 ├── library/                     # Web library interface
 │   ├── config.py                # Python configuration module
+│   ├── auth/                    # Authentication module (v5.0+)
+│   │   ├── database.py          # SQLCipher encryption wrapper
+│   │   ├── models.py            # User, Session, AccessRequest repositories
+│   │   ├── passkey.py           # WebAuthn/FIDO2 registration & auth
+│   │   ├── totp.py              # TOTP (authenticator app) support
+│   │   ├── backup_codes.py      # Single-use recovery codes
+│   │   ├── cli.py               # Admin CLI tool (audiobook-user)
+│   │   └── schema.sql           # Auth database schema (14 tables)
 │   ├── backend/
 │   │   ├── api_server.py        # Flask server launcher
 │   │   ├── api_modular/         # Modular Flask Blueprints
 │   │   │   ├── __init__.py
+│   │   │   ├── auth.py          # Authentication endpoints (v5.0+)
 │   │   │   ├── audiobooks.py    # Audiobook endpoints
 │   │   │   ├── metadata.py      # Metadata endpoints
 │   │   │   ├── search.py        # Search endpoints
@@ -726,6 +738,91 @@ curl -X POST http://localhost:5001/api/position/sync-all
 
 For detailed instructions, see [docs/POSITION_SYNC.md](docs/POSITION_SYNC.md).
 
+## Authentication (v5.0+)
+
+Audiobook-Manager supports multi-user authentication with three methods:
+
+| Method | How It Works | Best For |
+|--------|-------------|----------|
+| **TOTP** | Time-based codes via authenticator app (Authy, Google Authenticator) | Most users |
+| **Passkey** | Biometrics, phone, or password manager (Bitwarden, 1Password) | Convenience |
+| **FIDO2** | Hardware security key (YubiKey, Titan) | Maximum security |
+
+### How Authentication Works
+
+- Authentication is controlled by `AUTH_ENABLED` in your config (default: `true`)
+- When enabled, all API endpoints and the web UI require a valid session
+- Sessions use secure HTTP-only cookies with SameSite=Lax protection
+- The auth database is encrypted at rest using SQLCipher (AES-256)
+
+### First User Setup (Bootstrap)
+
+The first user to register is **automatically approved as admin** — no approval needed:
+
+```bash
+# 1. Navigate to the web UI
+open https://localhost:8443
+
+# 2. You'll be redirected to the login page
+# 3. Click "Request Access" and choose a username
+# 4. As the first user, you'll receive your TOTP secret immediately
+# 5. Scan the QR code with your authenticator app
+# 6. Save your 8 backup codes in a safe place
+# 7. Log in with your TOTP code
+```
+
+### Adding More Users
+
+After the first user, new registrations require admin approval:
+
+1. **New user** visits the site and clicks "Request Access"
+2. **New user** receives a **claim token** (16-character code) — they must save this
+3. **Admin** reviews the request in the Admin panel and approves/denies
+4. **New user** enters their claim token to set up credentials (TOTP, Passkey, or FIDO2)
+5. **New user** receives 8 single-use backup codes for account recovery
+
+Admins can also pre-approve users with **invitations** (`POST /auth/admin/users/invite`).
+
+### Admin Capabilities
+
+- Approve or deny access requests
+- Invite new users with pre-approved accounts
+- Toggle admin and download permissions per user
+- View and manage active sessions
+- Send system notifications to users
+
+### WebAuthn Configuration
+
+WebAuthn (Passkey/FIDO2) auto-configures from your deployment settings:
+
+| Setting | Source | Default |
+|---------|--------|---------|
+| RP ID | `AUDIOBOOKS_HOSTNAME` | `localhost` |
+| Origin | Derived from hostname + port + HTTPS | `https://localhost:8443` |
+| RP Name | `WEBAUTHN_RP_NAME` | `The Library` |
+
+For custom deployments, override via environment or config:
+```bash
+WEBAUTHN_RP_ID=audiobooks.example.com
+WEBAUTHN_ORIGIN=https://audiobooks.example.com
+```
+
+### Disabling Authentication
+
+For single-user or LAN-only deployments:
+```bash
+# In /etc/audiobooks/audiobooks.conf
+AUTH_ENABLED=false
+```
+
+When disabled, all endpoints are accessible without login (pre-v5 behavior).
+
+### Related Documentation
+
+- [Secure Remote Access Spec](docs/SECURE_REMOTE_ACCESS_SPEC.md) — Full design specification
+- [Auth Runbook](docs/AUTH_RUNBOOK.md) — Operational procedures and admin guide
+- [Auth Failure Modes](docs/AUTH_FAILURE_MODES.md) — Troubleshooting authentication issues
+
 ## REST API
 
 The library exposes a REST API on port 5001:
@@ -848,6 +945,44 @@ The library exposes a REST API on port 5001:
 
 > **Note**: Position sync requires the `audible` Python library and stored credentials
 > via system keyring. Run `rnd/position_sync_test.py` to set up initial authentication.
+
+### Authentication (v5.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/login` | POST | Authenticate with TOTP or WebAuthn |
+| `/auth/logout` | POST | Invalidate current session |
+| `/auth/check` | GET | Check if user is authenticated |
+| `/auth/login/auth-type` | POST | Determine user's auth method |
+| `/auth/login/webauthn/begin` | POST | Start WebAuthn authentication |
+| `/auth/login/webauthn/complete` | POST | Complete WebAuthn authentication |
+| `/auth/register/start` | POST | Submit access request |
+| `/auth/register/claim` | POST | Claim credentials with TOTP |
+| `/auth/register/claim/validate` | POST | Validate claim token |
+| `/auth/register/claim/webauthn/begin` | POST | Start WebAuthn registration for claim |
+| `/auth/register/claim/webauthn/complete` | POST | Complete WebAuthn claim registration |
+| `/auth/me` | GET/PUT | Get or update current user info |
+| `/auth/recover/backup-code` | POST | Use backup code for recovery |
+| `/auth/recover/regenerate-codes` | POST | Generate new backup codes |
+| `/auth/health` | GET | Auth system health check |
+
+#### Admin Endpoints (requires admin role)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/admin/users` | GET | List all users |
+| `/auth/admin/users/invite` | POST | Invite new user (pre-approved) |
+| `/auth/admin/users/<id>` | PUT/DELETE | Update or delete user |
+| `/auth/admin/users/<id>/toggle-admin` | POST | Grant/revoke admin |
+| `/auth/admin/users/<id>/toggle-download` | POST | Grant/revoke download permission |
+| `/auth/admin/access-requests` | GET | List pending access requests |
+| `/auth/admin/access-requests/<id>/approve` | POST | Approve access request |
+| `/auth/admin/access-requests/<id>/deny` | POST | Deny access request |
+| `/auth/admin/notifications` | GET/POST | List or create notifications |
+| `/auth/admin/inbox` | GET | List user messages |
+
+> **Note**: All `/auth/admin/*` endpoints require the requesting user to have `is_admin=true`.
+> Non-admin users receive 403 Forbidden.
 
 ### Query Parameters for `/api/audiobooks`
 - `page` - Page number (default: 1)
@@ -1015,6 +1150,9 @@ docker restart audiobooks
 - ffmpeg 4.4+ (with ffprobe)
 - Flask (CORS handled natively since v3.2.0)
 - openssl (for SSL certificate generation)
+- pysqlcipher3 (for encrypted auth database, v5.0+)
+- py-webauthn (for Passkey/FIDO2 auth, v5.0+)
+- pyotp (for TOTP auth, v5.0+)
 
 ### First-time setup
 ```bash
@@ -1205,11 +1343,18 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v4.0.0.2 (Current)
-- **CI Fix**: Fixed Docker workflow to support 4-digit tweak versions (X.Y.Z.W)
+### v5.0.0 (Current)
+- **Authentication**: Multi-user auth system with TOTP, Passkey (WebAuthn), and FIDO2 hardware key support
+- **Authentication**: SQLCipher encrypted auth database (AES-256 at rest)
+- **Authentication**: Admin approval flow with claim token system for new user registration
+- **Authentication**: Backup code recovery, session management, per-user playback positions
+- **Web UI**: Login page, claim page, admin panel, contact/notification system
+- **API**: All endpoints auth-gated when AUTH_ENABLED=true
+- **BREAKING**: Unauthenticated API requests return 401 when auth is enabled
 
-### v4.0.0.1
-- **Documentation Fix**: Corrected migration path in CHANGELOG.md (was `migrations/` now `library/backend/migrations/`)
+### v4.1.2
+- **Web UI**: "Check for Updates" button in Utilities page
+- **Upgrade**: Fixed multi-installation detection for `--from-github` and `--from-project`
 
 ### v4.0.0
 - **BREAKING: Periodicals Feature Removed**: The "Reading Room" periodicals subsystem (podcasts, newspapers, meditation) has been extracted to a separate R&D branch (`feature/periodicals-rnd`). This simplifies the main codebase to focus on audiobooks only.
@@ -1433,15 +1578,15 @@ See [GitHub Releases](https://github.com/greogory/Audiobook-Manager/releases) fo
 
 ## Roadmap
 
-### Next Phase: Secure by Design
+### Completed: Secure by Design (v5.0)
 
-The next major focus is hardening the application with security as a first-class design principle:
+The v5.0 release delivered the security-first architecture:
 
+- ~~**Authentication & Authorization**~~: ✅ Multi-user auth with TOTP, Passkey, FIDO2 (v5.0)
+- ~~**Secrets Management**~~: ✅ SQLCipher encrypted auth database, Fernet-encrypted credentials (v5.0)
+- ~~**Audit Logging**~~: ✅ Contact log, access request tracking, session audit trail (v5.0)
+- ~~**Input Validation**~~: ✅ Username validation, token sanitization, auth-gated endpoints (v5.0)
 - **Certificate Authority Integration**: Support for Let's Encrypt and other trusted CAs (currently uses self-signed certificates)
-- **Authentication & Authorization**: Optional user authentication for multi-user deployments
-- **Audit Logging**: Track all operations for security compliance
-- **Input Validation**: Comprehensive input sanitization across all endpoints
-- **Secrets Management**: Secure credential storage for Audible API keys and service accounts
 - **Container Hardening**: Read-only filesystems, non-root execution, minimal base images
 - **Network Security**: Rate limiting, CORS policies, CSP headers
 

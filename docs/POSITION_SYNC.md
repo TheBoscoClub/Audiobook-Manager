@@ -24,6 +24,7 @@ Position sync allows you to seamlessly switch between listening on Audible's off
 
 - **Bidirectional sync**: Positions flow both ways between local and Audible cloud
 - **"Furthest ahead wins"**: Automatic conflict resolution - the more advanced position always takes precedence
+- **Per-user tracking** (v5.0+): Each authenticated user has independent playback positions stored in the encrypted auth database
 - **Batch operations**: Sync hundreds of books in a single operation
 - **Position history**: Track playback progress over time
 - **Automatic player sync**: Web player saves positions to both localStorage and the API
@@ -648,7 +649,9 @@ curl -s http://localhost:5001/api/position/status | python3 -m json.tool
 
 ## Database Schema
 
-Position sync uses these database columns:
+Position sync uses two storage locations:
+
+### Main Database (audiobooks.db) — Audible Sync Positions
 
 ```sql
 -- In audiobooks table
@@ -667,6 +670,24 @@ CREATE TABLE playback_history (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+### Auth Database (SQLCipher, v5.0+) — Per-User Positions
+
+When authentication is enabled, each user's playback position is tracked independently:
+
+```sql
+-- In auth database (encrypted)
+CREATE TABLE user_positions (
+    user_id INTEGER NOT NULL,
+    audiobook_id INTEGER NOT NULL,
+    position_ms INTEGER NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, audiobook_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+This allows multiple users to independently track progress on the same audiobook.
 
 To view syncable books directly:
 ```sql
@@ -693,8 +714,9 @@ LIMIT 20;
 
 - Position API runs on localhost only (127.0.0.1:5001)
 - Accessible via HTTPS proxy on 8443
-- No authentication required (assumes single-user deployment)
-- For multi-user deployments, add authentication layer
+- Authentication required when `AUTH_ENABLED=true` (v5.0+ default)
+- Per-user position tracking: each user's playback positions are stored in the auth database (`user_positions` table), keyed by `user_id + audiobook_id`
+- Sessions use HTTP-only, Secure, SameSite=Lax cookies
 
 ### Audible API Access
 
@@ -705,5 +727,5 @@ LIMIT 20;
 
 ---
 
-*Document Version: 4.0.0*
-*Last Updated: 2026-01-17*
+*Document Version: 5.0.0*
+*Last Updated: 2026-01-29*
