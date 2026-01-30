@@ -2121,7 +2121,8 @@ function initSystemSection() {
     // Browse projects button
     document.getElementById('browse-projects')?.addEventListener('click', loadProjectsList);
 
-    // Start upgrade button
+    // Upgrade buttons
+    document.getElementById('check-upgrade')?.addEventListener('click', checkUpgrade);
     document.getElementById('start-upgrade')?.addEventListener('click', startUpgrade);
 
     // Load initial data when System tab is shown
@@ -3128,6 +3129,101 @@ async function loadProjectsList() {
         console.error('Failed to load projects:', error);
         showToast('Failed to load projects: ' + error.message, 'error');
     }
+}
+
+async function checkUpgrade() {
+    const sourceRadio = document.querySelector('input[name="upgrade-source"]:checked');
+    const source = sourceRadio?.value || 'github';
+    const projectPath = document.getElementById('project-path-input')?.value;
+
+    if (source === 'project' && !projectPath) {
+        showToast('Please enter or select a project directory', 'error');
+        return;
+    }
+
+    // Show progress modal
+    showProgressModal('Checking for Updates', 'Running dry-run check...');
+
+    try {
+        const body = { source };
+        if (source === 'project') {
+            body.project_path = projectPath;
+        }
+
+        const res = await fetch(`${API_BASE}/api/system/upgrade/check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+            // Poll for check results
+            startCheckPolling();
+        } else {
+            hideProgressModal();
+            showToast(result.error || 'Failed to start check', 'error');
+        }
+    } catch (error) {
+        hideProgressModal();
+        showToast('Failed to check for updates: ' + error.message, 'error');
+    }
+}
+
+function startCheckPolling() {
+    // Poll check status every 1 second (check is faster than upgrade)
+    const checkPollingInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/system/upgrade/status`);
+            const status = await res.json();
+
+            // Update progress modal
+            const messageEl = document.getElementById('progress-message');
+            const outputEl = document.getElementById('progress-output');
+
+            if (messageEl) {
+                messageEl.textContent = status.message || 'Checking...';
+            }
+
+            if (outputEl && status.output) {
+                outputEl.textContent = status.output.join('\n');
+                outputEl.scrollTop = outputEl.scrollHeight;
+            }
+
+            // Handle completion
+            if (!status.running && status.success !== null) {
+                clearInterval(checkPollingInterval);
+
+                // Show close button
+                const closeBtn = document.getElementById('modal-close-progress');
+                if (closeBtn) {
+                    closeBtn.style.display = 'inline-flex';
+                }
+
+                // Update message based on result
+                if (status.result?.upgrade_available) {
+                    const current = status.result.current_version || '?';
+                    const available = status.result.available_version || '?';
+                    if (messageEl) {
+                        messageEl.textContent = `▲ Upgrade available: ${current} → ${available}`;
+                        messageEl.style.color = 'var(--accent-gold)';
+                    }
+                    showToast(`Upgrade available: ${current} → ${available}`, 'success');
+                } else {
+                    if (messageEl) {
+                        messageEl.textContent = '✓ Already up to date';
+                        messageEl.style.color = 'var(--accent-green)';
+                    }
+                    showToast('Already up to date', 'success');
+                }
+            }
+        } catch (error) {
+            clearInterval(checkPollingInterval);
+            hideProgressModal();
+            showToast('Error checking status: ' + error.message, 'error');
+        }
+    }, 1000);
 }
 
 async function startUpgrade() {

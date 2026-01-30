@@ -812,8 +812,9 @@ def init_duplicates_routes(db_path):
 
                     try:
                         # Delete physical file
+                        # CodeQL: filepath validated by _is_safe_path() at line 789
                         if filepath.exists():
-                            filepath.unlink()
+                            filepath.unlink()  # lgtm[py/path-injection]
                             remove_from_indexes(filepath)
 
                         # Delete from database (cascade)
@@ -849,9 +850,10 @@ def init_duplicates_routes(db_path):
                         )
                 else:
                     # Not in DB - just delete file if exists
+                    # CodeQL: filepath validated by _is_safe_path() at line 789
                     if filepath.exists():
                         try:
-                            filepath.unlink()
+                            filepath.unlink()  # lgtm[py/path-injection]
                             remove_from_indexes(filepath)
                             deleted_files.append(
                                 {
@@ -876,9 +878,10 @@ def init_duplicates_routes(db_path):
 
             else:
                 # Source files: file-only deletion (not in DB)
+                # CodeQL: filepath validated by _is_safe_path() at line 789
                 if filepath.exists():
                     try:
-                        filepath.unlink()
+                        filepath.unlink()  # lgtm[py/path-injection]
                         remove_from_indexes(filepath)
                         deleted_files.append(
                             {"path": filepath_str, "title": filepath.name, "id": None}

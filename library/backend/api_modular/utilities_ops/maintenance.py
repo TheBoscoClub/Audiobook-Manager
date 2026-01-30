@@ -7,6 +7,7 @@ Handles queue rebuilding, index cleanup, sort field population, and duplicate de
 import os
 import re
 import subprocess
+import tempfile
 import threading
 from pathlib import Path
 
@@ -485,7 +486,11 @@ def init_maintenance_routes(project_root):
             library_script = (
                 project_root.parent / "rnd" / "populate_asins_from_library.py"
             )
-            library_export = Path("/tmp/audible-library-export.json")
+            # Use a secure temp file to avoid race conditions (CVE: insecure-temporary-file)
+            # mkstemp() atomically creates the file, preventing TOCTOU race conditions
+            fd, library_export_str = tempfile.mkstemp(suffix=".json", prefix="audible-export-")
+            os.close(fd)  # Close the file descriptor, subprocess will write to it
+            library_export = Path(library_export_str)
 
             try:
                 # Step 1: Export Audible library from Amazon
@@ -493,48 +498,47 @@ def init_maintenance_routes(project_root):
                     operation_id, 5, "Connecting to Audible API..."
                 )
 
-                # Use Popen for export step
-                export_process = subprocess.Popen(
-                    [
-                        "audible",
-                        "library",
-                        "export",
-                        "--format",
-                        "json",
-                        "--output",
-                        str(library_export),
-                        "--timeout",
-                        "120",
-                        "--resolve-podcasts",
-                    ],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1,
-                )
-
-                export_lines = []
-                for line in iter(export_process.stdout.readline, ""):
-                    if not line:
-                        break
-                    line = line.strip()
-                    if line:
-                        export_lines.append(line)
-                        # Update progress with any status from audible CLI
-                        if "export" in line.lower() or "download" in line.lower():
-                            tracker.update_progress(
-                                operation_id,
-                                15,
-                                f"Exporting library: {line[:50]}",
-                            )
-
-                export_process.wait(timeout=300)
-
-                if export_process.returncode != 0:
-                    stderr = export_process.stderr.read()
+                # Call audible-cli directly via Python module
+                # This bypasses the wrapper script and PATH issues
+                try:
+                    export_result = subprocess.run(
+                        [
+                            "python3", "-m", "audible_cli",
+                            "library", "export",
+                            "--format", "json",
+                            "--output", str(library_export),
+                            "--timeout", "120",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                        env={
+                            **os.environ,
+                            # HOME for audible to find ~/.audible config
+                            "HOME": os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks"),
+                            "AUDIBLE_CONFIG_DIR": "/etc/audiobooks/audible",
+                        },
+                    )
+                except subprocess.TimeoutExpired:
                     tracker.fail_operation(
                         operation_id,
-                        f"Failed to export Audible library: {stderr}",
+                        "Audible export timed out after 5 minutes",
+                    )
+                    return
+
+                if export_result.returncode != 0:
+                    error_msg = export_result.stderr or export_result.stdout or "Unknown error"
+                    tracker.fail_operation(
+                        operation_id,
+                        f"Failed to export Audible library (code {export_result.returncode}): {error_msg}",
+                    )
+                    return
+
+                # Verify export file was created
+                if not library_export.exists():
+                    tracker.fail_operation(
+                        operation_id,
+                        "Audible export completed but output file not found",
                     )
                     return
 

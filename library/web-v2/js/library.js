@@ -675,6 +675,7 @@ class AudiobookLibraryV2 {
             }
         }
 
+        // XSS safe: All dynamic content passes through escapeHtml() (lines 433, highlightMatch->escapeHtml)
         dropdown.innerHTML = html;
 
         // Add click handlers to options
@@ -869,6 +870,7 @@ class AudiobookLibraryV2 {
             }
         }
 
+        // XSS safe: All dynamic content passes through escapeHtml() (lines 626, highlightMatch->escapeHtml)
         dropdown.innerHTML = html;
 
         // Add click handlers to options
@@ -1390,9 +1392,14 @@ class AudioPlayer {
         this.playbackRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
         this.currentRateIndex = 2; // Start at 1.0x
         this.saveTimeout = null; // For debouncing position saves
+        this.audibleSyncInterval = null; // For periodic Audible sync
+        this.audibleSyncDelayMs = 5 * 60 * 1000; // Sync every 5 minutes
 
         // Set CORS mode for cross-origin streaming
         this.audio.crossOrigin = 'anonymous';
+
+        // Initialize Media Session API for lockscreen/notification controls
+        this.setupMediaSession();
 
         // Add error handler for debugging
         this.audio.addEventListener('error', (e) => {
@@ -1474,6 +1481,107 @@ class AudioPlayer {
         });
     }
 
+    /**
+     * Setup Media Session API for lockscreen/notification controls.
+     * Provides OS-level play/pause/seek controls and displays track info.
+     */
+    setupMediaSession() {
+        if (!('mediaSession' in navigator)) {
+            console.log('Media Session API not supported');
+            return;
+        }
+
+        // Play/Pause handlers
+        navigator.mediaSession.setActionHandler('play', () => {
+            this.audio.play();
+        });
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+            this.audio.pause();
+        });
+
+        // Seek backward 30 seconds
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+            const skipTime = details.seekOffset || 30;
+            this.audio.currentTime = Math.max(0, this.audio.currentTime - skipTime);
+            this.updateMediaPositionState();
+        });
+
+        // Seek forward 30 seconds
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+            const skipTime = details.seekOffset || 30;
+            this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + skipTime);
+            this.updateMediaPositionState();
+        });
+
+        // Seek to specific position (for scrubbing on lockscreen)
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (details.seekTime !== undefined && this.audio.duration) {
+                this.audio.currentTime = Math.min(details.seekTime, this.audio.duration);
+                this.updateMediaPositionState();
+            }
+        });
+
+        // Stop handler
+        navigator.mediaSession.setActionHandler('stop', () => {
+            this.close();
+        });
+
+        console.log('Media Session API initialized');
+    }
+
+    /**
+     * Update Media Session metadata with current book info.
+     * Called when a new audiobook starts playing.
+     */
+    updateMediaMetadata() {
+        if (!('mediaSession' in navigator) || !this.currentBook) return;
+
+        const book = this.currentBook;
+        const artwork = [];
+
+        // Add cover art if available
+        if (book.cover_path) {
+            const coverUrl = `${window.location.origin}/covers/${book.cover_path}`;
+            artwork.push(
+                { src: coverUrl, sizes: '96x96', type: 'image/jpeg' },
+                { src: coverUrl, sizes: '128x128', type: 'image/jpeg' },
+                { src: coverUrl, sizes: '192x192', type: 'image/jpeg' },
+                { src: coverUrl, sizes: '256x256', type: 'image/jpeg' },
+                { src: coverUrl, sizes: '384x384', type: 'image/jpeg' },
+                { src: coverUrl, sizes: '512x512', type: 'image/jpeg' }
+            );
+        }
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: book.title || 'Unknown Title',
+            artist: book.author || 'Unknown Author',
+            album: book.narrator ? `Narrated by ${book.narrator}` : (book.series || ''),
+            artwork: artwork
+        });
+
+        console.log('Media Session metadata updated:', book.title);
+    }
+
+    /**
+     * Update Media Session position state for accurate progress display.
+     * Called during playback and after seeking.
+     */
+    updateMediaPositionState() {
+        if (!('mediaSession' in navigator) || !this.audio.duration) return;
+
+        try {
+            navigator.mediaSession.setPositionState({
+                duration: this.audio.duration,
+                playbackRate: this.audio.playbackRate,
+                position: this.audio.currentTime
+            });
+        } catch (e) {
+            // Some browsers may not fully support setPositionState
+            console.debug('Could not update position state:', e.message);
+        }
+    }
+
     async playAudiobook(book, resume = false) {
         this.currentBook = book;
 
@@ -1534,12 +1642,51 @@ class AudioPlayer {
             });
         }
 
+        // Update Media Session metadata for lockscreen/notification controls
+        this.updateMediaMetadata();
+
         // Try to play
         try {
             await this.audio.play();
+            // Start periodic Audible sync if book has an ASIN
+            this.startAudibleSyncTimer();
         } catch (error) {
             console.error('Failed to play audio:', error);
             alert('Failed to load audio file. Please check the console for details.');
+        }
+    }
+
+    /**
+     * Start periodic Audible position sync during playback.
+     * Syncs every 5 minutes if the current book has an ASIN.
+     */
+    startAudibleSyncTimer() {
+        // Clear any existing timer
+        this.stopAudibleSyncTimer();
+
+        // Only sync if book has an ASIN (required for Audible sync)
+        if (!this.currentBook?.asin) {
+            console.log('No ASIN for current book, Audible sync disabled');
+            return;
+        }
+
+        console.log(`Starting Audible sync timer (every ${this.audibleSyncDelayMs / 60000} min) for ASIN: ${this.currentBook.asin}`);
+
+        this.audibleSyncInterval = setInterval(async () => {
+            if (this.currentBook && !this.audio.paused && playbackManager) {
+                console.log('Periodic Audible sync triggered');
+                await playbackManager.syncWithAudible(this.currentBook.id);
+            }
+        }, this.audibleSyncDelayMs);
+    }
+
+    /**
+     * Stop the periodic Audible sync timer.
+     */
+    stopAudibleSyncTimer() {
+        if (this.audibleSyncInterval) {
+            clearInterval(this.audibleSyncInterval);
+            this.audibleSyncInterval = null;
         }
     }
 
@@ -1575,6 +1722,12 @@ class AudioPlayer {
         document.getElementById('current-time').textContent =
             minutes + ':' + seconds.toString().padStart(2, '0');
 
+        // Update Media Session position state (throttled - only on whole seconds)
+        if (Math.floor(this.audio.currentTime) !== this._lastMediaSessionSecond) {
+            this._lastMediaSessionSecond = Math.floor(this.audio.currentTime);
+            this.updateMediaPositionState();
+        }
+
         // Auto-save position (debounced to every 5 seconds)
         if (this.currentBook && playbackManager && this.audio.currentTime > 0) {
             if (this.saveTimeout) {
@@ -1606,6 +1759,9 @@ class AudioPlayer {
     }
 
     close() {
+        // Stop Audible sync timer
+        this.stopAudibleSyncTimer();
+
         // Save position before closing (both localStorage and API)
         if (this.currentBook && playbackManager && this.audio.currentTime > 0 && this.audio.duration) {
             playbackManager.savePosition(
@@ -1615,11 +1771,20 @@ class AudioPlayer {
             );
             // Flush to API immediately on close (don't wait for debounce)
             playbackManager.flushToAPI(this.currentBook.id, this.audio.currentTime);
+            // Final Audible sync on close
+            if (this.currentBook.asin) {
+                playbackManager.syncWithAudible(this.currentBook.id);
+            }
         }
 
         this.audio.pause();
         this.player.style.display = 'none';
         this.currentBook = null;
+
+        // Clear Media Session
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = null;
+        }
     }
 }
 
@@ -2178,6 +2343,41 @@ class PlaybackManager {
             this.apiSaveTimeout = null;
         }
         await this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
+    }
+
+    /**
+     * Sync position with Audible for a specific audiobook.
+     * Uses "furthest ahead wins" logic - if local is ahead, pushes to Audible.
+     * @param {number} fileId - The audiobook ID
+     * @returns {Promise<object|null>} Sync result or null on error
+     */
+    async syncWithAudible(fileId) {
+        try {
+            const response = await fetch(`${API_BASE}/position/sync/${fileId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`Audible sync for ${fileId}:`, data.action || 'completed');
+                return data;
+            } else if (response.status === 400) {
+                // Book has no ASIN - this is expected for non-Audible content
+                console.debug(`Book ${fileId} has no ASIN, skipping Audible sync`);
+                return null;
+            } else if (response.status === 503) {
+                // Audible not available/configured
+                console.debug('Audible service unavailable, skipping sync');
+                return null;
+            } else {
+                console.warn(`Audible sync failed for ${fileId}: ${response.status}`);
+                return null;
+            }
+        } catch (error) {
+            console.warn('Error syncing with Audible:', error);
+            return null;
+        }
     }
 
     getPosition(fileId) {

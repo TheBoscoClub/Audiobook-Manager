@@ -332,15 +332,10 @@ pyproject.toml
 .markdownlint.*
 setup.cfg
 rnd/ui-test-logs/
-.claude-checkpoint.md
 
-# Claude session checkpoint files
-.claude-checkpoint.md
-.claude-checkpoint-notes.md
-.claude-checkpoint-update.sh
-.claude-checkpoint.log
+# Claude Code workflow files
 .claude-checkpoint
-.claude-checkpoint.pid
+.claude-checkpoint-*
 
 # -----------------------------------------------------------------------------
 # LOCAL/IDENTIFYING INFORMATION (Never push to remote)
@@ -364,4 +359,3 @@ vm-credentials*
 local-ips.txt
 vm-ips.txt
 *-local-config*
-
