@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![4](https://img.shields.io/badge/4-brightgreen)![1](https://img.shields.io/badge/1-darkgreen)![2](https://img.shields.io/badge/2-green) | Latest patch | [v4.1.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.2) |
+| ![5](https://img.shields.io/badge/5-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest major | [v5.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v5.0.0) |
+| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v4.1.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.2) |
 | ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.1.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.1) |
 | ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v4.1.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.0) |
 | ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![5](https://img.shields.io/badge/5-red) | Prior patch | [v4.0.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.5) |
