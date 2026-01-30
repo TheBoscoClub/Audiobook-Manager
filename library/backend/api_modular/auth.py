@@ -1288,10 +1288,14 @@ def get_webauthn_config() -> tuple[str, str, str]:
     # Auto-derive RP ID from hostname if not set
     if not rp_id:
         hostname = get_config("AUDIOBOOKS_HOSTNAME") or socket.getfqdn()
-        if hostname in ("localhost", "127.0.0.1", "::1") or hostname.endswith(".local"):
-            rp_id = "localhost"
-        else:
-            rp_id = hostname
+        # Use "localhost" for loopback, local suffixes, and single-label hostnames
+        # (no dots = not a real FQDN, e.g. "myserver" or "test-vm-cachyos")
+        is_local = (
+            hostname in ("localhost", "127.0.0.1", "::1")
+            or hostname.endswith((".local", ".localdomain", ".localhost"))
+            or "." not in hostname
+        )
+        rp_id = "localhost" if is_local else hostname
 
     # Auto-derive origin from proxy config if not set
     if not origin:
