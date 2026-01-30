@@ -1,14 +1,16 @@
 """
 Back Office Integration Tests
 
-Tests all Back Office (utilities) endpoints against the PRODUCTION API
+Tests all Back Office (utilities) endpoints against the VM API
 with REAL DATA OUTPUT verification.
 
-These tests require the audiobook-api service to be running.
+These tests run against test-vm-cachyos (192.168.122.100).
+Deploy latest code first: ./deploy-vm.sh --full --restart
+
 Run with: pytest library/tests/test_backoffice_integration.py -v
 
 Environment:
-    API_BASE_URL: Base URL of the API (default: http://localhost:5001)
+    API_BASE_URL: Base URL of the API (default: http://192.168.122.100:5001)
 """
 
 import json
@@ -20,8 +22,8 @@ from pathlib import Path
 import pytest
 import requests
 
-# Configuration
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:5001")
+# Configuration — defaults to VM; override with env var for local dev
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://192.168.122.100:5001")
 ASYNC_TIMEOUT = 300  # 5 minutes max for async operations
 POLL_INTERVAL = 2  # Poll every 2 seconds
 

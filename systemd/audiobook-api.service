@@ -3,10 +3,8 @@ Description=Audiobooks Library API Server (Waitress)
 Documentation=https://github.com/greogory/Audiobook-Manager
 After=network-online.target
 Wants=network-online.target
-# Ensure BTRFS subvolumes are mounted before starting
-# - /opt/audiobooks: Application code (prevents CHDIR failures)
-# - /raid0/Audiobooks: Data directory (prevents NAMESPACE failures with ProtectSystem=strict)
-RequiresMountsFor=/opt/audiobooks /raid0/Audiobooks
+# Ensure application directory is mounted before starting
+RequiresMountsFor=/opt/audiobooks
 
 [Service]
 Type=simple
@@ -20,8 +18,8 @@ Environment=PYTHONUNBUFFERED=1
 # HOME is needed for audible-cli to find its config at ~/.audible/
 Environment=HOME=/var/lib/audiobooks
 
-# Only start if port is not already in use
-ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
+# Only start if port is not already in use (uses ss from iproute2, always available)
+ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_API_PORT} "'
 ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
@@ -35,8 +33,9 @@ SyslogIdentifier=audiobooks-api
 NoNewPrivileges=yes
 ProtectSystem=strict
 # Writable paths - database state + data directory + /tmp for temp files
-# NOTE: Systemd doesn't expand env vars in ReadWritePaths, so add your data path explicitly
-ReadWritePaths=/var/lib/audiobooks /raid0/Audiobooks /tmp
+# NOTE: Systemd doesn't expand env vars in ReadWritePaths. If your data directory
+# differs from the default /srv/audiobooks, add it here explicitly.
+ReadWritePaths=/var/lib/audiobooks /srv/audiobooks /tmp
 ProtectHome=yes
 # PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
 PrivateTmp=no
