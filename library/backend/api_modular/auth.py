@@ -840,7 +840,6 @@ def claim_credentials():
     # Generate backup codes
     backup_repo = BackupCodeRepository(db)
     backup_codes = backup_repo.create_codes_for_user(new_user.id)
-    backup_codes_formatted = format_codes_for_display(backup_codes)
 
     # Mark as claimed
     request_repo.mark_credentials_claimed(access_req.id)

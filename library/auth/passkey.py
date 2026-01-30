@@ -37,11 +37,7 @@ from webauthn.helpers.structs import (
     PublicKeyCredentialDescriptor,
     ResidentKeyRequirement,
     UserVerificationRequirement,
-    RegistrationCredential,
-    AuthenticationCredential,
 )
-
-from .database import AuthDatabase
 
 # Default WebAuthn configuration (localhost development only)
 # Production values are auto-derived from deployment config by
