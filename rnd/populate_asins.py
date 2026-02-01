@@ -55,17 +55,17 @@ def calculate_similarity(s1: str, s2: str) -> float:
 
 
 async def fetch_audible_library(client) -> list[dict]:
-    """Fetch complete Audible library (audiobooks only, not periodicals).
+    """Fetch complete Audible library (audiobooks only).
 
-    Filters by content_type='Product' to exclude podcasts, newspapers,
-    shows, and other periodical content that belongs in Reading Room.
+    Filters by content_type='Product' to exclude non-audiobook content
+    (podcasts, newspapers, shows, etc.) from the library.
     """
     print("📚 Fetching Audible library (audiobooks only)...")
 
     all_items = []
     page = 1  # Audible API is 1-indexed
     page_size = 50
-    skipped_periodicals = 0
+    skipped_non_audiobooks = 0
 
     while True:
         response = await client.get(
@@ -82,7 +82,7 @@ async def fetch_audible_library(client) -> list[dict]:
             break
 
         # Filter to only include actual audiobooks (content_type='Product')
-        # Exclude periodicals: Podcast, Newspaper / Magazine, Show, Radio/TV Program
+        # Exclude: Podcast, Newspaper / Magazine, Show, Radio/TV Program
         for item in items:
             content_type = item.get("content_type", "Product")
             if content_type == "Product":
@@ -90,17 +90,17 @@ async def fetch_audible_library(client) -> list[dict]:
                 item["_content_type"] = content_type
                 all_items.append(item)
             else:
-                skipped_periodicals += 1
+                skipped_non_audiobooks += 1
 
-        print(f"   Fetched {len(all_items)} audiobooks (skipped {skipped_periodicals} periodicals)...")
+        print(f"   Fetched {len(all_items)} audiobooks (skipped {skipped_non_audiobooks} non-audiobooks)...")
 
         if len(items) < page_size:
             break
         page += 1
 
     print(f"✅ Fetched {len(all_items)} audiobooks from Audible library")
-    if skipped_periodicals:
-        print(f"   ℹ️  Skipped {skipped_periodicals} periodicals (belong in Reading Room)")
+    if skipped_non_audiobooks:
+        print(f"   ℹ️  Skipped {skipped_non_audiobooks} non-audiobook items")
     return all_items
 
 
@@ -208,7 +208,7 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
 
         for match in updates:
             # Set both ASIN and content_type='Product' to ensure proper classification
-            # This marks the item as a true audiobook, not a periodical
+            # This marks the item as an audiobook (content_type='Product')
             cursor.execute(
                 "UPDATE audiobooks SET asin = ?, content_type = 'Product' WHERE id = ?",
                 (match["asin"], match["local_id"])

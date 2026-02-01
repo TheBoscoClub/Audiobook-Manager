@@ -210,8 +210,8 @@ SELECT
 FROM audiobooks
 WHERE asin IS NOT NULL AND asin != '';
 
--- View for main library that excludes periodical content types
--- Used by AUDIOBOOK_FILTER to separate main library from Reading Room
+-- View for main library that excludes non-audiobook content types
+-- Used by AUDIOBOOK_FILTER in api_modular/audiobooks.py
 CREATE VIEW IF NOT EXISTS library_audiobooks AS
 SELECT * FROM audiobooks
 WHERE content_type IN ('Product', 'Lecture', 'Performance', 'Speech') OR content_type IS NULL;

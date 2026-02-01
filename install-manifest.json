@@ -83,11 +83,6 @@
       "name": "audiobooks-migrate",
       "paths": ["/usr/local/bin/audiobooks-migrate"],
       "description": "Switch API architecture"
-    },
-    {
-      "name": "audiobooks-sync-periodicals",
-      "paths": ["/opt/audiobooks/scripts/sync-periodicals-index"],
-      "description": "Sync periodicals index from Audible"
     }
   ],
 
@@ -140,18 +135,6 @@
       "type": "system",
       "expected_state": "inactive",
       "description": "Shutdown hook to save staging"
-    },
-    {
-      "name": "audiobook-periodicals-sync.service",
-      "type": "system",
-      "expected_state": "inactive",
-      "description": "Periodicals index sync (triggered by timer)"
-    },
-    {
-      "name": "audiobook-periodicals-sync.timer",
-      "type": "system",
-      "expected_state": "active",
-      "description": "Timer for periodicals sync (06:00, 18:00 daily)"
     },
     {
       "name": "audiobook.target",

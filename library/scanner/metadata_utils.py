@@ -226,7 +226,7 @@ def extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
     Extract ASIN from chapters.json in the same directory as the audiobook.
 
     AAXtoMP3 creates chapters.json alongside converted audiobooks containing
-    the original Audible ASIN, which is needed to link to periodicals table.
+    the original Audible ASIN, used for deduplication and edition tracking.
     The ASIN is nested at: content_metadata.content_reference.asin
     """
     chapters_path = filepath.parent / "chapters.json"

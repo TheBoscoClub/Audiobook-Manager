@@ -1,8 +1,8 @@
 """
 Audiobook listing, filtering, streaming, and individual book routes.
 
-Note: All queries filter by content_type to exclude periodicals (podcasts,
-newspapers, etc.) which belong in the Reading Room, not the main library.
+Note: All queries filter by content_type to exclude non-audiobook content
+(podcasts, newspapers, etc.) from the main library.
 """
 
 import sys
@@ -22,9 +22,9 @@ from .auth import auth_if_enabled, download_permission_required, get_current_use
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
 
-# Filter condition for main library (excludes periodicals)
+# Filter condition for main library (excludes non-audiobook content)
 # Include: Product, Lecture, Performance, Speech (all valid audiobook content)
-# Exclude: Podcast, Newspaper / Magazine, Show, Radio/TV Program (periodicals → Reading Room)
+# Exclude: Podcast, Newspaper / Magazine, Show, Radio/TV Program
 # content_type IS NULL handles legacy entries before the field was added
 AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Lecture', 'Performance', 'Speech') OR content_type IS NULL)"
 
@@ -35,17 +35,17 @@ def init_audiobooks_routes(db_path, project_root, database_path):
     @audiobooks_bp.route("/api/stats", methods=["GET"])
     @auth_if_enabled
     def get_stats() -> Response:
-        """Get library statistics (excludes periodicals)"""
+        """Get library statistics (audiobooks only)"""
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        # Total audiobooks (excluding periodicals)
+        # Total audiobooks (audiobooks only)
         cursor.execute(
             f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
         )
         total_books = cursor.fetchone()["total"]
 
-        # Total hours (excluding periodicals)
+        # Total hours (audiobooks only)
         cursor.execute(
             f"SELECT SUM(duration_hours) as total_hours FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
         )
@@ -180,10 +180,10 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        # Build query - always filter to exclude periodicals from main library
+        # Build query - always filter to audiobooks only
         where_clauses = [
             AUDIOBOOK_FILTER
-        ]  # Excludes periodicals (podcasts, news, etc.)
+        ]  # Audiobooks only (excludes podcasts, news, etc.)
         params = []
 
         if search:
@@ -354,11 +354,11 @@ def init_audiobooks_routes(db_path, project_root, database_path):
     @audiobooks_bp.route("/api/filters", methods=["GET"])
     @auth_if_enabled
     def get_filters() -> Response:
-        """Get all available filter options (excludes periodicals)"""
+        """Get all available filter options (audiobooks only)"""
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        # Get unique authors (excluding periodicals)
+        # Get unique authors (audiobooks only)
         cursor.execute(
             f"""
             SELECT DISTINCT author FROM audiobooks
@@ -368,7 +368,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
         authors = [row["author"] for row in cursor.fetchall()]
 
-        # Get unique narrators (excluding periodicals)
+        # Get unique narrators (audiobooks only)
         cursor.execute(
             f"""
             SELECT DISTINCT narrator FROM audiobooks
@@ -378,7 +378,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
         narrators = [row["narrator"] for row in cursor.fetchall()]
 
-        # Get unique publishers (excluding periodicals)
+        # Get unique publishers (audiobooks only)
         cursor.execute(
             f"""
             SELECT DISTINCT publisher FROM audiobooks
@@ -400,7 +400,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         cursor.execute("SELECT name FROM topics ORDER BY name")
         topics = [row["name"] for row in cursor.fetchall()]
 
-        # Get formats (excluding periodicals)
+        # Get formats (audiobooks only)
         cursor.execute(
             f"""
             SELECT DISTINCT format FROM audiobooks
@@ -427,7 +427,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
     @audiobooks_bp.route("/api/narrator-counts", methods=["GET"])
     @auth_if_enabled
     def get_narrator_counts() -> Response:
-        """Get narrator book counts for autocomplete (excludes periodicals)"""
+        """Get narrator book counts for autocomplete (audiobooks only)"""
         conn = get_db(db_path)
         cursor = conn.cursor()
 

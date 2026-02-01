@@ -15,7 +15,6 @@ Wants=audiobook-mover.service
 
 # Scheduled tasks - timers trigger their corresponding .service units
 Wants=audiobook-downloader.timer
-Wants=audiobook-periodicals-sync.timer
 
 [Install]
 WantedBy=multi-user.target
