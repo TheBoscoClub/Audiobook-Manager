@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [5.0.1.1] - 2026-02-01
+
+### Removed
+- **Periodicals**: Remove all remaining periodicals code, systemd services, sync scripts, and install manifest entries (feature was removed in v4.0.3 but artifacts remained)
+- **Periodicals**: Clean up "periodicals" and "Reading Room" references in code comments across audiobooks.py, schema.sql, metadata_utils.py, populate_asins.py
+
+### Fixed
+- **Systemd**: Fix API service boot failures caused by ProtectSystem=strict resolving `/raid0` symlink to unmounted `/hddRaid1/Audiobooks` — use real mount path and explicit After=hddRaid1-Audiobooks.mount ordering
+- **Systemd**: Fix HTTPS proxy permanently failing on boot due to cascade dependency failure from API service
+- **Systemd**: Fix stale symlinks with wrong "audiobooks-" prefix (should be "audiobook-") for shutdown-saver and upgrade-helper units
+- **Systemd**: Update ExecStartPre port checks from lsof to ss (iproute2, always available)
+
 ## [5.0.1] - 2026-01-30
 
 ### Fixed
