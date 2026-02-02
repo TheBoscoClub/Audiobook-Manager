@@ -20,6 +20,12 @@ def pytest_addoption(parser):
         default=False,
         help="Run tests that require physical hardware (e.g., YubiKey touch)",
     )
+    parser.addoption(
+        "--vm",
+        action="store_true",
+        default=False,
+        help="Run integration tests that require the test VM (test-vm-cachyos)",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -28,6 +34,11 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "hardware" in item.keywords:
                 item.add_marker(skip_hw)
+    if not config.getoption("--vm"):
+        skip_vm = pytest.mark.skip(reason="needs --vm flag to run (test VM)")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_vm)
 
 
 # Add library directory to path for imports
