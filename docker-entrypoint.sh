@@ -232,6 +232,18 @@ for i in {1..10}; do
     sleep 1
 done
 
+# Generate self-signed certs if missing
+export AUDIOBOOKS_CERTS="${AUDIOBOOKS_CERTS:-/app/certs}"
+mkdir -p "$AUDIOBOOKS_CERTS"
+if [ ! -f "$AUDIOBOOKS_CERTS/server.crt" ] || [ ! -f "$AUDIOBOOKS_CERTS/server.key" ]; then
+    echo -e "Generating self-signed TLS certificate..."
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout "$AUDIOBOOKS_CERTS/server.key" \
+        -out "$AUDIOBOOKS_CERTS/server.crt" \
+        -days 365 -subj '/CN=localhost' 2>/dev/null
+    echo -e "  ${GREEN}Certificate generated${NC}"
+fi
+
 # Start HTTPS reverse proxy
 echo -e "Starting HTTPS proxy on port ${WEB_PORT}..."
 cd /app/web

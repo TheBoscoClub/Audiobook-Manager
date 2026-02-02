@@ -4,6 +4,7 @@ Encrypted Auth Database using SQLCipher
 Provides secure storage for user credentials, sessions, and positions.
 All data is encrypted at rest with AES-256.
 """
+from __future__ import annotations
 
 import os
 import secrets
