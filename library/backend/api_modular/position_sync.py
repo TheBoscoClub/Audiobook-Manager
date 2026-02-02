@@ -56,7 +56,9 @@ def retrieve_credential(master_password: str = "") -> str | None:
         from cryptography.fernet import Fernet, InvalidToken
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
+    except ImportError:
+        return None
+    try:
         data = json.loads(_CREDENTIAL_FILE.read_text())
         if data.get("version") != 1:
             return None
@@ -67,7 +69,7 @@ def retrieve_credential(master_password: str = "") -> str | None:
         )
         key = base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
         return Fernet(key).decrypt(encrypted).decode()
-    except (InvalidToken, json.JSONDecodeError, KeyError, ImportError):
+    except (InvalidToken, json.JSONDecodeError, KeyError):
         return None
 
 

@@ -8,7 +8,6 @@ import ssl
 import sys
 import threading
 from pathlib import Path
-from urllib.parse import urlparse
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))

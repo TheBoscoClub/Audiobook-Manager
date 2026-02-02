@@ -15,7 +15,6 @@ import json
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -28,8 +27,6 @@ from auth import (
     AuthType,
     User,
     UserRepository,
-    hash_token,
-    generate_session_token,
 )
 
 from auth.passkey import (
@@ -46,10 +43,9 @@ from auth.passkey import (
     CHALLENGE_TIMEOUT_SECONDS,
     DEFAULT_RP_ID,
     DEFAULT_RP_NAME,
-    DEFAULT_ORIGIN,
 )
 
-from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
+from webauthn.helpers import bytes_to_base64url
 
 
 @pytest.fixture

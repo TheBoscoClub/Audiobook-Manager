@@ -9,7 +9,6 @@ Tests cover:
 - Protected endpoint access
 """
 
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -965,7 +964,7 @@ class TestMagicLinkVerify:
             recovery_email="verify@example.com")
 
         # Manually create a recovery token through the database
-        from auth import PendingRecovery, PendingRecoveryRepository, UserRepository
+        from auth import PendingRecovery
         db = auth_app.auth_db
         user_repo = UserRepository(db)
         user = user_repo.get_by_username("verifuser1")
@@ -994,7 +993,7 @@ class TestMagicLinkVerify:
             recovery_email="single@example.com")
 
         # Create recovery token
-        from auth import PendingRecovery, UserRepository
+        from auth import PendingRecovery
         db = auth_app.auth_db
         user_repo = UserRepository(db)
         user = user_repo.get_by_username("singleuse1")
@@ -1018,8 +1017,7 @@ class TestMagicLinkVerify:
             recovery_email="expire@example.com")
 
         # Create expired recovery token (0 minutes = immediate expiry)
-        from auth import PendingRecovery, UserRepository
-        from datetime import datetime, timedelta
+        from auth import PendingRecovery
         db = auth_app.auth_db
         user_repo = UserRepository(db)
         user = user_repo.get_by_username("expireuser")
@@ -1365,7 +1363,6 @@ class TestNotificationDismiss:
             json={"username": "adminuser", "code": auth.current_code()})
 
         # Get testuser1's ID from the database
-        from auth import UserRepository
         user_repo = UserRepository(auth_app.auth_db)
         test_user = user_repo.get_by_username("testuser1")
 

@@ -16,7 +16,7 @@ from pathlib import Path
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auth import AuthDatabase, Notification, NotificationType, NotificationRepository
+from auth import Notification, NotificationType, NotificationRepository
 
 
 def get_db():

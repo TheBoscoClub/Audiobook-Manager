@@ -333,7 +333,6 @@ class TestFtsIndexConsistency:
 class TestAsinConsistency:
     """Test ASIN consistency between source files and database."""
 
-    @pytest.mark.xfail(reason="Requires migration 007 (source_asin column)")
     def test_source_asin_matches_asin(self, prod_db):
         """Verify source_asin matches asin where both exist."""
         cursor = prod_db.cursor()
@@ -649,9 +648,6 @@ class TestSourceToConvertedConsistency:
 class TestIndexConsistency:
     """Test database index consistency."""
 
-    @pytest.mark.xfail(
-        reason="Requires schema migration - indexes defined in schema.sql but not applied to production DB"
-    )
     def test_all_indexes_exist(self, prod_db):
         """Verify all expected indexes exist."""
         cursor = prod_db.cursor()
@@ -674,9 +670,6 @@ class TestIndexConsistency:
         if missing:
             pytest.fail(f"Missing indexes: {missing}")
 
-    @pytest.mark.xfail(
-        reason="Requires schema migration - triggers defined in schema.sql but not applied to production DB"
-    )
     def test_fts_triggers_exist(self, prod_db):
         """Verify FTS update triggers exist."""
         cursor = prod_db.cursor()
@@ -876,7 +869,6 @@ class TestMetadataExtractionFunctions:
 class TestDatabaseAccessFunctions:
     """Test database access patterns used by the codebase."""
 
-    @pytest.mark.xfail(reason="Requires migration 007 (content_type column)")
     def test_audiobook_query_returns_all_columns(self, prod_db):
         """Verify standard audiobook queries return expected columns."""
         cursor = prod_db.cursor()

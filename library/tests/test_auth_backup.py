@@ -26,8 +26,6 @@ from auth import (
     AuthType,
     User,
     UserRepository,
-    Session,
-    SessionRepository,
     Notification,
     NotificationType,
     NotificationRepository,

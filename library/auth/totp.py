@@ -7,7 +7,7 @@ Secrets are stored as raw bytes and converted to base32 for authenticator apps.
 
 import base64
 import secrets
-from typing import Optional, Tuple
+from typing import Tuple
 from io import BytesIO
 
 import pyotp

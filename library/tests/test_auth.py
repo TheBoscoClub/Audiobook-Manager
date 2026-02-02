@@ -44,7 +44,6 @@ from auth import (
     hash_token,
     generate_session_token,
     # Backup codes
-    BackupCode,
     BackupCodeRepository,
     generate_backup_code,
     generate_backup_codes,

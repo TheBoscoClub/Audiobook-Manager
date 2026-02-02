@@ -9,11 +9,9 @@ Tests cover:
 - JavaScript auth state management functions
 """
 
-import re
 import sys
 from pathlib import Path
 
-import pytest
 
 # Add library directory to path
 LIBRARY_DIR = Path(__file__).parent.parent

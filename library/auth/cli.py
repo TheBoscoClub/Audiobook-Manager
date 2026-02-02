@@ -21,9 +21,7 @@ import sys
 import os
 import base64
 import secrets
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Add library to path if running directly
 if __name__ == "__main__":
@@ -438,10 +436,10 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # init command
-    init_parser = subparsers.add_parser("init", help="Initialize auth database")
+    subparsers.add_parser("init", help="Initialize auth database")
 
     # list command
-    list_parser = subparsers.add_parser("list", help="List all users")
+    subparsers.add_parser("list", help="List all users")
 
     # add command
     add_parser = subparsers.add_parser("add", help="Add a new user")

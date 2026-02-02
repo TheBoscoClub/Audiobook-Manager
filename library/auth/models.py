@@ -5,11 +5,10 @@ These models provide a clean interface to the encrypted auth database.
 All credential data is stored encrypted via SQLCipher.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional, List
 from enum import Enum
-import json
 
 from .database import AuthDatabase, hash_token, generate_session_token, generate_verification_token
 

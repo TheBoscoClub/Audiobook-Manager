@@ -14,7 +14,7 @@ from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime
 
-from .database import AuthDatabase, hash_token
+from .database import AuthDatabase
 
 
 # Number of backup codes to generate

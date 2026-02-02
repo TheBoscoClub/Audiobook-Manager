@@ -13,26 +13,62 @@ Environment:
     API_BASE_URL: Base URL of the API (default: http://192.168.122.100:5001)
 """
 
-import json
 import os
-import tempfile
 import time
-from pathlib import Path
 
+import pyotp
 import pytest
 import requests
 
 pytestmark = pytest.mark.integration
 
 # Configuration — defaults to VM; override with env var for local dev
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://192.168.122.100:5001")
+VM_HOST = os.environ.get("VM_HOST", "192.168.122.100")
+API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
+ADMIN_USERNAME = "testadmin"
+ADMIN_TOTP_SECRET = os.environ.get(
+    "ADMIN_TOTP_SECRET", "W2GGPH7KH2WL2PN22SGW62WQMJOABGZS"
+)
 ASYNC_TIMEOUT = 300  # 5 minutes max for async operations
 POLL_INTERVAL = 2  # Poll every 2 seconds
+
+# Module-level authenticated session (set by auth_session fixture)
+_session: requests.Session | None = None
 
 
 def api_url(path: str) -> str:
     """Build full API URL."""
     return f"{API_BASE_URL}{path}"
+
+
+def _get_auth_session() -> requests.Session:
+    """Authenticate as testadmin and return a requests session with cookie."""
+    session = requests.Session()
+    code = pyotp.TOTP(ADMIN_TOTP_SECRET).now()
+    resp = session.post(
+        api_url("/auth/login"),
+        json={"username": ADMIN_USERNAME, "code": code},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    assert data.get("success"), f"Admin login failed: {data}"
+    token = resp.cookies.get("audiobooks_session")
+    if token:
+        session.cookies.set("audiobooks_session", token, domain=VM_HOST, path="/")
+    return session
+
+
+def api_get(path: str, **kwargs) -> requests.Response:
+    """Make an authenticated GET request."""
+    assert _session is not None, "auth_session fixture not initialized"
+    return _session.get(api_url(path), **kwargs)
+
+
+def api_post(path: str, **kwargs) -> requests.Response:
+    """Make an authenticated POST request."""
+    assert _session is not None, "auth_session fixture not initialized"
+    return _session.post(api_url(path), **kwargs)
 
 
 def wait_for_operation(operation_id: str, timeout: int = ASYNC_TIMEOUT) -> dict:
@@ -43,7 +79,7 @@ def wait_for_operation(operation_id: str, timeout: int = ASYNC_TIMEOUT) -> dict:
     start = time.time()
     last_op = None
     while time.time() - start < timeout:
-        response = requests.get(api_url("/api/operations/all"))
+        response = api_get("/api/operations/all")
         if response.status_code == 200:
             data = response.json()
             for op in data.get("operations", []):
@@ -60,14 +96,18 @@ def wait_for_operation(operation_id: str, timeout: int = ASYNC_TIMEOUT) -> dict:
 
 @pytest.fixture(scope="module")
 def api_available():
-    """Check if the API is available before running tests."""
+    """Authenticate and check if the API is available before running tests."""
+    global _session
     try:
-        response = requests.get(api_url("/api/system/version"), timeout=5)
+        _session = _get_auth_session()
+        response = api_get("/api/system/version", timeout=5)
         if response.status_code != 200:
             pytest.skip(f"API not available (status {response.status_code})")
         return response.json()
     except requests.exceptions.ConnectionError:
         pytest.skip("API not available (connection refused)")
+    except Exception as e:
+        pytest.skip(f"API auth failed: {e}")
 
 
 class TestOperationsStatus:
@@ -75,7 +115,7 @@ class TestOperationsStatus:
 
     def test_get_active_operations(self, api_available):
         """Test GET /api/operations/active returns valid response."""
-        response = requests.get(api_url("/api/operations/active"))
+        response = api_get("/api/operations/active")
         assert response.status_code == 200
         data = response.json()
         # Should return a list (possibly empty)
@@ -83,7 +123,7 @@ class TestOperationsStatus:
 
     def test_get_all_operations(self, api_available):
         """Test GET /api/operations/all returns valid response with history."""
-        response = requests.get(api_url("/api/operations/all"))
+        response = api_get("/api/operations/all")
         assert response.status_code == 200
         data = response.json()
         assert "operations" in data
@@ -101,7 +141,7 @@ class TestDatabaseExports:
 
     def test_export_json(self, api_available):
         """Test GET /api/utilities/export-json returns valid JSON with audiobooks."""
-        response = requests.get(api_url("/api/utilities/export-json"))
+        response = api_get("/api/utilities/export-json")
         assert response.status_code == 200
         assert response.headers.get("Content-Type", "").startswith("application/json")
 
@@ -129,7 +169,7 @@ class TestDatabaseExports:
 
     def test_export_csv(self, api_available):
         """Test GET /api/utilities/export-csv returns valid CSV with headers."""
-        response = requests.get(api_url("/api/utilities/export-csv"))
+        response = api_get("/api/utilities/export-csv")
         assert response.status_code == 200
         content_type = response.headers.get("Content-Type", "")
         assert "text/csv" in content_type or "application/csv" in content_type
@@ -149,7 +189,7 @@ class TestDatabaseExports:
 
     def test_export_db(self, api_available):
         """Test GET /api/utilities/export-db returns SQLite database file."""
-        response = requests.get(api_url("/api/utilities/export-db"))
+        response = api_get("/api/utilities/export-db")
         assert response.status_code == 200
 
         # Check content type
@@ -168,7 +208,7 @@ class TestDatabaseMaintenance:
 
     def test_vacuum(self, api_available):
         """Test POST /api/utilities/vacuum compacts the database."""
-        response = requests.post(api_url("/api/utilities/vacuum"))
+        response = api_post("/api/utilities/vacuum")
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -183,10 +223,8 @@ class TestAsyncOperations:
 
     def test_populate_sort_fields_dry_run(self, api_available):
         """Test populate-sort-fields-async in dry run mode."""
-        response = requests.post(
-            api_url("/api/utilities/populate-sort-fields-async"),
-            json={"dry_run": True},
-        )
+        response = api_post("/api/utilities/populate-sort-fields-async",
+                             json={"dry_run": True})
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -204,10 +242,7 @@ class TestAsyncOperations:
 
     def test_rebuild_queue_async(self, api_available):
         """Test rebuild-queue-async creates conversion queue."""
-        response = requests.post(
-            api_url("/api/utilities/rebuild-queue-async"),
-            json={},
-        )
+        response = api_post("/api/utilities/rebuild-queue-async", json={})
         # Accept 200 (new operation) or 409 (already running)
         assert response.status_code in (200, 409), f"Unexpected status: {response.status_code}"
         data = response.json()
@@ -231,10 +266,7 @@ class TestAsyncOperations:
 
     def test_cleanup_indexes_async(self, api_available):
         """Test cleanup-indexes-async removes stale index entries."""
-        response = requests.post(
-            api_url("/api/utilities/cleanup-indexes-async"),
-            json={},
-        )
+        response = api_post("/api/utilities/cleanup-indexes-async", json={})
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -250,10 +282,7 @@ class TestAsyncOperations:
 
     def test_find_source_duplicates_async(self, api_available):
         """Test find-source-duplicates-async finds duplicate source files."""
-        response = requests.post(
-            api_url("/api/utilities/find-source-duplicates-async"),
-            json={},
-        )
+        response = api_post("/api/utilities/find-source-duplicates-async", json={})
         # Accept 200 (new operation) or 409 (already running)
         assert response.status_code in (200, 409), f"Unexpected status: {response.status_code}"
         data = response.json()
@@ -287,10 +316,8 @@ class TestAsyncOperations:
     @pytest.mark.slow
     def test_populate_asins_dry_run(self, api_available):
         """Test populate-asins-async in dry run mode (requires Audible auth)."""
-        response = requests.post(
-            api_url("/api/utilities/populate-asins-async"),
-            json={"dry_run": True},
-        )
+        response = api_post("/api/utilities/populate-asins-async",
+                             json={"dry_run": True})
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -313,10 +340,7 @@ class TestLibraryOperations:
 
     def test_rescan_async(self, api_available):
         """Test rescan-async scans library for changes."""
-        response = requests.post(
-            api_url("/api/utilities/rescan-async"),
-            json={},
-        )
+        response = api_post("/api/utilities/rescan-async", json={})
         # Accept 200 (new operation) or 409 (already running)
         assert response.status_code in (200, 409), f"Unexpected status: {response.status_code}"
         data = response.json()
@@ -345,7 +369,7 @@ class TestSystemEndpoints:
 
     def test_version(self, api_available):
         """Test /api/system/version returns version info."""
-        response = requests.get(api_url("/api/system/version"))
+        response = api_get("/api/system/version")
         assert response.status_code == 200
         data = response.json()
         assert "version" in data
@@ -353,7 +377,7 @@ class TestSystemEndpoints:
 
     def test_audiobooks_count(self, api_available):
         """Test /api/audiobooks returns audiobook data."""
-        response = requests.get(api_url("/api/audiobooks?limit=5"))
+        response = api_get("/api/audiobooks?limit=5")
         assert response.status_code == 200
         data = response.json()
         assert "audiobooks" in data
@@ -375,19 +399,15 @@ class TestConcurrentOperations:
     def test_rejects_concurrent_same_type(self, api_available):
         """Test that starting the same operation type twice is rejected."""
         # Start a slow operation
-        response1 = requests.post(
-            api_url("/api/utilities/populate-sort-fields-async"),
-            json={"dry_run": True},
-        )
+        response1 = api_post("/api/utilities/populate-sort-fields-async",
+                              json={"dry_run": True})
         assert response1.status_code == 200
         data1 = response1.json()
         op_id = data1.get("operation_id")
 
         # Immediately try to start another
-        response2 = requests.post(
-            api_url("/api/utilities/populate-sort-fields-async"),
-            json={"dry_run": True},
-        )
+        response2 = api_post("/api/utilities/populate-sort-fields-async",
+                              json={"dry_run": True})
 
         # Should either reject (409) or the first one finished already
         if response2.status_code == 409:
@@ -422,9 +442,9 @@ class TestBackOfficeSummary:
         results = []
         for method, path in endpoints:
             if method == "GET":
-                response = requests.get(api_url(path))
+                response = api_get(path)
             else:
-                response = requests.post(api_url(path), json={})
+                response = api_post(path, json={})
 
             status = "✓" if response.status_code == 200 else "✗"
             results.append((status, method, path, response.status_code))

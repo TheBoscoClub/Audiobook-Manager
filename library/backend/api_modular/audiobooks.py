@@ -18,7 +18,7 @@ from config import COVER_DIR
 from .collections import COLLECTIONS
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
-from .auth import auth_if_enabled, download_permission_required, get_current_user
+from .auth import auth_if_enabled, download_permission_required
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
 

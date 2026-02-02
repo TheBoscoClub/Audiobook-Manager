@@ -12,7 +12,6 @@ correctly rejects:
 - Timing attacks on token validation
 """
 
-import hashlib
 import sys
 import tempfile
 import time
@@ -32,7 +31,6 @@ from auth import (
     UserRepository,
     Session,
     SessionRepository,
-    hash_token,
 )
 
 
@@ -283,7 +281,7 @@ class TestInputValidation:
 
     def test_username_length_constraints(self, temp_db):
         """Test username length validation."""
-        repo = UserRepository(temp_db)
+        UserRepository(temp_db)
 
         # Too short (less than 5 chars per schema)
         short_user = User(

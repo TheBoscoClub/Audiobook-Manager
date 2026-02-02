@@ -13,7 +13,7 @@ All authentication data is stored in the encrypted auth.db (SQLCipher).
 import os
 import smtplib
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
@@ -32,7 +32,6 @@ from auth import (
     UserRepository,
     Session,
     SessionRepository,
-    PendingRegistration,
     PendingRegistrationRepository,
     PendingRecovery,
     PendingRecoveryRepository,
@@ -43,12 +42,9 @@ from auth import (
     InboxStatus,
     InboxRepository,
     ReplyMethod,
-    UserPosition,
-    PositionRepository,
     hash_token,
     generate_verification_token,
     # Access Requests
-    AccessRequest,
     AccessRequestStatus,
     AccessRequestRepository,
     # WebAuthn
@@ -57,15 +53,11 @@ from auth import (
     webauthn_verify_registration,
     webauthn_authentication_options,
     webauthn_verify_authentication,
-    webauthn_get_pending_challenge,
-    webauthn_clear_challenge,
 )
 from auth.totp import (
     setup_totp,
     verify_code as verify_totp,
-    secret_to_base32,
     base32_to_secret,
-    get_provisioning_uri,
     generate_qr_code,
 )
 from auth.backup_codes import (

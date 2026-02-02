@@ -19,9 +19,10 @@ Note: Use --headed flag to see browser for visual verification.
 
 import os
 import time
-from typing import Generator
 
+import pyotp
 import pytest
+import requests as req_lib
 
 pytestmark = pytest.mark.integration
 
@@ -44,17 +45,46 @@ except ImportError:
 
 
 # Configuration — defaults to VM; override with env var for local dev
-WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", "https://192.168.122.100:8443")
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://192.168.122.100:5001")
+VM_HOST = os.environ.get("VM_HOST", "192.168.122.100")
+WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
+API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
+ADMIN_USERNAME = "testadmin"
+ADMIN_TOTP_SECRET = os.environ.get(
+    "ADMIN_TOTP_SECRET", "W2GGPH7KH2WL2PN22SGW62WQMJOABGZS"
+)
 # Skip SSL verification for self-signed certs
 IGNORE_HTTPS_ERRORS = True
 
 
+def _get_auth_session() -> req_lib.Session:
+    """Authenticate as testadmin and return a requests session with cookie."""
+    session = req_lib.Session()
+    code = pyotp.TOTP(ADMIN_TOTP_SECRET).now()
+    resp = session.post(
+        f"{API_BASE_URL}/auth/login",
+        json={"username": ADMIN_USERNAME, "code": code},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    assert data.get("success"), f"Admin login failed: {data}"
+    # Re-add cookie without Secure flag for HTTP requests
+    token = resp.cookies.get("audiobooks_session")
+    if token:
+        session.cookies.set("audiobooks_session", token, domain=VM_HOST, path="/")
+    return session
+
+
 @pytest.fixture(scope="module")
-def test_audiobook():
+def auth_session():
+    """Module-scoped authenticated session for API calls."""
+    return _get_auth_session()
+
+
+@pytest.fixture(scope="module")
+def test_audiobook(auth_session):
     """Get a test audiobook to play."""
-    import requests
-    response = requests.get(f"{API_BASE_URL}/api/audiobooks?limit=1")
+    response = auth_session.get(f"{API_BASE_URL}/api/audiobooks?limit=1")
     assert response.status_code == 200
     data = response.json()
     assert data.get("audiobooks"), "No audiobooks found in library"
@@ -66,8 +96,8 @@ def test_audiobook():
 # ============================================================================
 
 @pytest.fixture(scope="module")
-def browser_context():
-    """Create a persistent browser context with Playwright."""
+def browser_context(auth_session):
+    """Create a persistent browser context with Playwright and auth cookie."""
     if not PLAYWRIGHT_AVAILABLE:
         pytest.skip("Playwright not installed (pip install pytest-playwright)")
 
@@ -91,6 +121,17 @@ def browser_context():
             ignore_https_errors=IGNORE_HTTPS_ERRORS,
             viewport={"width": 1280, "height": 900}
         )
+        # Inject auth session cookie into browser context
+        token = auth_session.cookies.get("audiobooks_session")
+        if token:
+            context.add_cookies([{
+                "name": "audiobooks_session",
+                "value": token,
+                "domain": VM_HOST,
+                "path": "/",
+                "httpOnly": True,
+                "secure": False,
+            }])
         yield context
         context.close()
         browser.close()
@@ -128,7 +169,7 @@ class TestPlayerNavigationPlaywright:
         expect(player).to_be_visible(timeout=5000)
 
         # Verify audio is playing
-        audio = page.locator("#audio-element")
+        page.locator("#audio-element")
         is_playing = page.evaluate("""() => {
             const audio = document.getElementById('audio-element');
             return audio && !audio.paused;
@@ -275,7 +316,7 @@ class TestPlayerNavigationPlaywright:
         print(f"  ✓ Resized to 400x600 (mobile-ish)")
 
         # Check playback continues
-        is_playing_after_small = page.evaluate("""() => {
+        page.evaluate("""() => {
             const audio = document.getElementById('audio-element');
             return audio && !audio.paused;
         }""")
