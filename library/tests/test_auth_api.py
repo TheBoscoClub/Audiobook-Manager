@@ -208,6 +208,34 @@ def client(auth_app):
     return auth_app.test_client()
 
 
+def _register_and_claim(client, auth_app, username, **claim_kwargs):
+    """Register a user through the full v5 flow: start -> admin approve -> claim.
+
+    Returns the claim response JSON (totp_secret, backup_codes, etc.).
+    """
+    # Step 1: Start registration
+    r = client.post('/auth/register/start', json={"username": username})
+    assert r.status_code == 200, f"register/start failed: {r.get_json()}"
+    start_data = r.get_json()
+    claim_token = start_data['claim_token']
+    request_id = start_data['request_id']
+
+    # Step 2: Admin approves via a separate client (to avoid polluting session)
+    admin_client = auth_app.test_client()
+    admin_auth = TOTPAuthenticator(auth_app.admin_secret)
+    admin_client.post('/auth/login',
+        json={"username": "adminuser", "code": admin_auth.current_code()})
+    r = admin_client.post(f'/auth/admin/access-requests/{request_id}/approve')
+    assert r.status_code == 200, f"approve failed: {r.get_json()}"
+
+    # Step 3: Claim credentials
+    claim_body = {"username": username, "claim_token": claim_token}
+    claim_body.update(claim_kwargs)
+    r = client.post('/auth/register/claim', json=claim_body)
+    assert r.status_code == 200, f"claim failed: {r.get_json()}"
+    return r.get_json()
+
+
 class TestAuthCheck:
     """Tests for /auth/check endpoint."""
 
@@ -370,19 +398,9 @@ class TestRegistration:
         assert r.status_code == 400
         assert 'already taken' in r.get_json()['error']
 
-    def test_registration_full_flow(self, client):
-        """Test complete registration flow."""
-        # Start registration
-        r = client.post('/auth/register/start',
-            json={"username": "flowuser1"})
-        assert r.status_code == 200
-        token = r.get_json()['claim_token']
-
-        # Verify and complete
-        r = client.post('/auth/register/verify',
-            json={"token": token, "auth_type": "totp"})
-        assert r.status_code == 200
-        data = r.get_json()
+    def test_registration_full_flow(self, client, auth_app):
+        """Test complete registration flow: start -> approve -> claim -> login."""
+        data = _register_and_claim(client, auth_app, "flowuser1")
         assert data['success'] is True
         assert data['username'] == 'flowuser1'
         assert 'totp_secret' in data
@@ -398,12 +416,11 @@ class TestRegistration:
         assert r.status_code == 200
         assert r.get_json()['success'] is True
 
-    def test_registration_invalid_token(self, client):
-        """Test verification fails with invalid token."""
-        r = client.post('/auth/register/verify',
-            json={"token": "invalid_token", "auth_type": "totp"})
-        assert r.status_code == 400
-        assert 'Invalid' in r.get_json()['error']
+    def test_registration_invalid_claim_token(self, client):
+        """Test claim fails with invalid token."""
+        r = client.post('/auth/register/claim',
+            json={"username": "nobody", "claim_token": "XXXX-XXXX-XXXX-XXXX"})
+        assert r.status_code == 404
 
 
 class TestSessionManagement:
@@ -447,47 +464,26 @@ class TestAuthHealth:
         data = r.get_json()
         assert data['status'] == 'ok'
         assert data['auth_db'] is True
-        assert data['schema_version'] == 2
+        assert data['schema_version'] == 3
 
 
 class TestRegistrationWithRecovery:
     """Tests for registration with recovery options."""
 
-    def test_registration_with_recovery_email(self, client):
+    def test_registration_with_recovery_email(self, client, auth_app):
         """Test registration stores recovery email when provided."""
-        # Start registration
-        r = client.post('/auth/register/start',
-            json={"username": "recovuser1"})
-        token = r.get_json()['claim_token']
+        data = _register_and_claim(client, auth_app, "recovuser1",
+            recovery_email="test@example.com")
 
-        # Verify with recovery email
-        r = client.post('/auth/register/verify',
-            json={
-                "token": token,
-                "auth_type": "totp",
-                "recovery_email": "test@example.com"
-            })
-
-        assert r.status_code == 200
-        data = r.get_json()
         assert data['success'] is True
         assert data['recovery_enabled'] is True
         assert 'backup_codes' in data
         assert len(data['backup_codes']) == 8
 
-    def test_registration_without_recovery(self, client):
+    def test_registration_without_recovery(self, client, auth_app):
         """Test registration without recovery info gets backup codes only."""
-        # Start registration
-        r = client.post('/auth/register/start',
-            json={"username": "norecov1"})
-        token = r.get_json()['claim_token']
+        data = _register_and_claim(client, auth_app, "norecov1")
 
-        # Verify without recovery info
-        r = client.post('/auth/register/verify',
-            json={"token": token, "auth_type": "totp"})
-
-        assert r.status_code == 200
-        data = r.get_json()
         assert data['recovery_enabled'] is False
         assert 'backup_codes' in data
         assert len(data['backup_codes']) == 8
@@ -499,14 +495,7 @@ class TestBackupCodeRecovery:
 
     def test_recover_with_valid_backup_code(self, client, auth_app):
         """Test account recovery with valid backup code."""
-        # Create a user with backup codes
-        r = client.post('/auth/register/start',
-            json={"username": "rectest1"})
-        token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={"token": token, "auth_type": "totp"})
-        data = r.get_json()
+        data = _register_and_claim(client, auth_app, "rectest1")
         backup_codes = data['backup_codes']
         old_secret = data['totp_secret']
 
@@ -527,13 +516,7 @@ class TestBackupCodeRecovery:
 
     def test_recover_with_invalid_backup_code(self, client, auth_app):
         """Test recovery fails with invalid backup code."""
-        # Create a user
-        r = client.post('/auth/register/start',
-            json={"username": "rectest2"})
-        token = r.get_json()['claim_token']
-
-        client.post('/auth/register/verify',
-            json={"token": token, "auth_type": "totp"})
+        _register_and_claim(client, auth_app, "rectest2")
 
         # Try invalid code
         r = client.post('/auth/recover/backup-code',
@@ -547,14 +530,8 @@ class TestBackupCodeRecovery:
 
     def test_recover_backup_code_single_use(self, client, auth_app):
         """Test backup code can only be used once."""
-        # Create a user
-        r = client.post('/auth/register/start',
-            json={"username": "rectest3"})
-        token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={"token": token, "auth_type": "totp"})
-        backup_codes = r.get_json()['backup_codes']
+        data = _register_and_claim(client, auth_app, "rectest3")
+        backup_codes = data['backup_codes']
 
         # Use backup code for recovery
         r = client.post('/auth/recover/backup-code',
@@ -606,15 +583,9 @@ class TestBackupCodeManagement:
 
     def test_regenerate_codes_authenticated(self, client, auth_app):
         """Test regenerating backup codes when logged in."""
-        # Create and login as new user
-        r = client.post('/auth/register/start',
-            json={"username": "regenuser"})
-        token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={"token": token, "auth_type": "totp"})
-        old_codes = r.get_json()['backup_codes']
-        secret = r.get_json()['totp_secret']
+        data = _register_and_claim(client, auth_app, "regenuser")
+        old_codes = data['backup_codes']
+        secret = data['totp_secret']
 
         # Login
         from auth.totp import base32_to_secret
@@ -643,14 +614,8 @@ class TestRecoveryContactManagement:
 
     def test_update_recovery_contact(self, client, auth_app):
         """Test updating recovery contact when logged in."""
-        # Create user without recovery
-        r = client.post('/auth/register/start',
-            json={"username": "contactuser"})
-        token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={"token": token, "auth_type": "totp"})
-        secret = r.get_json()['totp_secret']
+        data = _register_and_claim(client, auth_app, "contactuser")
+        secret = data['totp_secret']
 
         # Login
         from auth.totp import base32_to_secret
@@ -670,18 +635,9 @@ class TestRecoveryContactManagement:
 
     def test_remove_recovery_contact(self, client, auth_app):
         """Test removing recovery contact."""
-        # Create user with recovery
-        r = client.post('/auth/register/start',
-            json={"username": "rmcontact"})
-        token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={
-                "token": token,
-                "auth_type": "totp",
-                "recovery_email": "has@example.com"
-            })
-        secret = r.get_json()['totp_secret']
+        data = _register_and_claim(client, auth_app, "rmcontact",
+            recovery_email="has@example.com")
+        secret = data['totp_secret']
 
         # Login
         from auth.totp import base32_to_secret
@@ -974,18 +930,8 @@ class TestMagicLinkRequest:
 
     def test_magic_link_request_user_with_recovery_email(self, client, auth_app):
         """Test magic link request for user with recovery email."""
-        # Create a user with recovery email
-        r = client.post('/auth/register/start',
-            json={"username": "magicuser1"})
-        token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={
-                "token": token,
-                "auth_type": "totp",
-                "recovery_email": "magic@example.com"
-            })
-        assert r.status_code == 200
+        _register_and_claim(client, auth_app, "magicuser1",
+            recovery_email="magic@example.com")
 
         # Request magic link
         r = client.post('/auth/magic-link',
@@ -1015,18 +961,8 @@ class TestMagicLinkVerify:
 
     def test_magic_link_verify_creates_session(self, client, auth_app):
         """Test successful magic link verification creates a session."""
-        # Create user with recovery email
-        r = client.post('/auth/register/start',
-            json={"username": "verifuser1"})
-        verify_token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={
-                "token": verify_token,
-                "auth_type": "totp",
-                "recovery_email": "verify@example.com"
-            })
-        assert r.status_code == 200
+        _register_and_claim(client, auth_app, "verifuser1",
+            recovery_email="verify@example.com")
 
         # Manually create a recovery token through the database
         from auth import PendingRecovery, PendingRecoveryRepository, UserRepository
@@ -1054,18 +990,8 @@ class TestMagicLinkVerify:
 
     def test_magic_link_token_single_use(self, client, auth_app):
         """Test magic link token can only be used once."""
-        # Create user with recovery email
-        r = client.post('/auth/register/start',
-            json={"username": "singleuse1"})
-        verify_token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={
-                "token": verify_token,
-                "auth_type": "totp",
-                "recovery_email": "single@example.com"
-            })
-        assert r.status_code == 200
+        _register_and_claim(client, auth_app, "singleuse1",
+            recovery_email="single@example.com")
 
         # Create recovery token
         from auth import PendingRecovery, UserRepository
@@ -1088,18 +1014,8 @@ class TestMagicLinkVerify:
 
     def test_magic_link_expired_token(self, client, auth_app):
         """Test magic link verify fails with expired token."""
-        # Create user with recovery email
-        r = client.post('/auth/register/start',
-            json={"username": "expireuser"})
-        verify_token = r.get_json()['claim_token']
-
-        r = client.post('/auth/register/verify',
-            json={
-                "token": verify_token,
-                "auth_type": "totp",
-                "recovery_email": "expire@example.com"
-            })
-        assert r.status_code == 200
+        _register_and_claim(client, auth_app, "expireuser",
+            recovery_email="expire@example.com")
 
         # Create expired recovery token (0 minutes = immediate expiry)
         from auth import PendingRecovery, UserRepository

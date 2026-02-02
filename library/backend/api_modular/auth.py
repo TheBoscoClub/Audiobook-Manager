@@ -844,16 +844,12 @@ def claim_credentials():
     # Mark as claimed
     request_repo.mark_credentials_claimed(access_req.id)
 
-    # Generate QR code
-    qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
-    qr_base64 = base64.b64encode(qr_png).decode('ascii')
-
-    return jsonify({
+    # Generate QR code (optional - gracefully degrade if qrcode not installed)
+    response_data = {
         "success": True,
         "username": username,
         "totp_secret": totp_base32,
         "totp_uri": totp_uri,
-        "totp_qr": qr_base64,
         "backup_codes": backup_codes,
         "recovery_enabled": recovery_enabled,
         "message": (
@@ -864,7 +860,15 @@ def claim_credentials():
             "IMPORTANT: Save your backup codes in a safe place! These are your ONLY way to "
             "recover your account if you lose your authenticator device."
         )
-    })
+    }
+
+    try:
+        qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
+        response_data["totp_qr"] = base64.b64encode(qr_png).decode('ascii')
+    except ImportError:
+        pass  # QR code generation unavailable; user can enter secret manually
+
+    return jsonify(response_data)
 
 
 @auth_bp.route("/register/claim/webauthn/begin", methods=["POST"])
