@@ -12,6 +12,24 @@ from pathlib import Path
 
 import pytest
 
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--hardware",
+        action="store_true",
+        default=False,
+        help="Run tests that require physical hardware (e.g., YubiKey touch)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if not config.getoption("--hardware"):
+        skip_hw = pytest.mark.skip(reason="needs --hardware flag to run")
+        for item in items:
+            if "hardware" in item.keywords:
+                item.add_marker(skip_hw)
+
+
 # Add library directory to path for imports
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))

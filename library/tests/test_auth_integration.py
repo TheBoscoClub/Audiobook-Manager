@@ -445,8 +445,9 @@ class TestFIDO2UserLifecycle:
     Uses hardware YubiKey if detected, otherwise falls back to software authenticator.
     """
 
+    @pytest.mark.hardware
     def test_full_fido2_lifecycle(self, admin_session):
-        """End-to-end FIDO2 user lifecycle."""
+        """End-to-end FIDO2 user lifecycle (requires --hardware flag)."""
         if _FIDO2_HARDWARE:
             self._run_hardware_fido2(admin_session)
         else:
