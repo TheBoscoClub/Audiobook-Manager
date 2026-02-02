@@ -27,12 +27,90 @@ VM_HOST = "192.168.122.100"
 VM_API_PORT = 5001
 
 
+VM_STARTED_BY_TESTS = False
+
+
+@pytest.fixture(scope="session", autouse=False)
+def ensure_vm_running():
+    """Start test-vm-cachyos if it's powered off.
+
+    Checks VM state via virsh and starts it if needed, then waits
+    for SSH connectivity before allowing tests to proceed.
+    """
+    global VM_STARTED_BY_TESTS
+
+    try:
+        result = subprocess.run(
+            ["sudo", "virsh", "domstate", "test-vm-cachyos"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pytest.skip("virsh not available or timed out")
+        return
+
+    if result.returncode != 0:
+        pytest.skip("test-vm-cachyos not found in libvirt")
+        return
+
+    state = result.stdout.strip()
+
+    if state == "running":
+        return
+
+    # Start the VM
+    start_result = subprocess.run(
+        ["sudo", "virsh", "start", "test-vm-cachyos"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if start_result.returncode != 0:
+        pytest.fail(f"Failed to start VM: {start_result.stderr}")
+
+    VM_STARTED_BY_TESTS = True
+
+    # Wait for SSH connectivity (up to 60s)
+    ssh_key = os.path.expanduser("~/.ssh/id_ed25519")
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        try:
+            r = subprocess.run(
+                [
+                    "ssh",
+                    "-i",
+                    ssh_key,
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=3",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    f"claude@{VM_HOST}",
+                    "echo",
+                    "ok",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if r.returncode == 0:
+                return
+        except subprocess.TimeoutExpired:
+            pass
+        time.sleep(3)
+
+    pytest.fail("VM started but SSH not available within 60s")
+
+
 @pytest.fixture(scope="session")
-def deploy_to_vm():
+def deploy_to_vm(ensure_vm_running):
     """Deploy latest code to test-vm-cachyos before integration tests.
 
     Runs ./deploy-vm.sh --full --restart and waits for the API health check.
     Skip with SKIP_VM_DEPLOY=1 for rapid iteration when code is already deployed.
+    Depends on ensure_vm_running to guarantee VM is up first.
     """
     if os.environ.get("SKIP_VM_DEPLOY", "").strip() == "1":
         return

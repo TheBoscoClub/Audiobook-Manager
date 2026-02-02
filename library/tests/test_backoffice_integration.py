@@ -22,6 +22,8 @@ from pathlib import Path
 import pytest
 import requests
 
+pytestmark = pytest.mark.integration
+
 # Configuration — defaults to VM; override with env var for local dev
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://192.168.122.100:5001")
 ASYNC_TIMEOUT = 300  # 5 minutes max for async operations

@@ -23,6 +23,8 @@ from typing import Generator
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 # Try playwright first, fall back to selenium
 try:
     from playwright.sync_api import Page, expect, sync_playwright
