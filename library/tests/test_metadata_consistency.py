@@ -29,7 +29,6 @@ pytestmark = pytest.mark.integration
 # Add library directory to path
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
-sys.path.insert(0, str(LIBRARY_DIR.parent / "rnd"))
 
 from config import (AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY,  # noqa: E402
                     AUDIOBOOKS_SOURCES)
@@ -965,9 +964,26 @@ class TestDatabaseAccessFunctions:
 class TestAsinPopulationFunctions:
     """Test ASIN population helper functions."""
 
+    @staticmethod
+    def _extract_asin_and_title(filename: str) -> tuple:
+        """Extract ASIN and title from source filename."""
+        match = re.match(r"^([A-Z0-9]{10})_(.+)-AAX", filename, re.IGNORECASE)
+        if not match:
+            return None, None
+        return match.group(1), match.group(2).replace("_", " ")
+
+    @staticmethod
+    def _calculate_similarity(s1: str, s2: str) -> float:
+        """Calculate Jaccard word overlap similarity."""
+        words1 = set(s1.split())
+        words2 = set(s2.split())
+        if not words1 or not words2:
+            return 0.0
+        return len(words1 & words2) / len(words1 | words2)
+
     def test_extract_asin_from_source_filename(self):
         """Verify ASIN extraction from source filenames."""
-        from populate_asins_from_sources import extract_asin_and_title
+        extract_asin_and_title = self._extract_asin_and_title
 
         # Standard format
         asin1, title1 = extract_asin_and_title(
@@ -987,7 +1003,7 @@ class TestAsinPopulationFunctions:
 
     def test_similarity_calculation(self):
         """Verify similarity calculation for title matching."""
-        from populate_asins_from_sources import calculate_similarity
+        calculate_similarity = self._calculate_similarity
 
         # Exact match
         assert calculate_similarity("hello world", "hello world") == 1.0

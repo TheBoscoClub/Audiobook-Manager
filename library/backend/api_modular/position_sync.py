@@ -14,7 +14,6 @@ Endpoints:
 """
 
 import asyncio
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -29,18 +28,47 @@ try:
 except ImportError:
     POSITION_REPO_AVAILABLE = False
 
-# Add rnd directory to path for credential_manager and audible imports
-RND_PATH = Path(__file__).parent.parent.parent.parent / "rnd"
-sys.path.insert(0, str(RND_PATH))
+# Audible credential storage location
+_CREDENTIAL_FILE = Path.home() / ".audible" / "position_sync_credentials.enc"
 
 try:
     import audible
-    from credential_manager import has_stored_credential, retrieve_credential
 
     AUDIBLE_AVAILABLE = True
 except ImportError as e:
     AUDIBLE_AVAILABLE = False
     AUDIBLE_IMPORT_ERROR = str(e)
+
+
+def has_stored_credential() -> bool:
+    """Check if encrypted Audible credentials are stored."""
+    return _CREDENTIAL_FILE.exists()
+
+
+def retrieve_credential(master_password: str = "") -> str | None:
+    """Retrieve and decrypt the stored Audible auth file password."""
+    if not _CREDENTIAL_FILE.exists():
+        return None
+    try:
+        import base64
+        import json
+
+        from cryptography.fernet import Fernet, InvalidToken
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+        data = json.loads(_CREDENTIAL_FILE.read_text())
+        if data.get("version") != 1:
+            return None
+        salt = base64.b64decode(data["salt"])
+        encrypted = data["encrypted"].encode()
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(), length=32, salt=salt, iterations=480000
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
+        return Fernet(key).decrypt(encrypted).decode()
+    except (InvalidToken, json.JSONDecodeError, KeyError, ImportError):
+        return None
 
 
 # Blueprint for position sync routes
@@ -154,7 +182,7 @@ async def get_audible_client():
     # Fall back to stored credential for password-protected auth files
     if not has_stored_credential():
         raise RuntimeError(
-            "No stored Audible credential. Run position_sync_test.py first to set up."
+            "No stored Audible credential. Set up ~/.audible/position_sync_credentials.enc first."
         )
 
     password = retrieve_credential()

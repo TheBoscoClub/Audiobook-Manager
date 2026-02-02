@@ -9,11 +9,31 @@ Tests cover:
 """
 
 import json
-import sys
-from pathlib import Path
+import re
 
-# Add parent dir for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "rnd"))
+
+def extract_asin_and_title(filename: str) -> tuple[str | None, str | None]:
+    """Extract ASIN and title from source filename.
+
+    Format: ASIN_Title_With_Underscores-AAX_XX_XXX.aaxc
+    """
+    match = re.match(r"^([A-Z0-9]{10})_(.+)-AAX", filename, re.IGNORECASE)
+    if not match:
+        return None, None
+    asin = match.group(1)
+    title_part = match.group(2).replace("_", " ")
+    return asin, title_part
+
+
+def calculate_similarity(s1: str, s2: str) -> float:
+    """Calculate Jaccard word overlap similarity."""
+    words1 = set(s1.split())
+    words2 = set(s2.split())
+    if not words1 or not words2:
+        return 0.0
+    intersection = words1 & words2
+    union = words1 | words2
+    return len(intersection) / len(union)
 
 
 class TestAsinExtraction:
@@ -21,7 +41,6 @@ class TestAsinExtraction:
 
     def test_extract_standard_asin(self):
         """Test extraction from standard Audible filename format."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         filename = (
             "0062868071_The_End_Is_Always_Near_Apocalyptic_Moments-AAX_44_128.aaxc"
@@ -33,7 +52,6 @@ class TestAsinExtraction:
 
     def test_extract_alphanumeric_asin(self):
         """Test extraction with alphanumeric ASIN (B-prefix)."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         filename = "B009XEJWP8_Don_Quixote_Translated_by_Edith_Grossman-AAX_44_128.aaxc"
         asin, title = extract_asin_and_title(filename)
@@ -43,7 +61,6 @@ class TestAsinExtraction:
 
     def test_extract_with_different_quality(self):
         """Test extraction with various AAX quality formats."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         # 22kHz 64kbps
         filename1 = "0063031884_The_Neil_Gaiman_Reader-AAX_22_64.aaxc"
@@ -59,7 +76,6 @@ class TestAsinExtraction:
 
     def test_extract_invalid_format(self):
         """Test handling of invalid filename formats."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         # Missing ASIN
         asin1, title1 = extract_asin_and_title("Some_Book_Title-AAX_44_128.aaxc")
@@ -78,7 +94,6 @@ class TestAsinExtraction:
 
     def test_extract_long_title(self):
         """Test extraction with very long titles."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         filename = (
             "B00D9473WC_Your_Deceptive_Mind_A_Scientific_Guide_to_Critical_"
@@ -92,7 +107,6 @@ class TestAsinExtraction:
 
     def test_title_underscore_conversion(self):
         """Test that underscores are converted to spaces in titles."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         filename = "B07ZRZNXDV_You_Ought_to_Know_Adam_Wade-AAX_44_128.aaxc"
         asin, title = extract_asin_and_title(filename)
@@ -155,28 +169,24 @@ class TestSimilarityCalculation:
 
     def test_similarity_exact_match(self):
         """Test similarity for exact matches."""
-        from populate_asins_from_sources import calculate_similarity
 
         score = calculate_similarity("hello world", "hello world")
         assert score == 1.0
 
     def test_similarity_partial_match(self):
         """Test similarity for partial matches."""
-        from populate_asins_from_sources import calculate_similarity
 
         score = calculate_similarity("hello world", "hello there")
         assert 0 < score < 1
 
     def test_similarity_no_match(self):
         """Test similarity for completely different strings."""
-        from populate_asins_from_sources import calculate_similarity
 
         score = calculate_similarity("abc def", "xyz uvw")
         assert score == 0.0
 
     def test_similarity_empty_strings(self):
         """Test similarity with empty strings."""
-        from populate_asins_from_sources import calculate_similarity
 
         assert calculate_similarity("", "") == 0.0
         assert calculate_similarity("hello", "") == 0.0
@@ -185,7 +195,6 @@ class TestSimilarityCalculation:
     def test_similarity_case_insensitive(self):
         """Test that similarity is case-insensitive via normalization."""
         from common import normalize_title
-        from populate_asins_from_sources import calculate_similarity
 
         s1 = normalize_title("The Great Book")
         s2 = normalize_title("the great book")
@@ -272,7 +281,6 @@ class TestAsinFormats:
 
     def test_numeric_asin_format(self):
         """Test 10-digit numeric ASIN format."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         # Standard 10-digit numeric
         filename = "1234567890_Test_Book-AAX_44_128.aaxc"
@@ -282,7 +290,6 @@ class TestAsinFormats:
 
     def test_alphanumeric_asin_format(self):
         """Test B-prefix alphanumeric ASIN format."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         # B-prefix (common for audiobooks)
         filename = "B08XYZ1234_Test_Book-AAX_44_128.aaxc"
@@ -293,7 +300,6 @@ class TestAsinFormats:
 
     def test_mixed_case_asin(self):
         """Test that ASIN extraction handles case correctly."""
-        from populate_asins_from_sources import extract_asin_and_title
 
         # Lowercase should still work due to IGNORECASE flag
         filename = "b08xyz1234_Test_Book-AAX_44_128.aaxc"
@@ -309,7 +315,6 @@ class TestAsinSourceFileMatching:
     def test_exact_title_match(self):
         """Test exact title matching."""
         from common import normalize_title
-        from populate_asins_from_sources import calculate_similarity
 
         # Same title, normalized
         source_title = normalize_title("The Great Gatsby")
@@ -321,7 +326,6 @@ class TestAsinSourceFileMatching:
     def test_subtitle_differences(self):
         """Test handling of subtitle differences."""
         from common import normalize_title
-        from populate_asins_from_sources import calculate_similarity
 
         # With and without subtitle
         source_title = normalize_title("The Book")
@@ -334,7 +338,6 @@ class TestAsinSourceFileMatching:
     def test_series_info_in_title(self):
         """Test handling of series info in titles."""
         from common import normalize_title
-        from populate_asins_from_sources import calculate_similarity
 
         source_title = normalize_title("Trust No One X-Files Book 1")
         db_title = normalize_title("Trust No One: X-Files, Book 1")

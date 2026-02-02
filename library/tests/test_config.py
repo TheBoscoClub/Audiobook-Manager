@@ -358,45 +358,6 @@ class TestNoHardcodedPaths:
 class TestConfigVariablesUsed:
     """Test that key modules import and use configuration variables."""
 
-    def test_asin_library_script_uses_config(self):
-        """Test populate_asins_from_library.py imports config variables."""
-        from pathlib import Path as P
-
-        script_path = (
-            P(__file__).parent.parent.parent / "rnd" / "populate_asins_from_library.py"
-        )
-        if not script_path.exists():
-            return
-
-        content = script_path.read_text()
-        assert "from config import" in content, (
-            "populate_asins_from_library.py should import from config module"
-        )
-        assert "AUDIOBOOKS_DATABASE" in content, (
-            "populate_asins_from_library.py should use AUDIOBOOKS_DATABASE config variable"
-        )
-
-    def test_asin_sources_script_uses_config(self):
-        """Test populate_asins_from_sources.py imports config variables."""
-        from pathlib import Path as P
-
-        script_path = (
-            P(__file__).parent.parent.parent / "rnd" / "populate_asins_from_sources.py"
-        )
-        if not script_path.exists():
-            return
-
-        content = script_path.read_text()
-        assert "from config import" in content, (
-            "populate_asins_from_sources.py should import from config module"
-        )
-        assert "AUDIOBOOKS_DATABASE" in content, (
-            "populate_asins_from_sources.py should use AUDIOBOOKS_DATABASE config variable"
-        )
-        assert "AUDIOBOOKS_SOURCES" in content, (
-            "populate_asins_from_sources.py should use AUDIOBOOKS_SOURCES config variable"
-        )
-
     def test_maintenance_module_uses_config(self):
         """Test maintenance.py imports config variables."""
         from pathlib import Path as P

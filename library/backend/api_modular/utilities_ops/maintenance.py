@@ -484,7 +484,7 @@ def init_maintenance_routes(project_root):
             # 1. Export Audible library (gets ASINs directly from Amazon)
             # 2. Match local audiobooks to library entries
             library_script = (
-                project_root.parent / "rnd" / "populate_asins_from_library.py"
+                project_root / "backend" / "migrations" / "populate_asins_from_library.py"
             )
             # Use a secure temp file to avoid race conditions (CVE: insecure-temporary-file)
             # mkstemp() atomically creates the file, preventing TOCTOU race conditions
