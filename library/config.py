@@ -99,9 +99,27 @@ def get_config(key: str, default: str) -> str:
     pass
 
 
+def _expand_vars(value: Optional[str]) -> Optional[str]:
+    """Expand ${VAR} references using resolved config, then environment.
+
+    systemd EnvironmentFile does not expand shell-style ${VAR} references,
+    so environment values may contain literal '${AUDIOBOOKS_HOME}/...' strings.
+    This function resolves them using the already-expanded _config dict.
+    """
+    if value is None or "${" not in value:
+        return value
+    import re
+
+    for match in re.findall(r"\$\{(\w+)\}", value):
+        replacement = _config.get(match, os.environ.get(match, ""))
+        value = value.replace("${" + match + "}", replacement)
+    return value
+
+
 def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
     """Get configuration value with environment override."""
-    return os.environ.get(key, _config.get(key, default))
+    value = os.environ.get(key, _config.get(key, default))
+    return _expand_vars(value)
 
 
 # =============================================================================
