@@ -749,8 +749,8 @@ def _parse_request_options(options: dict):
 
 def _fido2_creation_to_dict(result) -> dict:
     """Convert fido2 make_credential result to server-expected dict."""
-    attestation = result.attestation_object
-    client_data = result.client_data
+    attestation = result.response.attestation_object
+    client_data = result.response.client_data
 
     # The credential ID is in the attestation object's auth data
     auth_data = attestation.auth_data
@@ -770,14 +770,15 @@ def _fido2_creation_to_dict(result) -> dict:
 
 def _fido2_assertion_to_dict(result) -> dict:
     """Convert fido2 get_assertion result to server-expected dict."""
-    assertion = result.get_response(0)
+    auth_response = result.get_response(0)
+    assertion = auth_response.response
 
     return {
-        "id": _b64url_encode_hw(assertion.credential_id),
-        "rawId": _b64url_encode_hw(assertion.credential_id),
+        "id": _b64url_encode_hw(auth_response.raw_id),
+        "rawId": _b64url_encode_hw(auth_response.raw_id),
         "type": "public-key",
         "response": {
-            "clientDataJSON": _b64url_encode_hw(bytes(result.client_data)),
+            "clientDataJSON": _b64url_encode_hw(bytes(assertion.client_data)),
             "authenticatorData": _b64url_encode_hw(
                 bytes(assertion.authenticator_data)
             ),
