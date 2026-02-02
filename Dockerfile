@@ -30,6 +30,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mediainfo \
     jq \
     curl \
+    libsqlcipher-dev \
+    openssl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -43,6 +45,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY library/config.py /app/config.py
 
 # Copy application components
+COPY library/auth /app/auth
 COPY library/backend /app/backend
 COPY library/scanner /app/scanner
 COPY library/scripts /app/scripts
@@ -78,8 +81,10 @@ ENV FLASK_APP=backend/api.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app
 
 # Docker-specific paths (overrides config.py defaults)
+ENV AUDIOBOOKS_HOME=/app
 ENV PROJECT_DIR=/app
 ENV AUDIOBOOK_DIR=/audiobooks
 ENV DATABASE_PATH=/app/data/audiobooks.db
