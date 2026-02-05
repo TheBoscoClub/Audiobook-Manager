@@ -26,6 +26,7 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 # Include: Product, Lecture, Performance, Speech (all valid audiobook content)
 # Exclude: Podcast, Newspaper / Magazine, Show, Radio/TV Program
 # content_type IS NULL handles legacy entries before the field was added
+# nosec B608: This constant is safe for SQL - it's hardcoded, not user input
 AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Lecture', 'Performance', 'Speech') OR content_type IS NULL)"
 
 
