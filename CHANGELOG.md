@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Periodicals**: Clean up "periodicals" and "Reading Room" references in code comments across audiobooks.py, schema.sql, metadata_utils.py, populate_asins.py
 
 ### Fixed
-- **Systemd**: Fix API service boot failures caused by ProtectSystem=strict resolving `/raid0` symlink to unmounted `/hddRaid1/Audiobooks` — use real mount path and explicit After=hddRaid1-Audiobooks.mount ordering
+- **Systemd**: Fix API service boot failures caused by ProtectSystem=strict resolving `/hddRaid1` symlink to unmounted `/hddRaid1/Audiobooks` — use real mount path and explicit After=hddRaid1-Audiobooks.mount ordering
 - **Systemd**: Fix HTTPS proxy permanently failing on boot due to cascade dependency failure from API service
 - **Systemd**: Fix stale symlinks with wrong "audiobooks-" prefix (should be "audiobook-") for shutdown-saver and upgrade-helper units
 - **Systemd**: Update ExecStartPre port checks from lsof to ss (iproute2, always available)
@@ -117,7 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.0.4] - 2026-01-20
 
 ### Fixed
-- **Systemd**: Fixed API service failing at boot with NAMESPACE error on HDD/NAS storage. Added `/raid0/Audiobooks` to `RequiresMountsFor` so systemd waits for the data mount before setting up the security namespace. Previously only waited for `/opt/audiobooks`.
+- **Systemd**: Fixed API service failing at boot with NAMESPACE error on HDD/NAS storage. Added `/hddRaid1/Audiobooks` to `RequiresMountsFor` so systemd waits for the data mount before setting up the security namespace. Previously only waited for `/opt/audiobooks`.
 - **Auth**: Fixed timestamp format mismatch in session cleanup causing incorrect stale session deletion. SQLite uses space separator (`YYYY-MM-DD HH:MM:SS`) while Python's `isoformat()` uses `T` separator, causing string comparison failures.
 
 ### Added
@@ -135,7 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **API**: Fixed library rescan progress reporting to properly capture scanner output. Scanner uses carriage returns (`\r`) for in-place progress updates, but the API was only reading newline-terminated lines. Now reads character-by-character to capture both `\r` and `\n` delimited output.
 - **Scripts**: Fixed duplicate entries in `source_checksums.idx`. The `generate_source_checksum()` function now checks if a filepath already exists before appending, preventing the same file from being indexed multiple times.
-- **Systemd**: Fixed "Read-only file system" error when rebuilding conversion queue. Added `AUDIOBOOKS_DATA` path (`/raid0/Audiobooks`) to `ReadWritePaths` in `audiobook-api.service` since `ProtectSystem=strict` was blocking write access to the index directory.
+- **Systemd**: Fixed "Read-only file system" error when rebuilding conversion queue. Added `AUDIOBOOKS_DATA` path (`/hddRaid1/Audiobooks`) to `ReadWritePaths` in `audiobook-api.service` since `ProtectSystem=strict` was blocking write access to the index directory.
 
 ## [4.0.1] - 2026-01-17
 
@@ -738,7 +738,7 @@ sudo /opt/audiobooks/upgrade.sh
 
 ### Changed
 - **utilities_system.py**: Project discovery now searches multiple paths instead of hardcoded
-  `/raid0/ClaudeCodeProjects` - checks `AUDIOBOOKS_PROJECT_DIR` env, `~/ClaudeCodeProjects`,
+  `/hddRaid1/ClaudeCodeProjects` - checks `AUDIOBOOKS_PROJECT_DIR` env, `~/ClaudeCodeProjects`,
   `~/projects`, and `/opt/projects`
 
 ### Fixed

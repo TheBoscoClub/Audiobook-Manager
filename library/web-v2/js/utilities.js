@@ -599,10 +599,10 @@ function renderChecksumDuplicates(checksumType) {
             const pathParts = file.path.split('/');
             let authorFolder = '';
             if (checksumType === 'sources') {
-                // Sources: /raid0/Audiobooks/Sources/filename.aaxc
+                // Sources: /hddRaid1/Audiobooks/Sources/filename.aaxc
                 authorFolder = pathParts[pathParts.length - 1]; // Just filename for sources
             } else {
-                // Library: /raid0/Audiobooks/Library/Author/Book/file.opus
+                // Library: /hddRaid1/Audiobooks/Library/Author/Book/file.opus
                 if (pathParts.length >= 3) {
                     authorFolder = pathParts[pathParts.length - 3]; // Author folder
                 }

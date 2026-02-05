@@ -194,7 +194,7 @@ def init_hashing_routes(project_root):
 
             try:
                 # Get paths from environment or defaults
-                audiobooks_data = os.environ.get("AUDIOBOOKS_DATA", "/raid0/Audiobooks")
+                audiobooks_data = os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks")
                 sources_dir = Path(audiobooks_data) / "Sources"
                 library_dir = Path(audiobooks_data) / "Library"
                 index_dir = Path(audiobooks_data) / ".index"

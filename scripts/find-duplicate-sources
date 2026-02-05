@@ -17,7 +17,7 @@ elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
     source "/opt/audiobooks/lib/audiobook-config.sh"
 fi
 
-SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/raid0/Audiobooks/Sources}"
+SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/hddRaid1/Audiobooks/Sources}"
 DRY_RUN=true
 REMOVE=false
 

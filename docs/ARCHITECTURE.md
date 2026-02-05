@@ -1274,7 +1274,7 @@ Architecture Comparison:
     /srv/audiobooks/Supplements # PDFs
 
   HDD RAID0 (8TB):
-    /raid0/Audiobooks/          # AUDIOBOOKS_DATA
+    /hddRaid1/Audiobooks/          # AUDIOBOOKS_DATA
       ├── Library/              # Streaming source
       └── Sources/              # Original files
 ```

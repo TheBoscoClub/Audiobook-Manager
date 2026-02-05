@@ -25,7 +25,7 @@
 # Examples:
 #   ./deploy.sh --system              # Update system installation
 #   ./deploy.sh --user                # Update user installation
-#   ./deploy.sh --custom /raid0/Audiobooks  # Update custom location
+#   ./deploy.sh --custom /hddRaid1/Audiobooks  # Update custom location
 # =============================================================================
 
 set -e
@@ -85,7 +85,7 @@ detect_installation() {
     fi
 
     # Check common custom locations
-    for loc in "/raid0/Audiobooks" "/srv/audiobooks"; do
+    for loc in "/hddRaid1/Audiobooks" "/srv/audiobooks"; do
         if [[ -d "$loc/scripts" ]] && [[ -d "$loc/lib" ]]; then
             found_custom=true
             CUSTOM_TARGET="$loc"

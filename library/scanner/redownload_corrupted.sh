@@ -181,7 +181,7 @@ while IFS= read -r ASIN; do
     fi
 
     # Rate limiting
-    if [ $CURRENT -lt $MATCHED_COUNT ]; then
+    if [ "$CURRENT" -lt "$MATCHED_COUNT" ]; then
         sleep $DOWNLOAD_DELAY
     fi
 

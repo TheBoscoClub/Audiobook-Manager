@@ -151,7 +151,7 @@ class TestNoHardcodedPaths:
         "/var/lib/audiobooks",
         "/opt/audiobooks",
         "/srv/audiobooks",
-        "/raid0/Audiobooks",
+        "/hddRaid1/Audiobooks",
     ]
 
     # Files/patterns that are allowed to have these paths (e.g., config defaults)

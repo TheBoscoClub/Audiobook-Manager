@@ -39,7 +39,7 @@ if [ -f "$LOG_FILE" ]; then
     PERCENT=$(awk "BEGIN {printf \"%.1f\", ($PROCESSED / $TOTAL_FILES) * 100}")
 
     # Calculate estimated time remaining (rough estimate)
-    if [ $PROCESSED -gt 0 ]; then
+    if [ "$PROCESSED" -gt 0 ]; then
         # Get time since scan started (use log file creation time)
         START_TIME=$(stat -c %Y "$LOG_FILE" 2>/dev/null || stat -f %B "$LOG_FILE" 2>/dev/null)
         CURRENT_TIME=$(date +%s)
@@ -69,7 +69,7 @@ if [ -f "$LOG_FILE" ]; then
     FILLED=$(awk "BEGIN {printf \"%.0f\", ($PERCENT / 100) * $BAR_WIDTH}")
     printf "  ["
     for ((i=0; i<BAR_WIDTH; i++)); do
-        if [ $i -lt $FILLED ]; then
+        if [ "$i" -lt "$FILLED" ]; then
             printf "█"
         else
             printf "░"
@@ -90,13 +90,13 @@ if [ -f "$LOG_FILE" ]; then
         echo "⏱️  TIME"
         echo "─────────────────────────────────────"
         echo "  Elapsed:     ${ELAPSED_MIN}m"
-        if [ -n "$ETA_HOURS" ] && [ $ETA_HOURS -gt 0 ]; then
+        if [ -n "$ETA_HOURS" ] && [ "$ETA_HOURS" -gt 0 ]; then
             echo "  Remaining:   ~${ETA_HOURS}h ${ETA_MIN_REMAIN}m"
         elif [ -n "$ETA_MIN" ]; then
             echo "  Remaining:   ~${ETA_MIN}m"
         fi
         if [ -n "$RATE" ]; then
-            echo "  Rate:        $(printf "%.1f" $RATE) files/sec"
+            echo "  Rate:        $(printf "%.1f" "$RATE") files/sec"
         fi
         echo ""
     fi
@@ -118,7 +118,7 @@ if [ -f "$LOG_FILE" ]; then
     fi
 
     # Check if scan is complete
-    if [ $PROCESSED -ge $TOTAL_FILES ]; then
+    if [ "$PROCESSED" -ge "$TOTAL_FILES" ]; then
         echo ""
         echo "🎉 SCAN COMPLETE! 🎉"
         echo ""
