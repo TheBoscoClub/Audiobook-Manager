@@ -1289,7 +1289,7 @@ RequiresMountsFor=/opt/audiobooks /path/to/your/audiobooks
 | Storage Type | Example Path | Notes |
 |--------------|--------------|-------|
 | Secondary HDD | `/mnt/data/Audiobooks` | Add to RequiresMountsFor |
-| BTRFS subvolume | `/raid0/Audiobooks` | Add to RequiresMountsFor |
+| BTRFS subvolume | `/hddRaid1/Audiobooks` | Add to RequiresMountsFor |
 | NFS mount | `/mnt/nas/audiobooks` | Also add `After=remote-fs.target` |
 | CIFS/SMB mount | `/mnt/share/audiobooks` | Also add `After=remote-fs.target` |
 

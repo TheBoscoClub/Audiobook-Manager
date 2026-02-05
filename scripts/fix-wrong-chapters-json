@@ -18,8 +18,8 @@ elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
     source "/opt/audiobooks/lib/audiobook-config.sh"
 fi
 
-LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/raid0/Audiobooks/Library}"
-SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/raid0/Audiobooks/Sources}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/hddRaid1/Audiobooks/Library}"
+SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/hddRaid1/Audiobooks/Sources}"
 METADATA_DIR="${SOURCES_DIR}/metadata"
 
 DRY_RUN=true

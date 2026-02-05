@@ -22,10 +22,10 @@ elif [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
 fi
 
 # Configuration
-SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/raid0/Audiobooks/Sources}"
-LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/raid0/Audiobooks/Library}"
+SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/hddRaid1/Audiobooks/Sources}"
+LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-/hddRaid1/Audiobooks/Library}"
 STAGING_DIR="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
-INDEX_DIR="${AUDIOBOOKS_DATA:-/raid0/Audiobooks}/.index"
+INDEX_DIR="${AUDIOBOOKS_DATA:-/hddRaid1/Audiobooks}/.index"
 VERBOSE=false
 REBUILD=false
 QUICK_UPDATE=false

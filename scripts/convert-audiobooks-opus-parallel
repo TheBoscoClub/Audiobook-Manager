@@ -230,7 +230,7 @@ while true; do
     # Use queue file instead of finding all sources
     # Queue contains only files that need conversion (sources - already converted)
     # This is authoritative: queue builder does normalized title matching correctly
-    QUEUE_FILE="${AUDIOBOOKS_DATA:-/raid0/Audiobooks}/.index/queue.txt"
+    QUEUE_FILE="${AUDIOBOOKS_DATA:-/hddRaid1/Audiobooks}/.index/queue.txt"
     QUEUE_BUILDER="${AUDIOBOOKS_HOME:-/opt/audiobooks}/scripts/build-conversion-queue"
 
     # Rebuild queue if missing OR if new source files appeared since last rebuild

@@ -514,7 +514,7 @@ def init_system_routes(project_root):
         search_paths = [
             os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
             os.path.expanduser("~/ClaudeCodeProjects"),
-            "/raid0/ClaudeCodeProjects",
+            "/hddRaid1/ClaudeCodeProjects",
             os.path.expanduser("~/projects"),
             "/opt/projects",
         ]

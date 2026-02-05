@@ -109,7 +109,7 @@ find_project_dir() {
     # Try to find the project directory
     local candidates=(
         "$SCRIPT_DIR"
-        "/raid0/ClaudeCodeProjects/Audiobook-Manager"
+        "/hddRaid1/ClaudeCodeProjects/Audiobook-Manager"
         "$HOME/Projects/Audiobook-Manager"
         "$HOME/audiobooks-project"
     )
@@ -132,7 +132,7 @@ find_installed_dir() {
         "/usr/local/lib/audiobooks" # Alternative system location
         "$HOME/.local/lib/audiobooks" # User installation
         "/srv/audiobooks"           # Server data location
-        "/raid0/Audiobooks"         # Custom location (data, not app)
+        "/hddRaid1/Audiobooks"         # Custom location (data, not app)
     )
 
     local found=()
