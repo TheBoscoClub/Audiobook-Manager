@@ -1,0 +1,53 @@
+version: 2
+updates:
+  # Python dependencies - library backend
+  - package-ecosystem: "pip"
+    directory: "/library/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Chicago"
+    groups:
+      python-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "python"]
+    commit-message:
+      prefix: "deps(py)"
+
+  # Python dependencies - library root
+  - package-ecosystem: "pip"
+    directory: "/library"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Chicago"
+    groups:
+      python-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "python"]
+    commit-message:
+      prefix: "deps(py)"
+
+  # Docker base images
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Chicago"
+    labels: ["dependencies", "docker"]
+    commit-message:
+      prefix: "deps(docker)"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Chicago"
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: "ci"
