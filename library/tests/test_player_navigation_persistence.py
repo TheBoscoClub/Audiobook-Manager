@@ -184,7 +184,7 @@ class TestPlayerNavigationPlaywright:
         }""")
 
         assert is_playing, "Audio should be playing"
-        print(f"\n  ✓ Audio player started successfully")
+        print("\n  ✓ Audio player started successfully")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     def test_playback_continues_during_navigation_to_backoffice(self, page: Page, test_audiobook):
@@ -225,12 +225,12 @@ class TestPlayerNavigationPlaywright:
             current_url = page.url
 
         assert "utilities" in current_url.lower(), f"Should navigate to utilities, got: {current_url}"
-        print(f"  ✓ Navigated to Back Office")
+        print("  ✓ Navigated to Back Office")
 
         # Note: In a traditional multi-page app, audio stops on navigation
         # This test documents current behavior and would verify if a SPA
         # architecture is implemented in the future
-        print(f"  ✓ Navigation to Back Office completed")
+        print("  ✓ Navigation to Back Office completed")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     def test_playback_continues_through_navigation_cycle(self, page: Page, test_audiobook):
@@ -259,7 +259,7 @@ class TestPlayerNavigationPlaywright:
         if "chrome-error" in page.url or "error" in page.url.lower():
             page.goto(f"{WEB_BASE_URL}/utilities.html")
         page.wait_for_load_state("networkidle")
-        print(f"  ✓ Navigated to Back Office")
+        print("  ✓ Navigated to Back Office")
 
         # Navigate back to Library - use direct navigation if link fails
         try:
@@ -267,7 +267,7 @@ class TestPlayerNavigationPlaywright:
         except Exception:
             page.goto(WEB_BASE_URL)
         page.wait_for_load_state("networkidle")
-        print(f"  ✓ Navigated back to Library")
+        print("  ✓ Navigated back to Library")
 
         # Check if saved position is available for resume
         # The position should be saved in localStorage
@@ -285,7 +285,7 @@ class TestPlayerNavigationPlaywright:
         if saved_position > 0:
             print(f"  ✓ Playback position saved: {saved_position:.2f}s")
         else:
-            print(f"  ⚠ No saved position found (expected in MPA)")
+            print("  ⚠ No saved position found (expected in MPA)")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     def test_playback_persists_through_resize(self, page: Page, test_audiobook):
@@ -313,7 +313,7 @@ class TestPlayerNavigationPlaywright:
         # Resize to small (simulate mobile or minimize-ish)
         page.set_viewport_size({"width": 400, "height": 600})
         page.wait_for_timeout(1000)
-        print(f"  ✓ Resized to 400x600 (mobile-ish)")
+        print("  ✓ Resized to 400x600 (mobile-ish)")
 
         # Check playback continues
         page.evaluate("""() => {
@@ -324,7 +324,7 @@ class TestPlayerNavigationPlaywright:
         # Resize back to large
         page.set_viewport_size({"width": 1280, "height": 900})
         page.wait_for_timeout(1000)
-        print(f"  ✓ Resized to 1280x900 (desktop)")
+        print("  ✓ Resized to 1280x900 (desktop)")
 
         is_playing_after_large = page.evaluate("""() => {
             const audio = document.getElementById('audio-element');
@@ -340,7 +340,7 @@ class TestPlayerNavigationPlaywright:
 
         assert is_playing_after_large, "Audio should continue playing after resize"
         assert position_after > position_before, "Position should have advanced"
-        print(f"  ✓ Playback continued through resize operations")
+        print("  ✓ Playback continued through resize operations")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
     def test_playback_position_saved_to_localStorage(self, page: Page, test_audiobook):
@@ -381,7 +381,7 @@ class TestPlayerNavigationPlaywright:
 
         # Position saving can have timing variations - check or warn
         if len(saved_data) > 0:
-            print(f"  ✓ Playback position saved to localStorage")
+            print("  ✓ Playback position saved to localStorage")
         else:
             # Check if playback was still happening
             is_playing = page.evaluate("""() => {
@@ -389,7 +389,7 @@ class TestPlayerNavigationPlaywright:
                 return audio && !audio.paused && audio.currentTime > 0;
             }""")
             if is_playing:
-                print(f"  ⚠ Position not yet saved but playback active (timing issue)")
+                print("  ⚠ Position not yet saved but playback active (timing issue)")
             else:
                 pytest.fail("No position saved and playback not active")
 
@@ -455,7 +455,7 @@ class TestPlayerNavigationSelenium:
         """)
 
         assert is_playing, "Audio should be playing"
-        print(f"\n  ✓ Audio player started successfully (Selenium)")
+        print("\n  ✓ Audio player started successfully (Selenium)")
 
 
 # ============================================================================
@@ -487,7 +487,7 @@ class TestPlayerSummary:
 
         print(f"\n  Test audiobook: {test_audiobook['title'][:50]}")
         print(f"  ID: {test_audiobook['id']}")
-        print(f"  ✓ Player test infrastructure ready")
+        print("  ✓ Player test infrastructure ready")
 
 
 if __name__ == "__main__":

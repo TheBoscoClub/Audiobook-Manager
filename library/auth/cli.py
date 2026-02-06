@@ -183,7 +183,7 @@ def cmd_delete(args) -> int:
             return 1
 
         if user.is_admin and not args.force:
-            print(f"Error: Cannot delete admin user without --force", file=sys.stderr)
+            print("Error: Cannot delete admin user without --force", file=sys.stderr)
             return 1
 
         if not args.yes:

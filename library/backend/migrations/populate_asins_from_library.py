@@ -179,7 +179,7 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
     if dry_run:
         print("\nDRY RUN - No changes will be made\n")
 
-    print(f"\nMatch Results:")
+    print("\nMatch Results:")
     print(f"   Matched: {len(matches)}")
 
     if not dry_run and matches:

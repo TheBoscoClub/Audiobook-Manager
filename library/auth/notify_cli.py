@@ -71,7 +71,7 @@ def cmd_create(args):
         try:
             expires_at = datetime.fromisoformat(args.expires)
         except ValueError:
-            print(f"Error: Invalid expiry format. Use ISO format: YYYY-MM-DDTHH:MM:SS")
+            print("Error: Invalid expiry format. Use ISO format: YYYY-MM-DDTHH:MM:SS")
             return 1
 
     notification = Notification(

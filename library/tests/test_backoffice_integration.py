@@ -213,7 +213,7 @@ class TestDatabaseMaintenance:
         data = response.json()
         assert data.get("success") is True
 
-        print(f"\n  ✓ Database vacuumed successfully")
+        print("\n  ✓ Database vacuumed successfully")
         if "size_before" in data and "size_after" in data:
             print(f"  ✓ Size: {data['size_before']} → {data['size_after']}")
 
@@ -236,7 +236,7 @@ class TestAsyncOperations:
 
         # Verify result has meaningful data
         result = op.get("result", {})
-        print(f"\n  ✓ Sort fields populated (dry run)")
+        print("\n  ✓ Sort fields populated (dry run)")
         if result:
             print(f"  ✓ Fields analyzed: {result.get('output', '')[:100]}...")
 
@@ -258,7 +258,7 @@ class TestAsyncOperations:
         assert op["state"] in ("completed", "running"), f"Operation failed: {op.get('error')}"
 
         if op["state"] == "completed":
-            print(f"\n  ✓ Conversion queue rebuilt")
+            print("\n  ✓ Conversion queue rebuilt")
             if op.get("result"):
                 print(f"  ✓ Result: {str(op['result'])[:100]}...")
         else:
@@ -276,7 +276,7 @@ class TestAsyncOperations:
         op = wait_for_operation(data["operation_id"], timeout=120)
         assert op["state"] == "completed", f"Operation failed: {op.get('error')}"
 
-        print(f"\n  ✓ Indexes cleaned up")
+        print("\n  ✓ Indexes cleaned up")
         if op.get("result"):
             print(f"  ✓ Result: {str(op['result'])[:100]}...")
 
@@ -298,14 +298,14 @@ class TestAsyncOperations:
         if op["state"] == "failed":
             # Duplicate scan may fail if source directory is empty or inaccessible
             # This is acceptable in test environments
-            print(f"\n  ⚠ Duplicate scan failed (may be due to source directory state)")
+            print("\n  ⚠ Duplicate scan failed (may be due to source directory state)")
             print(f"    Error: {op.get('error', 'Unknown error')}")
             pytest.skip("Duplicate scan failed - source directory may not be available")
 
         assert op["state"] in ("completed", "running"), f"Operation failed: {op.get('error')}"
 
         if op["state"] == "completed":
-            print(f"\n  ✓ Source duplicate scan completed")
+            print("\n  ✓ Source duplicate scan completed")
             if op.get("result"):
                 result = op["result"]
                 if isinstance(result, dict):
@@ -327,7 +327,7 @@ class TestAsyncOperations:
         op = wait_for_operation(data["operation_id"], timeout=ASYNC_TIMEOUT)
         assert op["state"] == "completed", f"Operation failed: {op.get('error')}"
 
-        print(f"\n  ✓ ASIN population completed (dry run)")
+        print("\n  ✓ ASIN population completed (dry run)")
         if op.get("result"):
             result = op["result"]
             if isinstance(result, dict):
@@ -357,7 +357,7 @@ class TestLibraryOperations:
         assert op["state"] in ("completed", "running"), f"Operation failed: {op.get('error')}"
 
         if op["state"] == "completed":
-            print(f"\n  ✓ Library rescan completed")
+            print("\n  ✓ Library rescan completed")
             if op.get("result"):
                 print(f"  ✓ Result: {str(op['result'])[:100]}...")
         else:
@@ -388,7 +388,7 @@ class TestSystemEndpoints:
             total = data.get("total", len(data["audiobooks"]))
         print(f"\n  ✓ Total audiobooks in library: {total}")
         if data["audiobooks"]:
-            print(f"  ✓ Sample titles:")
+            print("  ✓ Sample titles:")
             for book in data["audiobooks"][:3]:
                 print(f"    - {book.get('title', 'Unknown')[:50]}")
 
@@ -411,10 +411,10 @@ class TestConcurrentOperations:
 
         # Should either reject (409) or the first one finished already
         if response2.status_code == 409:
-            print(f"\n  ✓ Concurrent operation correctly rejected")
+            print("\n  ✓ Concurrent operation correctly rejected")
         else:
             # First one may have finished quickly
-            print(f"\n  ✓ Operation completed before concurrent check")
+            print("\n  ✓ Operation completed before concurrent check")
 
         # Clean up - wait for original operation
         if op_id:
