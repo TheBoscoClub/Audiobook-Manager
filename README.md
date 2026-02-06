@@ -1,27 +1,29 @@
 # Audiobook-Manager
 
+[![CodeFactor](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager/badge)](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager)
+
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 
 ### Version History
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![5](https://img.shields.io/badge/5-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![1](https://img.shields.io/badge/1-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v5.0.1.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v5.0.1.1) |
-| ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v5.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v5.0.1) |
-| ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v5.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v5.0.0) |
-| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v4.1.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.2) |
-| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.1.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.1) |
-| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v4.1.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.1.0) |
-| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![5](https://img.shields.io/badge/5-red) | Prior patch | [v4.0.5](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.5) |
-| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.1) |
-| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![2](https://img.shields.io/badge/2-orange) | Prior tweak | [v4.0.0.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.2) |
-| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v4.0.0.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0.1) |
-| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v4.0.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v4.0.0) |
-| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![2](https://img.shields.io/badge/2-red) | Prior minor | [v3.11.2](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.2) |
-| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v3.11.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.1) |
-| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![0](https://img.shields.io/badge/0-red) | Prior patch | [v3.11.0](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.11.0) |
-| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![8](https://img.shields.io/badge/8-red) | Prior patch | [v3.9.8](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.8) |
-| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![7](https://img.shields.io/badge/7-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v3.9.7.1](https://github.com/greogory/Audiobook-Manager/releases/tag/v3.9.7.1) |
+| ![5](https://img.shields.io/badge/5-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![1](https://img.shields.io/badge/1-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v5.0.1.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1.1) |
+| ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v5.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1) |
+| ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v5.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.0) |
+| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v4.1.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.1.2) |
+| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.1.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.1.1) |
+| ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v4.1.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.1.0) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![5](https://img.shields.io/badge/5-red) | Prior patch | [v4.0.5](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.0.5) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v4.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.0.1) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![2](https://img.shields.io/badge/2-orange) | Prior tweak | [v4.0.0.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.0.0.2) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v4.0.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.0.0.1) |
+| ![4](https://img.shields.io/badge/4-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v4.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.0.0) |
+| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![2](https://img.shields.io/badge/2-red) | Prior minor | [v3.11.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v3.11.2) |
+| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v3.11.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v3.11.1) |
+| ![3](https://img.shields.io/badge/3-brightred)![11](https://img.shields.io/badge/11-darkred)![0](https://img.shields.io/badge/0-red) | Prior patch | [v3.11.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v3.11.0) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![8](https://img.shields.io/badge/8-red) | Prior patch | [v3.9.8](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v3.9.8) |
+| ![3](https://img.shields.io/badge/3-brightred)![9](https://img.shields.io/badge/9-darkred)![7](https://img.shields.io/badge/7-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v3.9.7.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v3.9.7.1) |
 
 <details>
 <summary>Badge Color Convention</summary>
@@ -215,7 +217,7 @@ The script matches books by ASIN, exact title, or fuzzy title matching (85% thre
 > The `audiobooks-multiformat` service and related scripts are disabled. To enable at your own risk, uncomment the watch directories in `watch-multiformat-sources.sh`.
 >
 > PRs welcome if you want to improve multi-source support.
-> See: [Roadmap Discussion](https://github.com/greogory/Audiobook-Manager/discussions/2)
+> See: [Roadmap Discussion](https://github.com/TheBoscoClub/Audiobook-Manager/discussions/2)
 
 <details>
 <summary>Multi-source scripts (click to expand)</summary>
@@ -274,10 +276,10 @@ Install the latest release without cloning the repository:
 
 ```bash
 # One-line installer
-curl -sSL https://github.com/greogory/Audiobook-Manager/raw/main/bootstrap-install.sh | bash
+curl -sSL https://github.com/TheBoscoClub/Audiobook-Manager/raw/main/bootstrap-install.sh | bash
 
 # Or download and install manually
-wget https://github.com/greogory/Audiobook-Manager/releases/latest/download/audiobooks-*.tar.gz
+wget https://github.com/TheBoscoClub/Audiobook-Manager/releases/latest/download/audiobooks-*.tar.gz
 tar -xzf audiobooks-*.tar.gz
 cd audiobooks-*
 ./install.sh
@@ -288,7 +290,7 @@ cd audiobooks-*
 Clone the repository and run the interactive installer:
 
 ```bash
-git clone https://github.com/greogory/Audiobook-Manager.git
+git clone https://github.com/TheBoscoClub/Audiobook-Manager.git
 cd Audiobook-Manager
 ./install.sh
 ```
@@ -400,9 +402,9 @@ docker-compose pull
 docker-compose up -d
 
 # Or with docker directly
-docker pull greogory/Audiobook-Manager:latest
+docker pull TheBoscoClub/Audiobook-Manager:latest
 docker stop audiobooks && docker rm audiobooks
-docker run -d --name audiobooks ... greogory/Audiobook-Manager:latest
+docker run -d --name audiobooks ... TheBoscoClub/Audiobook-Manager:latest
 
 # Check running version
 docker exec audiobooks cat /app/VERSION
@@ -1044,7 +1046,7 @@ docker run -d \
   -v /path/to/your/audiobooks:/audiobooks:ro \
   -v audiobooks_data:/app/data \
   -v audiobooks_covers:/app/covers \
-  ghcr.io/greogory/Audiobook-Manager:latest
+  ghcr.io/TheBoscoClub/Audiobook-Manager:latest
 
 # Access the web interface
 open https://localhost:8443
@@ -1578,7 +1580,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - Portable configuration system
 - Production-ready HTTPS server with Waitress
 
-See [GitHub Releases](https://github.com/greogory/Audiobook-Manager/releases) for full version history.
+See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases) for full version history.
 
 ## Known Issues
 
@@ -1650,7 +1652,7 @@ A new "Utilities" or "Library Management" section in the webapp for:
 
 ### Contributing
 
-Feature requests and pull requests welcome! See the [GitHub Issues](https://github.com/greogory/Audiobook-Manager/issues) page.
+Feature requests and pull requests welcome! See the [GitHub Issues](https://github.com/TheBoscoClub/Audiobook-Manager/issues) page.
 
 ## License
 
