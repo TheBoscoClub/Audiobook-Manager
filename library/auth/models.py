@@ -1225,6 +1225,15 @@ class AccessRequestRepository:
             )
             return cursor.fetchone() is not None
 
+    def has_any_request(self, username: str) -> bool:
+        """Check if username has any request (pending, approved, or denied)."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT 1 FROM access_requests WHERE username = ?",
+                (username,)
+            )
+            return cursor.fetchone() is not None
+
     def count_pending(self) -> int:
         """Count pending access requests."""
         with self.db.connection() as conn:

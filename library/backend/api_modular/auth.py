@@ -590,9 +590,13 @@ def start_registration():
     if user_repo.username_exists(username):
         return jsonify({"error": "Username already taken"}), 400
 
-    # Check if there's already a pending request
-    if request_repo.has_pending_request(username):
-        return jsonify({"error": "Access request already pending for this username"}), 400
+    # Check if there's already a request (any status - the table has UNIQUE constraint on username)
+    if request_repo.has_any_request(username):
+        # Check specifically for pending to give more helpful error
+        if request_repo.has_pending_request(username):
+            return jsonify({"error": "Access request already pending for this username"}), 400
+        else:
+            return jsonify({"error": "Username already has a previous access request"}), 400
 
     # First-user-is-admin bootstrap: if no users exist, auto-approve as admin
     if user_repo.count() == 0:
