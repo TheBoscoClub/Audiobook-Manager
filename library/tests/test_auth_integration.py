@@ -50,7 +50,9 @@ ADMIN_TOTP_SECRET = os.environ.get(
 )
 
 # WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config
-WEBAUTHN_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", "https://localhost:9090")
+# Use port 8443 for VM tests (production), 9090 for local dev
+_default_origin = "https://localhost:8443" if os.environ.get("VM_TESTS") else "https://localhost:9090"
+WEBAUTHN_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", _default_origin)
 
 # Test user names
 TOTP_USER = "totptest1"
@@ -158,7 +160,7 @@ with db.connection() as conn:
             [
                 "ssh", "-i", SSH_KEY, "-o", "StrictHostKeyChecking=no",
                 f"{SSH_USER}@{VM_HOST}",
-                "sudo /opt/audiobooks/library/venv/bin/python3",
+                "sudo /opt/audiobooks/venv/bin/python3",
             ],
             input=script,
             capture_output=True,
