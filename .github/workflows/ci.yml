@@ -78,13 +78,22 @@ jobs:
       run: |
         cd library
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov
+        pip install pytest pytest-cov codecov-cli
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    - name: Run pytest
+    - name: Run pytest with coverage
       run: |
         cd library
-        pytest tests/ -v --tb=short
+        pytest tests/ -v --tb=short --cov=. --cov-report=xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de  # v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: library/coverage.xml
+        flags: unittests
+        name: audiobook-manager
+        fail_ci_if_error: false
 
   docker-build:
     name: Docker Build Check
