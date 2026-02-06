@@ -978,11 +978,12 @@ function hideConfirmModal() {
  * Show confirmation modal with custom callback.
  * Used for actions that need custom handling like delete user.
  */
-function showConfirmModal(title, message, onConfirm) {
+function showConfirmModal(title, message, onConfirm, onCancel) {
     const modal = document.getElementById('confirm-modal');
     const titleEl = document.getElementById('confirm-title');
     const bodyEl = document.getElementById('confirm-body');
     const confirmBtn = document.getElementById('confirm-action');
+    const cancelBtn = document.getElementById('confirm-cancel');
 
     titleEl.textContent = title;
     bodyEl.textContent = message;
@@ -999,6 +1000,16 @@ function showConfirmModal(title, message, onConfirm) {
         modal.classList.remove('active');
         if (onConfirm) onConfirm();
     });
+
+    // Handle cancel button if onCancel callback provided
+    if (onCancel && cancelBtn) {
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        newCancelBtn.addEventListener('click', () => {
+            modal.classList.remove('active');
+            onCancel();
+        });
+    }
 }
 
 function showProgress(title, message) {
