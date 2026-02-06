@@ -409,96 +409,98 @@ let currentDupMode = 'title';
 // Track selected paths for checksum-based deletions
 let checksumPathSelection = new Set();
 
+// Endpoint mapping for duplicate detection methods
+const DUPLICATE_ENDPOINTS = {
+    'hash': '/api/duplicates',
+    'source-checksum': '/api/duplicates/by-checksum?type=sources',
+    'library-checksum': '/api/duplicates/by-checksum?type=library',
+    'title': '/api/duplicates/by-title'
+};
+
+/**
+ * Show placeholder message in duplicates list
+ */
+function showDuplicatesPlaceholder(container, message) {
+    container.textContent = '';
+    const p = document.createElement('p');
+    p.className = 'placeholder-text';
+    p.textContent = message;
+    container.appendChild(p);
+}
+
+/**
+ * Handle checksum-based duplicate response
+ */
+function handleChecksumDuplicates(data, method, container) {
+    const checksumType = method === 'source-checksum' ? 'sources' : 'library';
+    const checksumData = data[checksumType];
+
+    if (!checksumData || !checksumData.exists) {
+        showDuplicatesPlaceholder(container,
+            checksumData?.error || 'Checksum index not found. Generate checksums first from Database section.');
+        document.getElementById('dup-actions').style.display = 'none';
+        return;
+    }
+
+    duplicatesData = checksumData.duplicate_groups || [];
+    duplicateSelection.clear();
+    checksumPathSelection.clear();
+    document.getElementById('dup-group-count').textContent = duplicatesData.length;
+
+    if (duplicatesData.length > 0) {
+        renderChecksumDuplicates(checksumType);
+        document.getElementById('dup-actions').style.display = 'flex';
+        document.getElementById('selected-count').textContent = '0';
+        document.getElementById('delete-selected-dups').disabled = true;
+        showToast(`Found ${checksumData.total_duplicate_files} duplicate files (${checksumData.total_wasted_mb?.toFixed(1)} MB wasted)`, 'info');
+    } else {
+        showDuplicatesPlaceholder(container,
+            `No duplicates found in ${checksumType} (${checksumData.unique_checksums} unique files)`);
+        document.getElementById('dup-actions').style.display = 'none';
+    }
+}
+
+/**
+ * Handle standard (title/hash) duplicate response
+ */
+function handleStandardDuplicates(data, container) {
+    duplicatesData = data.duplicate_groups || [];
+    duplicateSelection.clear();
+    document.getElementById('dup-group-count').textContent = duplicatesData.length;
+
+    if (duplicatesData.length > 0) {
+        renderDuplicates();
+        document.getElementById('dup-actions').style.display = 'flex';
+    } else {
+        showDuplicatesPlaceholder(container, 'No duplicates found');
+        document.getElementById('dup-actions').style.display = 'none';
+    }
+}
+
+/**
+ * Find and display duplicate audiobooks
+ */
 async function findDuplicates() {
     const method = document.querySelector('input[name="dup-method"]:checked').value;
     currentDupMode = method;
 
-    let endpoint;
-    if (method === 'hash') {
-        endpoint = '/api/duplicates';  // Main endpoint is hash-based
-    } else if (method === 'source-checksum') {
-        endpoint = '/api/duplicates/by-checksum?type=sources';
-    } else if (method === 'library-checksum') {
-        endpoint = '/api/duplicates/by-checksum?type=library';
-    } else {
-        endpoint = '/api/duplicates/by-title';
-    }
-
+    const endpoint = DUPLICATE_ENDPOINTS[method] || DUPLICATE_ENDPOINTS['title'];
     const listContainer = document.getElementById('duplicates-list');
-    listContainer.textContent = '';
-    const loadingP = document.createElement('p');
-    loadingP.className = 'placeholder-text';
-    loadingP.textContent = 'Searching for duplicates...';
-    listContainer.appendChild(loadingP);
+
+    showDuplicatesPlaceholder(listContainer, 'Searching for duplicates...');
 
     try {
         const res = await fetch(`${API_BASE}${endpoint}`);
         const data = await res.json();
 
-        // Handle checksum-based responses (different structure)
-        if (method === 'source-checksum' || method === 'library-checksum') {
-            const checksumType = method === 'source-checksum' ? 'sources' : 'library';
-            const checksumData = data[checksumType];
-
-            if (!checksumData || !checksumData.exists) {
-                listContainer.textContent = '';
-                const errorP = document.createElement('p');
-                errorP.className = 'placeholder-text';
-                errorP.textContent = checksumData?.error || 'Checksum index not found. Generate checksums first from Database section.';
-                listContainer.appendChild(errorP);
-                document.getElementById('dup-actions').style.display = 'none';
-                return;
-            }
-
-            duplicatesData = checksumData.duplicate_groups || [];
-            duplicateSelection.clear();
-            checksumPathSelection.clear();
-
-            document.getElementById('dup-group-count').textContent = duplicatesData.length;
-
-            if (duplicatesData.length > 0) {
-                renderChecksumDuplicates(checksumType);
-                // Show delete actions for checksum mode (now supported!)
-                document.getElementById('dup-actions').style.display = 'flex';
-                document.getElementById('selected-count').textContent = '0';
-                document.getElementById('delete-selected-dups').disabled = true;
-
-                // Show summary stats
-                showToast(`Found ${checksumData.total_duplicate_files} duplicate files (${checksumData.total_wasted_mb?.toFixed(1)} MB wasted)`, 'info');
-            } else {
-                listContainer.textContent = '';
-                const nodupeP = document.createElement('p');
-                nodupeP.className = 'placeholder-text';
-                nodupeP.textContent = `No duplicates found in ${checksumType} (${checksumData.unique_checksums} unique files)`;
-                listContainer.appendChild(nodupeP);
-                document.getElementById('dup-actions').style.display = 'none';
-            }
+        const isChecksumMode = method === 'source-checksum' || method === 'library-checksum';
+        if (isChecksumMode) {
+            handleChecksumDuplicates(data, method, listContainer);
         } else {
-            // Standard title/hash mode
-            duplicatesData = data.duplicate_groups || [];
-            duplicateSelection.clear();
-
-            document.getElementById('dup-group-count').textContent = duplicatesData.length;
-
-            if (duplicatesData.length > 0) {
-                renderDuplicates();
-                document.getElementById('dup-actions').style.display = 'flex';
-            } else {
-                listContainer.textContent = '';
-                const nodupeP = document.createElement('p');
-                nodupeP.className = 'placeholder-text';
-                nodupeP.textContent = 'No duplicates found';
-                listContainer.appendChild(nodupeP);
-                document.getElementById('dup-actions').style.display = 'none';
-            }
+            handleStandardDuplicates(data, listContainer);
         }
-
     } catch (error) {
-        listContainer.textContent = '';
-        const errorP = document.createElement('p');
-        errorP.className = 'placeholder-text';
-        errorP.textContent = 'Failed to find duplicates';
-        listContainer.appendChild(errorP);
+        showDuplicatesPlaceholder(listContainer, 'Failed to find duplicates');
         showToast('Failed to find duplicates: ' + error.message, 'error');
     }
 }
@@ -1472,6 +1474,331 @@ function stopConversionAutoRefresh() {
     }
 }
 
+// ============================================
+// Conversion Status Helper Functions
+// ============================================
+
+/**
+ * Format bytes to human-readable string (KiB, MiB, GiB, etc.)
+ */
+function formatBytes(bytes, decimals = 1) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+}
+
+/**
+ * Update the conversion progress bar UI
+ */
+function updateConversionProgressBar(status) {
+    const progressFill = document.getElementById('conv-progress-fill');
+    const percentDisplay = document.getElementById('conv-percent');
+    if (!progressFill || !percentDisplay) return;
+
+    progressFill.style.width = `${status.percent_complete}%`;
+    percentDisplay.textContent = `${status.percent_complete}%`;
+
+    const container = progressFill.closest('.conversion-progress-container');
+    if (container) {
+        container.classList.toggle('conversion-complete', status.is_complete);
+    }
+}
+
+/**
+ * Calculate conversion rate and update tracker state
+ * Returns elapsed time in seconds for use by other calculations
+ */
+function calculateConversionRate(status) {
+    const now = Date.now();
+    const elapsed = (now - conversionRateTracker.prevTime) / 1000;
+
+    if (conversionRateTracker.prevCount === null) {
+        // First observation - initialize baseline
+        conversionRateTracker.prevCount = status.total_converted;
+        conversionRateTracker.prevTime = now;
+        conversionRateTracker.stableTime = 0;
+    } else if (status.total_converted > conversionRateTracker.prevCount) {
+        // Conversions happened - calculate rate
+        const delta = status.total_converted - conversionRateTracker.prevCount;
+        conversionRateTracker.rate = (delta * 60) / elapsed;
+        conversionRateTracker.prevCount = status.total_converted;
+        conversionRateTracker.prevTime = now;
+        conversionRateTracker.stableTime = 0;
+    } else {
+        // No new conversions - track stable time
+        conversionRateTracker.stableTime += elapsed;
+        conversionRateTracker.prevTime = now;
+        if (conversionRateTracker.stableTime > 30) {
+            conversionRateTracker.rate = 0;
+        }
+    }
+
+    return elapsed;
+}
+
+/**
+ * Get display text for conversion rate
+ */
+function getConversionRateText(status, processes) {
+    if (status.is_complete) return 'complete';
+    if (conversionRateTracker.rate > 0) return `${conversionRateTracker.rate.toFixed(1)} books/min`;
+    if (processes.ffmpeg_count > 0) return `${processes.ffmpeg_count} active`;
+    if (conversionRateTracker.stableTime > 10) return 'idle';
+    return 'measuring...';
+}
+
+/**
+ * Get display text for ETA
+ */
+function getETAText(status) {
+    if (status.is_complete) return 'Complete!';
+    if (conversionRateTracker.rate > 0 && status.remaining > 0) {
+        const etaMins = status.remaining / conversionRateTracker.rate;
+        if (etaMins < 1) return `ETA: ${Math.round(etaMins * 60)}s`;
+        if (etaMins < 60) return `ETA: ${Math.round(etaMins)}m`;
+        const hours = Math.floor(etaMins / 60);
+        const mins = Math.round(etaMins % 60);
+        return `ETA: ${hours}h ${mins}m`;
+    }
+    return 'Calculating...';
+}
+
+/**
+ * Update all file count displays
+ */
+function updateConversionCounts(status) {
+    document.getElementById('conv-source-count').textContent = status.source_count.toLocaleString();
+    document.getElementById('conv-library-count').textContent = status.library_count.toLocaleString();
+    document.getElementById('conv-staged-count').textContent = status.staged_count.toLocaleString();
+    document.getElementById('conv-remaining-count').textContent = status.remaining.toLocaleString();
+    document.getElementById('conv-queue-count').textContent = status.queue_count.toLocaleString();
+
+    // Update remaining summary box
+    const remainingTotal = document.getElementById('remaining-total');
+    const sourceTotal = document.getElementById('source-total');
+    const summaryBox = document.getElementById('remaining-summary');
+    if (remainingTotal && sourceTotal) {
+        remainingTotal.textContent = status.remaining.toLocaleString();
+        sourceTotal.textContent = status.source_count.toLocaleString();
+        if (summaryBox) {
+            summaryBox.classList.toggle('complete', status.remaining === 0);
+        }
+    }
+}
+
+/**
+ * Update system stats display (ffmpeg count, load avg, tmpfs)
+ */
+function updateConversionSystemStats(processes, system) {
+    document.getElementById('conv-ffmpeg-count').textContent = processes.ffmpeg_count || '0';
+    document.getElementById('conv-ffmpeg-nice').textContent = processes.ffmpeg_nice || '-';
+    document.getElementById('conv-load-avg').textContent = system.load_avg || '-';
+    document.getElementById('conv-tmpfs-usage').textContent = system.tmpfs_usage || '-';
+    document.getElementById('conv-tmpfs-avail').textContent = system.tmpfs_avail || '-';
+
+    const activeBadge = document.getElementById('conv-active-count');
+    if (activeBadge) {
+        activeBadge.textContent = `${processes.ffmpeg_count} active`;
+    }
+}
+
+/**
+ * Calculate per-job throughput and update tracker
+ */
+function calculateJobThroughput(jobs, elapsed) {
+    const newTracker = {};
+    jobs.forEach(job => {
+        const pid = job.pid;
+        const currentReadBytes = job.read_bytes || 0;
+
+        if (jobThroughputTracker[pid] && elapsed > 0) {
+            const delta = currentReadBytes - jobThroughputTracker[pid].prevReadBytes;
+            job.throughput = delta >= 0 ? delta / elapsed : 0;
+        } else {
+            job.throughput = 0;
+        }
+        newTracker[pid] = { prevReadBytes: currentReadBytes };
+    });
+    jobThroughputTracker = newTracker;
+}
+
+/**
+ * Sort jobs based on current sort criteria
+ */
+function sortConversionJobs(jobs) {
+    return [...jobs].sort((a, b) => {
+        switch (conversionSortBy) {
+            case 'percent': return (b.percent || 0) - (a.percent || 0);
+            case 'throughput': return (b.throughput || 0) - (a.throughput || 0);
+            case 'name': return (a.filename || '').localeCompare(b.filename || '');
+            default: return 0;
+        }
+    });
+}
+
+/**
+ * Create DOM element for a single conversion job
+ */
+function createJobElement(job) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'active-conversion-item';
+
+    const filenameSpan = document.createElement('span');
+    filenameSpan.className = 'filename';
+    filenameSpan.textContent = job.display_name || job.filename || 'unknown';
+    itemDiv.appendChild(filenameSpan);
+
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'job-stats';
+
+    const percentSpan = document.createElement('span');
+    percentSpan.className = 'job-percent';
+    percentSpan.textContent = `${job.percent || 0}%`;
+    statsDiv.appendChild(percentSpan);
+
+    const throughputSpan = document.createElement('span');
+    throughputSpan.className = 'job-throughput';
+    const throughputMiB = (job.throughput || 0) / 1048576;
+    throughputSpan.textContent = throughputMiB > 0.1 ? `${throughputMiB.toFixed(1)} MiB/s` : '—';
+    statsDiv.appendChild(throughputSpan);
+
+    const readSpan = document.createElement('span');
+    readSpan.className = 'job-read';
+    const readMiB = (job.read_bytes || 0) / 1048576;
+    const sourceMiB = (job.source_size || 0) / 1048576;
+    readSpan.textContent = `${readMiB.toFixed(0)}/${sourceMiB.toFixed(0)} MiB`;
+    statsDiv.appendChild(readSpan);
+
+    itemDiv.appendChild(statsDiv);
+    return itemDiv;
+}
+
+/**
+ * Render active conversions list
+ */
+function renderActiveConversionsList(processes, elapsed) {
+    const activeList = document.getElementById('conv-active-list');
+    if (!activeList) return;
+
+    // Clear existing content
+    while (activeList.firstChild) {
+        activeList.removeChild(activeList.firstChild);
+    }
+
+    let jobs = processes.conversion_jobs || [];
+    if (jobs.length > 0) {
+        calculateJobThroughput(jobs, elapsed);
+        jobs = sortConversionJobs(jobs);
+        jobs.forEach(job => activeList.appendChild(createJobElement(job)));
+    } else if (processes.active_conversions?.length > 0) {
+        // Fallback to legacy format
+        processes.active_conversions.forEach(filename => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'active-conversion-item';
+            const filenameSpan = document.createElement('span');
+            filenameSpan.className = 'filename';
+            filenameSpan.textContent = filename;
+            itemDiv.appendChild(filenameSpan);
+            activeList.appendChild(itemDiv);
+        });
+    } else {
+        const placeholder = document.createElement('p');
+        placeholder.className = 'placeholder-text';
+        placeholder.textContent = 'No active conversions';
+        activeList.appendChild(placeholder);
+    }
+}
+
+/**
+ * Update I/O throughput tracking and display
+ */
+function updateIOThroughput(processes, elapsed) {
+    const currentReadBytes = processes.io_read_bytes || 0;
+    const currentWriteBytes = processes.io_write_bytes || 0;
+
+    if (conversionRateTracker.prevReadBytes > 0 && elapsed > 0) {
+        const readDelta = currentReadBytes - conversionRateTracker.prevReadBytes;
+        const writeDelta = currentWriteBytes - conversionRateTracker.prevWriteBytes;
+        if (readDelta >= 0) conversionRateTracker.readThroughput = readDelta / elapsed;
+        if (writeDelta >= 0) conversionRateTracker.writeThroughput = writeDelta / elapsed;
+    }
+    conversionRateTracker.prevReadBytes = currentReadBytes;
+    conversionRateTracker.prevWriteBytes = currentWriteBytes;
+
+    // Update display
+    const readThroughputEl = document.getElementById('conv-read-throughput');
+    const writeThroughputEl = document.getElementById('conv-write-throughput');
+    const isActive = processes.ffmpeg_count > 0;
+
+    if (readThroughputEl) {
+        readThroughputEl.textContent = isActive ? `${formatBytes(conversionRateTracker.readThroughput)}/s` : 'idle';
+    }
+    if (writeThroughputEl) {
+        writeThroughputEl.textContent = isActive ? `${formatBytes(conversionRateTracker.writeThroughput)}/s` : 'idle';
+    }
+
+    const totalReadEl = document.getElementById('conv-total-read');
+    const totalWriteEl = document.getElementById('conv-total-write');
+    if (totalReadEl) totalReadEl.textContent = formatBytes(currentReadBytes);
+    if (totalWriteEl) totalWriteEl.textContent = formatBytes(currentWriteBytes);
+}
+
+/**
+ * Update queue breakdown details
+ */
+function updateQueueBreakdown(status, processes) {
+    const waitingInQueue = Math.max(0, status.queue_count - processes.ffmpeg_count);
+
+    const activeDetailEl = document.getElementById('conv-active-detail');
+    const queuedDetailEl = document.getElementById('conv-queued-detail');
+    const stagingDetailEl = document.getElementById('conv-staging-detail');
+    const unqueuedDetailEl = document.getElementById('conv-unqueued-detail');
+
+    if (activeDetailEl) activeDetailEl.textContent = processes.ffmpeg_count;
+    if (queuedDetailEl) queuedDetailEl.textContent = waitingInQueue;
+    if (stagingDetailEl) stagingDetailEl.textContent = status.staged_count;
+    if (unqueuedDetailEl) unqueuedDetailEl.textContent = 0;
+}
+
+/**
+ * Update active files panel in details section
+ */
+function updateActiveFilesPanel(processes) {
+    const activeFilesEl = document.getElementById('conv-active-files');
+    if (!activeFilesEl) return;
+
+    while (activeFilesEl.firstChild) {
+        activeFilesEl.removeChild(activeFilesEl.firstChild);
+    }
+
+    if (processes.active_conversions?.length > 0) {
+        processes.active_conversions.forEach(filename => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'active-file-item';
+            const filenameSpan = document.createElement('span');
+            filenameSpan.className = 'filename';
+            filenameSpan.textContent = filename;
+            itemDiv.appendChild(filenameSpan);
+            activeFilesEl.appendChild(itemDiv);
+        });
+    } else {
+        const noFiles = document.createElement('span');
+        noFiles.className = 'no-files';
+        noFiles.textContent = 'No active conversions';
+        activeFilesEl.appendChild(noFiles);
+    }
+}
+
+// ============================================
+// Main Conversion Status Function (Refactored)
+// ============================================
+
+/**
+ * Load and display conversion status
+ * Orchestrates calls to helper functions for each UI section
+ */
 async function loadConversionStatus() {
     try {
         const res = await fetch(`${API_BASE}/api/conversion/status`);
@@ -1482,321 +1809,45 @@ async function loadConversionStatus() {
             return;
         }
 
-        const status = data.status;
-        const processes = data.processes;
-        const system = data.system;
+        const { status, processes, system } = data;
 
         // Update progress bar
-        const progressFill = document.getElementById('conv-progress-fill');
-        const percentDisplay = document.getElementById('conv-percent');
-        if (progressFill && percentDisplay) {
-            progressFill.style.width = `${status.percent_complete}%`;
-            percentDisplay.textContent = `${status.percent_complete}%`;
+        updateConversionProgressBar(status);
 
-            // Add complete class if done
-            const container = progressFill.closest('.conversion-progress-container');
-            if (container) {
-                container.classList.toggle('conversion-complete', status.is_complete);
-            }
-        }
+        // Calculate rate (returns elapsed time for other calculations)
+        const elapsed = calculateConversionRate(status);
 
-        // Calculate rate and ETA
-        const now = Date.now();
-        const elapsed = (now - conversionRateTracker.prevTime) / 1000;
-
-        if (conversionRateTracker.prevCount === null) {
-            // First observation - initialize baseline
-            conversionRateTracker.prevCount = status.total_converted;
-            conversionRateTracker.prevTime = now;
-            conversionRateTracker.stableTime = 0;
-        } else if (status.total_converted > conversionRateTracker.prevCount) {
-            // Conversions happened - calculate rate
-            const delta = status.total_converted - conversionRateTracker.prevCount;
-            conversionRateTracker.rate = (delta * 60) / elapsed;
-            conversionRateTracker.prevCount = status.total_converted;
-            conversionRateTracker.prevTime = now;
-            conversionRateTracker.stableTime = 0;
-        } else {
-            // No new conversions - track stable time
-            conversionRateTracker.stableTime += elapsed;
-            conversionRateTracker.prevTime = now;
-            // Decay rate toward 0 if idle for a while
-            if (conversionRateTracker.stableTime > 30) {
-                conversionRateTracker.rate = 0;
-            }
-        }
-
-        // Display rate
+        // Update rate display
         const rateDisplay = document.getElementById('conv-rate');
-        const isActivelyConverting = processes.ffmpeg_count > 0;
         if (rateDisplay) {
-            if (status.is_complete) {
-                rateDisplay.textContent = 'complete';
-            } else if (conversionRateTracker.rate > 0) {
-                rateDisplay.textContent = `${conversionRateTracker.rate.toFixed(1)} books/min`;
-            } else if (isActivelyConverting) {
-                // FFmpeg processes running - show count as indicator
-                rateDisplay.textContent = `${processes.ffmpeg_count} active`;
-            } else if (conversionRateTracker.stableTime > 10) {
-                // No active processes and no completions for a while
-                rateDisplay.textContent = 'idle';
-            } else {
-                rateDisplay.textContent = 'measuring...';
-            }
+            rateDisplay.textContent = getConversionRateText(status, processes);
         }
 
-        // Calculate and display ETA
+        // Update ETA display
         const etaDisplay = document.getElementById('conv-eta');
         if (etaDisplay) {
-            if (status.is_complete) {
-                etaDisplay.textContent = 'Complete!';
-            } else if (conversionRateTracker.rate > 0 && status.remaining > 0) {
-                const etaMins = status.remaining / conversionRateTracker.rate;
-                if (etaMins < 1) {
-                    etaDisplay.textContent = `ETA: ${Math.round(etaMins * 60)}s`;
-                } else if (etaMins < 60) {
-                    etaDisplay.textContent = `ETA: ${Math.round(etaMins)}m`;
-                } else {
-                    const hours = Math.floor(etaMins / 60);
-                    const mins = Math.round(etaMins % 60);
-                    etaDisplay.textContent = `ETA: ${hours}h ${mins}m`;
-                }
-            } else {
-                etaDisplay.textContent = 'Calculating...';
-            }
+            etaDisplay.textContent = getETAText(status);
         }
 
         // Update file counts
-        document.getElementById('conv-source-count').textContent = status.source_count.toLocaleString();
-        document.getElementById('conv-library-count').textContent = status.library_count.toLocaleString();
-        document.getElementById('conv-staged-count').textContent = status.staged_count.toLocaleString();
-        document.getElementById('conv-remaining-count').textContent = status.remaining.toLocaleString();
-        document.getElementById('conv-queue-count').textContent = status.queue_count.toLocaleString();
-
-        // Update remaining summary box
-        const remainingTotal = document.getElementById('remaining-total');
-        const sourceTotal = document.getElementById('source-total');
-        const summaryBox = document.getElementById('remaining-summary');
-        if (remainingTotal && sourceTotal) {
-            remainingTotal.textContent = status.remaining.toLocaleString();
-            sourceTotal.textContent = status.source_count.toLocaleString();
-            // Add complete class when done
-            if (summaryBox) {
-                summaryBox.classList.toggle('complete', status.remaining === 0);
-            }
-        }
+        updateConversionCounts(status);
 
         // Update system stats
-        document.getElementById('conv-ffmpeg-count').textContent = processes.ffmpeg_count || '0';
-        document.getElementById('conv-ffmpeg-nice').textContent = processes.ffmpeg_nice || '-';
-        document.getElementById('conv-load-avg').textContent = system.load_avg || '-';
-        document.getElementById('conv-tmpfs-usage').textContent = system.tmpfs_usage || '-';
-        document.getElementById('conv-tmpfs-avail').textContent = system.tmpfs_avail || '-';
+        updateConversionSystemStats(processes, system);
 
-        // Update active badge
-        const activeBadge = document.getElementById('conv-active-count');
-        if (activeBadge) {
-            activeBadge.textContent = `${processes.ffmpeg_count} active`;
-        }
+        // Render active conversions list
+        renderActiveConversionsList(processes, elapsed);
 
-        // Update active conversions list using safe DOM methods with per-job stats
-        const activeList = document.getElementById('conv-active-list');
-        if (activeList) {
-            // Clear existing content safely
-            while (activeList.firstChild) {
-                activeList.removeChild(activeList.firstChild);
-            }
-
-            // Use conversion_jobs for detailed info, fallback to active_conversions
-            let jobs = processes.conversion_jobs || [];
-            if (jobs.length > 0) {
-                // Calculate per-job throughput
-                const newTracker = {};
-                jobs.forEach(job => {
-                    const pid = job.pid;
-                    const currentReadBytes = job.read_bytes || 0;
-
-                    if (jobThroughputTracker[pid] && elapsed > 0) {
-                        const delta = currentReadBytes - jobThroughputTracker[pid].prevReadBytes;
-                        if (delta >= 0) {
-                            job.throughput = delta / elapsed;  // bytes per second
-                        } else {
-                            job.throughput = 0;
-                        }
-                    } else {
-                        job.throughput = 0;
-                    }
-
-                    newTracker[pid] = { prevReadBytes: currentReadBytes };
-                });
-                jobThroughputTracker = newTracker;
-
-                // Sort jobs based on selected criteria
-                jobs = [...jobs].sort((a, b) => {
-                    switch (conversionSortBy) {
-                        case 'percent':
-                            return (b.percent || 0) - (a.percent || 0);  // Highest first
-                        case 'throughput':
-                            return (b.throughput || 0) - (a.throughput || 0);  // Highest first
-                        case 'name':
-                            return (a.filename || '').localeCompare(b.filename || '');
-                        default:
-                            return 0;
-                    }
-                });
-
-                jobs.forEach(job => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'active-conversion-item';
-
-                    // Filename
-                    const filenameSpan = document.createElement('span');
-                    filenameSpan.className = 'filename';
-                    filenameSpan.textContent = job.display_name || job.filename || 'unknown';
-                    itemDiv.appendChild(filenameSpan);
-
-                    // Stats row
-                    const statsDiv = document.createElement('div');
-                    statsDiv.className = 'job-stats';
-
-                    // Percent complete
-                    const percentSpan = document.createElement('span');
-                    percentSpan.className = 'job-percent';
-                    percentSpan.textContent = `${job.percent || 0}%`;
-                    statsDiv.appendChild(percentSpan);
-
-                    // Throughput
-                    const throughputSpan = document.createElement('span');
-                    throughputSpan.className = 'job-throughput';
-                    const throughputMiB = (job.throughput || 0) / 1048576;
-                    throughputSpan.textContent = throughputMiB > 0.1 ? `${throughputMiB.toFixed(1)} MiB/s` : '—';
-                    statsDiv.appendChild(throughputSpan);
-
-                    // Read progress (MiB)
-                    const readSpan = document.createElement('span');
-                    readSpan.className = 'job-read';
-                    const readMiB = (job.read_bytes || 0) / 1048576;
-                    const sourceMiB = (job.source_size || 0) / 1048576;
-                    readSpan.textContent = `${readMiB.toFixed(0)}/${sourceMiB.toFixed(0)} MiB`;
-                    statsDiv.appendChild(readSpan);
-
-                    itemDiv.appendChild(statsDiv);
-                    activeList.appendChild(itemDiv);
-                });
-            } else if (processes.active_conversions && processes.active_conversions.length > 0) {
-                // Fallback to legacy format
-                processes.active_conversions.forEach(filename => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'active-conversion-item';
-                    const filenameSpan = document.createElement('span');
-                    filenameSpan.className = 'filename';
-                    filenameSpan.textContent = filename;
-                    itemDiv.appendChild(filenameSpan);
-                    activeList.appendChild(itemDiv);
-                });
-            } else {
-                const placeholder = document.createElement('p');
-                placeholder.className = 'placeholder-text';
-                placeholder.textContent = 'No active conversions';
-                activeList.appendChild(placeholder);
-            }
-        }
-
-        // Calculate I/O throughput (using 'elapsed' calculated before prevTime was updated)
-        const currentReadBytes = processes.io_read_bytes || 0;
-        const currentWriteBytes = processes.io_write_bytes || 0;
-
-        if (conversionRateTracker.prevReadBytes > 0 && elapsed > 0) {
-            const readDelta = currentReadBytes - conversionRateTracker.prevReadBytes;
-            const writeDelta = currentWriteBytes - conversionRateTracker.prevWriteBytes;
-            // Only update if positive (handles process restart)
-            if (readDelta >= 0) {
-                conversionRateTracker.readThroughput = readDelta / elapsed;
-            }
-            if (writeDelta >= 0) {
-                conversionRateTracker.writeThroughput = writeDelta / elapsed;
-            }
-        }
-        conversionRateTracker.prevReadBytes = currentReadBytes;
-        conversionRateTracker.prevWriteBytes = currentWriteBytes;
-
-        // Helper function to format bytes
-        const formatBytes = (bytes, decimals = 1) => {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
-        };
-
-        // Update detailed stats panel
-        const readThroughputEl = document.getElementById('conv-read-throughput');
-        const writeThroughputEl = document.getElementById('conv-write-throughput');
-        const totalReadEl = document.getElementById('conv-total-read');
-        const totalWriteEl = document.getElementById('conv-total-write');
-
-        if (readThroughputEl) {
-            readThroughputEl.textContent = processes.ffmpeg_count > 0
-                ? `${formatBytes(conversionRateTracker.readThroughput)}/s`
-                : 'idle';
-        }
-        if (writeThroughputEl) {
-            writeThroughputEl.textContent = processes.ffmpeg_count > 0
-                ? `${formatBytes(conversionRateTracker.writeThroughput)}/s`
-                : 'idle';
-        }
-        if (totalReadEl) {
-            totalReadEl.textContent = formatBytes(currentReadBytes);
-        }
-        if (totalWriteEl) {
-            totalWriteEl.textContent = formatBytes(currentWriteBytes);
-        }
+        // Update I/O throughput
+        updateIOThroughput(processes, elapsed);
 
         // Update queue breakdown
-        // queue_count now equals remaining (actual files left to convert)
-        // waitingInQueue = files waiting to start (remaining minus active)
-        // notYetQueued = 0 since all remaining files are considered "in queue"
-        const waitingInQueue = Math.max(0, status.queue_count - processes.ffmpeg_count);
-        const notYetQueued = 0;  // All remaining files are in the effective queue
+        updateQueueBreakdown(status, processes);
 
-        const activeDetailEl = document.getElementById('conv-active-detail');
-        const queuedDetailEl = document.getElementById('conv-queued-detail');
-        const stagingDetailEl = document.getElementById('conv-staging-detail');
-        const unqueuedDetailEl = document.getElementById('conv-unqueued-detail');
+        // Update active files panel
+        updateActiveFilesPanel(processes);
 
-        if (activeDetailEl) activeDetailEl.textContent = processes.ffmpeg_count;
-        if (queuedDetailEl) queuedDetailEl.textContent = waitingInQueue;
-        if (stagingDetailEl) stagingDetailEl.textContent = status.staged_count;
-        if (unqueuedDetailEl) unqueuedDetailEl.textContent = notYetQueued;
-
-        // Update active files list in details panel
-        const activeFilesEl = document.getElementById('conv-active-files');
-        if (activeFilesEl) {
-            while (activeFilesEl.firstChild) {
-                activeFilesEl.removeChild(activeFilesEl.firstChild);
-            }
-
-            if (processes.active_conversions && processes.active_conversions.length > 0) {
-                processes.active_conversions.forEach(filename => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'active-file-item';
-
-                    const filenameSpan = document.createElement('span');
-                    filenameSpan.className = 'filename';
-                    filenameSpan.textContent = filename;
-
-                    itemDiv.appendChild(filenameSpan);
-                    activeFilesEl.appendChild(itemDiv);
-                });
-            } else {
-                const noFiles = document.createElement('span');
-                noFiles.className = 'no-files';
-                noFiles.textContent = 'No active conversions';
-                activeFilesEl.appendChild(noFiles);
-            }
-        }
-
-        // Update last updated timestamp
+        // Update timestamp
         const lastUpdated = document.getElementById('conv-last-updated');
         if (lastUpdated) {
             lastUpdated.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
