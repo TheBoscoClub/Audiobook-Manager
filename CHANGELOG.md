@@ -13,6 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [5.0.2] - 2026-02-06
+
+### Added
+- **Testing**: VM_TESTS environment variable for proper WebAuthn origin selection in integration tests
+- **JS**: Optional onCancel callback for showConfirmModal to support async confirm dialogs
+
+### Changed
+- **Testing**: Update test VM from test-vm-cachyos to test-audiobook-cachyos (192.168.122.104)
+- **Deploy**: Add library/scripts/ and library/common.py to VM deployment sync
+
+### Fixed
+- **API**: Use sys.executable instead of hardcoded "python3" in subprocess calls for venv compatibility
+- **API**: Prevent duplicate access request errors with has_any_request() check
+- **Scripts**: Initialize bash array to avoid unbound variable error with set -u
+- **Scripts**: Fix shellcheck warnings in download-new-audiobooks (SC2188, SC2038, SC2086)
+- **Deploy**: Correct venv path from /opt/audiobooks/library/venv to /opt/audiobooks/venv
+- **Deploy**: Add /opt/audiobooks/library/data to systemd ReadWritePaths
+- **Tests**: Fix WebAuthn origin mismatch for VM tests (port 8443 vs 9090)
+- **Tests**: Fix SSH cleanup command venv path in auth integration tests
+
+### Security
+- **CI**: Add explicit permissions blocks to all GitHub Actions workflow jobs
+
 ## [5.0.1.1] - 2026-02-01
 
 ### Removed
