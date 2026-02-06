@@ -8,7 +8,7 @@
 #   ./deploy-vm.sh [OPTIONS]
 #
 # Options:
-#   --host HOST     VM hostname or IP (default: 192.168.122.100)
+#   --host HOST     VM hostname or IP (default: 192.168.122.104 = test-audiobook-cachyos)
 #   --user USER     SSH username (default: claude)
 #   --key PATH      SSH private key (default: ~/.ssh/id_ed25519)
 #   --target PATH   Remote target path (default: /opt/audiobooks)
@@ -21,7 +21,7 @@
 #   ./deploy-vm.sh                              # Deploy recent changes only
 #   ./deploy-vm.sh --full                       # Deploy entire project
 #   ./deploy-vm.sh --full --restart             # Full deploy and restart
-#   ./deploy-vm.sh --host 192.168.122.100       # Deploy to specific IP
+#   ./deploy-vm.sh --host 192.168.122.104       # Deploy to test-audiobook-cachyos
 # =============================================================================
 
 set -e
@@ -40,7 +40,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_FILE="${SCRIPT_DIR}/VERSION"
 
 # Defaults
-VM_HOST="192.168.122.100"
+VM_HOST="192.168.122.104"  # test-audiobook-cachyos dedicated isolation VM
 VM_USER="claude"
 SSH_KEY="${HOME}/.ssh/id_ed25519"
 REMOTE_TARGET="/opt/audiobooks"
@@ -241,6 +241,7 @@ deploy_full() {
         "library/auth"
         "library/backend"
         "library/scanner"
+        "library/scripts"
         "library/web-v2"
         "library/tests"
         "scripts"
@@ -258,6 +259,7 @@ deploy_full() {
     # Individual files in library/
     local LIBRARY_FILES=(
         "library/config.py"
+        "library/common.py"
         "library/requirements.txt"
         "library/__init__.py"
     )

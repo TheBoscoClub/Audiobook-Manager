@@ -20,7 +20,7 @@ Environment=HOME=/var/lib/audiobooks
 
 # Only start if port is not already in use (uses ss from iproute2, always available)
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_API_PORT} "'
-ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
+ExecStart=/opt/audiobooks/venv/bin/python api_server.py
 
 Restart=on-failure
 RestartSec=5
@@ -35,7 +35,7 @@ ProtectSystem=strict
 # Writable paths - database state + data directory + /tmp for temp files
 # NOTE: Systemd doesn't expand env vars in ReadWritePaths. If your data directory
 # differs from the default /srv/audiobooks, add it here explicitly.
-ReadWritePaths=/var/lib/audiobooks /srv/audiobooks /tmp
+ReadWritePaths=/var/lib/audiobooks /srv/audiobooks /tmp /opt/audiobooks/library/data
 ProtectHome=yes
 # PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
 PrivateTmp=no
