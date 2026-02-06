@@ -121,7 +121,7 @@ mkdir -p "$SYSTEMD_DIR"
 cat > "$SYSTEMD_DIR/audiobook-api.service" << EOF
 [Unit]
 Description=Audiobooks Library API Server (Waitress)
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=default.target
 
 [Service]
@@ -158,7 +158,7 @@ echo "  Created: audiobook-api.service"
 cat > "$SYSTEMD_DIR/audiobook-proxy.service" << EOF
 [Unit]
 Description=Audiobooks Library HTTPS Reverse Proxy
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=audiobook-api.service
 Requires=audiobook-api.service
 
@@ -190,7 +190,7 @@ echo "  Created: audiobook-proxy.service"
 cat > "$SYSTEMD_DIR/audiobook-redirect.service" << EOF
 [Unit]
 Description=Audiobooks Library HTTP to HTTPS Redirect
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=audiobook-proxy.service
 Wants=audiobook-proxy.service
 
@@ -221,7 +221,7 @@ echo "  Created: audiobook-redirect.service (optional)"
 cat > "$SYSTEMD_DIR/audiobooks.target" << EOF
 [Unit]
 Description=Audiobooks Library Services
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service
 
 [Install]

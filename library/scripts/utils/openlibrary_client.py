@@ -87,7 +87,7 @@ class OpenLibraryClient:
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "AudiobookLibrary/1.0 (personal audiobook manager; https://github.com/greogory/Audiobook-Manager)"
+                "User-Agent": "AudiobookLibrary/1.0 (personal audiobook manager; https://github.com/TheBoscoClub/Audiobook-Manager)"
             }
         )
 

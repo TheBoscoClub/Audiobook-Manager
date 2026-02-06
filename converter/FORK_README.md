@@ -86,7 +86,7 @@ For full documentation on how to use AAXtoMP3, see the [original README.md](READ
 
 Same as original:
 ```bash
-git clone https://github.com/greogory/AAXtoMP3.git
+git clone https://github.com/TheBoscoClub/AAXtoMP3.git
 cd AAXtoMP3
 chmod +x AAXtoMP3
 ./AAXtoMP3 --help
@@ -210,7 +210,7 @@ For additional legal and security considerations, see [SECURITY.md](SECURITY.md)
 
 ## Fork Status
 
-**Current Version:** 2.2 ([Release](https://github.com/greogory/AAXtoMP3/releases/tag/v2.2))
+**Current Version:** 2.2 ([Release](https://github.com/TheBoscoClub/AAXtoMP3/releases/tag/v2.2))
 **Last Updated:** 2025-11-29
 **Upstream:** KrumpetPirate/AAXtoMP3 v1.3 (archived)
 **Commits Ahead:** 9

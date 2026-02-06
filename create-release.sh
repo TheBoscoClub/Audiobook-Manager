@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
 # GitHub repository info
-GITHUB_REPO="greogory/Audiobook-Manager"
+GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}"
 
 # -----------------------------------------------------------------------------

@@ -8,9 +8,9 @@
   "service_group": "audiobooks",
 
   "github": {
-    "repo": "greogory/Audiobook-Manager",
-    "api": "https://api.github.com/repos/greogory/Audiobook-Manager",
-    "releases": "https://github.com/greogory/Audiobook-Manager/releases"
+    "repo": "TheBoscoClub/Audiobook-Manager",
+    "api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
+    "releases": "https://github.com/TheBoscoClub/Audiobook-Manager/releases"
   },
 
   "management_scripts": [

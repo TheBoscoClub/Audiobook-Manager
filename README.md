@@ -1,7 +1,5 @@
 # Audiobook-Manager
 
-[![CodeFactor](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager/badge)](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager)
-
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 
 ### Version History
@@ -402,9 +400,9 @@ docker-compose pull
 docker-compose up -d
 
 # Or with docker directly
-docker pull TheBoscoClub/Audiobook-Manager:latest
+docker pull theboscoclub/audiobook-manager:latest
 docker stop audiobooks && docker rm audiobooks
-docker run -d --name audiobooks ... TheBoscoClub/Audiobook-Manager:latest
+docker run -d --name audiobooks ... theboscoclub/audiobook-manager:latest
 
 # Check running version
 docker exec audiobooks cat /app/VERSION
@@ -1046,7 +1044,7 @@ docker run -d \
   -v /path/to/your/audiobooks:/audiobooks:ro \
   -v audiobooks_data:/app/data \
   -v audiobooks_covers:/app/covers \
-  ghcr.io/TheBoscoClub/Audiobook-Manager:latest
+  ghcr.io/theboscoclub/Audiobook-Manager:latest
 
 # Access the web interface
 open https://localhost:8443

@@ -10,7 +10,7 @@ The core purpose of Audiobook-Manager is managing Audible audiobooks. Multi-sour
 support (Google Play, Librivox, etc.) was roughed in but is not the project's focus.
 
 If you want to use or finish this feature, you're welcome to - PRs accepted.
-See: https://github.com/greogory/Audiobook-Manager/discussions/2
+See: https://github.com/TheBoscoClub/Audiobook-Manager/discussions/2
 ============================================
 
 Enrich audiobook metadata from OpenLibrary API.

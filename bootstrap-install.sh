@@ -5,15 +5,15 @@
 # Downloads the latest release and runs the installer.
 #
 # Usage:
-#   curl -sSL https://github.com/greogory/Audiobook-Manager/raw/main/bootstrap-install.sh | bash
-#   curl -sSL https://github.com/greogory/Audiobook-Manager/raw/main/bootstrap-install.sh | bash -s -- --user
-#   curl -sSL https://github.com/greogory/Audiobook-Manager/raw/main/bootstrap-install.sh | bash -s -- --version 3.1.0
+#   curl -sSL https://github.com/TheBoscoClub/Audiobook-Manager/raw/main/bootstrap-install.sh | bash
+#   curl -sSL https://github.com/TheBoscoClub/Audiobook-Manager/raw/main/bootstrap-install.sh | bash -s -- --user
+#   curl -sSL https://github.com/TheBoscoClub/Audiobook-Manager/raw/main/bootstrap-install.sh | bash -s -- --version 3.1.0
 # =============================================================================
 
 set -euo pipefail
 
 # Configuration
-GITHUB_REPO="greogory/Audiobook-Manager"
+GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}"
 
 # Colors (only if terminal supports them)
@@ -105,7 +105,7 @@ main() {
 Bootstrap installer for Audiobook-Manager
 
 Usage:
-  curl -sSL https://github.com/greogory/Audiobook-Manager/raw/main/bootstrap-install.sh | bash
+  curl -sSL https://github.com/TheBoscoClub/Audiobook-Manager/raw/main/bootstrap-install.sh | bash
   curl -sSL ... | bash -s -- [OPTIONS]
 
 Options:

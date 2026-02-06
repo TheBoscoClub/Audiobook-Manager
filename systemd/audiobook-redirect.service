@@ -1,6 +1,6 @@
 [Unit]
 Description=Audiobooks Library HTTP to HTTPS Redirect
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target audiobook-proxy.service
 Wants=audiobook-proxy.service network-online.target
 # Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)

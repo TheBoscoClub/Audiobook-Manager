@@ -1336,8 +1336,8 @@ EOF
         # Create default release info
         sudo tee "/opt/audiobooks/.release-info" > /dev/null << EOF
 {
-  "github_repo": "greogory/Audiobook-Manager",
-  "github_api": "https://api.github.com/repos/greogory/Audiobook-Manager",
+  "github_repo": "TheBoscoClub/Audiobook-Manager",
+  "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
   "version": "$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "unknown")",
   "install_date": "$(date -Iseconds)",
   "install_type": "system"
@@ -1395,7 +1395,7 @@ EOF
         sudo tee "${SYSTEMD_DIR}/audiobook-api.service" > /dev/null << EOF
 [Unit]
 Description=Audiobooks Library API Server
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network.target
 
 [Service]
@@ -1414,7 +1414,7 @@ EOF
         sudo tee "${SYSTEMD_DIR}/audiobooks-web.service" > /dev/null << EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=audiobook-api.service
 Wants=audiobook-api.service
 
@@ -1475,7 +1475,7 @@ EOF
         sudo tee "${SYSTEMD_DIR}/audiobooks.target" > /dev/null << EOF
 [Unit]
 Description=Audiobooks Library Services
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 Wants=audiobook-api.service audiobooks-web.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
 
 [Install]
@@ -1908,8 +1908,8 @@ EOF
         # Create default release info
         cat > "${LIB_DIR}/.release-info" << EOF
 {
-  "github_repo": "greogory/Audiobook-Manager",
-  "github_api": "https://api.github.com/repos/greogory/Audiobook-Manager",
+  "github_repo": "TheBoscoClub/Audiobook-Manager",
+  "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
   "version": "$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "unknown")",
   "install_date": "$(date -Iseconds)",
   "install_type": "user"
@@ -1969,7 +1969,7 @@ EOF
         cat > "${SYSTEMD_DIR}/audiobook-api.service" << EOF
 [Unit]
 Description=Audiobooks Library API Server
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=default.target
 
 [Service]
@@ -2001,7 +2001,7 @@ EOF
         cat > "${SYSTEMD_DIR}/audiobooks-web.service" << EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=audiobook-api.service
 Wants=audiobook-api.service
 
@@ -2026,7 +2026,7 @@ EOF
         cat > "${SYSTEMD_DIR}/audiobooks.target" << EOF
 [Unit]
 Description=Audiobooks Library Services
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 Wants=audiobook-api.service audiobooks-web.service
 
 [Install]
