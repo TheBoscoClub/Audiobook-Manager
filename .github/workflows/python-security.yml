@@ -12,6 +12,8 @@ jobs:
   ruff:
     name: Ruff Linting
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
     - uses: astral-sh/ruff-action@146cd51f235777a9bc491eead18e0d5a4b05406a  # v3
@@ -21,6 +23,8 @@ jobs:
   mypy:
     name: Type Checking
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
     - name: Set up Python
@@ -42,6 +46,8 @@ jobs:
   bandit:
     name: Security Scan (Bandit)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
     - name: Set up Python
@@ -68,6 +74,8 @@ jobs:
   pip-audit:
     name: Dependency Vulnerabilities
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
     - name: Set up Python

@@ -10,6 +10,8 @@ jobs:
   shellcheck:
     name: Shell Script Linting
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
     - name: Checkout code
@@ -64,6 +66,8 @@ jobs:
   python-tests:
     name: Python Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
     - name: Checkout code
@@ -100,6 +104,8 @@ jobs:
   docker-build:
     name: Docker Build Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
     - name: Checkout code
@@ -121,6 +127,8 @@ jobs:
   yaml-lint:
     name: YAML Validation
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
     - name: Checkout code
