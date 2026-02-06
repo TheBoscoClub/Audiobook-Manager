@@ -24,7 +24,7 @@ def pytest_addoption(parser):
         "--vm",
         action="store_true",
         default=False,
-        help="Run integration tests that require the test VM (test-vm-cachyos)",
+        help="Run integration tests that require the test VM (test-audiobook-cachyos)",
     )
 
 
@@ -51,9 +51,10 @@ PROJECT_ROOT = LIBRARY_DIR.parent
 # Path to the database schema
 SCHEMA_PATH = LIBRARY_DIR / "backend" / "schema.sql"
 
-# VM connection details
-VM_HOST = "192.168.122.100"
+# VM connection details - test-audiobook-cachyos dedicated isolation VM
+VM_HOST = "192.168.122.104"
 VM_API_PORT = 5001
+VM_NAME = "test-audiobook-cachyos"
 
 
 VM_STARTED_BY_TESTS = False
@@ -61,7 +62,7 @@ VM_STARTED_BY_TESTS = False
 
 @pytest.fixture(scope="session", autouse=False)
 def ensure_vm_running():
-    """Start test-vm-cachyos if it's powered off.
+    """Start test-audiobook-cachyos if it's powered off.
 
     Checks VM state via virsh and starts it if needed, then waits
     for SSH connectivity before allowing tests to proceed.
@@ -70,7 +71,7 @@ def ensure_vm_running():
 
     try:
         result = subprocess.run(
-            ["sudo", "virsh", "domstate", "test-vm-cachyos"],
+            ["sudo", "virsh", "domstate", "test-audiobook-cachyos"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -80,7 +81,7 @@ def ensure_vm_running():
         return
 
     if result.returncode != 0:
-        pytest.skip("test-vm-cachyos not found in libvirt")
+        pytest.skip("test-audiobook-cachyos not found in libvirt")
         return
 
     state = result.stdout.strip()
@@ -90,7 +91,7 @@ def ensure_vm_running():
 
     # Start the VM
     start_result = subprocess.run(
-        ["sudo", "virsh", "start", "test-vm-cachyos"],
+        ["sudo", "virsh", "start", "test-audiobook-cachyos"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -135,7 +136,7 @@ def ensure_vm_running():
 
 @pytest.fixture(scope="session")
 def deploy_to_vm(ensure_vm_running):
-    """Deploy latest code to test-vm-cachyos before integration tests.
+    """Deploy latest code to test-audiobook-cachyos before integration tests.
 
     Runs ./deploy-vm.sh --full --restart and waits for the API health check.
     Skip with SKIP_VM_DEPLOY=1 for rapid iteration when code is already deployed.

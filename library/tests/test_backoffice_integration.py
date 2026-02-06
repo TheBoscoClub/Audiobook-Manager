@@ -4,13 +4,13 @@ Back Office Integration Tests
 Tests all Back Office (utilities) endpoints against the VM API
 with REAL DATA OUTPUT verification.
 
-These tests run against test-vm-cachyos (192.168.122.100).
+These tests run against test-vm-cachyos (192.168.122.104).
 Deploy latest code first: ./deploy-vm.sh --full --restart
 
 Run with: pytest library/tests/test_backoffice_integration.py -v
 
 Environment:
-    API_BASE_URL: Base URL of the API (default: http://192.168.122.100:5001)
+    API_BASE_URL: Base URL of the API (default: http://192.168.122.104:5001)
 """
 
 import os
@@ -23,7 +23,7 @@ import requests
 pytestmark = pytest.mark.integration
 
 # Configuration — defaults to VM; override with env var for local dev
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.100")
+VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"
 ADMIN_TOTP_SECRET = os.environ.get(

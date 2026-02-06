@@ -44,8 +44,8 @@ except ImportError:
     SELENIUM_AVAILABLE = False
 
 
-# Configuration — defaults to VM; override with env var for local dev
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.100")
+# Configuration — defaults to test-audiobook-cachyos VM; override with env var for local dev
+VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
 WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"

@@ -4,7 +4,7 @@ Integration tests for the full authentication lifecycle.
 Tests the complete auth flow for each auth method against the VM API:
   Admin login → Register user → Admin approve → Claim credentials → Login → Verify session
 
-Runs against: http://192.168.122.100:5001
+Runs against: http://192.168.122.104:5001
 
 Required:
   - test-vm-cachyos running with audiobook API
@@ -39,7 +39,7 @@ from tests.helpers.software_authenticator import SoftwareAuthenticator
 # Configuration
 # ---------------------------------------------------------------------------
 
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.100")
+VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
 VM_API_PORT = int(os.environ.get("VM_API_PORT", "5001"))
 API_BASE = f"http://{VM_HOST}:{VM_API_PORT}"
 
