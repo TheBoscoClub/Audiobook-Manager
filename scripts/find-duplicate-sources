@@ -46,7 +46,7 @@ echo ""
 
 # Build associative array: normalized_title -> list of files
 declare -A title_files
-declare -a duplicates_to_remove
+declare -a duplicates_to_remove=()  # Initialize empty to avoid unbound variable with set -u
 
 # Recursive to handle nested download batches
 while IFS= read -r aaxc; do
