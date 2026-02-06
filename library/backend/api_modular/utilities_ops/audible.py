@@ -7,6 +7,7 @@ Handles downloading from Audible and syncing metadata (genres, narrators).
 import os
 import re
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -229,7 +230,7 @@ def init_audible_routes(project_root):
                     operation_id, 5, "Loading Audible metadata..."
                 )
 
-                cmd = ["python3", "-u", str(script_path)]  # -u for unbuffered
+                cmd = [sys.executable, "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:
                     cmd.append("--execute")
 
@@ -369,7 +370,7 @@ def init_audible_routes(project_root):
                     operation_id, 5, "Loading Audible metadata..."
                 )
 
-                cmd = ["python3", "-u", str(script_path)]  # -u for unbuffered
+                cmd = [sys.executable, "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:
                     cmd.append("--execute")
 

@@ -127,7 +127,7 @@ def init_library_routes(db_path, project_root):
 
                 # Use Popen for streaming progress instead of blocking run()
                 process = subprocess.Popen(
-                    ["python3", "-u", str(scanner_path)],  # -u for unbuffered
+                    [sys.executable, "-u", str(scanner_path)],  # -u for unbuffered
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
@@ -250,7 +250,7 @@ def init_library_routes(db_path, project_root):
 
                 # Use Popen for streaming progress instead of blocking run()
                 process = subprocess.Popen(
-                    ["python3", "-u", str(import_path)],  # -u for unbuffered
+                    [sys.executable, "-u", str(import_path)],  # -u for unbuffered
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,

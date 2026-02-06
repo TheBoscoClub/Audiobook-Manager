@@ -7,6 +7,7 @@ Handles queue rebuilding, index cleanup, sort field population, and duplicate de
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import threading
 from pathlib import Path
@@ -335,7 +336,7 @@ def init_maintenance_routes(project_root):
                     operation_id, 5, "Loading audiobooks from database..."
                 )
 
-                cmd = ["python3", "-u", str(script_path)]  # -u for unbuffered
+                cmd = [sys.executable, "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:
                     cmd.append("--execute")
 
@@ -503,7 +504,7 @@ def init_maintenance_routes(project_root):
                 try:
                     export_result = subprocess.run(
                         [
-                            "python3", "-m", "audible_cli",
+                            sys.executable, "-m", "audible_cli",
                             "library", "export",
                             "--format", "json",
                             "--output", str(library_export),
@@ -547,7 +548,7 @@ def init_maintenance_routes(project_root):
                 )
 
                 # Step 2: Match using library export (conservative threshold)
-                cmd = ["python3", "-u", str(library_script)]
+                cmd = [sys.executable, "-u", str(library_script)]
                 cmd.extend(["--library", str(library_export)])
                 cmd.extend(["--db", str(AUDIOBOOKS_DATABASE)])
                 cmd.extend(["--threshold", "0.6"])  # Conservative threshold

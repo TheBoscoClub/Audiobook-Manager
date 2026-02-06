@@ -4,6 +4,7 @@ Handles rescan, reimport, hash generation, vacuum, and export operations.
 """
 
 import subprocess
+import sys
 
 from flask import Blueprint, Response, jsonify, send_file
 
@@ -27,7 +28,7 @@ def init_db_routes(db_path, project_root):
 
         try:
             result = subprocess.run(
-                ["python3", str(scanner_path)],
+                [sys.executable, str(scanner_path)],
                 capture_output=True,
                 text=True,
                 timeout=1800,  # 30 minute timeout for large libraries
@@ -73,7 +74,7 @@ def init_db_routes(db_path, project_root):
 
         try:
             result = subprocess.run(
-                ["python3", str(import_path)],
+                [sys.executable, str(import_path)],
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout
@@ -132,7 +133,7 @@ def init_db_routes(db_path, project_root):
 
         try:
             result = subprocess.run(
-                ["python3", str(hash_script), "--parallel"],
+                [sys.executable, str(hash_script), "--parallel"],
                 capture_output=True,
                 text=True,
                 timeout=1800,  # 30 minute timeout for large libraries

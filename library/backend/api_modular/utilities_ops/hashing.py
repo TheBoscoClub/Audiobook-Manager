@@ -8,6 +8,7 @@ import hashlib
 import os
 import re as regex
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -58,7 +59,7 @@ def init_hashing_routes(project_root):
 
                 # Use Popen for streaming progress
                 process = subprocess.Popen(
-                    ["python3", "-u", str(hash_script), "--parallel"],
+                    [sys.executable, "-u", str(hash_script), "--parallel"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
