@@ -4,7 +4,7 @@
 # Build: docker build -t audiobooks .
 # Run:   docker-compose up -d
 
-FROM python:3.11.11-slim
+FROM python:3.14.0-slim
 
 # Read version from VERSION file during build
 ARG APP_VERSION=5.0.2
