@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook Library - User Installation Script
 # =============================================================================
@@ -42,7 +42,7 @@ LOG_DIR="$HOME/.local/var/log/audiobooks"
 STATE_DIR="$HOME/.local/var/lib/audiobooks"
 
 # Script directory (source)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 
 # Options
 INSTALL_SERVICES=true

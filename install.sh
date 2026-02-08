@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook Library - Unified Installation Script
 # =============================================================================
@@ -46,7 +46,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Script directory (source)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 
 # Default options
 INSTALL_MODE=""

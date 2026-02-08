@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # Re-download Corrupted Audiobooks
 # Reads the priority list and forces re-download of corrupted files
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 
 # Load configuration
 source "$SCRIPT_DIR/../../lib/audiobook-config.sh"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook Library - API Architecture Migration Script
 # =============================================================================
@@ -39,7 +39,7 @@ DIM='\033[2m'
 NC='\033[0m'
 
 # Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 
 # Options
 ACTION=""

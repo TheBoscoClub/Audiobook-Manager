@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # create-release.sh - Build release tarballs for Audiobook-Manager
 # =============================================================================
@@ -21,7 +21,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Script location
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
 # GitHub repository info

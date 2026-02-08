@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library V2 - Database-backed version
 # Launches Flask API server and opens web interface
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 cd "$SCRIPT_DIR"
 
 # Colors
