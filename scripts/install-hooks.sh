@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # install-hooks.sh - Install git hooks for the Audiobooks project
 #
 # Run this after cloning to set up commit safeguards:
@@ -9,7 +9,7 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 HOOKS_SOURCE="$SCRIPT_DIR/hooks"
 HOOKS_DEST="$PROJECT_ROOT/.git/hooks"

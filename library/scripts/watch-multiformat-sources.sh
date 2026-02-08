@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # Multi-Format Audiobook Source Watcher
 # Watches drop folders for new audiobooks from various sources
 # Processes ZIP files and MP3 directories into OPUS format
@@ -29,7 +29,7 @@
 set -euo pipefail
 
 # Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 if [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
     source /usr/local/lib/audiobooks/audiobook-config.sh
 elif [[ -f "$SCRIPT_DIR/../../lib/audiobook-config.sh" ]]; then

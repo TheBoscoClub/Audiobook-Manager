@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook Library - Deployment Script
 # =============================================================================
@@ -40,7 +40,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Script directory (source project)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 VERSION_FILE="${SCRIPT_DIR}/VERSION"
 
 # Options

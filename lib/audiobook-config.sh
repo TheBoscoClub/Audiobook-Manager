@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook Library - Shell Configuration Loader
 # =============================================================================
@@ -48,8 +48,8 @@ _load_config_file() {
 # -----------------------------------------------------------------------------
 if [[ -z "${AUDIOBOOKS_HOME:-}" ]]; then
     # Try to detect from this script's location
-    if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
-        _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ -n "${0:-}" ]]; then
+        _script_dir="${0:A:h}"
         # If we're in lib/, go up one level
         if [[ "$(basename "$_script_dir")" == "lib" ]]; then
             AUDIOBOOKS_HOME="$(dirname "$_script_dir")"
@@ -209,6 +209,6 @@ audiobooks_python() {
 }
 
 # Run if executed directly (for testing)
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+if [[ ! "${ZSH_EVAL_CONTEXT:-}" =~ :file ]]; then
     audiobooks_print_config
 fi

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook Library - System-wide Installation Script
 # =============================================================================
@@ -39,7 +39,7 @@ SYSTEMD_DIR="/etc/systemd/system"
 DATA_DIR="/srv/audiobooks"
 
 # Script directory (source)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 
 # Options
 INSTALL_SERVICES=true

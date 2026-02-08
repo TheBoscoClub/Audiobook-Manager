@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # Quick launcher for Audiobook Library
 
 set -e  # Exit on error
@@ -16,7 +16,7 @@ echo "========================================="
 echo ""
 
 # Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 echo "[DEBUG] Script directory: $SCRIPT_DIR"
 
 # Change to project directory

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook Library - Upgrade Script
 # =============================================================================
@@ -49,7 +49,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Script location - could be in project OR installed app
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 
 # Options
 PROJECT_DIR=""

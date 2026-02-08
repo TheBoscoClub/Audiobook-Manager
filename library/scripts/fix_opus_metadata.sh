@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # OPUS Metadata Fixer - Extract ALL metadata from AAXC and apply to OPUS files
 # Fixes: Author, Narrator, Publisher, Title, Cover Art, Date, Genre, Comment
 #
@@ -8,7 +8,7 @@
 # - Full logging to /tmp/opus_metadata_fix.log
 # - Progress tracking every 50 files
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Load configuration

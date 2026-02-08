@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Audiobook-Manager Development User Management
 # =============================================================================
@@ -16,7 +16,7 @@
 set -e
 
 # Get project root
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Dev database and key paths

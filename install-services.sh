@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobooks Library - Systemd User Service Installer
 # Generates self-signed SSL certificate and installs user-level systemd services
 #
@@ -18,7 +18,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Determine script location (project directory)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${0:A:h}"
 
 # Load configuration
 source "$SCRIPT_DIR/lib/audiobook-config.sh"
