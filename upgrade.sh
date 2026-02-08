@@ -927,7 +927,6 @@ do_github_upgrade() {
     # Create temp directory
     local temp_dir
     temp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064
     trap "rm -rf '$temp_dir'" EXIT
 
     # Download and extract
