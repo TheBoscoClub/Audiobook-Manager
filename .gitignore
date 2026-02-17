@@ -28,6 +28,9 @@ exit.*
 # Claude Code instructions (local only)
 CLAUDE.md
 
+# CLAUDE.md version history (zstd-compressed snapshots, managed by session-start hook)
+.claude-md-history/
+
 # Database (keep structure, ignore actual data)
 *.db
 !library/backend/schema.sql
@@ -205,6 +208,9 @@ exit.*
 
 # Project-specific Claude instructions (each project has its own)
 CLAUDE.md
+
+# CLAUDE.md version history (zstd-compressed snapshots, managed by session-start hook)
+.claude-md-history/
 
 # Claude ignore patterns
 .claudeignore
