@@ -7,7 +7,7 @@ Tests the complete auth flow for each auth method against the VM API:
 Runs against: http://192.168.122.104:5001
 
 Required:
-  - test-vm-cachyos running with audiobook API
+  - test-audiobook-cachyos running with audiobook API
   - testadmin account (TOTP, admin)
   - SKIP_VM_DEPLOY=1 to skip auto-deploy (optional)
 
