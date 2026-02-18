@@ -1,0 +1,113 @@
+{
+  "project": "Audiobook-Manager",
+  "description": "Audiobooks Library — Flask API, systemd services, system-wide installation",
+
+  "vm_testing": {
+    "enabled": true,
+    "required_for": [
+      "System-wide installation (install-system.sh, install-services.sh)",
+      "Systemd service management (audiobook.target, 5 services + timers)",
+      "SSL certificate generation",
+      "Environment profile installation (/etc/profile.d/)",
+      "API integration tests",
+      "UI/Playwright E2E tests",
+      "WebAuthn/FIDO2 authentication flows"
+    ],
+    "reason": "Installs to /etc/systemd/system/, /usr/local/bin/, /usr/local/lib/, /opt/audiobooks/, /etc/profile.d/. Must not contaminate host.",
+
+    "default_vm": "test-audiobook-cachyos",
+
+    "dangerous_operations": [
+      "systemd_service_install",
+      "system_directory_creation",
+      "ssl_certificate_generation",
+      "environment_profile_install",
+      "user_group_creation",
+      "venv_system_install"
+    ],
+
+    "test_environments": [
+      {
+        "name": "test-audiobook-cachyos",
+        "type": "existing",
+        "vm_name": "test-audiobook-cachyos",
+        "snapshot": "clean-install",
+        "description": "Dedicated CachyOS VM for audiobook integration/API/UI testing",
+        "requirements": {
+          "python": "3.14",
+          "ffmpeg": true,
+          "ffprobe": true,
+          "systemd": true
+        },
+        "static_ip": "192.168.122.104",
+        "ports": {
+          "api": 5001,
+          "web": 8443,
+          "spice": 5900
+        }
+      }
+    ],
+
+    "test_categories": {
+      "unit_tests": {
+        "vm_required": false,
+        "description": "Metadata, config, utility functions — safe locally",
+        "run_command": "cd library && pytest tests/test_metadata_utils.py tests/test_config.py tests/test_common.py tests/test_editions.py -v"
+      },
+      "api_integration_tests": {
+        "vm_required": true,
+        "description": "API endpoint tests against running services — MUST use VM",
+        "run_command": "cd library && pytest tests/ --vm -v",
+        "markers": ["integration"]
+      },
+      "ui_tests": {
+        "vm_required": true,
+        "description": "Playwright browser tests for player navigation — MUST use VM",
+        "run_command": "cd library && pytest tests/test_player_navigation_persistence.py --vm -v",
+        "markers": ["integration"]
+      },
+      "auth_tests": {
+        "vm_required": true,
+        "description": "WebAuthn/FIDO2 auth flow tests — MUST use VM",
+        "run_command": "cd library && pytest tests/test_auth_integration.py tests/test_auth_lifecycle_integration.py --vm -v",
+        "markers": ["integration"]
+      },
+      "hardware_tests": {
+        "vm_required": true,
+        "description": "YubiKey/physical security key tests — needs --hardware flag",
+        "run_command": "cd library && pytest tests/ --vm --hardware -v",
+        "markers": ["hardware"]
+      }
+    },
+
+    "deploy": {
+      "script": "deploy-vm.sh",
+      "command": "./deploy-vm.sh --host 192.168.122.104 --full --restart",
+      "verify": [
+        "ssh -i ~/.ssh/id_ed25519 claude@192.168.122.104 'cat /opt/audiobooks/VERSION'",
+        "curl -s http://192.168.122.104:5001/api/system/version"
+      ]
+    }
+  },
+
+  "local_testing": {
+    "safe_commands": [
+      "cd library && pytest tests/test_metadata_utils.py tests/test_config.py tests/test_common.py -v",
+      "ruff check library/",
+      "mypy library/ --ignore-missing-imports",
+      "bandit -r library/ -x library/tests"
+    ],
+    "unsafe_commands": [
+      "pytest tests/ --vm",
+      "install-system.sh",
+      "install-services.sh",
+      "deploy.sh"
+    ]
+  },
+
+  "ssh_config": {
+    "user": "claude",
+    "key": "~/.ssh/id_ed25519",
+    "password": "REDACTED_VM_PASSWORD"
+  }
+}
