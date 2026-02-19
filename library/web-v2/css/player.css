@@ -288,3 +288,38 @@
         font-size: 1rem;
     }
 }
+
+/* ============================================
+   Landscape Mobile Compaction
+   ============================================ */
+@media (orientation: landscape) and (max-height: 500px) {
+    .audio-player {
+        padding: 0.5rem 1rem;
+    }
+
+    .player-info {
+        margin-bottom: 0.25rem;
+    }
+
+    .player-cover {
+        width: 36px;
+        height: 36px;
+    }
+
+    .progress-container {
+        margin-bottom: 0.25rem;
+    }
+
+    .player-controls {
+        margin-bottom: 0.25rem;
+        gap: 0.5rem;
+    }
+
+    .player-extras {
+        gap: 0.5rem;
+    }
+
+    .player-file-info {
+        display: none;
+    }
+}
