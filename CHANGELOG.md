@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [6.0.0] - 2026-02-18
+
+### Added
 - **Security**: Dual-mode security architecture — `admin_or_localhost` decorator adapts endpoint protection based on deployment mode
   - `AUTH_ENABLED=true` (remote): Admin endpoints require authenticated admin user
   - `AUTH_ENABLED=false` (standalone): Admin endpoints restricted to localhost only
@@ -40,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Install**: Auth key permissions set to `audiobooks:audiobooks 0600` — was `root:audiobooks 0640`
 - **Install**: Correct pip package name `webauthn` (not `py-webauthn`)
 - **Testing**: Stale VM name `test-vm-cachyos` → `test-audiobook-cachyos` in pytest.ini and integration test docstrings
+- **Deps**: `pillow` 12.1.0 → 12.1.1 (GHSA-cfh3-3jmp-rvhc, OOB write on PSD)
+- **Deps**: `cryptography` floor raised to ≥46.0.5 (GHSA-r6ph-v2qm-q3c2, subgroup attack)
 
 ## [5.0.2] - 2026-02-06
 

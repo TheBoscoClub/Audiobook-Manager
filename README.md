@@ -6,6 +6,7 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
+| ![6](https://img.shields.io/badge/6-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest major | [v6.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.0.0) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v5.0.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.2) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v5.0.1.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1.1) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v5.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1) |
@@ -1387,6 +1388,13 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.0.0
+- **Security**: Dual-mode security architecture — admin endpoints adapt protection based on deployment mode
+- **Install**: Service account creation, auth key generation, DB initialization, venv validation
+- **BREAKING**: All 27 shell scripts converted from bash to zsh
+- **Deps**: Fix HIGH CVEs in pillow (12.1.1) and cryptography (46.0.5)
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v5.0.2
 - **Testing**: VM_TESTS environment variable for WebAuthn origin selection
