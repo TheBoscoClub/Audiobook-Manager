@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.1.2] - 2026-02-18
+
+### Fixed
+- **Auth**: First-user registration returned backup codes as formatted string instead of JSON array, causing JavaScript TypeError displayed as "Connection error"
+- **Auth**: Added clipboard copy button for TOTP backup codes on registration page
+- **Proxy**: HTTP error handler now forwards Flask's original response body instead of generic error message
+- **Upgrade**: Removed data directories (`/srv/audiobooks`, `/hddRaid1/Audiobooks`) from installed app detection candidates — only actual app installation paths are checked
+- **System**: Removed development-specific paths from project discovery endpoint, keeping only `AUDIOBOOKS_PROJECT_DIR` env var and generic fallbacks
+
 ## [6.1.1] - 2026-02-18
 
 ### Fixed
