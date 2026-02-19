@@ -69,7 +69,7 @@ echo "  - Create searchable database"
 echo ""
 echo "Estimated time: 30-60 minutes"
 echo ""
-read -p "Start scanning now? (y/n) " -n 1 -r
+read -r -k 1 "REPLY?Start scanning now? (y/n) "
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then

@@ -23,7 +23,7 @@ echo "These files are safe to delete because:"
 echo "  - Valid versions exist in the Library"
 echo "  - Source AAXC files are preserved in $AUDIOBOOKS_SOURCES"
 echo ""
-read -p "Continue with cleanup? (y/n): " -n 1 -r
+read -r -k 1 "REPLY?Continue with cleanup? (y/n): "
 echo ""
 
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then

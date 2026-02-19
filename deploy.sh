@@ -478,13 +478,13 @@ if [[ -z "$TARGET_TYPE" ]]; then
     echo "  4) Cancel"
     echo ""
 
-    read -r -p "Enter choice [1-4]: " choice
+    read -r "choice?Enter choice [1-4]: "
     case "$choice" in
         1) TARGET_TYPE="system" ;;
         2) TARGET_TYPE="user" ;;
         3)
             TARGET_TYPE="custom"
-            read -r -p "Enter custom path: " CUSTOM_TARGET
+            read -r "CUSTOM_TARGET?Enter custom path: "
             ;;
         4)
             echo "Deployment cancelled."
