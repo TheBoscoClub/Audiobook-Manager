@@ -902,7 +902,7 @@ do_github_upgrade() {
         echo -e "${YELLOW}Warning: Target version ($install_version) is older than current ($current_version)${NC}"
         echo -n "Continue with downgrade? [y/N]: "
         read -r confirm
-        if [[ "${confirm,,}" != "y" ]]; then
+        if [[ "${(L)confirm}" != "y" ]]; then
             echo "Cancelled."
             return 0
         fi
@@ -942,7 +942,7 @@ do_github_upgrade() {
     # Confirm upgrade
     if [[ "$DRY_RUN" == "false" ]]; then
         read -r "confirm?Upgrade from $current_version to $install_version? [y/N]: "
-        if [[ "${confirm,,}" != "y" ]] && [[ "${confirm,,}" != "yes" ]]; then
+        if [[ "${(L)confirm}" != "y" ]] && [[ "${(L)confirm}" != "yes" ]]; then
             echo "Upgrade cancelled."
             return 0
         fi
@@ -1115,7 +1115,7 @@ echo ""
 # Confirm upgrade
 if [[ "$DRY_RUN" == "false" ]]; then
     read -r "confirm?Proceed with upgrade? [y/N]: "
-    if [[ "${confirm,,}" != "y" ]] && [[ "${confirm,,}" != "yes" ]]; then
+    if [[ "${(L)confirm}" != "y" ]] && [[ "${(L)confirm}" != "yes" ]]; then
         echo "Upgrade cancelled."
         exit 0
     fi
