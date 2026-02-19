@@ -265,6 +265,84 @@
             color: #333;
         }
 
+        /* Invite button in section header */
+        .btn-invite {
+            background: var(--color-accent, #c9a227);
+            color: #fff;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.2s ease;
+        }
+
+        .btn-invite:hover {
+            background: #8b6914;
+        }
+
+        .section-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* Form fields in modals */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+            color: #333;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"] {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            color: #333;
+            background: #fff;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--color-accent, #c9a227);
+            box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.2);
+        }
+
+        .form-group .form-help {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.25rem;
+        }
+
+        .form-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .form-error {
+            color: var(--color-danger, #c0392b);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
         /* Loading state */
         .loading {
             opacity: 0.6;
@@ -333,7 +411,10 @@
             <section class="admin-section" id="users-section">
                 <div class="section-header">
                     <h2 class="section-title">Registered Users</h2>
-                    <span class="badge" id="users-count">0</span>
+                    <div class="section-header-actions">
+                        <button class="btn-invite" onclick="showInviteModal()" title="Pre-register and invite a new user">Invite User</button>
+                        <span class="badge" id="users-count">0</span>
+                    </div>
                 </div>
                 <div id="users-content">
                     <div class="empty-state">
@@ -409,6 +490,71 @@
             <div class="modal-footer">
                 <button class="action-btn" onclick="closeDeleteModal()" style="background: #ccc;">Cancel</button>
                 <button class="action-btn btn-delete" id="confirm-delete-btn">Delete User</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite User Modal -->
+    <div class="modal-overlay" id="invite-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Invite New User</h3>
+            </div>
+            <div class="modal-body">
+                <p>Create a pre-approved account and send an invitation with a claim token.</p>
+                <div class="form-group">
+                    <label for="invite-username">Username</label>
+                    <input type="text" id="invite-username" placeholder="e.g. johndoe" minlength="5" maxlength="16" autocomplete="off">
+                    <div class="form-help">5-16 characters</div>
+                </div>
+                <div class="form-group">
+                    <label for="invite-email">Email</label>
+                    <input type="email" id="invite-email" placeholder="user@example.com" autocomplete="off">
+                    <div class="form-help">Invitation with claim token will be sent here</div>
+                </div>
+                <div class="form-group">
+                    <div class="form-toggle">
+                        <input type="checkbox" id="invite-download" checked>
+                        <label for="invite-download" style="margin: 0;">Allow downloads</label>
+                    </div>
+                </div>
+                <div class="form-error" id="invite-error"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn" onclick="closeInviteModal()" style="background: #ccc;">Cancel</button>
+                <button class="action-btn btn-approve" id="invite-submit-btn" onclick="inviteUser()">Send Invite</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Success Modal -->
+    <div class="modal-overlay" id="invite-success-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Invitation Sent</h3>
+            </div>
+            <div class="modal-body">
+                <p>User <strong id="invited-username"></strong> has been created.</p>
+
+                <div class="credentials-box">
+                    <span class="credentials-label">Claim Token:</span>
+                    <code id="invite-claim-token" style="font-size: 1.3rem; letter-spacing: 0.1em;"></code>
+                </div>
+
+                <p id="invite-email-status"></p>
+
+                <div class="credentials-box">
+                    <span class="credentials-label">Claim Page URL:</span>
+                    <code id="invite-claim-url" style="font-size: 0.85rem;"></code>
+                </div>
+
+                <p style="color: #888; font-size: 0.85rem;">
+                    The user enters their username and claim token on the claim page to set up their authenticator app.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn" id="copy-invite-btn" onclick="copyInviteDetails()" title="Copy claim token to clipboard" style="background: #555; color: #fff;">Copy Token</button>
+                <button class="action-btn btn-approve" onclick="closeInviteSuccessModal()">Done</button>
             </div>
         </div>
     </div>
@@ -776,6 +922,113 @@
         function closeDeleteModal() {
             document.getElementById('delete-modal').classList.remove('active');
             currentUserId = null;
+        }
+
+        // Invite user
+        function showInviteModal() {
+            document.getElementById('invite-username').value = '';
+            document.getElementById('invite-email').value = '';
+            document.getElementById('invite-download').checked = true;
+            document.getElementById('invite-error').style.display = 'none';
+            document.getElementById('invite-submit-btn').disabled = false;
+            document.getElementById('invite-submit-btn').textContent = 'Send Invite';
+            document.getElementById('invite-modal').classList.add('active');
+            document.getElementById('invite-username').focus();
+        }
+
+        function closeInviteModal() {
+            document.getElementById('invite-modal').classList.remove('active');
+        }
+
+        function closeInviteSuccessModal() {
+            document.getElementById('invite-success-modal').classList.remove('active');
+        }
+
+        async function inviteUser() {
+            const username = document.getElementById('invite-username').value.trim();
+            const email = document.getElementById('invite-email').value.trim();
+            const canDownload = document.getElementById('invite-download').checked;
+            const errorEl = document.getElementById('invite-error');
+            const submitBtn = document.getElementById('invite-submit-btn');
+
+            // Client-side validation
+            if (!username) {
+                errorEl.textContent = 'Username is required';
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (username.length < 5) {
+                errorEl.textContent = 'Username must be at least 5 characters';
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (!email) {
+                errorEl.textContent = 'Email is required for invitations';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            errorEl.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+
+            try {
+                const data = await apiCall('/admin/users/invite', 'POST', {
+                    username: username,
+                    email: email,
+                    can_download: canDownload
+                });
+
+                if (data.success) {
+                    closeInviteModal();
+
+                    // Show success modal with claim token
+                    document.getElementById('invited-username').textContent = data.user.username;
+                    document.getElementById('invite-claim-token').textContent = data.claim_token;
+
+                    const claimUrl = window.location.origin + '/claim.html';
+                    document.getElementById('invite-claim-url').textContent = claimUrl;
+
+                    const statusEl = document.getElementById('invite-email-status');
+                    if (data.email_sent) {
+                        statusEl.textContent = 'Invitation email sent to ' + email + '.';
+                        statusEl.style.color = 'var(--color-success, #27ae60)';
+                    } else {
+                        statusEl.textContent = 'Email could not be sent. Share the claim token manually.';
+                        statusEl.style.color = 'var(--color-danger, #c0392b)';
+                    }
+
+                    document.getElementById('invite-success-modal').classList.add('active');
+                    loadUsers();
+                } else {
+                    errorEl.textContent = data.error || 'Unknown error';
+                    errorEl.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Send Invite';
+                }
+            } catch (error) {
+                errorEl.textContent = 'Error: ' + error.message;
+                errorEl.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Invite';
+            }
+        }
+
+        async function copyInviteDetails() {
+            const token = document.getElementById('invite-claim-token').textContent;
+            const btn = document.getElementById('copy-invite-btn');
+            try {
+                await navigator.clipboard.writeText(token);
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = 'Copy Token'; }, 2000);
+            } catch (e) {
+                // Fallback: select the token text
+                const range = document.createRange();
+                range.selectNodeContents(document.getElementById('invite-claim-token'));
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
         }
 
         // Close modals on overlay click
