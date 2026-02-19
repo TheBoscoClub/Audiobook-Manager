@@ -128,11 +128,9 @@ find_installed_dir() {
     # Try to find the installed application
     # Priority: system paths first, then user paths, then custom locations
     local candidates=(
-        "/opt/audiobooks"           # Standard system installation
-        "/usr/local/lib/audiobooks" # Alternative system location
+        "/opt/audiobooks"             # Standard system installation
+        "/usr/local/lib/audiobooks"   # Alternative system location
         "$HOME/.local/lib/audiobooks" # User installation
-        "/srv/audiobooks"           # Server data location
-        "/hddRaid1/Audiobooks"         # Custom location (data, not app)
     )
 
     local found=()
