@@ -689,7 +689,7 @@ verify_installation_permissions() {
 
     # Verify no symlinks point to project source directory
     echo -n "  Checking for project source dependencies... "
-    local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
+    local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "$SCRIPT_DIR" || true)
     if [[ "$project_links" -gt 0 ]]; then
         echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
         issues_found=$((issues_found + 1))
