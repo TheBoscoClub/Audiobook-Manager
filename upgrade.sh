@@ -109,9 +109,9 @@ find_project_dir() {
     # Try to find the project directory
     local candidates=(
         "$SCRIPT_DIR"
-        "/hddRaid1/ClaudeCodeProjects/Audiobook-Manager"
         "$HOME/Projects/Audiobook-Manager"
         "$HOME/audiobooks-project"
+        "$HOME/Audiobook-Manager"
     )
 
     for dir in "${candidates[@]}"; do
