@@ -60,10 +60,7 @@ from auth.totp import (
     base32_to_secret,
     generate_qr_code,
 )
-from auth.backup_codes import (
-    BackupCodeRepository,
-    format_codes_for_display,
-)
+from auth.backup_codes import BackupCodeRepository
 
 # Blueprint
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -3337,7 +3334,6 @@ def invite_user():
         409: {"error": "Username already taken"}
     """
     import re
-    import json as json_module
 
     data = request.get_json() or {}
 

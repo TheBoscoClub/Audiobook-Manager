@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.1.3] - 2026-02-19
+
+### Fixed
+- **Auth**: Rewrite invite flow — invitations no longer pre-create users, eliminating "credentials already claimed" and method selection loop bugs during claim
+- **Auth**: TOTP and WebAuthn claim endpoints now read invite metadata for admin-set download permissions
+- **Auth**: Delete user now cascade-deletes associated access requests, preventing orphaned records
+- **Auth**: Invite endpoint replaces stale access requests instead of blocking with "already exists" error
+- **Admin**: Download toggle button now calls correct API endpoint (`/toggle-download` POST instead of non-existent `/permissions` PUT)
+- **Scan**: Library rescan progress meter now shows real-time updates in web UI (was stuck at 5% due to ANSI escape codes in scanner output breaking regex parser)
+
 ## [6.1.2.1] - 2026-02-18
 
 ### Added
