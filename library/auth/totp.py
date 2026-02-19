@@ -97,7 +97,6 @@ def generate_qr_code(
     """
     try:
         import qrcode
-        from qrcode.image.pil import PilImage
     except ImportError:
         raise ImportError("qrcode[pil] package required for QR code generation")
 
