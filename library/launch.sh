@@ -42,7 +42,7 @@ if [ ! -f "$SCRIPT_DIR/data/audiobooks.json" ]; then
     echo "  cd $SCRIPT_DIR"
     echo "  ./setup.sh"
     echo ""
-    read -p "Press Enter to exit..."
+    read "?Press Enter to exit..."
     exit 1
 fi
 
@@ -52,7 +52,7 @@ echo "[DEBUG] Data file found!"
 BOOK_COUNT=$(python3 -c "import json; data=json.load(open('$SCRIPT_DIR/data/audiobooks.json')); print(data['total_audiobooks'])" 2>&1) || {
     echo "❌ Error reading audiobook data"
     echo "Error: $BOOK_COUNT"
-    read -p "Press Enter to exit..."
+    read "?Press Enter to exit..."
     exit 1
 }
 
@@ -77,7 +77,7 @@ if [ $PORT -gt $MAX_PORT ]; then
     echo "❌ Error: No available ports found between 8090-8099"
     echo ""
     echo "Please close some applications and try again."
-    read -p "Press Enter to exit..."
+    read "?Press Enter to exit..."
     exit 1
 fi
 
@@ -103,7 +103,7 @@ if ! kill -0 $SERVER_PID 2>/dev/null; then
     echo "❌ Error: Server failed to start"
     echo "Log output:"
     cat /tmp/audiobook-library-server.log
-    read -p "Press Enter to exit..."
+    read "?Press Enter to exit..."
     exit 1
 fi
 

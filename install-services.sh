@@ -51,10 +51,10 @@ fi
 
 # Prompt for overrides if not --no-prompt
 if [[ "$NO_PROMPT" != "true" ]]; then
-    read -r -p "Audiobook library directory [$AUDIOBOOK_DIR]: " input
+    read -r "input?Audiobook library directory [$AUDIOBOOK_DIR]: "
     AUDIOBOOK_DIR="${input:-$AUDIOBOOK_DIR}"
 
-    read -r -p "Supplements (PDF) directory [$SUPPLEMENTS_DIR]: " input
+    read -r "input?Supplements (PDF) directory [$SUPPLEMENTS_DIR]: "
     SUPPLEMENTS_DIR="${input:-$SUPPLEMENTS_DIR}"
 fi
 
@@ -82,7 +82,7 @@ if [[ -f "$CERT_FILE" && -f "$KEY_FILE" ]]; then
     echo "  Current certificate expires: $EXPIRY"
 
     if [[ "$NO_PROMPT" != "true" ]]; then
-        read -r -p "  Generate new certificate? [y/N]: " REGEN
+        read -r "REGEN?  Generate new certificate? [y/N]: "
         if [[ "$REGEN" != "y" && "$REGEN" != "Y" ]]; then
             echo "  Keeping existing certificate."
         else
@@ -246,7 +246,7 @@ echo ""
 # Step 4: Start services (optional)
 # ============================================================================
 if [[ "$NO_PROMPT" != "true" ]]; then
-    read -r -p "Start services now? [Y/n]: " START_NOW
+    read -r "START_NOW?Start services now? [Y/n]: "
 else
     START_NOW="Y"
 fi
