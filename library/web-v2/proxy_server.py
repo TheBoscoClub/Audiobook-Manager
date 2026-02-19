@@ -20,8 +20,12 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import (AUDIOBOOKS_API_PORT, AUDIOBOOKS_BIND_ADDRESS,
-                    AUDIOBOOKS_CERTS, AUDIOBOOKS_WEB_PORT)
+from config import (
+    AUDIOBOOKS_API_PORT,
+    AUDIOBOOKS_BIND_ADDRESS,
+    AUDIOBOOKS_CERTS,
+    AUDIOBOOKS_WEB_PORT,
+)
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 API_PORT = AUDIOBOOKS_API_PORT
@@ -29,6 +33,7 @@ CERT_DIR = AUDIOBOOKS_CERTS
 CERT_FILE = CERT_DIR / "server.crt"
 KEY_FILE = CERT_DIR / "server.key"
 BIND_ADDRESS = AUDIOBOOKS_BIND_ADDRESS
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
 
 
 class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
@@ -68,7 +73,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
         self.send_header(
             "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"
         )
@@ -95,11 +100,26 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         api_url = f"http://127.0.0.1:{API_PORT}{path}"  # lgtm[py/ssrf]
 
         try:
-            # Prepare headers
+            # Prepare headers - forward client headers to Flask
             headers = {}
             for header in ["Content-Type", "Range", "Accept", "Cookie"]:
                 if header in self.headers:
                     headers[header] = self.headers[header]
+
+            # Forward proxy headers so Flask sees real client info
+            # These are set by the upstream Caddy reverse proxy
+            for proxy_header in [
+                "X-Forwarded-For",
+                "X-Forwarded-Proto",
+                "X-Real-IP",
+                "Host",
+            ]:
+                if proxy_header in self.headers:
+                    headers[proxy_header] = self.headers[proxy_header]
+
+            # If no X-Forwarded-For from upstream, set it from the connecting client
+            if "X-Forwarded-For" not in headers:
+                headers["X-Forwarded-For"] = self.client_address[0]
 
             # Read request body for POST/PUT
             body = None
@@ -117,12 +137,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 # Send response status
                 self.send_response(response.status)
 
-                # Copy headers from API response
+                # Copy headers from API response (Flask already sets CORS)
                 for header, value in response.headers.items():
                     self.send_header(header, value)
-
-                # Add CORS headers
-                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
 
                 # Stream response body
@@ -136,7 +153,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # Forward HTTP errors from API
             self.send_response(e.code)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
             self.end_headers()
             error_body = json.dumps(
                 {"error": e.reason, "code": e.code, "message": f"API error: {e.reason}"}
@@ -147,7 +164,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # API server not reachable
             self.send_response(503)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
             self.end_headers()
             error_body = json.dumps(
                 {
@@ -162,7 +179,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # Unexpected error
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
             self.end_headers()
             error_body = json.dumps(
                 {"error": "Internal Server Error", "code": 500, "message": str(e)}

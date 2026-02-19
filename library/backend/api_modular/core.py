@@ -2,6 +2,7 @@
 Core API utilities - Database connection, CORS, and shared helpers.
 """
 
+import os
 import sqlite3
 from pathlib import Path
 from typing import Union
@@ -10,6 +11,11 @@ from flask import Response
 
 # Type alias for Flask route return types
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
+
+# CORS allowed origin — set via CORS_ORIGIN env var for remote deployments
+# Default: * (permissive, safe for standalone/localhost use)
+# Remote: Set to your domain (e.g., https://library.example.com) in audiobooks.conf
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
 
 
 def get_db(db_path: Path) -> sqlite3.Connection:
@@ -22,10 +28,9 @@ def get_db(db_path: Path) -> sqlite3.Connection:
 def add_cors_headers(response: Response) -> Response:
     """
     Add CORS headers to all responses.
-    This is a simple implementation suitable for localhost/personal use.
     Replaces flask-cors which has multiple CVEs (CVE-2024-6221, etc.)
     """
-    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Origin"] = CORS_ORIGIN
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range"
     response.headers["Access-Control-Expose-Headers"] = (

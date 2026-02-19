@@ -1148,12 +1148,23 @@ docker restart audiobooks
 
 ## Requirements (native install)
 
-- Python 3.8+
-- ffmpeg 4.4+ (with ffprobe)
+### System Requirements
+
+| Resource | Minimum | Recommended | Notes |
+|----------|---------|-------------|-------|
+| Disk | 17 GB | 50+ GB | OS + deps + app; audiobook storage is additional |
+| RAM | 2 GB | 4 GB | API uses ~200 MB; more for concurrent users |
+| tmpfs `/tmp` | 3 GB | 4 GB | Deployment staging + audio conversion |
+
+### Software Dependencies
+
+- Python 3.12+ (3.14 recommended)
+- ffmpeg 7.0+ (with ffprobe)
 - Flask (CORS handled natively since v3.2.0)
 - openssl (for SSL certificate generation)
-- pysqlcipher3 (for encrypted auth database, v5.0+)
-- py-webauthn (for Passkey/FIDO2 auth, v5.0+)
+- SQLCipher (for encrypted auth database, v5.0+)
+- pysqlcipher3 (Python bindings for SQLCipher)
+- webauthn >= 2.0 (for Passkey/FIDO2 auth, v5.0+; pip package name: `webauthn`)
 - pyotp (for TOTP auth, v5.0+)
 
 ### First-time setup

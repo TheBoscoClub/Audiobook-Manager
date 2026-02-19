@@ -1176,9 +1176,16 @@ AUDIOBOOKS_HTTP_REDIRECT_ENABLED="true"
 
 # Authentication (multi-user support)
 # Set AUTH_ENABLED="true" to require login for remote access
+# When disabled (default), admin endpoints are restricted to localhost
 AUTH_ENABLED="false"
 AUTH_DATABASE="/var/lib/audiobooks/auth.db"
 AUTH_KEY_FILE="/etc/audiobooks/auth.key"
+
+# Remote access (only needed when AUTH_ENABLED="true")
+# See audiobooks.conf.example for full documentation
+#AUDIOBOOKS_HOSTNAME=""
+#BASE_URL=""
+#CORS_ORIGIN=""
 EOF
     fi
 
@@ -1187,10 +1194,10 @@ EOF
     local auth_key_file="${CONFIG_DIR}/auth.key"
     if [[ ! -f "$auth_key_file" ]]; then
         echo "  Generating encryption key for auth database..."
-        # Generate 32-byte random key, base64 encoded
-        sudo sh -c "head -c 32 /dev/urandom | base64 > '$auth_key_file'"
-        sudo chown root:audiobooks "$auth_key_file"
-        sudo chmod 640 "$auth_key_file"
+        # Generate 32-byte random key as 64 hex characters
+        sudo sh -c "head -c 32 /dev/urandom | xxd -p | tr -d '\\n' > '$auth_key_file'"
+        sudo chown audiobooks:audiobooks "$auth_key_file"
+        sudo chmod 600 "$auth_key_file"
         echo "  Created: $auth_key_file"
     else
         echo "  Auth key file already exists"
@@ -1199,6 +1206,19 @@ EOF
     # Initialize auth database directory
     sudo mkdir -p "/var/lib/audiobooks"
     sudo chown audiobooks:audiobooks "/var/lib/audiobooks"
+
+    # Initialize audiobook database if it doesn't exist
+    local db_file="/var/lib/audiobooks/audiobooks.db"
+    if [[ ! -f "$db_file" ]]; then
+        echo -e "${BLUE}Initializing database...${NC}"
+        local schema_file="${APP_DIR}/library/backend/schema.sql"
+        if [[ -f "$schema_file" ]]; then
+            sudo -u audiobooks sqlite3 "$db_file" < "$schema_file"
+            echo "  Created: $db_file"
+        else
+            echo -e "${YELLOW}  Warning: schema.sql not found, skipping database initialization${NC}"
+        fi
+    fi
     echo ""
 
     # Create wrapper scripts
@@ -1766,6 +1786,17 @@ AUDIOBOOKS_HTTP_REDIRECT_PORT="${HTTP_REDIRECT_PORT}"
 AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
 AUDIOBOOKS_HTTPS_ENABLED="true"
 AUDIOBOOKS_HTTP_REDIRECT_ENABLED="true"
+
+# Authentication (multi-user support)
+# Set AUTH_ENABLED="true" to require login for remote access
+# When disabled (default), admin endpoints are restricted to localhost
+AUTH_ENABLED="false"
+
+# Remote access (only needed when AUTH_ENABLED="true")
+# See audiobooks.conf.example for full documentation
+#AUDIOBOOKS_HOSTNAME=""
+#BASE_URL=""
+#CORS_ORIGIN=""
 EOF
     fi
 

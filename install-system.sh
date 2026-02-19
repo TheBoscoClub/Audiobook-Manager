@@ -122,6 +122,24 @@ echo "  Services:     ${SYSTEMD_DIR}/"
 echo "  Data:         ${DATA_DIR}/"
 echo ""
 
+# Create audiobooks service account
+echo -e "${BLUE}Setting up service account...${NC}"
+if ! getent group audiobooks >/dev/null 2>&1; then
+    echo "  Creating 'audiobooks' group..."
+    groupadd --system audiobooks
+else
+    echo "  Group 'audiobooks' already exists"
+fi
+
+if ! getent passwd audiobooks >/dev/null 2>&1; then
+    echo "  Creating 'audiobooks' service user..."
+    useradd --system --gid audiobooks --shell /usr/sbin/nologin \
+        --home-dir /var/lib/audiobooks --comment "Audiobook Library Service" audiobooks
+else
+    echo "  User 'audiobooks' already exists"
+fi
+echo ""
+
 # Create directories
 echo -e "${BLUE}Creating directories...${NC}"
 mkdir -p "${CONFIG_DIR}"
@@ -137,7 +155,10 @@ echo -e "${BLUE}Installing library files...${NC}"
 cp -r "${SCRIPT_DIR}/library" "${LIB_DIR}/"
 cp -r "${SCRIPT_DIR}/lib" "${LIB_DIR}/"
 [[ -d "${SCRIPT_DIR}/converter" ]] && cp -r "${SCRIPT_DIR}/converter" "${LIB_DIR}/"
+[[ -f "${SCRIPT_DIR}/VERSION" ]] && cp "${SCRIPT_DIR}/VERSION" "${LIB_DIR}/"
 cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
+# Ensure installed files are readable by the audiobooks service user
+chmod -R a+rX "${LIB_DIR}"
 
 # Create config file if it doesn't exist
 if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
@@ -165,8 +186,54 @@ AUDIOBOOKS_API_PORT="5001"
 AUDIOBOOKS_WEB_PORT="8090"
 AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
 AUDIOBOOKS_HTTPS_ENABLED="true"
+
+# Authentication (multi-user support)
+# Set AUTH_ENABLED="true" to require login for remote access
+# When disabled (default), admin endpoints are restricted to localhost
+AUTH_ENABLED="false"
+AUTH_DATABASE="/var/lib/audiobooks/auth.db"
+AUTH_KEY_FILE="/etc/audiobooks/auth.key"
+
+# Remote access (only needed when AUTH_ENABLED="true")
+# See audiobooks.conf.example for full documentation
+#AUDIOBOOKS_HOSTNAME=""
+#BASE_URL=""
+#CORS_ORIGIN=""
 EOF
 fi
+
+# Generate auth key file (for multi-user support when AUTH_ENABLED=true)
+echo -e "${BLUE}Setting up authentication...${NC}"
+AUTH_KEY="${CONFIG_DIR}/auth.key"
+if [[ ! -f "$AUTH_KEY" ]]; then
+    echo "  Generating encryption key for auth database..."
+    head -c 32 /dev/urandom | xxd -p | tr -d '\n' > "$AUTH_KEY"
+    chown audiobooks:audiobooks "$AUTH_KEY"
+    chmod 600 "$AUTH_KEY"
+    echo "  Created: $AUTH_KEY"
+else
+    echo "  Auth key file already exists"
+fi
+
+# Initialize database if it doesn't exist
+DB_FILE="/var/lib/audiobooks/audiobooks.db"
+if [[ ! -f "$DB_FILE" ]]; then
+    echo -e "${BLUE}Initializing database...${NC}"
+    SCHEMA_FILE="${LIB_DIR}/library/backend/schema.sql"
+    if [[ -f "$SCHEMA_FILE" ]]; then
+        sqlite3 "$DB_FILE" < "$SCHEMA_FILE"
+        echo "  Created: $DB_FILE"
+    else
+        echo -e "${YELLOW}  Warning: schema.sql not found, skipping database initialization${NC}"
+    fi
+fi
+
+# Set ownership on data and state directories
+echo -e "${BLUE}Setting directory ownership...${NC}"
+chown -R audiobooks:audiobooks "${DATA_DIR}"
+chown -R audiobooks:audiobooks "/var/lib/audiobooks"
+chown -R audiobooks:audiobooks "/var/log/audiobooks"
+echo ""
 
 # Create wrapper scripts in /usr/local/bin
 echo -e "${BLUE}Creating executable wrappers...${NC}"
@@ -176,7 +243,7 @@ cat > "${BIN_DIR}/audiobook-api" << 'EOF'
 #!/bin/bash
 # Audiobook Library API Server
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/api.py" "$@"
+exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/api_server.py" "$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-api"
 
@@ -216,10 +283,18 @@ audiobooks_print_config
 EOF
 chmod 755 "${BIN_DIR}/audiobooks-config"
 
-# Setup Python virtual environment if needed
-if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
+# Setup Python virtual environment (recreate if broken or missing)
+if ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
     echo -e "${BLUE}Setting up Python virtual environment...${NC}"
+    rm -rf "${LIB_DIR}/library/venv"
     python3 -m venv "${LIB_DIR}/library/venv"
+fi
+# Install/update dependencies
+if [[ -f "${LIB_DIR}/library/requirements.txt" ]]; then
+    echo -e "${BLUE}Installing Python dependencies...${NC}"
+    "${LIB_DIR}/library/venv/bin/pip" install --quiet -r "${LIB_DIR}/library/requirements.txt" 2>&1 | grep -v 'already satisfied' || true
+else
+    echo -e "${BLUE}Installing Flask (no requirements.txt found)...${NC}"
     "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
 fi
 
@@ -250,9 +325,12 @@ After=network.target
 
 [Service]
 Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=${LIB_DIR}/library/backend
 EnvironmentFile=${CONFIG_DIR}/audiobooks.conf
-ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:\${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobook-api
+Environment=PYTHONUNBUFFERED=1
+ExecStart=${LIB_DIR}/library/venv/bin/python api_server.py
 Restart=on-failure
 RestartSec=5
 
@@ -270,9 +348,12 @@ Wants=audiobook-api.service
 
 [Service]
 Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=${LIB_DIR}/library/web-v2
 EnvironmentFile=${CONFIG_DIR}/audiobooks.conf
-ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:\${AUDIOBOOKS_WEB_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobooks-web
+Environment=PYTHONUNBUFFERED=1
+ExecStart=${LIB_DIR}/library/venv/bin/python https_server.py
 Restart=on-failure
 RestartSec=5
 

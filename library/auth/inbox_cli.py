@@ -150,7 +150,7 @@ def send_email_reply(to_email: str, username: str, reply_text: str) -> bool:
     smtp_port = int(os.environ.get("SMTP_PORT", "25"))
     smtp_user = os.environ.get("SMTP_USER", "")
     smtp_pass = os.environ.get("SMTP_PASS", "")
-    smtp_from = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    smtp_from = os.environ.get("SMTP_FROM", "noreply@localhost")
 
     if not smtp_user:
         print("Warning: SMTP not configured. Set SMTP_USER and SMTP_PASS environment variables.")
