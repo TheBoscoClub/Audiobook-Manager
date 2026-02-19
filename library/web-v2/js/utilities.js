@@ -2470,11 +2470,10 @@ function createUserItem(user) {
 
 async function toggleUserDownload(userId, canDownload) {
     try {
-        const res = await fetch(`${API_BASE}/auth/admin/users/${userId}/permissions`, {
-            method: 'PUT',
+        const res = await fetch(`${API_BASE}/auth/admin/users/${userId}/toggle-download`, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ can_download: canDownload })
+            credentials: 'include'
         });
 
         if (res.ok) {

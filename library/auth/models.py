@@ -1271,6 +1271,17 @@ class AccessRequestRepository:
             )
             return cursor.rowcount > 0
 
+    def store_invite_metadata(self, request_id: int, can_download: bool) -> bool:
+        """Store invite metadata (permissions set by admin) for use during claim."""
+        import json
+        metadata = json.dumps({"can_download": can_download, "invited": True})
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "UPDATE access_requests SET backup_codes_json = ? WHERE id = ?",
+                (metadata, request_id)
+            )
+            return cursor.rowcount > 0
+
     def mark_credentials_claimed(self, request_id: int) -> bool:
         """Mark credentials as claimed (one-time retrieval)."""
         with self.db.connection() as conn:

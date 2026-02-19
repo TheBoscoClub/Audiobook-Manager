@@ -912,15 +912,25 @@ def claim_credentials():
             }
         ), 400
 
+    # Check for invite metadata (admin-set permissions)
+    import json as json_module
+    can_download = True
+    if access_req.backup_codes_json:
+        try:
+            invite_meta = json_module.loads(access_req.backup_codes_json)
+            if isinstance(invite_meta, dict) and invite_meta.get("invited"):
+                can_download = invite_meta.get("can_download", True)
+        except (json_module.JSONDecodeError, TypeError):
+            pass
+
     # Create TOTP credentials and user account
     totp_secret, totp_base32, totp_uri = setup_totp(username)
 
-    # Create the user with TOTP
     new_user = User(
         username=username,
         auth_type=AuthType.TOTP,
         auth_credential=totp_secret,
-        can_download=True,
+        can_download=can_download,
         is_admin=False,
         recovery_email=recovery_email,
         recovery_phone=recovery_phone,
@@ -1138,12 +1148,22 @@ def claim_webauthn_complete():
     if webauthn_cred is None:
         return jsonify({"error": "WebAuthn verification failed"}), 400
 
+    # Check for invite metadata (admin-set permissions)
+    can_download = True
+    if access_req.backup_codes_json:
+        try:
+            invite_meta = json.loads(access_req.backup_codes_json)
+            if isinstance(invite_meta, dict) and invite_meta.get("invited"):
+                can_download = invite_meta.get("can_download", True)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     # Create user with WebAuthn credential
     new_user = User(
         username=username,
         auth_type=AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2,
         auth_credential=webauthn_cred.to_json().encode("utf-8"),
-        can_download=True,
+        can_download=can_download,
         is_admin=False,
         recovery_email=recovery_email,
         recovery_phone=recovery_phone,
@@ -3356,12 +3376,10 @@ def invite_user():
     if user_repo.username_exists(username):
         return jsonify({"error": "Username already taken"}), 409
 
-    # Check for existing pending request
+    # Remove any stale access request (e.g. user was deleted but request lingered)
     existing = request_repo.get_by_username(username)
     if existing:
-        return jsonify(
-            {"error": "Access request already exists for this username"}
-        ), 409
+        request_repo.delete(existing.id)
 
     # Get admin username for audit
     admin_user = get_current_user()
@@ -3376,34 +3394,10 @@ def invite_user():
     # Create access request with claim token hash
     access_request = request_repo.create(username, claim_token_hash, email)
 
-    # Create TOTP secret
-    totp_secret, totp_base32, totp_uri = setup_totp(username)
+    # Store invite metadata (can_download) for use when user claims
+    request_repo.store_invite_metadata(access_request.id, can_download)
 
-    # Create the user
-    new_user = User(
-        username=username,
-        auth_type=AuthType.TOTP,
-        auth_credential=totp_secret,
-        can_download=can_download,
-        is_admin=False,
-        recovery_email=email,
-    )
-    new_user.save(db)
-    created_user = user_repo.get_by_username(username)
-
-    # Generate backup codes
-    backup_repo = BackupCodeRepository(db)
-    codes = backup_repo.create_codes_for_user(created_user.id)
-
-    # Update access request with credentials for claim
-    request_repo.store_credentials(
-        access_request.id,
-        totp_base32,
-        totp_uri,
-        json_module.dumps(format_codes_for_display(codes)),
-    )
-
-    # Mark as approved
+    # Mark as approved (user picks their auth method during claim)
     request_repo.approve(access_request.id, admin_username)
 
     # Send invitation email with claim token
@@ -3415,18 +3409,17 @@ def invite_user():
         {
             "success": True,
             "user": {
-                "id": created_user.id,
-                "username": created_user.username,
-                "email": created_user.recovery_email,
-                "can_download": created_user.can_download,
-                "is_admin": created_user.is_admin,
+                "username": username,
+                "email": email,
+                "can_download": can_download,
+                "is_admin": False,
             },
             "email_sent": email_sent,
             "claim_token": formatted_token,  # Also return token so admin can share manually if email fails
             "message": (
-                f"User '{username}' created. "
+                f"Invitation for '{username}' sent. "
                 + (
-                    "Invitation email sent."
+                    "Email delivered."
                     if email_sent
                     else "Email failed - share claim token manually."
                 )
@@ -3740,6 +3733,10 @@ def delete_user(user_id: int):
 
     # Delete user (cascades to sessions, positions, etc.)
     user_repo.delete(user_id)
+
+    # Clean up any associated access request
+    request_repo = AccessRequestRepository(db)
+    request_repo.delete_for_username(target_user.username)
 
     return jsonify(
         {
