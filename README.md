@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![5](https://img.shields.io/badge/5-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![1](https://img.shields.io/badge/1-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v5.0.1.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1.1) |
+| ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v5.0.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.2) |
+| ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v5.0.1.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1.1) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v5.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v5.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.0) |
 | ![4](https://img.shields.io/badge/4-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v4.1.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v4.1.2) |
@@ -361,10 +362,14 @@ ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#tmpfs-runtime-directories) for detailed tmpfs architecture.
 
 Both installation modes:
-- Create configuration files
-- Generate SSL certificates
-- Install systemd services
-- Set up Python virtual environment
+- Create `audiobooks` service account (system install) or use current user (user install)
+- Create configuration files with auth and remote access templates
+- Generate auth encryption key (64 hex chars, mode 0600)
+- Initialize database from `schema.sql`
+- Set up Python virtual environment (validated with `python --version`)
+- Install Python dependencies from `requirements.txt`
+- Generate self-signed SSL certificates
+- Install systemd services with proper `User`/`Group`/`WorkingDirectory`
 
 After installation, use these commands:
 ```bash
@@ -487,6 +492,12 @@ Configuration is loaded from multiple sources in priority order:
 | `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
 | `AUDIOBOOKS_HTTPS_ENABLED` | Enable HTTPS for web server (default: true) |
 | `AUDIOBOOKS_USE_WAITRESS` | Use Waitress WSGI server for production (default: true) |
+| `AUTH_ENABLED` | Enable authentication for remote access (default: false) |
+| `AUTH_DATABASE` | Auth database path (default: /var/lib/audiobooks/auth.db) |
+| `AUTH_KEY_FILE` | Auth encryption key path (default: /etc/audiobooks/auth.key) |
+| `AUDIOBOOKS_HOSTNAME` | Public domain for WebAuthn/email links (auto-detected if unset) |
+| `BASE_URL` | Base URL for email links (auto-detected if unset) |
+| `CORS_ORIGIN` | CORS allowed origin (default: * for standalone, set for remote) |
 
 ### Override via Environment
 ```bash
@@ -528,13 +539,19 @@ Audiobooks/
 │   │   ├── api_server.py        # Flask server launcher
 │   │   ├── api_modular/         # Modular Flask Blueprints
 │   │   │   ├── __init__.py
-│   │   │   ├── auth.py          # Authentication endpoints (v5.0+)
-│   │   │   ├── audiobooks.py    # Audiobook endpoints
-│   │   │   ├── metadata.py      # Metadata endpoints
-│   │   │   ├── search.py        # Search endpoints
-│   │   │   ├── stats.py         # Statistics endpoints
-│   │   │   ├── operations.py    # Background operations
-│   │   │   └── utilities.py     # Utility endpoints
+│   │   │   ├── auth.py          # Auth endpoints + admin_or_localhost decorator (v5.0+)
+│   │   │   ├── core.py          # App factory, CORS, error handlers
+│   │   │   ├── audiobooks.py    # Audiobook listing, streaming, details
+│   │   │   ├── collections.py   # Genre-based collections
+│   │   │   ├── duplicates.py    # Duplicate detection
+│   │   │   ├── editions.py      # Edition grouping
+│   │   │   ├── supplements.py   # PDF companion files
+│   │   │   ├── position_sync.py # Playback position sync
+│   │   │   ├── utilities.py     # CRUD, imports, exports
+│   │   │   ├── utilities_system.py  # Admin: services, upgrades (guarded)
+│   │   │   ├── utilities_crud.py    # Database CRUD operations
+│   │   │   ├── utilities_db.py      # Database maintenance
+│   │   │   └── utilities_conversion.py # Conversion operations
 │   │   ├── import_to_db.py      # Database importer
 │   │   ├── schema.sql           # Database schema
 │   │   └── operation_status.py  # Operation tracking
@@ -752,10 +769,12 @@ Audiobook-Manager supports multi-user authentication with three methods:
 
 ### How Authentication Works
 
-- Authentication is controlled by `AUTH_ENABLED` in your config (default: `true`)
-- When enabled, all API endpoints and the web UI require a valid session
+- Authentication is controlled by `AUTH_ENABLED` in your config (default: `false`)
+- **Standalone mode** (`AUTH_ENABLED=false`): Library endpoints are open, admin endpoints restricted to localhost only
+- **Remote mode** (`AUTH_ENABLED=true`): All API endpoints and web UI require a valid session, admin endpoints require admin role
 - Sessions use secure HTTP-only cookies with SameSite=Lax protection
 - The auth database is encrypted at rest using SQLCipher (AES-256)
+- Admin endpoints are **never** wide-open regardless of mode (dual-mode security, v6.0+)
 
 ### First User Setup (Bootstrap)
 
@@ -809,15 +828,28 @@ WEBAUTHN_RP_ID=audiobooks.example.com
 WEBAUTHN_ORIGIN=https://audiobooks.example.com
 ```
 
-### Disabling Authentication
+### Standalone Mode (Default)
 
-For single-user or LAN-only deployments:
+For single-user or LAN-only deployments (default configuration):
 ```bash
-# In /etc/audiobooks/audiobooks.conf
+# In /etc/audiobooks/audiobooks.conf (this is the default)
 AUTH_ENABLED=false
 ```
 
-When disabled, all endpoints are accessible without login (pre-v5 behavior).
+When disabled, library endpoints are accessible without login. Admin endpoints (service control, upgrades) are restricted to localhost only — they cannot be accessed from remote IPs. This is the recommended mode for home servers not exposed to the internet.
+
+### Remote Access Mode
+
+For internet-facing deployments behind a reverse proxy:
+```bash
+# In /etc/audiobooks/audiobooks.conf
+AUTH_ENABLED=true
+AUDIOBOOKS_HOSTNAME=library.example.com
+BASE_URL=https://library.example.com
+CORS_ORIGIN=https://library.example.com
+```
+
+When enabled, all endpoints require authentication. Admin operations require an authenticated admin user. See [Secure Remote Access Spec](docs/SECURE_REMOTE_ACCESS_SPEC.md) for full deployment guide.
 
 ### Related Documentation
 
@@ -1356,7 +1388,13 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v5.0.1.1 (Current)
+### v5.0.2
+- **Testing**: VM_TESTS environment variable for WebAuthn origin selection
+- **API**: Use sys.executable for venv compatibility in subprocess calls
+- **Deploy**: Add library/scripts/ and library/common.py to VM deployment sync
+- **Security**: Explicit permissions blocks for all GitHub Actions workflow jobs
+
+### v5.0.1.1
 - **Cleanup**: Remove all remaining periodicals code, services, and references
 - **Systemd**: Fix boot failures caused by symlink resolution in ProtectSystem=strict namespaces
 - **Systemd**: Fix stale symlinks with wrong "audiobooks-" prefix (should be "audiobook-")

@@ -8,10 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Security**: Dual-mode security architecture — `admin_or_localhost` decorator adapts endpoint protection based on deployment mode
+  - `AUTH_ENABLED=true` (remote): Admin endpoints require authenticated admin user
+  - `AUTH_ENABLED=false` (standalone): Admin endpoints restricted to localhost only
+  - Admin endpoints are **never** wide-open regardless of mode
+- **Install**: System installer (`install-system.sh`) now creates dedicated `audiobooks` service account (group + user with nologin shell)
+- **Install**: Auth encryption key auto-generated during system install (64 hex chars, mode 0600, owned by audiobooks user)
+- **Install**: Database auto-initialized from `schema.sql` during all install modes (system, user, unified)
+- **Install**: Python virtual environment validated functionally (`python --version`) — detects broken symlinks from rsync copies
+- **Install**: Python dependencies installed from `requirements.txt` during install (not just Flask)
+- **Install**: systemd services configured with `User=audiobooks`, `Group=audiobooks`, `WorkingDirectory`
+- **Config**: Remote access configuration variables added to `audiobooks.conf.example`: `AUDIOBOOKS_HOSTNAME`, `BASE_URL`, `CORS_ORIGIN`, `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`
+- **Config**: Email/SMTP configuration section added: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `ADMIN_EMAIL`
+- **Testing**: `vm-test-manifest.json` added for `/test` Phase V integration
+- **Rules**: Project-specific `.claude/rules/` files: `audio-metadata.md`, `paths-and-separation.md`, `testing.md`
 
 ### Changed
+- **BREAKING**: All 27 shell scripts converted from `#!/bin/bash` to `#!/usr/bin/env zsh`
+- **Security**: 9 admin endpoints in `utilities_system.py` now use `@admin_or_localhost` instead of `@localhost_only`
+- **API**: CORS origin defaults to `*` (permissive, safe for standalone) — configurable via `CORS_ORIGIN` env var for remote deployments
+- **API**: `BASE_URL` auto-detected from request headers — no hardcoded domain defaults
+- **API**: Email configuration (`_get_email_config()`) uses agnostic defaults — no hardcoded domain references
+- **Proxy**: `proxy_server.py` forwards `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Real-IP`, and `Host` headers from upstream reverse proxies
+- **Proxy**: CORS locked to configurable `CORS_ORIGIN` value in proxy responses
+- **Config**: `audiobooks.conf.example` reorganized with Remote Access and Email/SMTP sections
+- **CI**: Removed `.github/workflows/ci.yml` (was using Python 3.11, incompatible with current Python 3.14 stack)
 
 ### Fixed
+- **Install**: Wrapper scripts reference `api_server.py` (not stale `api.py`)
+- **Install**: Auth key generated as 64 hex chars (`xxd -p | tr -d '\n'`), matching code validation — was base64 (~44 chars)
+- **Install**: Auth key permissions set to `audiobooks:audiobooks 0600` — was `root:audiobooks 0640`
+- **Install**: Correct pip package name `webauthn` (not `py-webauthn`)
+- **Testing**: Stale VM name `test-vm-cachyos` → `test-audiobook-cachyos` in pytest.ini and integration test docstrings
 
 ## [5.0.2] - 2026-02-06
 
