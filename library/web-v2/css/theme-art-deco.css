@@ -89,6 +89,12 @@
     --font-primary: 'Optima', 'Century Gothic', 'Segoe UI', sans-serif;
     --font-serif: 'Georgia', 'Times New Roman', serif;
     --font-mono: 'Consolas', 'Monaco', monospace;
+
+    /* Responsive touch targets (Apple HIG: 44px minimum) */
+    --touch-target-min: 44px;
+
+    /* Dynamic viewport height for player/modals */
+    --vh-full: 100dvh;
 }
 
 /* ============================================

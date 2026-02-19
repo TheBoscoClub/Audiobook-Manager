@@ -1,0 +1,425 @@
+/* ============================================
+   Responsive Enhancements
+   Mobile/Desktop, Portrait/Landscape, Zoom/Pinch
+
+   Loaded LAST to override base styles.
+   ============================================ */
+
+/* ============================================
+   A. Safe Area Insets (Notched Devices)
+   ============================================ */
+body {
+    padding:
+        env(safe-area-inset-top)
+        env(safe-area-inset-right)
+        env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
+}
+
+.audio-player {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    padding-left: calc(2rem + env(safe-area-inset-left));
+    padding-right: calc(2rem + env(safe-area-inset-right));
+}
+
+/* ============================================
+   B. Touch-Aware Interactions
+   ============================================ */
+@media (hover: none) {
+    /* Remove hover lift effects that cause visual jank on touch */
+    .book-card:hover {
+        transform: none;
+    }
+
+    .btn-play:hover:not(:disabled),
+    .btn-resume:hover:not(:disabled),
+    .btn-download:hover:not(:disabled),
+    .btn-play-edition:hover,
+    .btn-resume-edition:hover,
+    .btn-primary:hover:not(:disabled),
+    .btn-secondary:hover:not(:disabled),
+    .btn-danger:hover:not(:disabled),
+    .clear-btn:hover,
+    .refresh-btn:hover:not(:disabled),
+    .pagination-btn:hover:not(:disabled),
+    .sidebar-toggle:hover,
+    .sidebar-clear:hover,
+    .collection-btn:hover,
+    .nav-link:hover,
+    .utilities-link:hover,
+    .control-btn:hover,
+    .auth-button:hover:not(:disabled),
+    .dropdown-btn:hover,
+    .editions-badge:hover {
+        transform: none;
+    }
+
+    /* Active press states for tactile feedback */
+    .book-card:active {
+        border-color: var(--gold-bright);
+        box-shadow:
+            var(--shadow-elevation-1),
+            var(--shadow-gold-glow-strong);
+    }
+
+    .btn-play:active:not(:disabled),
+    .btn-resume:active:not(:disabled),
+    .btn-play-edition:active,
+    .btn-resume-edition:active {
+        background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+        color: var(--deco-black);
+    }
+
+    .btn-download:active:not(:disabled) {
+        background: linear-gradient(180deg, var(--emerald-light) 0%, var(--emerald) 100%);
+        color: var(--cream-light);
+    }
+
+    .pagination-btn:active:not(:disabled),
+    .sidebar-toggle:active,
+    .sidebar-clear:active,
+    .clear-btn:active,
+    .refresh-btn:active:not(:disabled) {
+        background: var(--gold);
+        color: var(--deco-black);
+    }
+
+    .control-btn:active {
+        background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+        box-shadow: var(--shadow-elevation-1);
+    }
+
+    .auth-button:active:not(:disabled) {
+        filter: brightness(0.9);
+    }
+
+    .collection-btn:active {
+        background: var(--deco-slate);
+        border-color: var(--gold);
+    }
+
+    /* Prevent 300ms tap delay and double-tap zoom */
+    button,
+    a,
+    input[type="button"],
+    input[type="submit"],
+    input[type="range"],
+    select,
+    .book-card,
+    .collection-btn,
+    .pagination-btn,
+    .sidebar-toggle,
+    .editions-badge,
+    .supplement-badge,
+    .continue-badge,
+    .letter-group,
+    .sort-toggle,
+    .author-option,
+    .narrator-option {
+        touch-action: manipulation;
+    }
+
+    /* Minimum touch target sizes (44x44px per Apple HIG) */
+    .pagination-btn {
+        min-width: var(--touch-target-min);
+        min-height: var(--touch-target-min);
+    }
+
+    .control-btn {
+        min-height: var(--touch-target-min);
+    }
+
+    .control-btn.small-btn {
+        min-width: var(--touch-target-min);
+        min-height: var(--touch-target-min);
+    }
+
+    .letter-group {
+        min-width: 36px;
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .collection-btn {
+        min-height: var(--touch-target-min);
+    }
+
+    .sidebar-close {
+        min-width: var(--touch-target-min);
+        min-height: var(--touch-target-min);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .player-close {
+        min-width: var(--touch-target-min);
+        min-height: var(--touch-target-min);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-close {
+        min-width: var(--touch-target-min);
+        min-height: var(--touch-target-min);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .author-option,
+    .narrator-option {
+        min-height: var(--touch-target-min);
+        display: flex;
+        align-items: center;
+    }
+
+    .nav-link,
+    .utilities-link {
+        min-height: var(--touch-target-min);
+    }
+
+    .user-button {
+        min-height: var(--touch-target-min);
+    }
+
+    .user-dropdown-item {
+        min-height: var(--touch-target-min);
+        display: flex;
+        align-items: center;
+    }
+
+    /* Larger progress bar thumb for touch */
+    .progress-bar::-webkit-slider-thumb {
+        width: 28px;
+        height: 28px;
+    }
+
+    .progress-bar::-moz-range-thumb {
+        width: 28px;
+        height: 28px;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
+    }
+
+    .volume-slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* ============================================
+   C. Prevent iOS Auto-Zoom on Input Focus
+   ============================================ */
+@media (hover: none) {
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
+/* ============================================
+   D. Landscape Mobile Layout
+   ============================================ */
+@media (orientation: landscape) and (max-height: 500px) {
+    /* Compact header: single row */
+    .library-header {
+        padding: var(--spacing-sm) var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+    }
+
+    .header-content {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .title-section {
+        display: flex;
+        align-items: baseline;
+        gap: var(--spacing-sm);
+    }
+
+    .library-title {
+        font-size: 1.4rem;
+        letter-spacing: 2px;
+    }
+
+    .library-subtitle {
+        display: none;
+    }
+
+    .header-nav {
+        position: static;
+        transform: none;
+    }
+
+    .library-stats {
+        gap: var(--spacing-md);
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+    }
+
+    /* Compact books grid */
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: var(--spacing-md);
+    }
+
+    .book-cover {
+        height: 140px;
+    }
+
+    /* Compact autocomplete dropdowns */
+    .author-dropdown,
+    .narrator-dropdown {
+        max-height: 40vh;
+    }
+
+    /* Compact modals */
+    .modal {
+        padding: 0.5rem;
+    }
+
+    .modal-content {
+        max-height: 100dvh;
+        max-height: 100vh; /* Fallback */
+    }
+
+    .modal-body {
+        padding: 0.75rem;
+    }
+
+    /* Compact search section */
+    .search-section {
+        margin-bottom: var(--spacing-md);
+    }
+}
+
+/* ============================================
+   E. Tablet Portrait (768px-1024px)
+   ============================================ */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+
+    .header-nav {
+        flex-wrap: wrap;
+    }
+}
+
+/* ============================================
+   F. Small Phones (max-width: 360px)
+   ============================================ */
+@media (max-width: 360px) {
+    .library-title {
+        font-size: 1.2rem;
+        letter-spacing: 1px;
+    }
+
+    .library-subtitle {
+        font-size: 0.75rem;
+        letter-spacing: 1px;
+    }
+
+    .library-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-sm);
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    /* Icon-only pagination on very small screens */
+    .pagination-btn .btn-text {
+        display: none;
+    }
+
+    /* Sidebar full-width at 320px */
+    .collections-sidebar {
+        width: 100vw;
+        left: -100vw;
+    }
+
+    .collections-sidebar.open {
+        left: 0;
+    }
+
+    /* Compact book cards */
+    .book-card {
+        padding: 0.75rem;
+    }
+
+    .book-cover {
+        height: 160px;
+    }
+
+    .book-title {
+        font-size: 0.95rem;
+    }
+
+    /* Compact auth pages */
+    .auth-container {
+        padding: 1rem;
+    }
+
+    .auth-title {
+        font-size: 1.3rem;
+        letter-spacing: 0.1em;
+    }
+}
+
+/* ============================================
+   G. Desktop Resize Awareness (Fluid Scaling)
+   ============================================ */
+.library-title {
+    font-size: clamp(1.2rem, 2vw + 1rem, 3rem);
+}
+
+.books-grid {
+    gap: clamp(var(--spacing-md), 2vw, var(--spacing-xl));
+}
+
+.search-section,
+.results-info,
+.books-grid,
+.pagination-section {
+    padding-left: clamp(var(--spacing-md), 3vw, var(--spacing-xl));
+    padding-right: clamp(var(--spacing-md), 3vw, var(--spacing-xl));
+}
+
+.collections-sidebar {
+    width: min(320px, 85vw);
+}
+
+/* ============================================
+   H. Reduced Motion Support
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
