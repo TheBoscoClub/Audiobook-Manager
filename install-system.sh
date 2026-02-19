@@ -240,7 +240,7 @@ echo -e "${BLUE}Creating executable wrappers...${NC}"
 
 # API server wrapper
 cat > "${BIN_DIR}/audiobook-api" << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library API Server
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/api_server.py" "$@"
@@ -249,7 +249,7 @@ chmod 755 "${BIN_DIR}/audiobook-api"
 
 # Web server wrapper
 cat > "${BIN_DIR}/audiobooks-web" << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Web Server (HTTPS)
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
@@ -258,7 +258,7 @@ chmod 755 "${BIN_DIR}/audiobooks-web"
 
 # Scanner wrapper
 cat > "${BIN_DIR}/audiobooks-scan" << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Scanner
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
@@ -267,7 +267,7 @@ chmod 755 "${BIN_DIR}/audiobooks-scan"
 
 # Database import wrapper
 cat > "${BIN_DIR}/audiobooks-import" << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Database Import
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
@@ -276,7 +276,7 @@ chmod 755 "${BIN_DIR}/audiobooks-import"
 
 # Config viewer
 cat > "${BIN_DIR}/audiobooks-config" << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Show audiobook library configuration
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 audiobooks_print_config

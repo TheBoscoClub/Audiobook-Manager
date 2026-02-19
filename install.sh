@@ -43,6 +43,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
 # Script directory (source)
@@ -150,7 +151,7 @@ get_api_entry_point() {
 wait_for_keypress() {
     echo ""
     echo -e "${YELLOW}Press any key to continue...${NC}"
-    read -r -n 1 -s -r
+    read -r -k 1 -s
 }
 
 check_sudo_access() {
@@ -1230,7 +1231,7 @@ EOF
 
     # API server wrapper
     sudo tee "${BIN_DIR}/audiobook-api" > /dev/null << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library API Server
 source /opt/audiobooks/lib/audiobook-config.sh
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
@@ -1239,7 +1240,7 @@ EOF
 
     # Web server wrapper
     sudo tee "${BIN_DIR}/audiobooks-web" > /dev/null << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Web Server (HTTPS)
 source /opt/audiobooks/lib/audiobook-config.sh
 exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
@@ -1248,7 +1249,7 @@ EOF
 
     # Scanner wrapper
     sudo tee "${BIN_DIR}/audiobooks-scan" > /dev/null << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Scanner
 source /opt/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
@@ -1257,7 +1258,7 @@ EOF
 
     # Database import wrapper
     sudo tee "${BIN_DIR}/audiobooks-import" > /dev/null << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Database Import
 source /opt/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
@@ -1266,7 +1267,7 @@ EOF
 
     # Config viewer
     sudo tee "${BIN_DIR}/audiobooks-config" > /dev/null << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Show audiobook library configuration
 source /opt/audiobooks/lib/audiobook-config.sh
 audiobooks_print_config
@@ -1275,7 +1276,7 @@ EOF
 
     # User management CLI (authentication)
     sudo tee "${BIN_DIR}/audiobook-user" > /dev/null << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library User Management CLI
 # Manage authenticated users for multi-user access
 source /opt/audiobooks/lib/audiobook-config.sh
@@ -1316,7 +1317,7 @@ EOF
     # Create symlinks in /usr/local/bin/ pointing to canonical scripts
     echo -e "${BLUE}Creating symlinks in ${BIN_DIR}...${NC}"
     # Map original script names to user-friendly command names
-    declare -A SCRIPT_ALIASES=(
+    typeset -A SCRIPT_ALIASES=(
         ["convert-audiobooks-opus-parallel"]="audiobooks-convert"
         ["move-staged-audiobooks"]="audiobooks-move-staged"
         ["download-new-audiobooks"]="audiobooks-download"
@@ -1337,7 +1338,7 @@ EOF
         ["migrate-api.sh"]="audiobooks-migrate"
     )
 
-    for script_name in "${!SCRIPT_ALIASES[@]}"; do
+    for script_name in "${(k)SCRIPT_ALIASES[@]}"; do
         local target_name="${SCRIPT_ALIASES[$script_name]}"
         local source_path="${APP_SCRIPTS_DIR}/${script_name}"
         local link_path="${BIN_DIR}/${target_name}"
@@ -1368,7 +1369,7 @@ EOF
 
     # Create upgrade wrapper
     sudo tee "${BIN_DIR}/audiobook-upgrade" > /dev/null << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Toolkit Upgrade Script
 # Fetches and applies updates from GitHub releases
 exec /opt/audiobooks/scripts/upgrade.sh --target /opt/audiobooks "$@"
@@ -1378,7 +1379,7 @@ EOF
 
     # Create migrate wrapper
     sudo tee "${BIN_DIR}/audiobooks-migrate" > /dev/null << 'EOF'
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Toolkit API Migration Script
 # Switch between monolithic and modular API architectures
 exec /opt/audiobooks/scripts/migrate-api.sh --target /opt/audiobooks "$@"
@@ -1809,7 +1810,7 @@ EOF
 
     # API server wrapper
     cat > "${BIN_DIR}/audiobook-api" << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
@@ -1818,7 +1819,7 @@ EOF
 
     # Web server wrapper
     cat > "${BIN_DIR}/audiobooks-web" << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Web Server (HTTPS)
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec python3 "\${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "\$@"
@@ -1827,7 +1828,7 @@ EOF
 
     # Scanner wrapper
     cat > "${BIN_DIR}/audiobooks-scan" << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Scanner
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
@@ -1836,7 +1837,7 @@ EOF
 
     # Database import wrapper
     cat > "${BIN_DIR}/audiobooks-import" << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Library Database Import
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
@@ -1845,7 +1846,7 @@ EOF
 
     # Config viewer
     cat > "${BIN_DIR}/audiobooks-config" << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Show audiobook library configuration
 source "${LIB_DIR}/lib/audiobook-config.sh"
 audiobooks_print_config
@@ -1951,7 +1952,7 @@ EOF
 
     # Create upgrade wrapper
     cat > "${BIN_DIR}/audiobook-upgrade" << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Toolkit Upgrade Script
 # Fetches and applies updates from GitHub releases
 exec "${LIB_DIR}/scripts/upgrade.sh" --target "${LIB_DIR}" "\$@"
@@ -1961,7 +1962,7 @@ EOF
 
     # Create migrate wrapper
     cat > "${BIN_DIR}/audiobooks-migrate" << EOF
-#!/bin/bash
+#!/usr/bin/env zsh
 # Audiobook Toolkit API Migration Script
 # Switch between monolithic and modular API architectures
 exec "${LIB_DIR}/scripts/migrate-api.sh" --target "${LIB_DIR}" "\$@"
