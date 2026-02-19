@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.1.1] - 2026-02-18
+
+### Fixed
+- **Scripts**: Comprehensive bash-to-zsh compatibility fixes across all shell scripts
+  - Convert `read -p` bash-isms to zsh `read "?prompt"` syntax
+  - Convert `${var,,}` bash lowercase to zsh `${(L)var}` syntax
+  - Fix associative array iteration, string manipulation, and other bash-specific patterns
+- **CI**: Track `library/auth/schema.sql` in git (was excluded by `*.sql` gitignore rule, breaking CI auth tests)
+- **CI**: Add `# noqa: E402` to test files with `sys.path.insert()` before imports (fixes ruff linting in CI)
+
 ## [6.1.0] - 2026-02-18
 
 ### Added

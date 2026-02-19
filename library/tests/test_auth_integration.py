@@ -33,7 +33,7 @@ pytestmark = pytest.mark.integration
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from tests.helpers.software_authenticator import SoftwareAuthenticator
+from tests.helpers.software_authenticator import SoftwareAuthenticator  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration

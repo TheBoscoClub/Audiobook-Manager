@@ -19,8 +19,8 @@ import pytest
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth import AuthDatabase, User, AuthType, UserRepository
-from auth.totp import TOTPAuthenticator, setup_totp
+from auth import AuthDatabase, User, AuthType, UserRepository  # noqa: E402
+from auth.totp import TOTPAuthenticator, setup_totp  # noqa: E402
 
 
 @pytest.fixture(scope="session")

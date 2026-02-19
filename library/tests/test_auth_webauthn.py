@@ -22,14 +22,14 @@ import pytest
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth import (
+from auth import (  # noqa: E402
     AuthDatabase,
     AuthType,
     User,
     UserRepository,
 )
 
-from auth.passkey import (
+from auth.passkey import (  # noqa: E402
     WebAuthnCredential,
     WebAuthnChallenge,
     create_registration_options,
@@ -45,7 +45,7 @@ from auth.passkey import (
     DEFAULT_RP_NAME,
 )
 
-from webauthn.helpers import bytes_to_base64url
+from webauthn.helpers import bytes_to_base64url  # noqa: E402
 
 
 @pytest.fixture
