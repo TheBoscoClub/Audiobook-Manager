@@ -148,7 +148,7 @@ prompt_delete_data() {
     if [[ -n "$library_dir" ]] && [[ -d "$library_dir" ]]; then
         while true; do
             read -r "answer?Delete converted audiobooks in $library_dir? [y/N]: "
-            case "${answer,,}" in
+            case "${(L)answer}" in
                 y|yes) DELETE_LIBRARY=true; echo -e "  ${RED}→ Will delete converted audiobooks${NC}"; break ;;
                 n|no|"") echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"; break ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
@@ -160,7 +160,7 @@ prompt_delete_data() {
     if [[ -n "$sources_dir" ]] && [[ -d "$sources_dir" ]]; then
         while true; do
             read -r "answer?Delete source files (AAX/AAXC) in $sources_dir? [y/N]: "
-            case "${answer,,}" in
+            case "${(L)answer}" in
                 y|yes) DELETE_SOURCES=true; echo -e "  ${RED}→ Will delete source files${NC}"; break ;;
                 n|no|"") echo -e "  ${GREEN}→ Keeping source files${NC}"; break ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
@@ -172,7 +172,7 @@ prompt_delete_data() {
     if [[ -n "$supplements_dir" ]] && [[ -d "$supplements_dir" ]]; then
         while true; do
             read -r "answer?Delete supplemental PDFs in $supplements_dir? [y/N]: "
-            case "${answer,,}" in
+            case "${(L)answer}" in
                 y|yes) DELETE_SUPPLEMENTS=true; echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"; break ;;
                 n|no|"") echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"; break ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
@@ -184,7 +184,7 @@ prompt_delete_data() {
     if [[ -f "$config_file" ]]; then
         while true; do
             read -r "answer?Delete configuration files? [y/N]: "
-            case "${answer,,}" in
+            case "${(L)answer}" in
                 y|yes) DELETE_CONFIG=true; echo -e "  ${RED}→ Will delete configuration${NC}"; break ;;
                 n|no|"") echo -e "  ${GREEN}→ Keeping configuration${NC}"; break ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
@@ -210,7 +210,7 @@ prompt_delete_data() {
 
         while true; do
             read -r "confirm?Are you sure you want to proceed? [y/N]: "
-            case "${confirm,,}" in
+            case "${(L)confirm}" in
                 y|yes)
                     echo ""
                     echo -e "${YELLOW}Proceeding with deletion...${NC}"
