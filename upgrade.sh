@@ -153,10 +153,10 @@ find_installed_dir() {
             local ver=$(get_version "$dir")
             echo "  - $dir (v$ver)" >&2
         done
-        echo -e "${YELLOW}Using: ${found[0]} (use --target to specify)${NC}" >&2
+        echo -e "${YELLOW}Using: ${found[1]} (use --target to specify)${NC}" >&2
     fi
 
-    echo "${found[0]}"
+    echo "${found[1]}"
     return 0
 }
 

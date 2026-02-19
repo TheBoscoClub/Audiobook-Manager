@@ -180,7 +180,7 @@ log_success "SSH connection OK"
 # -----------------------------------------------------------------------------
 
 # Recent changes only (default) - auth/user management work
-declare -A QUICK_DEPLOY_FILES=(
+typeset -A QUICK_DEPLOY_FILES=(
     # Backend
     ["library/auth/models.py"]="library/auth/"
     ["library/auth/database.py"]="library/auth/"
@@ -212,7 +212,7 @@ deploy_quick() {
     echo -e "${BLUE}[INFO]${NC} Deploying recent changes..." >&2
     local count=0
 
-    for src_file in "${!QUICK_DEPLOY_FILES[@]}"; do
+    for src_file in "${(k)QUICK_DEPLOY_FILES[@]}"; do
         dest_dir="${QUICK_DEPLOY_FILES[$src_file]}"
         full_src="${SCRIPT_DIR}/${src_file}"
         full_dest="${REMOTE_TARGET}/${dest_dir}"
