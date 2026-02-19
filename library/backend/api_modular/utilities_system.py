@@ -502,10 +502,9 @@ def init_system_routes(project_root):
     def list_projects() -> FlaskResponse:
         """List available project directories for upgrade source."""
         # Check common development project locations
+        # AUDIOBOOKS_PROJECT_DIR is the primary way to specify the project path
         search_paths = [
             os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
-            os.path.expanduser("~/ClaudeCodeProjects"),
-            "/hddRaid1/ClaudeCodeProjects",
             os.path.expanduser("~/projects"),
             "/opt/projects",
         ]
