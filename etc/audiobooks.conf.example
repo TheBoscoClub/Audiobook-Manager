@@ -103,7 +103,8 @@ AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"
 
 # Enable authentication for remote access
 # When enabled, users must log in to access the library
-# Default: false (local access only, no auth required)
+# When disabled (default), admin endpoints are restricted to localhost
+# Default: false (standalone mode, no auth required)
 AUTH_ENABLED="false"
 
 # Authentication database path (SQLCipher encrypted)
@@ -118,6 +119,48 @@ AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 # Development mode for auth (relaxed key permissions, verbose logging)
 # Default: false
 AUDIOBOOKS_DEV_MODE="false"
+
+# =============================================================================
+# Remote Access (only needed when AUTH_ENABLED="true")
+# =============================================================================
+# These settings are for exposing the library over the internet.
+# You can use any reverse proxy (Caddy, nginx, Traefik) and any DNS/tunnel
+# provider (Cloudflare, DuckDNS, Tailscale, WireGuard, etc.)
+
+# Your public domain or hostname (used for WebAuthn and email links)
+# Examples: library.example.com, audiobooks.myserver.net
+# Default: auto-detected from request (works for localhost without config)
+#AUDIOBOOKS_HOSTNAME=""
+
+# Base URL for email links (magic links, invitations)
+# Example: https://library.example.com
+# Default: auto-detected from request
+#BASE_URL=""
+
+# CORS allowed origin (restricts which domains can make API requests)
+# Set this to your public URL for security when exposed to the internet
+# Example: https://library.example.com
+# Default: * (permissive, safe for standalone/localhost)
+#CORS_ORIGIN=""
+
+# WebAuthn/Passkey configuration (auto-derived from AUDIOBOOKS_HOSTNAME)
+# Only set these if you need to override the auto-detection
+#WEBAUTHN_RP_ID=""          # Relying Party ID (usually your domain)
+#WEBAUTHN_RP_NAME=""        # Display name (default: "The Library")
+#WEBAUTHN_ORIGIN=""         # Expected origin (default: https://{AUDIOBOOKS_HOSTNAME})
+
+# =============================================================================
+# Email / SMTP (only needed for invitation and recovery emails)
+# =============================================================================
+
+# SMTP server for sending emails (magic links, invitations, notifications)
+# Leave unconfigured if you don't need email — admin can share claim tokens manually
+#SMTP_HOST="smtp.example.com"
+#SMTP_PORT="587"
+#SMTP_USER=""
+#SMTP_PASS=""
+#SMTP_FROM="library@example.com"
+#ADMIN_EMAIL=""
 
 # =============================================================================
 # Performance & Advanced Settings

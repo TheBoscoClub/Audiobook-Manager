@@ -21,6 +21,26 @@
 | Data path | `/srv/audiobooks` |
 | SPICE display | `spice://127.0.0.1:5900` |
 
+### VM Snapshots
+
+| Snapshot | Description | Revert To |
+|----------|-------------|-----------|
+| `pristine-deps-2026-02-18` | Clean CachyOS, all app deps (Python 3.14.3, ffmpeg 8.0.1, sqlcipher 4.13.0), kernel 6.19.2, tmpfs /tmp=4G, no app installed | Fresh install testing |
+
+**Revert procedure** (external snapshots):
+```bash
+sudo virsh destroy test-audiobook-cachyos   # stop VM
+# Delete snapshot metadata
+sudo virsh snapshot-delete test-audiobook-cachyos pristine-deps-2026-02-18 --metadata
+# Remove overlay, point back to base, remove backingStore from XML
+sudo virt-xml test-audiobook-cachyos --edit target=vda --disk path=/var/lib/libvirt/images/test-audiobook-cachyos.qcow2
+# Fix XML if needed (remove circular backingStore)
+sudo rm /var/lib/libvirt/images/test-audiobook-cachyos.pristine-deps-2026-02-18
+sudo virsh start test-audiobook-cachyos
+# Re-create snapshot after done:
+sudo virsh snapshot-create-as test-audiobook-cachyos pristine-deps-2026-02-18 "description" --disk-only
+```
+
 ### SPICE Display for UI Testing
 
 ```bash

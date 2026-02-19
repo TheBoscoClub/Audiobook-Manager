@@ -110,13 +110,16 @@ def init_auth_routes(
 def get_auth_db() -> AuthDatabase:
     """Get the auth database instance."""
     if _auth_db is None:
-        raise RuntimeError("Auth routes not initialized. Call init_auth_routes() first.")
+        raise RuntimeError(
+            "Auth routes not initialized. Call init_auth_routes() first."
+        )
     return _auth_db
 
 
 # =============================================================================
 # Session Middleware
 # =============================================================================
+
 
 def get_current_user() -> Optional[User]:
     """
@@ -125,7 +128,7 @@ def get_current_user() -> Optional[User]:
     Returns:
         User object if authenticated, None otherwise
     """
-    if hasattr(g, '_current_user'):
+    if hasattr(g, "_current_user"):
         return g._current_user
 
     g._current_user = None
@@ -166,7 +169,7 @@ def get_current_user() -> Optional[User]:
 
 def get_current_session() -> Optional[Session]:
     """Get the current session (call get_current_user first)."""
-    if not hasattr(g, '_current_session'):
+    if not hasattr(g, "_current_session"):
         get_current_user()
     return g._current_session
 
@@ -177,12 +180,14 @@ def login_required(f: Callable) -> Callable:
 
     Returns 401 if not authenticated.
     """
+
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         user = get_current_user()
         if user is None:
             return jsonify({"error": "Authentication required"}), 401
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -192,6 +197,7 @@ def admin_required(f: Callable) -> Callable:
 
     Returns 401 if not authenticated, 403 if not admin.
     """
+
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         user = get_current_user()
@@ -200,6 +206,7 @@ def admin_required(f: Callable) -> Callable:
         if not user.is_admin:
             return jsonify({"error": "Admin privileges required"}), 403
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -209,20 +216,24 @@ def localhost_only(f: Callable) -> Callable:
 
     Used for admin/back-office functions.
     """
+
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         # Check if request is from localhost
         remote_addr = request.remote_addr
-        if remote_addr not in ('127.0.0.1', '::1', 'localhost'):
+        if remote_addr not in ("127.0.0.1", "::1", "localhost"):
             # Also check X-Forwarded-For if behind proxy
-            forwarded = request.headers.get('X-Forwarded-For', '')
+            forwarded = request.headers.get("X-Forwarded-For", "")
             if forwarded:
                 # Take the first address (client IP)
-                remote_addr = forwarded.split(',')[0].strip()
+                remote_addr = forwarded.split(",")[0].strip()
 
-            if remote_addr not in ('127.0.0.1', '::1', 'localhost'):
-                return jsonify({"error": "Access denied"}), 404  # Return 404 to hide existence
+            if remote_addr not in ("127.0.0.1", "::1", "localhost"):
+                return jsonify(
+                    {"error": "Access denied"}
+                ), 404  # Return 404 to hide existence
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -235,6 +246,7 @@ def auth_if_enabled(f: Callable) -> Callable:
 
     Use this for endpoints that should work in both single-user and multi-user modes.
     """
+
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         if not current_app.config.get("AUTH_ENABLED", False):
@@ -245,6 +257,7 @@ def auth_if_enabled(f: Callable) -> Callable:
         if user is None:
             return jsonify({"error": "Authentication required"}), 401
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -255,6 +268,7 @@ def download_permission_required(f: Callable) -> Callable:
     When AUTH_ENABLED is False, allows through (single-user has all permissions).
     When AUTH_ENABLED is True, requires login AND can_download permission.
     """
+
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         if not current_app.config.get("AUTH_ENABLED", False):
@@ -267,6 +281,7 @@ def download_permission_required(f: Callable) -> Callable:
         if not user.can_download:
             return jsonify({"error": "Download permission required"}), 403
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -277,6 +292,7 @@ def admin_if_enabled(f: Callable) -> Callable:
     When AUTH_ENABLED is False, allows through (single-user is admin).
     When AUTH_ENABLED is True, requires login AND admin flag.
     """
+
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         if not current_app.config.get("AUTH_ENABLED", False):
@@ -289,15 +305,54 @@ def admin_if_enabled(f: Callable) -> Callable:
         if not user.is_admin:
             return jsonify({"error": "Admin privileges required"}), 403
         return f(*args, **kwargs)
+
+    return decorated
+
+
+def admin_or_localhost(f: Callable) -> Callable:
+    """
+    Decorator for sensitive admin endpoints (service control, upgrades).
+
+    Adapts security based on deployment mode:
+    - AUTH_ENABLED=true (remote): Requires authenticated admin user
+    - AUTH_ENABLED=false (standalone): Restricts to localhost only
+
+    This ensures admin endpoints are never wide-open regardless of mode.
+    """
+
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if current_app.config.get("AUTH_ENABLED", False):
+            # Remote mode: require authenticated admin
+            user = get_current_user()
+            if user is None:
+                return jsonify({"error": "Authentication required"}), 401
+            if not user.is_admin:
+                return jsonify({"error": "Admin privileges required"}), 403
+        else:
+            # Standalone mode: localhost only
+            remote_addr = request.remote_addr
+            if remote_addr not in ("127.0.0.1", "::1", "localhost"):
+                forwarded = request.headers.get("X-Forwarded-For", "")
+                if forwarded:
+                    remote_addr = forwarded.split(",")[0].strip()
+                if remote_addr not in ("127.0.0.1", "::1", "localhost"):
+                    return jsonify({"error": "Access denied"}), 404
+        return f(*args, **kwargs)
+
     return decorated
 
 
 # Session duration constants
 SESSION_DURATION_DEFAULT = None  # Session cookie (cleared on browser close)
-SESSION_DURATION_REMEMBER = 365 * 24 * 60 * 60  # 1 year in seconds (effectively permanent)
+SESSION_DURATION_REMEMBER = (
+    365 * 24 * 60 * 60
+)  # 1 year in seconds (effectively permanent)
 
 
-def set_session_cookie(response: Response, token: str, remember_me: bool = False) -> Response:
+def set_session_cookie(
+    response: Response, token: str, remember_me: bool = False
+) -> Response:
     """Set the session cookie on a response."""
     max_age = SESSION_DURATION_REMEMBER if remember_me else SESSION_DURATION_DEFAULT
     response.set_cookie(
@@ -321,6 +376,7 @@ def clear_session_cookie(response: Response) -> Response:
 # =============================================================================
 # Auth Endpoints
 # =============================================================================
+
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -379,15 +435,17 @@ def login():
     user.update_last_login(db)
 
     # Build response
-    response = jsonify({
-        "success": True,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "can_download": user.can_download,
-            "is_admin": user.is_admin,
+    response = jsonify(
+        {
+            "success": True,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "can_download": user.can_download,
+                "is_admin": user.is_admin,
+            },
         }
-    })
+    )
 
     # Set session cookie (persistent if remember_me is true)
     return set_session_cookie(response, token, remember_me=remember_me)
@@ -426,31 +484,37 @@ def get_current_user_info():
     notif_repo = NotificationRepository(db)
     notifications = notif_repo.get_active_for_user(user.id)
 
-    return jsonify({
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.recovery_email,
-            "can_download": user.can_download,
-            "is_admin": user.is_admin,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "last_login": user.last_login.isoformat() if user.last_login else None,
-        },
-        "session": {
-            "created_at": session.created_at.isoformat() if session.created_at else None,
-            "last_seen": session.last_seen.isoformat() if session.last_seen else None,
-        },
-        "notifications": [
-            {
-                "id": n.id,
-                "message": n.message,
-                "type": n.type.value,
-                "dismissable": n.dismissable,
-                "priority": n.priority,
-            }
-            for n in notifications
-        ]
-    })
+    return jsonify(
+        {
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.recovery_email,
+                "can_download": user.can_download,
+                "is_admin": user.is_admin,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+            },
+            "session": {
+                "created_at": session.created_at.isoformat()
+                if session.created_at
+                else None,
+                "last_seen": session.last_seen.isoformat()
+                if session.last_seen
+                else None,
+            },
+            "notifications": [
+                {
+                    "id": n.id,
+                    "message": n.message,
+                    "type": n.type.value,
+                    "dismissable": n.dismissable,
+                    "priority": n.priority,
+                }
+                for n in notifications
+            ],
+        }
+    )
 
 
 @auth_bp.route("/me", methods=["PUT"])
@@ -469,6 +533,7 @@ def update_current_user():
         409: {"error": "Username already taken"}
     """
     import re
+
     user = get_current_user()
     data = request.get_json() or {}
     db = get_auth_db()
@@ -482,11 +547,13 @@ def update_current_user():
         if len(new_username) > 32:
             return jsonify({"error": "Username must be at most 32 characters"}), 400
         # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
-        if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in new_username):
+        if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in new_username):
             return jsonify({"error": "Username contains invalid characters"}), 400
         # No leading/trailing whitespace
         if new_username != new_username.strip():
-            return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+            return jsonify(
+                {"error": "Username cannot have leading or trailing spaces"}
+            ), 400
 
         if not user_repo.update_username(user.id, new_username):
             return jsonify({"error": "Username already taken"}), 409
@@ -496,7 +563,7 @@ def update_current_user():
         new_email = data.get("email")
         if new_email is not None and new_email != "":
             # Validate email format
-            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
             if not re.match(email_pattern, new_email):
                 return jsonify({"error": "Invalid email format"}), 400
         else:
@@ -506,16 +573,18 @@ def update_current_user():
     # Fetch updated user data
     updated_user = user_repo.get_by_id(user.id)
 
-    return jsonify({
-        "success": True,
-        "user": {
-            "id": updated_user.id,
-            "username": updated_user.username,
-            "email": updated_user.recovery_email,
-            "can_download": updated_user.can_download,
-            "is_admin": updated_user.is_admin,
+    return jsonify(
+        {
+            "success": True,
+            "user": {
+                "id": updated_user.id,
+                "username": updated_user.username,
+                "email": updated_user.recovery_email,
+                "can_download": updated_user.can_download,
+                "is_admin": updated_user.is_admin,
+            },
         }
-    })
+    )
 
 
 @auth_bp.route("/check", methods=["GET"])
@@ -528,17 +597,20 @@ def check_auth():
     """
     user = get_current_user()
     if user:
-        return jsonify({
-            "authenticated": True,
-            "username": user.username,
-            "is_admin": user.is_admin,
-        })
+        return jsonify(
+            {
+                "authenticated": True,
+                "username": user.username,
+                "is_admin": user.is_admin,
+            }
+        )
     return jsonify({"authenticated": False})
 
 
 # =============================================================================
 # Registration Endpoints
 # =============================================================================
+
 
 @auth_bp.route("/register/start", methods=["POST"])
 def start_registration():
@@ -571,11 +643,13 @@ def start_registration():
     if len(username) > 16:
         return jsonify({"error": "Username must be at most 16 characters"}), 400
     # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
-    if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in username):
+    if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in username):
         return jsonify({"error": "Username contains invalid characters"}), 400
     # No leading/trailing whitespace
     if username != username.strip():
-        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+        return jsonify(
+            {"error": "Username cannot have leading or trailing spaces"}
+        ), 400
 
     # Basic email validation if provided
     if contact_email:
@@ -594,9 +668,13 @@ def start_registration():
     if request_repo.has_any_request(username):
         # Check specifically for pending to give more helpful error
         if request_repo.has_pending_request(username):
-            return jsonify({"error": "Access request already pending for this username"}), 400
+            return jsonify(
+                {"error": "Access request already pending for this username"}
+            ), 400
         else:
-            return jsonify({"error": "Username already has a previous access request"}), 400
+            return jsonify(
+                {"error": "Username already has a previous access request"}
+            ), 400
 
     # First-user-is-admin bootstrap: if no users exist, auto-approve as admin
     if user_repo.count() == 0:
@@ -620,24 +698,26 @@ def start_registration():
 
         # Generate QR code (convert base32 string back to bytes)
         qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
-        qr_base64 = base64.b64encode(qr_png).decode('ascii')
+        qr_base64 = base64.b64encode(qr_png).decode("ascii")
 
-        return jsonify({
-            "success": True,
-            "first_user": True,
-            "message": "You are the first user and have been granted admin access.",
-            "totp_secret": totp_base32,
-            "totp_uri": totp_uri,
-            "totp_qr": qr_base64,
-            "backup_codes": format_codes_for_display(codes),
-        })
+        return jsonify(
+            {
+                "success": True,
+                "first_user": True,
+                "message": "You are the first user and have been granted admin access.",
+                "totp_secret": totp_base32,
+                "totp_uri": totp_uri,
+                "totp_qr": qr_base64,
+                "backup_codes": format_codes_for_display(codes),
+            }
+        )
 
     # Generate claim token for credential retrieval
     raw_claim_token, _ = generate_verification_token()
 
     # Truncate to 16 chars for user-friendly display (XXXX-XXXX-XXXX-XXXX)
     truncated_token = raw_claim_token[:16]
-    formatted_token = "-".join(truncated_token[i:i+4] for i in range(0, 16, 4))
+    formatted_token = "-".join(truncated_token[i : i + 4] for i in range(0, 16, 4))
 
     # Hash the truncated token (this is what user will provide when claiming)
     claim_token_hash = hash_token(truncated_token)
@@ -655,7 +735,9 @@ def start_registration():
 
     if contact_email:
         response_data["email_notification"] = True
-        response_data["message"] += f" We'll also notify you at {contact_email} when your request is reviewed."
+        response_data["message"] += (
+            f" We'll also notify you at {contact_email} when your request is reviewed."
+        )
 
     return jsonify(response_data)
 
@@ -704,39 +786,47 @@ def validate_claim_token():
     claim_token_hash = hash_token(clean_token)
 
     # Find the access request
-    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    access_req = request_repo.get_pending_by_username_and_token(
+        username, claim_token_hash
+    )
     if not access_req:
-        return jsonify({"valid": False, "error": "Invalid username or claim token"}), 404
+        return jsonify(
+            {"valid": False, "error": "Invalid username or claim token"}
+        ), 404
 
     # Check status
     if access_req.status == AccessRequestStatus.PENDING:
-        return jsonify({
-            "valid": False,
-            "status": "pending",
-            "error": "Your request is still pending admin review"
-        }), 400
+        return jsonify(
+            {
+                "valid": False,
+                "status": "pending",
+                "error": "Your request is still pending admin review",
+            }
+        ), 400
 
     if access_req.status == AccessRequestStatus.DENIED:
-        return jsonify({
-            "valid": False,
-            "status": "denied",
-            "error": access_req.deny_reason or "Your request was denied"
-        }), 400
+        return jsonify(
+            {
+                "valid": False,
+                "status": "denied",
+                "error": access_req.deny_reason or "Your request was denied",
+            }
+        ), 400
 
     # Check if already claimed (user already exists)
     if access_req.credentials_claimed or user_repo.username_exists(username):
-        return jsonify({
-            "valid": False,
-            "status": "already_claimed",
-            "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page."
-        }), 400
+        return jsonify(
+            {
+                "valid": False,
+                "status": "already_claimed",
+                "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page.",
+            }
+        ), 400
 
     # Token is valid and approved
-    return jsonify({
-        "valid": True,
-        "status": "approved",
-        "username": access_req.username
-    })
+    return jsonify(
+        {"valid": True, "status": "approved", "username": access_req.username}
+    )
 
 
 @auth_bp.route("/register/claim", methods=["POST"])
@@ -793,29 +883,34 @@ def claim_credentials():
     claim_token_hash = hash_token(clean_token)
 
     # Find the access request
-    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    access_req = request_repo.get_pending_by_username_and_token(
+        username, claim_token_hash
+    )
     if not access_req:
         return jsonify({"error": "Invalid username or claim token"}), 404
 
     # Check status
     if access_req.status == AccessRequestStatus.PENDING:
-        return jsonify({
-            "error": "Your request is still pending admin review",
-            "status": "pending"
-        }), 400
+        return jsonify(
+            {"error": "Your request is still pending admin review", "status": "pending"}
+        ), 400
 
     if access_req.status == AccessRequestStatus.DENIED:
-        return jsonify({
-            "error": access_req.deny_reason or "Your request was denied",
-            "status": "denied"
-        }), 400
+        return jsonify(
+            {
+                "error": access_req.deny_reason or "Your request was denied",
+                "status": "denied",
+            }
+        ), 400
 
     # Check if already claimed
     if access_req.credentials_claimed or user_repo.username_exists(username):
-        return jsonify({
-            "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page.",
-            "status": "already_claimed"
-        }), 400
+        return jsonify(
+            {
+                "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page.",
+                "status": "already_claimed",
+            }
+        ), 400
 
     # Create TOTP credentials and user account
     totp_secret, totp_base32, totp_uri = setup_totp(username)
@@ -855,12 +950,12 @@ def claim_credentials():
         "warning": (
             "IMPORTANT: Save your backup codes in a safe place! These are your ONLY way to "
             "recover your account if you lose your authenticator device."
-        )
+        ),
     }
 
     try:
         qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
-        response_data["totp_qr"] = base64.b64encode(qr_png).decode('ascii')
+        response_data["totp_qr"] = base64.b64encode(qr_png).decode("ascii")
     except ImportError:
         pass  # QR code generation unavailable; user can enter secret manually
 
@@ -913,7 +1008,9 @@ def claim_webauthn_begin():
     claim_token_hash = hash_token(clean_token)
 
     # Find and validate the access request
-    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    access_req = request_repo.get_pending_by_username_and_token(
+        username, claim_token_hash
+    )
     if not access_req:
         return jsonify({"error": "Invalid username or claim token"}), 400
 
@@ -937,10 +1034,12 @@ def claim_webauthn_begin():
         authenticator_type=authenticator_type,
     )
 
-    return jsonify({
-        "options": options_json,
-        "challenge": bytes_to_base64url(challenge),
-    })
+    return jsonify(
+        {
+            "options": options_json,
+            "challenge": bytes_to_base64url(challenge),
+        }
+    )
 
 
 @auth_bp.route("/register/claim/webauthn/complete", methods=["POST"])
@@ -984,7 +1083,9 @@ def claim_webauthn_complete():
     recovery_enabled = bool(recovery_email or recovery_phone)
 
     if not username or not claim_token or not credential or not challenge_b64:
-        return jsonify({"error": "Username, claim_token, credential, and challenge are required"}), 400
+        return jsonify(
+            {"error": "Username, claim_token, credential, and challenge are required"}
+        ), 400
 
     if auth_type not in ("passkey", "fido2"):
         return jsonify({"error": "Invalid auth type"}), 400
@@ -1000,7 +1101,9 @@ def claim_webauthn_complete():
     claim_token_hash = hash_token(clean_token)
 
     # Find and validate the access request
-    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
+    access_req = request_repo.get_pending_by_username_and_token(
+        username, claim_token_hash
+    )
     if not access_req:
         return jsonify({"error": "Invalid username or claim token"}), 400
 
@@ -1020,7 +1123,9 @@ def claim_webauthn_complete():
         return jsonify({"error": "Invalid challenge format"}), 400
 
     # Convert credential to JSON string if it's a dict
-    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
+    credential_json = (
+        json.dumps(credential) if isinstance(credential, dict) else credential
+    )
 
     # Verify registration
     webauthn_cred = webauthn_verify_registration(
@@ -1116,10 +1221,12 @@ def check_request_status():
 
     # Check if user already exists (approved)
     if user_repo.username_exists(username):
-        return jsonify({
-            "status": "approved",
-            "message": "Your access has been approved. You can now log in.",
-        })
+        return jsonify(
+            {
+                "status": "approved",
+                "message": "Your access has been approved. You can now log in.",
+            }
+        )
 
     # Check access request
     access_request = request_repo.get_by_username(username)
@@ -1127,20 +1234,26 @@ def check_request_status():
         return jsonify({"error": "No access request found for this username"}), 404
 
     if access_request.status == AccessRequestStatus.PENDING:
-        return jsonify({
-            "status": "pending",
-            "message": "Your request is awaiting administrator review.",
-        })
+        return jsonify(
+            {
+                "status": "pending",
+                "message": "Your request is awaiting administrator review.",
+            }
+        )
     elif access_request.status == AccessRequestStatus.DENIED:
-        return jsonify({
-            "status": "denied",
-            "message": access_request.deny_reason or "Your request was denied.",
-        })
+        return jsonify(
+            {
+                "status": "denied",
+                "message": access_request.deny_reason or "Your request was denied.",
+            }
+        )
     else:
-        return jsonify({
-            "status": access_request.status.value,
-            "message": "Unknown status.",
-        })
+        return jsonify(
+            {
+                "status": access_request.status.value,
+                "message": "Unknown status.",
+            }
+        )
 
 
 @auth_bp.route("/register/verify", methods=["POST"])
@@ -1256,8 +1369,9 @@ def verify_registration():
 
     if include_qr:
         import base64
+
         qr_png = generate_qr_code(secret, user.username)
-        response_data["totp_qr"] = base64.b64encode(qr_png).decode('ascii')
+        response_data["totp_qr"] = base64.b64encode(qr_png).decode("ascii")
 
     return jsonify(response_data)
 
@@ -1276,6 +1390,7 @@ def get_webauthn_config() -> tuple[str, str, str]:
     3. Fallback to localhost defaults (development)
     """
     import socket
+
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from config import get_config
 
@@ -1299,7 +1414,9 @@ def get_webauthn_config() -> tuple[str, str, str]:
     # Auto-derive origin from proxy config if not set
     if not origin:
         https_enabled = get_config("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() == "true"
-        web_port = int(get_config("AUDIOBOOKS_WEB_PORT") or get_config("WEB_PORT", "8443"))
+        web_port = int(
+            get_config("AUDIOBOOKS_WEB_PORT") or get_config("WEB_PORT", "8443")
+        )
         scheme = "https" if https_enabled else "http"
         default_port = 443 if https_enabled else 80
 
@@ -1374,11 +1491,13 @@ def register_webauthn_begin():
         authenticator_type=authenticator_type,
     )
 
-    return jsonify({
-        "options": options_json,  # Already JSON string
-        "challenge": bytes_to_base64url(challenge),
-        "token": token,  # Return for completion step
-    })
+    return jsonify(
+        {
+            "options": options_json,  # Already JSON string
+            "challenge": bytes_to_base64url(challenge),
+            "token": token,  # Return for completion step
+        }
+    )
 
 
 @auth_bp.route("/register/webauthn/complete", methods=["POST"])
@@ -1450,7 +1569,10 @@ def register_webauthn_complete():
 
     # Convert credential to JSON string if it's a dict
     import json
-    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
+
+    credential_json = (
+        json.dumps(credential) if isinstance(credential, dict) else credential
+    )
 
     # Verify registration
     webauthn_cred = webauthn_verify_registration(
@@ -1551,14 +1673,18 @@ def login_webauthn_begin():
 
     # Check user uses WebAuthn
     if user.auth_type not in (AuthType.PASSKEY, AuthType.FIDO2):
-        return jsonify({
-            "error": "User does not use passkey authentication",
-            "auth_type": user.auth_type.value
-        }), 400
+        return jsonify(
+            {
+                "error": "User does not use passkey authentication",
+                "auth_type": user.auth_type.value,
+            }
+        ), 400
 
     # Parse stored credential
     try:
-        webauthn_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
+        webauthn_cred = WebAuthnCredential.from_json(
+            user.auth_credential.decode("utf-8")
+        )
     except Exception:
         return jsonify({"error": "Invalid stored credential"}), 500
 
@@ -1573,10 +1699,12 @@ def login_webauthn_begin():
         username=username,
     )
 
-    return jsonify({
-        "options": options_json,
-        "challenge": bytes_to_base64url(challenge),
-    })
+    return jsonify(
+        {
+            "options": options_json,
+            "challenge": bytes_to_base64url(challenge),
+        }
+    )
 
 
 @auth_bp.route("/login/webauthn/complete", methods=["POST"])
@@ -1606,7 +1734,9 @@ def login_webauthn_complete():
     challenge_b64 = data.get("challenge", "").strip()
 
     if not username or not credential or not challenge_b64:
-        return jsonify({"error": "Username, credential, and challenge are required"}), 400
+        return jsonify(
+            {"error": "Username, credential, and challenge are required"}
+        ), 400
 
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -1622,7 +1752,9 @@ def login_webauthn_complete():
 
     # Parse stored credential
     try:
-        webauthn_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
+        webauthn_cred = WebAuthnCredential.from_json(
+            user.auth_credential.decode("utf-8")
+        )
     except Exception:
         return jsonify({"error": "Invalid credentials"}), 401
 
@@ -1637,7 +1769,10 @@ def login_webauthn_complete():
 
     # Convert credential to JSON string if it's a dict
     import json
-    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
+
+    credential_json = (
+        json.dumps(credential) if isinstance(credential, dict) else credential
+    )
 
     # Verify authentication
     new_sign_count = webauthn_verify_authentication(
@@ -1669,15 +1804,17 @@ def login_webauthn_complete():
     user.update_last_login(db)
 
     # Build response
-    response = jsonify({
-        "success": True,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "can_download": user.can_download,
-            "is_admin": user.is_admin,
+    response = jsonify(
+        {
+            "success": True,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "can_download": user.can_download,
+                "is_admin": user.is_admin,
+            },
         }
-    })
+    )
 
     return set_session_cookie(response, token)
 
@@ -1719,6 +1856,7 @@ def get_auth_type():
 # =============================================================================
 # Recovery Endpoints
 # =============================================================================
+
 
 @auth_bp.route("/recover/backup-code", methods=["POST"])
 def recover_with_backup_code():
@@ -1789,23 +1927,25 @@ def recover_with_backup_code():
     session_repo = SessionRepository(db)
     session_repo.invalidate_user_sessions(user.id)
 
-    return jsonify({
-        "success": True,
-        "username": user.username,
-        "totp_secret": base32_secret,
-        "totp_uri": uri,
-        "backup_codes": new_backup_codes,
-        "remaining_old_codes": remaining,
-        "message": "Account recovered. Set up your new authenticator and save your new backup codes.",
-        "warning": (
-            "Your old backup codes have been invalidated. Save these new codes "
-            "in a safe place - they are your only recovery option if you lose "
-            "your authenticator again."
-            if not user.recovery_enabled else
-            "Your old backup codes have been invalidated. You can also recover "
-            "using your registered email/phone if needed."
-        )
-    })
+    return jsonify(
+        {
+            "success": True,
+            "username": user.username,
+            "totp_secret": base32_secret,
+            "totp_uri": uri,
+            "backup_codes": new_backup_codes,
+            "remaining_old_codes": remaining,
+            "message": "Account recovered. Set up your new authenticator and save your new backup codes.",
+            "warning": (
+                "Your old backup codes have been invalidated. Save these new codes "
+                "in a safe place - they are your only recovery option if you lose "
+                "your authenticator again."
+                if not user.recovery_enabled
+                else "Your old backup codes have been invalidated. You can also recover "
+                "using your registered email/phone if needed."
+            ),
+        }
+    )
 
 
 @auth_bp.route("/recover/remaining-codes", methods=["POST"])
@@ -1821,9 +1961,7 @@ def get_remaining_backup_codes():
     db = get_auth_db()
     backup_repo = BackupCodeRepository(db)
 
-    return jsonify({
-        "remaining": backup_repo.get_remaining_count(user.id)
-    })
+    return jsonify({"remaining": backup_repo.get_remaining_count(user.id)})
 
 
 @auth_bp.route("/recover/regenerate-codes", methods=["POST"])
@@ -1849,15 +1987,17 @@ def regenerate_backup_codes():
     # Generate new codes (this deletes old unused codes)
     new_codes = backup_repo.create_codes_for_user(user.id)
 
-    return jsonify({
-        "success": True,
-        "backup_codes": new_codes,
-        "message": "New backup codes generated. Your old codes are no longer valid.",
-        "warning": (
-            "Save these codes in a safe place! They are your recovery option "
-            "if you lose your authenticator."
-        )
-    })
+    return jsonify(
+        {
+            "success": True,
+            "backup_codes": new_codes,
+            "message": "New backup codes generated. Your old codes are no longer valid.",
+            "warning": (
+                "Save these codes in a safe place! They are your recovery option "
+                "if you lose your authenticator."
+            ),
+        }
+    )
 
 
 @auth_bp.route("/recover/update-contact", methods=["POST"])
@@ -1899,20 +2039,23 @@ def update_recovery_contact():
     user.recovery_enabled = bool(user.recovery_email or user.recovery_phone)
     user.save(db)
 
-    return jsonify({
-        "success": True,
-        "recovery_enabled": user.recovery_enabled,
-        "message": (
-            "Recovery contact updated. You can now use magic link recovery."
-            if user.recovery_enabled else
-            "Recovery contact removed. Backup codes are now your only recovery option."
-        )
-    })
+    return jsonify(
+        {
+            "success": True,
+            "recovery_enabled": user.recovery_enabled,
+            "message": (
+                "Recovery contact updated. You can now use magic link recovery."
+                if user.recovery_enabled
+                else "Recovery contact removed. Backup codes are now your only recovery option."
+            ),
+        }
+    )
 
 
 # =============================================================================
 # Magic Link Recovery
 # =============================================================================
+
 
 @auth_bp.route("/magic-link", methods=["POST"])
 def request_magic_link():
@@ -1975,22 +2118,16 @@ def request_magic_link():
         to_email=user.recovery_email,
         username=user.username,
         magic_link=magic_link_url,
-        expires_minutes=15
+        expires_minutes=15,
     )
 
     if email_sent:
-        return jsonify({
-            "success": True,
-            "message": generic_message
-        })
+        return jsonify({"success": True, "message": generic_message})
     else:
         # Email failed, but still return success for privacy
         # Log the error internally
         current_app.logger.error(f"Failed to send magic link email to user {user.id}")
-        return jsonify({
-            "success": True,
-            "message": generic_message
-        })
+        return jsonify({"success": True, "message": generic_message})
 
 
 @auth_bp.route("/magic-link/verify", methods=["POST"])
@@ -2052,11 +2189,13 @@ def verify_magic_link():
     user.save(db)
 
     # Set session cookie
-    response = jsonify({
-        "success": True,
-        "message": "Login successful",
-        "username": user.username,
-    })
+    response = jsonify(
+        {
+            "success": True,
+            "message": "Login successful",
+            "username": user.username,
+        }
+    )
 
     response.set_cookie(
         _session_cookie_name,
@@ -2070,11 +2209,28 @@ def verify_magic_link():
     return response
 
 
+def _get_base_url() -> str:
+    """Get the base URL for email links, auto-detecting from request if not configured."""
+    configured = os.environ.get("BASE_URL", "")
+    if configured:
+        return configured.rstrip("/")
+    # Auto-detect from current request
+    return request.host_url.rstrip("/")
+
+
+def _get_email_config() -> tuple:
+    """Get SMTP configuration from environment."""
+    return (
+        os.environ.get("SMTP_HOST", "localhost"),
+        int(os.environ.get("SMTP_PORT", "25")),
+        os.environ.get("SMTP_USER", ""),
+        os.environ.get("SMTP_PASS", ""),
+        os.environ.get("SMTP_FROM", "noreply@localhost"),
+    )
+
+
 def _send_magic_link_email(
-    to_email: str,
-    username: str,
-    magic_link: str,
-    expires_minutes: int
+    to_email: str, username: str, magic_link: str, expires_minutes: int
 ) -> bool:
     """
     Send a magic link email for login recovery.
@@ -2085,13 +2241,8 @@ def _send_magic_link_email(
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
 
-    # Email configuration - read from environment or config
-    smtp_host = os.environ.get("SMTP_HOST", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
-    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
-    base_url = os.environ.get("BASE_URL", "https://audiobooks.thebosco.club")
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    base_url = _get_base_url()
 
     full_link = f"{base_url}{magic_link}"
 
@@ -2191,13 +2342,8 @@ def _send_approval_email(to_email: str, username: str) -> bool:
 
     Returns True if email was sent successfully, False otherwise.
     """
-    # Email configuration
-    smtp_host = os.environ.get("SMTP_HOST", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
-    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
-    base_url = os.environ.get("BASE_URL", "https://audiobooks.thebosco.club")
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    base_url = _get_base_url()
 
     claim_url = f"{base_url}/claim.html"
 
@@ -2355,17 +2501,15 @@ Can't find your claim token? Contact the administrator.
         return False
 
 
-def _send_denial_email(to_email: str, username: str, reason: Optional[str] = None) -> bool:
+def _send_denial_email(
+    to_email: str, username: str, reason: Optional[str] = None
+) -> bool:
     """
     Send an email notifying the user their access request was denied.
 
     Returns True if email was sent successfully, False otherwise.
     """
-    smtp_host = os.environ.get("SMTP_HOST", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
-    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
 
     subject = "Update on Your Access Request - The Library"
 
@@ -2445,6 +2589,7 @@ If you believe this was in error, you may submit a new request.
 # Notification Endpoints
 # =============================================================================
 
+
 @auth_bp.route("/notifications/dismiss/<int:notification_id>", methods=["POST"])
 @login_required
 def dismiss_notification(notification_id: int):
@@ -2468,6 +2613,7 @@ def dismiss_notification(notification_id: int):
 # Health Check
 # =============================================================================
 
+
 @auth_bp.route("/health", methods=["GET"])
 def auth_health():
     """
@@ -2479,23 +2625,28 @@ def auth_health():
     try:
         db = get_auth_db()
         status = db.verify()
-        return jsonify({
-            "status": "ok",
-            "auth_db": status["can_connect"],
-            "schema_version": status["schema_version"],
-            "user_count": status["user_count"],
-        })
+        return jsonify(
+            {
+                "status": "ok",
+                "auth_db": status["can_connect"],
+                "schema_version": status["schema_version"],
+                "user_count": status["user_count"],
+            }
+        )
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "auth_db": False,
-            "error": str(e),
-        }), 500
+        return jsonify(
+            {
+                "status": "error",
+                "auth_db": False,
+                "error": str(e),
+            }
+        ), 500
 
 
 # =============================================================================
 # Contact (User to Admin messaging)
 # =============================================================================
+
 
 @auth_bp.route("/contact", methods=["POST"])
 @login_required
@@ -2544,27 +2695,25 @@ def send_contact_message():
         from_user_id=user.id,
         message=message,
         reply_via=ReplyMethod(reply_via),
-        reply_email=reply_email
+        reply_email=reply_email,
     )
     inbox_msg.save(db)
 
     # Send admin alert email
     _send_admin_alert(user.username, message[:100])
 
-    return jsonify({
-        "success": True,
-        "message_id": inbox_msg.id,
-        "info": "Your message has been sent to the admin."
-    })
+    return jsonify(
+        {
+            "success": True,
+            "message_id": inbox_msg.id,
+            "info": "Your message has been sent to the admin.",
+        }
+    )
 
 
 def _send_admin_alert(username: str, message_preview: str) -> bool:
     """Send email alert to admin about new contact message."""
-    smtp_host = os.environ.get("SMTP_HOST", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
-    smtp_from = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _get_email_config()
     admin_email = os.environ.get("ADMIN_EMAIL", smtp_from)
 
     if not smtp_user:
@@ -2574,7 +2723,7 @@ def _send_admin_alert(username: str, message_preview: str) -> bool:
     subject = f"New message from {username} - The Library"
     body = f"""You have a new message from {username} in The Library inbox.
 
-Preview: {message_preview}{'...' if len(message_preview) >= 100 else ''}
+Preview: {message_preview}{"..." if len(message_preview) >= 100 else ""}
 
 View all messages:
   audiobook-inbox list
@@ -2606,6 +2755,7 @@ View all messages:
 # Admin Endpoints (localhost only in production)
 # =============================================================================
 
+
 @auth_bp.route("/admin/notifications", methods=["GET"])
 @admin_required
 def list_notifications():
@@ -2619,23 +2769,25 @@ def list_notifications():
     notif_repo = NotificationRepository(db)
     notifications = notif_repo.list_all()
 
-    return jsonify({
-        "notifications": [
-            {
-                "id": n.id,
-                "message": n.message,
-                "type": n.type.value,
-                "target_user_id": n.target_user_id,
-                "starts_at": n.starts_at.isoformat() if n.starts_at else None,
-                "expires_at": n.expires_at.isoformat() if n.expires_at else None,
-                "dismissable": n.dismissable,
-                "priority": n.priority,
-                "created_at": n.created_at.isoformat() if n.created_at else None,
-                "created_by": n.created_by,
-            }
-            for n in notifications
-        ]
-    })
+    return jsonify(
+        {
+            "notifications": [
+                {
+                    "id": n.id,
+                    "message": n.message,
+                    "type": n.type.value,
+                    "target_user_id": n.target_user_id,
+                    "starts_at": n.starts_at.isoformat() if n.starts_at else None,
+                    "expires_at": n.expires_at.isoformat() if n.expires_at else None,
+                    "dismissable": n.dismissable,
+                    "priority": n.priority,
+                    "created_at": n.created_at.isoformat() if n.created_at else None,
+                    "created_by": n.created_by,
+                }
+                for n in notifications
+            ]
+        }
+    )
 
 
 @auth_bp.route("/admin/notifications", methods=["POST"])
@@ -2706,10 +2858,7 @@ def create_notification():
     )
     notification.save(db)
 
-    return jsonify({
-        "success": True,
-        "notification_id": notification.id
-    })
+    return jsonify({"success": True, "notification_id": notification.id})
 
 
 @auth_bp.route("/admin/notifications/<int:notification_id>", methods=["DELETE"])
@@ -2761,23 +2910,22 @@ def list_inbox():
     result = []
     for m in messages:
         user = user_repo.get_by_id(m.from_user_id)
-        result.append({
-            "id": m.id,
-            "from_user_id": m.from_user_id,
-            "from_username": user.username if user else "[deleted]",
-            "message": m.message,
-            "reply_via": m.reply_via.value,
-            "has_reply_email": bool(m.reply_email),
-            "status": m.status.value,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
-            "read_at": m.read_at.isoformat() if m.read_at else None,
-            "replied_at": m.replied_at.isoformat() if m.replied_at else None,
-        })
+        result.append(
+            {
+                "id": m.id,
+                "from_user_id": m.from_user_id,
+                "from_username": user.username if user else "[deleted]",
+                "message": m.message,
+                "reply_via": m.reply_via.value,
+                "has_reply_email": bool(m.reply_email),
+                "status": m.status.value,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+                "read_at": m.read_at.isoformat() if m.read_at else None,
+                "replied_at": m.replied_at.isoformat() if m.replied_at else None,
+            }
+        )
 
-    return jsonify({
-        "messages": result,
-        "unread_count": unread_count
-    })
+    return jsonify({"messages": result, "unread_count": unread_count})
 
 
 @auth_bp.route("/admin/inbox/<int:message_id>", methods=["GET"])
@@ -2804,20 +2952,26 @@ def get_inbox_message(message_id: int):
 
     user = user_repo.get_by_id(message.from_user_id)
 
-    return jsonify({
-        "message": {
-            "id": message.id,
-            "from_user_id": message.from_user_id,
-            "from_username": user.username if user else "[deleted]",
-            "message": message.message,
-            "reply_via": message.reply_via.value,
-            "reply_email": message.reply_email,
-            "status": message.status.value,
-            "created_at": message.created_at.isoformat() if message.created_at else None,
-            "read_at": message.read_at.isoformat() if message.read_at else None,
-            "replied_at": message.replied_at.isoformat() if message.replied_at else None,
+    return jsonify(
+        {
+            "message": {
+                "id": message.id,
+                "from_user_id": message.from_user_id,
+                "from_username": user.username if user else "[deleted]",
+                "message": message.message,
+                "reply_via": message.reply_via.value,
+                "reply_email": message.reply_email,
+                "status": message.status.value,
+                "created_at": message.created_at.isoformat()
+                if message.created_at
+                else None,
+                "read_at": message.read_at.isoformat() if message.read_at else None,
+                "replied_at": message.replied_at.isoformat()
+                if message.replied_at
+                else None,
+            }
         }
-    })
+    )
 
 
 @auth_bp.route("/admin/inbox/<int:message_id>/reply", methods=["POST"])
@@ -2878,19 +3032,12 @@ def reply_to_message(message_id: int):
     # Mark message as replied (clears reply_email for privacy)
     message.mark_replied(db)
 
-    return jsonify({
-        "success": True,
-        "reply_method": reply_method
-    })
+    return jsonify({"success": True, "reply_method": reply_method})
 
 
 def _send_reply_email(to_email: str, username: str, reply_text: str) -> bool:
     """Send email reply to user."""
-    smtp_host = os.environ.get("SMTP_HOST", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
-    smtp_from = os.environ.get("SMTP_FROM", "library@thebosco.club")
+    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _get_email_config()
 
     subject = "Reply from The Library"
     body = f"""Hi {username},
@@ -2950,6 +3097,7 @@ def archive_message(message_id: int):
 # Admin User Management Endpoints
 # =============================================================================
 
+
 @auth_bp.route("/admin/access-requests", methods=["GET"])
 @admin_required
 def list_access_requests():
@@ -2978,10 +3126,12 @@ def list_access_requests():
         all_requests = request_repo.list_all(limit=limit)
         requests = [r for r in all_requests if r.status.value == status_filter]
 
-    return jsonify({
-        "requests": [r.to_dict() for r in requests],
-        "pending_count": request_repo.count_pending(),
-    })
+    return jsonify(
+        {
+            "requests": [r.to_dict() for r in requests],
+            "pending_count": request_repo.count_pending(),
+        }
+    )
 
 
 @auth_bp.route("/admin/access-requests/<int:request_id>/approve", methods=["POST"])
@@ -3029,19 +3179,24 @@ def approve_access_request(request_id: int):
     email_sent = False
     if access_req.contact_email:
         email_sent = _send_approval_email(
-            to_email=access_req.contact_email,
-            username=access_req.username
+            to_email=access_req.contact_email, username=access_req.username
         )
 
-    return jsonify({
-        "success": True,
-        "username": access_req.username,
-        "email_sent": email_sent,
-        "message": (
-            f"Access request for '{access_req.username}' approved. "
-            + ("Email notification sent." if email_sent else "User can claim credentials with their token.")
-        ),
-    })
+    return jsonify(
+        {
+            "success": True,
+            "username": access_req.username,
+            "email_sent": email_sent,
+            "message": (
+                f"Access request for '{access_req.username}' approved. "
+                + (
+                    "Email notification sent."
+                    if email_sent
+                    else "User can claim credentials with their token."
+                )
+            ),
+        }
+    )
 
 
 @auth_bp.route("/admin/access-requests/<int:request_id>/deny", methods=["POST"])
@@ -3086,14 +3241,16 @@ def deny_access_request(request_id: int):
         email_sent = _send_denial_email(
             to_email=access_req.contact_email,
             username=access_req.username,
-            reason=reason
+            reason=reason,
         )
 
-    return jsonify({
-        "success": True,
-        "email_sent": email_sent,
-        "message": f"Access request for '{access_req.username}' denied.",
-    })
+    return jsonify(
+        {
+            "success": True,
+            "email_sent": email_sent,
+            "message": f"Access request for '{access_req.username}' denied.",
+        }
+    )
 
 
 @auth_bp.route("/admin/users", methods=["GET"])
@@ -3115,24 +3272,28 @@ def list_users():
 
     all_users = user_repo.list_all()
     total = len(all_users)
-    users = all_users[:limit]  # Apply limit in Python since list_all() doesn't support it
+    users = all_users[
+        :limit
+    ]  # Apply limit in Python since list_all() doesn't support it
 
-    return jsonify({
-        "users": [
-            {
-                "id": u.id,
-                "username": u.username,
-                "email": u.recovery_email,
-                "auth_type": u.auth_type.value,
-                "can_download": u.can_download,
-                "is_admin": u.is_admin,
-                "created_at": u.created_at.isoformat() if u.created_at else None,
-                "last_login": u.last_login.isoformat() if u.last_login else None,
-            }
-            for u in users
-        ],
-        "total": total,
-    })
+    return jsonify(
+        {
+            "users": [
+                {
+                    "id": u.id,
+                    "username": u.username,
+                    "email": u.recovery_email,
+                    "auth_type": u.auth_type.value,
+                    "can_download": u.can_download,
+                    "is_admin": u.is_admin,
+                    "created_at": u.created_at.isoformat() if u.created_at else None,
+                    "last_login": u.last_login.isoformat() if u.last_login else None,
+                }
+                for u in users
+            ],
+            "total": total,
+        }
+    )
 
 
 @auth_bp.route("/admin/users/invite", methods=["POST"])
@@ -3172,16 +3333,18 @@ def invite_user():
     if len(username) > 16:
         return jsonify({"error": "Username must be at most 16 characters"}), 400
     # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
-    if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in username):
+    if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in username):
         return jsonify({"error": "Username contains invalid characters"}), 400
     # No leading/trailing whitespace
     if username != username.strip():
-        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+        return jsonify(
+            {"error": "Username cannot have leading or trailing spaces"}
+        ), 400
 
     # Validate email (required for invitations)
     if not email:
         return jsonify({"error": "Email is required for invitations"}), 400
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if not re.match(email_pattern, email):
         return jsonify({"error": "Invalid email format"}), 400
 
@@ -3196,7 +3359,9 @@ def invite_user():
     # Check for existing pending request
     existing = request_repo.get_by_username(username)
     if existing:
-        return jsonify({"error": "Access request already exists for this username"}), 409
+        return jsonify(
+            {"error": "Access request already exists for this username"}
+        ), 409
 
     # Get admin username for audit
     admin_user = get_current_user()
@@ -3205,7 +3370,7 @@ def invite_user():
     # Generate claim token
     raw_claim_token, _ = generate_verification_token()
     truncated_token = raw_claim_token[:16]
-    formatted_token = "-".join(truncated_token[i:i+4] for i in range(0, 16, 4))
+    formatted_token = "-".join(truncated_token[i : i + 4] for i in range(0, 16, 4))
     claim_token_hash = hash_token(truncated_token)
 
     # Create access request with claim token hash
@@ -3235,7 +3400,7 @@ def invite_user():
         access_request.id,
         totp_base32,
         totp_uri,
-        json_module.dumps(format_codes_for_display(codes))
+        json_module.dumps(format_codes_for_display(codes)),
     )
 
     # Mark as approved
@@ -3243,27 +3408,31 @@ def invite_user():
 
     # Send invitation email with claim token
     email_sent = _send_invitation_email(
-        to_email=email,
-        username=username,
-        claim_token=formatted_token
+        to_email=email, username=username, claim_token=formatted_token
     )
 
-    return jsonify({
-        "success": True,
-        "user": {
-            "id": created_user.id,
-            "username": created_user.username,
-            "email": created_user.recovery_email,
-            "can_download": created_user.can_download,
-            "is_admin": created_user.is_admin,
-        },
-        "email_sent": email_sent,
-        "claim_token": formatted_token,  # Also return token so admin can share manually if email fails
-        "message": (
-            f"User '{username}' created. "
-            + ("Invitation email sent." if email_sent else "Email failed - share claim token manually.")
-        ),
-    })
+    return jsonify(
+        {
+            "success": True,
+            "user": {
+                "id": created_user.id,
+                "username": created_user.username,
+                "email": created_user.recovery_email,
+                "can_download": created_user.can_download,
+                "is_admin": created_user.is_admin,
+            },
+            "email_sent": email_sent,
+            "claim_token": formatted_token,  # Also return token so admin can share manually if email fails
+            "message": (
+                f"User '{username}' created. "
+                + (
+                    "Invitation email sent."
+                    if email_sent
+                    else "Email failed - share claim token manually."
+                )
+            ),
+        }
+    )
 
 
 def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bool:
@@ -3272,12 +3441,8 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
 
     Returns True if email was sent successfully, False otherwise.
     """
-    smtp_host = os.environ.get("SMTP_HOST", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
-    from_email = os.environ.get("SMTP_FROM", "library@thebosco.club")
-    base_url = os.environ.get("BASE_URL", "https://audiobooks.thebosco.club")
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    base_url = _get_base_url()
 
     claim_url = f"{base_url}/claim.html"
 
@@ -3433,11 +3598,13 @@ def toggle_user_admin(user_id: int):
     new_admin_status = not target_user.is_admin
     user_repo.set_admin(user_id, new_admin_status)
 
-    return jsonify({
-        "success": True,
-        "username": target_user.username,
-        "is_admin": new_admin_status,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "username": target_user.username,
+            "is_admin": new_admin_status,
+        }
+    )
 
 
 @auth_bp.route("/admin/users/<int:user_id>/toggle-download", methods=["POST"])
@@ -3461,11 +3628,13 @@ def toggle_user_download(user_id: int):
     new_download_status = not target_user.can_download
     user_repo.set_download_permission(user_id, new_download_status)
 
-    return jsonify({
-        "success": True,
-        "username": target_user.username,
-        "can_download": new_download_status,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "username": target_user.username,
+            "can_download": new_download_status,
+        }
+    )
 
 
 @auth_bp.route("/admin/users/<int:user_id>", methods=["PUT"])
@@ -3485,6 +3654,7 @@ def update_user(user_id: int):
         409: {"error": "Username already taken"}
     """
     import re
+
     db = get_auth_db()
     user_repo = UserRepository(db)
 
@@ -3502,11 +3672,13 @@ def update_user(user_id: int):
         if len(new_username) > 32:
             return jsonify({"error": "Username must be at most 32 characters"}), 400
         # Allow ASCII printable (32-126) except angle brackets (HTML) and backslash
-        if not all(32 <= ord(c) <= 126 and c not in '<>\\' for c in new_username):
+        if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in new_username):
             return jsonify({"error": "Username contains invalid characters"}), 400
         # No leading/trailing whitespace
         if new_username != new_username.strip():
-            return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+            return jsonify(
+                {"error": "Username cannot have leading or trailing spaces"}
+            ), 400
 
         # Update username
         if not user_repo.update_username(user_id, new_username):
@@ -3517,7 +3689,7 @@ def update_user(user_id: int):
         new_email = data.get("email")
         if new_email is not None and new_email != "":
             # Validate email format
-            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
             if not re.match(email_pattern, new_email):
                 return jsonify({"error": "Invalid email format"}), 400
         else:
@@ -3527,16 +3699,18 @@ def update_user(user_id: int):
     # Fetch updated user data
     updated_user = user_repo.get_by_id(user_id)
 
-    return jsonify({
-        "success": True,
-        "user": {
-            "id": updated_user.id,
-            "username": updated_user.username,
-            "email": updated_user.recovery_email,
-            "can_download": updated_user.can_download,
-            "is_admin": updated_user.is_admin,
+    return jsonify(
+        {
+            "success": True,
+            "user": {
+                "id": updated_user.id,
+                "username": updated_user.username,
+                "email": updated_user.recovery_email,
+                "can_download": updated_user.can_download,
+                "is_admin": updated_user.is_admin,
+            },
         }
-    })
+    )
 
 
 @auth_bp.route("/admin/users/<int:user_id>", methods=["DELETE"])
@@ -3567,7 +3741,9 @@ def delete_user(user_id: int):
     # Delete user (cascades to sessions, positions, etc.)
     user_repo.delete(user_id)
 
-    return jsonify({
-        "success": True,
-        "message": f"User '{target_user.username}' deleted.",
-    })
+    return jsonify(
+        {
+            "success": True,
+            "message": f"User '{target_user.username}' deleted.",
+        }
+    )

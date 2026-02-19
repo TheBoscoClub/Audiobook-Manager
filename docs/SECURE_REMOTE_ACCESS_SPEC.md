@@ -113,7 +113,7 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 │                                    INTERNET                                              │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
          │
-         │ audiobooks.thebosco.club (DNS via Cloudflare)
+         │ library.thebosco.club (DNS via Cloudflare)
          │
          ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -197,7 +197,7 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 | Record | Type | Value | Purpose |
 |--------|------|-------|---------|
 | `thebosco.club` | A | Squarespace IP | Main website (unchanged) |
-| `audiobooks.thebosco.club` | A | Home server IP | Audiobook library |
+| `library.thebosco.club` | A | Home server IP | Audiobook library |
 | MX records | MX | Proton | Email routing (unchanged) |
 
 ### 3.4 Dynamic DNS
@@ -585,7 +585,7 @@ Back Office and admin endpoints are blocked at the Caddy level:
 
 ```
 # Caddyfile (conceptual)
-audiobooks.thebosco.club {
+library.thebosco.club {
     # Block Back Office from non-localhost
     @backoffice path /utilities.html /api/utilities/* /api/system/* /api/admin/*
     handle @backoffice {
@@ -1259,7 +1259,7 @@ If a user loses their authenticator AND all backup codes, the account is unrecov
 ### Appendix A: Caddyfile Template
 
 ```
-audiobooks.thebosco.club {
+library.thebosco.club {
     # TLS configuration (automatic via Let's Encrypt)
 
     # Security headers
@@ -1320,7 +1320,7 @@ audiobooks.thebosco.club {
 ZONE_ID="your-cloudflare-zone-id"
 RECORD_ID="your-dns-record-id"
 API_TOKEN="your-cloudflare-api-token"
-DOMAIN="audiobooks.thebosco.club"
+DOMAIN="library.thebosco.club"
 
 CURRENT_IP=$(curl -s https://api.ipify.org)
 CACHED_IP=$(cat /var/lib/audiobooks/.cached_ip 2>/dev/null)

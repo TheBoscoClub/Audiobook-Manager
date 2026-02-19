@@ -356,6 +356,17 @@ AUDIOBOOKS_API_PORT="5001"
 AUDIOBOOKS_WEB_PORT="8090"
 AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
 AUDIOBOOKS_HTTPS_ENABLED="true"
+
+# Authentication (multi-user support)
+# Set AUTH_ENABLED="true" to require login for remote access
+# When disabled (default), admin endpoints are restricted to localhost
+AUTH_ENABLED="false"
+
+# Remote access (only needed when AUTH_ENABLED="true")
+# See audiobooks.conf.example for full documentation
+#AUDIOBOOKS_HOSTNAME=""
+#BASE_URL=""
+#CORS_ORIGIN=""
 EOF
 fi
 
@@ -367,7 +378,7 @@ cat > "${BIN_DIR}/audiobook-api" << EOF
 #!/bin/bash
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/audiobook-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/api.py" "\$@"
+exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/api_server.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-api"
 
@@ -407,11 +418,32 @@ audiobooks_print_config
 EOF
 chmod 755 "${BIN_DIR}/audiobooks-config"
 
-# Setup Python virtual environment if needed
-if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
+# Setup Python virtual environment (recreate if broken or missing)
+if ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
     echo -e "${BLUE}Setting up Python virtual environment...${NC}"
+    rm -rf "${LIB_DIR}/library/venv"
     python3 -m venv "${LIB_DIR}/library/venv"
+fi
+# Install/update dependencies
+if [[ -f "${LIB_DIR}/library/requirements.txt" ]]; then
+    echo -e "${BLUE}Installing Python dependencies...${NC}"
+    "${LIB_DIR}/library/venv/bin/pip" install --quiet -r "${LIB_DIR}/library/requirements.txt" 2>&1 | grep -v 'already satisfied' || true
+else
+    echo -e "${BLUE}Installing Flask (no requirements.txt found)...${NC}"
     "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
+fi
+
+# Initialize database if it doesn't exist
+DB_FILE="${STATE_DIR}/audiobooks.db"
+if [[ ! -f "$DB_FILE" ]]; then
+    echo -e "${BLUE}Initializing database...${NC}"
+    SCHEMA_FILE="${LIB_DIR}/library/backend/schema.sql"
+    if [[ -f "$SCHEMA_FILE" ]]; then
+        sqlite3 "$DB_FILE" < "$SCHEMA_FILE"
+        echo "  Created: $DB_FILE"
+    else
+        echo -e "${YELLOW}  Warning: schema.sql not found, skipping database initialization${NC}"
+    fi
 fi
 
 # Generate SSL certificate if needed
