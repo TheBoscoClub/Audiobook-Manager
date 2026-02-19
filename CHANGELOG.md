@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.1.2.1] - 2026-02-18
+
+### Added
+- **Admin**: Invite User button in user administration page for pre-registering and approving new users with claim token workflow
+
 ## [6.1.2] - 2026-02-18
 
 ### Fixed
