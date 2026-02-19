@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![6](https://img.shields.io/badge/6-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest major | [v6.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.0.0) |
+| ![6](https://img.shields.io/badge/6-brightgreen)![1](https://img.shields.io/badge/1-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v6.1.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.1.0) |
+| ![6](https://img.shields.io/badge/6-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v6.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.0.0) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v5.0.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.2) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v5.0.1.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1.1) |
 | ![5](https://img.shields.io/badge/5-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v5.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v5.0.1) |
@@ -1388,6 +1389,12 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.1.0
+- **UI**: Comprehensive responsive design — mobile/desktop, portrait/landscape, zoom/pinch
+- **UI**: Touch-aware interactions, safe area insets, reduced motion support
+- **Fix**: Install/upgrade separation checks use dynamic paths
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.0.0
 - **Security**: Dual-mode security architecture — admin endpoints adapt protection based on deployment mode

@@ -13,6 +13,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.1.0] - 2026-02-18
+
+### Added
+- **UI**: Comprehensive responsive design for mobile, desktop, portrait, landscape, and zoom/pinch scenarios
+  - New `responsive.css` (425 lines, 6 media queries) with safe area insets, touch-aware interactions, landscape compaction, tablet/small phone layouts, fluid scaling, and reduced motion support
+  - `viewport-fit=cover` on all HTML pages for notched device support
+  - Touch targets minimum 44px (Apple HIG), `touch-action: manipulation` to eliminate 300ms tap delay
+  - `@media (prefers-reduced-motion: reduce)` accessibility support
+  - `clamp()` fluid typography and spacing for smooth desktop resize
+
+### Changed
+- **UI**: Header navigation converts to flex column layout at 768px breakpoint (fixes overlap with title)
+- **UI**: Audio player compacts in landscape mobile orientation (max-height: 500px)
+- **CI**: GitHub Actions release workflow installs zsh on runner for script compatibility
+- **CI**: Fixed GHCR package permissions for Docker image push
+
+### Fixed
+- **Install**: `install.sh` separation check uses dynamic `$SCRIPT_DIR` instead of hardcoded path pattern
+- **Install**: `upgrade.sh` separation check uses dynamic `$SCRIPT_DIR` instead of hardcoded path pattern
+- **Code**: Removed unused `PilImage` import from `library/auth/totp.py`
+
 ## [6.0.0] - 2026-02-18
 
 ### Added
