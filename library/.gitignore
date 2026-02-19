@@ -123,6 +123,7 @@ Cargo.lock
 # Exception: migration files and schema should be tracked
 !backend/migrations/*.sql
 !backend/schema.sql
+!auth/schema.sql
 
 # Project-specific: Generated data
 data/audiobooks.json
