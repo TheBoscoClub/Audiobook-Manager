@@ -122,6 +122,9 @@ def init_library_routes(db_path, project_root):
             tracker.start_operation(operation_id)
             scanner_path = project_root / "scanner" / "scan_audiobooks.py"
 
+            # Strip ANSI escape codes before regex matching
+            ansi_escape = re.compile(r"\033\[[0-9;]*m")
+
             try:
                 tracker.update_progress(operation_id, 5, "Starting scanner...")
 
@@ -155,8 +158,9 @@ def init_library_routes(db_path, project_root):
                         if buffer:
                             output_lines.append(buffer)
 
-                            # Parse progress from ANSI output
-                            match = progress_pattern.search(buffer)
+                            # Strip ANSI codes before parsing
+                            clean = ansi_escape.sub("", buffer)
+                            match = progress_pattern.search(clean)
                             if match:
                                 percent = int(match.group(1))
                                 current = int(match.group(2))
