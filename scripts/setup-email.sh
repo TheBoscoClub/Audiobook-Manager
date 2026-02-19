@@ -7,15 +7,16 @@ set -e
 echo "=== Protonmail Bridge Setup for Magic Link Emails ==="
 echo ""
 
-# Check if bridge is installed
+# Check if bridge is installed (core binary or symlink at /usr/local/bin)
 if ! command -v protonmail-bridge-core &> /dev/null; then
-    echo "ERROR: protonmail-bridge-core not installed"
-    echo "Install with: sudo pacman -S protonmail-bridge-core"
+    echo "ERROR: protonmail-bridge-core not found"
+    echo "Install protonmail-bridge-bin (AUR) or protonmail-bridge-core (extra),"
+    echo "then ensure /usr/local/bin/protonmail-bridge-core points to the core binary."
     exit 1
 fi
 
-# Check for existing configuration
-if [ -f ~/.local/share/protonmail/bridge-v3/vault.enc ]; then
+# Check for existing configuration (check both possible vault locations)
+if [[ -f ~/.config/protonmail/bridge-v3/vault.enc ]] || [[ -f ~/.local/share/protonmail/bridge-v3/vault.enc ]]; then
     echo "Protonmail Bridge already configured."
     echo ""
 
