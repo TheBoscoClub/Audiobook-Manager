@@ -150,14 +150,18 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(chunk)
 
         except urllib.error.HTTPError as e:
-            # Forward HTTP errors from API
+            # Forward HTTP errors from API, preserving the original response body
             self.send_response(e.code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
+            for header, value in e.headers.items():
+                self.send_header(header, value)
             self.end_headers()
-            error_body = json.dumps(
-                {"error": e.reason, "code": e.code, "message": f"API error: {e.reason}"}
-            ).encode()
+            # Read and forward the actual error body from Flask
+            try:
+                error_body = e.read()
+            except Exception:
+                error_body = json.dumps(
+                    {"error": e.reason, "code": e.code}
+                ).encode()
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:

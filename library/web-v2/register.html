@@ -320,6 +320,9 @@
                     if you lose your authenticator.
                 </p>
                 <div class="backup-codes-list" id="backup-codes-list"></div>
+                <button type="button" class="copy-token-button" id="copy-backup-codes" title="Copy all backup codes to clipboard">
+                    Copy Backup Codes
+                </button>
                 <p class="backup-codes-warning">
                     These codes will not be shown again. Store them securely.
                 </p>
@@ -596,7 +599,8 @@
                     showError('request-error', data.error || 'Registration failed');
                 }
             } catch (e) {
-                showError('request-error', 'Connection error. Please try again.');
+                console.error('Registration error:', e);
+                showError('request-error', e.message || 'Connection error. Please try again.');
             }
         });
 
@@ -619,6 +623,31 @@
                 const el = document.getElementById('claim-token-display');
                 const range = document.createRange();
                 range.selectNodeContents(el);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        });
+
+        // Copy backup codes button
+        document.getElementById('copy-backup-codes').addEventListener('click', async () => {
+            const codesList = document.getElementById('backup-codes-list');
+            const codes = Array.from(codesList.querySelectorAll('span')).map(s => s.textContent);
+            if (!codes.length) return;
+
+            try {
+                await navigator.clipboard.writeText(codes.join('\n'));
+                const btn = document.getElementById('copy-backup-codes');
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy Backup Codes';
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (e) {
+                // Fallback: select all codes text
+                const range = document.createRange();
+                range.selectNodeContents(codesList);
                 const selection = window.getSelection();
                 selection.removeAllRanges();
                 selection.addRange(range);

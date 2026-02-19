@@ -708,7 +708,7 @@ def start_registration():
                 "totp_secret": totp_base32,
                 "totp_uri": totp_uri,
                 "totp_qr": qr_base64,
-                "backup_codes": format_codes_for_display(codes),
+                "backup_codes": codes,
             }
         )
 
