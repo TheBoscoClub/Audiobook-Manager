@@ -51,7 +51,7 @@ else
 fi
 
 # Key file exists
-if test -r /var/lib/audiobooks/auth.key; then
+if test -r /etc/audiobooks/auth.key; then
     echo "[OK] Encryption key present"
 else
     echo "[FAIL] Encryption key missing"
@@ -231,7 +231,7 @@ systemctl stop audiobook-api
 
 # Copy database and key
 cp /var/lib/audiobooks/auth.db "$BACKUP_DIR/auth.db"
-cp /var/lib/audiobooks/auth.key "$BACKUP_DIR/auth.key"
+cp /etc/audiobooks/auth.key "$BACKUP_DIR/auth.key"
 
 # Restart API
 systemctl start audiobook-api
@@ -277,11 +277,11 @@ systemctl stop audiobook-api
 
 # Backup current state
 mv /var/lib/audiobooks/auth.db /var/lib/audiobooks/auth.db.before-restore
-mv /var/lib/audiobooks/auth.key /var/lib/audiobooks/auth.key.before-restore
+mv /etc/audiobooks/auth.key /etc/audiobooks/auth.key.before-restore
 
 # Restore
 cp "$BACKUP_DIR/auth.db" /var/lib/audiobooks/auth.db
-cp "$BACKUP_DIR/auth.key" /var/lib/audiobooks/auth.key
+cp "$BACKUP_DIR/auth.key" /etc/audiobooks/auth.key
 
 # Fix permissions
 chown audiobooks:audiobooks /var/lib/audiobooks/auth.*
@@ -327,7 +327,7 @@ echo "Restore complete. Verify by logging in."
 
 2. **Check database accessibility:**
    ```bash
-   sqlite3 /var/lib/audiobooks/auth.db "PRAGMA key = \"x'$(cat /var/lib/audiobooks/auth.key)'\"" "SELECT 1;"
+   sqlite3 /var/lib/audiobooks/auth.db "PRAGMA key = \"x'$(cat /etc/audiobooks/auth.key)'\"" "SELECT 1;"
    ```
 
 3. **Check port availability:**

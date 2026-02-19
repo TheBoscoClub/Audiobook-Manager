@@ -62,7 +62,7 @@ systemctl restart audiobook-api
 **Recovery:**
 ```bash
 # Check key file exists
-ls -la /var/lib/audiobooks/auth.key
+ls -la /etc/audiobooks/auth.key
 
 # If key is lost permanently:
 # 1. Create new database (ALL USER DATA LOST)
@@ -71,7 +71,7 @@ systemctl restart audiobook-api  # Creates fresh DB
 
 # If restoring from backup, restore BOTH files:
 cp /backups/audiobooks/auth-backup.db /var/lib/audiobooks/auth.db
-cp /backups/audiobooks/auth-backup.key /var/lib/audiobooks/auth.key
+cp /backups/audiobooks/auth-backup.key /etc/audiobooks/auth.key
 chmod 600 /var/lib/audiobooks/auth.*
 chown audiobooks:audiobooks /var/lib/audiobooks/auth.*
 ```
@@ -362,7 +362,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5001/api/health
 sqlite3 /var/lib/audiobooks/auth.db "SELECT 1;" > /dev/null 2>&1
 
 # 3. Key file exists and readable
-test -r /var/lib/audiobooks/auth.key
+test -r /etc/audiobooks/auth.key
 
 # 4. Session cleanup running (check recent timestamps)
 # Sessions older than 1 hour should not exist
@@ -383,7 +383,7 @@ sqlite3 /var/lib/audiobooks/auth.db \
 
 **Daily Backups Must Include:**
 1. `/var/lib/audiobooks/auth.db` - User accounts, sessions
-2. `/var/lib/audiobooks/auth.key` - Encryption key (CRITICAL)
+2. `/etc/audiobooks/auth.key` - Encryption key (CRITICAL)
 3. `/etc/audiobooks/audiobooks.conf` - Configuration
 
 **Backup Verification:**
@@ -432,10 +432,10 @@ systemctl stop audiobook-api
 
 # 2. Back up current state (for forensics)
 cp /var/lib/audiobooks/auth.db /var/lib/audiobooks/auth.db.bak
-cp /var/lib/audiobooks/auth.key /var/lib/audiobooks/auth.key.bak
+cp /etc/audiobooks/auth.key /etc/audiobooks/auth.key.bak
 
 # 3. Remove database and key
-rm /var/lib/audiobooks/auth.db /var/lib/audiobooks/auth.key
+rm /var/lib/audiobooks/auth.db /etc/audiobooks/auth.key
 
 # 4. Start API (creates fresh database)
 systemctl start audiobook-api

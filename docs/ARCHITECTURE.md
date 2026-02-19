@@ -170,9 +170,74 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
 
 The API runs with `ProtectSystem=strict` which creates a read-only filesystem overlay. While `RuntimeDirectory=` can create `/run/audiobooks`, the sandboxed namespace sees it with root ownership (not audiobooks), preventing writes. Using `/var/lib/audiobooks/.control/` works because it's explicitly listed in `ReadWritePaths`.
 
+### Dual-Mode Security Architecture (v6.0+)
+
+The application supports two deployment modes, controlled by a single configuration variable (`AUTH_ENABLED`). The `admin_or_localhost` decorator in `auth.py` is the keystone — it adapts endpoint security automatically:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DUAL-MODE SECURITY ARCHITECTURE                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  AUTH_ENABLED=false (Standalone Mode)                                  │
+  │                                                                        │
+  │  • Library endpoints: Open to all (pre-v5 behavior)                   │
+  │  • Admin endpoints: Restricted to localhost only (127.0.0.1, ::1)     │
+  │  • Auth endpoints: Disabled (return 404)                              │
+  │  • No login required, no session management                           │
+  │  • Ideal for: Single-user, LAN-only, home server                     │
+  └────────────────────────────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  AUTH_ENABLED=true (Remote Access Mode)                                │
+  │                                                                        │
+  │  • Library endpoints: Require valid session (authenticated user)      │
+  │  • Admin endpoints: Require authenticated admin user                  │
+  │  • Auth endpoints: Active (login, register, admin panel)              │
+  │  • Session cookies, WebAuthn, TOTP, backup codes                      │
+  │  • Ideal for: Internet-facing, multi-user, reverse-proxied            │
+  └────────────────────────────────────────────────────────────────────────┘
+```
+
+**The `admin_or_localhost` decorator** (`auth.py:312`):
+
+```python
+@admin_or_localhost
+def some_admin_endpoint():
+    # AUTH_ENABLED=true  → requires authenticated admin user (401/403 if not)
+    # AUTH_ENABLED=false → requires localhost origin (404 if remote)
+    # Admin endpoints are NEVER wide-open regardless of mode
+    ...
+```
+
+**Applied to 9 endpoints** in `utilities_system.py`:
+- Service control (start/stop/restart)
+- System status and health
+- Application upgrades
+- Bulk service operations
+
+**Why not just `@admin_if_enabled`?** That decorator does nothing when auth is disabled, leaving admin endpoints accessible from any IP. The `admin_or_localhost` decorator ensures defense-in-depth — even without authentication, sensitive operations require physical/network proximity.
+
 ### Reverse Proxy Architecture
 
-The HTTPS reverse proxy (`proxy_server.py`) terminates SSL and forwards requests to the Flask API. A critical requirement is filtering **hop-by-hop headers** per RFC 2616 and PEP 3333:
+The HTTPS reverse proxy (`proxy_server.py`) terminates SSL and forwards requests to the Flask API.
+
+**Header Forwarding** (v6.0+): When deployed behind an external reverse proxy (Caddy, nginx, Cloudflare), the proxy forwards client identity and protocol headers:
+
+```python
+# Headers forwarded from upstream proxy
+'X-Forwarded-For'    # Client's real IP address
+'X-Forwarded-Proto'  # Original protocol (http/https)
+'X-Real-IP'          # Alternative client IP header
+'Host'               # Original hostname
+```
+
+These headers are essential for `admin_or_localhost` to correctly identify localhost requests that arrive through a reverse proxy chain, and for WebAuthn origin validation.
+
+**CORS Configuration** (v6.0+): CORS origin is locked to the value of the `CORS_ORIGIN` environment variable. Defaults to `*` (permissive, safe for standalone mode). For internet-facing deployments, set to the exact public URL (e.g., `https://library.example.com`).
+
+A critical requirement is filtering **hop-by-hop headers** per RFC 2616 and PEP 3333:
 
 ```python
 # Headers that MUST NOT be forwarded by proxies
@@ -225,6 +290,8 @@ done
 ## Authentication Module Architecture
 
 The authentication subsystem (v5.0+) provides multi-user access control with WebAuthn, TOTP, and backup code recovery. Located in `library/auth/`.
+
+**Deployment modes** (v6.0+): The auth system operates in two modes controlled by `AUTH_ENABLED`. In standalone mode (`false`), auth endpoints return 404 and the system operates without login. In remote mode (`true`), all endpoints are auth-gated and admin operations require authenticated admin users. See [Dual-Mode Security Architecture](#dual-mode-security-architecture-v60) for details.
 
 ### Auth Module Components
 
@@ -475,13 +542,14 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 
 | Blueprint | Prefix | Purpose |
 |-----------|--------|---------|
-| `auth_bp` | `/auth` | Authentication, registration, admin (v5.0+) |
+| `auth_bp` | `/auth` | Authentication, registration, admin, `admin_or_localhost` decorator (v5.0+) |
 | `audiobooks_bp` | `/api` | Main listing, streaming, single book |
 | `collections_bp` | `/api` | Predefined genre-based collections |
 | `editions_bp` | `/api` | Edition detection and grouping |
 | `duplicates_bp` | `/api` | Duplicate detection (hash/title) |
 | `supplements_bp` | `/api` | PDF, ebook companion files |
 | `utilities_bp` | `/api` | CRUD, imports, exports, maintenance |
+| `utilities_system_bp` | `/api` | Service control, upgrades, diagnostics (guarded by `@admin_or_localhost`) |
 | `position_bp` | `/api` | Playback position sync |
 
 ### Utilities Operations Submodules
@@ -782,7 +850,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SYSTEM INSTALLATION                               │
+│                      SYSTEM INSTALLATION (v6.0+)                            │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -799,6 +867,14 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
         └─────────┬─────────┘           └─────────┬─────────┘
                   │                               │
                   └───────────────┬───────────────┘
+                                  ▼
+                    ┌───────────────────────────────┐
+                    │   Create service account      │
+                    │   • groupadd audiobooks       │
+                    │   • useradd audiobooks        │
+                    │     (system, nologin shell)   │
+                    └───────────────────────────────┘
+                                  │
                                   ▼
                     ┌───────────────────────────────┐
                     │   Create directories          │
@@ -819,72 +895,80 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                                   │
                                   ▼
                     ┌───────────────────────────────┐
-                    │   Create symlinks             │
-                    │   /usr/local/bin/audiobooks-* │
-                    │        ↓ symlink ↓            │
-                    │   /opt/audiobooks/scripts/*   │
+                    │   Create config file          │
+                    │   /etc/audiobooks/            │
+                    │   audiobooks.conf             │
+                    │   (if not exists)             │
+                    └───────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────────┐
+                    │   Generate auth key           │
+                    │   /etc/audiobooks/auth.key    │
+                    │   • 64 hex chars (32 bytes)   │
+                    │   • audiobooks:audiobooks     │
+                    │   • mode 0600                 │
+                    └───────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────────┐
+                    │   Initialize database         │
+                    │   /var/lib/audiobooks/        │
+                    │   audiobooks.db               │
+                    │   (from schema.sql)           │
+                    └───────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────────┐
+                    │   Set directory ownership     │
+                    │   chown -R audiobooks:        │
+                    │   audiobooks on data, state,  │
+                    │   and log directories         │
                     └───────────────────────────────┘
                                   │
                                   ▼
                     ┌───────────────────────────────┐
                     │   Create wrapper scripts      │
-                    │   • audiobook-api            │
+                    │   • audiobook-api             │
                     │   • audiobooks-web            │
                     │   • audiobooks-scan           │
                     │   • audiobooks-import         │
+                    │   • audiobooks-config         │
                     └───────────────────────────────┘
                                   │
                                   ▼
                     ┌───────────────────────────────┐
                     │   Setup Python venv           │
-                    │   /opt/audiobooks/library/    │
-                    │   venv/                       │
+                    │   • Validate with             │
+                    │     python --version          │
+                    │   • Recreate if broken        │
+                    │   • Install requirements.txt  │
                     └───────────────────────────────┘
                                   │
                                   ▼
                     ┌───────────────────────────────┐
                     │   Generate SSL certificates   │
-                    │   /etc/audiobooks/certs/      │
-                    │   • server.crt                │
-                    │   • server.key                │
+                    │   certs/server.crt + .key     │
+                    │   (self-signed, 3 year)       │
                     └───────────────────────────────┘
                                   │
                                   ▼
                     ┌───────────────────────────────┐
                     │   Install systemd services    │
-                    │   • audiobook-api.service    │
-                    │   • audiobook-proxy.service  │
-                    │   • audiobook-converter      │
-                    │   • audiobook-mover          │
-                    │   • audiobook-upgrade-helper │
-                    │     .service + .path          │
-                    │   • audiobook.target         │
+                    │   • User=audiobooks           │
+                    │   • Group=audiobooks          │
+                    │   • WorkingDirectory set      │
+                    │   • EnvironmentFile set       │
+                    │   • audiobook-api.service     │
+                    │   • audiobooks-web.service    │
+                    │   • audiobooks.target         │
                     └───────────────────────────────┘
                                   │
                                   ▼
                     ┌───────────────────────────────┐
-                    │   Create config file          │
-                    │   /etc/audiobooks/            │
-                    │   audiobooks.conf             │
-                    └───────────────────────────────┘
-                                  │
-                                  ▼
-                    ┌───────────────────────────────┐
-                    │   Create backward-compat      │
-                    │   symlink:                    │
-                    │   /usr/local/lib/audiobooks   │
-                    │        ↓ symlink ↓            │
-                    │   /opt/audiobooks/lib/        │
-                    └───────────────────────────────┘
-                                  │
-                                  ▼
-                    ┌───────────────────────────────┐
-                    │   Enable & start services     │
-                    │   • systemctl enable          │
-                    │     audiobook.target         │
-                    │   • systemctl start           │
-                    │     audiobook.target         │
-                    │   • Verify services running   │
+                    │   Create environment profile  │
+                    │   /etc/profile.d/             │
+                    │   audiobooks.sh               │
                     └───────────────────────────────┘
                                   │
                                   ▼
@@ -1787,5 +1871,5 @@ systemctl status audiobook.target --no-pager
 
 ---
 
-*Document Version: 5.0.0*
-*Last Updated: 2026-01-29*
+*Document Version: 6.0.0*
+*Last Updated: 2026-02-18*

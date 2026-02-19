@@ -1,8 +1,8 @@
 # Secure Remote Access Design Specification
 
-**Version:** 1.0.0 (Released in v5.0.0)
+**Version:** 1.1.0 (Updated for v6.0.0 dual-mode security)
 **Branch:** Merged to `main`
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-02-18
 
 > **Related Documentation:**
 > - [README — Authentication Section](../README.md#authentication-v50) — User-facing setup guide
@@ -130,19 +130,23 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 │  │  • Reverse proxy                                                                  │ │
 │  │  • Rate limiting                                                                  │ │
 │  │  • Security headers                                                               │ │
-│  │  • Back Office localhost restriction                                              │ │
+│  │  • Optional additional access control                                            │ │
 │  └───────────────────────────────────────────────────────────────────────────────────┘ │
 │              │                              │                              │            │
 │              ▼                              ▼                              ▼            │
-│  ┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐    │
-│  │   AUTH SERVICE      │      │  LIBRARY SERVICE    │      │   STATIC ASSETS     │    │
-│  │   (Port 5002)       │      │  (Port 5001)        │      │                     │    │
-│  │                     │      │                     │      │   • Web UI          │    │
-│  │   • Login/logout    │      │  • Browse catalog   │      │   • CSS/JS          │    │
-│  │   • Registration    │      │  • Stream audio     │      │   • Cover images    │    │
-│  │   • Session mgmt    │      │  • Positions        │      │                     │    │
-│  │   • TOTP/WebAuthn   │      │  • Downloads        │      │                     │    │
-│  └─────────────────────┘      └─────────────────────┘      └─────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐      ┌─────────────────────┐    │
+│  │          FLASK API (Port 5001)                   │      │   STATIC ASSETS     │    │
+│  │                                                  │      │                     │    │
+│  │   ┌──────────────┐    ┌──────────────────────┐  │      │   • Web UI          │    │
+│  │   │  Auth BP      │    │  Library BP           │  │      │   • CSS/JS          │    │
+│  │   │  /auth/*      │    │  /api/*               │  │      │   • Cover images    │    │
+│  │   │               │    │                       │  │      │                     │    │
+│  │   │ • Login/out   │    │ • Browse catalog      │  │      │                     │    │
+│  │   │ • Register    │    │ • Stream audio        │  │      │                     │    │
+│  │   │ • Session     │    │ • Admin (guarded by   │  │      │                     │    │
+│  │   │ • TOTP/Passkey│    │   admin_or_localhost) │  │      │                     │    │
+│  │   └──────────────┘    └──────────────────────┘  │      │                     │    │
+│  └─────────────────────────────────────────────────┘      └─────────────────────┘    │
 │              │                              │                                          │
 │              ▼                              ▼                                          │
 │  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
@@ -187,12 +191,16 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 
 | Component | Port | Exposure | Protocol |
 |-----------|------|----------|----------|
-| Caddy | 443 | Internet | HTTPS (TLS 1.2+) |
-| Auth Service | 5002 | localhost only | HTTP |
-| Library Service | 5001 | localhost only | HTTP |
-| Back Office | N/A | localhost only | Via Caddy |
+| Caddy/Reverse Proxy | 443 | Internet | HTTPS (TLS 1.2+) |
+| Flask API (auth + library) | 5001 | localhost only | HTTP |
+| HTTPS Proxy | 8443 | localhost/LAN | HTTPS (self-signed) |
+| Admin endpoints | 5001 | `admin_or_localhost` guarded | HTTP |
+
+> **Note (v6.0+):** Auth is integrated as a Flask Blueprint (`auth_bp`) within the main API on port 5001, not a separate service. Admin endpoints use the `admin_or_localhost` decorator — in remote mode (`AUTH_ENABLED=true`) they require authenticated admin; in standalone mode they restrict to localhost.
 
 ### 3.3 DNS Configuration
+
+> **Note:** The examples below use `library.thebosco.club` as a concrete deployment example. Replace with your own domain.
 
 | Record | Type | Value | Purpose |
 |--------|------|-------|---------|
@@ -251,10 +259,10 @@ LAYER 2: AUTHENTICATION
 
 LAYER 3: AUTHORIZATION
 ├── Remote users: library functions only
-├── Back Office: localhost only
+├── Back Office: admin_or_localhost (admin auth or localhost)
 ├── Downloads: explicit permission required
 ├── Positions: own data only
-└── Admin: localhost origin required
+└── Admin: admin_or_localhost (admin auth or localhost)
 
 LAYER 4: DATA PROTECTION
 ├── Auth database encrypted (SQLCipher)
@@ -301,7 +309,7 @@ Permissions-Policy: geolocation=(), microphone=(), camera=()
 
 | Type | Capabilities | Access Method |
 |------|--------------|---------------|
-| **Admin** | Full system access, user management, Back Office | Localhost only |
+| **Admin** | Full system access, user management, Back Office | Authenticated admin (remote) or localhost (standalone) |
 | **Library User** | Browse, stream, positions, contact admin | Remote (authenticated) |
 | **Library User + Download** | Above + download opus files | Remote (authenticated) |
 
@@ -579,23 +587,31 @@ If an old session tries to use an invalidated token:
 | `/api/system/*` | ✗ | ✗ | ✗ | ✓ |
 | `/api/admin/*` | ✗ | ✗ | ✗ | ✓ |
 
-### 8.2 Localhost Restriction
+### 8.2 Admin Endpoint Protection (v6.0+)
 
-Back Office and admin endpoints are blocked at the Caddy level:
+Admin endpoints (Back Office, service control, upgrades) are protected by the `admin_or_localhost` decorator at the application level, not the reverse proxy level. This ensures protection works regardless of deployment method:
 
+```python
+# In auth.py — the decorator adapts to deployment mode:
+@admin_or_localhost
+def admin_endpoint():
+    # AUTH_ENABLED=true:  Requires authenticated admin user (401/403 otherwise)
+    # AUTH_ENABLED=false: Requires localhost origin (404 otherwise)
+    ...
 ```
-# Caddyfile (conceptual)
-library.thebosco.club {
-    # Block Back Office from non-localhost
-    @backoffice path /utilities.html /api/utilities/* /api/system/* /api/admin/*
-    handle @backoffice {
-        @notlocal not remote_ip 127.0.0.1
-        respond @notlocal 404
-    }
 
-    # ... rest of config
-}
-```
+**Applied to 9 endpoints** in `utilities_system.py`:
+- `GET /api/system/services` — List services
+- `POST /api/system/services/<name>/<action>` — Start/stop/restart
+- `POST /api/system/services/start-all` — Start all services
+- `POST /api/system/services/stop-all` — Stop all services
+- `GET /api/system/services/<name>/status` — Service status
+- `POST /api/system/upgrade` — Application upgrade
+- `GET /api/system/upgrade/status` — Upgrade status
+- `GET /api/system/diagnostics` — System diagnostics
+- `GET /api/system/env` — Environment info
+
+> **Note:** The previous design used Caddy-level URL blocking. The v6.0 approach moves protection into the application itself, making it deployment-agnostic — works with any reverse proxy (Caddy, nginx, Traefik) or direct access.
 
 ### 8.3 Download Permission
 
@@ -1282,23 +1298,15 @@ library.thebosco.club {
         }
     }
 
-    # Block Back Office from non-localhost
-    @backoffice {
-        path /utilities.html /api/utilities/* /api/system/* /api/admin/*
-    }
-    @notlocal {
-        not remote_ip 127.0.0.1
-    }
-    handle @backoffice {
-        respond @notlocal 404
-    }
+    # NOTE (v6.0+): Back Office / admin endpoint protection is handled
+    # at the application level by the admin_or_localhost decorator,
+    # not at the Caddy level. No path-based blocking needed here.
 
-    # Auth service
+    # Auth + Library (single Flask API, port 5001)
     handle /auth/* {
-        reverse_proxy localhost:5002
+        reverse_proxy localhost:5001
     }
 
-    # Library service
     handle /api/* {
         reverse_proxy localhost:5001
     }
