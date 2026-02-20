@@ -165,7 +165,9 @@ class TestDatabaseExports:
         assert "author" in book
 
         print(f"\n  ✓ Exported {total_count} audiobooks as JSON")
-        print(f"  ✓ Sample: {book.get('title', 'Unknown')[:50]} by {book.get('author', 'Unknown')[:30]}")
+        print(
+            f"  ✓ Sample: {book.get('title', 'Unknown')[:50]} by {book.get('author', 'Unknown')[:30]}"
+        )
 
     def test_export_csv(self, api_available):
         """Test GET /api/utilities/export-csv returns valid CSV with headers."""
@@ -223,8 +225,9 @@ class TestAsyncOperations:
 
     def test_populate_sort_fields_dry_run(self, api_available):
         """Test populate-sort-fields-async in dry run mode."""
-        response = api_post("/api/utilities/populate-sort-fields-async",
-                             json={"dry_run": True})
+        response = api_post(
+            "/api/utilities/populate-sort-fields-async", json={"dry_run": True}
+        )
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -244,25 +247,33 @@ class TestAsyncOperations:
         """Test rebuild-queue-async creates conversion queue."""
         response = api_post("/api/utilities/rebuild-queue-async", json={})
         # Accept 200 (new operation) or 409 (already running)
-        assert response.status_code in (200, 409), f"Unexpected status: {response.status_code}"
+        assert response.status_code in (200, 409), (
+            f"Unexpected status: {response.status_code}"
+        )
         data = response.json()
         assert "operation_id" in data
 
         # Handle both new operation and already-running cases
         if response.status_code == 409 or data.get("success") is False:
-            print(f"\n  ✓ Queue rebuild already in progress (operation: {data['operation_id']})")
+            print(
+                f"\n  ✓ Queue rebuild already in progress (operation: {data['operation_id']})"
+            )
 
         op = wait_for_operation(data["operation_id"], timeout=600)
 
         # Allow both completed and running states (operation may be very long)
-        assert op["state"] in ("completed", "running"), f"Operation failed: {op.get('error')}"
+        assert op["state"] in ("completed", "running"), (
+            f"Operation failed: {op.get('error')}"
+        )
 
         if op["state"] == "completed":
             print("\n  ✓ Conversion queue rebuilt")
             if op.get("result"):
                 print(f"  ✓ Result: {str(op['result'])[:100]}...")
         else:
-            print(f"\n  ✓ Conversion queue rebuild in progress ({op.get('progress', 0)}%)")
+            print(
+                f"\n  ✓ Conversion queue rebuild in progress ({op.get('progress', 0)}%)"
+            )
 
     def test_cleanup_indexes_async(self, api_available):
         """Test cleanup-indexes-async removes stale index entries."""
@@ -284,13 +295,17 @@ class TestAsyncOperations:
         """Test find-source-duplicates-async finds duplicate source files."""
         response = api_post("/api/utilities/find-source-duplicates-async", json={})
         # Accept 200 (new operation) or 409 (already running)
-        assert response.status_code in (200, 409), f"Unexpected status: {response.status_code}"
+        assert response.status_code in (200, 409), (
+            f"Unexpected status: {response.status_code}"
+        )
         data = response.json()
         assert "operation_id" in data
 
         # Handle both new operation and already-running cases
         if response.status_code == 409 or data.get("success") is False:
-            print(f"\n  ✓ Duplicate scan already in progress (operation: {data['operation_id']})")
+            print(
+                f"\n  ✓ Duplicate scan already in progress (operation: {data['operation_id']})"
+            )
 
         op = wait_for_operation(data["operation_id"], timeout=300)
 
@@ -302,22 +317,27 @@ class TestAsyncOperations:
             print(f"    Error: {op.get('error', 'Unknown error')}")
             pytest.skip("Duplicate scan failed - source directory may not be available")
 
-        assert op["state"] in ("completed", "running"), f"Operation failed: {op.get('error')}"
+        assert op["state"] in ("completed", "running"), (
+            f"Operation failed: {op.get('error')}"
+        )
 
         if op["state"] == "completed":
             print("\n  ✓ Source duplicate scan completed")
             if op.get("result"):
                 result = op["result"]
                 if isinstance(result, dict):
-                    print(f"  ✓ Duplicates found: {result.get('duplicate_count', 'N/A')}")
+                    print(
+                        f"  ✓ Duplicates found: {result.get('duplicate_count', 'N/A')}"
+                    )
         else:
             print(f"\n  ✓ Duplicate scan in progress ({op.get('progress', 0)}%)")
 
     @pytest.mark.slow
     def test_populate_asins_dry_run(self, api_available):
         """Test populate-asins-async in dry run mode (requires Audible auth)."""
-        response = api_post("/api/utilities/populate-asins-async",
-                             json={"dry_run": True})
+        response = api_post(
+            "/api/utilities/populate-asins-async", json={"dry_run": True}
+        )
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -342,19 +362,25 @@ class TestLibraryOperations:
         """Test rescan-async scans library for changes."""
         response = api_post("/api/utilities/rescan-async", json={})
         # Accept 200 (new operation) or 409 (already running)
-        assert response.status_code in (200, 409), f"Unexpected status: {response.status_code}"
+        assert response.status_code in (200, 409), (
+            f"Unexpected status: {response.status_code}"
+        )
         data = response.json()
         assert "operation_id" in data
 
         # Handle both new operation and already-running cases
         if response.status_code == 409 or data.get("success") is False:
-            print(f"\n  ✓ Library rescan already in progress (operation: {data['operation_id']})")
+            print(
+                f"\n  ✓ Library rescan already in progress (operation: {data['operation_id']})"
+            )
 
         # Use short timeout - rescan can take very long with large libraries
         op = wait_for_operation(data["operation_id"], timeout=60)
 
         # Allow both completed and running states
-        assert op["state"] in ("completed", "running"), f"Operation failed: {op.get('error')}"
+        assert op["state"] in ("completed", "running"), (
+            f"Operation failed: {op.get('error')}"
+        )
 
         if op["state"] == "completed":
             print("\n  ✓ Library rescan completed")
@@ -399,15 +425,17 @@ class TestConcurrentOperations:
     def test_rejects_concurrent_same_type(self, api_available):
         """Test that starting the same operation type twice is rejected."""
         # Start a slow operation
-        response1 = api_post("/api/utilities/populate-sort-fields-async",
-                              json={"dry_run": True})
+        response1 = api_post(
+            "/api/utilities/populate-sort-fields-async", json={"dry_run": True}
+        )
         assert response1.status_code == 200
         data1 = response1.json()
         op_id = data1.get("operation_id")
 
         # Immediately try to start another
-        response2 = api_post("/api/utilities/populate-sort-fields-async",
-                              json={"dry_run": True})
+        response2 = api_post(
+            "/api/utilities/populate-sort-fields-async", json={"dry_run": True}
+        )
 
         # Should either reject (409) or the first one finished already
         if response2.status_code == 409:

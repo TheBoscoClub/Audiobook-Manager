@@ -53,6 +53,7 @@ CHALLENGE_TIMEOUT_SECONDS = 300  # 5 minutes
 @dataclass
 class WebAuthnCredential:
     """Stored WebAuthn credential data."""
+
     credential_id: bytes
     public_key: bytes
     sign_count: int
@@ -61,13 +62,15 @@ class WebAuthnCredential:
 
     def to_json(self) -> str:
         """Serialize to JSON for storage."""
-        return json.dumps({
-            "credential_id": bytes_to_base64url(self.credential_id),
-            "public_key": bytes_to_base64url(self.public_key),
-            "sign_count": self.sign_count,
-            "transports": self.transports,
-            "created_at": self.created_at.isoformat(),
-        })
+        return json.dumps(
+            {
+                "credential_id": bytes_to_base64url(self.credential_id),
+                "public_key": bytes_to_base64url(self.public_key),
+                "sign_count": self.sign_count,
+                "transports": self.transports,
+                "created_at": self.created_at.isoformat(),
+            }
+        )
 
     @classmethod
     def from_json(cls, data: str) -> "WebAuthnCredential":
@@ -85,6 +88,7 @@ class WebAuthnCredential:
 @dataclass
 class WebAuthnChallenge:
     """Pending WebAuthn challenge."""
+
     challenge: bytes
     user_id: Optional[int]  # None for registration (user doesn't exist yet)
     username: str
@@ -245,6 +249,7 @@ def verify_registration(
     except Exception as e:
         # Log full error for debugging
         import traceback
+
         print(f"WebAuthn registration verification failed: {type(e).__name__}: {e}")
         traceback.print_exc()
         return None

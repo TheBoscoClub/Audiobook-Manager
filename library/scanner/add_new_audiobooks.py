@@ -24,10 +24,15 @@ from typing import Callable, Optional
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
+
 # Import shared utilities from scanner package
-from scanner.metadata_utils import (categorize_genre, determine_literary_era,
-                                    extract_cover_art, extract_topics,
-                                    get_file_metadata)
+from scanner.metadata_utils import (
+    categorize_genre,
+    determine_literary_era,
+    extract_cover_art,
+    extract_topics,
+    get_file_metadata,
+)
 
 SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 

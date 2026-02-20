@@ -10,11 +10,17 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 from enum import Enum
 
-from .database import AuthDatabase, hash_token, generate_session_token, generate_verification_token
+from .database import (
+    AuthDatabase,
+    hash_token,
+    generate_session_token,
+    generate_verification_token,
+)
 
 
 class AuthType(Enum):
     """Supported authentication methods."""
+
     PASSKEY = "passkey"
     FIDO2 = "fido2"
     TOTP = "totp"
@@ -22,6 +28,7 @@ class AuthType(Enum):
 
 class NotificationType(Enum):
     """Types of notifications."""
+
     INFO = "info"
     MAINTENANCE = "maintenance"
     OUTAGE = "outage"
@@ -30,6 +37,7 @@ class NotificationType(Enum):
 
 class InboxStatus(Enum):
     """Status of inbox messages."""
+
     UNREAD = "unread"
     READ = "read"
     REPLIED = "replied"
@@ -38,6 +46,7 @@ class InboxStatus(Enum):
 
 class ReplyMethod(Enum):
     """How to reply to user messages."""
+
     IN_APP = "in-app"
     EMAIL = "email"
 
@@ -60,6 +69,7 @@ class User:
         recovery_phone: Optional recovery phone (user's choice to store)
         recovery_enabled: Whether user chose to enable contact-based recovery
     """
+
     id: Optional[int] = None
     username: str = ""
     auth_type: AuthType = AuthType.TOTP
@@ -113,9 +123,16 @@ class User:
                                        recovery_email, recovery_phone, recovery_enabled)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (self.username, self.auth_type.value, self.auth_credential,
-                     self.can_download, self.is_admin,
-                     self.recovery_email, self.recovery_phone, self.recovery_enabled)
+                    (
+                        self.username,
+                        self.auth_type.value,
+                        self.auth_credential,
+                        self.can_download,
+                        self.is_admin,
+                        self.recovery_email,
+                        self.recovery_phone,
+                        self.recovery_enabled,
+                    ),
                 )
                 self.id = cursor.lastrowid
                 # Fetch the created_at timestamp
@@ -132,11 +149,18 @@ class User:
                         recovery_email = ?, recovery_phone = ?, recovery_enabled = ?
                     WHERE id = ?
                     """,
-                    (self.username, self.auth_type.value, self.auth_credential,
-                     self.can_download, self.is_admin,
-                     self.last_login.isoformat() if self.last_login else None,
-                     self.recovery_email, self.recovery_phone, self.recovery_enabled,
-                     self.id)
+                    (
+                        self.username,
+                        self.auth_type.value,
+                        self.auth_credential,
+                        self.can_download,
+                        self.is_admin,
+                        self.last_login.isoformat() if self.last_login else None,
+                        self.recovery_email,
+                        self.recovery_phone,
+                        self.recovery_enabled,
+                        self.id,
+                    ),
                 )
         return self
 
@@ -154,7 +178,7 @@ class User:
         with db.connection() as conn:
             conn.execute(
                 "UPDATE users SET last_login = ? WHERE id = ?",
-                (self.last_login.isoformat(), self.id)
+                (self.last_login.isoformat(), self.id),
             )
 
 
@@ -167,27 +191,21 @@ class UserRepository:
     def get_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM users WHERE id = ?", (user_id,)
-            )
+            cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
             return User.from_row(row) if row else None
 
     def get_by_username(self, username: str) -> Optional[User]:
         """Get user by username (case-sensitive)."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM users WHERE username = ?", (username,)
-            )
+            cursor = conn.execute("SELECT * FROM users WHERE username = ?", (username,))
             row = cursor.fetchone()
             return User.from_row(row) if row else None
 
     def username_exists(self, username: str) -> bool:
         """Check if username is taken."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT 1 FROM users WHERE username = ?", (username,)
-            )
+            cursor = conn.execute("SELECT 1 FROM users WHERE username = ?", (username,))
             return cursor.fetchone() is not None
 
     def list_all(self, include_admin: bool = True) -> List[User]:
@@ -211,8 +229,7 @@ class UserRepository:
         """Set admin status for a user."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "UPDATE users SET is_admin = ? WHERE id = ?",
-                (is_admin, user_id)
+                "UPDATE users SET is_admin = ? WHERE id = ?", (is_admin, user_id)
             )
             return cursor.rowcount > 0
 
@@ -221,7 +238,7 @@ class UserRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "UPDATE users SET can_download = ? WHERE id = ?",
-                (can_download, user_id)
+                (can_download, user_id),
             )
             return cursor.rowcount > 0
 
@@ -243,8 +260,7 @@ class UserRepository:
 
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "UPDATE users SET username = ? WHERE id = ?",
-                (new_username, user_id)
+                "UPDATE users SET username = ? WHERE id = ?", (new_username, user_id)
             )
             return cursor.rowcount > 0
 
@@ -261,25 +277,20 @@ class UserRepository:
         """
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "UPDATE users SET recovery_email = ? WHERE id = ?",
-                (email, user_id)
+                "UPDATE users SET recovery_email = ? WHERE id = ?", (email, user_id)
             )
             return cursor.rowcount > 0
 
     def delete(self, user_id: int) -> bool:
         """Delete a user (cascades to sessions, positions, etc.)."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM users WHERE id = ?", (user_id,)
-            )
+            cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
             return cursor.rowcount > 0
 
     def has_any_admin(self) -> bool:
         """Check if any admin user exists."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1"
-            )
+            cursor = conn.execute("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1")
             return cursor.fetchone() is not None
 
 
@@ -290,6 +301,7 @@ class Session:
 
     Only one session per user is allowed. New logins invalidate existing sessions.
     """
+
     id: Optional[int] = None
     user_id: int = 0
     token_hash: str = ""
@@ -319,7 +331,7 @@ class Session:
         db: AuthDatabase,
         user_id: int,
         user_agent: Optional[str] = None,
-        ip_address: Optional[str] = None
+        ip_address: Optional[str] = None,
     ) -> tuple["Session", str]:
         """
         Create new session for user, invalidating any existing sessions.
@@ -340,14 +352,12 @@ class Session:
                 INSERT INTO sessions (user_id, token_hash, user_agent, ip_address)
                 VALUES (?, ?, ?, ?)
                 """,
-                (user_id, token_hash, user_agent, ip_address)
+                (user_id, token_hash, user_agent, ip_address),
             )
             session_id = cursor.lastrowid
 
             # Fetch complete session
-            cursor = conn.execute(
-                "SELECT * FROM sessions WHERE id = ?", (session_id,)
-            )
+            cursor = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
             session = cls.from_row(cursor.fetchone())
 
         return session, raw_token
@@ -358,7 +368,7 @@ class Session:
         with db.connection() as conn:
             conn.execute(
                 "UPDATE sessions SET last_seen = ? WHERE id = ?",
-                (self.last_seen.isoformat(), self.id)
+                (self.last_seen.isoformat(), self.id),
             )
 
     def invalidate(self, db: AuthDatabase) -> None:
@@ -408,20 +418,17 @@ class SessionRepository:
     def invalidate_user_sessions(self, user_id: int) -> int:
         """Invalidate all sessions for a user. Returns count of deleted sessions."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM sessions WHERE user_id = ?", (user_id,)
-            )
+            cursor = conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
             return cursor.rowcount
 
     def cleanup_stale(self, grace_minutes: int = 30) -> int:
         """Remove stale sessions. Returns count of deleted sessions."""
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
         # Use SQLite-compatible format (space separator) to match DEFAULT CURRENT_TIMESTAMP
-        threshold_str = threshold.strftime('%Y-%m-%d %H:%M:%S')
+        threshold_str = threshold.strftime("%Y-%m-%d %H:%M:%S")
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM sessions WHERE last_seen < ?",
-                (threshold_str,)
+                "DELETE FROM sessions WHERE last_seen < ?", (threshold_str,)
             )
             return cursor.rowcount
 
@@ -433,6 +440,7 @@ class UserPosition:
 
     Each user has their own position tracking, never synced to Audible.
     """
+
     user_id: int = 0
     audiobook_id: int = 0
     position_ms: int = 0
@@ -460,8 +468,12 @@ class UserPosition:
                     position_ms = excluded.position_ms,
                     updated_at = excluded.updated_at
                 """,
-                (self.user_id, self.audiobook_id, self.position_ms,
-                 self.updated_at.isoformat())
+                (
+                    self.user_id,
+                    self.audiobook_id,
+                    self.position_ms,
+                    self.updated_at.isoformat(),
+                ),
             )
         return self
 
@@ -477,7 +489,7 @@ class PositionRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM user_positions WHERE user_id = ? AND audiobook_id = ?",
-                (user_id, audiobook_id)
+                (user_id, audiobook_id),
             )
             row = cursor.fetchone()
             return UserPosition.from_row(row) if row else None
@@ -487,7 +499,7 @@ class PositionRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM user_positions WHERE user_id = ? ORDER BY updated_at DESC",
-                (user_id,)
+                (user_id,),
             )
             return [UserPosition.from_row(row) for row in cursor.fetchall()]
 
@@ -507,6 +519,7 @@ class Notification:
 
     Can be targeted to all users or a specific user.
     """
+
     id: Optional[int] = None
     message: str = ""
     type: NotificationType = NotificationType.INFO
@@ -544,10 +557,16 @@ class Notification:
                     (message, type, target_user_id, starts_at, expires_at, dismissable, priority, created_by)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (self.message, self.type.value, self.target_user_id,
-                     self.starts_at.isoformat() if self.starts_at else None,
-                     self.expires_at.isoformat() if self.expires_at else None,
-                     self.dismissable, self.priority, self.created_by)
+                    (
+                        self.message,
+                        self.type.value,
+                        self.target_user_id,
+                        self.starts_at.isoformat() if self.starts_at else None,
+                        self.expires_at.isoformat() if self.expires_at else None,
+                        self.dismissable,
+                        self.priority,
+                        self.created_by,
+                    ),
                 )
                 self.id = cursor.lastrowid
                 cursor = conn.execute(
@@ -562,10 +581,16 @@ class Notification:
                         expires_at = ?, dismissable = ?, priority = ?
                     WHERE id = ?
                     """,
-                    (self.message, self.type.value, self.target_user_id,
-                     self.starts_at.isoformat() if self.starts_at else None,
-                     self.expires_at.isoformat() if self.expires_at else None,
-                     self.dismissable, self.priority, self.id)
+                    (
+                        self.message,
+                        self.type.value,
+                        self.target_user_id,
+                        self.starts_at.isoformat() if self.starts_at else None,
+                        self.expires_at.isoformat() if self.expires_at else None,
+                        self.dismissable,
+                        self.priority,
+                        self.id,
+                    ),
                 )
         return self
 
@@ -609,7 +634,7 @@ class NotificationRepository:
                   )
                 ORDER BY n.priority DESC, n.created_at DESC
                 """,
-                (user_id, now, now, user_id)
+                (user_id, now, now, user_id),
             )
             return [Notification.from_row(row) for row in cursor.fetchall()]
 
@@ -622,7 +647,7 @@ class NotificationRepository:
                     INSERT INTO notification_dismissals (notification_id, user_id)
                     VALUES (?, ?)
                     """,
-                    (notification_id, user_id)
+                    (notification_id, user_id),
                 )
                 return True
             except Exception:
@@ -642,6 +667,7 @@ class InboxMessage:
     """
     Message from user to admin.
     """
+
     id: Optional[int] = None
     from_user_id: int = 0
     message: str = ""
@@ -676,8 +702,12 @@ class InboxMessage:
                     INSERT INTO inbox (from_user_id, message, reply_via, reply_email)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (self.from_user_id, self.message, self.reply_via.value,
-                     self.reply_email)
+                    (
+                        self.from_user_id,
+                        self.message,
+                        self.reply_via.value,
+                        self.reply_email,
+                    ),
                 )
                 self.id = cursor.lastrowid
                 cursor = conn.execute(
@@ -687,8 +717,7 @@ class InboxMessage:
 
                 # Log contact (audit trail without content)
                 conn.execute(
-                    "INSERT INTO contact_log (user_id) VALUES (?)",
-                    (self.from_user_id,)
+                    "INSERT INTO contact_log (user_id) VALUES (?)", (self.from_user_id,)
                 )
             else:
                 conn.execute(
@@ -697,10 +726,13 @@ class InboxMessage:
                         status = ?, read_at = ?, replied_at = ?, reply_email = ?
                     WHERE id = ?
                     """,
-                    (self.status.value,
-                     self.read_at.isoformat() if self.read_at else None,
-                     self.replied_at.isoformat() if self.replied_at else None,
-                     self.reply_email, self.id)
+                    (
+                        self.status.value,
+                        self.read_at.isoformat() if self.read_at else None,
+                        self.replied_at.isoformat() if self.replied_at else None,
+                        self.reply_email,
+                        self.id,
+                    ),
                 )
         return self
 
@@ -727,9 +759,7 @@ class InboxRepository:
     def get_by_id(self, message_id: int) -> Optional[InboxMessage]:
         """Get message by ID."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM inbox WHERE id = ?", (message_id,)
-            )
+            cursor = conn.execute("SELECT * FROM inbox WHERE id = ?", (message_id,))
             row = cursor.fetchone()
             return InboxMessage.from_row(row) if row else None
 
@@ -745,9 +775,7 @@ class InboxRepository:
         """List all messages."""
         with self.db.connection() as conn:
             if include_archived:
-                cursor = conn.execute(
-                    "SELECT * FROM inbox ORDER BY created_at DESC"
-                )
+                cursor = conn.execute("SELECT * FROM inbox ORDER BY created_at DESC")
             else:
                 cursor = conn.execute(
                     "SELECT * FROM inbox WHERE status != 'archived' ORDER BY created_at DESC"
@@ -757,9 +785,7 @@ class InboxRepository:
     def count_unread(self) -> int:
         """Count unread messages."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT COUNT(*) FROM inbox WHERE status = 'unread'"
-            )
+            cursor = conn.execute("SELECT COUNT(*) FROM inbox WHERE status = 'unread'")
             return cursor.fetchone()[0]
 
     def get_messages_by_user(self, user_id: int) -> List[InboxMessage]:
@@ -767,7 +793,7 @@ class InboxRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM inbox WHERE from_user_id = ? ORDER BY created_at DESC",
-                (user_id,)
+                (user_id,),
             )
             return [InboxMessage.from_row(row) for row in cursor.fetchall()]
 
@@ -777,6 +803,7 @@ class PendingRegistration:
     """
     Pending user registration awaiting verification.
     """
+
     id: Optional[int] = None
     username: str = ""
     token_hash: str = ""
@@ -796,10 +823,7 @@ class PendingRegistration:
 
     @classmethod
     def create(
-        cls,
-        db: AuthDatabase,
-        username: str,
-        expiry_minutes: int = 15
+        cls, db: AuthDatabase, username: str, expiry_minutes: int = 15
     ) -> tuple["PendingRegistration", str]:
         """
         Create pending registration.
@@ -817,7 +841,7 @@ class PendingRegistration:
                 INSERT INTO pending_registrations (username, token_hash, expires_at)
                 VALUES (?, ?, ?)
                 """,
-                (username, token_hash, expires_at.isoformat())
+                (username, token_hash, expires_at.isoformat()),
             )
             reg_id = cursor.lastrowid
 
@@ -839,9 +863,7 @@ class PendingRegistration:
         if self.id is None:
             return False
         with db.connection() as conn:
-            conn.execute(
-                "DELETE FROM pending_registrations WHERE id = ?", (self.id,)
-            )
+            conn.execute("DELETE FROM pending_registrations WHERE id = ?", (self.id,))
         return True
 
 
@@ -857,7 +879,7 @@ class PendingRegistrationRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM pending_registrations WHERE token_hash = ?",
-                (token_hash,)
+                (token_hash,),
             )
             row = cursor.fetchone()
             return PendingRegistration.from_row(row) if row else None
@@ -885,6 +907,7 @@ class PendingRecovery:
     """
     Pending account recovery awaiting verification (magic link).
     """
+
     id: Optional[int] = None
     user_id: int = 0
     token_hash: str = ""
@@ -906,10 +929,7 @@ class PendingRecovery:
 
     @classmethod
     def create(
-        cls,
-        db: AuthDatabase,
-        user_id: int,
-        expiry_minutes: int = 15
+        cls, db: AuthDatabase, user_id: int, expiry_minutes: int = 15
     ) -> tuple["PendingRecovery", str]:
         """
         Create pending recovery request.
@@ -927,7 +947,7 @@ class PendingRecovery:
                 INSERT INTO pending_recovery (user_id, token_hash, expires_at)
                 VALUES (?, ?, ?)
                 """,
-                (user_id, token_hash, expires_at.isoformat())
+                (user_id, token_hash, expires_at.isoformat()),
             )
             recovery_id = cursor.lastrowid
 
@@ -955,7 +975,7 @@ class PendingRecovery:
         with db.connection() as conn:
             conn.execute(
                 "UPDATE pending_recovery SET used_at = ? WHERE id = ?",
-                (datetime.now().isoformat(), self.id)
+                (datetime.now().isoformat(), self.id),
             )
         self.used_at = datetime.now()
         return True
@@ -972,8 +992,7 @@ class PendingRecoveryRepository:
         token_hash = hash_token(raw_token)
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM pending_recovery WHERE token_hash = ?",
-                (token_hash,)
+                "SELECT * FROM pending_recovery WHERE token_hash = ?", (token_hash,)
             )
             row = cursor.fetchone()
             return PendingRecovery.from_row(row) if row else None
@@ -998,6 +1017,7 @@ class PendingRecoveryRepository:
 
 class AccessRequestStatus(Enum):
     """Status of access requests."""
+
     PENDING = "pending"
     APPROVED = "approved"
     DENIED = "denied"
@@ -1011,6 +1031,7 @@ class AccessRequest:
     Users submit requests which admins can approve or deny.
     Includes claim token for secure credential retrieval without email.
     """
+
     id: Optional[int] = None
     username: str = ""
     requested_at: Optional[datetime] = None
@@ -1037,7 +1058,9 @@ class AccessRequest:
                 id=row[0],
                 username=row[1],
                 requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
-                status=AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING,
+                status=AccessRequestStatus(row[3])
+                if row[3]
+                else AccessRequestStatus.PENDING,
                 reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
                 reviewed_by=row[5],
                 deny_reason=row[6],
@@ -1054,7 +1077,9 @@ class AccessRequest:
                 id=row[0],
                 username=row[1],
                 requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
-                status=AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING,
+                status=AccessRequestStatus(row[3])
+                if row[3]
+                else AccessRequestStatus.PENDING,
                 reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
                 reviewed_by=row[5],
                 deny_reason=row[6],
@@ -1065,7 +1090,9 @@ class AccessRequest:
         return {
             "id": self.id,
             "username": self.username,
-            "requested_at": self.requested_at.isoformat() if self.requested_at else None,
+            "requested_at": self.requested_at.isoformat()
+            if self.requested_at
+            else None,
             "status": self.status.value,
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
             "reviewed_by": self.reviewed_by,
@@ -1108,29 +1135,45 @@ class AccessRequestRepository:
             cursor = conn.execute("PRAGMA table_info(access_requests)")
             columns = {row[1] for row in cursor.fetchall()}
             if "claim_token_hash" not in columns:
-                conn.execute("ALTER TABLE access_requests ADD COLUMN claim_token_hash TEXT")
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN claim_token_hash TEXT"
+                )
             if "contact_email" not in columns:
-                conn.execute("ALTER TABLE access_requests ADD COLUMN contact_email TEXT")
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN contact_email TEXT"
+                )
             if "totp_secret" not in columns:
                 conn.execute("ALTER TABLE access_requests ADD COLUMN totp_secret TEXT")
             if "totp_uri" not in columns:
                 conn.execute("ALTER TABLE access_requests ADD COLUMN totp_uri TEXT")
             if "backup_codes_json" not in columns:
-                conn.execute("ALTER TABLE access_requests ADD COLUMN backup_codes_json TEXT")
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN backup_codes_json TEXT"
+                )
             if "credentials_claimed" not in columns:
-                conn.execute("ALTER TABLE access_requests ADD COLUMN credentials_claimed BOOLEAN DEFAULT FALSE")
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN credentials_claimed BOOLEAN DEFAULT FALSE"
+                )
 
             # Create indexes AFTER columns exist
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_username ON access_requests(username)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_claim_token ON access_requests(claim_token_hash)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_access_requests_username ON access_requests(username)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_access_requests_claim_token ON access_requests(claim_token_hash)"
+            )
 
-    def create(self, username: str, claim_token_hash: str, contact_email: Optional[str] = None) -> AccessRequest:
+    def create(
+        self, username: str, claim_token_hash: str, contact_email: Optional[str] = None
+    ) -> AccessRequest:
         """Create a new access request with claim token."""
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "INSERT INTO access_requests (username, claim_token_hash, contact_email) VALUES (?, ?, ?)",
-                (username, claim_token_hash, contact_email)
+                (username, claim_token_hash, contact_email),
             )
             request_id = cursor.lastrowid
             cursor = conn.execute(
@@ -1161,7 +1204,7 @@ class AccessRequestRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM access_requests WHERE status = 'pending' ORDER BY requested_at ASC LIMIT ?",
-                (limit,)
+                (limit,),
             )
             return [AccessRequest.from_row(row) for row in cursor.fetchall()]
 
@@ -1170,7 +1213,7 @@ class AccessRequestRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM access_requests ORDER BY requested_at DESC LIMIT ?",
-                (limit,)
+                (limit,),
             )
             return [AccessRequest.from_row(row) for row in cursor.fetchall()]
 
@@ -1183,11 +1226,13 @@ class AccessRequestRepository:
                 SET status = 'approved', reviewed_at = ?, reviewed_by = ?
                 WHERE id = ? AND status = 'pending'
                 """,
-                (datetime.now().isoformat(), admin_username, request_id)
+                (datetime.now().isoformat(), admin_username, request_id),
             )
             return cursor.rowcount > 0
 
-    def deny(self, request_id: int, admin_username: str, reason: Optional[str] = None) -> bool:
+    def deny(
+        self, request_id: int, admin_username: str, reason: Optional[str] = None
+    ) -> bool:
         """Deny an access request."""
         with self.db.connection() as conn:
             cursor = conn.execute(
@@ -1196,7 +1241,7 @@ class AccessRequestRepository:
                 SET status = 'denied', reviewed_at = ?, reviewed_by = ?, deny_reason = ?
                 WHERE id = ? AND status = 'pending'
                 """,
-                (datetime.now().isoformat(), admin_username, reason, request_id)
+                (datetime.now().isoformat(), admin_username, reason, request_id),
             )
             return cursor.rowcount > 0
 
@@ -1221,7 +1266,7 @@ class AccessRequestRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT 1 FROM access_requests WHERE username = ? AND status = 'pending'",
-                (username,)
+                (username,),
             )
             return cursor.fetchone() is not None
 
@@ -1229,8 +1274,7 @@ class AccessRequestRepository:
         """Check if username has any request (pending, approved, or denied)."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT 1 FROM access_requests WHERE username = ?",
-                (username,)
+                "SELECT 1 FROM access_requests WHERE username = ?", (username,)
             )
             return cursor.fetchone() is not None
 
@@ -1247,17 +1291,13 @@ class AccessRequestRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM access_requests WHERE claim_token_hash = ?",
-                (claim_token_hash,)
+                (claim_token_hash,),
             )
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None
 
     def store_credentials(
-        self,
-        request_id: int,
-        totp_secret: str,
-        totp_uri: str,
-        backup_codes_json: str
+        self, request_id: int, totp_secret: str, totp_uri: str, backup_codes_json: str
     ) -> bool:
         """Store TOTP credentials after approval for later claim."""
         with self.db.connection() as conn:
@@ -1267,18 +1307,19 @@ class AccessRequestRepository:
                 SET totp_secret = ?, totp_uri = ?, backup_codes_json = ?
                 WHERE id = ?
                 """,
-                (totp_secret, totp_uri, backup_codes_json, request_id)
+                (totp_secret, totp_uri, backup_codes_json, request_id),
             )
             return cursor.rowcount > 0
 
     def store_invite_metadata(self, request_id: int, can_download: bool) -> bool:
         """Store invite metadata (permissions set by admin) for use during claim."""
         import json
+
         metadata = json.dumps({"can_download": can_download, "invited": True})
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "UPDATE access_requests SET backup_codes_json = ? WHERE id = ?",
-                (metadata, request_id)
+                (metadata, request_id),
             )
             return cursor.rowcount > 0
 
@@ -1291,16 +1332,18 @@ class AccessRequestRepository:
                 SET credentials_claimed = TRUE
                 WHERE id = ? AND credentials_claimed = FALSE
                 """,
-                (request_id,)
+                (request_id,),
             )
             return cursor.rowcount > 0
 
-    def get_pending_by_username_and_token(self, username: str, claim_token_hash: str) -> Optional[AccessRequest]:
+    def get_pending_by_username_and_token(
+        self, username: str, claim_token_hash: str
+    ) -> Optional[AccessRequest]:
         """Get access request by username and claim token (for status check)."""
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM access_requests WHERE username = ? AND claim_token_hash = ?",
-                (username, claim_token_hash)
+                (username, claim_token_hash),
             )
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None

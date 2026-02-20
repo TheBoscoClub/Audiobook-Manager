@@ -54,7 +54,9 @@ def test_user(temp_db):
 @pytest.fixture
 def second_user(temp_db):
     """Create a second test user."""
-    user = User(username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2")
+    user = User(
+        username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2"
+    )
     user.save(temp_db)
     return user
 
@@ -128,9 +130,15 @@ class TestNotificationPriority:
 
     def test_priority_ordering(self, temp_db, test_user):
         """Test notifications are ordered by priority (higher first)."""
-        Notification(message="Low priority", type=NotificationType.INFO, priority=0).save(temp_db)
-        Notification(message="High priority", type=NotificationType.INFO, priority=10).save(temp_db)
-        Notification(message="Medium priority", type=NotificationType.INFO, priority=5).save(temp_db)
+        Notification(
+            message="Low priority", type=NotificationType.INFO, priority=0
+        ).save(temp_db)
+        Notification(
+            message="High priority", type=NotificationType.INFO, priority=10
+        ).save(temp_db)
+        Notification(
+            message="Medium priority", type=NotificationType.INFO, priority=5
+        ).save(temp_db)
 
         repo = NotificationRepository(temp_db)
         active = repo.get_active_for_user(test_user.id)
@@ -255,7 +263,9 @@ class TestNotificationDismissal:
 
     def test_dismiss_notification(self, temp_db, test_user):
         """Test dismissing a notification."""
-        notif = Notification(message="Dismissable", type=NotificationType.INFO, dismissable=True)
+        notif = Notification(
+            message="Dismissable", type=NotificationType.INFO, dismissable=True
+        )
         notif.save(temp_db)
 
         repo = NotificationRepository(temp_db)

@@ -31,6 +31,7 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     """Early configuration - runs before test collection."""
     import os
+
     # Set VM_TESTS env var early so modules can check it at import time
     if config.getoption("--vm", default=False):
         os.environ["VM_TESTS"] = "1"

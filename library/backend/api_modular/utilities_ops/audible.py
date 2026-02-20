@@ -172,9 +172,7 @@ def init_audible_routes(project_root):
                         },
                     )
                 else:
-                    tracker.fail_operation(
-                        operation_id, stderr or "Download failed"
-                    )
+                    tracker.fail_operation(operation_id, stderr or "Download failed")
 
             except subprocess.TimeoutExpired:
                 process.kill()
@@ -226,9 +224,7 @@ def init_audible_routes(project_root):
             script_path = project_root / "scripts" / "populate_genres.py"
 
             try:
-                tracker.update_progress(
-                    operation_id, 5, "Loading Audible metadata..."
-                )
+                tracker.update_progress(operation_id, 5, "Loading Audible metadata...")
 
                 cmd = [sys.executable, "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:
@@ -310,9 +306,7 @@ def init_audible_routes(project_root):
                         },
                     )
                 else:
-                    tracker.fail_operation(
-                        operation_id, stderr or "Genre sync failed"
-                    )
+                    tracker.fail_operation(operation_id, stderr or "Genre sync failed")
 
             except subprocess.TimeoutExpired:
                 process.kill()
@@ -366,9 +360,7 @@ def init_audible_routes(project_root):
             script_path = project_root / "scripts" / "update_narrators_from_audible.py"
 
             try:
-                tracker.update_progress(
-                    operation_id, 5, "Loading Audible metadata..."
-                )
+                tracker.update_progress(operation_id, 5, "Loading Audible metadata...")
 
                 cmd = [sys.executable, "-u", str(script_path)]  # -u for unbuffered
                 if not dry_run:

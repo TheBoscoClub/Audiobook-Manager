@@ -93,7 +93,9 @@ class TestSessionTokenManipulation:
         ]
 
         for modified in modified_tokens:
-            assert repo.get_by_token(modified) is None, f"Modified token accepted: {modified}"
+            assert repo.get_by_token(modified) is None, (
+                f"Modified token accepted: {modified}"
+            )
 
     def test_reject_forged_token_hash(self, temp_db, test_user):
         """Test that forged token hashes are rejected."""
@@ -114,7 +116,9 @@ class TestSessionTokenManipulation:
 
         for forged in forged_tokens:
             if forged != real_token:  # Only test if actually different
-                assert repo.get_by_token(forged) is None, f"Forged token accepted: {repr(forged)}"
+                assert repo.get_by_token(forged) is None, (
+                    f"Forged token accepted: {repr(forged)}"
+                )
 
 
 class TestSQLInjection:
@@ -143,7 +147,9 @@ class TestSQLInjection:
 
             # Database should still be intact
             original = repo.get_by_username("sectest")
-            assert original is not None, f"Database corrupted after injection attempt: {payload}"
+            assert original is not None, (
+                f"Database corrupted after injection attempt: {payload}"
+            )
 
     def test_token_sql_injection(self, temp_db, test_user):
         """Test SQL injection in token field is prevented."""
@@ -198,10 +204,11 @@ class TestTokenReuseAfterLogout:
         # Manually set last_seen to old timestamp to simulate staleness
         with temp_db.connection() as conn:
             # Use SQLite-compatible format to match DEFAULT CURRENT_TIMESTAMP
-            old_time = (datetime.now() - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
+            old_time = (datetime.now() - timedelta(hours=2)).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             conn.execute(
-                "UPDATE sessions SET last_seen = ? WHERE id = ?",
-                (old_time, session.id)
+                "UPDATE sessions SET last_seen = ? WHERE id = ?", (old_time, session.id)
             )
 
         # Cleanup stale sessions (30 min threshold)
@@ -228,8 +235,7 @@ class TestPrivilegeEscalation:
         # Verify admin flag is stored correctly
         with temp_db.connection() as conn:
             cursor = conn.execute(
-                "SELECT is_admin FROM users WHERE username = ?",
-                ("sectest",)
+                "SELECT is_admin FROM users WHERE username = ?", ("sectest",)
             )
             row = cursor.fetchone()
             assert row[0] == 0  # Not admin in DB
@@ -337,7 +343,9 @@ class TestDatabaseEncryption:
 
         # Sensitive data should not appear in plaintext
         assert b"encrypted" not in raw_content, "Username found in plaintext in DB file"
-        assert b"supersecret" not in raw_content, "Credential found in plaintext in DB file"
+        assert b"supersecret" not in raw_content, (
+            "Credential found in plaintext in DB file"
+        )
 
     def test_wrong_key_fails(self):
         """Test that database cannot be opened with wrong key."""
@@ -362,9 +370,7 @@ class TestDatabaseEncryption:
             # Try to open with wrong key - should fail
             with pytest.raises(Exception):
                 wrong_db = AuthDatabase(
-                    db_path=db_path,
-                    key_path=wrong_key_path,
-                    is_dev=True
+                    db_path=db_path, key_path=wrong_key_path, is_dev=True
                 )
                 UserRepository(wrong_db).list_all()
 
@@ -396,8 +402,12 @@ class TestTimingAttacks:
         # Times should be within same order of magnitude
         # (This is a weak test - real timing attack testing needs statistics)
         # Mainly checking for obvious early-exit patterns
-        ratio = max(valid_time, invalid_time) / max(min(valid_time, invalid_time), 0.000001)
-        assert ratio < 100, f"Timing difference too large: valid={valid_time}, invalid={invalid_time}"
+        ratio = max(valid_time, invalid_time) / max(
+            min(valid_time, invalid_time), 0.000001
+        )
+        assert ratio < 100, (
+            f"Timing difference too large: valid={valid_time}, invalid={invalid_time}"
+        )
 
 
 class TestBoundaryConditions:
@@ -409,7 +419,11 @@ class TestBoundaryConditions:
 
         # Empty username lookup should return None safely
         assert repo.get_by_username("") is None
-        assert repo.get_by_username(None) is None if hasattr(repo, 'get_by_username') else True
+        assert (
+            repo.get_by_username(None) is None
+            if hasattr(repo, "get_by_username")
+            else True
+        )
 
     def test_very_long_token(self, temp_db, test_user):
         """Test handling of extremely long tokens."""

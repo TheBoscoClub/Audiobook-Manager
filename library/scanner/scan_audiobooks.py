@@ -14,13 +14,18 @@ from pathlib import Path
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
+
 # Import shared utilities from scanner package
-from scanner.metadata_utils import (categorize_genre, determine_literary_era,
-                                    enrich_metadata, extract_cover_art,
-                                    extract_topics)
-from scanner.metadata_utils import \
-    get_file_metadata as \
-    _get_file_metadata  # Re-export for backwards compatibility with tests
+from scanner.metadata_utils import (
+    categorize_genre,
+    determine_literary_era,
+    enrich_metadata,
+    extract_cover_art,
+    extract_topics,
+)
+from scanner.metadata_utils import (
+    get_file_metadata as _get_file_metadata,
+)  # Re-export for backwards compatibility with tests
 
 # Re-export for backwards compatibility with tests
 __all__ = [

@@ -33,6 +33,7 @@ from auth import (
 def get_db():
     """Get auth database connection."""
     from auth.database import get_auth_db
+
     return get_auth_db()
 
 
@@ -49,7 +50,9 @@ def cmd_list(args):
         print("No messages in inbox.")
         return 0
 
-    print(f"\n{'ID':<6} {'Status':<10} {'From':<15} {'Reply Via':<10} {'Date':<20} {'Preview'}")
+    print(
+        f"\n{'ID':<6} {'Status':<10} {'From':<15} {'Reply Via':<10} {'Date':<20} {'Preview'}"
+    )
     print("-" * 100)
 
     for m in messages:
@@ -64,7 +67,9 @@ def cmd_list(args):
         if m.status == InboxStatus.UNREAD:
             status = f"*{status}*"
 
-        print(f"{m.id:<6} {status:<10} {username:<15} {reply_via:<10} {date:<20} {preview}")
+        print(
+            f"{m.id:<6} {status:<10} {username:<15} {reply_via:<10} {date:<20} {preview}"
+        )
 
     print(f"\nTotal: {len(messages)} message(s), {unread} unread")
     return 0
@@ -90,7 +95,9 @@ def cmd_read(args):
 
     print("\n" + "=" * 60)
     print(f"From: {username}")
-    print(f"Date: {message.created_at.strftime('%Y-%m-%d %H:%M:%S') if message.created_at else '-'}")
+    print(
+        f"Date: {message.created_at.strftime('%Y-%m-%d %H:%M:%S') if message.created_at else '-'}"
+    )
     print(f"Reply via: {message.reply_via.value}")
     if message.reply_email:
         print(f"Reply email: {message.reply_email}")
@@ -100,7 +107,7 @@ def cmd_read(args):
     print("=" * 60)
 
     if message.status != InboxStatus.REPLIED:
-        print(f"\nTo reply: audiobook-inbox reply {args.id} \"Your reply here\"")
+        print(f'\nTo reply: audiobook-inbox reply {args.id} "Your reply here"')
 
     return 0
 
@@ -153,7 +160,9 @@ def send_email_reply(to_email: str, username: str, reply_text: str) -> bool:
     smtp_from = os.environ.get("SMTP_FROM", "noreply@localhost")
 
     if not smtp_user:
-        print("Warning: SMTP not configured. Set SMTP_USER and SMTP_PASS environment variables.")
+        print(
+            "Warning: SMTP not configured. Set SMTP_USER and SMTP_PASS environment variables."
+        )
         return False
 
     subject = "Reply from The Library"
@@ -214,15 +223,16 @@ Examples:
     %(prog)s read 5
     %(prog)s reply 5 "Thanks for the feedback!"
     %(prog)s archive 5
-        """
+        """,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # list command
     list_parser = subparsers.add_parser("list", help="List inbox messages")
-    list_parser.add_argument("--all", "-a", action="store_true",
-                            help="Include archived messages")
+    list_parser.add_argument(
+        "--all", "-a", action="store_true", help="Include archived messages"
+    )
     list_parser.set_defaults(func=cmd_list)
 
     # read command

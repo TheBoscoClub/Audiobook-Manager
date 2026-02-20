@@ -48,11 +48,11 @@ def _encode_cose_public_key(public_key: ec.EllipticCurvePublicKey) -> bytes:
     x = numbers.x.to_bytes(32, "big")
     y = numbers.y.to_bytes(32, "big")
     cose_key = {
-        1: 2,     # kty: EC2
-        3: -7,    # alg: ES256
-        -1: 1,    # crv: P-256
-        -2: x,    # x-coordinate
-        -3: y,    # y-coordinate
+        1: 2,  # kty: EC2
+        3: -7,  # alg: ES256
+        -1: 1,  # crv: P-256
+        -2: x,  # x-coordinate
+        -3: y,  # y-coordinate
     }
     return cbor2.dumps(cose_key)
 
@@ -60,6 +60,7 @@ def _encode_cose_public_key(public_key: ec.EllipticCurvePublicKey) -> bytes:
 @dataclass
 class StoredCredential:
     """A credential stored by the software authenticator."""
+
     credential_id: bytes
     private_key: ec.EllipticCurvePrivateKey
     rp_id: str
@@ -73,6 +74,7 @@ class SoftwareAuthenticator:
     Maintains a registry of credentials keyed by credential_id.
     Supports both registration and authentication ceremonies.
     """
+
     credentials: dict[bytes, StoredCredential] = field(default_factory=dict)
     # AAGUID for our software authenticator (all zeros = no attestation)
     aaguid: bytes = field(default=b"\x00" * 16)
@@ -111,12 +113,15 @@ class SoftwareAuthenticator:
         )
 
         # Build clientDataJSON
-        client_data = json.dumps({
-            "type": "webauthn.create",
-            "challenge": challenge_b64,
-            "origin": origin,
-            "crossOrigin": False,
-        }, separators=(",", ":")).encode("utf-8")
+        client_data = json.dumps(
+            {
+                "type": "webauthn.create",
+                "challenge": challenge_b64,
+                "origin": origin,
+                "crossOrigin": False,
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
 
         # Build authenticator data
         auth_data = self._build_auth_data_registration(
@@ -124,11 +129,13 @@ class SoftwareAuthenticator:
         )
 
         # Build attestation object (none format)
-        attestation_object = cbor2.dumps({
-            "fmt": "none",
-            "attStmt": {},
-            "authData": auth_data,
-        })
+        attestation_object = cbor2.dumps(
+            {
+                "fmt": "none",
+                "attStmt": {},
+                "authData": auth_data,
+            }
+        )
 
         return {
             "id": _b64url_encode(credential_id),
@@ -177,12 +184,15 @@ class SoftwareAuthenticator:
         stored.sign_count += 1
 
         # Build clientDataJSON
-        client_data = json.dumps({
-            "type": "webauthn.get",
-            "challenge": challenge_b64,
-            "origin": origin,
-            "crossOrigin": False,
-        }, separators=(",", ":")).encode("utf-8")
+        client_data = json.dumps(
+            {
+                "type": "webauthn.get",
+                "challenge": challenge_b64,
+                "origin": origin,
+                "crossOrigin": False,
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
 
         # Build authenticator data (no attested credential data for assertion)
         rp_id_hash = hashlib.sha256(stored.rp_id.encode("utf-8")).digest()

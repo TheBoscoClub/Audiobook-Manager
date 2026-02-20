@@ -55,7 +55,9 @@ def test_user(temp_db):
 @pytest.fixture
 def second_user(temp_db):
     """Create a second test user."""
-    user = User(username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2")
+    user = User(
+        username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2"
+    )
     user.save(temp_db)
     return user
 
@@ -104,8 +106,7 @@ class TestInboxMessageCreation:
         # Check contact_log
         with temp_db.connection() as conn:
             cursor = conn.execute(
-                "SELECT COUNT(*) FROM contact_log WHERE user_id = ?",
-                (test_user.id,)
+                "SELECT COUNT(*) FROM contact_log WHERE user_id = ?", (test_user.id,)
             )
             count = cursor.fetchone()[0]
             assert count == 1
@@ -421,7 +422,9 @@ class TestMultipleUsers:
 
         # Check contact_log
         with temp_db.connection() as conn:
-            cursor = conn.execute("SELECT user_id, COUNT(*) FROM contact_log GROUP BY user_id")
+            cursor = conn.execute(
+                "SELECT user_id, COUNT(*) FROM contact_log GROUP BY user_id"
+            )
             counts = {row[0]: row[1] for row in cursor.fetchall()}
 
         assert counts[test_user.id] == 2

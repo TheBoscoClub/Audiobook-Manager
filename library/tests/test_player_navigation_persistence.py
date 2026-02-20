@@ -29,6 +29,7 @@ pytestmark = pytest.mark.integration
 # Try playwright first, fall back to selenium
 try:
     from playwright.sync_api import Page, expect, sync_playwright
+
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
@@ -39,6 +40,7 @@ try:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.support.ui import WebDriverWait
+
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -95,6 +97,7 @@ def test_audiobook(auth_session):
 # Playwright Tests (preferred)
 # ============================================================================
 
+
 @pytest.fixture(scope="module")
 def browser_context(auth_session):
     """Create a persistent browser context with Playwright and auth cookie."""
@@ -108,7 +111,9 @@ def browser_context(auth_session):
             try:
                 browser = browser_type.launch(
                     headless=False,  # Use headed mode for audio playback
-                    args=["--autoplay-policy=no-user-gesture-required"]  # Allow autoplay
+                    args=[
+                        "--autoplay-policy=no-user-gesture-required"
+                    ],  # Allow autoplay
                 )
                 break
             except Exception:
@@ -119,19 +124,23 @@ def browser_context(auth_session):
 
         context = browser.new_context(
             ignore_https_errors=IGNORE_HTTPS_ERRORS,
-            viewport={"width": 1280, "height": 900}
+            viewport={"width": 1280, "height": 900},
         )
         # Inject auth session cookie into browser context
         token = auth_session.cookies.get("audiobooks_session")
         if token:
-            context.add_cookies([{
-                "name": "audiobooks_session",
-                "value": token,
-                "domain": VM_HOST,
-                "path": "/",
-                "httpOnly": True,
-                "secure": False,
-            }])
+            context.add_cookies(
+                [
+                    {
+                        "name": "audiobooks_session",
+                        "value": token,
+                        "domain": VM_HOST,
+                        "path": "/",
+                        "httpOnly": True,
+                        "secure": False,
+                    }
+                ]
+            )
         yield context
         context.close()
         browser.close()
@@ -187,7 +196,9 @@ class TestPlayerNavigationPlaywright:
         print("\n  ✓ Audio player started successfully")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_continues_during_navigation_to_backoffice(self, page: Page, test_audiobook):
+    def test_playback_continues_during_navigation_to_backoffice(
+        self, page: Page, test_audiobook
+    ):
         """Test that audio continues playing when navigating to Back Office."""
         # Navigate to library and start playing
         page.goto(WEB_BASE_URL)
@@ -224,7 +235,9 @@ class TestPlayerNavigationPlaywright:
             page.wait_for_load_state("networkidle")
             current_url = page.url
 
-        assert "utilities" in current_url.lower(), f"Should navigate to utilities, got: {current_url}"
+        assert "utilities" in current_url.lower(), (
+            f"Should navigate to utilities, got: {current_url}"
+        )
         print("  ✓ Navigated to Back Office")
 
         # Note: In a traditional multi-page app, audio stops on navigation
@@ -233,7 +246,9 @@ class TestPlayerNavigationPlaywright:
         print("  ✓ Navigation to Back Office completed")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_continues_through_navigation_cycle(self, page: Page, test_audiobook):
+    def test_playback_continues_through_navigation_cycle(
+        self, page: Page, test_audiobook
+    ):
         """Test full navigation cycle: Library -> Back Office -> Library."""
         # Start at library
         page.goto(WEB_BASE_URL)
@@ -308,7 +323,9 @@ class TestPlayerNavigationPlaywright:
             const audio = document.getElementById('audio-element');
             return audio ? audio.currentTime : -1;
         }""")
-        print(f"\n  Playing before resize: {is_playing_before}, position: {position_before:.2f}s")
+        print(
+            f"\n  Playing before resize: {is_playing_before}, position: {position_before:.2f}s"
+        )
 
         # Resize to small (simulate mobile or minimize-ish)
         page.set_viewport_size({"width": 400, "height": 600})
@@ -336,7 +353,9 @@ class TestPlayerNavigationPlaywright:
             return audio ? audio.currentTime : -1;
         }""")
 
-        print(f"  Playing after resize: {is_playing_after_large}, position: {position_after:.2f}s")
+        print(
+            f"  Playing after resize: {is_playing_after_large}, position: {position_after:.2f}s"
+        )
 
         assert is_playing_after_large, "Audio should continue playing after resize"
         assert position_after > position_before, "Position should have advanced"
@@ -375,7 +394,9 @@ class TestPlayerNavigationPlaywright:
         print(f"\n  Saved positions in localStorage: {len(saved_data)}")
         for key, data in saved_data.items():
             if isinstance(data, dict):
-                print(f"    {key}: position={data.get('position', 0):.2f}s, duration={data.get('duration', 0):.2f}s")
+                print(
+                    f"    {key}: position={data.get('position', 0):.2f}s, duration={data.get('duration', 0):.2f}s"
+                )
             else:
                 print(f"    {key}: {data}")
 
@@ -397,6 +418,7 @@ class TestPlayerNavigationPlaywright:
 # ============================================================================
 # Selenium Tests (fallback)
 # ============================================================================
+
 
 @pytest.fixture(scope="module")
 def selenium_driver():
@@ -461,6 +483,7 @@ class TestPlayerNavigationSelenium:
 # ============================================================================
 # Summary Test
 # ============================================================================
+
 
 class TestPlayerSummary:
     """Summary test verifying all player persistence features."""

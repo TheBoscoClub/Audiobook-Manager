@@ -47,6 +47,7 @@ from typing import List, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from common import normalize_title
 from config import DATABASE_PATH
+
 # Import OpenLibrary client
 from utils.openlibrary_client import OpenLibraryClient
 

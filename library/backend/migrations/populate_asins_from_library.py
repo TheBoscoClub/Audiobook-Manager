@@ -73,14 +73,16 @@ def get_audiobooks_needing_asin(db_path: Path) -> list[dict]:
 
     books = []
     for row in cursor.fetchall():
-        books.append({
-            "id": row["id"],
-            "title": row["title"],
-            "author": row["author"],
-            "file_path": row["file_path"],
-            "content_type": row["content_type"],
-            "normalized_title": normalize_title(row["title"]),
-        })
+        books.append(
+            {
+                "id": row["id"],
+                "title": row["title"],
+                "author": row["author"],
+                "file_path": row["file_path"],
+                "content_type": row["content_type"],
+                "normalized_title": normalize_title(row["title"]),
+            }
+        )
 
     conn.close()
     print(f"Found {len(books)} audiobooks needing ASINs")
@@ -99,9 +101,7 @@ def calculate_similarity(s1: str, s2: str) -> float:
 
 
 def match_books_to_library(
-    audiobooks: list[dict],
-    library_index: dict,
-    threshold: float = 0.6
+    audiobooks: list[dict], library_index: dict, threshold: float = 0.6
 ) -> tuple[list[dict], list[dict]]:
     """Match audiobooks to library items.
 
@@ -118,14 +118,16 @@ def match_books_to_library(
         if norm_title in by_title:
             lib_items = by_title[norm_title]
             item = lib_items[0]
-            matches.append({
-                "book_id": book["id"],
-                "book_title": book["title"],
-                "library_title": item.get("title"),
-                "asin": item.get("asin"),
-                "confidence": "exact",
-                "score": 1.0,
-            })
+            matches.append(
+                {
+                    "book_id": book["id"],
+                    "book_title": book["title"],
+                    "library_title": item.get("title"),
+                    "asin": item.get("asin"),
+                    "confidence": "exact",
+                    "score": 1.0,
+                }
+            )
             continue
 
         # Try fuzzy match
@@ -142,8 +144,8 @@ def match_books_to_library(
             # Check containment
             lib_words = lib_norm_title.split()
             if lib_norm_title in norm_title and len(lib_words) >= 1:
-                db_has_episode = any(w in norm_title for w in ['ep ', 'episode '])
-                lib_has_episode = any(w in lib_norm_title for w in ['ep ', 'episode '])
+                db_has_episode = any(w in norm_title for w in ["ep ", "episode "])
+                lib_has_episode = any(w in lib_norm_title for w in ["ep ", "episode "])
                 if db_has_episode and not lib_has_episode:
                     continue
 
@@ -156,20 +158,24 @@ def match_books_to_library(
                     best_confidence = "containment"
 
         if best_match and best_score >= threshold:
-            matches.append({
-                "book_id": book["id"],
-                "book_title": book["title"],
-                "library_title": best_match.get("title"),
-                "asin": best_match.get("asin"),
-                "confidence": f"{best_confidence} ({best_score:.0%})",
-                "score": best_score,
-            })
+            matches.append(
+                {
+                    "book_id": book["id"],
+                    "book_title": book["title"],
+                    "library_title": best_match.get("title"),
+                    "asin": best_match.get("asin"),
+                    "confidence": f"{best_confidence} ({best_score:.0%})",
+                    "score": best_score,
+                }
+            )
         else:
-            unmatched.append({
-                **book,
-                "best_score": best_score,
-                "best_match": best_match.get("title") if best_match else None,
-            })
+            unmatched.append(
+                {
+                    **book,
+                    "best_score": best_score,
+                    "best_match": best_match.get("title") if best_match else None,
+                }
+            )
 
     return matches, unmatched
 
@@ -189,7 +195,7 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
         for match in matches:
             cursor.execute(
                 "UPDATE audiobooks SET asin = ?, source_asin = ? WHERE id = ?",
-                (match["asin"], match["asin"], match["book_id"])
+                (match["asin"], match["asin"], match["book_id"]),
             )
 
         conn.commit()
@@ -228,25 +234,42 @@ def analyze_unmatched(unmatched: list[dict]):
         print(f"   {ctype}: {len(books)}")
 
     print("\nSample unmatched (with best potential matches):")
-    for book in sorted(unmatched, key=lambda x: x.get("best_score", 0), reverse=True)[:15]:
+    for book in sorted(unmatched, key=lambda x: x.get("best_score", 0), reverse=True)[
+        :15
+    ]:
         print(f"   {book['title'][:60]}")
         if book.get("best_match"):
-            print(f"       Best match ({book['best_score']:.0%}): {book['best_match'][:50]}")
+            print(
+                f"       Best match ({book['best_score']:.0%}): {book['best_match'][:50]}"
+            )
         else:
             print("       No potential matches found")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Populate ASINs from Audible library export")
-    parser.add_argument("--dry-run", action="store_true", help="Preview without updating")
+    parser = argparse.ArgumentParser(
+        description="Populate ASINs from Audible library export"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preview without updating"
+    )
     parser.add_argument("--db", type=Path, default=DB_PATH, help="Database path")
-    parser.add_argument("--library", type=Path, required=True, help="Audible library JSON export")
-    parser.add_argument("--threshold", type=float, default=0.6, help="Fuzzy match threshold (default 0.6)")
+    parser.add_argument(
+        "--library", type=Path, required=True, help="Audible library JSON export"
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.6,
+        help="Fuzzy match threshold (default 0.6)",
+    )
     args = parser.parse_args()
 
     if not args.library.exists():
         print(f"Library file not found: {args.library}")
-        print("   Generate with: audible library export --format json --output library.json --resolve-podcasts")
+        print(
+            "   Generate with: audible library export --format json --output library.json --resolve-podcasts"
+        )
         sys.exit(1)
 
     library = load_audible_library(args.library)
@@ -258,7 +281,9 @@ def main():
         print("All audiobooks already have ASINs!")
         return
 
-    matches, unmatched = match_books_to_library(audiobooks, library_index, args.threshold)
+    matches, unmatched = match_books_to_library(
+        audiobooks, library_index, args.threshold
+    )
 
     update_database(args.db, matches, dry_run=args.dry_run)
 

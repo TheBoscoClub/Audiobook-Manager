@@ -53,9 +53,7 @@ def init_hashing_routes(project_root):
             hash_script = project_root / "scripts" / "generate_hashes.py"
 
             try:
-                tracker.update_progress(
-                    operation_id, 5, "Starting hash generation..."
-                )
+                tracker.update_progress(operation_id, 5, "Starting hash generation...")
 
                 # Use Popen for streaming progress
                 process = subprocess.Popen(
@@ -72,9 +70,7 @@ def init_hashing_routes(project_root):
 
                 # Patterns for hash generation output
                 progress_pattern = regex.compile(r"\[(\d+)/(\d+)\]")
-                processing_pattern = regex.compile(
-                    r"(?:Processing|Hashing).*?(\d+)"
-                )
+                processing_pattern = regex.compile(r"(?:Processing|Hashing).*?(\d+)")
                 generated_pattern = regex.compile(
                     r"(?:Generated|Completed)\s*(\d+)", regex.I
                 )
@@ -195,7 +191,7 @@ def init_hashing_routes(project_root):
 
             try:
                 # Get paths from environment or defaults
-                audiobooks_data = os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks")
+                audiobooks_data = os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks")  # fmt: skip
                 sources_dir = Path(audiobooks_data) / "Sources"
                 library_dir = Path(audiobooks_data) / "Library"
                 index_dir = Path(audiobooks_data) / ".index"

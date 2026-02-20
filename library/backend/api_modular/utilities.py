@@ -18,8 +18,8 @@ Each sub-module defines focused functionality with smaller, testable functions.
 
 from flask import Blueprint
 
-from .utilities_conversion import (init_conversion_routes,
-                                   utilities_conversion_bp)
+from .utilities_conversion import init_conversion_routes, utilities_conversion_bp
+
 # Import sub-module blueprints and init functions
 from .utilities_crud import init_crud_routes, utilities_crud_bp
 from .utilities_db import init_db_routes, utilities_db_bp

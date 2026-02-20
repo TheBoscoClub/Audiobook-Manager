@@ -4,6 +4,7 @@ Encrypted Auth Database using SQLCipher
 Provides secure storage for user credentials, sessions, and positions.
 All data is encrypted at rest with AES-256.
 """
+
 from __future__ import annotations
 
 import os
@@ -48,10 +49,7 @@ class AuthDatabase:
     KEY_LENGTH = 32  # 256 bits
 
     def __init__(
-        self,
-        db_path: str,
-        key_path: Optional[str] = None,
-        is_dev: bool = False
+        self, db_path: str, key_path: Optional[str] = None, is_dev: bool = False
     ):
         """
         Initialize auth database.
@@ -107,8 +105,10 @@ class AuthDatabase:
             key = self.key_path.read_text().strip()
 
             # Validate key format (64 hex chars = 256 bits)
-            if len(key) != 64 or not all(c in '0123456789abcdef' for c in key.lower()):
-                raise EncryptionKeyError("Invalid key format. Expected 64 hex characters.")
+            if len(key) != 64 or not all(c in "0123456789abcdef" for c in key.lower()):
+                raise EncryptionKeyError(
+                    "Invalid key format. Expected 64 hex characters."
+                )
 
             return key
 
@@ -220,7 +220,7 @@ class AuthDatabase:
             "schema_version": None,
             "table_count": 0,
             "user_count": 0,
-            "errors": []
+            "errors": [],
         }
 
         if not result["db_exists"]:
@@ -263,9 +263,7 @@ _auth_db: Optional[AuthDatabase] = None
 
 
 def get_auth_db(
-    db_path: Optional[str] = None,
-    key_path: Optional[str] = None,
-    is_dev: bool = False
+    db_path: Optional[str] = None, key_path: Optional[str] = None, is_dev: bool = False
 ) -> AuthDatabase:
     """
     Get or create the auth database singleton.

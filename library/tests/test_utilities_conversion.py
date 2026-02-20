@@ -15,8 +15,7 @@ class TestGetFfmpegProcesses:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_finds_ffmpeg_opus_processes(self, mock_run):
         """Test finds FFmpeg processes with libopus codec."""
-        from backend.api_modular.utilities_conversion import \
-            get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
 
         mock_run.return_value = MagicMock(
             stdout=(
@@ -37,8 +36,7 @@ class TestGetFfmpegProcesses:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_returns_empty_when_no_ffmpeg(self, mock_run):
         """Test returns empty when no FFmpeg processes found."""
-        from backend.api_modular.utilities_conversion import \
-            get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
 
         mock_run.return_value = MagicMock(
             stdout="user 1234 0.0 0.0 1234 123 pts/0 S 10:00 0:00 bash\n"
@@ -52,8 +50,7 @@ class TestGetFfmpegProcesses:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_handles_subprocess_exception(self, mock_run):
         """Test handles subprocess failures gracefully."""
-        from backend.api_modular.utilities_conversion import \
-            get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
 
         mock_run.side_effect = Exception("ps command failed")
 
@@ -65,8 +62,7 @@ class TestGetFfmpegProcesses:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_handles_malformed_ps_output(self, mock_run):
         """Test handles malformed ps output lines."""
-        from backend.api_modular.utilities_conversion import \
-            get_ffmpeg_processes
+        from backend.api_modular.utilities_conversion import get_ffmpeg_processes
 
         mock_run.return_value = MagicMock(
             stdout=(
@@ -88,8 +84,7 @@ class TestGetFfmpegNiceValue:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_returns_nice_value(self, mock_run):
         """Test returns nice value for FFmpeg process."""
-        from backend.api_modular.utilities_conversion import \
-            get_ffmpeg_nice_value
+        from backend.api_modular.utilities_conversion import get_ffmpeg_nice_value
 
         mock_run.return_value = MagicMock(
             stdout=("  NI COMM\n   0 python\n  19 ffmpeg\n")
@@ -102,8 +97,7 @@ class TestGetFfmpegNiceValue:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_returns_none_when_no_ffmpeg(self, mock_run):
         """Test returns None when no FFmpeg found."""
-        from backend.api_modular.utilities_conversion import \
-            get_ffmpeg_nice_value
+        from backend.api_modular.utilities_conversion import get_ffmpeg_nice_value
 
         mock_run.return_value = MagicMock(stdout="  NI COMM\n   0 python\n")
 
@@ -114,8 +108,7 @@ class TestGetFfmpegNiceValue:
     @patch("backend.api_modular.utilities_conversion.subprocess.run")
     def test_handles_exception(self, mock_run):
         """Test handles exception gracefully."""
-        from backend.api_modular.utilities_conversion import \
-            get_ffmpeg_nice_value
+        from backend.api_modular.utilities_conversion import get_ffmpeg_nice_value
 
         mock_run.side_effect = Exception("ps failed")
 
@@ -173,8 +166,7 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_parses_conversion_job(self, mock_io):
         """Test parses FFmpeg command line and returns job info."""
-        from backend.api_modular.utilities_conversion import \
-            parse_conversion_job
+        from backend.api_modular.utilities_conversion import parse_conversion_job
 
         mock_io.return_value = (1000000, 500000)
 
@@ -198,8 +190,7 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_returns_none_when_no_output_file(self, mock_io):
         """Test returns None when no output file in command."""
-        from backend.api_modular.utilities_conversion import \
-            parse_conversion_job
+        from backend.api_modular.utilities_conversion import parse_conversion_job
 
         mock_io.return_value = (0, 0)
         cmdline = "ffmpeg -i input.aaxc -c:a libopus"  # No output file
@@ -211,8 +202,7 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_truncates_long_filename(self, mock_io):
         """Test truncates filenames longer than 50 chars."""
-        from backend.api_modular.utilities_conversion import \
-            parse_conversion_job
+        from backend.api_modular.utilities_conversion import parse_conversion_job
 
         mock_io.return_value = (0, 0)
         long_name = "a" * 60 + ".opus"
@@ -228,8 +218,7 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_parses_unquoted_output_path(self, mock_io):
         """Test parses unquoted output path."""
-        from backend.api_modular.utilities_conversion import \
-            parse_conversion_job
+        from backend.api_modular.utilities_conversion import parse_conversion_job
 
         mock_io.return_value = (1000, 500)
         cmdline = "ffmpeg -i input.aaxc -c:a libopus -f ogg /output/book.opus"
@@ -243,8 +232,7 @@ class TestParseConversionJob:
     @patch("backend.api_modular.utilities_conversion.parse_job_io")
     def test_caps_percent_at_99(self, mock_io):
         """Test caps progress percent at 99."""
-        from backend.api_modular.utilities_conversion import \
-            parse_conversion_job
+        from backend.api_modular.utilities_conversion import parse_conversion_job
 
         # Read more bytes than source size
         mock_io.return_value = (3000000, 500000)

@@ -24,6 +24,7 @@ from .auth import admin_if_enabled, auth_if_enabled, get_auth_db, get_current_us
 # Import auth models for per-user position tracking
 try:
     from auth import UserPosition, PositionRepository
+
     POSITION_REPO_AVAILABLE = True
 except ImportError:
     POSITION_REPO_AVAILABLE = False
@@ -156,9 +157,7 @@ def _save_user_position(user_id: int, audiobook_id: int, position_ms: int) -> bo
     try:
         auth_db = get_auth_db()
         pos = UserPosition(
-            user_id=user_id,
-            audiobook_id=audiobook_id,
-            position_ms=position_ms
+            user_id=user_id, audiobook_id=audiobook_id, position_ms=position_ms
         )
         pos.save(auth_db)
         return True

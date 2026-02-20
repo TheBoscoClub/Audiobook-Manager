@@ -60,8 +60,11 @@ def init_library_routes(db_path, project_root):
             try:
                 # Import here to avoid circular imports
                 sys.path.insert(0, str(project_root / "scanner"))
-                from add_new_audiobooks import (AUDIOBOOK_DIR, COVER_DIR,
-                                                add_new_audiobooks)
+                from add_new_audiobooks import (
+                    AUDIOBOOK_DIR,
+                    COVER_DIR,
+                    add_new_audiobooks,
+                )
 
                 results = add_new_audiobooks(
                     library_dir=AUDIOBOOK_DIR,
@@ -179,7 +182,10 @@ def init_library_routes(db_path, project_root):
                                     last_progress = percent
 
                             # Check for completion message
-                            if "Total files:" in buffer or "Total audiobooks:" in buffer:
+                            if (
+                                "Total files:" in buffer
+                                or "Total audiobooks:" in buffer
+                            ):
                                 try:
                                     files_found = int(buffer.split(":")[1].strip())
                                 except (ValueError, IndexError):
@@ -203,9 +209,7 @@ def init_library_routes(db_path, project_root):
                         },
                     )
                 else:
-                    tracker.fail_operation(
-                        operation_id, stderr or "Scanner failed"
-                    )
+                    tracker.fail_operation(operation_id, stderr or "Scanner failed")
 
             except subprocess.TimeoutExpired:
                 process.kill()
@@ -363,13 +367,13 @@ def init_library_routes(db_path, project_root):
                         },
                     )
                 else:
-                    tracker.fail_operation(
-                        operation_id, stderr or "Import failed"
-                    )
+                    tracker.fail_operation(operation_id, stderr or "Import failed")
 
             except subprocess.TimeoutExpired:
                 process.kill()
-                tracker.fail_operation(operation_id, "Import timed out after 10 minutes")
+                tracker.fail_operation(
+                    operation_id, "Import timed out after 10 minutes"
+                )
             except Exception as e:
                 tracker.fail_operation(operation_id, str(e))
 

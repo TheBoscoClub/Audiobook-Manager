@@ -39,7 +39,7 @@ def secret_to_base32(secret: bytes) -> str:
     Returns:
         Base32-encoded string (without padding)
     """
-    return base64.b32encode(secret).decode('ascii').rstrip('=')
+    return base64.b32encode(secret).decode("ascii").rstrip("=")
 
 
 def base32_to_secret(base32_secret: str) -> bytes:
@@ -55,14 +55,12 @@ def base32_to_secret(base32_secret: str) -> bytes:
     # Add padding if needed
     padding = 8 - (len(base32_secret) % 8)
     if padding != 8:
-        base32_secret += '=' * padding
+        base32_secret += "=" * padding
     return base64.b32decode(base32_secret)
 
 
 def get_provisioning_uri(
-    secret: bytes,
-    username: str,
-    issuer: str = DEFAULT_ISSUER
+    secret: bytes, username: str, issuer: str = DEFAULT_ISSUER
 ) -> str:
     """
     Generate otpauth:// URI for QR code scanning.
@@ -80,9 +78,7 @@ def get_provisioning_uri(
 
 
 def generate_qr_code(
-    secret: bytes,
-    username: str,
-    issuer: str = DEFAULT_ISSUER
+    secret: bytes, username: str, issuer: str = DEFAULT_ISSUER
 ) -> bytes:
     """
     Generate QR code image as PNG bytes.
@@ -113,7 +109,7 @@ def generate_qr_code(
     img = qr.make_image(fill_color="black", back_color="white")
 
     buffer = BytesIO()
-    img.save(buffer, format='PNG')
+    img.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
@@ -144,7 +140,7 @@ def verify_code(secret: bytes, code: str, valid_window: int = VALID_WINDOW) -> b
         True if code is valid, False otherwise
     """
     # Normalize code (remove spaces, ensure string)
-    code = str(code).replace(' ', '').replace('-', '')
+    code = str(code).replace(" ", "").replace("-", "")
 
     # Must be 6 digits
     if not code.isdigit() or len(code) != 6:

@@ -911,6 +911,7 @@ def claim_credentials():
 
     # Check for invite metadata (admin-set permissions)
     import json as json_module
+
     can_download = True
     if access_req.backup_codes_json:
         try:
