@@ -34,8 +34,8 @@ Run daily or add to monitoring:
 
 echo "=== Auth System Health Check ==="
 
-# API responding
-if curl -sf http://localhost:5001/api/health > /dev/null; then
+# API responding (unauthenticated health endpoint)
+if curl -sf http://localhost:5001/api/system/health > /dev/null; then
     echo "[OK] API is responding"
 else
     echo "[FAIL] API not responding"

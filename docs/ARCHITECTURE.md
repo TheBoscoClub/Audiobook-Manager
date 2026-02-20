@@ -1810,7 +1810,10 @@ sudo systemctl restart audiobook-proxy
 ### Health Checks
 
 ```bash
-# API health
+# API health (unauthenticated, for monitoring tools)
+curl -s http://localhost:5001/api/system/health
+
+# API health (legacy endpoint, authenticated)
 curl -s http://localhost:5001/api/health
 
 # Web interface
