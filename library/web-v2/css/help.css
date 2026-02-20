@@ -1,0 +1,371 @@
+/* ============================================
+   Help Page - Art Deco User Guide
+   ============================================ */
+
+/* Page layout */
+.help-page {
+    min-height: 100vh;
+    background: var(--deco-black);
+    color: var(--cream-light);
+    padding: 0 0 4rem;
+}
+
+/* Header banner */
+.help-header {
+    background:
+        repeating-conic-gradient(
+            from 0deg at 50% 100%,
+            #5a4210 0deg 2deg,
+            transparent 2deg 10deg
+        ),
+        linear-gradient(180deg, #121212 0%, #050505 100%);
+    padding: 2.5rem 2rem 2rem;
+    text-align: center;
+    border-bottom: 4px solid var(--gold);
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.help-header::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background:
+        linear-gradient(135deg, var(--gold) 25%, transparent 25%) -8px 0,
+        linear-gradient(225deg, var(--gold) 25%, transparent 25%) -8px 0,
+        linear-gradient(315deg, var(--gold) 25%, transparent 25%),
+        linear-gradient(45deg, var(--gold) 25%, transparent 25%);
+    background-size: 16px 8px;
+    background-color: var(--deco-charcoal);
+}
+
+.help-header h1 {
+    font-family: var(--font-primary);
+    font-size: 2.5rem;
+    color: var(--gold-bright);
+    text-shadow: 2px 2px 0 var(--gold-dark), 4px 4px 8px rgba(0, 0, 0, 0.5);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.help-header p {
+    color: var(--cream-light);
+    font-size: 1rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.help-header-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.help-header-actions a,
+.help-header-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-family: Georgia, serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: 2px solid var(--gold);
+    background: var(--deco-charcoal);
+    color: var(--parchment);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.help-header-actions a:hover,
+.help-header-actions button:hover {
+    background: var(--gold);
+    color: var(--deco-black);
+    border-color: var(--gold-bright);
+}
+
+/* Content container */
+.help-content {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+/* Table of contents */
+.help-toc {
+    background: var(--deco-charcoal);
+    border: 2px solid var(--gold-dark);
+    padding: 1.5rem 2rem;
+    margin-bottom: 3rem;
+}
+
+.help-toc h2 {
+    font-family: var(--font-primary);
+    font-size: 1.1rem;
+    color: var(--gold);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--gold-dark);
+}
+
+.help-toc ol {
+    list-style: none;
+    counter-reset: toc;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.5rem;
+}
+
+.help-toc li {
+    counter-increment: toc;
+}
+
+.help-toc li::before {
+    content: counter(toc) ".";
+    color: var(--gold);
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.help-toc a {
+    color: var(--cream);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.help-toc a:hover {
+    color: var(--gold-bright);
+    text-decoration: underline;
+}
+
+/* Section styling */
+.help-section {
+    margin-bottom: 3rem;
+    scroll-margin-top: 2rem;
+}
+
+.help-section h2 {
+    font-family: var(--font-primary);
+    font-size: 1.5rem;
+    color: var(--gold-bright);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.help-section h2 .section-icon {
+    font-size: 1.5rem;
+}
+
+.help-section h3 {
+    font-family: Georgia, serif;
+    font-size: 1.1rem;
+    color: var(--gold);
+    margin: 1.5rem 0 0.75rem;
+    letter-spacing: 1px;
+}
+
+.help-section p {
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: var(--cream);
+    margin-bottom: 0.75rem;
+}
+
+.help-section ul,
+.help-section ol {
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.help-section li {
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: var(--cream);
+    margin-bottom: 0.25rem;
+}
+
+/* Key/shortcut badges */
+.key {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--gold-bright);
+    background: var(--deco-slate);
+    border: 1px solid var(--gold-dark);
+    border-radius: 3px;
+    margin: 0 0.125rem;
+}
+
+/* Feature cards for visual features */
+.help-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.help-feature-card {
+    background: var(--deco-slate);
+    border: 1px solid var(--gold-dark);
+    padding: 1rem;
+    text-align: center;
+}
+
+.help-feature-card .feature-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.help-feature-card h4 {
+    font-family: Georgia, serif;
+    font-size: 0.9rem;
+    color: var(--gold);
+    margin-bottom: 0.5rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.help-feature-card p {
+    font-size: 0.85rem;
+    color: var(--cream);
+    line-height: 1.5;
+}
+
+/* Sort options table */
+.help-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.help-table th {
+    background: var(--deco-slate);
+    color: var(--gold);
+    font-family: Georgia, serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--gold-dark);
+}
+
+.help-table td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--deco-gray);
+    color: var(--cream);
+}
+
+.help-table tr:hover td {
+    background: rgba(218, 165, 32, 0.05);
+}
+
+/* Back to top link */
+.back-to-top {
+    display: inline-block;
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    transition: color 0.2s;
+}
+
+.back-to-top:hover {
+    color: var(--gold-bright);
+}
+
+/* Footer */
+.help-footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 2px solid var(--gold-dark);
+}
+
+.help-footer a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.2s;
+}
+
+.help-footer a:hover {
+    color: var(--gold-bright);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+    .help-header h1 {
+        font-size: 1.8rem;
+        letter-spacing: 3px;
+    }
+
+    .help-content {
+        padding: 0 1rem;
+    }
+
+    .help-toc ol {
+        grid-template-columns: 1fr;
+    }
+
+    .help-feature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .help-section h2 {
+        font-size: 1.2rem;
+        letter-spacing: 2px;
+    }
+}
+
+@media (max-width: 480px) {
+    .help-header {
+        padding: 1.5rem 1rem;
+    }
+
+    .help-header h1 {
+        font-size: 1.4rem;
+        letter-spacing: 2px;
+    }
+
+    .help-header-actions a,
+    .help-header-actions button {
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    .help-table {
+        font-size: 0.8rem;
+    }
+
+    .help-table th,
+    .help-table td {
+        padding: 0.5rem;
+    }
+}

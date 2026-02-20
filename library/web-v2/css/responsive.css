@@ -45,8 +45,8 @@ body {
     .sidebar-toggle:hover,
     .sidebar-clear:hover,
     .collection-btn:hover,
-    .nav-link:hover,
-    .utilities-link:hover,
+    .nav-link:not([hidden]):hover,
+    .utilities-link:not([hidden]):hover,
     .control-btn:hover,
     .auth-button:hover:not(:disabled),
     .dropdown-btn:hover,
@@ -177,8 +177,8 @@ body {
         align-items: center;
     }
 
-    .nav-link,
-    .utilities-link {
+    .nav-link:not([hidden]),
+    .utilities-link:not([hidden]) {
         min-height: var(--touch-target-min);
     }
 
@@ -258,7 +258,9 @@ body {
         display: none;
     }
 
-    .header-nav {
+    .header-nav,
+    .header-nav-left,
+    .header-nav-right {
         position: static;
         transform: none;
     }

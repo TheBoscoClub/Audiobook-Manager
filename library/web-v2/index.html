@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/library.css">
     <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="css/notifications.css">
+    <link rel="stylesheet" href="css/tutorial.css">
 </head>
 <body>
     <!-- Header -->
@@ -16,7 +17,8 @@
                 <h1 class="library-title">The Library</h1>
                 <p class="library-subtitle">A Private Collection of Audiobooks</p>
             </div>
-            <div class="header-nav">
+            <!-- Left nav: user menu + help -->
+            <div class="header-nav header-nav-left">
                 <!-- User menu (shown when logged in) -->
                 <div id="user-menu" class="user-menu" hidden>
                     <button class="user-button" id="user-menu-button" title="Account options">
@@ -31,6 +33,15 @@
                     </div>
                 </div>
 
+                <!-- Help link (always visible) -->
+                <a href="help.html" class="nav-link" title="Help &amp; User Guide">
+                    <span class="nav-icon">?</span>
+                    <span class="utilities-text">Help</span>
+                </a>
+            </div>
+
+            <!-- Right nav: sign in + back office -->
+            <div class="header-nav header-nav-right">
                 <!-- Login link (shown when auth enabled but not logged in) -->
                 <a href="login.html" id="login-link" class="utilities-link" hidden title="Sign in to access The Library">
                     <span class="utilities-text">Sign In</span>
@@ -292,6 +303,7 @@
     </div>
 
     <script src="js/library.js"></script>
+    <script src="js/tutorial.js"></script>
     <script>
         // User menu dropdown handling
         document.addEventListener('DOMContentLoaded', () => {
