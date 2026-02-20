@@ -1,6 +1,6 @@
 [Unit]
 Description=Audiobook Library Services
-Documentation=https://github.com/greogory/Audiobook-Manager
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target
 Wants=network-online.target
 

@@ -30,8 +30,11 @@ pytestmark = pytest.mark.integration
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from config import (AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY,  # noqa: E402
-                    AUDIOBOOKS_SOURCES)
+from config import (  # noqa: E402
+    AUDIOBOOKS_DATABASE,
+    AUDIOBOOKS_LIBRARY,
+    AUDIOBOOKS_SOURCES,
+)
 from scanner.metadata_utils import extract_author_from_tags  # noqa: E402
 from scanner.metadata_utils import run_ffprobe  # noqa: E402
 

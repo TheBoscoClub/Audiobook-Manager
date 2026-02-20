@@ -61,9 +61,7 @@ def init_maintenance_routes(project_root):
                 script_path = project_root.parent / "scripts" / "build-conversion-queue"
 
             try:
-                tracker.update_progress(
-                    operation_id, 5, "Scanning source directory..."
-                )
+                tracker.update_progress(operation_id, 5, "Scanning source directory...")
 
                 # Use Popen for streaming progress
                 process = subprocess.Popen(
@@ -192,9 +190,7 @@ def init_maintenance_routes(project_root):
                 script_path = project_root.parent / "scripts" / "cleanup-stale-indexes"
 
             try:
-                tracker.update_progress(
-                    operation_id, 5, "Loading index files..."
-                )
+                tracker.update_progress(operation_id, 5, "Loading index files...")
 
                 cmd = ["bash", str(script_path)]
                 if dry_run:
@@ -277,9 +273,7 @@ def init_maintenance_routes(project_root):
                         },
                     )
                 else:
-                    tracker.fail_operation(
-                        operation_id, stderr or "Cleanup failed"
-                    )
+                    tracker.fail_operation(operation_id, stderr or "Cleanup failed")
 
             except subprocess.TimeoutExpired:
                 process.kill()
@@ -358,9 +352,7 @@ def init_maintenance_routes(project_root):
                 loading_pattern = re.compile(r"Loading\s*(\d+)\s*audiobooks", re.I)
                 progress_pattern = re.compile(r"\[(\d+)/(\d+)\]")
                 processing_pattern = re.compile(r"Processing.*?(\d+)")
-                update_pattern = re.compile(
-                    r"(?:would update|updated)\s*(\d+)", re.I
-                )
+                update_pattern = re.compile(r"(?:would update|updated)\s*(\d+)", re.I)
 
                 for line in iter(process.stdout.readline, ""):
                     if not line:
@@ -485,38 +477,48 @@ def init_maintenance_routes(project_root):
             # 1. Export Audible library (gets ASINs directly from Amazon)
             # 2. Match local audiobooks to library entries
             library_script = (
-                project_root / "backend" / "migrations" / "populate_asins_from_library.py"
+                project_root
+                / "backend"
+                / "migrations"
+                / "populate_asins_from_library.py"
             )
             # Use a secure temp file to avoid race conditions (CVE: insecure-temporary-file)
             # mkstemp() atomically creates the file, preventing TOCTOU race conditions
-            fd, library_export_str = tempfile.mkstemp(suffix=".json", prefix="audible-export-")
+            fd, library_export_str = tempfile.mkstemp(
+                suffix=".json", prefix="audible-export-"
+            )
             os.close(fd)  # Close the file descriptor, subprocess will write to it
             library_export = Path(library_export_str)
 
             try:
                 # Step 1: Export Audible library from Amazon
-                tracker.update_progress(
-                    operation_id, 5, "Connecting to Audible API..."
-                )
+                tracker.update_progress(operation_id, 5, "Connecting to Audible API...")
 
                 # Call audible-cli directly via Python module
                 # This bypasses the wrapper script and PATH issues
                 try:
+                    # HOME for audible to find ~/.audible config
+                    _audible_home = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")  # fmt: skip
                     export_result = subprocess.run(
                         [
-                            sys.executable, "-m", "audible_cli",
-                            "library", "export",
-                            "--format", "json",
-                            "--output", str(library_export),
-                            "--timeout", "120",
+                            sys.executable,
+                            "-m",
+                            "audible_cli",
+                            "library",
+                            "export",
+                            "--format",
+                            "json",
+                            "--output",
+                            str(library_export),
+                            "--timeout",
+                            "120",
                         ],
                         capture_output=True,
                         text=True,
                         timeout=300,
                         env={
                             **os.environ,
-                            # HOME for audible to find ~/.audible config
-                            "HOME": os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks"),
+                            "HOME": _audible_home,
                             "AUDIBLE_CONFIG_DIR": "/etc/audiobooks/audible",
                         },
                     )
@@ -528,7 +530,9 @@ def init_maintenance_routes(project_root):
                     return
 
                 if export_result.returncode != 0:
-                    error_msg = export_result.stderr or export_result.stdout or "Unknown error"
+                    error_msg = (
+                        export_result.stderr or export_result.stdout or "Unknown error"
+                    )
                     tracker.fail_operation(
                         operation_id,
                         f"Failed to export Audible library (code {export_result.returncode}): {error_msg}",
@@ -692,9 +696,7 @@ def init_maintenance_routes(project_root):
                 script_path = project_root.parent / "scripts" / "find-duplicate-sources"
 
             try:
-                tracker.update_progress(
-                    operation_id, 5, "Scanning source directory..."
-                )
+                tracker.update_progress(operation_id, 5, "Scanning source directory...")
 
                 cmd = ["bash", str(script_path)]
                 if dry_run:

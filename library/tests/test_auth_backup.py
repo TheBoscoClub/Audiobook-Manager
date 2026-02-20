@@ -127,9 +127,7 @@ class TestAuthBackup:
 
         with pytest.raises(Exception):
             wrong_db = AuthDatabase(
-                db_path=str(backup_db_path),
-                key_path=str(wrong_key_path),
-                is_dev=True
+                db_path=str(backup_db_path), key_path=str(wrong_key_path), is_dev=True
             )
             # Try to access data - this should fail
             UserRepository(wrong_db).list_all()
@@ -233,9 +231,7 @@ class TestAuthBackup:
         # Should fail to open with new/different key
         with pytest.raises(Exception):
             new_db = AuthDatabase(
-                db_path=str(db_path),
-                key_path=str(new_key_path),
-                is_dev=True
+                db_path=str(db_path), key_path=str(new_key_path), is_dev=True
             )
             # Try to access data
             UserRepository(new_db).list_all()
@@ -287,14 +283,15 @@ class TestAuthBackup:
 
         # Open backup and verify counts match
         backup_db = AuthDatabase(
-            db_path=str(backup_db_path),
-            key_path=str(key_path),
-            is_dev=True
+            db_path=str(backup_db_path), key_path=str(key_path), is_dev=True
         )
 
         assert len(UserRepository(backup_db).list_all()) == user_count
         assert len(NotificationRepository(backup_db).list_all()) == notif_count
-        assert len(InboxRepository(backup_db).list_all(include_archived=True)) == inbox_count
+        assert (
+            len(InboxRepository(backup_db).list_all(include_archived=True))
+            == inbox_count
+        )
 
         # Verify user data integrity
         backup_user = UserRepository(backup_db).get_by_username("integrity_test")
@@ -332,9 +329,7 @@ class TestDatabaseRecovery:
         # Main database should fail to open
         with pytest.raises(Exception):
             bad_db = AuthDatabase(
-                db_path=str(db_path),
-                key_path=str(key_path),
-                is_dev=True
+                db_path=str(db_path), key_path=str(key_path), is_dev=True
             )
             UserRepository(bad_db).list_all()
 
@@ -343,9 +338,7 @@ class TestDatabaseRecovery:
 
         # Should work now
         recovered_db = AuthDatabase(
-            db_path=str(db_path),
-            key_path=str(key_path),
-            is_dev=True
+            db_path=str(db_path), key_path=str(key_path), is_dev=True
         )
         user = UserRepository(recovered_db).get_by_username("recover_user")
         assert user is not None

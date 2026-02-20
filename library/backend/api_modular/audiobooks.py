@@ -8,8 +8,7 @@ Note: All queries filter by content_type to exclude non-audiobook content
 import sys
 from pathlib import Path
 
-from flask import (Blueprint, Response, jsonify, request, send_file,
-                   send_from_directory)
+from flask import Blueprint, Response, jsonify, request, send_file, send_from_directory
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -584,8 +583,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         # Sanitize filename: remove/replace problematic characters
         def sanitize(s: str) -> str:
             # Replace characters that are problematic in filenames
-            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                s = s.replace(char, '-')
+            for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
+                s = s.replace(char, "-")
             return s.strip()
 
         if author:

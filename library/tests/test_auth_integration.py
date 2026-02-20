@@ -51,7 +51,9 @@ ADMIN_TOTP_SECRET = os.environ.get(
 
 # WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config
 # Use port 8443 for VM tests (production), 9090 for local dev
-_default_origin = "https://localhost:8443" if os.environ.get("VM_TESTS") else "https://localhost:9090"
+_default_origin = (
+    "https://localhost:8443" if os.environ.get("VM_TESTS") else "https://localhost:9090"
+)
 WEBAUTHN_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", _default_origin)
 
 # Test user names
@@ -113,9 +115,7 @@ def cleanup_user(session: requests.Session, username: str) -> None:
     users = resp.json().get("users", [])
     for u in users:
         if u["username"] == username:
-            session.delete(
-                api(f"/auth/admin/users/{u['id']}"), timeout=TIMEOUT
-            )
+            session.delete(api(f"/auth/admin/users/{u['id']}"), timeout=TIMEOUT)
             break
 
 
@@ -158,7 +158,11 @@ with db.connection() as conn:
     try:
         subprocess.run(
             [
-                "ssh", "-i", SSH_KEY, "-o", "StrictHostKeyChecking=no",
+                "ssh",
+                "-i",
+                SSH_KEY,
+                "-o",
+                "StrictHostKeyChecking=no",
                 f"{SSH_USER}@{VM_HOST}",
                 "sudo /opt/audiobooks/venv/bin/python3",
             ],
@@ -171,9 +175,7 @@ with db.connection() as conn:
         pass
 
 
-def register_and_approve(
-    admin_session: requests.Session, username: str
-) -> str:
+def register_and_approve(admin_session: requests.Session, username: str) -> str:
     """Register a user and approve their access request.
 
     Returns the claim_token (formatted, with dashes).
@@ -211,9 +213,7 @@ def register_and_approve(
 def api_available():
     """Skip the entire module if the VM API is unreachable."""
     try:
-        resp = requests.get(
-            api("/api/system/version"), timeout=5
-        )
+        resp = requests.get(api("/api/system/version"), timeout=5)
         # 200 = OK, 401/403 = auth required but API is up
         if resp.status_code not in (200, 401, 403):
             pytest.skip(f"VM API returned {resp.status_code}")
@@ -358,9 +358,7 @@ class TestPasskeyUserLifecycle:
         challenge_b64 = begin_data["challenge"]
 
         # Step 3: Create credential with software authenticator
-        credential_response = authenticator.make_credential(
-            options, WEBAUTHN_ORIGIN
-        )
+        credential_response = authenticator.make_credential(options, WEBAUTHN_ORIGIN)
 
         # Step 4: Complete WebAuthn claim
         resp = requests.post(
@@ -393,9 +391,7 @@ class TestPasskeyUserLifecycle:
         login_challenge = login_begin["challenge"]
 
         # Step 6: Sign assertion with software authenticator
-        assertion_response = authenticator.get_assertion(
-            login_options, WEBAUTHN_ORIGIN
-        )
+        assertion_response = authenticator.get_assertion(login_options, WEBAUTHN_ORIGIN)
 
         # Step 7: Complete login
         user_session = requests.Session()
@@ -480,9 +476,7 @@ class TestFIDO2UserLifecycle:
         challenge_b64 = begin_data["challenge"]
 
         # Step 3: Create credential
-        credential_response = authenticator.make_credential(
-            options, WEBAUTHN_ORIGIN
-        )
+        credential_response = authenticator.make_credential(options, WEBAUTHN_ORIGIN)
 
         # Step 4: Complete claim
         resp = requests.post(
@@ -513,9 +507,7 @@ class TestFIDO2UserLifecycle:
         login_challenge = login_begin["challenge"]
 
         # Step 6: Sign assertion
-        assertion_response = authenticator.get_assertion(
-            login_options, WEBAUTHN_ORIGIN
-        )
+        assertion_response = authenticator.get_assertion(login_options, WEBAUTHN_ORIGIN)
 
         # Step 7: Complete login
         user_session = requests.Session()
@@ -595,9 +587,7 @@ class TestFIDO2UserLifecycle:
         # Build the creation options that Fido2Client expects
         # The py_webauthn options are JSON-serialized; we need to pass them
         # to the FIDO2 client in the correct format
-        creation_result = client.make_credential(
-            _parse_creation_options(options)
-        )
+        creation_result = client.make_credential(_parse_creation_options(options))
 
         # Build credential response matching the server's expected format
         credential_response = _fido2_creation_to_dict(creation_result)
@@ -631,9 +621,7 @@ class TestFIDO2UserLifecycle:
         login_challenge = login_begin["challenge"]
 
         # Step 6: Authenticate with YubiKey
-        assertion_result = client.get_assertion(
-            _parse_request_options(login_options)
-        )
+        assertion_result = client.get_assertion(_parse_request_options(login_options))
 
         # Build assertion response
         assertion_response = _fido2_assertion_to_dict(assertion_result)
@@ -671,12 +659,14 @@ class TestFIDO2UserLifecycle:
 def _b64url_encode_hw(data: bytes) -> str:
     """Base64url encode without padding (for hardware path)."""
     from base64 import urlsafe_b64encode
+
     return urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
 def _b64url_decode_hw(s: str) -> bytes:
     """Base64url decode with padding restoration."""
     from base64 import urlsafe_b64decode
+
     s += "=" * (4 - len(s) % 4)
     return urlsafe_b64decode(s)
 
@@ -782,9 +772,7 @@ def _fido2_assertion_to_dict(result) -> dict:
         "type": "public-key",
         "response": {
             "clientDataJSON": _b64url_encode_hw(bytes(assertion.client_data)),
-            "authenticatorData": _b64url_encode_hw(
-                bytes(assertion.authenticator_data)
-            ),
+            "authenticatorData": _b64url_encode_hw(bytes(assertion.authenticator_data)),
             "signature": _b64url_encode_hw(assertion.signature),
         },
         "authenticatorAttachment": "cross-platform",

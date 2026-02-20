@@ -13,7 +13,6 @@ import re
 from unittest.mock import MagicMock
 
 
-
 class TestProgressPatterns:
     """Test the regex patterns used to parse script output."""
 
@@ -179,6 +178,7 @@ class TestProgressScaling:
 
     def test_basic_scaling(self):
         """Test basic progress scaling from 0-100 to custom range."""
+
         # Scale 5-90% range (85% width)
         def scale_progress(current, total, start=5, end=90):
             if total == 0:
@@ -195,6 +195,7 @@ class TestProgressScaling:
 
     def test_download_scaling(self):
         """Test download progress scaling (2-90% range)."""
+
         def download_scale(current, total):
             if total == 0:
                 return 2
@@ -206,6 +207,7 @@ class TestProgressScaling:
 
     def test_import_scaling(self):
         """Test import progress scaling (10-85% range)."""
+
         def import_scale(current, total):
             if total == 0:
                 return 10
@@ -239,7 +241,9 @@ class TestProgressTrackerIntegration:
 
         # Verify monotonically increasing
         for i in range(1, len(updates)):
-            assert updates[i] >= updates[i-1], f"Progress decreased: {updates[i-1]} -> {updates[i]}"
+            assert updates[i] >= updates[i - 1], (
+                f"Progress decreased: {updates[i - 1]} -> {updates[i]}"
+            )
 
     def test_skip_redundant_updates(self):
         """Test that redundant progress updates are skipped."""
@@ -281,7 +285,9 @@ Download complete: 4 succeeded, 1 failed
         _item_pattern = re.compile(r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)")  # noqa: F841
         success_pattern = re.compile(r"[✓✔]\s*Downloaded.*:\s*(.+)")
         fail_pattern = re.compile(r"[✗✘]\s*Failed.*:\s*(.+)")
-        complete_pattern = re.compile(r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed")
+        complete_pattern = re.compile(
+            r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed"
+        )
 
         downloaded = 0
         failed = 0
@@ -427,6 +433,7 @@ class TestEdgeCases:
 
     def test_zero_total(self):
         """Test handling of zero total (avoid division by zero)."""
+
         def safe_progress(current, total, start=5, end=90):
             if total <= 0:
                 return start
@@ -443,7 +450,9 @@ class TestEdgeCases:
         assert len(truncated) == 50
 
         # Typical truncation pattern used in the code
-        title = "This is a very long audiobook title that exceeds the normal display width"
+        title = (
+            "This is a very long audiobook title that exceeds the normal display width"
+        )
         display_title = title.strip()[:40]
         assert len(display_title) == 40
 
@@ -467,30 +476,41 @@ class TestModuleImports:
     def test_import_audible_module(self):
         """Test audible module imports without errors."""
         from backend.api_modular.utilities_ops import audible
-        assert hasattr(audible, 'init_audible_routes')
+
+        assert hasattr(audible, "init_audible_routes")
 
     def test_import_maintenance_module(self):
         """Test maintenance module imports without errors."""
         from backend.api_modular.utilities_ops import maintenance
-        assert hasattr(maintenance, 'init_maintenance_routes')
+
+        assert hasattr(maintenance, "init_maintenance_routes")
 
     def test_import_hashing_module(self):
         """Test hashing module imports without errors."""
         from backend.api_modular.utilities_ops import hashing
-        assert hasattr(hashing, 'init_hashing_routes')
+
+        assert hasattr(hashing, "init_hashing_routes")
 
     def test_import_library_module(self):
         """Test library module imports without errors."""
         from backend.api_modular.utilities_ops import library
-        assert hasattr(library, 'init_library_routes')
+
+        assert hasattr(library, "init_library_routes")
 
     def test_modules_use_popen(self):
         """Verify modules use subprocess.Popen (not blocking subprocess.run)."""
         import inspect
-        from backend.api_modular.utilities_ops import audible, maintenance, hashing, library
+        from backend.api_modular.utilities_ops import (
+            audible,
+            maintenance,
+            hashing,
+            library,
+        )
 
         # Get source code and check for Popen usage
         for module in [audible, maintenance, hashing, library]:
             source = inspect.getsource(module)
             # Should have Popen (streaming)
-            assert "subprocess.Popen" in source, f"{module.__name__} missing subprocess.Popen"
+            assert "subprocess.Popen" in source, (
+                f"{module.__name__} missing subprocess.Popen"
+            )

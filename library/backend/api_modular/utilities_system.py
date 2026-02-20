@@ -497,6 +497,33 @@ def init_system_routes(project_root):
             }
         )
 
+    @utilities_system_bp.route("/api/system/health", methods=["GET"])
+    def get_health() -> FlaskResponse:
+        """Health check endpoint for monitoring and orchestration.
+
+        No authentication required — monitoring tools need unauthenticated access.
+        """
+        from flask import current_app
+
+        version_file = Path(project_root).parent / "VERSION"
+        try:
+            version = (
+                version_file.read_text().strip() if version_file.exists() else "unknown"
+            )
+        except Exception:
+            version = "unknown"
+
+        database_path = current_app.config.get("DATABASE_PATH")
+        db_ok = Path(database_path).exists() if database_path else False
+
+        return jsonify(
+            {
+                "status": "ok",
+                "version": version,
+                "database": db_ok,
+            }
+        )
+
     @utilities_system_bp.route("/api/system/projects", methods=["GET"])
     @admin_or_localhost
     def list_projects() -> FlaskResponse:

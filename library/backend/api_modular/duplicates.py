@@ -63,7 +63,9 @@ def remove_from_indexes(filepath: Path) -> dict:
 
     Returns dict with counts of entries removed from each index.
     """
-    index_dir = Path(os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks")) / ".index"
+    index_dir = (
+        Path(os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks")) / ".index"
+    )
     filepath_str = str(filepath)
 
     removed = {}
@@ -555,7 +557,9 @@ def init_duplicates_routes(db_path):
         import os
 
         check_type = request.args.get("type", "both")
-        index_dir = os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks") + "/.index"
+        index_dir = (
+            os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks") + "/.index"
+        )
 
         result: dict[str, Any] = {
             "sources": None,
@@ -701,9 +705,11 @@ def init_duplicates_routes(db_path):
         data = request.get_json() or {}
         check_type = data.get("type", "both")
 
-        index_dir = os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks") + "/.index"
-        sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/hddRaid1/Audiobooks/Sources")
-        library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/hddRaid1/Audiobooks/Library")
+        index_dir = (
+            os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks") + "/.index"
+        )
+        sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/hddRaid1/Audiobooks/Sources")  # fmt: skip
+        library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/hddRaid1/Audiobooks/Library")  # fmt: skip
 
         results = {}
 

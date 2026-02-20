@@ -188,8 +188,7 @@ def init_conversion_routes(project_root: str | Path):
         """
         # Import config paths
         sys.path.insert(0, str(project_root))
-        from config import (AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES,
-                            AUDIOBOOKS_STAGING)
+        from config import AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES, AUDIOBOOKS_STAGING
 
         staging_dir = AUDIOBOOKS_STAGING
 

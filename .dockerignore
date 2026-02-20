@@ -79,3 +79,15 @@ library/web/
 # Certs directory (Docker generates/mounts its own)
 library/certs/
 certs/
+
+# =============================================================================
+# Claude Code / Audit artifacts (never needed in Docker)
+# =============================================================================
+.claude/
+SESSION_RECORD*
+AUDIT_REPORT*
+deploy-vm.sh
+upgrade.sh
+
+# Test suite (not needed in production image)
+library/tests/

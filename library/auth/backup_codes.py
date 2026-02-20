@@ -38,9 +38,9 @@ def generate_backup_code() -> str:
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # No 0, O, 1, I to avoid confusion
     groups = []
     for _ in range(CODE_NUM_GROUPS):
-        group = ''.join(secrets.choice(alphabet) for _ in range(CODE_GROUP_LENGTH))
+        group = "".join(secrets.choice(alphabet) for _ in range(CODE_GROUP_LENGTH))
         groups.append(group)
-    return '-'.join(groups)
+    return "-".join(groups)
 
 
 def normalize_code(code: str) -> str:
@@ -55,7 +55,7 @@ def normalize_code(code: str) -> str:
     Returns:
         Normalized code string
     """
-    return code.upper().replace('-', '').replace(' ', '')
+    return code.upper().replace("-", "").replace(" ", "")
 
 
 def hash_backup_code(code: str) -> str:
@@ -98,6 +98,7 @@ def generate_backup_codes(count: int = NUM_BACKUP_CODES) -> Tuple[List[str], Lis
 @dataclass
 class BackupCode:
     """Represents a backup code record."""
+
     id: Optional[int] = None
     user_id: int = 0
     code_hash: str = ""
@@ -127,7 +128,9 @@ class BackupCodeRepository:
     def __init__(self, db: AuthDatabase):
         self.db = db
 
-    def create_codes_for_user(self, user_id: int, count: int = NUM_BACKUP_CODES) -> List[str]:
+    def create_codes_for_user(
+        self, user_id: int, count: int = NUM_BACKUP_CODES
+    ) -> List[str]:
         """
         Generate and store backup codes for a user.
 
@@ -146,14 +149,14 @@ class BackupCodeRepository:
             # Delete existing unused codes
             conn.execute(
                 "DELETE FROM backup_codes WHERE user_id = ? AND used_at IS NULL",
-                (user_id,)
+                (user_id,),
             )
 
             # Insert new codes
             for code_hash in code_hashes:
                 conn.execute(
                     "INSERT INTO backup_codes (user_id, code_hash) VALUES (?, ?)",
-                    (user_id, code_hash)
+                    (user_id, code_hash),
                 )
 
         return raw_codes
@@ -178,7 +181,7 @@ class BackupCodeRepository:
                 SELECT id FROM backup_codes
                 WHERE user_id = ? AND code_hash = ? AND used_at IS NULL
                 """,
-                (user_id, code_hash)
+                (user_id, code_hash),
             )
             row = cursor.fetchone()
 
@@ -188,7 +191,7 @@ class BackupCodeRepository:
             # Mark as used
             conn.execute(
                 "UPDATE backup_codes SET used_at = ? WHERE id = ?",
-                (datetime.now().isoformat(), row[0])
+                (datetime.now().isoformat(), row[0]),
             )
 
         return True
@@ -206,7 +209,7 @@ class BackupCodeRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT COUNT(*) FROM backup_codes WHERE user_id = ? AND used_at IS NULL",
-                (user_id,)
+                (user_id,),
             )
             return cursor.fetchone()[0]
 
@@ -223,7 +226,7 @@ class BackupCodeRepository:
         with self.db.connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM backup_codes WHERE user_id = ? ORDER BY created_at",
-                (user_id,)
+                (user_id,),
             )
             return [BackupCode.from_row(row) for row in cursor.fetchall()]
 
@@ -239,8 +242,7 @@ class BackupCodeRepository:
         """
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM backup_codes WHERE user_id = ?",
-                (user_id,)
+                "DELETE FROM backup_codes WHERE user_id = ?", (user_id,)
             )
             return cursor.rowcount
 
@@ -268,11 +270,13 @@ def format_codes_for_display(codes: List[str]) -> str:
     for i, code in enumerate(codes, 1):
         lines.append(f"║  {i}. {code}                              ║")
 
-    lines.extend([
-        "║                                                          ║",
-        "║  ⚠️  If you lose these codes AND your authenticator,    ║",
-        "║     your account cannot be recovered.                   ║",
-        "╚══════════════════════════════════════════════════════════╝",
-    ])
+    lines.extend(
+        [
+            "║                                                          ║",
+            "║  ⚠️  If you lose these codes AND your authenticator,    ║",
+            "║     your account cannot be recovered.                   ║",
+            "╚══════════════════════════════════════════════════════════╝",
+        ]
+    )
 
-    return '\n'.join(lines)
+    return "\n".join(lines)

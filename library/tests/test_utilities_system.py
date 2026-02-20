@@ -6,7 +6,6 @@ using a privilege-separated helper service pattern.
 """
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
@@ -48,7 +47,9 @@ class TestEnsureControlDir:
 
         # Patch mkdir at the class level to simulate PermissionError.
         # CI often runs as root, bypassing real permission checks.
-        with patch.object(pathlib.Path, "mkdir", side_effect=PermissionError("Permission denied")):
+        with patch.object(
+            pathlib.Path, "mkdir", side_effect=PermissionError("Permission denied")
+        ):
             # Should not raise, just silently fail
             module._ensure_control_dir()
 
@@ -108,7 +109,9 @@ class TestWriteRequest:
 
         # Patch write_text at the class level to raise PermissionError.
         # CI may run as root, bypassing real permission checks.
-        with patch.object(pathlib.Path, "write_text", side_effect=PermissionError("Permission denied")):
+        with patch.object(
+            pathlib.Path, "write_text", side_effect=PermissionError("Permission denied")
+        ):
             result = module._write_request({"type": "test"})
 
         assert result is False

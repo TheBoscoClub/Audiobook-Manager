@@ -71,11 +71,15 @@ class TestDatabasePerformance:
         max_time = max(times)
         p95_time = sorted(times)[int(len(times) * 0.95)]
 
-        print(f"\nUser creation: avg={avg_time*1000:.2f}ms, max={max_time*1000:.2f}ms, p95={p95_time*1000:.2f}ms")
+        print(
+            f"\nUser creation: avg={avg_time * 1000:.2f}ms, max={max_time * 1000:.2f}ms, p95={p95_time * 1000:.2f}ms"
+        )
 
         # Assertions: should be fast for SQLite
-        assert avg_time < 0.05, f"Average user creation too slow: {avg_time*1000:.2f}ms"
-        assert p95_time < 0.1, f"p95 user creation too slow: {p95_time*1000:.2f}ms"
+        assert avg_time < 0.05, (
+            f"Average user creation too slow: {avg_time * 1000:.2f}ms"
+        )
+        assert p95_time < 0.1, f"p95 user creation too slow: {p95_time * 1000:.2f}ms"
 
     def test_user_lookup_latency(self, temp_db):
         """Test user lookup time is acceptable."""
@@ -103,10 +107,12 @@ class TestDatabasePerformance:
         max_time = max(times)
         p95_time = sorted(times)[int(len(times) * 0.95)]
 
-        print(f"\nUser lookup: avg={avg_time*1000:.2f}ms, max={max_time*1000:.2f}ms, p95={p95_time*1000:.2f}ms")
+        print(
+            f"\nUser lookup: avg={avg_time * 1000:.2f}ms, max={max_time * 1000:.2f}ms, p95={p95_time * 1000:.2f}ms"
+        )
 
-        assert avg_time < 0.01, f"Average lookup too slow: {avg_time*1000:.2f}ms"
-        assert p95_time < 0.02, f"p95 lookup too slow: {p95_time*1000:.2f}ms"
+        assert avg_time < 0.01, f"Average lookup too slow: {avg_time * 1000:.2f}ms"
+        assert p95_time < 0.02, f"p95 lookup too slow: {p95_time * 1000:.2f}ms"
 
     def test_session_token_lookup_latency(self, temp_db):
         """Test session token lookup performance."""
@@ -137,11 +143,15 @@ class TestDatabasePerformance:
         max_time = max(times)
         p95_time = sorted(times)[int(len(times) * 0.95)]
 
-        print(f"\nToken lookup: avg={avg_time*1000:.2f}ms, max={max_time*1000:.2f}ms, p95={p95_time*1000:.2f}ms")
+        print(
+            f"\nToken lookup: avg={avg_time * 1000:.2f}ms, max={max_time * 1000:.2f}ms, p95={p95_time * 1000:.2f}ms"
+        )
 
         # Token lookup includes hashing, so allow slightly more time
-        assert avg_time < 0.02, f"Average token lookup too slow: {avg_time*1000:.2f}ms"
-        assert p95_time < 0.05, f"p95 token lookup too slow: {p95_time*1000:.2f}ms"
+        assert avg_time < 0.02, (
+            f"Average token lookup too slow: {avg_time * 1000:.2f}ms"
+        )
+        assert p95_time < 0.05, f"p95 token lookup too slow: {p95_time * 1000:.2f}ms"
 
 
 class TestTokenHashingPerformance:
@@ -161,10 +171,12 @@ class TestTokenHashingPerformance:
         avg_time = statistics.mean(times)
         max_time = max(times)
 
-        print(f"\nToken hashing: avg={avg_time*1000000:.2f}μs, max={max_time*1000000:.2f}μs")
+        print(
+            f"\nToken hashing: avg={avg_time * 1000000:.2f}μs, max={max_time * 1000000:.2f}μs"
+        )
 
         # Hashing should be very fast (< 1ms)
-        assert avg_time < 0.001, f"Token hashing too slow: {avg_time*1000:.2f}ms"
+        assert avg_time < 0.001, f"Token hashing too slow: {avg_time * 1000:.2f}ms"
 
     def test_hash_token_consistency(self):
         """Verify same token produces same hash."""
@@ -247,10 +259,7 @@ class TestConcurrentOperations:
 
         # Create sessions concurrently
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [
-                executor.submit(create_session, user.id)
-                for user in users
-            ]
+            futures = [executor.submit(create_session, user.id) for user in users]
 
             for future in as_completed(futures):
                 result = future.result()
@@ -282,7 +291,9 @@ class TestBulkOperations:
             ).save(temp_db)
 
         elapsed = time.perf_counter() - start
-        print(f"\n100 notifications created in {elapsed*1000:.2f}ms ({elapsed*10:.2f}ms each)")
+        print(
+            f"\n100 notifications created in {elapsed * 1000:.2f}ms ({elapsed * 10:.2f}ms each)"
+        )
 
         assert elapsed < 2.0, f"Bulk notification creation too slow: {elapsed:.2f}s"
 
@@ -315,9 +326,11 @@ class TestBulkOperations:
             times.append(elapsed)
 
         avg_time = statistics.mean(times)
-        print(f"\nActive notifications query: avg={avg_time*1000:.2f}ms, count={len(active)}")
+        print(
+            f"\nActive notifications query: avg={avg_time * 1000:.2f}ms, count={len(active)}"
+        )
 
-        assert avg_time < 0.05, f"Notification query too slow: {avg_time*1000:.2f}ms"
+        assert avg_time < 0.05, f"Notification query too slow: {avg_time * 1000:.2f}ms"
 
     def test_session_cleanup_performance(self, temp_db):
         """Test stale session cleanup performance."""
@@ -334,10 +347,11 @@ class TestBulkOperations:
         # Make half the sessions stale
         with temp_db.connection() as conn:
             # Use SQLite-compatible format to match DEFAULT CURRENT_TIMESTAMP
-            old_time = (datetime.now() - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
+            old_time = (datetime.now() - timedelta(hours=2)).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             conn.execute(
-                "UPDATE sessions SET last_seen = ? WHERE id % 2 = 0",
-                (old_time,)
+                "UPDATE sessions SET last_seen = ? WHERE id % 2 = 0", (old_time,)
             )
 
         repo = SessionRepository(temp_db)
@@ -347,10 +361,10 @@ class TestBulkOperations:
         deleted = repo.cleanup_stale(grace_minutes=30)
         elapsed = time.perf_counter() - start
 
-        print(f"\nSession cleanup: deleted {deleted} in {elapsed*1000:.2f}ms")
+        print(f"\nSession cleanup: deleted {deleted} in {elapsed * 1000:.2f}ms")
 
         assert deleted == 50, f"Expected 50 deleted, got {deleted}"
-        assert elapsed < 0.1, f"Cleanup too slow: {elapsed*1000:.2f}ms"
+        assert elapsed < 0.1, f"Cleanup too slow: {elapsed * 1000:.2f}ms"
 
 
 class TestDatabaseScaling:
@@ -368,7 +382,9 @@ class TestDatabaseScaling:
             ).save(temp_db)
         create_time = time.perf_counter() - start
 
-        print(f"\n500 users created in {create_time:.2f}s ({create_time*2:.2f}ms each)")
+        print(
+            f"\n500 users created in {create_time:.2f}s ({create_time * 2:.2f}ms each)"
+        )
 
         repo = UserRepository(temp_db)
 
@@ -382,10 +398,12 @@ class TestDatabaseScaling:
             assert user is not None
 
         avg_lookup = statistics.mean(lookup_times)
-        print(f"Lookups in 500-user table: avg={avg_lookup*1000:.2f}ms")
+        print(f"Lookups in 500-user table: avg={avg_lookup * 1000:.2f}ms")
 
         # Lookup should still be fast with index
-        assert avg_lookup < 0.01, f"Lookup degraded with scale: {avg_lookup*1000:.2f}ms"
+        assert avg_lookup < 0.01, (
+            f"Lookup degraded with scale: {avg_lookup * 1000:.2f}ms"
+        )
 
     def test_list_all_users_performance(self, temp_db):
         """Test listing all users performance."""
@@ -404,10 +422,10 @@ class TestDatabaseScaling:
         users = repo.list_all()
         elapsed = time.perf_counter() - start
 
-        print(f"\nlist_all for {len(users)} users: {elapsed*1000:.2f}ms")
+        print(f"\nlist_all for {len(users)} users: {elapsed * 1000:.2f}ms")
 
         assert len(users) == 200
-        assert elapsed < 0.1, f"list_all too slow: {elapsed*1000:.2f}ms"
+        assert elapsed < 0.1, f"list_all too slow: {elapsed * 1000:.2f}ms"
 
 
 class TestEncryptionOverhead:
@@ -419,9 +437,9 @@ class TestEncryptionOverhead:
         # (we can't easily compare without encryption in this setup)
 
         times = {
-            'insert': [],
-            'select': [],
-            'update': [],
+            "insert": [],
+            "select": [],
+            "update": [],
         }
 
         # Measure insert
@@ -433,7 +451,7 @@ class TestEncryptionOverhead:
             )
             start = time.perf_counter()
             user.save(temp_db)
-            times['insert'].append(time.perf_counter() - start)
+            times["insert"].append(time.perf_counter() - start)
 
         repo = UserRepository(temp_db)
 
@@ -441,7 +459,7 @@ class TestEncryptionOverhead:
         for i in range(50):
             start = time.perf_counter()
             repo.get_by_username(f"enc{i:04d}")
-            times['select'].append(time.perf_counter() - start)
+            times["select"].append(time.perf_counter() - start)
 
         # Measure update
         users = repo.list_all()
@@ -449,14 +467,14 @@ class TestEncryptionOverhead:
             user.can_download = True
             start = time.perf_counter()
             user.save(temp_db)
-            times['update'].append(time.perf_counter() - start)
+            times["update"].append(time.perf_counter() - start)
 
         print("\nEncrypted DB operation times:")
         for op, t in times.items():
             avg = statistics.mean(t)
-            print(f"  {op}: avg={avg*1000:.3f}ms")
+            print(f"  {op}: avg={avg * 1000:.3f}ms")
 
         # All operations should be reasonably fast despite encryption
-        assert statistics.mean(times['insert']) < 0.05
-        assert statistics.mean(times['select']) < 0.01
-        assert statistics.mean(times['update']) < 0.05
+        assert statistics.mean(times["insert"]) < 0.05
+        assert statistics.mean(times["select"]) < 0.01
+        assert statistics.mean(times["update"]) < 0.05

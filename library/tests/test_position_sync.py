@@ -164,8 +164,7 @@ class TestFetchAudiblePosition:
 
     def test_returns_position_data(self):
         """Test returns position data for valid ASIN."""
-        from backend.api_modular.position_sync import (fetch_audible_position,
-                                                       run_async)
+        from backend.api_modular.position_sync import fetch_audible_position, run_async
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {
@@ -189,8 +188,7 @@ class TestFetchAudiblePosition:
 
     def test_returns_not_found_for_missing_asin(self):
         """Test returns NotFound status when ASIN not in response."""
-        from backend.api_modular.position_sync import (fetch_audible_position,
-                                                       run_async)
+        from backend.api_modular.position_sync import fetch_audible_position, run_async
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {"asin_last_position_heard_annots": []}
@@ -203,8 +201,7 @@ class TestFetchAudiblePosition:
 
     def test_returns_error_on_exception(self):
         """Test returns error dict on API exception."""
-        from backend.api_modular.position_sync import (fetch_audible_position,
-                                                       run_async)
+        from backend.api_modular.position_sync import fetch_audible_position, run_async
 
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("API timeout")
@@ -222,7 +219,9 @@ class TestFetchAudiblePositionsBatch:
     def test_returns_positions_for_multiple_asins(self):
         """Test returns positions for multiple ASINs."""
         from backend.api_modular.position_sync import (
-            fetch_audible_positions_batch, run_async)
+            fetch_audible_positions_batch,
+            run_async,
+        )
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {
@@ -256,7 +255,9 @@ class TestFetchAudiblePositionsBatch:
     def test_marks_missing_asins_as_not_found(self):
         """Test marks ASINs not in response as NotFound."""
         from backend.api_modular.position_sync import (
-            fetch_audible_positions_batch, run_async)
+            fetch_audible_positions_batch,
+            run_async,
+        )
 
         mock_client = AsyncMock()
         mock_client.get.return_value = {
@@ -275,7 +276,9 @@ class TestFetchAudiblePositionsBatch:
     def test_returns_error_on_chunk_failure(self):
         """Test returns error when any chunk fails."""
         from backend.api_modular.position_sync import (
-            fetch_audible_positions_batch, run_async)
+            fetch_audible_positions_batch,
+            run_async,
+        )
 
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("CloudFront error")
@@ -291,8 +294,7 @@ class TestPushAudiblePosition:
 
     def test_pushes_position_successfully(self):
         """Test successfully pushes position to Audible."""
-        from backend.api_modular.position_sync import (push_audible_position,
-                                                       run_async)
+        from backend.api_modular.position_sync import push_audible_position, run_async
 
         mock_client = AsyncMock()
         mock_client.post.return_value = {"content_license": {"acr": "test-acr-123"}}
@@ -306,8 +308,7 @@ class TestPushAudiblePosition:
 
     def test_returns_error_when_no_acr(self):
         """Test returns error when ACR not obtained."""
-        from backend.api_modular.position_sync import (push_audible_position,
-                                                       run_async)
+        from backend.api_modular.position_sync import push_audible_position, run_async
 
         mock_client = AsyncMock()
         mock_client.post.return_value = {"content_license": {}}  # No ACR
@@ -319,8 +320,7 @@ class TestPushAudiblePosition:
 
     def test_returns_error_on_exception(self):
         """Test returns error on API exception."""
-        from backend.api_modular.position_sync import (push_audible_position,
-                                                       run_async)
+        from backend.api_modular.position_sync import push_audible_position, run_async
 
         mock_client = AsyncMock()
         mock_client.post.side_effect = Exception("License request failed")
@@ -664,7 +664,9 @@ class TestBatchChunking:
     def test_processes_in_chunks(self):
         """Test processes large ASIN lists in chunks."""
         from backend.api_modular.position_sync import (
-            fetch_audible_positions_batch, run_async)
+            fetch_audible_positions_batch,
+            run_async,
+        )
 
         # Create 50 ASINs (should result in 2 chunks with BATCH_CHUNK_SIZE=25)
         asins = [f"B{i:05d}" for i in range(50)]

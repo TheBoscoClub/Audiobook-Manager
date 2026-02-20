@@ -38,11 +38,7 @@ from library.auth import (
 
 def get_db(args) -> AuthDatabase:
     """Get database instance from args."""
-    return AuthDatabase(
-        db_path=args.database,
-        key_path=args.key_file,
-        is_dev=args.dev
-    )
+    return AuthDatabase(db_path=args.database, key_path=args.key_file, is_dev=args.dev)
 
 
 def validate_username(username: str) -> tuple[bool, str]:
@@ -63,10 +59,12 @@ def generate_totp_secret() -> bytes:
 
 def secret_to_base32(secret: bytes) -> str:
     """Convert secret to base32 for authenticator apps."""
-    return base64.b32encode(secret).decode('ascii').rstrip('=')
+    return base64.b32encode(secret).decode("ascii").rstrip("=")
 
 
-def generate_totp_uri(username: str, secret: bytes, issuer: str = "AudiobookLibrary") -> str:
+def generate_totp_uri(
+    username: str, secret: bytes, issuer: str = "AudiobookLibrary"
+) -> str:
     """Generate otpauth:// URI for QR codes."""
     secret_b32 = secret_to_base32(secret)
     return f"otpauth://totp/{issuer}:{username}?secret={secret_b32}&issuer={issuer}"
@@ -85,11 +83,17 @@ def cmd_list(args) -> int:
             print("No users found.")
             return 0
 
-        print(f"{'ID':<5} {'Username':<18} {'Auth':<8} {'Download':<10} {'Admin':<7} {'Last Login'}")
+        print(
+            f"{'ID':<5} {'Username':<18} {'Auth':<8} {'Download':<10} {'Admin':<7} {'Last Login'}"
+        )
         print("-" * 80)
 
         for user in users:
-            last_login = user.last_login.strftime("%Y-%m-%d %H:%M") if user.last_login else "Never"
+            last_login = (
+                user.last_login.strftime("%Y-%m-%d %H:%M")
+                if user.last_login
+                else "Never"
+            )
             print(
                 f"{user.id:<5} {user.username:<18} {user.auth_type.value:<8} "
                 f"{'Yes' if user.can_download else 'No':<10} "
@@ -142,7 +146,7 @@ def cmd_add(args) -> int:
             auth_type=auth_type,
             auth_credential=credential,
             can_download=args.download,
-            is_admin=args.admin
+            is_admin=args.admin,
         )
         user.save(db)
 
@@ -159,7 +163,9 @@ def cmd_add(args) -> int:
             print(f"Secret (base32): {secret_to_base32(credential)}")
             print(f"OTPAuth URI: {uri}")
             print()
-            print("Scan this QR code or enter the secret manually in your authenticator app.")
+            print(
+                "Scan this QR code or enter the secret manually in your authenticator app."
+            )
             print("(Use 'qrencode' or an online QR generator with the URI above)")
 
         return 0
@@ -188,7 +194,7 @@ def cmd_delete(args) -> int:
 
         if not args.yes:
             confirm = input(f"Delete user '{args.username}'? [y/N]: ")
-            if confirm.lower() != 'y':
+            if confirm.lower() != "y":
                 print("Aborted.")
                 return 0
 
@@ -315,14 +321,22 @@ def cmd_info(args) -> int:
         print(f"  Auth type: {user.auth_type.value}")
         print(f"  Can download: {'Yes' if user.can_download else 'No'}")
         print(f"  Is admin: {'Yes' if user.is_admin else 'No'}")
-        print(f"  Created: {user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else 'Unknown'}")
-        print(f"  Last login: {user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'Never'}")
+        print(
+            f"  Created: {user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else 'Unknown'}"
+        )
+        print(
+            f"  Last login: {user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'Never'}"
+        )
 
         print()
         if session:
             print("Active session:")
-            print(f"  Created: {session.created_at.strftime('%Y-%m-%d %H:%M:%S') if session.created_at else 'Unknown'}")
-            print(f"  Last seen: {session.last_seen.strftime('%Y-%m-%d %H:%M:%S') if session.last_seen else 'Unknown'}")
+            print(
+                f"  Created: {session.created_at.strftime('%Y-%m-%d %H:%M:%S') if session.created_at else 'Unknown'}"
+            )
+            print(
+                f"  Last seen: {session.last_seen.strftime('%Y-%m-%d %H:%M:%S') if session.last_seen else 'Unknown'}"
+            )
             print(f"  User agent: {session.user_agent or 'Unknown'}")
             print(f"  IP address: {session.ip_address or 'Unknown'}")
         else:
@@ -349,12 +363,17 @@ def cmd_totp_reset(args) -> int:
             return 1
 
         if user.auth_type != AuthType.TOTP:
-            print(f"Error: User '{args.username}' does not use TOTP authentication", file=sys.stderr)
+            print(
+                f"Error: User '{args.username}' does not use TOTP authentication",
+                file=sys.stderr,
+            )
             return 1
 
         if not args.yes:
-            confirm = input(f"Reset TOTP for '{args.username}'? This will invalidate the current authenticator. [y/N]: ")
-            if confirm.lower() != 'y':
+            confirm = input(
+                f"Reset TOTP for '{args.username}'? This will invalidate the current authenticator. [y/N]: "
+            )
+            if confirm.lower() != "y":
                 print("Aborted.")
                 return 0
 
@@ -375,7 +394,9 @@ def cmd_totp_reset(args) -> int:
         print(f"OTPAuth URI: {uri}")
         print()
         print("The user's previous authenticator will no longer work.")
-        print("Share this new secret with the user to set up their authenticator again.")
+        print(
+            "Share this new secret with the user to set up their authenticator again."
+        )
 
         return 0
 
@@ -413,24 +434,24 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
         prog="audiobook-user",
-        description="Manage authenticated users for the audiobook library"
+        description="Manage authenticated users for the audiobook library",
     )
 
     # Global options
     parser.add_argument(
-        "--database", "-d",
+        "--database",
+        "-d",
         default=os.environ.get("AUTH_DATABASE", "/var/lib/audiobooks/auth.db"),
-        help="Path to auth database (default: $AUTH_DATABASE or /var/lib/audiobooks/auth.db)"
+        help="Path to auth database (default: $AUTH_DATABASE or /var/lib/audiobooks/auth.db)",
     )
     parser.add_argument(
-        "--key-file", "-k",
+        "--key-file",
+        "-k",
         default=os.environ.get("AUTH_KEY_FILE", "/etc/audiobooks/auth.key"),
-        help="Path to encryption key (default: $AUTH_KEY_FILE or /etc/audiobooks/auth.key)"
+        help="Path to encryption key (default: $AUTH_KEY_FILE or /etc/audiobooks/auth.key)",
     )
     parser.add_argument(
-        "--dev",
-        action="store_true",
-        help="Development mode (relaxed key permissions)"
+        "--dev", action="store_true", help="Development mode (relaxed key permissions)"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -445,18 +466,30 @@ def main():
     add_parser = subparsers.add_parser("add", help="Add a new user")
     add_parser.add_argument("username", help="Username (5-16 printable chars)")
     auth_group = add_parser.add_mutually_exclusive_group()
-    auth_group.add_argument("--totp", action="store_true", default=True, help="Use TOTP auth (default)")
+    auth_group.add_argument(
+        "--totp", action="store_true", default=True, help="Use TOTP auth (default)"
+    )
     auth_group.add_argument("--passkey", action="store_true", help="Use Passkey auth")
-    auth_group.add_argument("--fido2", action="store_true", help="Use FIDO2 hardware key auth")
-    add_parser.add_argument("--download", action=argparse.BooleanOptionalAction, default=True,
-                            help="Download permission (default: enabled, use --no-download to disable)")
+    auth_group.add_argument(
+        "--fido2", action="store_true", help="Use FIDO2 hardware key auth"
+    )
+    add_parser.add_argument(
+        "--download",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Download permission (default: enabled, use --no-download to disable)",
+    )
     add_parser.add_argument("--admin", action="store_true", help="Make user an admin")
 
     # delete command
     delete_parser = subparsers.add_parser("delete", help="Delete a user")
     delete_parser.add_argument("username", help="Username to delete")
-    delete_parser.add_argument("--force", action="store_true", help="Force delete (even for admin users)")
-    delete_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
+    delete_parser.add_argument(
+        "--force", action="store_true", help="Force delete (even for admin users)"
+    )
+    delete_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip confirmation"
+    )
 
     # grant command
     grant_parser = subparsers.add_parser("grant", help="Grant download permission")
@@ -477,7 +510,9 @@ def main():
     # totp-reset command
     totp_parser = subparsers.add_parser("totp-reset", help="Reset TOTP secret")
     totp_parser.add_argument("username", help="Username")
-    totp_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
+    totp_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip confirmation"
+    )
 
     args = parser.parse_args()
 

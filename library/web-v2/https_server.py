@@ -11,9 +11,13 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import (AUDIOBOOKS_CERTS, AUDIOBOOKS_HTTP_REDIRECT_ENABLED,
-                    AUDIOBOOKS_HTTP_REDIRECT_PORT, AUDIOBOOKS_WEB_PORT,
-                    AUDIOBOOKS_API_PORT)
+from config import (
+    AUDIOBOOKS_CERTS,
+    AUDIOBOOKS_HTTP_REDIRECT_ENABLED,
+    AUDIOBOOKS_HTTP_REDIRECT_PORT,
+    AUDIOBOOKS_WEB_PORT,
+    AUDIOBOOKS_API_PORT,
+)
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 HTTP_PORT = AUDIOBOOKS_HTTP_REDIRECT_PORT
@@ -24,7 +28,7 @@ CERT_FILE = CERT_DIR / "server.crt"
 KEY_FILE = CERT_DIR / "server.key"
 
 # Paths that should be proxied to the API server
-API_PREFIXES = ('/auth/', '/auth', '/api/', '/api')
+API_PREFIXES = ("/auth/", "/auth", "/api/", "/api")
 
 
 class APIProxyHandler(http.server.SimpleHTTPRequestHandler):
@@ -74,26 +78,34 @@ class APIProxyHandler(http.server.SimpleHTTPRequestHandler):
         """Proxy the request to the Flask API server."""
         try:
             # Read request body if present
-            content_length = int(self.headers.get('Content-Length', 0))
+            content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length) if content_length > 0 else None
 
             # Connect to API server
-            conn = http.client.HTTPConnection('127.0.0.1', API_PORT, timeout=30)
+            conn = http.client.HTTPConnection("127.0.0.1", API_PORT, timeout=30)
 
             # Forward headers (filter out hop-by-hop headers)
             headers = {}
-            hop_by_hop = {'connection', 'keep-alive', 'proxy-authenticate',
-                          'proxy-authorization', 'te', 'trailers', 'transfer-encoding',
-                          'upgrade', 'host'}
+            hop_by_hop = {
+                "connection",
+                "keep-alive",
+                "proxy-authenticate",
+                "proxy-authorization",
+                "te",
+                "trailers",
+                "transfer-encoding",
+                "upgrade",
+                "host",
+            }
             for key, value in self.headers.items():
                 if key.lower() not in hop_by_hop:
                     headers[key] = value
 
             # Add forwarding headers
             client_ip = self.client_address[0]
-            headers['X-Forwarded-For'] = client_ip
-            headers['X-Forwarded-Proto'] = 'https'
-            headers['X-Real-IP'] = client_ip
+            headers["X-Forwarded-For"] = client_ip
+            headers["X-Forwarded-Proto"] = "https"
+            headers["X-Real-IP"] = client_ip
 
             # Make the request to the API
             conn.request(self.command, self.path, body=body, headers=headers)

@@ -30,13 +30,22 @@ from typing import Optional, Union
 from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
 
 from .audiobooks import audiobooks_bp, init_audiobooks_routes
-from .collections import (COLLECTIONS, collections_bp, genre_query,
-                          init_collections_routes, multi_genre_query)
+from .collections import (
+    COLLECTIONS,
+    collections_bp,
+    genre_query,
+    init_collections_routes,
+    multi_genre_query,
+)
 from .core import add_cors_headers
 from .core import get_db as _get_db_with_path
 from .duplicates import duplicates_bp, init_duplicates_routes
-from .editions import (editions_bp, has_edition_marker, init_editions_routes,
-                       normalize_base_title)
+from .editions import (
+    editions_bp,
+    has_edition_marker,
+    init_editions_routes,
+    normalize_base_title,
+)
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
 from .utilities import init_utilities_routes, utilities_bp

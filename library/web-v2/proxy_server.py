@@ -35,6 +35,18 @@ KEY_FILE = CERT_DIR / "server.key"
 BIND_ADDRESS = AUDIOBOOKS_BIND_ADDRESS
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
 
+# Hop-by-hop headers that must not be forwarded by proxies (RFC 2616 Section 13.5.1)
+HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+}
+
 
 class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     """Handler that proxies API requests and serves static files."""
@@ -137,9 +149,10 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 # Send response status
                 self.send_response(response.status)
 
-                # Copy headers from API response (Flask already sets CORS)
+                # Copy headers from API response, filtering hop-by-hop headers
                 for header, value in response.headers.items():
-                    self.send_header(header, value)
+                    if header.lower() not in HOP_BY_HOP_HEADERS:
+                        self.send_header(header, value)
                 self.end_headers()
 
                 # Stream response body
@@ -153,15 +166,14 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # Forward HTTP errors from API, preserving the original response body
             self.send_response(e.code)
             for header, value in e.headers.items():
-                self.send_header(header, value)
+                if header.lower() not in HOP_BY_HOP_HEADERS:
+                    self.send_header(header, value)
             self.end_headers()
             # Read and forward the actual error body from Flask
             try:
                 error_body = e.read()
             except Exception:
-                error_body = json.dumps(
-                    {"error": e.reason, "code": e.code}
-                ).encode()
+                error_body = json.dumps({"error": e.reason, "code": e.code}).encode()
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:
