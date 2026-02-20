@@ -38,13 +38,19 @@ class TestEnsureControlDir:
 
     def test_handles_permission_error(self, temp_dir):
         """Test gracefully handles permission error."""
+        import pathlib
         from backend.api_modular import utilities_system as module
+        from unittest.mock import patch
 
-        # Use a path where we can't create dirs
-        module.CONTROL_DIR = Path("/root/nonexistent/.control")
+        # Use a non-existent subdir so CONTROL_DIR.exists() returns False
+        control_dir = temp_dir / "no_perms" / ".control"
+        module.CONTROL_DIR = control_dir
 
-        # Should not raise, just silently fail
-        module._ensure_control_dir()
+        # Patch mkdir at the class level to simulate PermissionError.
+        # CI often runs as root, bypassing real permission checks.
+        with patch.object(pathlib.Path, "mkdir", side_effect=PermissionError("Permission denied")):
+            # Should not raise, just silently fail
+            module._ensure_control_dir()
 
 
 class TestWriteRequest:
@@ -86,15 +92,24 @@ class TestWriteRequest:
         # Status should be cleared
         assert module.HELPER_STATUS_FILE.read_text() == ""
 
-    def test_returns_false_on_permission_error(self):
+    def test_returns_false_on_permission_error(self, temp_dir):
         """Test returns False when cannot write."""
+        import pathlib
         from backend.api_modular import utilities_system as module
+        from unittest.mock import patch
 
-        module.CONTROL_DIR = Path("/root/nonexistent/.control")
-        module.HELPER_REQUEST_FILE = module.CONTROL_DIR / "upgrade-request"
-        module.HELPER_STATUS_FILE = module.CONTROL_DIR / "upgrade-status"
+        # Use an existing dir so _ensure_control_dir() succeeds,
+        # then simulate PermissionError on the actual write.
+        control_dir = temp_dir / ".control"
+        control_dir.mkdir()
+        module.CONTROL_DIR = control_dir
+        module.HELPER_REQUEST_FILE = control_dir / "upgrade-request"
+        module.HELPER_STATUS_FILE = control_dir / "upgrade-status"
 
-        result = module._write_request({"type": "test"})
+        # Patch write_text at the class level to raise PermissionError.
+        # CI may run as root, bypassing real permission checks.
+        with patch.object(pathlib.Path, "write_text", side_effect=PermissionError("Permission denied")):
+            result = module._write_request({"type": "test"})
 
         assert result is False
 
