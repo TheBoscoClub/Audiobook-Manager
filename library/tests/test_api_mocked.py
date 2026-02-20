@@ -1096,11 +1096,13 @@ class TestDuplicateDeletionFileOperations:
 class TestDuplicatesTitleAuthorLogic:
     """Test the author-related logic in duplicates by title."""
 
-    def test_duplicates_excludes_audiobook_author(self, app_client):
+    def test_duplicates_excludes_audiobook_author(self, app_client, flask_app):
         """Test that 'Audiobook' as author is excluded from grouping."""
-        from backend.api_modular import get_db
+        import sqlite3
 
-        conn = get_db()
+        db_path = flask_app.config["DATABASE_PATH"]
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         # Insert entries with 'Audiobook' as author - shouldn't create duplicate group
@@ -1146,11 +1148,13 @@ class TestDuplicatesTitleAuthorLogic:
 class TestDuplicatesHashNullHandling:
     """Test handling of null hashes in deletion."""
 
-    def test_delete_with_null_hash(self, app_client):
+    def test_delete_with_null_hash(self, app_client, flask_app):
         """Test delete duplicates with null sha256_hash is blocked."""
-        from backend.api_modular import get_db
+        import sqlite3
 
-        conn = get_db()
+        db_path = flask_app.config["DATABASE_PATH"]
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         # Insert an audiobook without a hash
