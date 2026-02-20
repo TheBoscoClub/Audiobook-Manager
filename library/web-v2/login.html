@@ -16,7 +16,7 @@
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
             <h1 class="auth-title">The Library</h1>
-            <p class="auth-subtitle">A Private Collection</p>
+            <p class="auth-subtitle">Sign In</p>
             <div class="deco-line"></div>
         </div>
 
@@ -50,7 +50,7 @@
             <!-- TOTP code field - shown only for TOTP users -->
             <div class="form-group" id="totp-group" hidden>
                 <label for="code">
-                    Authenticator Code
+                    Your 6-Digit Code
                     <button type="button" class="help-icon" aria-label="Help" data-help="code-help">?</button>
                 </label>
                 <input type="text"
@@ -61,20 +61,17 @@
                        maxlength="6"
                        autocomplete="one-time-code"
                        placeholder="000000">
-                <span class="field-hint">Enter the 6-digit code from your authenticator app</span>
+                <span class="field-hint">Open the app on your phone, find The Library, and type the 6-digit number you see</span>
                 <div id="code-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What is this?</strong>
-                        <p>This is a 6-digit number that changes every 30 seconds. It proves it's really you signing in.</p>
-                        <strong>Where do I find it?</strong>
+                        <strong>Where do I find this code?</strong>
                         <ol>
-                            <li>Open your authenticator app on your phone (like Google Authenticator, Authy, or 1Password)</li>
-                            <li>Find "The Library" in your list</li>
-                            <li>Look at the 6-digit number shown</li>
-                            <li>Type those numbers here before they change</li>
+                            <li>Open the authenticator app on your phone (the app you set up when you created your account)</li>
+                            <li>Find <strong>The Library</strong> in the list</li>
+                            <li>You'll see a 6-digit number — type it here</li>
                         </ol>
-                        <strong>The code changed while I was typing!</strong>
-                        <p>That's okay! Just wait for the new code and type that one instead. You have 30 seconds.</p>
+                        <strong>The number changed while I was typing!</strong>
+                        <p>No problem! Just wait for the new number and type that one instead.</p>
                     </div>
                 </div>
             </div>
@@ -123,46 +120,46 @@
 
         <!-- Alternative options -->
         <div class="auth-options">
-            <a href="#" id="use-backup-code" class="auth-link">
+            <a href="#" id="use-backup-code" class="auth-link" title="Use one of the emergency codes you saved when you first signed up">
                 Use backup code
                 <button type="button" class="help-icon small" aria-label="Help" data-help="backup-option-help">?</button>
             </a>
             <span class="auth-divider">|</span>
-            <a href="#" id="use-magic-link" class="auth-link">
+            <a href="#" id="use-magic-link" class="auth-link" title="Forgot your code or lost your phone? We'll email you a sign-in link">
                 Email me a link
                 <button type="button" class="help-icon small" aria-label="Help" data-help="magic-link-option-help">?</button>
             </a>
             <span class="auth-divider">|</span>
-            <a href="register.html" class="auth-link">Request access</a>
+            <a href="register.html" class="auth-link" title="Request a new account">Request access</a>
         </div>
 
         <div id="magic-link-option-help" class="help-tooltip" hidden>
             <div class="help-content">
-                <strong>What is this?</strong>
-                <p>If you added an email address when you signed up, we can send you a special link that lets you sign in without your authenticator app.</p>
-                <strong>How does it work?</strong>
+                <strong>Forgot your code or lost your phone?</strong>
+                <p>If you added an email address when you signed up, we can email you a special link that signs you in — no app needed.</p>
+                <strong>How it works:</strong>
                 <ol>
-                    <li>Enter your username</li>
-                    <li>We send a link to your email</li>
+                    <li>Type your username</li>
+                    <li>We email you a sign-in link</li>
                     <li>Click the link in your email</li>
-                    <li>You're signed in!</li>
+                    <li>You're in!</li>
                 </ol>
-                <strong>I didn't add an email</strong>
-                <p>If you didn't save an email address during signup, you'll need to use a backup code instead.</p>
+                <strong>I didn't add an email when I signed up</strong>
+                <p>You'll need to use one of your emergency backup codes instead.</p>
             </div>
         </div>
 
         <div id="backup-option-help" class="help-tooltip" hidden>
             <div class="help-content">
                 <strong>What is a backup code?</strong>
-                <p>When you signed up, you were given special one-time codes. These are for emergencies when you can't use your authenticator app.</p>
-                <strong>When should I use this?</strong>
+                <p>These are the emergency codes you wrote down or saved when you first set up your account.</p>
+                <strong>When to use this:</strong>
                 <ul>
                     <li>You lost your phone</li>
-                    <li>You deleted your authenticator app</li>
+                    <li>You deleted the app</li>
                     <li>Your phone broke</li>
                 </ul>
-                <p><em>Each backup code only works once, then it's used up.</em></p>
+                <p><em>Each code works only once — after you use one, cross it off your list.</em></p>
             </div>
         </div>
 
@@ -198,19 +195,17 @@
                        placeholder="XXXXXXXX"
                        maxlength="8"
                        required>
-                <span class="field-hint">One-time use recovery code</span>
+                <span class="field-hint">One of the emergency codes you saved when you set up your account</span>
                 <div id="backup-code-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What is this?</strong>
-                        <p>This is one of the 8-character codes you saved when you first signed up.</p>
-                        <strong>Where did I put them?</strong>
-                        <p>Check where you save important things:</p>
+                        <strong>Where are my backup codes?</strong>
+                        <p>These are the codes you wrote down or saved when you first set up your account. Check:</p>
                         <ul>
-                            <li>A piece of paper in a safe place</li>
-                            <li>A password manager</li>
-                            <li>A secure note on your computer</li>
+                            <li>A piece of paper you kept in a safe place</li>
+                            <li>A photo you took of the codes</li>
+                            <li>A note on your computer or phone</li>
                         </ul>
-                        <p><em>Remember: Each code only works once!</em></p>
+                        <p><em>Each code works only once — after you use one, it's used up.</em></p>
                     </div>
                 </div>
             </div>
@@ -650,7 +645,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    magicLinkSuccess.textContent = data.message || 'If an account exists with a registered email, a login link has been sent.';
+                    magicLinkSuccess.textContent = data.message || 'Check your email! We sent you a sign-in link. Click it to sign in. (Check your spam folder if you don\'t see it in a few minutes.)';
                     magicLinkSuccess.hidden = false;
                     magicLinkButton.disabled = true;
                 } else {

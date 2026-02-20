@@ -381,10 +381,10 @@
 }
 
 .backup-codes-warning {
-    font-size: 0.75rem;
+    font-size: 1rem;
+    font-weight: bold;
     color: #ff9999;
     margin-top: 0.75rem;
-    font-style: italic;
 }
 
 /* ============================================
@@ -601,5 +601,97 @@
 
     .secret-key {
         font-size: 0.75rem;
+    }
+}
+
+/* ============================================
+   UX Emphasis & Callout Utilities
+   Plain-language helpers for non-technical users
+   ============================================ */
+
+/* High-contrast gold-bordered callout for critical instructions */
+.callout-important {
+    font-size: 1.05rem;
+    font-weight: bold;
+    line-height: 1.7;
+    color: var(--cream-light);
+    background: rgba(218, 165, 32, 0.08);
+    border-left: 4px solid var(--gold);
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+}
+
+/* Red/amber warning box for "WRITE THIS DOWN" moments */
+.callout-write-down {
+    font-size: 1.05rem;
+    font-weight: bold;
+    line-height: 1.7;
+    color: var(--cream-light);
+    background: rgba(255, 100, 100, 0.08);
+    border: 2px solid #ff9999;
+    padding: 1.25rem;
+    margin: 1rem 0;
+}
+
+.callout-write-down .callout-heading {
+    color: #ff9999;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+/* Large circled step number for numbered instructions */
+.step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    font-size: 1rem;
+    font-weight: bold;
+    color: var(--deco-black);
+    background: var(--gold);
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Inline emphasis for must-click/must-do actions */
+.action-highlight {
+    font-weight: bold;
+    color: var(--gold-bright);
+}
+
+/* Base class for plain-language body text (larger, more readable) */
+.plain-language {
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--cream-light);
+}
+
+/* Small italic print/write-down suggestion */
+.print-hint {
+    font-style: italic;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-top: 0.75rem;
+}
+
+/* ============================================
+   Mobile: UX Emphasis Utilities
+   ============================================ */
+
+@media (max-width: 480px) {
+    .callout-important,
+    .callout-write-down {
+        font-size: 0.95rem;
+        padding: 0.875rem 1rem;
+    }
+
+    .step-number {
+        width: 1.75rem;
+        height: 1.75rem;
+        font-size: 0.9rem;
     }
 }

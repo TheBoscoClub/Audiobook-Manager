@@ -139,18 +139,18 @@ done
 
 # Build SSH options and target
 SSH_TARGET="${VM_USER}@${VM_HOST}"
-SSH_OPTS="-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new"
+SSH_OPTS=(-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new)
 if [[ -f "$SSH_KEY" ]]; then
-    SSH_OPTS="$SSH_OPTS -i $SSH_KEY"
+    SSH_OPTS+=(-i "$SSH_KEY")
 fi
 
 # Helper to run SSH/rsync with consistent options
 run_ssh() {
-    ssh $SSH_OPTS "$SSH_TARGET" "$@"
+    ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "$@"
 }
 
 run_rsync() {
-    rsync -az --rsync-path="sudo rsync" -e "ssh $SSH_OPTS" "$@"
+    rsync -az --rsync-path="sudo rsync" -e "ssh ${SSH_OPTS[*]}" "$@"
 }
 
 print_header
