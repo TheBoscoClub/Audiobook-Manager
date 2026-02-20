@@ -956,6 +956,7 @@ The library exposes a REST API on port 5001:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/api/system/health` | GET | Health check (unauthenticated, for monitoring) |
 | `/api/system/version` | GET | Get installed version |
 | `/api/system/services` | GET | Get status of all services |
 | `/api/system/services/<name>/start` | POST | Start a service |
@@ -1393,6 +1394,26 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.1.3
+- **Fix**: Rewrite invite flow — eliminates "credentials already claimed" and method selection loop bugs during claim
+- **Fix**: Download toggle button now calls correct API endpoint
+- **Fix**: Library rescan progress meter shows real-time updates (ANSI escape code stripping)
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.1.2.1
+- **Admin**: Invite User button for pre-registering and approving new users with claim token workflow
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.1.2
+- **Fix**: First-user registration returned backup codes as string instead of JSON array (caused JavaScript TypeError)
+- **Fix**: Proxy HTTP error handler forwards Flask's original response body
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.1.1
+- **Scripts**: Comprehensive bash-to-zsh compatibility fixes across all shell scripts
+- **CI**: Track `library/auth/schema.sql` in git; fix ruff linting in CI
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.1.0
 - **UI**: Comprehensive responsive design — mobile/desktop, portrait/landscape, zoom/pinch
