@@ -609,3 +609,52 @@ class TestEnvironmentVariables:
         importlib.reload(utilities_system)
 
         assert "/var/lib/audiobooks" in str(utilities_system.CONTROL_DIR)
+
+
+class TestGetHealth:
+    """Test the GET /api/system/health endpoint."""
+
+    def test_health_returns_ok(self, flask_app):
+        """Health endpoint returns 200 with status, version, database keys."""
+        with flask_app.test_client() as client:
+            response = client.get("/api/system/health")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "status" in data
+        assert data["status"] == "ok"
+        assert "version" in data
+        assert "database" in data
+
+    def test_health_no_auth_required(self, flask_app):
+        """Health endpoint succeeds without session cookie."""
+        with flask_app.test_client() as client:
+            # No login, no cookie — should still work
+            response = client.get("/api/system/health")
+
+        assert response.status_code == 200
+
+    def test_health_database_false_on_missing_path(self, flask_app):
+        """Health returns database: false when DATABASE_PATH points to missing file."""
+        # Temporarily set DATABASE_PATH to a non-existent file
+        original = flask_app.config.get("DATABASE_PATH")
+        flask_app.config["DATABASE_PATH"] = "/tmp/nonexistent-db-file.sqlite"
+        try:
+            with flask_app.test_client() as client:
+                response = client.get("/api/system/health")
+
+            data = response.get_json()
+            assert data["database"] is False
+        finally:
+            flask_app.config["DATABASE_PATH"] = original
+
+    def test_health_version_matches_file(self, flask_app, session_temp_dir):
+        """Health response version matches the VERSION file content."""
+        version_file = session_temp_dir / "VERSION"
+        version_file.write_text("9.8.7")
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/system/health")
+
+        data = response.get_json()
+        assert data["version"] == "9.8.7"
