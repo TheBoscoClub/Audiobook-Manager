@@ -1,0 +1,155 @@
+/* ============================================
+   Tutorial Overlay - Click-Through Guide
+   ============================================ */
+
+/* Full-screen overlay with spotlight cutout */
+.tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0, 0, 0, 0.75);
+    transition: clip-path 0.35s ease;
+    pointer-events: auto;
+}
+
+/* Tooltip box */
+.tutorial-tooltip {
+    position: fixed;
+    z-index: 9999;
+    max-width: 360px;
+    background: var(--deco-charcoal);
+    border: 2px solid var(--gold);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.6),
+        0 0 0 1px var(--gold-dark);
+    padding: 1.25rem 1.5rem;
+    pointer-events: auto;
+    animation: tooltipFadeIn 0.3s ease;
+}
+
+@keyframes tooltipFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Deco accent bar */
+.tutorial-tooltip::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold-bright), var(--gold-dark));
+}
+
+.tutorial-step-counter {
+    font-family: Georgia, serif;
+    font-size: 0.75rem;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.tutorial-title {
+    font-family: var(--font-primary);
+    font-size: 1.1rem;
+    color: var(--gold-bright);
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+}
+
+.tutorial-description {
+    font-size: 0.9rem;
+    color: var(--cream);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Navigation buttons */
+.tutorial-nav {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.tutorial-btn {
+    padding: 0.5rem 1rem;
+    font-family: Georgia, serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--gold-dark);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tutorial-btn-next {
+    background: linear-gradient(to bottom, var(--gold-bright), var(--gold), var(--gold-dark));
+    color: var(--deco-black);
+    border-color: var(--gold);
+    font-weight: bold;
+}
+
+.tutorial-btn-next:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 2px 8px rgba(218, 165, 32, 0.4);
+}
+
+.tutorial-btn-back {
+    background: var(--deco-slate);
+    color: var(--cream);
+    border-color: var(--deco-gray);
+}
+
+.tutorial-btn-back:hover {
+    background: var(--deco-gray);
+    border-color: var(--gold-dark);
+}
+
+.tutorial-btn-skip {
+    background: transparent;
+    color: var(--cream);
+    border: none;
+    opacity: 0.7;
+    margin-left: auto;
+    padding: 0.5rem 0.75rem;
+}
+
+.tutorial-btn-skip:hover {
+    opacity: 1;
+    color: var(--gold);
+}
+
+/* Highlighted element ring */
+.tutorial-highlight {
+    position: relative;
+    z-index: 9999;
+    box-shadow: 0 0 0 4px var(--gold), 0 0 20px rgba(218, 165, 32, 0.5) !important;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+    .tutorial-tooltip {
+        max-width: calc(100vw - 2rem);
+        left: 1rem !important;
+        right: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .tutorial-tooltip {
+        padding: 1rem;
+    }
+
+    .tutorial-title {
+        font-size: 1rem;
+    }
+
+    .tutorial-description {
+        font-size: 0.85rem;
+    }
+}

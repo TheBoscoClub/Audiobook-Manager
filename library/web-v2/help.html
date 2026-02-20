@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Help &amp; User Guide - The Library</title>
+    <link rel="stylesheet" href="css/theme-art-deco.css">
+    <link rel="stylesheet" href="css/help.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body class="help-page">
+
+    <!-- Header -->
+    <header class="help-header">
+        <h1>User Guide</h1>
+        <p>A Private Collection of Audiobooks</p>
+        <div class="help-header-actions">
+            <a href="index.html" title="Return to the audiobook library">&larr; Back to Library</a>
+            <button id="start-tutorial-btn" title="Take a guided tour of the library interface">Start Tutorial</button>
+        </div>
+    </header>
+
+    <div class="help-content">
+
+        <!-- Table of Contents -->
+        <nav class="help-toc" aria-label="Table of contents">
+            <h2>Contents</h2>
+            <ol>
+                <li><a href="#getting-started">Getting Started</a></li>
+                <li><a href="#browsing">Browsing the Library</a></li>
+                <li><a href="#search-filter">Search &amp; Filter</a></li>
+                <li><a href="#sorting">Sorting</a></li>
+                <li><a href="#collections">Collections</a></li>
+                <li><a href="#player">Audio Player</a></li>
+                <li><a href="#position-saving">Position Saving</a></li>
+                <li><a href="#downloads">Downloads</a></li>
+                <li><a href="#profile">Your Profile</a></li>
+                <li><a href="#notifications">Notifications</a></li>
+                <li><a href="#keyboard">Keyboard &amp; Media Keys</a></li>
+            </ol>
+        </nav>
+
+        <!-- 1. Getting Started -->
+        <section id="getting-started" class="help-section">
+            <h2><span class="section-icon">&#9733;</span> Getting Started</h2>
+            <p>Welcome to The Library. Here you can browse, listen to, and download audiobooks from a curated private collection.</p>
+
+            <h3>First Time Here?</h3>
+            <p>If authentication is enabled, you'll need to sign in with a code from your authenticator app. Your account was created by the library administrator &mdash; contact them if you need help getting set up.</p>
+
+            <h3>Quick Overview</h3>
+            <div class="help-feature-grid">
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#128218;</div>
+                    <h4>Browse</h4>
+                    <p>Scroll the grid of audiobook cards showing covers, titles, and authors.</p>
+                </div>
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#128269;</div>
+                    <h4>Search</h4>
+                    <p>Find books by title, author, or narrator using the search bar.</p>
+                </div>
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#127911;</div>
+                    <h4>Listen</h4>
+                    <p>Click any book card to start playing. Your position is saved automatically.</p>
+                </div>
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#128229;</div>
+                    <h4>Download</h4>
+                    <p>Download audiobooks for offline listening (if your account has download permission).</p>
+                </div>
+            </div>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 2. Browsing -->
+        <section id="browsing" class="help-section">
+            <h2><span class="section-icon">&#128218;</span> Browsing the Library</h2>
+            <p>The main library page shows your audiobook collection as a grid of cards.</p>
+
+            <h3>Book Cards</h3>
+            <p>Each card displays:</p>
+            <ul>
+                <li><strong>Cover art</strong> &mdash; the audiobook's cover image (or a placeholder if unavailable)</li>
+                <li><strong>Title</strong> &mdash; the book's title in gold text</li>
+                <li><strong>Author &amp; Narrator</strong> &mdash; who wrote and who narrates the book</li>
+                <li><strong>Duration</strong> &mdash; total listening time</li>
+                <li><strong>Format</strong> &mdash; the audio format (Opus, M4B, MP3, etc.)</li>
+            </ul>
+
+            <h3>Stats Bar</h3>
+            <p>At the top of the page, you'll see the library statistics: total volumes, hours of audio, number of authors, and number of narrators.</p>
+
+            <h3>Editions</h3>
+            <p>Some books have multiple editions (different narrators or formats). Look for the <strong>Editions</strong> badge on a card. Click it to expand and see all available versions, each with its own Play and Resume buttons.</p>
+
+            <h3>Continue Badge</h3>
+            <p>If you've partially listened to a book, you'll see a green <strong>Continue</strong> badge showing your progress percentage. Click it to resume where you left off.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 3. Search & Filter -->
+        <section id="search-filter" class="help-section">
+            <h2><span class="section-icon">&#128269;</span> Search &amp; Filter</h2>
+
+            <h3>Text Search</h3>
+            <p>Type in the search bar to find books by title, author, or narrator. Results update as you type. Click <strong>Clear</strong> to reset your search.</p>
+
+            <h3>Author Filter</h3>
+            <p>Use the author dropdown to filter books by a specific author. You can:</p>
+            <ul>
+                <li>Type to search for an author by name</li>
+                <li>Use the <strong>letter group buttons</strong> (A-E, F-J, etc.) to narrow the list</li>
+                <li>Click the <strong>A-Z / Z-A</strong> toggle to change sort order</li>
+                <li>Click the <strong>&times;</strong> button to clear the author filter</li>
+            </ul>
+
+            <h3>Narrator Filter</h3>
+            <p>Works exactly like the author filter, but filters by narrator instead. Book counts are shown next to each narrator's name.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 4. Sorting -->
+        <section id="sorting" class="help-section">
+            <h2><span class="section-icon">&#8645;</span> Sorting</h2>
+            <p>Use the sort dropdown to change how books are ordered. Available options:</p>
+
+            <table class="help-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Options</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Title</strong></td>
+                        <td>A-Z or Z-A</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Author</strong></td>
+                        <td>By last name, first name, or full name (A-Z / Z-A)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Narrator</strong></td>
+                        <td>By last name or first name (A-Z / Z-A)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Duration</strong></td>
+                        <td>Longest first or Shortest first</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dates</strong></td>
+                        <td>Recently / Oldest acquired; Newest / Oldest published</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Series &amp; Editions</strong></td>
+                        <td>Series A-Z/Z-A (with sequence order); Edition A-Z</td>
+                    </tr>
+                </tbody>
+            </table>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 5. Collections -->
+        <section id="collections" class="help-section">
+            <h2><span class="section-icon">&#128206;</span> Collections</h2>
+            <p>Collections are curated groups of books organized by category (genre, series, themes, etc.).</p>
+
+            <h3>Using Collections</h3>
+            <ul>
+                <li>Click the <strong>Collections</strong> button (in the results bar) to open the sidebar</li>
+                <li>Click any collection name to filter the library to just those books</li>
+                <li>The active collection is shown as a badge next to the Collections button</li>
+                <li>Click <strong>Clear Filter</strong> at the bottom of the sidebar to show all books again</li>
+                <li>Click the <strong>&times;</strong> button or the overlay to close the sidebar</li>
+            </ul>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 6. Audio Player -->
+        <section id="player" class="help-section">
+            <h2><span class="section-icon">&#127911;</span> Audio Player</h2>
+            <p>The player appears at the bottom of the screen when you start playing a book.</p>
+
+            <h3>Controls</h3>
+            <ul>
+                <li><strong>Play / Pause</strong> &mdash; the center button toggles playback</li>
+                <li><strong>Progress bar</strong> &mdash; drag to seek to any position</li>
+                <li><strong>-30s / +30s</strong> &mdash; skip backward or forward 30 seconds</li>
+                <li><strong>Speed</strong> &mdash; cycle through playback speeds: 0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x, 2.5x</li>
+                <li><strong>Volume slider</strong> &mdash; adjust playback volume</li>
+                <li><strong>&times;</strong> &mdash; close the player</li>
+            </ul>
+
+            <h3>Player Info</h3>
+            <p>The player shows the book's cover art, title, author, audiobook ID, and file path. Click the path to copy it.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 7. Position Saving -->
+        <section id="position-saving" class="help-section">
+            <h2><span class="section-icon">&#128278;</span> Position Saving</h2>
+            <p>Your listening position is saved automatically as you listen. You can close the browser, switch devices, or come back days later &mdash; the library remembers where you were.</p>
+
+            <h3>How It Works</h3>
+            <ul>
+                <li>Positions are saved every few seconds during playback</li>
+                <li>When you return to a book, you'll see a <strong>Resume</strong> button with a progress bar</li>
+                <li>The green <strong>Continue</strong> badge on book cards shows your progress percentage</li>
+                <li>If you have an account, positions sync across devices automatically</li>
+            </ul>
+
+            <h3>Resuming</h3>
+            <p>Click the <strong>Resume</strong> button on any book card (or within an edition's actions) to continue from your last position.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 8. Downloads -->
+        <section id="downloads" class="help-section">
+            <h2><span class="section-icon">&#128229;</span> Downloads</h2>
+            <p>If your account has download permission, you'll see a green <strong>Download</strong> button on book cards.</p>
+            <ul>
+                <li>Click the button to download the audiobook file to your device</li>
+                <li>Downloads are the original audio file (Opus, M4B, etc.)</li>
+                <li>If you don't see a Download button, your account may not have download permission &mdash; contact the administrator</li>
+            </ul>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 9. Profile -->
+        <section id="profile" class="help-section">
+            <h2><span class="section-icon">&#128100;</span> Your Profile</h2>
+            <p>When signed in, click your name/avatar in the header to open the user menu.</p>
+
+            <h3>Edit Profile</h3>
+            <p>Select <strong>Edit Profile</strong> to change your display name or email address. Your username is shown in the header and on your avatar.</p>
+
+            <h3>Contact Admin</h3>
+            <p>Select <strong>Contact Admin</strong> to send a message to the library administrator. You can request new audiobooks, report issues, or ask questions.</p>
+
+            <h3>Sign Out</h3>
+            <p>Select <strong>Sign Out</strong> to end your session. You'll need to sign in again with your authenticator code.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 10. Notifications -->
+        <section id="notifications" class="help-section">
+            <h2><span class="section-icon">&#128276;</span> Notifications</h2>
+            <p>Notification banners appear below the header when the administrator sends you a message or when something important happens.</p>
+
+            <h3>Banner Types</h3>
+            <ul>
+                <li><strong>Info</strong> &mdash; general information (blue/gold border)</li>
+                <li><strong>Success</strong> &mdash; confirmations (green border)</li>
+                <li><strong>Warning</strong> &mdash; important notices (amber border)</li>
+                <li><strong>Error</strong> &mdash; problems that need attention (red border)</li>
+            </ul>
+
+            <h3>Dismissing</h3>
+            <p>Click the <strong>&times;</strong> button on any notification to dismiss it. Dismissed notifications won't appear again.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 11. Keyboard & Media Keys -->
+        <section id="keyboard" class="help-section">
+            <h2><span class="section-icon">&#9000;</span> Keyboard &amp; Media Keys</h2>
+            <p>If your device has media keys or you're using a keyboard, these shortcuts work during playback:</p>
+
+            <table class="help-table">
+                <thead>
+                    <tr>
+                        <th>Key</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="key">Play/Pause</span> media key</td>
+                        <td>Toggle playback</td>
+                    </tr>
+                    <tr>
+                        <td><span class="key">Next Track</span> media key</td>
+                        <td>Skip forward 30 seconds</td>
+                    </tr>
+                    <tr>
+                        <td><span class="key">Previous Track</span> media key</td>
+                        <td>Skip backward 30 seconds</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Lockscreen Controls</h3>
+            <p>On mobile devices, the audio player integrates with your lockscreen and notification area, showing the book title and cover art with playback controls.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- Footer -->
+        <footer class="help-footer">
+            <a href="index.html" title="Return to the audiobook library">&larr; Back to The Library</a>
+        </footer>
+    </div>
+
+    <script>
+        // "Start Tutorial" navigates to library page with tutorial flag
+        document.getElementById('start-tutorial-btn').addEventListener('click', () => {
+            window.location.href = 'index.html?tutorial=1';
+        });
+    </script>
+</body>
+</html>

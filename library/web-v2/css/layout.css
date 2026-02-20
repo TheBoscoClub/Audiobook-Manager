@@ -107,7 +107,6 @@
    ============================================ */
 .header-nav {
     position: absolute;
-    right: 0;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
@@ -115,8 +114,16 @@
     gap: var(--spacing-sm);
 }
 
-.nav-link,
-.utilities-link {
+.header-nav-left {
+    left: 0;
+}
+
+.header-nav-right {
+    right: 0;
+}
+
+.nav-link:not([hidden]),
+.utilities-link:not([hidden]) {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -130,8 +137,8 @@
     box-shadow: var(--shadow-elevation-1);
 }
 
-.nav-link:hover,
-.utilities-link:hover {
+.nav-link:not([hidden]):hover,
+.utilities-link:not([hidden]):hover {
     background: var(--gold);
     color: var(--deco-black);
     border-color: var(--gold-bright);
@@ -255,6 +262,12 @@
         transform: none;
         justify-content: center;
         flex-wrap: wrap;
+    }
+
+    .header-nav-left,
+    .header-nav-right {
+        position: static;
+        transform: none;
     }
 
     .library-title {
