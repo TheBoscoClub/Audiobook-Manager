@@ -15,67 +15,55 @@
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
             <h1 class="auth-title">The Library</h1>
-            <p class="auth-subtitle">Access Verification</p>
+            <p class="auth-subtitle">Checking Your Link</p>
             <div class="deco-line"></div>
         </div>
 
         <!-- Verifying state -->
         <div id="state-verifying" class="verification-state">
             <div class="spinner-large"></div>
-            <p class="state-message">Verifying your access link...</p>
+            <p class="state-message plain-language">Checking your link... just a moment.</p>
         </div>
 
         <!-- Success state -->
         <div id="state-success" class="verification-state" hidden>
             <div class="success-icon">&#10003;</div>
-            <h2 class="state-title">Verification Complete</h2>
-            <p class="state-message">
-                You have been signed in successfully.
+            <h2 class="state-title">You're In!</h2>
+            <p class="state-message plain-language">
+                Taking you to The Library now...
             </p>
-            <p class="state-message" id="redirect-message">
-                Redirecting to the library...
+            <p class="state-message" id="redirect-message" style="opacity: 0.7;">
+                (If nothing happens, <a href="index.html" style="color: var(--gold);">click here</a>.)
             </p>
         </div>
 
         <!-- Error state -->
         <div id="state-error" class="verification-state" hidden>
             <div class="error-icon">&#10007;</div>
-            <h2 class="state-title">Verification Failed</h2>
-            <p class="state-message" id="error-message">
-                The link is invalid or has expired.
+            <h2 class="state-title">This Link Didn't Work</h2>
+            <p class="state-message plain-language" id="error-message">
+                This can happen if the link is more than 15 minutes old, you already used this link, or the link was copied incorrectly.
             </p>
-            <div class="error-help">
-                <button type="button" class="help-icon" aria-label="Help" data-help="error-help">?</button>
-            </div>
-            <div id="error-help" class="help-tooltip" hidden>
-                <div class="help-content">
-                    <strong>Why did this happen?</strong>
-                    <ul>
-                        <li>The link may have expired (links are valid for 15 minutes)</li>
-                        <li>You may have already used this link</li>
-                        <li>The link may have been copied incorrectly</li>
-                    </ul>
-                    <strong>What can I do?</strong>
-                    <p>Request a new link by going to the login page and selecting "Use magic link" or "Can't access authenticator".</p>
-                </div>
-            </div>
+            <p class="state-message plain-language" style="margin-top: 1rem;">
+                <strong>What to do:</strong> Go back to the sign-in page and request a new link.
+            </p>
             <div class="auth-options" style="margin-top: 1.5rem;">
                 <a href="login.html" class="auth-button" style="display: inline-block; text-align: center; text-decoration: none; padding: 0.75rem 2rem;">
-                    <span class="button-text">Go to Login</span>
+                    <span class="button-text">Go to Sign In</span>
                 </a>
             </div>
         </div>
 
         <!-- Manual entry state (fallback if no token in URL) -->
         <div id="state-manual" class="verification-state" hidden>
-            <p class="step-description">
-                Enter the verification code you received to continue.
+            <p class="step-description plain-language">
+                If you received a code instead of a clickable link, paste it here.
             </p>
 
             <form id="manual-form" class="auth-form">
                 <div class="form-group">
                     <label for="manual-token">
-                        Verification Code
+                        Your Code
                         <button type="button" class="help-icon" aria-label="Help" data-help="manual-token-help">?</button>
                     </label>
                     <input type="text"
@@ -87,12 +75,11 @@
                     <div id="manual-token-help" class="help-tooltip" hidden>
                         <div class="help-content">
                             <strong>Where is my code?</strong>
-                            <p>Check your email or text messages for a message from The Library. Copy the entire code or click the link in that message.</p>
-                            <strong>I don't see the message</strong>
+                            <p>Check your email for a message from The Library. Copy the code from that email and paste it here.</p>
+                            <strong>I don't see the email</strong>
                             <ul>
                                 <li>Check your spam or junk folder</li>
                                 <li>Wait a few minutes and check again</li>
-                                <li>Make sure you entered the correct email/phone</li>
                             </ul>
                         </div>
                     </div>
@@ -104,13 +91,13 @@
                     <span class="button-text">Verify</span>
                     <span class="button-loading" hidden>
                         <span class="spinner"></span>
-                        Verifying...
+                        Checking...
                     </span>
                 </button>
             </form>
 
             <div class="auth-options">
-                <a href="login.html" class="auth-link">&larr; Back to login</a>
+                <a href="login.html" class="auth-link">&larr; Back to sign in</a>
             </div>
         </div>
 
@@ -177,12 +164,12 @@
                     }, 1500);
                 } else {
                     document.getElementById('error-message').textContent =
-                        data.error || 'The link is invalid or has expired.';
+                        data.error || 'This can happen if the link is more than 15 minutes old, you already used this link, or the link was copied incorrectly.';
                     showState('error');
                 }
             } catch (e) {
                 document.getElementById('error-message').textContent =
-                    'Connection error. Please check your internet and try again.';
+                    'We couldn\'t reach the server. Please check your internet connection and try again.';
                 showState('error');
             }
         }
@@ -259,8 +246,8 @@
 
         .state-message {
             color: var(--cream);
-            font-size: 0.9rem;
-            line-height: 1.6;
+            font-size: 1rem;
+            line-height: 1.7;
             margin-bottom: 0.5rem;
         }
 
@@ -282,8 +269,8 @@
 
         .step-description {
             color: var(--cream);
-            font-size: 0.9rem;
-            line-height: 1.6;
+            font-size: 1rem;
+            line-height: 1.7;
             text-align: center;
             margin-bottom: 1.5rem;
         }

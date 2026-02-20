@@ -2274,57 +2274,58 @@ def _send_magic_link_email(
     <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
         <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">The Library</h1>
 
-        <p style="color: #f5f5dc; line-height: 1.6;">
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
             Hello {username},
         </p>
 
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            You requested a sign-in link for The Library. Click the button below to sign in:
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
+            Click the big gold button below to sign in. That's it!
         </p>
 
         <div style="text-align: center; margin: 30px 0;">
             <a href="{full_link}"
                style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
                       color: #1a1a1a;
-                      padding: 15px 30px;
+                      padding: 18px 40px;
                       text-decoration: none;
                       font-weight: bold;
+                      font-size: 1.1em;
                       letter-spacing: 2px;">
-                SIGN IN
+                SIGN IN TO THE LIBRARY
             </a>
         </div>
 
-        <p style="color: #f5f5dc; line-height: 1.6; font-size: 0.9em;">
-            This link will expire in {expires_minutes} minutes.
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
+            This link works for {expires_minutes} minutes. After that, you'll need to request a new one.
         </p>
 
-        <p style="color: #f5f5dc; line-height: 1.6; font-size: 0.9em;">
-            If you didn't request this link, you can safely ignore this email.
-            Someone may have entered your username by mistake.
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em;">
+            If you didn't ask for this link, you can ignore this email. Someone may have typed your username by mistake.
         </p>
 
         <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
 
-        <p style="color: #888; font-size: 0.8em; text-align: center;">
-            If the button doesn't work, copy and paste this link into your browser:
+        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
+            If the button doesn't work, copy the link below and paste it into your web browser's address bar (the long bar at the top of your browser window):
             <br>
-            <a href="{full_link}" style="color: #daa520;">{full_link}</a>
+            <a href="{full_link}" style="color: #daa520; word-break: break-all;">{full_link}</a>
         </p>
     </div>
 </body>
 </html>
 """
 
-    text_content = f"""
-Hello {username},
+    text_content = f"""Hello {username},
 
-You requested a sign-in link for The Library.
+Click the link below to sign in to The Library:
 
-Click here to sign in: {full_link}
+{full_link}
 
-This link will expire in {expires_minutes} minutes.
+This link works for {expires_minutes} minutes. After that, you'll need to request a new one.
 
-If you didn't request this link, you can safely ignore this email.
+If the link doesn't work, copy it and paste it into your web browser's address bar (the long bar at the top of your browser window).
+
+If you didn't ask for this link, you can ignore this email.
 """
 
     try:
@@ -2364,7 +2365,7 @@ def _send_approval_email(to_email: str, username: str) -> bool:
 
     claim_url = f"{base_url}/claim.html"
 
-    subject = "Your Access to The Library Has Been Approved!"
+    subject = "You're Approved! Here's How to Get Started"
 
     html_content = f"""
 <!DOCTYPE html>
@@ -2374,97 +2375,101 @@ def _send_approval_email(to_email: str, username: str) -> bool:
 </head>
 <body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">📚 Welcome to The Library!</h1>
+        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">Welcome to The Library!</h1>
 
-        <p style="color: #f5f5dc; line-height: 1.6;">
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
             Hello {username},
         </p>
 
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            Great news! Your access request has been approved. You're almost ready to start
-            exploring the collection.
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
+            Great news &mdash; your access has been approved! Follow the steps below to finish setting up your account.
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em; font-style: italic;">
+            You might want to print this email or write down these steps before you start.
         </p>
 
         <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
-            Before You Log In
+            First: Install a Free App on Your Phone
         </h2>
 
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            The Library uses an <strong>authenticator app</strong> instead of passwords.
-            This is more secure and means you never have to remember a password.
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            If you don't already have one installed, here are some free options:
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
+            Instead of a password, The Library uses a free app on your phone that shows a
+            6-digit number. You type that number to sign in. Pick one of these free apps
+            (none of them need your phone number):
         </p>
 
         <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #daa520;">
-            <p style="color: #f5f5dc; margin: 5px 0;">
-                <strong>📱 Authy</strong> (Recommended - syncs across devices)<br>
-                <a href="https://apps.apple.com/app/authy/id494168017" style="color: #daa520;">iPhone/iPad</a> |
-                <a href="https://play.google.com/store/apps/details?id=com.authy.authy" style="color: #daa520;">Android</a> |
-                <a href="https://authy.com/download/" style="color: #daa520;">Desktop</a>
+            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
+                <strong style="color: #daa520;">Google Authenticator</strong> (Recommended &mdash; simple and free)<br>
+                <a href="https://apps.apple.com/app/google-authenticator/id388497605" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
             </p>
-            <p style="color: #f5f5dc; margin: 5px 0;">
-                <strong>📱 Google Authenticator</strong><br>
-                <a href="https://apps.apple.com/app/google-authenticator/id388497605" style="color: #daa520;">iPhone/iPad</a> |
-                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" style="color: #daa520;">Android</a>
+            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
+                <strong style="color: #daa520;">Aegis Authenticator</strong> (Android only, free &amp; open source)<br>
+                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis" style="color: #daa520;">Google Play Store</a> |
+                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/" style="color: #daa520;">F-Droid</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
             </p>
-            <p style="color: #f5f5dc; margin: 5px 0;">
-                <strong>📱 Microsoft Authenticator</strong><br>
-                <a href="https://apps.apple.com/app/microsoft-authenticator/id983156458" style="color: #daa520;">iPhone/iPad</a> |
-                <a href="https://play.google.com/store/apps/details?id=com.azure.authenticator" style="color: #daa520;">Android</a>
+            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
+                <strong style="color: #daa520;">FreeOTP</strong> (by Red Hat &mdash; free &amp; open source)<br>
+                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp" style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
             </p>
         </div>
 
         <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
-            Step-by-Step Setup
+            Then: Set Up Your Account
         </h2>
 
-        <ol style="color: #f5f5dc; line-height: 1.8;">
-            <li><strong>Install an authenticator app</strong> on your phone (if you don't have one)</li>
-            <li><strong>Get your claim token ready</strong> - this is the code you saved when you requested access
-                (it looks like: <code style="background: #3a3a3a; padding: 2px 6px;">XXXX-XXXX-XXXX-XXXX</code>)</li>
-            <li><strong>Visit the claim page:</strong>
+        <ol style="color: #f5f5dc; line-height: 2; font-size: 1em;">
+            <li><strong>Install one of the apps above</strong> on your phone (if you don't have one already)</li>
+            <li><strong>Find your claim token</strong> &mdash; this is the code you saved when you requested access.
+                It looks like four groups of letters and numbers: <code style="background: #3a3a3a; padding: 2px 6px;">ABCD-EFGH-IJKL-MNOP</code></li>
+            <li><strong>Click the gold button below</strong> to go to the setup page:
                 <div style="text-align: center; margin: 15px 0;">
                     <a href="{claim_url}"
                        style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
                               color: #1a1a1a;
-                              padding: 12px 25px;
+                              padding: 14px 30px;
                               text-decoration: none;
                               font-weight: bold;
+                              font-size: 1.05em;
                               letter-spacing: 1px;
                               display: inline-block;">
-                        CLAIM YOUR CREDENTIALS
+                        SET UP YOUR ACCOUNT
                     </a>
                 </div>
             </li>
-            <li><strong>Enter your username</strong> ({username}) and claim token</li>
-            <li><strong>Scan the QR code</strong> with your authenticator app
-                <div style="background-color: #3a3a3a; padding: 10px; margin: 10px 0; font-size: 0.9em;">
-                    <em>In your authenticator app, tap the + button, then "Scan QR code"</em>
+            <li>Type your <strong>username</strong> ({username}) and <strong>claim token</strong></li>
+            <li><strong>Point your phone's camera at the QR code</strong> shown on screen
+                <div style="background-color: #3a3a3a; padding: 10px; margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
+                    In your app, tap the <strong>+</strong> button, then choose <strong>"Scan QR Code"</strong>.
+                    <br>Can't scan? Choose <strong>"Enter Key Manually"</strong> instead and type the code shown on screen.
                 </div>
             </li>
-            <li><strong>Save your backup codes</strong> - write them down or save them somewhere safe.
-                These let you recover your account if you lose your phone.</li>
-            <li><strong>Log in</strong> using the 6-digit code shown in your authenticator app</li>
+            <li><strong>Write down your backup codes</strong> on paper and keep them safe &mdash;
+                these are your emergency codes if you ever lose your phone</li>
+            <li><strong>Type the 6-digit number</strong> from your app to finish!</li>
         </ol>
 
         <div style="background-color: #4a3a2a; padding: 15px; margin: 20px 0; border: 1px solid #8b7355;">
-            <p style="color: #ffcc00; margin: 0; font-weight: bold;">
-                ⚠️ Important: Can't find your claim token?
+            <p style="color: #ffcc00; margin: 0; font-weight: bold; font-size: 1em;">
+                Can't find your claim token?
             </p>
-            <p style="color: #f5f5dc; margin: 10px 0 0 0; font-size: 0.9em;">
+            <p style="color: #f5f5dc; margin: 10px 0 0 0; font-size: 0.95em; line-height: 1.8;">
                 The claim token was shown when you first requested access. If you didn't save it,
-                you'll need to contact the administrator to reset your request.
+                contact the person who runs The Library to reset your request.
             </p>
         </div>
 
         <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
 
-        <p style="color: #888; font-size: 0.8em; text-align: center;">
-            If the button doesn't work, copy and paste this link:<br>
-            <a href="{claim_url}" style="color: #daa520;">{claim_url}</a>
+        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
+            If the button doesn't work, copy this link and paste it into your browser:<br>
+            <a href="{claim_url}" style="color: #daa520; word-break: break-all;">{claim_url}</a>
         </p>
     </div>
 </body>
@@ -2475,25 +2480,36 @@ def _send_approval_email(to_email: str, username: str) -> bool:
 
 Hello {username},
 
-Great news! Your access request has been approved.
+Great news - your access has been approved! Follow these steps to set up your account.
 
-BEFORE YOU LOG IN:
-The Library uses an authenticator app instead of passwords. If you don't have one, install one of these:
+(You might want to print this email or write the steps down.)
 
-- Authy (recommended): https://authy.com/download/
-- Google Authenticator: Search your app store
-- Microsoft Authenticator: Search your app store
+FIRST: INSTALL A FREE APP ON YOUR PHONE
+The Library uses a free app instead of passwords. Pick one (none need your phone number):
 
-STEP-BY-STEP SETUP:
-1. Install an authenticator app on your phone (if needed)
-2. Get your claim token ready (the XXXX-XXXX-XXXX-XXXX code from registration)
-3. Visit: {claim_url}
-4. Enter your username ({username}) and claim token
-5. Scan the QR code with your authenticator app
-6. Save your backup codes somewhere safe
-7. Log in using the 6-digit code from your authenticator
+- Google Authenticator (recommended):
+  iPhone/iPad: https://apps.apple.com/app/google-authenticator/id388497605
+  Android: https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
 
-Can't find your claim token? Contact the administrator.
+- Aegis Authenticator (Android only, open source):
+  Play Store: https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
+  F-Droid: https://f-droid.org/en/packages/com.beemdevelopment.aegis/
+
+- FreeOTP (by Red Hat):
+  iPhone/iPad: https://apps.apple.com/app/freeotp-authenticator/id872559395
+  Android: https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
+
+THEN: SET UP YOUR ACCOUNT
+1. Install one of the apps above on your phone
+2. Find your claim token (the ABCD-EFGH-IJKL-MNOP code from when you requested access)
+3. Go to: {claim_url}
+4. Type your username ({username}) and claim token
+5. Point your phone's camera at the QR code on screen
+   (Can't scan? Choose "Enter Key Manually" and type the code shown on screen.)
+6. Write down your backup codes on paper and keep them safe
+7. Type the 6-digit number from your app to finish!
+
+Can't find your claim token? Contact the person who runs The Library.
 """
 
     try:
@@ -3435,7 +3451,7 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
 
     claim_url = f"{base_url}/claim.html"
 
-    subject = "You've Been Invited to The Library!"
+    subject = "You're Invited to The Library!"
 
     html_content = f"""
 <!DOCTYPE html>
@@ -3445,65 +3461,103 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
 </head>
 <body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">📚 Welcome to The Library!</h1>
+        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">Welcome to The Library!</h1>
 
-        <p style="color: #f5f5dc; line-height: 1.6;">
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
             Hello {username},
         </p>
 
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            You've been invited to join The Library - a private audiobook collection!
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
+            You've been invited to The Library &mdash; a private audiobook collection! Follow the steps in this email to set up your account.
         </p>
 
-        <div style="background-color: #3a3a3a; padding: 20px; margin: 20px 0; border: 2px solid #daa520; text-align: center;">
-            <p style="color: #f5f5dc; margin: 0 0 10px 0; font-size: 0.9em;">Your Claim Token:</p>
-            <p style="color: #daa520; font-family: 'Courier New', monospace; font-size: 1.5em; letter-spacing: 0.1em; margin: 0;">
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em; font-style: italic;">
+            You might want to print this email or write down these steps before you start.
+        </p>
+
+        <div style="background-color: #3a3a3a; padding: 25px; margin: 25px 0; border: 3px solid #daa520; text-align: center;">
+            <p style="color: #f5f5dc; margin: 0 0 10px 0; font-size: 1em; font-weight: bold;">
+                YOUR CLAIM TOKEN (write this down!):
+            </p>
+            <p style="color: #daa520; font-family: 'Courier New', monospace; font-size: 1.8em; letter-spacing: 0.15em; margin: 0; font-weight: bold;">
                 {claim_token}
             </p>
         </div>
 
-        <p style="color: #ff9999; font-weight: bold;">
-            ⚠️ Save this token! You'll need it to complete your account setup.
-        </p>
-
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
-            Before You Begin
-        </h2>
-
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            The Library uses an <strong>authenticator app</strong> instead of passwords.
-            If you don't have one installed, here are some free options:
-        </p>
-
-        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #daa520;">
-            <p style="color: #f5f5dc; margin: 5px 0;">
-                <strong>📱 Authy</strong> (Recommended)<br>
-                <a href="https://authy.com/download/" style="color: #daa520;">authy.com/download</a>
-            </p>
-            <p style="color: #f5f5dc; margin: 5px 0;">
-                <strong>📱 Google Authenticator</strong> or <strong>Microsoft Authenticator</strong><br>
-                Available in your app store
+        <div style="background-color: #4a2a2a; padding: 15px; margin: 0 0 25px 0; border: 2px solid #ff9999;">
+            <p style="color: #ff9999; font-weight: bold; margin: 0; font-size: 1.05em;">
+                WRITE THIS TOKEN DOWN or save this email! You'll need it to finish setting up your account.
             </p>
         </div>
 
         <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
-            How to Set Up Your Account
+            Step 1: Install a Free App on Your Phone
         </h2>
 
-        <ol style="color: #f5f5dc; line-height: 1.8;">
-            <li>Install an authenticator app on your phone</li>
-            <li>Visit: <a href="{claim_url}" style="color: #daa520;">{claim_url}</a></li>
-            <li>Enter your username: <strong>{username}</strong></li>
-            <li>Enter your claim token (shown above)</li>
-            <li>Scan the QR code with your authenticator app</li>
-            <li>Save your backup codes somewhere safe</li>
-            <li>Log in using the 6-digit code from your authenticator!</li>
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
+            The Library uses a free phone app instead of passwords. The app shows a 6-digit number that you type to sign in. Pick one of these free apps (none of them need your phone number):
+        </p>
+
+        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #daa520;">
+            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
+                <strong style="color: #daa520;">Google Authenticator</strong> (Recommended &mdash; simple and free)<br>
+                <a href="https://apps.apple.com/app/google-authenticator/id388497605" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+            </p>
+            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
+                <strong style="color: #daa520;">Aegis Authenticator</strong> (Android only, free &amp; open source)<br>
+                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis" style="color: #daa520;">Google Play Store</a> |
+                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/" style="color: #daa520;">F-Droid</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+            </p>
+            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
+                <strong style="color: #daa520;">FreeOTP</strong> (by Red Hat &mdash; free &amp; open source)<br>
+                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp" style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+            </p>
+        </div>
+
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+            Step 2: Set Up Your Account
+        </h2>
+
+        <ol style="color: #f5f5dc; line-height: 2; font-size: 1em;">
+            <li><strong>Install one of the apps above</strong> on your phone</li>
+            <li><strong>Click the gold button below</strong> to go to the setup page:
+                <div style="text-align: center; margin: 15px 0;">
+                    <a href="{claim_url}"
+                       style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+                              color: #1a1a1a;
+                              padding: 14px 30px;
+                              text-decoration: none;
+                              font-weight: bold;
+                              font-size: 1.05em;
+                              letter-spacing: 1px;
+                              display: inline-block;">
+                        SET UP YOUR ACCOUNT
+                    </a>
+                </div>
+            </li>
+            <li>Type your <strong>username</strong>: <strong>{username}</strong></li>
+            <li>Type your <strong>claim token</strong> (the code in the gold box above)</li>
+            <li><strong>Point your phone's camera at the QR code</strong> shown on screen
+                <div style="background-color: #3a3a3a; padding: 10px; margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
+                    In your app, tap the <strong>+</strong> button, then choose <strong>"Scan QR Code"</strong>.
+                    <br>Can't scan? Choose <strong>"Enter Key Manually"</strong> instead and type the code shown on screen.
+                </div>
+            </li>
+            <li><strong>Write down your backup codes</strong> on paper and keep them safe &mdash;
+                these are your emergency codes if you ever lose your phone</li>
+            <li><strong>Type the 6-digit number</strong> from your app to finish!</li>
         </ol>
 
         <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
 
-        <p style="color: #888; font-size: 0.8em; text-align: center;">
-            This is an automated invitation from The Library.
+        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
+            If the button doesn't work, copy this link and paste it into your browser:<br>
+            <a href="{claim_url}" style="color: #daa520; word-break: break-all;">{claim_url}</a>
         </p>
     </div>
 </body>
@@ -3514,26 +3568,40 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
 
 Hello {username},
 
-You've been invited to join The Library - a private audiobook collection!
+You've been invited to The Library - a private audiobook collection!
 
-YOUR CLAIM TOKEN:
+=== YOUR CLAIM TOKEN (WRITE THIS DOWN!) ===
 {claim_token}
+============================================
 
-⚠️ Save this token! You'll need it to complete your account setup.
+Save this token! You'll need it to finish setting up your account.
 
-BEFORE YOU BEGIN:
-The Library uses an authenticator app instead of passwords. Install one if needed:
-- Authy (recommended): https://authy.com/download/
-- Google Authenticator or Microsoft Authenticator from your app store
+(You might want to print this email or write these steps down.)
 
-HOW TO SET UP YOUR ACCOUNT:
-1. Install an authenticator app on your phone
-2. Visit: {claim_url}
-3. Enter your username: {username}
-4. Enter your claim token (shown above)
-5. Scan the QR code with your authenticator app
-6. Save your backup codes somewhere safe
-7. Log in using the 6-digit code from your authenticator!
+STEP 1: INSTALL A FREE APP ON YOUR PHONE
+The Library uses a free app instead of passwords. Pick one (none need your phone number):
+
+- Google Authenticator (recommended):
+  iPhone/iPad: https://apps.apple.com/app/google-authenticator/id388497605
+  Android: https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
+
+- Aegis Authenticator (Android only, open source):
+  Play Store: https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
+  F-Droid: https://f-droid.org/en/packages/com.beemdevelopment.aegis/
+
+- FreeOTP (by Red Hat):
+  iPhone/iPad: https://apps.apple.com/app/freeotp-authenticator/id872559395
+  Android: https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
+
+STEP 2: SET UP YOUR ACCOUNT
+1. Install one of the apps above on your phone
+2. Go to: {claim_url}
+3. Type your username: {username}
+4. Type your claim token (the code above)
+5. Point your phone's camera at the QR code on screen
+   (Can't scan? Choose "Enter Key Manually" and type the code shown on screen.)
+6. Write down your backup codes on paper and keep them safe
+7. Type the 6-digit number from your app to finish!
 """
 
     try:
