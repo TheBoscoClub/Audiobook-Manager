@@ -1,0 +1,107 @@
+/* ============================================
+   About Page - Art Deco Credits & Attributions
+   ============================================ */
+
+/* Attribution list */
+.about-attribution-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.about-attribution-item {
+    background: var(--deco-slate, #1e1e1e);
+    border-left: 3px solid var(--gold, #DAA520);
+    padding: 1rem 1.25rem;
+    transition: border-color 0.3s, background 0.3s;
+}
+
+.about-attribution-item:hover {
+    border-left-color: var(--gold-bright, #FFD700);
+    background: rgba(218, 165, 32, 0.05);
+}
+
+.about-attribution-item h3 {
+    font-family: var(--font-primary, 'Optima', sans-serif);
+    font-size: 1rem;
+    color: var(--gold-bright, #FFD700);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+}
+
+.about-attribution-item p {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--cream, #F5DEB3);
+    margin: 0;
+}
+
+/* Version badge */
+.about-version-badge {
+    display: inline-block;
+    padding: 0.2rem 0.75rem;
+    font-family: var(--font-mono, 'Consolas', monospace);
+    font-size: 0.95rem;
+    color: var(--gold-bright, #FFD700);
+    background: var(--deco-slate, #1e1e1e);
+    border: 1px solid var(--gold-dark, #B8860B);
+    letter-spacing: 1px;
+}
+
+/* Links grid */
+.about-links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.about-link-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1rem;
+    background: var(--deco-slate, #1e1e1e);
+    border: 1px solid var(--gold-dark, #B8860B);
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.about-link-card:hover {
+    border-color: var(--gold-bright, #FFD700);
+    background: rgba(218, 165, 32, 0.08);
+    box-shadow: var(--shadow-gold-glow, 0 0 20px rgba(218, 165, 32, 0.15));
+}
+
+.about-link-icon {
+    font-size: 1.75rem;
+}
+
+.about-link-label {
+    font-family: Georgia, serif;
+    font-size: 0.85rem;
+    color: var(--cream, #F5DEB3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.about-link-card:hover .about-link-label {
+    color: var(--gold-bright, #FFD700);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 480px) {
+    .about-links-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .about-attribution-item {
+        padding: 0.75rem 1rem;
+    }
+}
