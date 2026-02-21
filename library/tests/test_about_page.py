@@ -33,6 +33,11 @@ class TestAboutPage:
         """Version number should be displayed."""
         assert "version" in about_html.lower()
 
+    def test_version_uses_json_parse(self, about_html):
+        """Version fetch must parse JSON response, not raw text."""
+        assert "r.json()" in about_html
+        assert "data.version" in about_html
+
     def test_has_github_link(self, about_html):
         assert "github.com" in about_html
 
