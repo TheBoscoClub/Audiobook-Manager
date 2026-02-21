@@ -385,6 +385,11 @@ class AudiobookLibraryV2 {
             return; // Redirect in progress
         }
 
+        // Initialize new books marquee (auth-only feature)
+        if (typeof initMarquee === 'function') {
+            initMarquee();
+        }
+
         // Load notifications if authenticated
         await this.loadNotifications();
 
