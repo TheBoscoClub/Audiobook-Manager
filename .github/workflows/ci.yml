@@ -42,7 +42,7 @@ jobs:
         files: library/coverage.xml
         flags: unittests
         name: audiobook-manager
-        fail_ci_if_error: false
+        fail_ci_if_error: true
 
   docker-build:
     name: Docker Build Check
