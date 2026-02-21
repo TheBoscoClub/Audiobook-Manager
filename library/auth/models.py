@@ -729,6 +729,18 @@ class DownloadRepository:
             )
             return [UserDownload.from_row(row) for row in cursor.fetchall()]
 
+    def get_user_book_ids(self, user_id: int) -> List[str]:
+        """Get distinct audiobook IDs the user has downloaded."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT DISTINCT audiobook_id FROM user_downloads
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            )
+            return [row[0] for row in cursor.fetchall()]
+
     def has_downloaded(self, user_id: int, audiobook_id: str) -> bool:
         """Check if a user has downloaded a specific audiobook."""
         with self.db.connection() as conn:

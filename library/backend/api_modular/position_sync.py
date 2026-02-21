@@ -21,7 +21,12 @@ from .auth import auth_if_enabled, get_auth_db, get_current_user
 
 # Import auth models for per-user position tracking
 try:
-    from auth import PositionRepository, UserPosition
+    from auth import (
+        ListeningHistoryRepository,
+        PositionRepository,
+        UserListeningHistory,
+        UserPosition,
+    )
 
     POSITION_REPO_AVAILABLE = True
 except ImportError:
@@ -108,6 +113,49 @@ def _save_user_position(user_id: int, audiobook_id: int, position_ms: int) -> bo
         return True
     except RuntimeError:
         return False
+
+
+def _update_listening_history(
+    user_id: int, audiobook_id: int, position_ms: int
+) -> None:
+    """
+    Create or update a listening history entry for the user and audiobook.
+
+    If an open session exists (ended_at IS NULL), update it with the new position.
+    Otherwise, create a new session starting at the current position.
+    """
+    if not POSITION_REPO_AVAILABLE:
+        return
+
+    try:
+        auth_db = get_auth_db()
+        repo = ListeningHistoryRepository(auth_db)
+        audiobook_id_str = str(audiobook_id)
+
+        session = repo.get_open_session(user_id, audiobook_id_str)
+        now = datetime.now()
+
+        if session:
+            # Update existing open session
+            session.ended_at = now
+            session.position_end_ms = position_ms
+            if session.position_start_ms is not None:
+                session.duration_listened_ms = max(
+                    0, position_ms - session.position_start_ms
+                )
+            session.save(auth_db)
+        else:
+            # Create new listening session
+            entry = UserListeningHistory(
+                user_id=user_id,
+                audiobook_id=audiobook_id_str,
+                started_at=now,
+                position_start_ms=position_ms,
+            )
+            entry.save(auth_db)
+    except RuntimeError:
+        # Auth DB not available — skip silently
+        pass
 
 
 # ============================================================
@@ -212,6 +260,8 @@ def update_position(audiobook_id: int):
             if user:
                 if not _save_user_position(user.id, audiobook_id, position_ms):
                     return jsonify({"error": "Failed to save position"}), 500
+                # Create/update listening history entry
+                _update_listening_history(user.id, audiobook_id, position_ms)
             else:
                 return jsonify({"error": "User not found"}), 401
         else:

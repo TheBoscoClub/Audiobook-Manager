@@ -48,6 +48,7 @@ from .editions import (
 )
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
+from .user_state import init_user_state_routes, user_bp
 from .utilities import init_utilities_routes, utilities_bp
 from .auth import (
     auth_bp,
@@ -147,6 +148,7 @@ def create_app(
             auth_key_path=flask_app.config["AUTH_KEY_PATH"],
             is_dev=auth_dev_mode,
         )
+        init_user_state_routes(database_path)
 
     # Register blueprints
     flask_app.register_blueprint(audiobooks_bp)
@@ -160,6 +162,7 @@ def create_app(
     # Register auth blueprint if configured
     if flask_app.config["AUTH_ENABLED"]:
         flask_app.register_blueprint(auth_bp)
+        flask_app.register_blueprint(user_bp)
 
     return flask_app
 
@@ -266,6 +269,7 @@ __all__ = [
     "utilities_bp",
     "position_bp",
     "auth_bp",
+    "user_bp",
     # Auth decorators
     "login_required",
     "admin_required",
