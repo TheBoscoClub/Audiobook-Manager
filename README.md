@@ -1,5 +1,7 @@
 # Audiobook-Manager
 
+[![CI](https://github.com/TheBoscoClub/Audiobook-Manager/actions/workflows/ci.yml/badge.svg)](https://github.com/TheBoscoClub/Audiobook-Manager/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/TheBoscoClub/Audiobook-Manager/graph/badge.svg)](https://codecov.io/gh/TheBoscoClub/Audiobook-Manager) [![CodeFactor](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager/badge)](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager)
+
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 
 ### Version History
