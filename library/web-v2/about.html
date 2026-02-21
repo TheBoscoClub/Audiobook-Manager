@@ -106,8 +106,8 @@
     </div>
 
     <script>
-        fetch('/api/system/version').then(r => r.text()).then(v => {
-            document.getElementById('app-version').textContent = v.trim();
+        fetch('/api/system/version').then(r => r.json()).then(data => {
+            document.getElementById('app-version').textContent = data.version || 'Unknown';
         }).catch(() => {
             document.getElementById('app-version').textContent = 'Unknown';
         });
