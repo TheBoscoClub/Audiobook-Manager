@@ -13,6 +13,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.2.0] - 2026-02-20
+
+### Added
+- **Health**: New unauthenticated `/api/system/health` endpoint for monitoring (returns status, version, database connectivity)
+- **UI**: Help system with 11-section user guide and interactive 11-step spotlight tutorial
+- **Tests**: 50 new tests for health endpoint, proxy headers, help page, tutorial, header layout
+
+### Changed
+- **Security**: FLASK_DEBUG default changed from `true` to `false`
+- **Security**: USE_WAITRESS default changed from `false` to `true` (production-safe)
+- **Security**: Added `Access-Control-Allow-Credentials` header when CORS origin is specific
+- **Security**: Added `@admin_or_localhost` decorator to `/api/system/upgrade/check`
+- **Security**: Added hop-by-hop header filtering in proxy responses
+- **Infrastructure**: systemd service ExecStart wrapper names aligned with installed scripts
+- **Infrastructure**: Dockerfile HEALTHCHECK uses `/api/system/health` instead of data endpoint
+- **Infrastructure**: HTTP redirect port corrected (8081 → 8080 to match audiobook-config.sh)
+- **Quality**: Shell formatting (shfmt) applied to 45 scripts
+- **Quality**: Python formatting (ruff format) applied to all backend code
+- **Quality**: YAML lint fixes in CI workflows
+
+### Fixed
+- **UI**: Back Office button no longer visible to non-admin users (CSS `display:flex` was overriding `hidden` attribute)
+- **UI**: Header restructured with balanced left/right navigation
+- **Database**: Added `try/finally` to `get_hash_stats` and `get_duplicates` for connection cleanup
+- **Paths**: Eliminated remaining hardcoded `/hddRaid1/Audiobooks` paths in duplicates.py, hashing.py, and scripts
+- **Docker**: docker-compose.yml image name corrected (`audiobook-toolkit` → `audiobook-manager`)
+- **Docker**: Added comprehensive `.dockerignore` entries for dev artifacts
+- **Docs**: Added `/api/system/health` to README API table and ARCHITECTURE health checks
+- **Docs**: Updated AUTH_RUNBOOK health check script to use `/api/system/health`
+- **Branding**: Corrected `greogory` → `TheBoscoClub` in Dockerfile and systemd targets
+
 ## [6.1.3] - 2026-02-19
 
 ### Fixed
