@@ -27,9 +27,15 @@ VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --apply) DRY_RUN=false; shift ;;
-        --verbose|-v) VERBOSE=true; shift ;;
-        *) shift ;;
+    --apply)
+        DRY_RUN=false
+        shift
+        ;;
+    --verbose | -v)
+        VERBOSE=true
+        shift
+        ;;
+    *) shift ;;
     esac
 done
 

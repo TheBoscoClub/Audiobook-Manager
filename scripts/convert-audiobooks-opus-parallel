@@ -150,22 +150,22 @@ convert_file() {
         # Simple ffmpeg conversion: MP3 → Opus (no DRM, just transcode)
         local OUTPUT_FILE="$PODCAST_DIR/${BASENAME}.opus"
         if ionice -c2 -n0 ffmpeg -y -loglevel error -stats \
-               -i "$SOURCE_FILE" \
-               -vn -codec:a libopus -b:a 48k -vbr on -compression_level "$OPUS_LEVEL" \
-               "$OUTPUT_FILE" > "$LOG_FILE" 2>&1; then
+            -i "$SOURCE_FILE" \
+            -vn -codec:a libopus -b:a 48k -vbr on -compression_level "$OPUS_LEVEL" \
+            "$OUTPUT_FILE" >"$LOG_FILE" 2>&1; then
             # Success - handled in the common success path below
             :
         else
             echo -e "${RED}✗ FAIL${NC}: $BASENAME (ffmpeg error - see log)"
             return 1
         fi
-    elif cd "$CONVERTER_DIR" && \
-       ionice -c2 -n0 bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
-           --use-audible-cli-data \
-           --target_dir "$OUTPUT_DIR" \
-           -D '$artist/$title' \
-           --loglevel 0 \
-           "$SOURCE_FILE" > "$LOG_FILE" 2>&1; then
+    elif cd "$CONVERTER_DIR" &&
+        ionice -c2 -n0 bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
+            --use-audible-cli-data \
+            --target_dir "$OUTPUT_DIR" \
+            -D '$artist/$title' \
+            --loglevel 0 \
+            "$SOURCE_FILE" >"$LOG_FILE" 2>&1; then
 
         # Find newly created opus file (AAXtoMP3 renames to actual book title)
         # Look for .opus files created after conversion started, excluding cover files
@@ -182,7 +182,7 @@ convert_file() {
                 local SOURCE_SIZE=$(stat -c%s "$AAXC_FILE" 2>/dev/null || echo "0")
                 if [ "$SOURCE_SIZE" -lt 102400 ]; then
                     echo -e "${RED}  Source file also corrupted (${SOURCE_SIZE} bytes)${NC}"
-                    echo "[$(date '+%Y-%m-%d %H:%M:%S')] CORRUPTED SOURCE: $AAXC_FILE (${SOURCE_SIZE} bytes)" >> "$LOG_DIR/corrupted_sources.log"
+                    echo "[$(date '+%Y-%m-%d %H:%M:%S')] CORRUPTED SOURCE: $AAXC_FILE (${SOURCE_SIZE} bytes)" >>"$LOG_DIR/corrupted_sources.log"
                 fi
                 return 1
             fi
@@ -230,7 +230,7 @@ while true; do
     # Use queue file instead of finding all sources
     # Queue contains only files that need conversion (sources - already converted)
     # This is authoritative: queue builder does normalized title matching correctly
-    QUEUE_FILE="${AUDIOBOOKS_DATA:-/hddRaid1/Audiobooks}/.index/queue.txt"
+    QUEUE_FILE="${AUDIOBOOKS_DATA:-/srv/audiobooks}/.index/queue.txt"
     QUEUE_BUILDER="${AUDIOBOOKS_HOME:-/opt/audiobooks}/scripts/build-conversion-queue"
 
     # Rebuild queue if missing OR if new source files appeared since last rebuild

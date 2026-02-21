@@ -18,20 +18,20 @@ echo ""
 # Check for required tools
 echo "Checking dependencies..."
 
-if ! command -v python3 &> /dev/null; then
+if ! command -v python3 &>/dev/null; then
     echo "Error: Python 3 is not installed"
     exit 1
 fi
 echo "Python 3 found"
 
-if ! command -v ffprobe &> /dev/null; then
+if ! command -v ffprobe &>/dev/null; then
     echo "Error: ffprobe is not installed"
     echo "   Install with: sudo pacman -S ffmpeg"
     exit 1
 fi
 echo "ffprobe found"
 
-if ! command -v ffmpeg &> /dev/null; then
+if ! command -v ffmpeg &>/dev/null; then
     echo "Warning: ffmpeg not found - cover art extraction will fail"
     echo "   Install with: sudo pacman -S ffmpeg"
 else
@@ -76,13 +76,19 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
     echo "Starting scan..."
     echo "========================================="
-    cd "$SCRIPT_DIR/scanner" || { echo "Error: Failed to cd to scanner directory"; exit 1; }
+    cd "$SCRIPT_DIR/scanner" || {
+        echo "Error: Failed to cd to scanner directory"
+        exit 1
+    }
     python3 scan_audiobooks.py
 
     if [ $? -eq 0 ]; then
         echo ""
         echo "Importing to database..."
-        cd "$SCRIPT_DIR/backend" || { echo "Error: Failed to cd to backend directory"; exit 1; }
+        cd "$SCRIPT_DIR/backend" || {
+            echo "Error: Failed to cd to backend directory"
+            exit 1
+        }
         python3 import_to_db.py
 
         echo ""

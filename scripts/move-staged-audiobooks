@@ -56,10 +56,10 @@ generate_library_checksum() {
             flock -x 201
             # Remove existing entry for this file (if any) to prevent duplicates
             if [ -f "$index_file" ]; then
-                grep -v "|${filepath}$" "$index_file" > "${index_file}.tmp" 2>/dev/null || true
+                grep -v "|${filepath}$" "$index_file" >"${index_file}.tmp" 2>/dev/null || true
                 mv "${index_file}.tmp" "$index_file"
             fi
-            echo "${checksum}|${filepath}" >> "$index_file"
+            echo "${checksum}|${filepath}" >>"$index_file"
         ) 201>"${index_file}.lock"
     fi
 }
@@ -96,7 +96,7 @@ while true; do
                             rm -f "$FILE"
                             ((CORRUPTED_COUNT++))
                         fi
-                    done <<< "$OPUS_FILES"
+                    done <<<"$OPUS_FILES"
 
                     # Recount valid files after removing corrupted ones
                     OPUS_FILES=$(find "$DIR" -name "*.opus" -type f -mmin +1 -size +100k 2>/dev/null)
@@ -153,7 +153,7 @@ while true; do
                         log "${YELLOW}⚠ Failed:${NC} $DIR_NAME (will retry)"
                     fi
                 fi
-            done <<< "$DIRS_TO_MOVE"
+            done <<<"$DIRS_TO_MOVE"
 
             if [ $MOVED_COUNT -gt 0 ]; then
                 log "Batch complete: Moved $MOVED_COUNT directories"

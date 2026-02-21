@@ -44,7 +44,7 @@ cleanup() {
     if [ -n "$DBUS_REF" ]; then
         qdbus $DBUS_REF close 2>/dev/null
     fi
-    tput cnorm  # Restore cursor
+    tput cnorm # Restore cursor
     echo ""
     exit 0
 }
@@ -109,7 +109,7 @@ draw_progress_bar() {
     printf "%${EMPTY}s" | tr ' ' '░'
 }
 
-tput civis  # Hide cursor
+tput civis # Hide cursor
 clear
 
 while true; do

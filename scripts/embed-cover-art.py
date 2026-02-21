@@ -29,9 +29,9 @@ except ImportError:
     sys.exit(1)
 
 # Configuration from environment with defaults
-LIBRARY_DIR = os.environ.get('AUDIOBOOKS_LIBRARY', '/srv/audiobooks/Library')
-LOG_DIR = os.environ.get('AUDIOBOOKS_LOGS', '/var/log/audiobooks')
-LOG_FILE = os.path.join(LOG_DIR, 'embed_cover_art.log')
+LIBRARY_DIR = os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")
+LOG_DIR = os.environ.get("AUDIOBOOKS_LOGS", "/var/log/audiobooks")
+LOG_FILE = os.path.join(LOG_DIR, "embed_cover_art.log")
 
 
 def find_cover_image(opus_path: Path) -> Optional[Path]:
@@ -40,20 +40,20 @@ def find_cover_image(opus_path: Path) -> Optional[Path]:
     opus_stem = opus_path.stem
 
     # Try exact match first (same name as opus file)
-    for ext in ['.jpg', '.jpeg', '.png']:
+    for ext in [".jpg", ".jpeg", ".png"]:
         cover_path = directory / f"{opus_stem}{ext}"
         if cover_path.exists():
             return cover_path
 
     # Try common cover names
-    for name in ['cover', 'Cover', 'folder', 'Folder']:
-        for ext in ['.jpg', '.jpeg', '.png']:
+    for name in ["cover", "Cover", "folder", "Folder"]:
+        for ext in [".jpg", ".jpeg", ".png"]:
             cover_path = directory / f"{name}{ext}"
             if cover_path.exists():
                 return cover_path
 
     # Find any image file in directory
-    for ext in ['*.jpg', '*.jpeg', '*.png']:
+    for ext in ["*.jpg", "*.jpeg", "*.png"]:
         images = list(directory.glob(ext))
         if images:
             return images[0]
@@ -65,7 +65,7 @@ def has_embedded_cover(opus_path: Path) -> bool:
     """Check if opus file already has embedded cover art."""
     try:
         audio = OggOpus(str(opus_path))
-        return 'metadata_block_picture' in (audio.tags or {})
+        return "metadata_block_picture" in (audio.tags or {})
     except Exception:
         return False
 
@@ -73,15 +73,17 @@ def has_embedded_cover(opus_path: Path) -> bool:
 def get_mime_type(cover_path: Path) -> str:
     """Determine MIME type from file extension."""
     ext = cover_path.suffix.lower()
-    if ext in ['.jpg', '.jpeg']:
-        return 'image/jpeg'
-    elif ext == '.png':
-        return 'image/png'
+    if ext in [".jpg", ".jpeg"]:
+        return "image/jpeg"
+    elif ext == ".png":
+        return "image/png"
     else:
-        return 'image/jpeg'  # Default to JPEG
+        return "image/jpeg"  # Default to JPEG
 
 
-def embed_cover(opus_path: Path, cover_path: Path, dry_run: bool = False) -> Tuple[bool, str]:
+def embed_cover(
+    opus_path: Path, cover_path: Path, dry_run: bool = False
+) -> Tuple[bool, str]:
     """
     Embed cover art into opus file using mutagen.
 
@@ -99,18 +101,18 @@ def embed_cover(opus_path: Path, cover_path: Path, dry_run: bool = False) -> Tup
         picture = Picture()
         picture.type = 3  # Front cover
         picture.mime = get_mime_type(cover_path)
-        picture.desc = 'Front cover'
+        picture.desc = "Front cover"
 
         # Read image data
-        with open(cover_path, 'rb') as f:
+        with open(cover_path, "rb") as f:
             picture.data = f.read()
 
         # Encode to base64 for Vorbis comment
         picture_data = picture.write()
-        encoded_data = base64.b64encode(picture_data).decode('ascii')
+        encoded_data = base64.b64encode(picture_data).decode("ascii")
 
         # Add to tags
-        audio['metadata_block_picture'] = [encoded_data]
+        audio["metadata_block_picture"] = [encoded_data]
         audio.save()
 
         return True, f"Embedded {cover_path.name} ({len(picture.data)} bytes)"
@@ -136,11 +138,32 @@ def process_file(opus_path: Path, dry_run: bool = False) -> Tuple[str, bool, str
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Embed cover art into Opus audiobook files')
-    parser.add_argument('--dry-run', action='store_true', help='Show what would be done without making changes')
-    parser.add_argument('--parallel', type=int, default=8, help='Number of parallel workers (default: 8)')
-    parser.add_argument('--limit', type=int, default=0, help='Limit number of files to process (0 = no limit)')
-    parser.add_argument('--dir', type=str, default=LIBRARY_DIR, help=f'Directory to process (default: {LIBRARY_DIR})')
+    parser = argparse.ArgumentParser(
+        description="Embed cover art into Opus audiobook files"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
+    parser.add_argument(
+        "--parallel",
+        type=int,
+        default=8,
+        help="Number of parallel workers (default: 8)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Limit number of files to process (0 = no limit)",
+    )
+    parser.add_argument(
+        "--dir",
+        type=str,
+        default=LIBRARY_DIR,
+        help=f"Directory to process (default: {LIBRARY_DIR})",
+    )
     args = parser.parse_args()
 
     library_dir = Path(args.dir)
@@ -150,10 +173,10 @@ def main():
 
     # Find all opus files
     print(f"Scanning {library_dir} for opus files...")
-    opus_files = list(library_dir.rglob('*.opus'))
+    opus_files = list(library_dir.rglob("*.opus"))
 
     if args.limit > 0:
-        opus_files = opus_files[:args.limit]
+        opus_files = opus_files[: args.limit]
 
     total = len(opus_files)
     print(f"Found {total} opus files")
@@ -227,16 +250,19 @@ def main():
     log_dir = Path(LOG_DIR)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(LOG_FILE, 'a') as f:
+    with open(LOG_FILE, "a") as f:
         from datetime import datetime
+
         f.write(f"\n{'=' * 60}\n")
         f.write(f"Run: {datetime.now().isoformat()}\n")
-        f.write(f"Total: {total}, Embedded: {success_count}, Skipped: {skip_count}, Failed: {fail_count}\n")
+        f.write(
+            f"Total: {total}, Embedded: {success_count}, Skipped: {skip_count}, Failed: {fail_count}\n"
+        )
         if failed_files:
             f.write("Failed files:\n")
             for path, message in failed_files:
                 f.write(f"  {path}: {message}\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

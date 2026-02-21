@@ -101,7 +101,7 @@ EXPOSE 5001 8443 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:5001/api/audiobooks?limit=1 || exit 1
+    CMD curl -f http://localhost:5001/api/system/health || exit 1
 
 # Create non-root user for security
 RUN groupadd --gid 1000 audiobooks && \

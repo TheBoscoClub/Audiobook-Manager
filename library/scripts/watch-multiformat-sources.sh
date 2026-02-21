@@ -100,10 +100,10 @@ notify() {
 get_source_type() {
     local dir="$1"
     case "$dir" in
-        *GooglePlay*) echo "google_play" ;;
-        *Chirp*) echo "chirp" ;;
-        *Librivox*) echo "librivox" ;;
-        *) echo "other" ;;
+    *GooglePlay*) echo "google_play" ;;
+    *Chirp*) echo "chirp" ;;
+    *Librivox*) echo "librivox" ;;
+    *) echo "other" ;;
     esac
 }
 
@@ -126,7 +126,7 @@ process_zip() {
         --output-dir "$OUTPUT_DIR" \
         --import-db \
         --execute \
-        >> "$LOG_DIR/multiformat-converter.log" 2>&1; then
+        >>"$LOG_DIR/multiformat-converter.log" 2>&1; then
 
         log "SUCCESS: $basename converted and imported"
         notify "Audiobook Ready" "$basename" "emblem-ok-symbolic"
@@ -178,7 +178,7 @@ process_mp3_directory() {
         --output-dir "$OUTPUT_DIR" \
         --import-db \
         --execute \
-        >> "$LOG_DIR/multiformat-converter.log" 2>&1; then
+        >>"$LOG_DIR/multiformat-converter.log" 2>&1; then
 
         log "SUCCESS: $dirname converted and imported"
         notify "Audiobook Ready" "$dirname" "emblem-ok-symbolic"
@@ -225,7 +225,7 @@ process_single_mp3() {
         --output-dir "$OUTPUT_DIR" \
         --import-db \
         --execute \
-        >> "$LOG_DIR/multiformat-converter.log" 2>&1; then
+        >>"$LOG_DIR/multiformat-converter.log" 2>&1; then
 
         log "SUCCESS: $basename converted"
         notify "Audiobook Ready" "$basename" "emblem-ok-symbolic"
@@ -350,7 +350,7 @@ main() {
     log ""
 
     # Create lock file
-    echo $$ > "$PROCESSING_LOCK"
+    echo $$ >"$PROCESSING_LOCK"
     trap 'rm -f "$PROCESSING_LOCK"' EXIT
 
     while true; do

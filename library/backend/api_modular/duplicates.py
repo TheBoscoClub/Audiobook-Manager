@@ -63,9 +63,7 @@ def remove_from_indexes(filepath: Path) -> dict:
 
     Returns dict with counts of entries removed from each index.
     """
-    index_dir = (
-        Path(os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks")) / ".index"
-    )
+    index_dir = Path(os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")) / ".index"
     filepath_str = str(filepath)
 
     removed = {}
@@ -109,138 +107,144 @@ def init_duplicates_routes(db_path):
     def get_hash_stats() -> Response:
         """Get hash generation statistics"""
         conn = get_db(db_path)
-        cursor = conn.cursor()
+        try:
+            cursor = conn.cursor()
 
-        # Check if sha256_hash column exists
-        cursor.execute("PRAGMA table_info(audiobooks)")
-        columns = [row["name"] for row in cursor.fetchall()]
+            # Check if sha256_hash column exists
+            cursor.execute("PRAGMA table_info(audiobooks)")
+            columns = [row["name"] for row in cursor.fetchall()]
 
-        if "sha256_hash" not in columns:
-            conn.close()
+            if "sha256_hash" not in columns:
+                return jsonify(
+                    {
+                        "hash_column_exists": False,
+                        "total_audiobooks": 0,
+                        "hashed_count": 0,
+                        "unhashed_count": 0,
+                        "duplicate_groups": 0,
+                    }
+                )
+
+            cursor.execute("SELECT COUNT(*) as total FROM audiobooks")
+            total = cursor.fetchone()["total"]
+
+            cursor.execute(
+                "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash IS NOT NULL"
+            )
+            hashed = cursor.fetchone()["count"]
+
+            cursor.execute(
+                """
+                SELECT COUNT(*) as count FROM (
+                    SELECT sha256_hash FROM audiobooks
+                    WHERE sha256_hash IS NOT NULL
+                    GROUP BY sha256_hash
+                    HAVING COUNT(*) > 1
+                )
+            """
+            )
+            duplicate_groups = cursor.fetchone()["count"]
+
             return jsonify(
                 {
-                    "hash_column_exists": False,
-                    "total_audiobooks": 0,
-                    "hashed_count": 0,
-                    "unhashed_count": 0,
-                    "duplicate_groups": 0,
+                    "hash_column_exists": True,
+                    "total_audiobooks": total,
+                    "hashed_count": hashed,
+                    "unhashed_count": total - hashed,
+                    "hashed_percentage": (
+                        round(hashed * 100 / total, 1) if total > 0 else 0
+                    ),
+                    "duplicate_groups": duplicate_groups,
                 }
             )
-
-        cursor.execute("SELECT COUNT(*) as total FROM audiobooks")
-        total = cursor.fetchone()["total"]
-
-        cursor.execute(
-            "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash IS NOT NULL"
-        )
-        hashed = cursor.fetchone()["count"]
-
-        cursor.execute(
-            """
-            SELECT COUNT(*) as count FROM (
-                SELECT sha256_hash FROM audiobooks
-                WHERE sha256_hash IS NOT NULL
-                GROUP BY sha256_hash
-                HAVING COUNT(*) > 1
-            )
-        """
-        )
-        duplicate_groups = cursor.fetchone()["count"]
-
-        conn.close()
-
-        return jsonify(
-            {
-                "hash_column_exists": True,
-                "total_audiobooks": total,
-                "hashed_count": hashed,
-                "unhashed_count": total - hashed,
-                "hashed_percentage": round(hashed * 100 / total, 1) if total > 0 else 0,
-                "duplicate_groups": duplicate_groups,
-            }
-        )
+        finally:
+            conn.close()
 
     @duplicates_bp.route("/api/duplicates", methods=["GET"])
     @auth_if_enabled
     def get_duplicates() -> FlaskResponse:
         """Get all duplicate audiobook groups"""
         conn = get_db(db_path)
-        cursor = conn.cursor()
+        try:
+            cursor = conn.cursor()
 
-        # Check if sha256_hash column exists
-        cursor.execute("PRAGMA table_info(audiobooks)")
-        columns = [row["name"] for row in cursor.fetchall()]
+            # Check if sha256_hash column exists
+            cursor.execute("PRAGMA table_info(audiobooks)")
+            columns = [row["name"] for row in cursor.fetchall()]
 
-        if "sha256_hash" not in columns:
-            conn.close()
-            return (
-                jsonify({"error": "Hash column not found. Run hash generation first."}),
-                400,
-            )
+            if "sha256_hash" not in columns:
+                return (
+                    jsonify(
+                        {"error": "Hash column not found. Run hash generation first."}
+                    ),
+                    400,
+                )
 
-        # Get all duplicate groups
-        cursor.execute(
-            """
-            SELECT sha256_hash, COUNT(*) as count
-            FROM audiobooks
-            WHERE sha256_hash IS NOT NULL
-            GROUP BY sha256_hash
-            HAVING count > 1
-            ORDER BY count DESC
-        """
-        )
-        groups = cursor.fetchall()
-
-        duplicate_groups = []
-        total_wasted_space = 0
-
-        for group in groups:
-            hash_val = group["sha256_hash"]
-            count = group["count"]
-
-            # Get all files in this group
+            # Get all duplicate groups
             cursor.execute(
                 """
-                SELECT id, title, author, narrator, file_path, file_size_mb,
-                       format, duration_formatted, cover_path
+                SELECT sha256_hash, COUNT(*) as count
                 FROM audiobooks
-                WHERE sha256_hash = ?
-                ORDER BY id ASC
-            """,
-                (hash_val,),
+                WHERE sha256_hash IS NOT NULL
+                GROUP BY sha256_hash
+                HAVING count > 1
+                ORDER BY count DESC
+            """
             )
+            groups = cursor.fetchall()
 
-            files = [dict(row) for row in cursor.fetchall()]
+            duplicate_groups = []
+            total_wasted_space = 0
 
-            # First file (by ID) is the "keeper"
-            for i, f in enumerate(files):
-                f["is_keeper"] = i == 0
-                f["is_duplicate"] = i > 0
+            for group in groups:
+                hash_val = group["sha256_hash"]
+                count = group["count"]
 
-            file_size = files[0]["file_size_mb"] if files else 0
-            wasted = file_size * (count - 1)
-            total_wasted_space += wasted
+                # Get all files in this group
+                cursor.execute(
+                    """
+                    SELECT id, title, author, narrator, file_path, file_size_mb,
+                           format, duration_formatted, cover_path
+                    FROM audiobooks
+                    WHERE sha256_hash = ?
+                    ORDER BY id ASC
+                """,
+                    (hash_val,),
+                )
 
-            duplicate_groups.append(
+                files = [dict(row) for row in cursor.fetchall()]
+
+                # First file (by ID) is the "keeper"
+                for i, f in enumerate(files):
+                    f["is_keeper"] = i == 0
+                    f["is_duplicate"] = i > 0
+
+                file_size = files[0]["file_size_mb"] if files else 0
+                wasted = file_size * (count - 1)
+                total_wasted_space += wasted
+
+                duplicate_groups.append(
+                    {
+                        "hash": hash_val,
+                        "count": count,
+                        "file_size_mb": file_size,
+                        "wasted_mb": round(wasted, 2),
+                        "files": files,
+                    }
+                )
+
+            return jsonify(
                 {
-                    "hash": hash_val,
-                    "count": count,
-                    "file_size_mb": file_size,
-                    "wasted_mb": round(wasted, 2),
-                    "files": files,
+                    "duplicate_groups": duplicate_groups,
+                    "total_groups": len(duplicate_groups),
+                    "total_wasted_mb": round(total_wasted_space, 2),
+                    "total_duplicate_files": sum(
+                        g["count"] - 1 for g in duplicate_groups
+                    ),
                 }
             )
-
-        conn.close()
-
-        return jsonify(
-            {
-                "duplicate_groups": duplicate_groups,
-                "total_groups": len(duplicate_groups),
-                "total_wasted_mb": round(total_wasted_space, 2),
-                "total_duplicate_files": sum(g["count"] - 1 for g in duplicate_groups),
-            }
-        )
+        finally:
+            conn.close()
 
     @duplicates_bp.route("/api/duplicates/by-title", methods=["GET"])
     @auth_if_enabled
@@ -557,9 +561,7 @@ def init_duplicates_routes(db_path):
         import os
 
         check_type = request.args.get("type", "both")
-        index_dir = (
-            os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks") + "/.index"
-        )
+        index_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks") + "/.index"
 
         result: dict[str, Any] = {
             "sources": None,
@@ -705,11 +707,9 @@ def init_duplicates_routes(db_path):
         data = request.get_json() or {}
         check_type = data.get("type", "both")
 
-        index_dir = (
-            os.environ.get("AUDIOBOOKS_DATA", "/hddRaid1/Audiobooks") + "/.index"
-        )
-        sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/hddRaid1/Audiobooks/Sources")  # fmt: skip
-        library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/hddRaid1/Audiobooks/Library")  # fmt: skip
+        index_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks") + "/.index"
+        sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources")  # fmt: skip
+        library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")  # fmt: skip
 
         results = {}
 
@@ -776,10 +776,10 @@ def init_duplicates_routes(db_path):
 
         # Get allowed directories from environment for path safety validation
         library_dir = Path(
-            os.environ.get("AUDIOBOOKS_LIBRARY", "/hddRaid1/Audiobooks/Library")
+            os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")
         )
         sources_dir = Path(
-            os.environ.get("AUDIOBOOKS_SOURCES", "/hddRaid1/Audiobooks/Sources")
+            os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources")
         )
 
         # Determine which directories are allowed based on file type

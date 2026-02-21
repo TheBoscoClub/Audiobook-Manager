@@ -104,7 +104,7 @@ fi
 echo -e "${BLUE}Checking dependencies...${NC}"
 
 # Check Caddy
-if ! command -v caddy &> /dev/null; then
+if ! command -v caddy &>/dev/null; then
     echo -e "${RED}Error: Caddy not installed${NC}"
     echo "Install with: sudo pacman -S caddy"
     exit 1
@@ -187,14 +187,14 @@ export AUDIOBOOKS_DATABASE="$PROJECT_DIR/library/backend/audiobooks-dev.db"
 export AUDIOBOOKS_API_PORT="$API_PORT"
 export AUDIOBOOKS_BIND_ADDRESS="127.0.0.1"
 
-python api_server.py > /tmp/audiobooks-dev-api.log 2>&1 &
+python api_server.py >/tmp/audiobooks-dev-api.log 2>&1 &
 API_PID=$!
-echo $API_PID > "$API_PID_FILE"
+echo $API_PID >"$API_PID_FILE"
 
 # Wait for API to be ready
 echo -n "  Waiting for API"
 for i in {1..15}; do
-    if curl -s "http://localhost:$API_PORT/health" > /dev/null 2>&1; then
+    if curl -s "http://localhost:$API_PORT/health" >/dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
         break
     fi
@@ -215,9 +215,9 @@ echo ""
 echo -e "${GREEN}Starting Caddy on port $WEB_PORT...${NC}"
 cd "$PROJECT_DIR"
 
-caddy run --config "$PROJECT_DIR/dev/Caddyfile" --adapter caddyfile > /tmp/audiobooks-dev-caddy.log 2>&1 &
+caddy run --config "$PROJECT_DIR/dev/Caddyfile" --adapter caddyfile >/tmp/audiobooks-dev-caddy.log 2>&1 &
 CADDY_PID=$!
-echo $CADDY_PID > "$CADDY_PID_FILE"
+echo $CADDY_PID >"$CADDY_PID_FILE"
 
 # Wait for Caddy to be ready
 sleep 2
@@ -256,8 +256,8 @@ echo ""
 # Open browser (optional)
 if [ "$1" != "--no-browser" ]; then
     sleep 1
-    if command -v xdg-open &> /dev/null; then
-        xdg-open "https://localhost:$WEB_PORT" &> /dev/null &
+    if command -v xdg-open &>/dev/null; then
+        xdg-open "https://localhost:$WEB_PORT" &>/dev/null &
     fi
 fi
 

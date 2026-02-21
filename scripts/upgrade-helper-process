@@ -73,7 +73,7 @@ write_status() {
     output_json+="]"
 
     # Use echo with explicit file write (more reliable than heredoc in some environments)
-    echo "{\"running\": $running, \"stage\": \"$stage\", \"message\": \"$message\", \"success\": $success, \"output\": $output_json, \"result\": $result}" > "$STATUS_FILE"
+    echo "{\"running\": $running, \"stage\": \"$stage\", \"message\": \"$message\", \"success\": $success, \"output\": $output_json, \"result\": $result}" >"$STATUS_FILE"
     # Make status file writable by audiobooks user (API needs to delete it before new requests)
     chmod 666 "$STATUS_FILE" 2>/dev/null || true
 }
@@ -295,7 +295,7 @@ do_upgrade_check() {
         local clean_line
         clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
         [[ -n "$clean_line" ]] && OUTPUT_LINES+=("$clean_line")
-    done <<< "$check_output"
+    done <<<"$check_output"
 
     # Determine if upgrade is available from output
     local upgrade_available="false"
@@ -418,7 +418,7 @@ do_upgrade() {
         local clean_line
         clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
         [[ -n "$clean_line" ]] && OUTPUT_LINES+=("$clean_line")
-    done <<< "$upgrade_output"
+    done <<<"$upgrade_output"
 
     if [[ $upgrade_exit -ne 0 ]]; then
         OUTPUT_LINES+=("Upgrade script exited with code: $upgrade_exit")
@@ -437,7 +437,7 @@ do_upgrade() {
     # Stage 3: Start services back up
     write_status "true" "starting_services" "Starting services..." "null" "null" "${OUTPUT_LINES[@]}"
 
-    for ((i=${#services_to_stop[@]}-1; i>=0; i--)); do
+    for ((i = ${#services_to_stop[@]} - 1; i >= 0; i--)); do
         local service="${services_to_stop[i]}"
         if systemctl start "$service" 2>/dev/null; then
             OUTPUT_LINES+=("Started $service")
@@ -485,48 +485,48 @@ REQUEST_TYPE=$(get_json_field "$REQUEST" "type")
 [[ -z "$REQUEST_TYPE" ]] && REQUEST_TYPE="upgrade"
 
 case "$REQUEST_TYPE" in
-    upgrade)
-        SOURCE=$(get_json_field "$REQUEST" "source")
-        PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
-        [[ -z "$SOURCE" ]] && SOURCE="github"
-        do_upgrade "$SOURCE" "$PROJECT_PATH"
-        ;;
+upgrade)
+    SOURCE=$(get_json_field "$REQUEST" "source")
+    PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
+    [[ -z "$SOURCE" ]] && SOURCE="github"
+    do_upgrade "$SOURCE" "$PROJECT_PATH"
+    ;;
 
-    upgrade_check)
-        SOURCE=$(get_json_field "$REQUEST" "source")
-        PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
-        [[ -z "$SOURCE" ]] && SOURCE="github"
-        do_upgrade_check "$SOURCE" "$PROJECT_PATH"
-        ;;
+upgrade_check)
+    SOURCE=$(get_json_field "$REQUEST" "source")
+    PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
+    [[ -z "$SOURCE" ]] && SOURCE="github"
+    do_upgrade_check "$SOURCE" "$PROJECT_PATH"
+    ;;
 
-    service_start)
-        SERVICE=$(get_json_field "$REQUEST" "service")
-        do_service_start "$SERVICE"
-        ;;
+service_start)
+    SERVICE=$(get_json_field "$REQUEST" "service")
+    do_service_start "$SERVICE"
+    ;;
 
-    service_stop)
-        SERVICE=$(get_json_field "$REQUEST" "service")
-        do_service_stop "$SERVICE"
-        ;;
+service_stop)
+    SERVICE=$(get_json_field "$REQUEST" "service")
+    do_service_stop "$SERVICE"
+    ;;
 
-    service_restart)
-        SERVICE=$(get_json_field "$REQUEST" "service")
-        do_service_restart "$SERVICE"
-        ;;
+service_restart)
+    SERVICE=$(get_json_field "$REQUEST" "service")
+    do_service_restart "$SERVICE"
+    ;;
 
-    services_start_all)
-        do_services_start_all
-        ;;
+services_start_all)
+    do_services_start_all
+    ;;
 
-    services_stop_all)
-        INCLUDE_API=$(get_json_bool "$REQUEST" "include_api")
-        do_services_stop_all "$INCLUDE_API"
-        ;;
+services_stop_all)
+    INCLUDE_API=$(get_json_bool "$REQUEST" "include_api")
+    do_services_stop_all "$INCLUDE_API"
+    ;;
 
-    *)
-        write_status "false" "error" "Unknown request type: $REQUEST_TYPE" "false" "null"
-        exit 1
-        ;;
+*)
+    write_status "false" "error" "Unknown request type: $REQUEST_TYPE" "false" "null"
+    exit 1
+    ;;
 esac
 
 exit 0
