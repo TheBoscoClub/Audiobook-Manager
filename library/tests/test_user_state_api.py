@@ -255,6 +255,21 @@ class TestUserLibrary:
         assert "title" in book
         assert "author" in book
 
+    def test_library_includes_timestamps(self, client, user_state_seeded):
+        """Library response should include last_listened_at and downloaded_at timestamps."""
+        _login(client, user_state_seeded, user_state_seeded.test_user_secret)
+        resp = client.get("/api/user/library")
+        data = resp.get_json()
+        # All books should have timestamp fields (even if None)
+        for book in data["books"]:
+            assert "last_listened_at" in book
+            assert "downloaded_at" in book
+        # Book 1 has both history and download — both timestamps should be set
+        book1 = next((b for b in data["books"] if b["id"] == 1), None)
+        if book1:
+            assert book1["last_listened_at"] is not None
+            assert book1["downloaded_at"] is not None
+
 
 # ============================================================
 # New Books tests
