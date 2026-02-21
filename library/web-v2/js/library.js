@@ -250,16 +250,62 @@ class AudiobookLibraryV2 {
 
     /**
      * Download an audiobook for offline listening.
-     * Triggers file download via the API.
+     * Fetches the file as a blob, triggers the browser download, then
+     * records the completed download via the user-state API so it
+     * appears in the user's download history.
+     *
+     * Failed or cancelled downloads are intentionally NOT recorded.
      */
-    downloadAudiobook(bookId) {
-        // Create a temporary link and trigger download
-        const link = document.createElement('a');
-        link.href = `${API_BASE}/download/${bookId}`;
-        link.download = ''; // Let server set filename
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    async downloadAudiobook(bookId) {
+        const downloadBtn = document.querySelector(
+            `[onclick*="downloadAudiobook(${bookId})"]`
+        );
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = 'Downloading...';
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/download/${bookId}`, {
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `audiobook-${bookId}.opus`;
+            if (contentDisposition) {
+                const match = contentDisposition.match(
+                    /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+                );
+                if (match) filename = match[1].replace(/['"]/g, '');
+            }
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Record successful download completion
+            await fetch(`${API_BASE}/user/downloads/${bookId}/complete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ file_format: 'opus' })
+            });
+        } catch (error) {
+            console.error('Download error:', error);
+            // Failed/cancelled downloads not recorded — by design
+        } finally {
+            if (downloadBtn) {
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = '\u2B07 Download';
+            }
+        }
     }
 
     /**
