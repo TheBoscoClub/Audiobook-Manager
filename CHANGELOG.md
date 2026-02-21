@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [6.3.0] - 2026-02-21
+
+### Added
 - **Per-User State**: New auth database tables for listening history, download tracking, and user preferences (migration `004_per_user_state.sql`)
 - **API**: New `/api/user/history` endpoint — per-user listening history with pagination and date filters
 - **API**: New `/api/user/downloads` endpoint — per-user download history with pagination
