@@ -103,6 +103,10 @@ Web-based audiobook library browser with:
 - **Multi-user authentication** with TOTP, Passkey, and FIDO2 support (v5.0+)
 - **Admin approval flow** for new user registration with secure claim tokens
 - **Per-user playback positions** with encrypted auth database (SQLCipher)
+- **My Library tab** with progress bars, listening history, and download tracking (v7.0+)
+- **New books marquee** highlighting recently added audiobooks (v7.0+)
+- **Admin activity audit** with filterable log and usage statistics (v7.0+)
+- **Genre management** with bulk add/remove in Back Office (v7.0+)
 
 ## Quick Start
 
@@ -557,9 +561,11 @@ Audiobooks/
 │   │   │   ├── position_sync.py # Playback position sync
 │   │   │   ├── utilities.py     # CRUD, imports, exports
 │   │   │   ├── utilities_system.py  # Admin: services, upgrades (guarded)
-│   │   │   ├── utilities_crud.py    # Database CRUD operations
+│   │   │   ├── utilities_crud.py    # Database CRUD + genre management
 │   │   │   ├── utilities_db.py      # Database maintenance
-│   │   │   └── utilities_conversion.py # Conversion operations
+│   │   │   ├── utilities_conversion.py # Conversion operations
+│   │   │   ├── user_state.py        # Per-user history, downloads, library (v7.0+)
+│   │   │   └── admin_activity.py    # Activity audit log and stats (v7.0+)
 │   │   ├── import_to_db.py      # Database importer
 │   │   ├── schema.sql           # Database schema
 │   │   └── operation_status.py  # Operation tracking
@@ -697,73 +703,53 @@ Four detection methods available in the Back Office Duplicates tab:
 3. **Source File Checksums**: Fast MD5 partial checksums to find duplicate .aaxc files in Sources folder
 4. **Library File Checksums**: Fast MD5 partial checksums to find duplicate .opus files in Library folder
 
+### My Library Tab
+Personalized view of your audiobook activity (requires authentication):
+- **Progress bars**: Visual completion percentage for each book you've listened to
+- **Recently Listened**: Quick access to books you've been listening to, sorted by last played
+- **Listening History**: Complete log of your listening sessions with timestamps and durations
+- **Download History**: Track which books you've downloaded
+
+### New Books Marquee
+An Art Deco neon-styled marquee highlights audiobooks added since your last visit. Click "Dismiss" to mark them as seen. The marquee only appears when new books exist.
+
+### About Page
+Credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js), version info, and project links. Accessible from the Help page header.
+
 ### Audio Player
 - Play/pause with progress bar
 - Skip forward/back 30 seconds
 - Adjustable playback speed (0.5x - 2.5x)
 - Volume control
-- **Position saving**: Automatically saves playback position per book
+- **Position saving**: Automatically saves playback position per user per book
 - **Resume playback**: Click any book to resume from last position
-- **Audible cloud sync**: Bidirectional position sync with Audible (see below)
 
-## Position Sync with Audible
+## Playback Position Tracking
 
-Seamlessly switch between listening on Audible's apps and your self-hosted library. When you pause a book on your phone, resume at the exact same position in your browser.
+Per-user playback positions are tracked locally in the encrypted auth database (SQLCipher). Each authenticated user gets independent position tracking.
 
 ### How It Works
 
-- **Bidirectional sync**: Positions flow both ways between local and Audible cloud
-- **"Furthest ahead wins"**: The more advanced position always takes precedence (you never lose progress)
-- **Automatic player sync**: Web player saves positions every 15 seconds to both localStorage and API
-- **Batch sync**: Sync hundreds of books in a single operation
+- **Automatic saving**: Web player saves position every 15 seconds to both localStorage and the API
+- **Per-user isolation**: Each user has their own position for every book (stored in the auth database)
+- **Resume anywhere**: Log in from any browser and resume where you left off
+- **Listening history**: All sessions are logged with start/end positions and duration
 
-### Quick Setup
-
-```bash
-# 1. Install and authenticate audible-cli
-pip install audible-cli
-audible quickstart
-
-# 2. Store credential for position sync (one-time)
-cd /opt/audiobooks/rnd
-python3 position_sync_test.py list
-# Enter your audible.json password when prompted
-
-# 3. Populate ASINs (matches local books to Audible library)
-python3 populate_asins.py --dry-run   # Preview
-python3 populate_asins.py             # Apply
-
-# 4. Run initial sync
-python3 position_sync_test.py batch-sync
-```
-
-### Verify Setup
+### Position API
 
 ```bash
-# Check sync status
-curl -s http://localhost:5001/api/position/status | python3 -m json.tool
+# Get position for a book
+curl -s http://localhost:5001/api/position/<audiobook_id>
 
-# Should return:
-# {
-#     "audible_available": true,
-#     "credential_stored": true,
-#     "auth_file_exists": true
-# }
+# Update position
+curl -X PUT http://localhost:5001/api/position/<audiobook_id> \
+  -H "Content-Type: application/json" \
+  -d '{"position_ms": 45000}'
 ```
 
-### Ongoing Sync
+For detailed documentation, see [docs/POSITION_SYNC.md](docs/POSITION_SYNC.md).
 
-The web player automatically saves positions to the API. For comprehensive sync with Audible cloud:
-
-```bash
-# Manual sync all books
-python3 position_sync_test.py batch-sync
-
-# Or use API
-curl -X POST http://localhost:5001/api/position/sync-all
-```
-
-For detailed instructions, see [docs/POSITION_SYNC.md](docs/POSITION_SYNC.md).
+> **Note**: Audible cloud sync was removed in favor of the self-contained per-user system. Positions are now fully local — no external service dependencies.
 
 ## Authentication (v5.0+)
 
@@ -930,19 +916,15 @@ The library exposes a REST API on port 5001:
 | `/api/utilities/export-json` | GET | Export as JSON |
 | `/api/utilities/export-csv` | GET | Export as CSV |
 
-#### Audible Sync (v3.6.0+)
+#### Library Maintenance (v3.6.0+)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/utilities/check-audible-prereqs` | GET | Check for library_metadata.json |
-| `/api/utilities/sync-genres-async` | POST | Sync genres from Audible export |
-| `/api/utilities/sync-narrators-async` | POST | Update narrators from Audible |
 | `/api/utilities/populate-sort-fields-async` | POST | Generate author_sort/title_sort |
-| `/api/utilities/download-audiobooks-async` | POST | Download new audiobooks |
 | `/api/utilities/rebuild-queue-async` | POST | Rebuild conversion queue |
 | `/api/utilities/cleanup-indexes-async` | POST | Remove stale index entries |
 
-> **Note**: All sync endpoints accept `{"dry_run": true}` (default) for preview mode.
+> **Note**: Maintenance endpoints accept `{"dry_run": true}` (default) for preview mode.
 > Set `{"dry_run": false}` to apply changes.
 
 ### Operation Status (Long-running tasks)
@@ -974,20 +956,43 @@ The library exposes a REST API on port 5001:
 > pattern. The API writes requests to `/var/lib/audiobooks/.control/` which triggers
 > a root-privileged helper via systemd path unit.
 
-### Position Sync (v3.7.2+)
+### Position Tracking (v3.7.2+)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/position/<id>` | GET | Get playback position for audiobook |
 | `/api/position/<id>` | PUT | Update local playback position |
-| `/api/position/sync/<id>` | POST | Sync single book with Audible (furthest ahead wins) |
-| `/api/position/sync-all` | POST | Batch sync all books with ASINs |
-| `/api/position/syncable` | GET | List all syncable audiobooks |
 | `/api/position/history/<id>` | GET | Get position history for audiobook |
-| `/api/position/status` | GET | Check if position sync is available |
 
-> **Note**: Position sync requires the `audible` Python library and stored credentials
-> via system keyring. Run `rnd/position_sync_test.py` to set up initial authentication.
+### Per-User State (v7.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/user/history` | GET | User's listening history (paginated, filterable by date) |
+| `/api/user/downloads` | GET | User's download history (paginated) |
+| `/api/user/downloads/<id>/complete` | POST | Record download completion |
+| `/api/user/library` | GET | Personalized library with progress bars and recently listened |
+| `/api/user/new-books` | GET | Books added since user's last visit |
+| `/api/user/new-books/dismiss` | POST | Mark new books as seen |
+
+> **Note**: All `/api/user/*` endpoints require authentication.
+
+### Genre Management (v7.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/genres` | GET | List all genres with book counts |
+| `/api/audiobooks/<id>/genres` | PUT | Set genres for a single audiobook (replace mode) |
+| `/api/audiobooks/bulk-genres` | POST | Add or remove genres across multiple audiobooks |
+
+### Admin Activity Audit (v7.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/activity` | GET | Activity log with filters (user, type, date range, pagination) |
+| `/api/admin/activity/stats` | GET | Aggregate stats (listens, downloads, active users, top content) |
+
+> **Note**: All `/api/admin/*` endpoints require admin role.
 
 ### Authentication (v5.0+)
 
@@ -1066,9 +1071,19 @@ The SQLite database stores audiobook metadata with the following key fields:
 | `source` | TEXT | Audiobook source (audible, google_play, librivox, chirp, etc.) |
 | `content_type` | TEXT | Audible content classification (Product, Podcast, Lecture, etc.) |
 
-Additional tables: `supplements` (PDF attachments), `audiobook_genres`, `audiobook_topics`, `audiobook_eras`
+Additional tables: `supplements` (PDF attachments), `audiobook_genres`, `audiobook_topics`, `audiobook_eras`, `playback_history`
 
 Additional views: `library_audiobooks` (filters to standard audiobook content types)
+
+### Per-User State Tables (Auth Database)
+
+The encrypted auth database (SQLCipher) stores per-user state:
+
+| Table | Purpose |
+|-------|---------|
+| `user_listening_history` | Session-level listening records with start/end positions and duration |
+| `user_downloads` | Download completions with timestamps and format |
+| `user_preferences` | User settings including `new_books_seen_at` for new-books marquee |
 
 ## Docker (macOS, Windows, Linux)
 
@@ -1397,6 +1412,13 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
+### v7.0 (Unreleased)
+- **Per-User State**: Listening history, download tracking, and user preferences with encrypted storage
+- **UI**: My Library tab, new-books marquee, About page, activity audit in Back Office, genre management in Bulk Ops
+- **API**: 11 new endpoints for user state, genre management, and admin activity audit
+- **Position Sync**: Replaced Audible cloud dependency with self-contained per-user local tracking
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
 ### v6.2.0
 - **Security**: FLASK_DEBUG default false, USE_WAITRESS default true, CORS credentials header, admin_or_localhost on upgrade check
 - **Infrastructure**: systemd service wrapper names match installed scripts, Dockerfile HEALTHCHECK uses /api/system/health
@@ -1689,60 +1711,42 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 
 ## Roadmap
 
-### Completed: Secure by Design (v5.0)
+### Completed Milestones
 
-The v5.0 release delivered the security-first architecture:
+**Secure by Design (v5.0)**
+- ~~**Authentication & Authorization**~~: ✅ Multi-user auth with TOTP, Passkey, FIDO2
+- ~~**Secrets Management**~~: ✅ SQLCipher encrypted auth database, Fernet-encrypted credentials
+- ~~**Audit Logging**~~: ✅ Contact log, access request tracking, session audit trail
+- ~~**Input Validation**~~: ✅ Username validation, token sanitization, auth-gated endpoints
 
-- ~~**Authentication & Authorization**~~: ✅ Multi-user auth with TOTP, Passkey, FIDO2 (v5.0)
-- ~~**Secrets Management**~~: ✅ SQLCipher encrypted auth database, Fernet-encrypted credentials (v5.0)
-- ~~**Audit Logging**~~: ✅ Contact log, access request tracking, session audit trail (v5.0)
-- ~~**Input Validation**~~: ✅ Username validation, token sanitization, auth-gated endpoints (v5.0)
-- **Certificate Authority Integration**: Support for Let's Encrypt and other trusted CAs (currently uses self-signed certificates)
-- **Container Hardening**: Read-only filesystems, non-root execution, minimal base images
-- **Network Security**: Rate limiting, CORS policies, CSP headers
+**Per-User Experience (v7.0)**
+- ~~**My Library**~~: ✅ Personalized library tab with progress bars and listening history
+- ~~**Activity Tracking**~~: ✅ Per-user listening history and download tracking
+- ~~**New Books**~~: ✅ Art Deco marquee for newly added audiobooks
+- ~~**Admin Audit**~~: ✅ Activity audit log with filtering, stats, and top content
+- ~~**Genre Management**~~: ✅ Bulk genre add/remove in Back Office
+- ~~**About Page**~~: ✅ Credits, attributions, and version display
+
+**Back Office (v3.0–v6.0)**
+- ~~**Database Management**~~: ✅ Stats, vacuum, rescan, reimport, export (JSON/CSV/SQLite)
+- ~~**Duplicate Management**~~: ✅ Four detection methods (title/author, SHA-256, source checksums, library checksums)
+- ~~**Audiobook Management**~~: ✅ Metadata editing, bulk operations, bulk delete
+- ~~**Bulk Operations**~~: ✅ Filter → Select → Act workflow with genre management
 
 ### Planned Features
 
-#### Utilities Section (Web UI)
-A new "Utilities" or "Library Management" section in the webapp for:
+**Security Hardening**
+- Certificate Authority Integration (Let's Encrypt / trusted CAs)
+- Container Hardening (read-only filesystems, non-root execution)
+- Rate limiting, CSP headers
 
-**Database Management**
-- View database statistics (total books, storage, duplicates)
-- Trigger full library rescan from web UI
-- Rebuild search index
-- Export/import database backups
-
-**Duplicate Management**
-- Visual duplicate finder with side-by-side comparison
-- One-click duplicate removal (keep highest quality)
-- Merge duplicate entries (combine metadata from multiple sources)
-
-**Audiobook Management**
-- Delete audiobooks from library (with file deletion option)
-- Edit metadata directly in webapp (title, author, narrator, series)
-- Bulk operations (delete selected, update metadata)
-- Move/reorganize files within library structure
-
-**Audible Integration**
-- Sync library with Audible account (via audible-cli)
-- Download missing audiobooks directly
-- Remove audiobooks from Audible library (with confirmation)
-- Auto-import new Audible purchases
-
-**Import Tools**
-- Drag-and-drop audiobook import
-- Bulk conversion from AAX/AAXC
-- Multi-source import wizard (Google Play, Librivox, manual)
-- Metadata lookup and enrichment
-
-#### Enhanced Player
+**Enhanced Player**
 - Chapter navigation
 - Bookmarks and notes
 - Sleep timer
 - Queue/playlist management
 
-#### Mobile Support
-- Responsive design improvements
+**Mobile Support**
 - Progressive Web App (PWA) support
 - Offline playback caching
 

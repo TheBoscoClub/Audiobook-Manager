@@ -8,10 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Per-User State**: New auth database tables for listening history, download tracking, and user preferences (migration `004_per_user_state.sql`)
+- **API**: New `/api/user/history` endpoint — per-user listening history with pagination and date filters
+- **API**: New `/api/user/downloads` endpoint — per-user download history with pagination
+- **API**: New `/api/user/downloads/<id>/complete` endpoint — record download completion
+- **API**: New `/api/user/library` endpoint — personalized library view with progress bars and recently listened
+- **API**: New `/api/user/new-books` endpoint — books added since user's last visit
+- **API**: New `/api/user/new-books/dismiss` endpoint — mark new books as seen
+- **API**: New `/api/admin/activity` endpoint — admin audit log with filtering by user, type, and date range
+- **API**: New `/api/admin/activity/stats` endpoint — aggregate activity statistics (listens, downloads, active users, top content)
+- **API**: New `/api/genres` endpoint — list all genres with book counts
+- **API**: New `PUT /api/audiobooks/<id>/genres` endpoint — set genres for a single audiobook
+- **API**: New `POST /api/audiobooks/bulk-genres` endpoint — add/remove genres across multiple audiobooks
+- **UI**: My Library tab with progress bars, listening history, and recently-listened section
+- **UI**: Art Deco neon new-books marquee highlighting recently added audiobooks
+- **UI**: About The Library page with credits, third-party attributions, and dynamic version display
+- **UI**: Activity audit section in Back Office with stats cards, top-listened/downloaded lists, filterable activity log, and pagination
+- **UI**: Genre management in Back Office Bulk Ops — genre picker with add/remove modes and new genre creation
+- **UI**: JavaScript fetch/blob download with completion tracking (replaces raw anchor downloads)
+- **Docs**: Help page updated with sections for My Library, progress tracking, downloads, and new books
+- **Docs**: Tutorial updated with steps for new per-user features
+- **Tests**: Multi-user integration tests and auth-disabled fallback tests
+- **Tests**: Per-user state schema and model tests
+- **Tests**: About page, activity audit UI, genre management, help update tests
 
 ### Changed
+- **Position Sync**: Removed Audible cloud sync dependency — position tracking is now fully local and per-user
+- **Position Sync**: Positions stored in encrypted auth database (SQLCipher) instead of main library database
+- **Docs**: Rewrote `docs/POSITION_SYNC.md` for per-user local-only system
+- **Docs**: Updated `docs/ARCHITECTURE.md` with new tables, blueprints, and endpoint documentation
 
 ### Fixed
+- **UI**: About page version display parsed raw JSON text instead of extracting version field (`r.text()` → `r.json().version`)
 
 ## [6.2.0.1] - 2026-02-20
 
