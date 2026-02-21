@@ -1,68 +1,34 @@
-# Position Sync Guide
+# Per-User Position Tracking
 
-Bidirectional playback position synchronization between your local Audiobook-Manager library and Audible cloud.
+Local-only playback position tracking with per-user isolation when authentication is enabled.
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [How It Works](#how-it-works)
-3. [Prerequisites](#prerequisites)
-4. [Initial Setup](#initial-setup)
-5. [First Sync](#first-sync)
-6. [Ongoing Synchronization](#ongoing-synchronization)
+3. [Multi-User Support](#multi-user-support)
+4. [Auth Disabled Fallback](#auth-disabled-fallback)
+5. [Listening History](#listening-history)
+6. [Web Player Integration](#web-player-integration)
 7. [API Reference](#api-reference)
-8. [Web Player Integration](#web-player-integration)
+8. [Database Schema](#database-schema)
 9. [Troubleshooting](#troubleshooting)
+10. [History](#history)
 
 ---
 
 ## Overview
 
-Position sync allows you to seamlessly switch between listening on Audible's official apps and your self-hosted Audiobook-Manager. When you pause a book on your phone, you can resume at the exact same position in your browser, and vice versa.
+Position tracking allows you to pause an audiobook and resume at the exact same position later. All position data is stored locally -- there is no external cloud synchronization.
 
 ### Key Features
 
-- **Bidirectional sync**: Positions flow both ways between local and Audible cloud
-- **"Furthest ahead wins"**: Automatic conflict resolution - the more advanced position always takes precedence
-- **Per-user tracking** (v5.0+): Each authenticated user has independent playback positions stored in the encrypted auth database
-- **Batch operations**: Sync hundreds of books in a single operation
-- **Position history**: Track playback progress over time
-- **Automatic player sync**: Web player saves positions to both localStorage and the API
-
-### Sync Strategy: Furthest Ahead Wins
-
-The sync algorithm is intentionally simple and conservative:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        POSITION SYNC ALGORITHM                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  Local Position                 Audible Cloud Position
-       │                                   │
-       └───────────────┬───────────────────┘
-                       │
-                       ▼
-              ┌───────────────────┐
-              │  Compare Positions │
-              └───────────────────┘
-                       │
-       ┌───────────────┼───────────────┐
-       │               │               │
-       ▼               ▼               ▼
-   Local > Audible  Local = Audible  Audible > Local
-       │               │               │
-       ▼               ▼               ▼
-  ┌──────────┐   ┌──────────┐   ┌──────────┐
-  │ Push to  │   │ Already  │   │ Pull from│
-  │ Audible  │   │ Synced   │   │ Audible  │
-  └──────────┘   └──────────┘   └──────────┘
-```
-
-**Why "furthest ahead wins"?**
-- You never lose progress - rewinding is always manual
-- Simple mental model - no complex merge logic
-- Prevents accidental position resets from stale devices
+- **Per-user tracking**: Each authenticated user has independent playback positions
+- **Encrypted storage**: Per-user positions stored in the encrypted auth database (SQLCipher)
+- **Automatic listening history**: Every position save creates a listening session record
+- **Dual-layer persistence**: localStorage (fast cache) + API (persistent)
+- **Automatic player saves**: Web player saves positions every 15 seconds during playback
+- **Auth-disabled fallback**: Single-user global position in the library database when auth is off
 
 ---
 
@@ -72,31 +38,67 @@ The sync algorithm is intentionally simple and conservative:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                      POSITION SYNC ARCHITECTURE                              │
+│                   POSITION TRACKING ARCHITECTURE                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-┌──────────────────┐         ┌───────────────────┐         ┌──────────────────┐
-│   Web Browser    │         │  Audiobook-Manager │         │   Audible Cloud  │
-│   (Player)       │         │       API          │         │                  │
-├──────────────────┤         ├───────────────────┤         ├──────────────────┤
-│                  │  Every  │                   │  Batch  │                  │
-│  localStorage ───┼──15s───▶│  SQLite Database ─┼─ Sync ─▶│  Audible API    │
-│  (fast cache)    │  save   │  (persistent)     │         │  lastpositions   │
-│                  │         │                   │         │                  │
-│  PlaybackManager │         │  position_sync.py │         │  ACR credential  │
-│  class           │         │  Flask Blueprint  │         │  for writes      │
-└──────────────────┘         └───────────────────┘         └──────────────────┘
-        │                              │                           │
-        │                              │                           │
-        └──────────────────────────────┴───────────────────────────┘
-                              │
-                              ▼
-                    "Furthest ahead wins"
+┌──────────────────┐         ┌───────────────────┐
+│   Web Browser    │         │  Audiobook-Manager │
+│   (Player)       │         │       API          │
+├──────────────────┤         ├───────────────────┤
+│                  │  Every  │                   │
+│  localStorage ───┼──15s───▶│  Auth Database    │  (per-user, encrypted)
+│  (fast cache)    │  save   │     OR            │
+│                  │         │  Library Database │  (global, auth disabled)
+│  PlaybackManager │         │                   │
+│  class           │         │  position_sync.py │
+│                  │         │  Flask Blueprint  │
+└──────────────────┘         └───────────────────┘
+```
+
+### Position Save Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       POSITION SAVE FLOW                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Web Player                   Flask API
+      │                            │
+      │  Every 15s during play     │
+      ├───────────────────────────▶│
+      │  PUT /api/position/<id>    │
+      │  {position_ms: 3600000}    │
+      │                            │
+      │                  ┌─────────┴──────────┐
+      │                  │  Auth enabled?      │
+      │                  └────┬──────────┬─────┘
+      │                       │          │
+      │               YES     │          │  NO
+      │                       ▼          ▼
+      │               ┌────────────┐  ┌────────────┐
+      │               │ Auth DB    │  │ Library DB │
+      │               │ Per-user   │  │ Global     │
+      │               │ (encrypted)│  │ position   │
+      │               └────────────┘  └────────────┘
+      │                       │          │
+      │                       │          │
+      │               ┌───────┘          │
+      │               │ (auth only)      │
+      │               ▼                  │
+      │        ┌──────────────┐          │
+      │        │ Listening    │          │
+      │        │ History      │          │
+      │        │ (automatic)  │          │
+      │        └──────────────┘          │
+      │                                  │
+      │  {success, position_ms, ...}     │
+      │◀─────────────────────────────────┤
+      │                                  │
 ```
 
 ### Dual-Layer Storage
 
-The web player uses a two-tier storage approach:
+The web player uses a two-tier storage approach for optimal responsiveness:
 
 1. **localStorage (fast cache)**
    - Immediate read/write for responsive playback
@@ -105,399 +107,62 @@ The web player uses a two-tier storage approach:
 
 2. **API/Database (persistent)**
    - Saved every 15 seconds during playback
-   - Synced to database with position history
    - Survives browser clears, available from any device
-   - Required for Audible cloud sync
-
-### ASIN Requirement
-
-Position sync with Audible requires the book's **ASIN** (Amazon Standard Identification Number). Books without ASINs can still have local position tracking, but cannot sync with Audible cloud.
-
-To populate ASINs, run:
-```bash
-cd rnd
-python3 populate_asins.py --dry-run   # Preview matches
-python3 populate_asins.py             # Update database
-```
+   - Per-user when auth is enabled (encrypted in auth database)
+   - Global when auth is disabled (library database)
 
 ---
 
-## Prerequisites
+## Multi-User Support
 
-### 1. audible-cli Setup
+When `AUTH_ENABLED=true`, each authenticated user has completely independent playback positions stored in the encrypted auth database (SQLCipher).
 
-You need [audible-cli](https://github.com/mkb79/audible-cli) installed and authenticated:
+### How Per-User Tracking Works
 
-```bash
-# Install audible-cli
-pip install audible-cli
+- Positions are stored in the `user_positions` table, keyed by `user_id + audiobook_id`
+- Two users can read the same audiobook and maintain entirely separate progress
+- Positions are encrypted at rest (SQLCipher AES-256)
+- Sessions use HTTP-only, Secure, SameSite=Lax cookies for user identification
 
-# Authenticate (interactive)
-audible quickstart
+### Example
 
-# Verify authentication works
-audible library list --limit 5
+```
+User A: "The Stand" → Position: 3h 45m (chapter 12)
+User B: "The Stand" → Position: 8h 20m (chapter 31)
 ```
 
-This creates `~/.audible/audible.json` with your Audible credentials.
-
-### 2. Python Dependencies
-
-The position sync module requires the `audible` Python library:
-
-```bash
-# In your virtual environment
-pip install audible
-
-# Or add to requirements.txt
-echo "audible>=0.9.0" >> requirements.txt
-```
-
-### 3. Encrypted Credential Storage
-
-For security, the Audible auth file password is stored encrypted using Fernet symmetric encryption (PBKDF2-derived key). The `credential_manager.py` module handles this.
+Each user sees only their own position when they load the web player.
 
 ---
 
-## Initial Setup
+## Auth Disabled Fallback
 
-### Step 1: Authenticate with Audible CLI
+When `AUTH_ENABLED=false` (standalone mode), position tracking operates in single-user global mode:
 
-If you haven't already:
+- Positions are stored in the `audiobooks` table (`playback_position_ms` column)
+- No user isolation -- one position per book shared by all browsers
+- Position history recorded in the `playback_history` table
+- No listening session tracking (listening history requires auth)
 
-```bash
-audible quickstart
-```
-
-Follow the interactive prompts to log in with your Amazon account.
-
-### Step 2: Store Credential for Position Sync
-
-Run the position sync test tool to store your credential:
-
-```bash
-cd /opt/audiobooks/rnd
-python3 position_sync_test.py list
-```
-
-On first run, you'll be prompted for your audible.json password. This is the password you set during `audible quickstart`. The password is encrypted and stored at `~/.audible/position_sync_credentials.enc`.
-
-**Expected output:**
-```
-🔐 Enter your audible.json password: ********
-💾 Credential stored successfully
-📖 Fetching audiobooks with ASINs...
-Found 724 audiobooks with ASINs
-```
-
-### Step 3: Populate ASINs
-
-If your local audiobooks don't have ASINs in the database:
-
-```bash
-cd /opt/audiobooks/rnd
-
-# Preview what would be matched
-python3 populate_asins.py --dry-run
-
-# Apply changes
-python3 populate_asins.py
-```
-
-This matches local books to your Audible library by title (fuzzy matching, 70% threshold) and populates the ASIN field.
-
-### Step 4: Verify Setup
-
-Check that position sync is ready:
-
-```bash
-curl -s http://localhost:5001/api/position/status | python3 -m json.tool
-```
-
-**Expected output:**
-```json
-{
-    "audible_available": true,
-    "credential_stored": true,
-    "auth_file_exists": true
-}
-```
+This mode is suitable for single-user or LAN-only home server deployments.
 
 ---
 
-## First Sync
+## Listening History
 
-### Batch Sync All Books
+When auth is enabled, every position save automatically creates or updates a listening session record. This provides a full history of when and how long each user listened to each audiobook.
 
-To sync all your audiobooks with Audible in one operation:
+### Session Model
 
-#### Using the CLI Tool
+- A **listening session** starts when a user begins playing a book (first position save)
+- Subsequent saves update the session's end position and duration
+- Sessions track: start time, end time, start position, end position, and total duration listened
 
-```bash
-cd /opt/audiobooks/rnd
-python3 position_sync_test.py batch-sync
-```
+### Viewing History
 
-**Output:**
-```
-📊 Batch Sync Results:
-   Total synced: 724
-   Pulled from Audible: 401
-   Pushed to Audible: 2
-   Already synced: 321
-   Errors: 0
-```
-
-#### Using the API
-
-```bash
-curl -X POST http://localhost:5001/api/position/sync-all | python3 -m json.tool
-```
-
-### Sync a Single Book
-
-For individual book sync:
-
-```bash
-# By audiobook ID
-curl -X POST http://localhost:5001/api/position/sync/123 | python3 -m json.tool
-```
-
-**Response:**
-```json
-{
-    "audiobook_id": 123,
-    "title": "The Stand",
-    "asin": "B00ABC1234",
-    "local_position_ms": 3600000,
-    "local_position_human": "1h 0m 0s",
-    "audible_position_ms": 7200000,
-    "audible_position_human": "2h 0m 0s",
-    "action": "pulled_from_audible",
-    "final_position_ms": 7200000,
-    "final_position_human": "2h 0m 0s"
-}
-```
-
----
-
-## Ongoing Synchronization
-
-### Web Player Auto-Sync
-
-The web player automatically saves positions:
-
-1. **Every 15 seconds** during active playback
-2. **On pause** - immediate save
-3. **On close** - flush to API before closing
-
-These saves go to both localStorage (immediate) and the API (for sync).
-
-### Periodic Batch Sync
-
-For comprehensive sync across all devices, run batch-sync periodically:
-
-```bash
-# Add to crontab for hourly sync
-0 * * * * /opt/audiobooks/library/venv/bin/python3 /opt/audiobooks/rnd/position_sync_test.py batch-sync >> /var/log/audiobooks/position-sync.log 2>&1
-```
-
-Or create a systemd timer:
-
-```ini
-# /etc/systemd/system/audiobooks-position-sync.timer
-[Unit]
-Description=Sync audiobook positions with Audible
-
-[Timer]
-OnCalendar=hourly
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-```ini
-# /etc/systemd/system/audiobooks-position-sync.service
-[Unit]
-Description=Audiobook position sync
-
-[Service]
-Type=oneshot
-User=audiobooks
-ExecStart=/opt/audiobooks/library/venv/bin/python3 /opt/audiobooks/rnd/position_sync_test.py batch-sync
-WorkingDirectory=/opt/audiobooks/rnd
-```
-
-### Manual Sync from Web UI
-
-The web player's resume functionality automatically fetches the best position (comparing localStorage and API). To trigger a full Audible sync for a specific book, use the API:
-
-```bash
-curl -X POST http://localhost:5001/api/position/sync/123
-```
-
----
-
-## API Reference
-
-### Position Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/position/status` | GET | Check if position sync is available |
-| `/api/position/<id>` | GET | Get position for audiobook |
-| `/api/position/<id>` | PUT | Update local position |
-| `/api/position/sync/<id>` | POST | Sync single book with Audible |
-| `/api/position/sync-all` | POST | Batch sync all books |
-| `/api/position/syncable` | GET | List all syncable books |
-| `/api/position/history/<id>` | GET | Get position history |
-
-### GET /api/position/status
-
-Check sync availability:
-
-```json
-{
-    "audible_available": true,
-    "credential_stored": true,
-    "auth_file_exists": true
-}
-```
-
-### GET /api/position/<id>
-
-Get position for a specific audiobook:
-
-```json
-{
-    "id": 123,
-    "title": "The Stand",
-    "asin": "B00ABC1234",
-    "duration_ms": 54000000,
-    "duration_human": "15h 0m 0s",
-    "local_position_ms": 3600000,
-    "local_position_human": "1h 0m 0s",
-    "local_position_updated": "2026-01-07T10:30:00",
-    "audible_position_ms": 3600000,
-    "audible_position_human": "1h 0m 0s",
-    "audible_position_updated": "2026-01-07T09:15:00",
-    "position_synced_at": "2026-01-07T10:30:00",
-    "percent_complete": 6.7,
-    "syncable": true
-}
-```
-
-### PUT /api/position/<id>
-
-Update local position (from player):
-
-**Request:**
-```json
-{"position_ms": 3600000}
-```
-
-**Response:**
-```json
-{
-    "success": true,
-    "audiobook_id": 123,
-    "position_ms": 3600000,
-    "position_human": "1h 0m 0s",
-    "updated_at": "2026-01-07T10:35:00"
-}
-```
-
-### POST /api/position/sync/<id>
-
-Sync single book with Audible:
-
-```json
-{
-    "audiobook_id": 123,
-    "title": "The Stand",
-    "asin": "B00ABC1234",
-    "local_position_ms": 3600000,
-    "local_position_human": "1h 0m 0s",
-    "audible_position_ms": 7200000,
-    "audible_position_human": "2h 0m 0s",
-    "action": "pulled_from_audible",
-    "final_position_ms": 7200000,
-    "final_position_human": "2h 0m 0s"
-}
-```
-
-Actions:
-- `pulled_from_audible`: Audible was ahead, updated local
-- `pushed_to_audible`: Local was ahead, updated Audible
-- `already_synced`: Positions matched
-
-### POST /api/position/sync-all
-
-Batch sync all books with ASINs:
-
-```json
-{
-    "total": 724,
-    "pulled_from_audible": 401,
-    "pushed_to_audible": 2,
-    "already_synced": 321,
-    "failed": 0,
-    "results": [...]
-}
-```
-
-### GET /api/position/syncable
-
-List all books that can sync with Audible (have ASINs):
-
-```json
-{
-    "total": 724,
-    "books": [
-        {
-            "id": 123,
-            "title": "The Stand",
-            "author": "Stephen King",
-            "asin": "B00ABC1234",
-            "duration_human": "15h 0m 0s",
-            "local_position_human": "1h 0m 0s",
-            "audible_position_human": "1h 0m 0s",
-            "percent_complete": 6.7,
-            "last_synced": "2026-01-07T10:30:00"
-        }
-    ]
-}
-```
-
-### GET /api/position/history/<id>
-
-Get position history for an audiobook:
-
-```json
-{
-    "audiobook_id": 123,
-    "history": [
-        {
-            "position_ms": 3600000,
-            "position_human": "1h 0m 0s",
-            "source": "sync",
-            "recorded_at": "2026-01-07T10:30:00"
-        },
-        {
-            "position_ms": 3500000,
-            "position_human": "58m 20s",
-            "source": "local",
-            "recorded_at": "2026-01-07T10:15:00"
-        }
-    ]
-}
-```
-
-Sources:
-- `local`: Saved from web player
-- `audible`: Pulled from Audible cloud
-- `sync`: Result of sync operation
+- **Users**: `GET /api/user/history` -- paginated personal listening history
+- **Admins**: `GET /api/admin/activity` -- unified activity log across all users (listening + downloads)
+- **Admins**: `GET /api/admin/activity/stats` -- aggregate statistics (top listened, top downloaded, active users)
 
 ---
 
@@ -537,7 +202,7 @@ When you click an audiobook to play:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           RESUME FLOW                                        │
+│                           RESUME FLOW                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
   Click Play
@@ -569,114 +234,97 @@ When you click an audiobook to play:
 
 ---
 
-## Troubleshooting
+## API Reference
 
-### Position Sync Status Shows False
+### Position Endpoints
 
-**Symptom:** `/api/position/status` returns `audible_available: false`
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/position/status` | GET | Check position tracking mode (per-user or global) |
+| `/api/position/<id>` | GET | Get position for audiobook |
+| `/api/position/<id>` | PUT | Update position for audiobook |
 
-**Causes and fixes:**
-1. **Missing audible library**: `pip install audible`
-2. **Missing credential_manager**: Ensure `rnd/` is in Python path
-3. **Import error**: Check API logs for specific error
+### User State Endpoints (Auth Required)
 
-### No Stored Credential
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/user/history` | GET | Paginated personal listening history |
+| `/api/user/downloads` | GET | Paginated personal download history |
+| `/api/user/downloads/<id>/complete` | POST | Record a completed download |
+| `/api/user/library` | GET | Books the user has interacted with |
+| `/api/user/new-books` | GET | Books added since user's last visit |
+| `/api/user/new-books/dismiss` | POST | Mark current books as seen |
 
-**Symptom:** `credential_stored: false` in status
+### Admin Activity Endpoints (Admin Required)
 
-**Fix:**
-```bash
-cd /opt/audiobooks/rnd
-python3 position_sync_test.py list
-# Enter your audible.json password when prompted
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/activity` | GET | Unified activity log (listens + downloads) |
+| `/api/admin/activity/stats` | GET | Aggregate activity statistics |
+
+### GET /api/position/status
+
+Check position tracking mode:
+
+```json
+{
+    "per_user": true
+}
 ```
 
-### Auth File Not Found
+- `per_user: true` -- auth enabled, positions stored per-user in encrypted auth database
+- `per_user: false` -- auth disabled, positions stored globally in library database
 
-**Symptom:** `auth_file_exists: false`
+### GET /api/position/\<id\>
 
-**Fix:**
-```bash
-# Run audible quickstart to create auth file
-audible quickstart
+Get position for a specific audiobook:
+
+```json
+{
+    "id": 123,
+    "title": "The Stand",
+    "asin": "B00ABC1234",
+    "duration_ms": 54000000,
+    "duration_human": "15h 0m 0s",
+    "local_position_ms": 3600000,
+    "local_position_human": "1h 0m 0s",
+    "local_position_updated": "2026-01-07T10:30:00",
+    "percent_complete": 6.7
+}
 ```
 
-### Books Not Syncing
+### PUT /api/position/\<id\>
 
-**Symptom:** Sync returns 0 books
+Update position (from player):
 
-**Causes:**
-1. **No ASINs**: Run `populate_asins.py` to match books
-2. **Source filter**: Only Audible-sourced books have ASINs by default
-
-**Check syncable count:**
-```bash
-curl -s http://localhost:5001/api/position/syncable | python3 -c "import sys,json; print(json.load(sys.stdin)['total'])"
+**Request:**
+```json
+{"position_ms": 3600000}
 ```
 
-### Push to Audible Fails
-
-**Symptom:** `action: push_failed` in sync results
-
-**Causes:**
-1. **ACR credential expired**: Re-run `position_sync_test.py list` to refresh
-2. **Rate limiting**: Wait a few minutes and retry
-3. **Invalid ASIN**: Book may not be in your Audible library
-
-### Position Not Updating in Browser
-
-**Symptom:** Browser shows old position after sync
-
-**Fixes:**
-1. Hard refresh the page (Ctrl+Shift+R)
-2. Clear localStorage for the site
-3. Check browser console for API errors
-
-### API Returns 503
-
-**Symptom:** `/api/position/sync/*` returns 503 error
-
-**Meaning:** Audible library not available (not installed or import failed)
-
-**Fix:**
-```bash
-# Check the import error
-curl -s http://localhost:5001/api/position/status | python3 -m json.tool
-# Look at "error" field for specific import failure
+**Response:**
+```json
+{
+    "success": true,
+    "audiobook_id": 123,
+    "position_ms": 3600000,
+    "position_human": "1h 0m 0s",
+    "updated_at": "2026-01-07T10:35:00"
+}
 ```
 
 ---
 
 ## Database Schema
 
-Position sync uses two storage locations:
+Position data is stored in two databases depending on authentication mode.
 
-### Main Database (audiobooks.db) — Audible Sync Positions
+### Auth Database (SQLCipher) -- Per-User Positions
 
-```sql
--- In audiobooks table
-playback_position_ms INTEGER DEFAULT 0,      -- Local position in milliseconds
-playback_position_updated TIMESTAMP,         -- When local position was updated
-audible_position_ms INTEGER,                 -- Last known Audible position
-audible_position_updated TIMESTAMP,          -- When Audible position was fetched
-position_synced_at TIMESTAMP,                -- Last successful sync timestamp
-
--- Playback history table
-CREATE TABLE playback_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    audiobook_id INTEGER NOT NULL,
-    position_ms INTEGER NOT NULL,
-    source TEXT NOT NULL,  -- 'local', 'audible', 'sync'
-    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Auth Database (SQLCipher, v5.0+) — Per-User Positions
-
-When authentication is enabled, each user's playback position is tracked independently:
+When `AUTH_ENABLED=true`, each user's position and history are tracked independently:
 
 ```sql
--- In auth database (encrypted)
+-- Per-user playback positions
 CREATE TABLE user_positions (
     user_id INTEGER NOT NULL,
     audiobook_id INTEGER NOT NULL,
@@ -685,47 +333,113 @@ CREATE TABLE user_positions (
     PRIMARY KEY (user_id, audiobook_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Per-user listening history (automatic session tracking)
+CREATE TABLE user_listening_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    audiobook_id TEXT NOT NULL,
+    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME,
+    position_start_ms INTEGER,
+    position_end_ms INTEGER,
+    duration_listened_ms INTEGER
+);
+
+-- Per-user download tracking
+CREATE TABLE user_downloads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    audiobook_id TEXT NOT NULL,
+    downloaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    file_format TEXT
+);
+
+-- Per-user preferences (new book discovery, etc.)
+CREATE TABLE user_preferences (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    new_books_seen_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-This allows multiple users to independently track progress on the same audiobook.
+### Library Database (SQLite) -- Global Fallback
 
-To view syncable books directly:
+When `AUTH_ENABLED=false`, the library database stores a single global position:
+
 ```sql
-SELECT id, title, asin,
-       playback_position_ms, audible_position_ms, position_synced_at
-FROM audiobooks
-WHERE asin IS NOT NULL AND asin != ''
-ORDER BY position_synced_at DESC
-LIMIT 20;
+-- In audiobooks table
+playback_position_ms INTEGER DEFAULT 0,
+playback_position_updated TIMESTAMP,
+
+-- Global playback history
+CREATE TABLE playback_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id INTEGER NOT NULL,
+    position_ms INTEGER NOT NULL,
+    source TEXT NOT NULL,  -- 'local'
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---
 
-## Security Considerations
+## Troubleshooting
 
-### Credential Storage
+### Position Not Resuming
 
-- Audible auth password is encrypted using **Fernet** (AES-128-CBC)
-- Key derived using **PBKDF2** with 480,000 iterations
-- Stored at `~/.audible/position_sync_credentials.enc`
-- Machine-bound (derived from hostname + username)
+**Symptom:** Player starts from the beginning instead of saved position
 
-### API Security
+**Fixes:**
+1. Check that the API is running: `curl -s http://localhost:5001/api/position/status`
+2. Hard refresh the page (Ctrl+Shift+R)
+3. Check browser console for API errors
+4. Verify the audiobook exists in the database
 
-- Position API runs on localhost only (127.0.0.1:5001)
-- Accessible via HTTPS proxy on 8443
-- Authentication required when `AUTH_ENABLED=true` (v5.0+ default)
-- Per-user position tracking: each user's playback positions are stored in the auth database (`user_positions` table), keyed by `user_id + audiobook_id`
-- Sessions use HTTP-only, Secure, SameSite=Lax cookies
+### Position Not Updating in Browser
 
-### Audible API Access
+**Symptom:** Browser shows stale position after listening on another device
 
-- Uses official Audible API endpoints
-- Respects rate limits (batch operations limited to 25 ASINs per request)
-- ACR credentials are short-lived and book-specific
-- No Audible account credentials stored (only auth file password)
+**Fixes:**
+1. Hard refresh the page (Ctrl+Shift+R) -- this triggers a fresh API fetch
+2. Clear localStorage for the site
+3. Check that API saves are succeeding (browser console network tab)
+
+### Per-User Positions Not Working
+
+**Symptom:** All users see the same position
+
+**Checks:**
+1. Verify `AUTH_ENABLED=true` in configuration
+2. Check position status: `curl -s http://localhost:5001/api/position/status` should return `{"per_user": true}`
+3. Verify auth database is initialized with `user_positions` table
+4. Check API logs for auth database errors
+
+### API Returns 401
+
+**Symptom:** Position endpoints return 401 Unauthorized
+
+**Meaning:** Auth is enabled but the request has no valid session
+
+**Fix:** Log in through the web UI or provide a valid session cookie
 
 ---
 
-*Document Version: 5.0.0*
-*Last Updated: 2026-01-29*
+## History
+
+Position tracking has evolved through several versions:
+
+| Version | Capability |
+|---------|-----------|
+| v1.0--v4.x | Global position tracking in library database |
+| v5.0 | Added per-user position tracking in encrypted auth database |
+| v5.0--v6.2 | Supported optional Audible position sync (bidirectional) |
+| v6.3.0 | Removed Audible position sync; local-only per-user system |
+
+Previously, Audiobook-Manager supported bidirectional position synchronization with Audible's cloud service, allowing seamless switching between the web player and Audible's official apps. This feature was removed in v6.3.0 in favor of a simpler, local-only per-user architecture. The Audible sync endpoints (`/api/position/sync/<id>`, `/api/position/sync-all`, `/api/position/syncable`) have been removed.
+
+---
+
+*Document Version: 6.3.0*
+*Last Updated: 2026-02-21*
