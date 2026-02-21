@@ -835,6 +835,39 @@
                                         <button class="office-btn" id="bulk-update-btn" title="Apply the new value to all selected audiobooks">Apply to Selected</button>
                                     </div>
                                 </div>
+                                <div class="bulk-action-item" id="bulk-genre-action">
+                                    <div class="action-info">
+                                        <h4>&#127991; Manage Genres</h4>
+                                        <p>Add or remove genre tags for selected audiobooks. Genres determine which collections a book appears in. Useful for:</p>
+                                        <ul class="action-examples">
+                                            <li>Placing books into the correct collections (e.g., Historical Fiction, Sci-Fi & Fantasy)</li>
+                                            <li>Removing incorrect genre assignments</li>
+                                            <li>Bulk-tagging books by the same author with shared genres</li>
+                                        </ul>
+                                    </div>
+                                    <div class="action-controls genre-controls">
+                                        <div class="genre-mode-selector">
+                                            <label class="radio-option small">
+                                                <input type="radio" name="genre-mode" value="add" checked>
+                                                <span>Add genres</span>
+                                            </label>
+                                            <label class="radio-option small">
+                                                <input type="radio" name="genre-mode" value="remove">
+                                                <span>Remove genres</span>
+                                            </label>
+                                        </div>
+                                        <div class="genre-picker" id="genre-picker">
+                                            <p class="placeholder-text">Loading genres...</p>
+                                        </div>
+                                        <div class="genre-new-group">
+                                            <input type="text" id="genre-new-input" class="office-input" placeholder="Add a new genre..." title="Type a new genre name and press Enter or click Add">
+                                            <button class="office-btn secondary" id="genre-new-btn" title="Add this new genre to the list">Add</button>
+                                        </div>
+                                        <button class="office-btn primary" id="bulk-genre-apply" title="Apply genre changes to all selected audiobooks">
+                                            <span class="btn-icon">&#127991;</span> Apply Genres to Selected
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="bulk-action-item danger-zone">
                                     <div class="action-info">
                                         <h4>&#128465; Delete Selected Audiobooks</h4>

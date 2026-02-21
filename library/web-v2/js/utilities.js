@@ -780,6 +780,8 @@ function initBulkSection() {
     document.getElementById('bulk-select-all')?.addEventListener('change', toggleBulkSelectAll);
     document.getElementById('bulk-update-btn')?.addEventListener('click', bulkUpdateField);
     document.getElementById('bulk-delete-btn')?.addEventListener('click', bulkDelete);
+    initGenreManagement();
+    loadGenresForPicker();
 }
 
 async function loadBulkAudiobooks() {
@@ -936,6 +938,184 @@ async function bulkDelete() {
         }
     } catch (error) {
         showToast('Failed to delete: ' + error.message, 'error');
+    }
+}
+
+// ============================================
+// Genre Management (Bulk Ops)
+// ============================================
+
+const genreSelection = new Set();
+
+function initGenreManagement() {
+    document.getElementById('bulk-genre-apply')?.addEventListener('click', applyBulkGenres);
+    document.getElementById('genre-new-btn')?.addEventListener('click', addNewGenreToList);
+    const newInput = document.getElementById('genre-new-input');
+    newInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addNewGenreToList();
+        }
+    });
+}
+
+async function loadGenresForPicker() {
+    const picker = document.getElementById('genre-picker');
+    if (!picker) return;
+
+    try {
+        const genres = await safeFetch(`${API_BASE}/api/genres`);
+        genreSelection.clear();
+
+        while (picker.firstChild) picker.removeChild(picker.firstChild);
+
+        if (!genres || genres.length === 0) {
+            const p = document.createElement('p');
+            p.className = 'placeholder-text';
+            p.textContent = 'No genres found in database';
+            picker.appendChild(p);
+            return;
+        }
+
+        genres.forEach(genre => {
+            const label = document.createElement('label');
+            label.className = 'genre-tag';
+            label.title = `${genre.book_count} book(s)`;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'genre-checkbox';
+            checkbox.value = genre.name;
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    genreSelection.add(genre.name);
+                    label.classList.add('selected');
+                } else {
+                    genreSelection.delete(genre.name);
+                    label.classList.remove('selected');
+                }
+            });
+
+            const span = document.createElement('span');
+            span.textContent = genre.name;
+
+            const count = document.createElement('small');
+            count.className = 'genre-count';
+            count.textContent = `(${genre.book_count})`;
+
+            label.appendChild(checkbox);
+            label.appendChild(span);
+            label.appendChild(count);
+            picker.appendChild(label);
+        });
+    } catch (error) {
+        const p = document.createElement('p');
+        p.className = 'placeholder-text';
+        p.textContent = 'Failed to load genres';
+        while (picker.firstChild) picker.removeChild(picker.firstChild);
+        picker.appendChild(p);
+    }
+}
+
+function addNewGenreToList() {
+    const input = document.getElementById('genre-new-input');
+    const name = input.value.trim();
+    if (!name) return;
+
+    const picker = document.getElementById('genre-picker');
+    // Check if genre already exists in picker
+    const existing = picker.querySelector(`input[value="${CSS.escape(name)}"]`);
+    if (existing) {
+        existing.checked = true;
+        existing.dispatchEvent(new Event('change'));
+        input.value = '';
+        return;
+    }
+
+    // Add new genre tag to picker
+    const label = document.createElement('label');
+    label.className = 'genre-tag selected new-genre';
+    label.title = 'New genre (will be created)';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'genre-checkbox';
+    checkbox.value = name;
+    checkbox.checked = true;
+    genreSelection.add(name);
+
+    checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+            genreSelection.add(name);
+            label.classList.add('selected');
+        } else {
+            genreSelection.delete(name);
+            label.classList.remove('selected');
+        }
+    });
+
+    const span = document.createElement('span');
+    span.textContent = name;
+
+    const count = document.createElement('small');
+    count.className = 'genre-count';
+    count.textContent = '(new)';
+
+    label.appendChild(checkbox);
+    label.appendChild(span);
+    label.appendChild(count);
+    picker.appendChild(label);
+
+    input.value = '';
+}
+
+async function applyBulkGenres() {
+    if (bulkSelection.size === 0) {
+        showToast('No audiobooks selected', 'error');
+        return;
+    }
+
+    if (genreSelection.size === 0) {
+        showToast('No genres selected', 'error');
+        return;
+    }
+
+    const mode = document.querySelector('input[name="genre-mode"]:checked')?.value || 'add';
+    const action = mode === 'add' ? 'add' : 'remove';
+    const genreList = Array.from(genreSelection).join(', ');
+
+    const confirmed = await confirmAction(
+        `${mode === 'add' ? 'Add' : 'Remove'} Genres`,
+        `${mode === 'add' ? 'Add' : 'Remove'} ${genreSelection.size} genre(s) ${mode === 'add' ? 'to' : 'from'} ${bulkSelection.size} audiobook(s)?\n\nGenres: ${genreList}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const result = await safeFetch(`${API_BASE}/api/audiobooks/bulk-genres`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ids: Array.from(bulkSelection),
+                genres: Array.from(genreSelection),
+                mode: action
+            })
+        });
+
+        if (result.success) {
+            const verb = mode === 'add' ? 'Added' : 'Removed';
+            showToast(`${verb} ${result.genre_count} genre(s) for ${result.book_count} book(s)`, 'success');
+            // Clear genre selection
+            genreSelection.clear();
+            document.querySelectorAll('.genre-tag').forEach(tag => tag.classList.remove('selected'));
+            document.querySelectorAll('.genre-checkbox').forEach(cb => { cb.checked = false; });
+            // Reload genre list to update counts
+            loadGenresForPicker();
+        } else {
+            showToast(result.error || 'Genre update failed', 'error');
+        }
+    } catch (error) {
+        showToast('Failed to update genres: ' + error.message, 'error');
     }
 }
 
