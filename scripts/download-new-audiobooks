@@ -67,7 +67,7 @@ generate_source_checksum() {
             flock -x 201
             # Check if filepath already in index (avoid duplicates)
             if ! grep -qF "|${filepath}" "$index_file" 2>/dev/null; then
-                echo "${checksum}|${filepath}" >> "$index_file"
+                echo "${checksum}|${filepath}" >>"$index_file"
             fi
         ) 201>"${index_file}.lock"
         log "Checksum: $checksum for $(basename "$filepath")"
@@ -118,12 +118,12 @@ if [ ! -s "$TEMP_DIR/library.tsv" ]; then
 fi
 
 # Subtract 1 for header line
-TOTAL_LIBRARY=$(($(wc -l < "$TEMP_DIR/library.tsv") - 1))
+TOTAL_LIBRARY=$(($(wc -l <"$TEMP_DIR/library.tsv") - 1))
 
 # Filter out podcasts, newspapers, and other non-audiobook content
-awk -F'\t' 'NR==1 {for(i=1;i<=NF;i++) if($i=="runtime_length_min") col=i} NR>1 && $col != "" {print $1}' "$TEMP_DIR/library.tsv" | sort -u > "$TEMP_DIR/library_asins.txt"
+awk -F'\t' 'NR==1 {for(i=1;i<=NF;i++) if($i=="runtime_length_min") col=i} NR>1 && $col != "" {print $1}' "$TEMP_DIR/library.tsv" | sort -u >"$TEMP_DIR/library_asins.txt"
 
-AUDIOBOOK_COUNT=$(wc -l < "$TEMP_DIR/library_asins.txt")
+AUDIOBOOK_COUNT=$(wc -l <"$TEMP_DIR/library_asins.txt")
 NON_AUDIOBOOK_COUNT=$((TOTAL_LIBRARY - AUDIOBOOK_COUNT))
 
 log "Library contains $TOTAL_LIBRARY items total"
@@ -167,33 +167,33 @@ if [ "$CORRUPTED_COUNT" -gt 0 ]; then
 fi
 
 # Get list of already downloaded ASINs
-true > "$TEMP_DIR/downloaded_asins.txt"
+true >"$TEMP_DIR/downloaded_asins.txt"
 
-find "$DOWNLOAD_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f -size +100k -print0 2>/dev/null | \
-    xargs -0 -I {} basename {} | \
-    grep -oE '^[0-9A-Z]{10}' >> "$TEMP_DIR/downloaded_asins.txt"
+find "$DOWNLOAD_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f -size +100k -print0 2>/dev/null |
+    xargs -0 -I {} basename {} |
+    grep -oE '^[0-9A-Z]{10}' >>"$TEMP_DIR/downloaded_asins.txt"
 
-find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" -size +100k -print0 2>/dev/null | \
-    xargs -0 -I {} basename {} .opus | \
-    grep -oE '^[0-9A-Z]{10}' >> "$TEMP_DIR/downloaded_asins.txt"
+find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" -size +100k -print0 2>/dev/null |
+    xargs -0 -I {} basename {} .opus |
+    grep -oE '^[0-9A-Z]{10}' >>"$TEMP_DIR/downloaded_asins.txt"
 
 sort -u "$TEMP_DIR/downloaded_asins.txt" -o "$TEMP_DIR/downloaded_asins.txt"
 
-DOWNLOADED_COUNT=$(wc -l < "$TEMP_DIR/downloaded_asins.txt")
+DOWNLOADED_COUNT=$(wc -l <"$TEMP_DIR/downloaded_asins.txt")
 log "Already downloaded: $DOWNLOADED_COUNT audiobooks"
 
 # Load permanent skip list
 touch "$SKIP_LIST"
 
 # Find ASINs not yet downloaded
-comm -23 "$TEMP_DIR/library_asins.txt" "$TEMP_DIR/downloaded_asins.txt" > "$TEMP_DIR/temp_new.txt"
-PENDING_COUNT=$(wc -l < "$TEMP_DIR/temp_new.txt")
+comm -23 "$TEMP_DIR/library_asins.txt" "$TEMP_DIR/downloaded_asins.txt" >"$TEMP_DIR/temp_new.txt"
+PENDING_COUNT=$(wc -l <"$TEMP_DIR/temp_new.txt")
 
 # Filter out books in skip list
-comm -23 "$TEMP_DIR/temp_new.txt" <(sort "$SKIP_LIST") > "$TEMP_DIR/new_asins.txt"
+comm -23 "$TEMP_DIR/temp_new.txt" <(sort "$SKIP_LIST") >"$TEMP_DIR/new_asins.txt"
 
-SKIP_COUNT=$(wc -l < "$SKIP_LIST")
-FILTERED_COUNT=$((PENDING_COUNT - $(wc -l < "$TEMP_DIR/new_asins.txt")))
+SKIP_COUNT=$(wc -l <"$SKIP_LIST")
+FILTERED_COUNT=$((PENDING_COUNT - $(wc -l <"$TEMP_DIR/new_asins.txt")))
 
 if [ "$SKIP_COUNT" -gt 0 ]; then
     log "Skip list contains $SKIP_COUNT non-downloadable books"
@@ -202,7 +202,7 @@ if [ "$SKIP_COUNT" -gt 0 ]; then
     fi
 fi
 
-NEW_COUNT=$(wc -l < "$TEMP_DIR/new_asins.txt")
+NEW_COUNT=$(wc -l <"$TEMP_DIR/new_asins.txt")
 
 if [ "$NEW_COUNT" -eq 0 ]; then
     log "No new audiobooks to download"
@@ -229,7 +229,7 @@ while IFS=$'\t' read -r ASIN; do
     DISPLAY_TITLE="${TITLE:0:50}"
     [ ${#TITLE} -gt 50 ] && DISPLAY_TITLE="${DISPLAY_TITLE}..."
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$CURRENT/$NEW_COUNT] Downloading: $DISPLAY_TITLE" >> "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$CURRENT/$NEW_COUNT] Downloading: $DISPLAY_TITLE" >>"$LOG_FILE"
     echo -e "${CYAN}[$CURRENT/$NEW_COUNT]${NC} Downloading: $DISPLAY_TITLE"
 
     PERCENT=$((CURRENT * 100 / NEW_COUNT))
@@ -242,12 +242,12 @@ while IFS=$'\t' read -r ASIN; do
         --output-dir "$DOWNLOAD_DIR" \
         --filename-mode asin_ascii \
         --ignore-errors \
-        2>> "$LOG_FILE"
+        2>>"$LOG_FILE"
 
     DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
 
     if [ -n "$DOWNLOADED_FILE" ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded: $DISPLAY_TITLE" >> "$LOG_FILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded: $DISPLAY_TITLE" >>"$LOG_FILE"
         echo -e "${GREEN}✓ Downloaded:${NC} $DISPLAY_TITLE"
         generate_source_checksum "$DOWNLOADED_FILE"
         ((SUCCESS++))
@@ -260,11 +260,11 @@ while IFS=$'\t' read -r ASIN; do
             --output-dir "$DOWNLOAD_DIR" \
             --filename-mode asin_ascii \
             --ignore-errors \
-            2>> "$LOG_FILE"
+            2>>"$LOG_FILE"
 
         DOWNLOADED_FILE=$(find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -print -quit 2>/dev/null)
         if [ -n "$DOWNLOADED_FILE" ]; then
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded (AAX fallback): $DISPLAY_TITLE" >> "$LOG_FILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Downloaded (AAX fallback): $DISPLAY_TITLE" >>"$LOG_FILE"
             echo -e "${GREEN}✓ Downloaded (AAX):${NC} $DISPLAY_TITLE"
             generate_source_checksum "$DOWNLOADED_FILE"
             ((SUCCESS++))
@@ -272,10 +272,10 @@ while IFS=$'\t' read -r ASIN; do
 
         # If still no file, mark as failed
         if [ -z "$DOWNLOADED_FILE" ]; then
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ Failed (not downloadable): $DISPLAY_TITLE" >> "$LOG_FILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ Failed (not downloadable): $DISPLAY_TITLE" >>"$LOG_FILE"
             echo -e "${RED}✗ Failed (not downloadable):${NC} $DISPLAY_TITLE"
             ((FAILED++))
-            echo "$ASIN" >> "$SKIP_LIST"
+            echo "$ASIN" >>"$SKIP_LIST"
             sort -u "$SKIP_LIST" -o "$SKIP_LIST"
         fi
     fi
@@ -284,7 +284,7 @@ while IFS=$'\t' read -r ASIN; do
         sleep "$DOWNLOAD_DELAY"
     fi
 
-done < "$TEMP_DIR/new_asins.txt"
+done <"$TEMP_DIR/new_asins.txt"
 
 log "=========================================="
 log "Download complete: $SUCCESS succeeded, $FAILED failed"
@@ -298,5 +298,5 @@ fi
 
 # Cleanup
 rm -f "$TEMP_DIR/library.tsv" "$TEMP_DIR/library_asins.txt" \
-      "$TEMP_DIR/downloaded_asins.txt" "$TEMP_DIR/new_asins.txt" \
-      "$TEMP_DIR/temp_new.txt"
+    "$TEMP_DIR/downloaded_asins.txt" "$TEMP_DIR/new_asins.txt" \
+    "$TEMP_DIR/temp_new.txt"

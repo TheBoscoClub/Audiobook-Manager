@@ -10,7 +10,7 @@ LOG_FILE="/tmp/audiobook-scan.log"
 TOTAL_FILES=3985
 
 # Check if scan is running
-if ! pgrep -f "scan_audiobooks.py" > /dev/null; then
+if ! pgrep -f "scan_audiobooks.py" >/dev/null; then
     echo "❌ Scan is not running!"
     echo ""
     if [ -f "$LOG_FILE" ]; then
@@ -68,7 +68,7 @@ if [ -f "$LOG_FILE" ]; then
     BAR_WIDTH=40
     FILLED=$(awk "BEGIN {printf \"%.0f\", ($PERCENT / 100) * $BAR_WIDTH}")
     printf "  ["
-    for ((i=0; i<BAR_WIDTH; i++)); do
+    for ((i = 0; i < BAR_WIDTH; i++)); do
         if [ "$i" -lt "$FILLED" ]; then
             printf "█"
         else
@@ -110,7 +110,7 @@ if [ -f "$LOG_FILE" ]; then
     # Status
     echo "🔄 STATUS"
     echo "─────────────────────────────────────"
-    if pgrep -f "scan_audiobooks.py" > /dev/null; then
+    if pgrep -f "scan_audiobooks.py" >/dev/null; then
         PID=$(pgrep -f "scan_audiobooks.py")
         echo "  ✓ Scan is running (PID: $PID)"
     else

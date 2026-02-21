@@ -85,7 +85,7 @@ echo "  Press Ctrl+C to stop"
 echo "=========================================="
 
 # Open browser
-if command -v xdg-open &> /dev/null; then
+if command -v xdg-open &>/dev/null; then
     sleep 1
     xdg-open "http://localhost:$WEB_PORT" 2>/dev/null &
 fi

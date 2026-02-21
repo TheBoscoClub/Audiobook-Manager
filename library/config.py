@@ -177,8 +177,8 @@ AUDIOBOOKS_WEB_PORT = int(
     get_config("AUDIOBOOKS_WEB_PORT", "8443")
 )  # Changed from 8090 to 8443 (HTTPS)
 AUDIOBOOKS_HTTP_REDIRECT_PORT = int(
-    get_config("AUDIOBOOKS_HTTP_REDIRECT_PORT", "8081")
-)  # Default 8081 (8080 often used by other services)
+    get_config("AUDIOBOOKS_HTTP_REDIRECT_PORT", "8080")
+)  # Default 8080 (matches audiobook-config.sh and .env.example)
 AUDIOBOOKS_BIND_ADDRESS = get_config("AUDIOBOOKS_BIND_ADDRESS", "0.0.0.0")
 AUDIOBOOKS_HTTPS_ENABLED = get_config("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() in (
     "true",

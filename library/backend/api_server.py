@@ -49,12 +49,12 @@ def main():
     )
 
     # Check if running with waitress (production mode)
-    use_waitress = os.environ.get("AUDIOBOOKS_USE_WAITRESS", "false").lower() in (
+    use_waitress = os.environ.get("AUDIOBOOKS_USE_WAITRESS", "true").lower() in (
         "true",
         "1",
         "yes",
     )
-    debug = os.environ.get("FLASK_DEBUG", "true").lower() in ("true", "1", "yes")
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
 
     # Run the server
     run_server(app, port=API_PORT, debug=debug, use_waitress=use_waitress)

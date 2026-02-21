@@ -36,4 +36,7 @@ def add_cors_headers(response: Response) -> Response:
     response.headers["Access-Control-Expose-Headers"] = (
         "Content-Range, Accept-Ranges, Content-Length"
     )
+    # Allow credentials only when origin is not wildcard (spec forbids credentials with *)
+    if CORS_ORIGIN != "*":
+        response.headers["Access-Control-Allow-Credentials"] = "true"
     return response

@@ -220,7 +220,7 @@ fi
 # Wait for API health check
 echo -n "Waiting for API to be ready"
 for i in {1..10}; do
-    if curl -s http://localhost:${API_PORT}/api/stats > /dev/null 2>&1; then
+    if curl -s http://localhost:${API_PORT}/api/stats >/dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
         break
     fi

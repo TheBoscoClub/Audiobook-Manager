@@ -40,7 +40,7 @@ _load_config_file() {
             value=$(eval echo "$value")
             export "$key=$value"
         fi
-    done < "$config_file"
+    done <"$config_file"
 }
 
 # -----------------------------------------------------------------------------
@@ -103,29 +103,29 @@ else
 fi
 
 # Conversion settings
-: "${AUDIOBOOKS_STAGING:=/tmp/audiobook-staging}"  # tmpfs staging directory
-: "${AUDIOBOOKS_PARALLEL_JOBS:=12}"                # Number of parallel conversions
-: "${AUDIOBOOKS_SCAN_INTERVAL:=300}"               # Seconds between scans when idle
-: "${AUDIOBOOKS_TMPFS_THRESHOLD:=85}"              # Pause if tmpfs exceeds this %
-: "${AUDIOBOOKS_OPUS_LEVEL:=10}"                   # Opus compression level (0-10)
-: "${AUDIOBOOKS_DOWNLOAD_DELAY:=30}"               # Seconds between downloads
+: "${AUDIOBOOKS_STAGING:=/tmp/audiobook-staging}" # tmpfs staging directory
+: "${AUDIOBOOKS_PARALLEL_JOBS:=12}"               # Number of parallel conversions
+: "${AUDIOBOOKS_SCAN_INTERVAL:=300}"              # Seconds between scans when idle
+: "${AUDIOBOOKS_TMPFS_THRESHOLD:=85}"             # Pause if tmpfs exceeds this %
+: "${AUDIOBOOKS_OPUS_LEVEL:=10}"                  # Opus compression level (0-10)
+: "${AUDIOBOOKS_DOWNLOAD_DELAY:=30}"              # Seconds between downloads
 
 # Runtime directories
 : "${AUDIOBOOKS_RUN_DIR:=/var/lib/audiobooks/.run}" # Runtime data (locks, temp) - NOT /run due to ProtectSystem=strict
-: "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"     # Persistent state data
+: "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"      # Persistent state data
 : "${AUDIOBOOKS_TRIGGERS:=/tmp/audiobook-triggers}" # Trigger files for service coordination
 : "${AUDIOBOOKS_DOWNLOADER_LOCK:=/tmp/audiobook-downloader.lock}"
 
 # External tools
-: "${AUDIOBOOKS_AUDIBLE_CMD:=/usr/bin/audible}"    # Path to audible-cli
+: "${AUDIOBOOKS_AUDIBLE_CMD:=/usr/bin/audible}" # Path to audible-cli
 
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
-: "${AUDIOBOOKS_WEB_PORT:=8443}"  # HTTPS port (changed from 8090)
-: "${AUDIOBOOKS_HTTP_REDIRECT_PORT:=8080}"  # HTTP to HTTPS redirect port
+: "${AUDIOBOOKS_WEB_PORT:=8443}"           # HTTPS port (changed from 8090)
+: "${AUDIOBOOKS_HTTP_REDIRECT_PORT:=8080}" # HTTP to HTTPS redirect port
 : "${AUDIOBOOKS_BIND_ADDRESS:=0.0.0.0}"
 : "${AUDIOBOOKS_HTTPS_ENABLED:=true}"
-: "${AUDIOBOOKS_USE_WAITRESS:=true}"  # Use waitress WSGI server (production mode)
+: "${AUDIOBOOKS_USE_WAITRESS:=true}" # Use waitress WSGI server (production mode)
 
 # Export all variables
 export AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY AUDIOBOOKS_SOURCES AUDIOBOOKS_SUPPLEMENTS

@@ -30,10 +30,10 @@ echo ""
 NO_PROMPT=false
 for arg in "$@"; do
     case $arg in
-        --no-prompt)
-            NO_PROMPT=true
-            shift
-            ;;
+    --no-prompt)
+        NO_PROMPT=true
+        shift
+        ;;
     esac
 done
 
@@ -118,7 +118,7 @@ SYSTEMD_DIR="$HOME/.config/systemd/user"
 mkdir -p "$SYSTEMD_DIR"
 
 # API Service - uses waitress WSGI server (production-ready)
-cat > "$SYSTEMD_DIR/audiobook-api.service" << EOF
+cat >"$SYSTEMD_DIR/audiobook-api.service" <<EOF
 [Unit]
 Description=Audiobooks Library API Server (Waitress)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -155,7 +155,7 @@ EOF
 echo "  Created: audiobook-api.service"
 
 # Proxy Service (HTTPS reverse proxy) - replaces audiobooks-web.service
-cat > "$SYSTEMD_DIR/audiobook-proxy.service" << EOF
+cat >"$SYSTEMD_DIR/audiobook-proxy.service" <<EOF
 [Unit]
 Description=Audiobooks Library HTTPS Reverse Proxy
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -187,7 +187,7 @@ EOF
 echo "  Created: audiobook-proxy.service"
 
 # HTTP Redirect Service (optional)
-cat > "$SYSTEMD_DIR/audiobook-redirect.service" << EOF
+cat >"$SYSTEMD_DIR/audiobook-redirect.service" <<EOF
 [Unit]
 Description=Audiobooks Library HTTP to HTTPS Redirect
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -218,7 +218,7 @@ EOF
 echo "  Created: audiobook-redirect.service (optional)"
 
 # Target (groups all services)
-cat > "$SYSTEMD_DIR/audiobooks.target" << EOF
+cat >"$SYSTEMD_DIR/audiobooks.target" <<EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager

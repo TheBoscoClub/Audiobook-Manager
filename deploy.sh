@@ -414,38 +414,38 @@ deploy_to_custom() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --system)
-            TARGET_TYPE="system"
-            shift
-            ;;
-        --user)
-            TARGET_TYPE="user"
-            shift
-            ;;
-        --custom)
-            TARGET_TYPE="custom"
-            CUSTOM_TARGET="$2"
-            shift 2
-            ;;
-        --target)
-            # Legacy option - treat as custom
-            TARGET_TYPE="custom"
-            CUSTOM_TARGET="$2"
-            shift 2
-            ;;
-        --help|-h)
-            head -35 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Use --help for usage information."
-            exit 1
-            ;;
+    --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+    --system)
+        TARGET_TYPE="system"
+        shift
+        ;;
+    --user)
+        TARGET_TYPE="user"
+        shift
+        ;;
+    --custom)
+        TARGET_TYPE="custom"
+        CUSTOM_TARGET="$2"
+        shift 2
+        ;;
+    --target)
+        # Legacy option - treat as custom
+        TARGET_TYPE="custom"
+        CUSTOM_TARGET="$2"
+        shift 2
+        ;;
+    --help | -h)
+        head -35 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Unknown option: $1${NC}"
+        echo "Use --help for usage information."
+        exit 1
+        ;;
     esac
 done
 
@@ -480,20 +480,20 @@ if [[ -z "$TARGET_TYPE" ]]; then
 
     read -r "choice?Enter choice [1-4]: "
     case "$choice" in
-        1) TARGET_TYPE="system" ;;
-        2) TARGET_TYPE="user" ;;
-        3)
-            TARGET_TYPE="custom"
-            read -r "CUSTOM_TARGET?Enter custom path: "
-            ;;
-        4)
-            echo "Deployment cancelled."
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Invalid choice${NC}"
-            exit 1
-            ;;
+    1) TARGET_TYPE="system" ;;
+    2) TARGET_TYPE="user" ;;
+    3)
+        TARGET_TYPE="custom"
+        read -r "CUSTOM_TARGET?Enter custom path: "
+        ;;
+    4)
+        echo "Deployment cancelled."
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Invalid choice${NC}"
+        exit 1
+        ;;
     esac
 fi
 
@@ -502,19 +502,19 @@ echo ""
 
 # Execute deployment
 case "$TARGET_TYPE" in
-    system)
-        deploy_to_system
-        ;;
-    user)
-        deploy_to_user
-        ;;
-    custom)
-        if [[ -z "$CUSTOM_TARGET" ]]; then
-            echo -e "${RED}Error: Custom target path required${NC}"
-            exit 1
-        fi
-        deploy_to_custom "$CUSTOM_TARGET"
-        ;;
+system)
+    deploy_to_system
+    ;;
+user)
+    deploy_to_user
+    ;;
+custom)
+    if [[ -z "$CUSTOM_TARGET" ]]; then
+        echo -e "${RED}Error: Custom target path required${NC}"
+        exit 1
+    fi
+    deploy_to_custom "$CUSTOM_TARGET"
+    ;;
 esac
 
 echo ""

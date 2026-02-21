@@ -92,7 +92,7 @@ while IFS= read -r OPUS_FILE; do
     fi
 
     if [ -z "$AAXC_FILE" ] || [ ! -f "$AAXC_FILE" ]; then
-        echo "⊘ SKIP: $BASENAME (source AAXC not found)" >> "$LOG_FILE"
+        echo "⊘ SKIP: $BASENAME (source AAXC not found)" >>"$LOG_FILE"
         ((SKIPPED++))
         continue
     fi
@@ -115,7 +115,7 @@ while IFS= read -r OPUS_FILE; do
 
     # Skip if no metadata found
     if [ -z "$AUTHOR" ] && [ -z "$NARRATOR" ] && [ -z "$TITLE" ]; then
-        echo "⊘ SKIP: $BASENAME (no metadata in source AAXC)" >> "$LOG_FILE"
+        echo "⊘ SKIP: $BASENAME (no metadata in source AAXC)" >>"$LOG_FILE"
         ((SKIPPED++))
         continue
     fi
@@ -149,11 +149,11 @@ while IFS= read -r OPUS_FILE; do
     ffmpeg -nostdin -v warning -i "$OPUS_FILE" \
         "${METADATA_ARGS[@]}" \
         -codec copy \
-        "$TEMP_FILE" 2>&1 | tee "$FFMPEG_LOG" | grep -v "Guessed Channel" >> "$LOG_FILE"
+        "$TEMP_FILE" 2>&1 | tee "$FFMPEG_LOG" | grep -v "Guessed Channel" >>"$LOG_FILE"
 
     # If ffmpeg failed, log the full error
     if [ ! -f "$TEMP_FILE" ] || [ ! -s "$TEMP_FILE" ]; then
-        grep -v "Guessed Channel" "$FFMPEG_LOG" >> "$LOG_FILE"
+        grep -v "Guessed Channel" "$FFMPEG_LOG" >>"$LOG_FILE"
     fi
     rm -f "$FFMPEG_LOG"
 
@@ -164,10 +164,10 @@ while IFS= read -r OPUS_FILE; do
             echo "    Author: $AUTHOR"
             echo "    Narrator: $NARRATOR"
             echo "    Publisher: $PUBLISHER"
-        } >> "$LOG_FILE"
+        } >>"$LOG_FILE"
         ((FIXED++))
     else
-        echo "✗ FAIL: $BASENAME (ffmpeg error)" >> "$LOG_FILE"
+        echo "✗ FAIL: $BASENAME (ffmpeg error)" >>"$LOG_FILE"
         rm -f "$TEMP_FILE"
         ((FAILED++))
     fi

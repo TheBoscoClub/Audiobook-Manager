@@ -1,13 +1,13 @@
 #!/usr/bin/env zsh
 # Quick launcher for Audiobook Library
 
-set -e  # Exit on error
+set -e # Exit on error
 
 # Debug mode (set to 1 to enable debugging)
 DEBUG=${DEBUG:-0}
 
 if [ "$DEBUG" -eq 1 ]; then
-    set -x  # Print commands as they execute
+    set -x # Print commands as they execute
 fi
 
 echo "========================================="
@@ -92,7 +92,7 @@ echo "[DEBUG] Serving from project directory (so web/ and data/ are accessible)"
 
 # Start server in background
 echo "[DEBUG] Starting Python HTTP server on port $PORT..."
-python3 -m http.server $PORT > /tmp/audiobook-library-server.log 2>&1 &
+python3 -m http.server $PORT >/tmp/audiobook-library-server.log 2>&1 &
 SERVER_PID=$!
 
 echo "[DEBUG] Server PID: $SERVER_PID"
@@ -126,21 +126,21 @@ fi
 echo "Opening browser to $URL..."
 BROWSER_OPENED=0
 
-if command -v opera &> /dev/null; then
+if command -v opera &>/dev/null; then
     echo "[DEBUG] Found opera, launching..."
-    opera "$URL" &> /dev/null &
+    opera "$URL" &>/dev/null &
     BROWSER_OPENED=1
-elif command -v opera-developer &> /dev/null; then
+elif command -v opera-developer &>/dev/null; then
     echo "[DEBUG] Found opera-developer, launching..."
-    opera-developer "$URL" &> /dev/null &
+    opera-developer "$URL" &>/dev/null &
     BROWSER_OPENED=1
-elif command -v opera-beta &> /dev/null; then
+elif command -v opera-beta &>/dev/null; then
     echo "[DEBUG] Found opera-beta, launching..."
-    opera-beta "$URL" &> /dev/null &
+    opera-beta "$URL" &>/dev/null &
     BROWSER_OPENED=1
 else
     echo "[DEBUG] Opera not found, using default browser..."
-    xdg-open "$URL" &> /dev/null &
+    xdg-open "$URL" &>/dev/null &
     BROWSER_OPENED=1
 fi
 

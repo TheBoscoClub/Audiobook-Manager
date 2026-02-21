@@ -356,6 +356,7 @@ def init_system_routes(project_root):
         return jsonify(status)
 
     @utilities_system_bp.route("/api/system/upgrade/check", methods=["POST"])
+    @admin_or_localhost
     def check_upgrade() -> FlaskResponse:
         """
         Check for available upgrades (dry-run mode with verbose output).

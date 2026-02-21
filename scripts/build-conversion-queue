@@ -35,18 +35,24 @@ QUICK_OUTPUT=""
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --rebuild) REBUILD=true; shift ;;
-        --verbose|-v) VERBOSE=true; shift ;;
-        --quick-update)
-            # Quick update mode: --quick-update SOURCE_AAXC OUTPUT_OPUS
-            QUICK_UPDATE=true
-            shift
-            QUICK_SOURCE="${1:-}"
-            shift
-            QUICK_OUTPUT="${1:-}"
-            shift
-            ;;
-        *) shift ;;
+    --rebuild)
+        REBUILD=true
+        shift
+        ;;
+    --verbose | -v)
+        VERBOSE=true
+        shift
+        ;;
+    --quick-update)
+        # Quick update mode: --quick-update SOURCE_AAXC OUTPUT_OPUS
+        QUICK_UPDATE=true
+        shift
+        QUICK_SOURCE="${1:-}"
+        shift
+        QUICK_OUTPUT="${1:-}"
+        shift
+        ;;
+    *) shift ;;
     esac
 done
 
@@ -148,10 +154,10 @@ build_converted_asin_index() {
     # This prevents loss of ASINs added by quick-update that can't be rediscovered
     if [[ -f "$index_file" ]]; then
         cp "$index_file" "$temp_file"
-        local preserved_count=$(wc -l < "$temp_file")
+        local preserved_count=$(wc -l <"$temp_file")
         log "  Preserved: $preserved_count existing entries"
     else
-        : > "$temp_file"
+        : >"$temp_file"
     fi
 
     local count=0
@@ -159,7 +165,7 @@ build_converted_asin_index() {
     while IFS= read -r chapters_file; do
         local asin=$(extract_asin_from_chapters "$chapters_file")
         if [[ -n "$asin" ]]; then
-            echo "$asin" >> "$temp_file"
+            echo "$asin" >>"$temp_file"
             count=$((count + 1))
         fi
     done < <(find "$LIBRARY_DIR" -name "*-chapters.json" -type f 2>/dev/null)
@@ -168,7 +174,7 @@ build_converted_asin_index() {
     while IFS= read -r chapters_file; do
         local asin=$(extract_asin_from_chapters "$chapters_file")
         if [[ -n "$asin" ]]; then
-            echo "$asin" >> "$temp_file"
+            echo "$asin" >>"$temp_file"
             count=$((count + 1))
         fi
     done < <(find "$STAGING_DIR" -name "*-chapters.json" -type f 2>/dev/null)
@@ -183,17 +189,17 @@ build_converted_asin_index() {
 
     # Build normalized library title list
     # Use explicit loop to ensure each title is on its own line
-    : > "$lib_titles_file"
+    : >"$lib_titles_file"
     while IFS= read -r opus_file; do
         bn=$(basename "$opus_file" .opus)
         normalized=$(normalize_title "$bn")
         echo "$normalized"
-    done < <(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null) >> "$lib_titles_file"
+    done < <(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null) >>"$lib_titles_file"
     sort -u "$lib_titles_file" -o "$lib_titles_file"
 
     # Match source ASINs to library titles
     # Output ASINs whose normalized titles are in the library
-    : > "$backfill_file"
+    : >"$backfill_file"
     while IFS= read -r aaxc_file; do
         bn=$(basename "$aaxc_file" .aaxc)
         # Check if file has ASIN prefix (10 alphanumeric before underscore)
@@ -207,12 +213,12 @@ build_converted_asin_index() {
                 echo "$asin"
             fi
         fi
-    # Only scan AAX/AAXC files - MP3 podcasts are handled separately and don't need conversion
-    done < <(find "$SOURCES_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f 2>/dev/null) >> "$backfill_file"
+        # Only scan AAX/AAXC files - MP3 podcasts are handled separately and don't need conversion
+    done < <(find "$SOURCES_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f 2>/dev/null) >>"$backfill_file"
 
     # Append backfilled ASINs to temp file
-    cat "$backfill_file" >> "$temp_file"
-    local backfill_count=$(wc -l < "$backfill_file")
+    cat "$backfill_file" >>"$temp_file"
+    local backfill_count=$(wc -l <"$backfill_file")
     log "  Backfilled: $backfill_count ASINs from title matching"
 
     rm -f "$lib_titles_file" "$backfill_file"
@@ -225,7 +231,7 @@ build_converted_asin_index() {
         local db_asins
         db_asins=$(sqlite3 "$db_path" "SELECT DISTINCT asin FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''" 2>/dev/null)
         if [[ -n "$db_asins" ]]; then
-            echo "$db_asins" >> "$temp_file"
+            echo "$db_asins" >>"$temp_file"
             db_count=$(echo "$db_asins" | wc -l)
         fi
         log "  From database: $db_count ASINs"
@@ -234,10 +240,10 @@ build_converted_asin_index() {
     fi
 
     # Sort and deduplicate
-    sort -u "$temp_file" > "$index_file"
+    sort -u "$temp_file" >"$index_file"
     rm -f "$temp_file"
 
-    local unique_count=$(wc -l < "$index_file")
+    local unique_count=$(wc -l <"$index_file")
     log "Converted ASIN index: $unique_count unique ASINs (merged from all sources)"
 }
 
@@ -247,25 +253,25 @@ build_source_asin_index() {
     local index_file="$INDEX_DIR/source_asins.idx"
     local temp_file="$INDEX_DIR/source_asins.idx.tmp"
 
-    : > "$temp_file"
+    : >"$temp_file"
 
     local count=0
     while IFS= read -r aaxc_file; do
         local asin=$(extract_asin "$aaxc_file")
         if [[ -n "$asin" ]]; then
-            echo "${asin}|${aaxc_file}" >> "$temp_file"
+            echo "${asin}|${aaxc_file}" >>"$temp_file"
             count=$((count + 1))
         else
             # Non-ASIN file - use filename hash as identifier
             local bn=$(basename "$aaxc_file" .aaxc)
-            echo "NOASIN_${bn}|${aaxc_file}" >> "$temp_file"
+            echo "NOASIN_${bn}|${aaxc_file}" >>"$temp_file"
             count=$((count + 1))
         fi
-    # Only include AAX/AAXC files that need decryption - NOT MP3 files
-    # MP3 files (podcasts) don't need AAX decryption and are handled separately
+        # Only include AAX/AAXC files that need decryption - NOT MP3 files
+        # MP3 files (podcasts) don't need AAX decryption and are handled separately
     done < <(find "$SOURCES_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f 2>/dev/null | sort)
 
-    sort "$temp_file" > "$index_file"
+    sort "$temp_file" >"$index_file"
     rm -f "$temp_file"
 
     log "Source ASIN index: $count files"
@@ -279,27 +285,27 @@ build_converted_index() {
     local temp_file="$INDEX_DIR/converted.idx.tmp"
     local bn normalized
 
-    : > "$temp_file"
+    : >"$temp_file"
 
     # Index library files (opus filename = metadata title from conversion)
     while read -r opus_file; do
         bn=$(basename "$opus_file" .opus)
         normalized=$(normalize_title "$bn")
-        echo "$normalized" >> "$temp_file"
+        echo "$normalized" >>"$temp_file"
     done < <(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
 
     # Index staging files
     while read -r opus_file; do
         bn=$(basename "$opus_file" .opus)
         normalized=$(normalize_title "$bn")
-        echo "$normalized" >> "$temp_file"
+        echo "$normalized" >>"$temp_file"
     done < <(find "$STAGING_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
 
     # Sort and deduplicate
-    sort -u "$temp_file" > "$index_file"
+    sort -u "$temp_file" >"$index_file"
     rm -f "$temp_file"
 
-    local count=$(wc -l < "$index_file")
+    local count=$(wc -l <"$index_file")
     log "Converted index: $count unique titles"
 }
 
@@ -364,7 +370,7 @@ is_title_converted() {
         if [[ "$source_sig" == "$conv_sig" ]]; then
             return 0
         fi
-    done < "$converted_idx"
+    done <"$converted_idx"
 
     return 1
 }
@@ -389,7 +395,7 @@ find_matching_converted() {
             echo "$conv_title"
             return
         fi
-    done < "$converted_idx"
+    done <"$converted_idx"
 
     # Prefix match: source is longer than converted (source has subtitle)
     # e.g., source "catching fire the hunger games book 2" matches "catching fire"
@@ -398,7 +404,7 @@ find_matching_converted() {
             echo "$conv_title"
             return
         fi
-    done < "$converted_idx"
+    done <"$converted_idx"
 
     # Prefix match: converted is longer than source (rare but possible)
     while IFS= read -r conv_title; do
@@ -406,7 +412,7 @@ find_matching_converted() {
             echo "$conv_title"
             return
         fi
-    done < "$converted_idx"
+    done <"$converted_idx"
 }
 
 # Extract title from source filename (for fallback matching)
@@ -425,7 +431,7 @@ load_checksum_duplicates() {
     local checksum_idx="$INDEX_DIR/source_checksums.idx"
     local dupe_map_file="$INDEX_DIR/.checksum_dupes.tmp"
 
-    : > "$dupe_map_file"
+    : >"$dupe_map_file"
 
     if [[ ! -f "$checksum_idx" ]]; then
         log "No checksum index found - skipping duplicate detection"
@@ -464,9 +470,9 @@ load_checksum_duplicates() {
             }
         }
     }
-    ' "$checksum_idx" > "$dupe_map_file"
+    ' "$checksum_idx" >"$dupe_map_file"
 
-    skipped=$(wc -l < "$dupe_map_file")
+    skipped=$(wc -l <"$dupe_map_file")
     log "Checksum duplicates to skip: $skipped files"
 }
 
@@ -493,7 +499,7 @@ build_queue() {
     # Load checksum duplicates for filtering
     load_checksum_duplicates
 
-    : > "$queue_file"
+    : >"$queue_file"
 
     local checked=0
     local queued=0
@@ -575,15 +581,15 @@ build_queue() {
                             found=true
                             break
                         fi
-                    done < "$converted_title_idx"
+                    done <"$converted_title_idx"
                 fi
                 if ! $found; then
-                    echo "$path" >> "$queue_file"
+                    echo "$path" >>"$queue_file"
                     queued=$((queued + 1))
                     log "  Need conversion (no ASIN): $title"
                 fi
             else
-                echo "$path" >> "$queue_file"
+                echo "$path" >>"$queue_file"
                 queued=$((queued + 1))
                 log "  Need conversion (no ASIN): $title"
             fi
@@ -615,7 +621,7 @@ build_queue() {
                             log "  Prefix match (ASIN fallback): $normalized matches $conv_title"
                             break
                         fi
-                    done < "$converted_title_idx"
+                    done <"$converted_title_idx"
                 fi
                 # Prefix match: converted is prefix of source (source longer)
                 if ! $title_matched; then
@@ -625,7 +631,7 @@ build_queue() {
                             log "  Prefix match (ASIN fallback): $conv_title matches $normalized"
                             break
                         fi
-                    done < "$converted_title_idx"
+                    done <"$converted_title_idx"
                 fi
                 # N-word prefix match: first 2-3 significant words match
                 if ! $title_matched; then
@@ -638,7 +644,7 @@ build_queue() {
                                 log "  2-word prefix match (ASIN fallback): $src_prefix"
                                 break
                             fi
-                        done < "$converted_title_idx"
+                        done <"$converted_title_idx"
                     fi
                 fi
                 # Word-set match: same words, different order
@@ -651,13 +657,13 @@ build_queue() {
                             log "  Word-set match (ASIN fallback): $normalized"
                             break
                         fi
-                    done < "$converted_title_idx"
+                    done <"$converted_title_idx"
                 fi
 
                 if $title_matched; then
                     matched_title=$((matched_title + 1))
                 else
-                    echo "$path" >> "$queue_file"
+                    echo "$path" >>"$queue_file"
                     queued=$((queued + 1))
                     log "  Need conversion: ASIN $asin_or_id not in library"
                 fi
@@ -665,10 +671,10 @@ build_queue() {
         fi
 
         # Progress every 100 files
-        if $VERBOSE && (( checked % 100 == 0 )); then
+        if $VERBOSE && ((checked % 100 == 0)); then
             log "  Checked $checked sources..."
         fi
-    done < "$source_asin_idx"
+    done <"$source_asin_idx"
 
     log "Queue: $queued files need conversion"
     log "  Matched by ASIN: $matched_asin"
@@ -715,8 +721,14 @@ quick_update_indexes() {
     local converted_asin_idx="$INDEX_DIR/converted_asins.idx"
 
     # Validate inputs
-    [[ -n "$source_file" ]] || { echo "ERROR: Source file required" >&2; return 1; }
-    [[ -n "$output_file" ]] || { echo "ERROR: Output file required" >&2; return 1; }
+    [[ -n "$source_file" ]] || {
+        echo "ERROR: Source file required" >&2
+        return 1
+    }
+    [[ -n "$output_file" ]] || {
+        echo "ERROR: Output file required" >&2
+        return 1
+    }
 
     # Get output directory (where chapters.json might be)
     local output_dir=$(dirname "$output_file")
@@ -749,30 +761,30 @@ quick_update_indexes() {
         # 1. Remove source file from queue.txt (if present)
         if [[ -f "$queue_file" ]]; then
             # Use grep -v with fixed string matching for exact path removal
-            grep -vF "$source_file" "$queue_file" > "$queue_file.tmp" 2>/dev/null || true
+            grep -vF "$source_file" "$queue_file" >"$queue_file.tmp" 2>/dev/null || true
             mv "$queue_file.tmp" "$queue_file"
         fi
 
         # 2. Add normalized title to converted.idx (if not already present)
         if [[ -f "$converted_idx" ]]; then
             if ! grep -qxF "$normalized_title" "$converted_idx" 2>/dev/null; then
-                echo "$normalized_title" >> "$converted_idx"
+                echo "$normalized_title" >>"$converted_idx"
                 # Keep sorted for binary search compatibility
                 sort -u "$converted_idx" -o "$converted_idx"
             fi
         else
-            echo "$normalized_title" > "$converted_idx"
+            echo "$normalized_title" >"$converted_idx"
         fi
 
         # 3. Add ASIN to converted_asins.idx (if present and not already there)
         if [[ -n "$asin" ]] && [[ "$asin" != NOASIN_* ]]; then
             if [[ -f "$converted_asin_idx" ]]; then
                 if ! grep -qxF "$asin" "$converted_asin_idx" 2>/dev/null; then
-                    echo "$asin" >> "$converted_asin_idx"
+                    echo "$asin" >>"$converted_asin_idx"
                     sort -u "$converted_asin_idx" -o "$converted_asin_idx"
                 fi
             else
-                echo "$asin" > "$converted_asin_idx"
+                echo "$asin" >"$converted_asin_idx"
             fi
         fi
 
@@ -797,7 +809,7 @@ main() {
         log "Rebuilding indexes..."
         build_source_asin_index
         build_converted_asin_index
-        build_converted_index  # Still needed for non-ASIN fallback
+        build_converted_index # Still needed for non-ASIN fallback
     else
         log "Indexes are current"
     fi

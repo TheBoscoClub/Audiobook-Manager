@@ -160,9 +160,9 @@ fi
 # Start API server with waitress
 echo -e "${GREEN}Starting API server (waitress)...${NC}"
 cd backend
-AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS=127.0.0.1 python api.py > /dev/null 2>&1 &
+AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS=127.0.0.1 python api.py >/dev/null 2>&1 &
 API_PID=$!
-echo $API_PID > "$API_PID_FILE"
+echo $API_PID >"$API_PID_FILE"
 cd ..
 
 echo -e "  ${GREEN}✓${NC} API server started (PID: $API_PID)"
@@ -170,7 +170,7 @@ echo -e "  ${GREEN}✓${NC} API server started (PID: $API_PID)"
 # Wait for API to be ready
 echo -n "Waiting for API to be ready"
 for i in {1..15}; do
-    if curl -s http://localhost:$API_PORT/api/stats > /dev/null 2>&1; then
+    if curl -s http://localhost:$API_PORT/api/stats >/dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
         break
     fi
@@ -187,9 +187,9 @@ done
 # Start HTTPS reverse proxy
 echo -e "${GREEN}Starting HTTPS proxy...${NC}"
 cd web-v2
-python3 proxy_server.py > /dev/null 2>&1 &
+python3 proxy_server.py >/dev/null 2>&1 &
 PROXY_PID=$!
-echo $PROXY_PID > "$PROXY_PID_FILE"
+echo $PROXY_PID >"$PROXY_PID_FILE"
 cd ..
 
 echo -e "  ${GREEN}✓${NC} HTTPS proxy started (PID: $PROXY_PID)"
@@ -206,9 +206,9 @@ fi
 if [ "$HTTP_REDIRECT_ENABLED" = true ]; then
     echo -e "${GREEN}Starting HTTP redirect...${NC}"
     cd web-v2
-    python3 redirect_server.py > /dev/null 2>&1 &
+    python3 redirect_server.py >/dev/null 2>&1 &
     REDIRECT_PID=$!
-    echo $REDIRECT_PID > "$REDIRECT_PID_FILE"
+    echo $REDIRECT_PID >"$REDIRECT_PID_FILE"
     cd ..
 
     echo -e "  ${GREEN}✓${NC} HTTP redirect started (PID: $REDIRECT_PID)"
@@ -240,10 +240,10 @@ echo -e "${BLUE}========================================${NC}"
 sleep 2
 
 # Open in browser
-if command -v opera &> /dev/null; then
-    opera "https://localhost:$WEB_PORT" &> /dev/null &
-elif command -v xdg-open &> /dev/null; then
-    xdg-open "https://localhost:$WEB_PORT" &> /dev/null &
+if command -v opera &>/dev/null; then
+    opera "https://localhost:$WEB_PORT" &>/dev/null &
+elif command -v xdg-open &>/dev/null; then
+    xdg-open "https://localhost:$WEB_PORT" &>/dev/null &
 fi
 
 echo ""
