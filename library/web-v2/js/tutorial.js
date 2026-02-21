@@ -37,6 +37,18 @@ class LibraryTutorial {
                 description: 'Open the sidebar to browse curated collections \u2014 genres, series, and themes. Click a collection to filter the grid.',
             },
             {
+                target: '.tab-btn[data-tab="my-library"]',
+                title: 'My Library',
+                description: 'Switch to My Library to see books you\'ve listened to, downloaded, or have in progress. Your personal collection is tracked per-user across devices.',
+                optional: true,
+            },
+            {
+                target: '#new-books-marquee',
+                title: 'New Books',
+                description: 'When new audiobooks are added, a scrolling marquee appears here announcing the new titles. Hover to pause, or click the dismiss button to hide it.',
+                optional: true,
+            },
+            {
                 target: '.book-card',
                 title: 'Book Cards',
                 description: 'Each card shows the cover, title, author, narrator, duration, and format. Click a card to start playing.',
