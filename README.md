@@ -6,7 +6,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![6](https://img.shields.io/badge/6-brightgreen)![1](https://img.shields.io/badge/1-darkgreen)![3](https://img.shields.io/badge/3-green) | Latest patch | [v6.1.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.1.3) |
+| ![6](https://img.shields.io/badge/6-brightgreen)![2](https://img.shields.io/badge/2-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v6.2.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.2.0) |
+| ![6](https://img.shields.io/badge/6-brightred)![1](https://img.shields.io/badge/1-darkred)![3](https://img.shields.io/badge/3-red) | Prior patch | [v6.1.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.1.3) |
 | ![6](https://img.shields.io/badge/6-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v6.1.2.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.1.2.1) |
 | ![6](https://img.shields.io/badge/6-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v6.1.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.1.2) |
 | ![6](https://img.shields.io/badge/6-brightred)![1](https://img.shields.io/badge/1-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v6.1.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.1.1) |
@@ -1394,6 +1395,13 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.2.0
+- **Security**: FLASK_DEBUG default false, USE_WAITRESS default true, CORS credentials header, admin_or_localhost on upgrade check
+- **Infrastructure**: systemd service wrapper names match installed scripts, Dockerfile HEALTHCHECK uses /api/system/health
+- **Quality**: Shell formatting (shfmt), ruff format, YAML lint fixes, hardcoded path elimination
+- **Feature**: Health endpoint (`/api/system/health`), Help system with interactive tutorial, Back Office visibility fix
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.1.3
 - **Fix**: Rewrite invite flow — eliminates "credentials already claimed" and method selection loop bugs during claim
