@@ -513,6 +513,320 @@ class PositionRepository:
 
 
 @dataclass
+class UserListeningHistory:
+    """
+    A listening session for a user and audiobook.
+
+    Tracks when the user started listening, when they stopped,
+    and the playback positions during the session.
+    """
+
+    id: Optional[int] = None
+    user_id: int = 0
+    audiobook_id: str = ""
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    position_start_ms: int = 0
+    position_end_ms: Optional[int] = None
+    duration_listened_ms: Optional[int] = None
+
+    @classmethod
+    def from_row(cls, row: tuple) -> "UserListeningHistory":
+        """Create UserListeningHistory from database row."""
+        return cls(
+            id=row[0],
+            user_id=row[1],
+            audiobook_id=row[2],
+            started_at=datetime.fromisoformat(row[3]) if row[3] else None,
+            ended_at=datetime.fromisoformat(row[4]) if row[4] else None,
+            position_start_ms=row[5],
+            position_end_ms=row[6],
+            duration_listened_ms=row[7],
+        )
+
+    def save(self, db: AuthDatabase) -> "UserListeningHistory":
+        """Save listening session (insert new or update existing).
+
+        For existing sessions (id is set), only ended_at, position_end_ms,
+        and duration_listened_ms are updated.
+        """
+        with db.connection() as conn:
+            if self.id is None:
+                # New session — insert
+                if self.started_at is None:
+                    self.started_at = datetime.now()
+                cursor = conn.execute(
+                    """
+                    INSERT INTO user_listening_history
+                        (user_id, audiobook_id, started_at, ended_at,
+                         position_start_ms, position_end_ms, duration_listened_ms)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        self.user_id,
+                        self.audiobook_id,
+                        self.started_at.isoformat() if self.started_at else None,
+                        self.ended_at.isoformat() if self.ended_at else None,
+                        self.position_start_ms,
+                        self.position_end_ms,
+                        self.duration_listened_ms,
+                    ),
+                )
+                self.id = cursor.lastrowid
+            else:
+                # Existing session — update
+                conn.execute(
+                    """
+                    UPDATE user_listening_history
+                    SET ended_at = ?, position_end_ms = ?, duration_listened_ms = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        self.ended_at.isoformat() if self.ended_at else None,
+                        self.position_end_ms,
+                        self.duration_listened_ms,
+                        self.id,
+                    ),
+                )
+        return self
+
+
+class ListeningHistoryRepository:
+    """Repository for UserListeningHistory operations."""
+
+    def __init__(self, db: AuthDatabase):
+        self.db = db
+
+    def get_for_user(
+        self,
+        user_id: int,
+        limit: int = 50,
+        offset: int = 0,
+        min_duration_ms: Optional[int] = None,
+    ) -> List[UserListeningHistory]:
+        """Get listening history for a user, ordered by most recent first."""
+        with self.db.connection() as conn:
+            if min_duration_ms is not None:
+                cursor = conn.execute(
+                    """
+                    SELECT * FROM user_listening_history
+                    WHERE user_id = ?
+                      AND duration_listened_ms IS NOT NULL
+                      AND duration_listened_ms >= ?
+                    ORDER BY started_at DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (user_id, min_duration_ms, limit, offset),
+                )
+            else:
+                cursor = conn.execute(
+                    """
+                    SELECT * FROM user_listening_history
+                    WHERE user_id = ?
+                    ORDER BY started_at DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (user_id, limit, offset),
+                )
+            return [UserListeningHistory.from_row(row) for row in cursor.fetchall()]
+
+    def get_user_book_ids(self, user_id: int) -> List[str]:
+        """Get distinct audiobook IDs the user has listened to."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT DISTINCT audiobook_id FROM user_listening_history
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            )
+            return [row[0] for row in cursor.fetchall()]
+
+    def get_open_session(
+        self, user_id: int, audiobook_id: str
+    ) -> Optional[UserListeningHistory]:
+        """Get the current open (not yet ended) listening session, if any."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT * FROM user_listening_history
+                WHERE user_id = ? AND audiobook_id = ? AND ended_at IS NULL
+                ORDER BY started_at DESC
+                LIMIT 1
+                """,
+                (user_id, audiobook_id),
+            )
+            row = cursor.fetchone()
+            return UserListeningHistory.from_row(row) if row else None
+
+
+@dataclass
+class UserDownload:
+    """
+    Record of a user downloading an audiobook.
+
+    Downloads are immutable records — once recorded, they are not updated.
+    """
+
+    id: Optional[int] = None
+    user_id: int = 0
+    audiobook_id: str = ""
+    downloaded_at: Optional[datetime] = None
+    file_format: Optional[str] = None
+
+    @classmethod
+    def from_row(cls, row: tuple) -> "UserDownload":
+        """Create UserDownload from database row."""
+        return cls(
+            id=row[0],
+            user_id=row[1],
+            audiobook_id=row[2],
+            downloaded_at=datetime.fromisoformat(row[3]) if row[3] else None,
+            file_format=row[4],
+        )
+
+    def save(self, db: AuthDatabase) -> "UserDownload":
+        """Save download record (insert only — downloads are immutable)."""
+        with db.connection() as conn:
+            if self.downloaded_at is None:
+                self.downloaded_at = datetime.now()
+            cursor = conn.execute(
+                """
+                INSERT INTO user_downloads
+                    (user_id, audiobook_id, downloaded_at, file_format)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    self.user_id,
+                    self.audiobook_id,
+                    self.downloaded_at.isoformat(),
+                    self.file_format,
+                ),
+            )
+            self.id = cursor.lastrowid
+        return self
+
+
+class DownloadRepository:
+    """Repository for UserDownload operations."""
+
+    def __init__(self, db: AuthDatabase):
+        self.db = db
+
+    def get_for_user(
+        self, user_id: int, limit: int = 50, offset: int = 0
+    ) -> List[UserDownload]:
+        """Get download history for a user, ordered by most recent first."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT * FROM user_downloads
+                WHERE user_id = ?
+                ORDER BY downloaded_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (user_id, limit, offset),
+            )
+            return [UserDownload.from_row(row) for row in cursor.fetchall()]
+
+    def has_downloaded(self, user_id: int, audiobook_id: str) -> bool:
+        """Check if a user has downloaded a specific audiobook."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT 1 FROM user_downloads
+                WHERE user_id = ? AND audiobook_id = ?
+                LIMIT 1
+                """,
+                (user_id, audiobook_id),
+            )
+            return cursor.fetchone() is not None
+
+
+@dataclass
+class UserPreferences:
+    """
+    Per-user preferences and UI state.
+
+    Uses INSERT ... ON CONFLICT DO UPDATE SET to upsert, which preserves
+    the original created_at value while updating only the changed fields.
+    """
+
+    user_id: int = 0
+    new_books_seen_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_row(cls, row: tuple) -> "UserPreferences":
+        """Create UserPreferences from database row."""
+        return cls(
+            user_id=row[0],
+            new_books_seen_at=datetime.fromisoformat(row[1]) if row[1] else None,
+            created_at=datetime.fromisoformat(row[2]) if row[2] else None,
+            updated_at=datetime.fromisoformat(row[3]) if row[3] else None,
+        )
+
+    def save(self, db: AuthDatabase) -> "UserPreferences":
+        """Save preferences (upsert). Explicitly sets updated_at."""
+        self.updated_at = datetime.now()
+        with db.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_preferences
+                    (user_id, new_books_seen_at, created_at, updated_at)
+                VALUES (?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    new_books_seen_at = excluded.new_books_seen_at,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    self.user_id,
+                    self.new_books_seen_at.isoformat()
+                    if self.new_books_seen_at
+                    else None,
+                    self.created_at.isoformat() if self.created_at else None,
+                    self.updated_at.isoformat(),
+                ),
+            )
+        return self
+
+
+class PreferencesRepository:
+    """Repository for UserPreferences operations."""
+
+    def __init__(self, db: AuthDatabase):
+        self.db = db
+
+    def get_or_create(self, user_id: int) -> UserPreferences:
+        """Get preferences for a user, creating default if none exist."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM user_preferences WHERE user_id = ?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return UserPreferences.from_row(row)
+
+            # Create default preferences
+            conn.execute(
+                """
+                INSERT INTO user_preferences (user_id)
+                VALUES (?)
+                """,
+                (user_id,),
+            )
+            # Fetch back to get defaults (created_at, updated_at)
+            cursor = conn.execute(
+                "SELECT * FROM user_preferences WHERE user_id = ?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            return UserPreferences.from_row(row)
+
+
+@dataclass
 class Notification:
     """
     System notification for users.
