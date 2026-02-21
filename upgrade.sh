@@ -126,7 +126,7 @@ find_project_dir() {
 
 find_installed_dir() {
     # Try to find the installed application
-    # Priority: system paths first, then user paths, then custom locations
+    # Only check actual application install locations (NOT data directories)
     local candidates=(
         "/opt/audiobooks"             # Standard system installation
         "/usr/local/lib/audiobooks"   # Alternative system location
@@ -135,7 +135,9 @@ find_installed_dir() {
 
     local found=()
     for dir in "${candidates[@]}"; do
-        if [[ -d "$dir/scripts" ]] || [[ -d "$dir/library" ]]; then
+        # Require ALL markers of a real installation (scripts + library + VERSION)
+        # Data directories (e.g., /srv/audiobooks) may have scripts/ but no VERSION
+        if [[ -d "$dir/scripts" ]] && [[ -d "$dir/library" ]] && [[ -f "$dir/VERSION" ]]; then
             found+=("$dir")
         fi
     done
@@ -744,25 +746,46 @@ load_release_info() {
 get_latest_release() {
     # Query GitHub API for the latest release version
     local url="${GITHUB_API}/releases/latest"
-    local response
+    local http_code
+    local temp_body=$(mktemp)
 
-    response=$(curl -sL --connect-timeout 10 "$url") || {
+    # Write response body to file to avoid zsh echo corrupting JSON
+    # (zsh's echo interprets backslash escapes in release notes)
+    http_code=$(curl -sL --connect-timeout 10 -o "$temp_body" -w '%{http_code}' "$url") || {
         echo -e "${RED}Failed to connect to GitHub API${NC}" >&2
+        echo -e "${RED}  URL: $url${NC}" >&2
+        rm -f "$temp_body"
         return 1
     }
 
+    if [[ "$http_code" != "200" ]]; then
+        echo -e "${RED}GitHub API returned HTTP $http_code${NC}" >&2
+        echo -e "${RED}  URL: $url${NC}" >&2
+        # Show API error message if present
+        if command -v jq &>/dev/null; then
+            local api_msg
+            api_msg=$(jq -r '.message // empty' "$temp_body" 2>/dev/null)
+            [[ -n "$api_msg" ]] && echo -e "${RED}  API message: $api_msg${NC}" >&2
+        fi
+        rm -f "$temp_body"
+        return 1
+    fi
+
     local version
     if command -v jq &>/dev/null; then
-        version=$(echo "$response" | jq -r '.tag_name // empty' 2>/dev/null)
+        version=$(jq -r '.tag_name // empty' "$temp_body" 2>/dev/null)
     else
-        version=$(echo "$response" | grep '"tag_name"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+        version=$(grep '"tag_name"' "$temp_body" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
     fi
+
+    rm -f "$temp_body"
 
     # Remove 'v' prefix if present
     version="${version#v}"
 
     if [[ -z "$version" ]]; then
         echo -e "${RED}Could not determine latest version from GitHub${NC}" >&2
+        echo -e "${RED}  Response had no tag_name field${NC}" >&2
         return 1
     fi
 
@@ -772,27 +795,30 @@ get_latest_release() {
 get_release_tarball_url() {
     # Get download URL for a specific release version
     local version="$1"
+    local temp_body=$(mktemp)
 
     # Try with 'v' prefix first (v3.1.0), then without (3.1.0)
     for tag in "v${version}" "${version}"; do
         local url="${GITHUB_API}/releases/tags/${tag}"
-        local response
-        response=$(curl -sL --connect-timeout 10 "$url") || continue
+        # Write to file to avoid zsh echo corrupting JSON
+        curl -sL --connect-timeout 10 -o "$temp_body" "$url" || continue
 
         local tarball_url
         if command -v jq &>/dev/null; then
-            tarball_url=$(echo "$response" | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' 2>/dev/null | head -1)
+            tarball_url=$(jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' "$temp_body" 2>/dev/null | head -1)
         else
             # Fallback: construct URL from expected pattern
-            tarball_url="https://github.com/${GITHUB_REPO}/releases/download/${tag}/audiobooks-${version}.tar.gz"
+            tarball_url="https://github.com/${GITHUB_REPO}/releases/download/${tag}/audiobook-manager-${version}.tar.gz"
         fi
 
         if [[ -n "$tarball_url" ]]; then
+            rm -f "$temp_body"
             echo "$tarball_url"
             return 0
         fi
     done
 
+    rm -f "$temp_body"
     echo -e "${RED}Could not find release tarball for version ${version}${NC}" >&2
     return 1
 }

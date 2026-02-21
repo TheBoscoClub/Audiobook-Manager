@@ -269,16 +269,17 @@ do_upgrade_check() {
     fi
 
     # Build upgrade command with --dry-run
+    # Always pass --target to avoid unreliable auto-detection
     local upgrade_cmd
     if [[ "$source" == "github" ]]; then
-        upgrade_cmd=("$upgrade_script" "--from-github" "--dry-run")
+        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR" "--dry-run")
     elif [[ "$source" == "project" ]] && [[ -n "$project_path" ]]; then
         if [[ ! -d "$project_path" ]]; then
             OUTPUT_LINES+=("ERROR: Project path does not exist: $project_path")
             write_status "false" "error" "Project path does not exist" "false" "null" "${OUTPUT_LINES[@]}"
             return 1
         fi
-        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--dry-run")
+        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR" "--dry-run")
     else
         OUTPUT_LINES+=("ERROR: Invalid upgrade source")
         write_status "false" "error" "Invalid upgrade source" "false" "null" "${OUTPUT_LINES[@]}"
@@ -304,16 +305,21 @@ do_upgrade_check() {
 
     # Extract version info from output
     for line in "${OUTPUT_LINES[@]}"; do
-        if [[ "$line" =~ "Upgrade available" ]] || [[ "$line" =~ "→" ]]; then
+        if [[ "$line" =~ "Upgrade available" ]] || [[ "$line" =~ "→" ]] || [[ "$line" =~ "Successfully upgraded" ]]; then
             upgrade_available="true"
         fi
         if [[ "$line" =~ "Current version:" ]] || [[ "$line" =~ "Installed version:" ]]; then
             current_version=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         fi
-        if [[ "$line" =~ "Latest version:" ]] || [[ "$line" =~ "Project version:" ]]; then
+        if [[ "$line" =~ "Latest version:" ]] || [[ "$line" =~ "Project version:" ]] || [[ "$line" =~ "New version:" ]]; then
             available_version=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         fi
     done
+
+    # Also detect upgrade by comparing parsed versions
+    if [[ -n "$current_version" ]] && [[ -n "$available_version" ]] && [[ "$current_version" != "$available_version" ]]; then
+        upgrade_available="true"
+    fi
 
     # Build result JSON
     local result_json="{\"upgrade_available\": $upgrade_available"
@@ -385,9 +391,10 @@ do_upgrade() {
     fi
 
     # Build upgrade command
+    # Always pass --target to avoid unreliable auto-detection
     local upgrade_cmd
     if [[ "$source" == "github" ]]; then
-        upgrade_cmd=("$upgrade_script" "--from-github")
+        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR")
     elif [[ "$source" == "project" ]] && [[ -n "$project_path" ]]; then
         if [[ ! -d "$project_path" ]]; then
             OUTPUT_LINES+=("ERROR: Project path does not exist: $project_path")
@@ -397,7 +404,7 @@ do_upgrade() {
             done
             return 1
         fi
-        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path")
+        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR")
     else
         OUTPUT_LINES+=("ERROR: Invalid upgrade source")
         write_status "false" "error" "Invalid upgrade source" "false" "null" "${OUTPUT_LINES[@]}"
