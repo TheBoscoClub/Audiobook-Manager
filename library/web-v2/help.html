@@ -32,8 +32,10 @@
                 <li><a href="#search-filter">Search &amp; Filter</a></li>
                 <li><a href="#sorting">Sorting</a></li>
                 <li><a href="#collections">Collections</a></li>
+                <li><a href="#my-library">My Library</a></li>
+                <li><a href="#new-books">New Books</a></li>
                 <li><a href="#player">Audio Player</a></li>
-                <li><a href="#position-saving">Position Saving</a></li>
+                <li><a href="#position-saving">Progress Tracking</a></li>
                 <li><a href="#downloads">Downloads</a></li>
                 <li><a href="#profile">Your Profile</a></li>
                 <li><a href="#notifications">Notifications</a></li>
@@ -180,7 +182,39 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 6. Audio Player -->
+        <!-- 6. My Library -->
+        <section id="my-library" class="help-section">
+            <h2><span class="section-icon">&#128214;</span> My Library</h2>
+            <p>The <strong>My Library</strong> tab shows your personal collection &mdash; books you've listened to, downloaded, or have in progress. Switch to it using the tab button in the navigation bar.</p>
+
+            <h3>What's Included</h3>
+            <ul>
+                <li><strong>Books in progress</strong> &mdash; any book where you have a saved listening position, with a progress bar showing how far you've gotten</li>
+                <li><strong>Downloaded books</strong> &mdash; books you've downloaded for offline listening, with the date of your most recent download</li>
+                <li><strong>Listening history</strong> &mdash; a record of which books you've listened to and when, sorted by most recent activity</li>
+            </ul>
+
+            <h3>Progress Bars</h3>
+            <p>Each book card in My Library includes a visual progress bar indicating how much of the book you've completed. The percentage is calculated from your last saved playback position relative to the book's total duration.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 7. New Books -->
+        <section id="new-books" class="help-section">
+            <h2><span class="section-icon">&#10024;</span> New Books</h2>
+            <p>When new audiobooks are added to the library, a scrolling marquee banner appears below the header announcing the new titles.</p>
+
+            <h3>How It Works</h3>
+            <ul>
+                <li>The marquee shows titles of recently added books in a scrolling ticker</li>
+                <li>Hover over the marquee to pause the scrolling and read at your own pace</li>
+                <li>Click the <strong>&times;</strong> button on the right side to dismiss the banner</li>
+                <li>Once dismissed, the banner stays hidden until new books are added</li>
+            </ul>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 8. Audio Player -->
         <section id="player" class="help-section">
             <h2><span class="section-icon">&#127911;</span> Audio Player</h2>
             <p>The player appears at the bottom of the screen when you start playing a book.</p>
@@ -200,17 +234,18 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 7. Position Saving -->
+        <!-- 9. Progress Tracking -->
         <section id="position-saving" class="help-section">
-            <h2><span class="section-icon">&#128278;</span> Position Saving</h2>
-            <p>Your listening position is saved automatically as you listen. You can close the browser, switch devices, or come back days later &mdash; the library remembers where you were.</p>
+            <h2><span class="section-icon">&#128278;</span> Progress Tracking</h2>
+            <p>Your listening progress is tracked per-user and saved automatically as you listen. You can close the browser, switch devices, or come back days later &mdash; the library remembers exactly where you were.</p>
 
             <h3>How It Works</h3>
             <ul>
-                <li>Positions are saved every few seconds during playback</li>
+                <li>Positions are saved every few seconds during playback, tied to your user account</li>
                 <li>When you return to a book, you'll see a <strong>Resume</strong> button with a progress bar</li>
                 <li>The green <strong>Continue</strong> badge on book cards shows your progress percentage</li>
-                <li>If you have an account, positions sync across devices automatically</li>
+                <li>Positions sync across devices automatically &mdash; start on your laptop, pick up on your phone</li>
+                <li>Your progress appears in the <strong>My Library</strong> tab alongside your listening history</li>
             </ul>
 
             <h3>Resuming</h3>
@@ -218,7 +253,7 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 8. Downloads -->
+        <!-- 10. Downloads -->
         <section id="downloads" class="help-section">
             <h2><span class="section-icon">&#128229;</span> Downloads</h2>
             <p>If your account has download permission, you'll see a green <strong>Download</strong> button on book cards.</p>
@@ -227,10 +262,13 @@
                 <li>Downloads are the original audio file (Opus, M4B, etc.)</li>
                 <li>If you don't see a Download button, your account may not have download permission &mdash; contact the administrator</li>
             </ul>
+
+            <h3>Download History</h3>
+            <p>Your downloads are tracked per-user. Books you've downloaded appear in your <strong>My Library</strong> tab with the date of your most recent download. This helps you keep track of which books you already have for offline listening.</p>
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 9. Profile -->
+        <!-- 11. Profile -->
         <section id="profile" class="help-section">
             <h2><span class="section-icon">&#128100;</span> Your Profile</h2>
             <p>When signed in, click your name/avatar in the header to open the user menu.</p>
@@ -246,7 +284,7 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 10. Notifications -->
+        <!-- 12. Notifications -->
         <section id="notifications" class="help-section">
             <h2><span class="section-icon">&#128276;</span> Notifications</h2>
             <p>Notification banners appear below the header when the administrator sends you a message or when something important happens.</p>
@@ -264,7 +302,7 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 11. Keyboard & Media Keys -->
+        <!-- 13. Keyboard & Media Keys -->
         <section id="keyboard" class="help-section">
             <h2><span class="section-icon">&#9000;</span> Keyboard &amp; Media Keys</h2>
             <p>If your device has media keys or you're using a keyboard, these shortcuts work during playback:</p>
