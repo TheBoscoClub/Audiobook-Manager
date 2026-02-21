@@ -48,6 +48,7 @@ from .editions import (
 )
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
+from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .user_state import init_user_state_routes, user_bp
 from .utilities import init_utilities_routes, utilities_bp
 from .auth import (
@@ -149,6 +150,7 @@ def create_app(
             is_dev=auth_dev_mode,
         )
         init_user_state_routes(database_path)
+        init_admin_activity_routes(database_path)
 
     # Register blueprints
     flask_app.register_blueprint(audiobooks_bp)
@@ -163,6 +165,7 @@ def create_app(
     if flask_app.config["AUTH_ENABLED"]:
         flask_app.register_blueprint(auth_bp)
         flask_app.register_blueprint(user_bp)
+        flask_app.register_blueprint(admin_activity_bp)
 
     return flask_app
 
@@ -268,6 +271,7 @@ __all__ = [
     "supplements_bp",
     "utilities_bp",
     "position_bp",
+    "admin_activity_bp",
     "auth_bp",
     "user_bp",
     # Auth decorators
