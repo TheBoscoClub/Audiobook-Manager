@@ -34,16 +34,14 @@ jobs:
         cd library
         pytest tests/ -v --tb=short --cov=. --cov-report=xml
 
-    - name: Download Codecov CLI
-      run: |
-        curl -Os https://cli.codecov.io/latest/linux/codecov
-        chmod +x codecov
-
     - name: Upload coverage to Codecov
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      run: |
-        ./codecov upload-process --fail-on-error -t "$CODECOV_TOKEN" --slug TheBoscoClub/Audiobook-Manager -f library/coverage.xml -F unittests -n audiobook-manager
+      uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de  # v5.5.2
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: library/coverage.xml
+        flags: unittests
+        name: audiobook-manager
+        fail_ci_if_error: true
 
   docker-build:
     name: Docker Build Check
