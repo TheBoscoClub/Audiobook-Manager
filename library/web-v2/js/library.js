@@ -37,6 +37,10 @@ class AudiobookLibraryV2 {
         this.user = null;
         this.authEnabled = false;
 
+        // Tab state
+        this.currentTab = 'browse';
+        this.myLibraryBooks = [];
+
         this.init();
     }
 
@@ -388,6 +392,7 @@ class AudiobookLibraryV2 {
         await this.loadFilters();
         await this.loadCollections();
         this.setupEventListeners();
+        this.initTabs();
         await this.loadAudiobooks();
     }
 
@@ -1337,6 +1342,329 @@ class AudiobookLibraryV2 {
         if (page < 1 || page > this.totalPages) return;
         this.currentPage = page;
         this.loadAudiobooks();
+    }
+
+    // ============================================
+    // Tab Management (Browse All / My Library)
+    // ============================================
+
+    /**
+     * Initialize tab bar visibility and click handlers.
+     * Tab bar is only shown when auth is enabled and user is logged in.
+     */
+    initTabs() {
+        const tabContainer = document.getElementById('library-tabs');
+        if (!tabContainer) return;
+
+        // Only show tabs when user is logged in
+        if (this.authEnabled && this.user) {
+            tabContainer.style.display = 'flex';
+        }
+
+        // Add click handlers to tab buttons
+        tabContainer.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.tab;
+                if (tabName !== this.currentTab) {
+                    this.switchTab(tabName);
+                }
+            });
+        });
+    }
+
+    /**
+     * Switch between "browse" and "my-library" tabs.
+     * @param {string} tabName - "browse" or "my-library"
+     */
+    switchTab(tabName) {
+        this.currentTab = tabName;
+
+        // Update active tab button styling
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+
+        // Toggle search/filter visibility (hide for My Library)
+        const searchSection = document.querySelector('.search-section');
+        const resultsInfo = document.querySelector('.results-info');
+        const paginationSection = document.querySelector('.pagination-section');
+
+        if (tabName === 'my-library') {
+            // Hide browse-specific UI
+            if (searchSection) searchSection.style.display = 'none';
+            if (resultsInfo) resultsInfo.style.display = 'none';
+            if (paginationSection) paginationSection.style.display = 'none';
+            this.loadMyLibrary();
+        } else {
+            // Restore browse UI
+            if (searchSection) searchSection.style.display = '';
+            if (resultsInfo) resultsInfo.style.display = '';
+            if (paginationSection) paginationSection.style.display = '';
+            this.loadAudiobooks();
+        }
+    }
+
+    /**
+     * Load the user's personal library (books they've interacted with).
+     * Fetches from /api/user/library and position data, then renders cards.
+     */
+    async loadMyLibrary() {
+        this.showLoading(true);
+        const grid = document.getElementById('books-grid');
+
+        try {
+            // Fetch user's library
+            const response = await fetch(`${API_BASE}/user/library`, {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load library: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const books = data.books || [];
+
+            if (books.length === 0) {
+                // XSS safe: static content only, no user input
+                const emptyMsg = document.createElement('p');
+                emptyMsg.style.cssText = 'color: var(--parchment); text-align: center; grid-column: 1/-1;';
+                emptyMsg.textContent = 'Your library is empty. Start listening to build your collection!';
+                while (grid.firstChild) grid.removeChild(grid.firstChild);
+                grid.appendChild(emptyMsg);
+                return;
+            }
+
+            // Fetch position data for each book that has a position
+            const booksWithPositions = await this.enrichBooksWithPositions(books);
+
+            // Sort by most recently interacted with (books with positions first, then by ID desc)
+            booksWithPositions.sort((a, b) => {
+                // Books with recent position updates come first
+                if (a.positionData && b.positionData) {
+                    const aTime = a.positionData.local_position_updated || '';
+                    const bTime = b.positionData.local_position_updated || '';
+                    return bTime.localeCompare(aTime);
+                }
+                if (a.positionData) return -1;
+                if (b.positionData) return 1;
+                return b.id - a.id;
+            });
+
+            this.myLibraryBooks = booksWithPositions;
+
+            // Build cards using safe DOM construction
+            while (grid.firstChild) grid.removeChild(grid.firstChild);
+            booksWithPositions.forEach(book => {
+                const card = this.buildMyLibraryCardElement(book);
+                grid.appendChild(card);
+            });
+
+            // Update download button visibility
+            this.updateDownloadButtons();
+        } catch (error) {
+            console.error('Error loading My Library:', error);
+            const errMsg = document.createElement('p');
+            errMsg.style.cssText = 'color: var(--parchment); text-align: center; grid-column: 1/-1;';
+            errMsg.textContent = 'Error loading your library. Please try again.';
+            while (grid.firstChild) grid.removeChild(grid.firstChild);
+            grid.appendChild(errMsg);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    /**
+     * Enrich books with position data from the position API.
+     * @param {Array} books - Books from /api/user/library
+     * @returns {Array} Books with positionData attached
+     */
+    async enrichBooksWithPositions(books) {
+        const enriched = books.map(book => ({ ...book, positionData: null }));
+        const positionBooks = enriched.filter(b => b.has_position);
+
+        if (positionBooks.length === 0) return enriched;
+
+        const results = await Promise.all(
+            positionBooks.map(async (book) => {
+                try {
+                    const res = await fetch(`${API_BASE}/position/${book.id}`, {
+                        credentials: 'include'
+                    });
+                    return res.ok ? await res.json() : null;
+                } catch (e) {
+                    console.warn(`Could not fetch position for book ${book.id}:`, e);
+                    return null;
+                }
+            })
+        );
+
+        positionBooks.forEach((book, i) => {
+            book.positionData = results[i];
+        });
+
+        return enriched;
+    }
+
+    /**
+     * Build a My Library card DOM element with progress bar and listening info.
+     * Uses safe DOM construction (createElement/textContent) — no innerHTML.
+     * @param {Object} book - Book object with positionData
+     * @returns {HTMLElement} Card element
+     */
+    buildMyLibraryCardElement(book) {
+        const pos = book.positionData;
+        const percent = pos ? pos.percent_complete : 0;
+        const durationHuman = pos ? pos.duration_human : this.formatDuration(book.duration_hours);
+        const positionHuman = pos ? pos.local_position_human : '0h 0m';
+        const progressText = pos
+            ? `${positionHuman} / ${durationHuman} — ${percent}%`
+            : `Not started — ${durationHuman}`;
+
+        const card = document.createElement('div');
+        card.className = 'book-card';
+        card.dataset.id = book.id;
+
+        // Cover section
+        const coverDiv = document.createElement('div');
+        coverDiv.className = 'book-cover';
+        if (book.cover_path) {
+            const img = document.createElement('img');
+            img.src = `/covers/${book.cover_path}`;
+            img.alt = book.title;
+            img.onerror = function() {
+                this.parentElement.textContent = '';
+                const placeholder = document.createElement('span');
+                placeholder.className = 'book-cover-placeholder';
+                placeholder.textContent = '\u{1F4D6}';
+                this.parentElement.appendChild(placeholder);
+            };
+            coverDiv.appendChild(img);
+        } else {
+            const placeholder = document.createElement('span');
+            placeholder.className = 'book-cover-placeholder';
+            placeholder.textContent = '\u{1F4D6}';
+            coverDiv.appendChild(placeholder);
+        }
+        if (percent > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'continue-badge';
+            badge.title = `${percent}% complete`;
+            badge.textContent = 'Continue';
+            coverDiv.appendChild(badge);
+        }
+        card.appendChild(coverDiv);
+
+        // Title
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'book-title';
+        titleDiv.textContent = book.title;
+        card.appendChild(titleDiv);
+
+        // Author
+        if (book.author) {
+            const authorDiv = document.createElement('div');
+            authorDiv.className = 'book-author';
+            authorDiv.textContent = `by ${book.author}`;
+            card.appendChild(authorDiv);
+        }
+
+        // Progress bar
+        const progressDiv = document.createElement('div');
+        progressDiv.className = 'book-progress-bar';
+
+        const progressBg = document.createElement('div');
+        progressBg.className = 'progress-bar-bg';
+        const progressFill = document.createElement('div');
+        progressFill.className = 'book-progress-fill';
+        progressFill.style.width = `${percent}%`;
+        progressBg.appendChild(progressFill);
+        progressDiv.appendChild(progressBg);
+
+        const progressSpan = document.createElement('span');
+        progressSpan.className = 'book-progress-text';
+        progressSpan.textContent = progressText;
+        progressDiv.appendChild(progressSpan);
+        card.appendChild(progressDiv);
+
+        // My Library metadata (timestamps for last listened / downloaded)
+        if (book.last_listened_at || book.downloaded_at) {
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'my-library-meta';
+            const dateOpts = { month: 'short', day: 'numeric', year: 'numeric' };
+            if (book.last_listened_at) {
+                const histSpan = document.createElement('span');
+                const listenDate = new Date(book.last_listened_at).toLocaleDateString('en-US', dateOpts);
+                histSpan.textContent = `\u{1F50A} Last listened: ${listenDate}`;
+                metaDiv.appendChild(histSpan);
+            }
+            if (book.downloaded_at) {
+                const dlSpan = document.createElement('span');
+                const dlDate = new Date(book.downloaded_at).toLocaleDateString('en-US', dateOpts);
+                dlSpan.textContent = `\u{2B07} Downloaded: ${dlDate}`;
+                metaDiv.appendChild(dlSpan);
+            }
+            card.appendChild(metaDiv);
+        }
+
+        // Action buttons
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'book-actions';
+
+        const bookData = {
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover_path: book.cover_path,
+            format: book.format,
+            duration_hours: book.duration_hours
+        };
+
+        const playBtn = document.createElement('button');
+        playBtn.className = 'btn-play';
+        playBtn.textContent = '\u25B6 Play';
+        playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            audioPlayer.playAudiobook(bookData, false);
+        });
+        actionsDiv.appendChild(playBtn);
+
+        const resumeBtn = document.createElement('button');
+        resumeBtn.className = 'btn-resume';
+        resumeBtn.textContent = '\u23EF Resume';
+        resumeBtn.disabled = percent <= 0;
+        resumeBtn.title = percent > 0 ? `Resume from ${positionHuman}` : 'No saved position';
+        resumeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            audioPlayer.playAudiobook(bookData, true);
+        });
+        actionsDiv.appendChild(resumeBtn);
+
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'btn-download download-button';
+        downloadBtn.style.display = 'none';
+        downloadBtn.title = 'Download for offline listening (requires .opus compatible player)';
+        downloadBtn.textContent = '\u2B07 Download';
+        downloadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            library.downloadAudiobook(book.id);
+        });
+        actionsDiv.appendChild(downloadBtn);
+
+        card.appendChild(actionsDiv);
+        return card;
+    }
+
+    /**
+     * Format duration_hours (float) into human-readable string.
+     * @param {number} hours - Duration in hours (e.g., 8.5)
+     * @returns {string} Human readable (e.g., "8h 30m")
+     */
+    formatDuration(hours) {
+        if (!hours || hours <= 0) return '0h 0m';
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        return `${h}h ${m}m`;
     }
 
     setupEventListeners() {

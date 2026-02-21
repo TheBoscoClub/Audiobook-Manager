@@ -237,6 +237,33 @@ def get_user_library():
     if not all_ids:
         return jsonify({"books": [], "total": 0})
 
+    # Build timestamp lookup dicts for history and downloads
+    # last_listened_at: most recent ended_at (or started_at) per audiobook
+    last_listened_map: dict[str, str] = {}
+    if history_ids:
+        history_items = history_repo.get_for_user(user.id, limit=10000, offset=0)
+        for h in history_items:
+            ts = h.ended_at or h.started_at
+            if ts is None:
+                continue
+            aid = str(h.audiobook_id)
+            if aid not in last_listened_map or ts.isoformat() > last_listened_map[aid]:
+                last_listened_map[aid] = ts.isoformat()
+
+    # downloaded_at: most recent download per audiobook
+    downloaded_at_map: dict[str, str] = {}
+    if download_book_ids:
+        download_items = download_repo.get_for_user(user.id, limit=10000, offset=0)
+        for d in download_items:
+            if d.downloaded_at is None:
+                continue
+            aid = str(d.audiobook_id)
+            if (
+                aid not in downloaded_at_map
+                or d.downloaded_at.isoformat() > downloaded_at_map[aid]
+            ):
+                downloaded_at_map[aid] = d.downloaded_at.isoformat()
+
     # Fetch metadata from library DB
     conn = _get_library_db()
     try:
@@ -261,6 +288,7 @@ def get_user_library():
 
         books = []
         for row in cursor.fetchall():
+            row_id_str = str(row["id"])
             books.append(
                 {
                     "id": row["id"],
@@ -269,9 +297,11 @@ def get_user_library():
                     "duration_hours": row["duration_hours"],
                     "cover_path": row["cover_path"],
                     "format": row["format"],
-                    "has_history": str(row["id"]) in history_ids,
-                    "has_download": str(row["id"]) in download_book_ids,
-                    "has_position": str(row["id"]) in position_ids,
+                    "has_history": row_id_str in history_ids,
+                    "has_download": row_id_str in download_book_ids,
+                    "has_position": row_id_str in position_ids,
+                    "last_listened_at": last_listened_map.get(row_id_str),
+                    "downloaded_at": downloaded_at_map.get(row_id_str),
                 }
             )
 
