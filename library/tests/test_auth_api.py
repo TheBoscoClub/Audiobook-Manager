@@ -466,7 +466,7 @@ class TestAuthHealth:
         data = r.get_json()
         assert data["status"] == "ok"
         assert data["auth_db"] is True
-        assert data["schema_version"] == 3
+        assert data["schema_version"] == 4
 
 
 class TestRegistrationWithRecovery:

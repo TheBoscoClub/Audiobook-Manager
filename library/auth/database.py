@@ -204,7 +204,28 @@ class AuthDatabase:
         with self.connection() as conn:
             conn.executescript(schema_sql)
 
+        # Apply any pending migrations (for existing DBs upgrading from older versions)
+        self._apply_migrations()
+
         return created
+
+    def _apply_migrations(self) -> None:
+        """Apply any pending database migrations in version order."""
+        migrations_dir = Path(__file__).parent / "migrations"
+        if not migrations_dir.exists():
+            return
+
+        with self.connection() as conn:
+            cursor = conn.execute("SELECT MAX(version) FROM schema_version")
+            current_version = cursor.fetchone()[0] or 0
+
+            for migration_file in sorted(migrations_dir.glob("*.sql")):
+                # Extract version from filename (e.g., 004_xxx.sql -> 4)
+                version = int(migration_file.stem.split("_")[0])
+                if version > current_version:
+                    migration_sql = migration_file.read_text()
+                    conn.executescript(migration_sql)
+                    current_version = version
 
     def verify(self) -> dict:
         """

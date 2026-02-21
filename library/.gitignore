@@ -124,6 +124,7 @@ Cargo.lock
 !backend/migrations/*.sql
 !backend/schema.sql
 !auth/schema.sql
+!auth/migrations/*.sql
 
 # Project-specific: Generated data
 data/audiobooks.json
