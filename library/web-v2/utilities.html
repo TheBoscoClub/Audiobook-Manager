@@ -138,6 +138,10 @@
                     <span class="tab-icon">&#128230;</span>
                     <span class="tab-label">Bulk Ops</span>
                 </button>
+                <button class="cabinet-tab" data-section="activity" title="View user activity audit log and statistics">
+                    <span class="tab-icon">&#128209;</span>
+                    <span class="tab-label">Activity</span>
+                </button>
                 <button class="cabinet-tab" data-section="system" title="Manage services and application upgrades">
                     <span class="tab-icon">&#9881;</span>
                     <span class="tab-label">System</span>
@@ -840,6 +844,135 @@
                                         <span class="btn-icon">&#128465;</span> Delete Selected
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Audit Section -->
+            <section class="drawer-content" id="activity-section">
+                <div class="section-header">
+                    <h2>User Activity</h2>
+                    <p class="section-desc">Audit log of listening and download activity across all users</p>
+                </div>
+
+                <div id="activity-audit" class="card-catalog">
+                    <!-- Stats Summary Cards -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">Activity Summary</div>
+                        <div class="card-body">
+                            <div id="activity-stats" class="audit-stats">
+                                <div class="audit-stat-card">
+                                    <span class="audit-stat-value" id="audit-total-listens">-</span>
+                                    <span class="audit-stat-label">Listens</span>
+                                </div>
+                                <div class="audit-stat-card">
+                                    <span class="audit-stat-value" id="audit-total-downloads">-</span>
+                                    <span class="audit-stat-label">Downloads</span>
+                                </div>
+                                <div class="audit-stat-card">
+                                    <span class="audit-stat-value" id="audit-active-users">-</span>
+                                    <span class="audit-stat-label">Active Users</span>
+                                </div>
+                                <div class="audit-stat-card">
+                                    <span class="audit-stat-value" id="audit-top-listened">-</span>
+                                    <span class="audit-stat-label">Most Listened</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn" id="refresh-activity-stats" title="Reload activity statistics">
+                                <span class="btn-icon">&#8635;</span> Refresh Stats
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Top Lists Cards -->
+                    <div class="catalog-card">
+                        <div class="card-header">Top Listened</div>
+                        <div class="card-body">
+                            <div class="audit-top-list" id="audit-top-listened-list">
+                                <p class="placeholder-text">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="catalog-card">
+                        <div class="card-header">Top Downloaded</div>
+                        <div class="card-body">
+                            <div class="audit-top-list" id="audit-top-downloaded-list">
+                                <p class="placeholder-text">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Bar + Activity Log -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Activity Log</span>
+                            <span class="badge" id="activity-total-badge">0</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Filter Controls -->
+                            <div class="audit-filters">
+                                <div class="audit-filter-group">
+                                    <label for="activity-filter-user">User</label>
+                                    <select id="activity-filter-user" class="office-select" title="Filter by user">
+                                        <option value="">All Users</option>
+                                    </select>
+                                </div>
+                                <div class="audit-filter-group">
+                                    <label for="activity-filter-type">Type</label>
+                                    <select id="activity-filter-type" class="office-select" title="Filter by activity type">
+                                        <option value="">All</option>
+                                        <option value="listen">Listen</option>
+                                        <option value="download">Download</option>
+                                    </select>
+                                </div>
+                                <div class="audit-filter-group">
+                                    <label for="activity-filter-from">From</label>
+                                    <input type="date" id="activity-filter-from" class="office-input" title="Start date filter">
+                                </div>
+                                <div class="audit-filter-group">
+                                    <label for="activity-filter-to">To</label>
+                                    <input type="date" id="activity-filter-to" class="office-input" title="End date filter">
+                                </div>
+                                <button class="office-btn" id="activity-filter-apply" title="Apply filters to activity log">
+                                    <span class="btn-icon">&#128269;</span> Filter
+                                </button>
+                                <button class="office-btn secondary" id="activity-filter-clear" title="Clear all filters">
+                                    Clear
+                                </button>
+                            </div>
+
+                            <!-- Activity Table -->
+                            <div class="audit-table-wrapper">
+                                <table class="audit-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>User</th>
+                                            <th>Action</th>
+                                            <th>Audiobook</th>
+                                            <th>Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activity-table-body">
+                                        <tr><td colspan="5" class="placeholder-text">Loading activity...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Pagination -->
+                            <div class="audit-pagination">
+                                <button class="office-btn secondary" id="activity-prev" disabled title="Previous page">
+                                    &#8592; Previous
+                                </button>
+                                <span class="audit-page-info" id="activity-page-info">Page 1</span>
+                                <button class="office-btn secondary" id="activity-next" disabled title="Next page">
+                                    Next &#8594;
+                                </button>
                             </div>
                         </div>
                     </div>
