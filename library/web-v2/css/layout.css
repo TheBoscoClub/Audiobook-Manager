@@ -258,7 +258,7 @@
     margin: 0 auto;
     padding: 0 var(--spacing-xl);
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
     gap: var(--spacing-xl);
     margin-bottom: 3rem;
 }
@@ -304,7 +304,7 @@
 
     .header-content {
         flex-direction: column;
-        gap: var(--spacing-sm);
+        gap: var(--spacing-md);
     }
 
     .header-nav {
@@ -340,7 +340,7 @@
     }
 
     .books-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
         gap: var(--spacing-lg);
         padding: 0 var(--spacing-md);
     }
