@@ -42,13 +42,14 @@
 }
 
 .header-content {
-    text-align: center;
+    display: flex;
+    align-items: center;
     margin-bottom: var(--spacing-lg);
-    position: relative;
 }
 
 .title-section {
-    display: inline-block;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .library-title {
@@ -106,20 +107,18 @@
    Header Navigation Links
    ============================================ */
 .header-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
+    flex: 1;
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
 }
 
 .header-nav-left {
-    left: 0;
+    justify-content: flex-start;
 }
 
 .header-nav-right {
-    right: 0;
+    justify-content: flex-end;
 }
 
 .nav-link:not([hidden]),
@@ -251,23 +250,17 @@
     }
 
     .header-content {
-        display: flex;
         flex-direction: column;
-        align-items: center;
         gap: var(--spacing-sm);
     }
 
     .header-nav {
-        position: static;
-        transform: none;
         justify-content: center;
         flex-wrap: wrap;
     }
 
-    .header-nav-left,
     .header-nav-right {
-        position: static;
-        transform: none;
+        justify-content: center;
     }
 
     .library-title {
