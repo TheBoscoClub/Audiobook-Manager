@@ -253,3 +253,212 @@ def temp_dir():
     """Create a temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
+
+
+# ============================================================
+# Shared auth-enabled Flask app fixtures
+# ============================================================
+# Session-scoped so Flask blueprints are only registered once.
+# Used by test_auth_api.py, test_user_state_api.py, and any
+# future test files that need an auth-enabled Flask app.
+# ============================================================
+
+
+@pytest.fixture(scope="session")
+def auth_temp_dir():
+    """Session-scoped temp directory for auth tests."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
+
+
+@pytest.fixture(scope="session")
+def auth_app(auth_temp_dir):
+    """Create a Flask app with auth enabled for testing (session-scoped).
+
+    Shared across all auth-related test files to avoid Flask blueprint
+    re-registration errors (blueprints are global singletons).
+    """
+    from auth import AuthDatabase, AuthType, User
+    from auth.totp import setup_totp
+
+    tmpdir = auth_temp_dir
+    main_db_path = Path(tmpdir) / "audiobooks.db"
+    auth_db_path = Path(tmpdir) / "auth.db"
+    auth_key_path = Path(tmpdir) / "auth.key"
+
+    # Create main database with full schema + test audiobooks
+    conn = sqlite3.connect(main_db_path)
+    conn.executescript("""
+        CREATE TABLE audiobooks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            author TEXT,
+            narrator TEXT,
+            publisher TEXT,
+            series TEXT,
+            duration_hours REAL,
+            duration_formatted TEXT,
+            file_size_mb REAL,
+            file_path TEXT UNIQUE NOT NULL,
+            cover_path TEXT,
+            format TEXT,
+            quality TEXT,
+            published_year INTEGER,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sha256_hash TEXT,
+            hash_verified_at TIMESTAMP,
+            author_last_name TEXT,
+            author_first_name TEXT,
+            narrator_last_name TEXT,
+            narrator_first_name TEXT,
+            series_sequence REAL,
+            edition TEXT,
+            asin TEXT,
+            published_date TEXT,
+            acquired_date TEXT,
+            isbn TEXT,
+            source TEXT DEFAULT 'test',
+            playback_position_ms INTEGER DEFAULT 0,
+            playback_position_updated TIMESTAMP,
+            audible_position_ms INTEGER,
+            audible_position_updated TIMESTAMP,
+            position_synced_at TIMESTAMP,
+            content_type TEXT DEFAULT 'Product',
+            source_asin TEXT
+        );
+        CREATE TABLE collections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE collection_items (
+            collection_id INTEGER NOT NULL,
+            audiobook_id INTEGER NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (collection_id, audiobook_id),
+            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+        );
+        CREATE TABLE genres (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        );
+        CREATE TABLE audiobook_genres (
+            audiobook_id INTEGER,
+            genre_id INTEGER,
+            PRIMARY KEY (audiobook_id, genre_id),
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (genre_id) REFERENCES genres(id) ON DELETE CASCADE
+        );
+        CREATE TABLE eras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        );
+        CREATE TABLE audiobook_eras (
+            audiobook_id INTEGER,
+            era_id INTEGER,
+            PRIMARY KEY (audiobook_id, era_id),
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (era_id) REFERENCES eras(id) ON DELETE CASCADE
+        );
+        CREATE TABLE topics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        );
+        CREATE TABLE audiobook_topics (
+            audiobook_id INTEGER,
+            topic_id INTEGER,
+            PRIMARY KEY (audiobook_id, topic_id),
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+        );
+        CREATE TABLE supplements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audiobook_id INTEGER,
+            asin TEXT,
+            type TEXT NOT NULL DEFAULT 'pdf',
+            filename TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size_mb REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE SET NULL
+        );
+        CREATE TABLE playback_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audiobook_id INTEGER NOT NULL,
+            position_ms INTEGER NOT NULL,
+            source TEXT DEFAULT 'local',
+            recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+        );
+
+        -- Test audiobooks (used by auth API and user state tests)
+        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
+        VALUES (1, 'The Fellowship of the Ring', 'J.R.R. Tolkien', '/test/fellowship.opus', 'opus', 19.0, 'Product', '2026-01-01 00:00:00');
+
+        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
+        VALUES (2, 'The Two Towers', 'J.R.R. Tolkien', '/test/towers.opus', 'opus', 16.0, 'Product', '2026-01-15 00:00:00');
+
+        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
+        VALUES (3, 'Return of the King', 'J.R.R. Tolkien', '/test/return.opus', 'opus', 14.5, 'Product', '2026-02-01 00:00:00');
+
+        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
+        VALUES (4, 'The Hobbit', 'J.R.R. Tolkien', '/test/hobbit.opus', 'opus', 11.0, 'Product', '2026-02-20 00:00:00');
+    """)
+    conn.close()
+
+    # Initialize auth database
+    auth_db = AuthDatabase(
+        db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=True
+    )
+    auth_db.initialize()
+
+    # Create test user (regular user, can_download=False for auth tests)
+    secret, base32, uri = setup_totp("testuser1")
+    user = User(
+        username="testuser1",
+        auth_type=AuthType.TOTP,
+        auth_credential=secret,
+        can_download=False,
+        is_admin=False,
+    )
+    user.save(auth_db)
+
+    # Create admin user
+    admin_secret, _, _ = setup_totp("adminuser")
+    admin = User(
+        username="adminuser",
+        auth_type=AuthType.TOTP,
+        auth_credential=admin_secret,
+        can_download=True,
+        is_admin=True,
+    )
+    admin.save(auth_db)
+
+    # Create Flask app
+    sys.path.insert(0, str(LIBRARY_DIR / "backend"))
+    from api_modular import create_app
+
+    app = create_app(
+        database_path=main_db_path,
+        project_dir=LIBRARY_DIR.parent,
+        supplements_dir=LIBRARY_DIR / "testdata" / "Supplements",
+        api_port=6001,
+        auth_db_path=auth_db_path,
+        auth_key_path=auth_key_path,
+        auth_dev_mode=True,
+    )
+    app.config["AUTH_DEV_MODE"] = True
+    app.config["TESTING"] = True
+
+    # Store test data for tests to use
+    app.test_user_secret = secret
+    app.admin_secret = admin_secret
+    app.auth_db = auth_db
+    app.test_user_id = user.id
+    app.admin_user_id = admin.id
+
+    yield app
