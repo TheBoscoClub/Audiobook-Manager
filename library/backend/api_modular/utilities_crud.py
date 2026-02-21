@@ -348,4 +348,193 @@ def init_crud_routes(db_path):
 
         return jsonify(audiobooks)
 
+    @utilities_crud_bp.route("/api/genres", methods=["GET"])
+    @auth_if_enabled
+    def list_genres() -> Response:
+        """List all genres with book counts."""
+        conn = get_db(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT g.id, g.name, COUNT(ag.audiobook_id) as book_count
+            FROM genres g
+            LEFT JOIN audiobook_genres ag ON g.id = ag.genre_id
+            GROUP BY g.id, g.name
+            ORDER BY g.name
+        """
+        )
+
+        genres = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        return jsonify(genres)
+
+    @utilities_crud_bp.route("/api/audiobooks/<int:id>/genres", methods=["PUT"])
+    @admin_if_enabled
+    def set_audiobook_genres(id: int) -> FlaskResponse:
+        """Set genres for a single audiobook (replaces all existing genres)."""
+        data = request.get_json()
+
+        if not data or "genres" not in data:
+            return (
+                jsonify({"success": False, "error": "Missing required field: genres"}),
+                400,
+            )
+
+        genre_names = data["genres"]
+        if not isinstance(genre_names, list):
+            return (
+                jsonify({"success": False, "error": "genres must be a list"}),
+                400,
+            )
+
+        conn = get_db(db_path)
+        cursor = conn.cursor()
+
+        try:
+            # Verify audiobook exists
+            cursor.execute("SELECT id FROM audiobooks WHERE id = ?", (id,))
+            if not cursor.fetchone():
+                conn.close()
+                return jsonify({"success": False, "error": "Audiobook not found"}), 404
+
+            cursor.execute("BEGIN TRANSACTION")
+
+            # Remove all existing genre associations
+            cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (id,))
+
+            # Insert new genre associations (create genres if they don't exist)
+            for name in genre_names:
+                name = name.strip()
+                if not name:
+                    continue
+                cursor.execute(
+                    "INSERT OR IGNORE INTO genres (name) VALUES (?)", (name,)
+                )
+                cursor.execute("SELECT id FROM genres WHERE name = ?", (name,))
+                genre_id = cursor.fetchone()["id"]
+                cursor.execute(
+                    "INSERT OR IGNORE INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+                    (id, genre_id),
+                )
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({"success": True, "genres": genre_names})
+        except Exception:
+            import logging
+
+            logging.exception("Error setting genres for audiobook %d", id)
+            conn.rollback()
+            conn.close()
+            return (
+                jsonify({"success": False, "error": "Failed to update genres"}),
+                500,
+            )
+
+    @utilities_crud_bp.route("/api/audiobooks/bulk-genres", methods=["POST"])
+    @admin_if_enabled
+    def bulk_manage_genres() -> FlaskResponse:
+        """Add or remove genres for multiple audiobooks.
+
+        Request body:
+            ids: list of audiobook IDs
+            genres: list of genre names
+            mode: "add" or "remove"
+        """
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+
+        ids = data.get("ids", [])
+        genre_names = data.get("genres", [])
+        mode = data.get("mode", "add")
+
+        if not ids:
+            return (
+                jsonify({"success": False, "error": "No audiobook IDs provided"}),
+                400,
+            )
+
+        if not genre_names:
+            return (
+                jsonify({"success": False, "error": "No genres provided"}),
+                400,
+            )
+
+        if mode not in ("add", "remove"):
+            return (
+                jsonify({"success": False, "error": "mode must be 'add' or 'remove'"}),
+                400,
+            )
+
+        conn = get_db(db_path)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("BEGIN TRANSACTION")
+            affected = 0
+
+            if mode == "add":
+                for name in genre_names:
+                    name = name.strip()
+                    if not name:
+                        continue
+                    # Create genre if it doesn't exist
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO genres (name) VALUES (?)", (name,)
+                    )
+                    cursor.execute("SELECT id FROM genres WHERE name = ?", (name,))
+                    genre_id = cursor.fetchone()["id"]
+
+                    for book_id in ids:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+                            (book_id, genre_id),
+                        )
+                        affected += cursor.rowcount
+            else:  # remove
+                for name in genre_names:
+                    name = name.strip()
+                    if not name:
+                        continue
+                    cursor.execute("SELECT id FROM genres WHERE name = ?", (name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        continue
+                    genre_id = row["id"]
+
+                    placeholders = ",".join("?" * len(ids))
+                    cursor.execute(
+                        f"DELETE FROM audiobook_genres WHERE genre_id = ? AND audiobook_id IN ({placeholders})",
+                        [genre_id] + list(ids),
+                    )
+                    affected += cursor.rowcount
+
+            conn.commit()
+            conn.close()
+
+            return jsonify(
+                {
+                    "success": True,
+                    "mode": mode,
+                    "affected": affected,
+                    "genre_count": len(genre_names),
+                    "book_count": len(ids),
+                }
+            )
+        except Exception:
+            import logging
+
+            logging.exception("Error in bulk genre %s", mode)
+            conn.rollback()
+            conn.close()
+            return (
+                jsonify({"success": False, "error": "Bulk genre operation failed"}),
+                500,
+            )
+
     return utilities_crud_bp

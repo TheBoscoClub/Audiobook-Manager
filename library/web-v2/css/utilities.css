@@ -1098,6 +1098,80 @@ body.back-office {
     flex-wrap: wrap;
 }
 
+/* Genre Management */
+.genre-controls {
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.genre-mode-selector {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem 0;
+}
+
+.genre-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 0.75rem;
+    background: var(--dark-wood-deep, #1a1512);
+    border: 1px solid var(--brass-dark, #8b6914);
+    border-radius: 4px;
+}
+
+.genre-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.6rem;
+    background: var(--dark-wood, #2a2118);
+    border: 1px solid var(--brass-dark, #8b6914);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--ink-faded, #a89882);
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.genre-tag:hover {
+    border-color: var(--gold, #d4a84b);
+    color: var(--ink-light, #d4c5a9);
+}
+
+.genre-tag.selected {
+    background: rgba(212, 168, 75, 0.15);
+    border-color: var(--gold, #d4a84b);
+    color: var(--gold, #d4a84b);
+}
+
+.genre-tag.new-genre {
+    border-style: dashed;
+}
+
+.genre-tag input[type="checkbox"] {
+    display: none;
+}
+
+.genre-count {
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+.genre-new-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.genre-new-group .office-input {
+    flex: 1;
+    max-width: 300px;
+}
+
 /* Toast Notifications */
 .toast-container {
     position: fixed;
