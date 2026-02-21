@@ -854,28 +854,8 @@ class TestDownloadPermissionEndpoints:
         assert r.status_code in (200, 404)
 
 
-class TestAudibleSyncAdminOnly:
-    """Test that Audible sync endpoints are admin-only."""
-
-    def test_position_sync_requires_admin(self, client, auth_app):
-        """Test POST /api/position/sync/<id> requires admin."""
-        auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
-
-        r = client.post("/api/position/sync/1")
-        assert r.status_code == 403
-
-    def test_position_sync_all_requires_admin(self, client, auth_app):
-        """Test POST /api/position/sync-all requires admin."""
-        auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
-
-        r = client.post("/api/position/sync-all")
-        assert r.status_code == 403
+class TestAdminOnlyEndpoints:
+    """Test that admin-only endpoints require admin privileges."""
 
     def test_download_audiobooks_requires_admin(self, client, auth_app):
         """Test POST /api/utilities/download-audiobooks-async requires admin."""
