@@ -236,17 +236,11 @@ body {
     }
 
     .header-content {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
         margin-bottom: var(--spacing-xs);
     }
 
     .title-section {
-        display: flex;
-        align-items: baseline;
-        gap: var(--spacing-sm);
+        text-align: center;
     }
 
     .library-title {
@@ -256,13 +250,6 @@ body {
 
     .library-subtitle {
         display: none;
-    }
-
-    .header-nav,
-    .header-nav-left,
-    .header-nav-right {
-        position: static;
-        transform: none;
     }
 
     .library-stats {
