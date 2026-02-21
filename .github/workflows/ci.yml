@@ -43,7 +43,7 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
-        ./codecov upload-process --fail-on-error -t "$CODECOV_TOKEN" -f library/coverage.xml -F unittests -n audiobook-manager
+        ./codecov upload-process --fail-on-error -t "$CODECOV_TOKEN" --slug TheBoscoClub/Audiobook-Manager -f library/coverage.xml -F unittests -n audiobook-manager
 
   docker-build:
     name: Docker Build Check
