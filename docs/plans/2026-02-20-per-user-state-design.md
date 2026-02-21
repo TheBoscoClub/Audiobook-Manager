@@ -133,7 +133,9 @@ All standard REST — JSON in, JSON out, session cookie auth.
 
 ### New Books Marquee
 
-- Art Deco neon ticker in the header — horizontally scrolling, styled after 1930s Times Square Motograph news signs
+- Art Deco neon ticker styled after 1930s Times Square Motograph news signs
+- Desktop: horizontally scrolling across the header area
+- Mobile: wraps around the viewport — across the top and down both sides, like a theater marquee framing the content
 - Appears when books have been added since user's last dismissal
 - Clicking the marquee or associated button shows the new additions and dismisses
 - Hidden when no new books — clean header
