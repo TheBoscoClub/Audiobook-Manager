@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDuplicatesSection();
     initAudibleSection();
     initBulkSection();
+    initActivitySection();
     initSystemSection();
     initModals();
     initOperationStatus();
@@ -2153,6 +2154,350 @@ async function cleanupIndexesAsync() {
         hideProgressModal();
         showToast('Failed to start index cleanup: ' + error.message, 'error');
     }
+}
+
+// ============================================
+// Activity Audit Section
+// ============================================
+
+// Activity audit state
+let activityOffset = 0;
+const ACTIVITY_PAGE_SIZE = 25;
+
+function initActivitySection() {
+    // Filter controls
+    document.getElementById('activity-filter-apply')?.addEventListener('click', () => {
+        activityOffset = 0;
+        loadActivityAudit();
+    });
+    document.getElementById('activity-filter-clear')?.addEventListener('click', clearActivityFilters);
+
+    // Pagination
+    document.getElementById('activity-prev')?.addEventListener('click', () => {
+        if (activityOffset >= ACTIVITY_PAGE_SIZE) {
+            activityOffset -= ACTIVITY_PAGE_SIZE;
+            loadActivityAudit();
+        }
+    });
+    document.getElementById('activity-next')?.addEventListener('click', () => {
+        activityOffset += ACTIVITY_PAGE_SIZE;
+        loadActivityAudit();
+    });
+
+    // Refresh stats
+    document.getElementById('refresh-activity-stats')?.addEventListener('click', loadActivityStats);
+
+    // Load data when Activity tab is clicked
+    document.querySelector('.cabinet-tab[data-section="activity"]')?.addEventListener('click', () => {
+        loadActivityStats();
+        loadActivityAudit();
+    });
+}
+
+function clearActivityFilters() {
+    const userSelect = document.getElementById('activity-filter-user');
+    const typeSelect = document.getElementById('activity-filter-type');
+    const fromInput = document.getElementById('activity-filter-from');
+    const toInput = document.getElementById('activity-filter-to');
+
+    if (userSelect) userSelect.value = '';
+    if (typeSelect) typeSelect.value = '';
+    if (fromInput) fromInput.value = '';
+    if (toInput) toInput.value = '';
+
+    activityOffset = 0;
+    loadActivityAudit();
+}
+
+async function loadActivityStats() {
+    try {
+        const data = await safeFetch(`${API_BASE}/api/admin/activity/stats`);
+
+        // Update stat cards
+        const totalListensEl = document.getElementById('audit-total-listens');
+        const totalDownloadsEl = document.getElementById('audit-total-downloads');
+        const activeUsersEl = document.getElementById('audit-active-users');
+        const topListenedEl = document.getElementById('audit-top-listened');
+
+        if (totalListensEl) totalListensEl.textContent = (data.total_listens || 0).toLocaleString();
+        if (totalDownloadsEl) totalDownloadsEl.textContent = (data.total_downloads || 0).toLocaleString();
+        if (activeUsersEl) activeUsersEl.textContent = (data.active_users || 0).toLocaleString();
+
+        // Show top listened title if available
+        if (topListenedEl) {
+            if (data.top_listened && data.top_listened.length > 0) {
+                const top = data.top_listened[0];
+                topListenedEl.textContent = top.title || `Book #${top.audiobook_id}`;
+                topListenedEl.title = `${top.count} listens`;
+            } else {
+                topListenedEl.textContent = 'None';
+            }
+        }
+
+        // Render top listened list
+        renderTopList('audit-top-listened-list', data.top_listened || [], 'listens');
+
+        // Render top downloaded list
+        renderTopList('audit-top-downloaded-list', data.top_downloaded || [], 'downloads');
+
+        // Populate user filter dropdown from activity data
+        populateUserFilter(data);
+
+    } catch (error) {
+        console.error('Failed to load activity stats:', error);
+        showToast('Failed to load activity statistics', 'error');
+    }
+}
+
+function renderTopList(containerId, items, label) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Clear existing content
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+
+    if (!items || items.length === 0) {
+        const emptyP = document.createElement('p');
+        emptyP.className = 'placeholder-text';
+        emptyP.textContent = 'No data yet';
+        container.appendChild(emptyP);
+        return;
+    }
+
+    items.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'audit-top-item';
+
+        const rank = document.createElement('span');
+        rank.className = 'audit-top-rank';
+        rank.textContent = `${index + 1}.`;
+
+        const title = document.createElement('span');
+        title.className = 'audit-top-title';
+        title.textContent = item.title || `Book #${item.audiobook_id}`;
+
+        const count = document.createElement('span');
+        count.className = 'audit-top-count';
+        count.textContent = `${item.count} ${label}`;
+
+        row.appendChild(rank);
+        row.appendChild(title);
+        row.appendChild(count);
+        container.appendChild(row);
+    });
+}
+
+function populateUserFilter(statsData) {
+    const userSelect = document.getElementById('activity-filter-user');
+    if (!userSelect) return;
+
+    // Preserve current selection
+    const currentVal = userSelect.value;
+
+    // Clear options except "All Users"
+    while (userSelect.options.length > 1) {
+        userSelect.remove(1);
+    }
+
+    // We need to load actual users from the admin endpoint
+    // Use the auth admin users endpoint if available
+    fetch(`${API_BASE}/auth/admin/users`, { credentials: 'include' })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+            if (data && data.users) {
+                data.users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.username;
+                    userSelect.appendChild(option);
+                });
+            }
+            // Restore selection
+            if (currentVal) userSelect.value = currentVal;
+        })
+        .catch(() => {
+            // Silently fail - filter will just show "All Users"
+        });
+}
+
+async function loadActivityAudit() {
+    const tbody = document.getElementById('activity-table-body');
+    const badge = document.getElementById('activity-total-badge');
+    const pageInfo = document.getElementById('activity-page-info');
+    const prevBtn = document.getElementById('activity-prev');
+    const nextBtn = document.getElementById('activity-next');
+
+    if (!tbody) return;
+
+    // Show loading state
+    while (tbody.firstChild) {
+        tbody.removeChild(tbody.firstChild);
+    }
+    const loadingRow = document.createElement('tr');
+    const loadingCell = document.createElement('td');
+    loadingCell.colSpan = 5;
+    loadingCell.className = 'placeholder-text';
+    loadingCell.textContent = 'Loading activity...';
+    loadingRow.appendChild(loadingCell);
+    tbody.appendChild(loadingRow);
+
+    // Build query params from filters
+    const params = new URLSearchParams();
+    params.set('limit', ACTIVITY_PAGE_SIZE);
+    params.set('offset', activityOffset);
+
+    const userId = document.getElementById('activity-filter-user')?.value;
+    const typeFilter = document.getElementById('activity-filter-type')?.value;
+    const fromDate = document.getElementById('activity-filter-from')?.value;
+    const toDate = document.getElementById('activity-filter-to')?.value;
+
+    if (userId) params.set('user_id', userId);
+    if (typeFilter) params.set('type', typeFilter);
+    if (fromDate) params.set('from', fromDate);
+    if (toDate) params.set('to', toDate);
+
+    try {
+        const data = await safeFetch(`${API_BASE}/api/admin/activity?${params.toString()}`);
+
+        // Update badge
+        if (badge) badge.textContent = (data.total || 0).toLocaleString();
+
+        // Clear tbody
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+
+        if (!data.activity || data.activity.length === 0) {
+            const emptyRow = document.createElement('tr');
+            const emptyCell = document.createElement('td');
+            emptyCell.colSpan = 5;
+            emptyCell.className = 'placeholder-text';
+            emptyCell.textContent = 'No activity found';
+            emptyRow.appendChild(emptyCell);
+            tbody.appendChild(emptyRow);
+        } else {
+            data.activity.forEach(item => {
+                const row = createActivityRow(item);
+                tbody.appendChild(row);
+            });
+        }
+
+        // Update pagination
+        const currentPage = Math.floor(activityOffset / ACTIVITY_PAGE_SIZE) + 1;
+        const totalPages = Math.max(1, Math.ceil((data.total || 0) / ACTIVITY_PAGE_SIZE));
+
+        if (pageInfo) pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+        if (prevBtn) prevBtn.disabled = activityOffset === 0;
+        if (nextBtn) nextBtn.disabled = activityOffset + ACTIVITY_PAGE_SIZE >= (data.total || 0);
+
+    } catch (error) {
+        console.error('Failed to load activity audit:', error);
+
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+        const errorRow = document.createElement('tr');
+        const errorCell = document.createElement('td');
+        errorCell.colSpan = 5;
+        errorCell.className = 'placeholder-text';
+        errorCell.textContent = 'Failed to load activity';
+        errorRow.appendChild(errorCell);
+        tbody.appendChild(errorRow);
+
+        showToast('Failed to load activity log', 'error');
+    }
+}
+
+function createActivityRow(item) {
+    const row = document.createElement('tr');
+    row.className = `activity-row activity-type-${item.type}`;
+
+    // Date column
+    const dateCell = document.createElement('td');
+    dateCell.className = 'audit-cell-date';
+    dateCell.textContent = formatActivityDate(item.timestamp);
+    dateCell.title = item.timestamp || '';
+
+    // User column
+    const userCell = document.createElement('td');
+    userCell.className = 'audit-cell-user';
+    userCell.textContent = item.username || `User #${item.user_id}`;
+
+    // Action type column
+    const typeCell = document.createElement('td');
+    typeCell.className = 'audit-cell-type';
+    const typeBadge = document.createElement('span');
+    typeBadge.className = `audit-type-badge audit-type-${item.type}`;
+    typeBadge.textContent = item.type === 'listen' ? 'Listen' : 'Download';
+    typeCell.appendChild(typeBadge);
+
+    // Book title column
+    const bookCell = document.createElement('td');
+    bookCell.className = 'audit-cell-book';
+    bookCell.textContent = item.title || `Book #${item.audiobook_id}`;
+
+    // Details column
+    const detailsCell = document.createElement('td');
+    detailsCell.className = 'audit-cell-details';
+    if (item.type === 'listen' && item.duration_listened_ms) {
+        detailsCell.textContent = formatDurationMs(item.duration_listened_ms);
+    } else if (item.type === 'download' && item.file_format) {
+        detailsCell.textContent = item.file_format;
+    } else {
+        detailsCell.textContent = '-';
+    }
+
+    row.appendChild(dateCell);
+    row.appendChild(userCell);
+    row.appendChild(typeCell);
+    row.appendChild(bookCell);
+    row.appendChild(detailsCell);
+
+    return row;
+}
+
+function formatActivityDate(timestamp) {
+    if (!timestamp) return '-';
+    try {
+        const d = new Date(timestamp);
+        if (isNaN(d.getTime())) return timestamp;
+
+        const now = new Date();
+        const diffMs = now - d;
+        const diffHours = diffMs / 3600000;
+
+        // Show relative time for recent activity
+        if (diffHours < 24) {
+            return formatRelativeTime(d);
+        }
+
+        // Show date for older activity
+        return d.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        });
+    } catch (e) {
+        return timestamp;
+    }
+}
+
+function formatDurationMs(ms) {
+    if (!ms || ms <= 0) return '-';
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
 }
 
 // ============================================
