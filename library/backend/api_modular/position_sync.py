@@ -1,89 +1,34 @@
 """
-Position Sync API Module
+Position API Module
 
-Provides bidirectional playback position synchronization between
-the local audiobook library and Audible cloud.
+Provides per-user playback position tracking for the audiobook library.
+
+When auth is enabled, positions are stored per-user in the encrypted auth database.
+When auth is disabled, positions are stored globally in the library database.
 
 Endpoints:
-    GET  /api/position/<id>           - Get position for a single book
-    PUT  /api/position/<id>           - Update local position
-    POST /api/position/sync/<id>      - Sync single book with Audible
-    POST /api/position/sync-all       - Sync all books with ASINs
-    GET  /api/position/syncable       - List all syncable books
-    GET  /api/position/history/<id>   - Get position history for a book
+    GET  /api/position/<id>    - Get position for a single book
+    PUT  /api/position/<id>    - Update local position
+    GET  /api/position/status  - Get position tracking status
 """
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
 
-from .auth import admin_if_enabled, auth_if_enabled, get_auth_db, get_current_user
+from .auth import auth_if_enabled, get_auth_db, get_current_user
 
 # Import auth models for per-user position tracking
 try:
-    from auth import UserPosition, PositionRepository
+    from auth import PositionRepository, UserPosition
 
     POSITION_REPO_AVAILABLE = True
 except ImportError:
     POSITION_REPO_AVAILABLE = False
 
-# Audible credential storage location
-_CREDENTIAL_FILE = Path.home() / ".audible" / "position_sync_credentials.enc"
-
-try:
-    import audible
-
-    AUDIBLE_AVAILABLE = True
-except ImportError as e:
-    AUDIBLE_AVAILABLE = False
-    AUDIBLE_IMPORT_ERROR = str(e)
-
-
-def has_stored_credential() -> bool:
-    """Check if encrypted Audible credentials are stored."""
-    return _CREDENTIAL_FILE.exists()
-
-
-def retrieve_credential(master_password: str = "") -> str | None:
-    """Retrieve and decrypt the stored Audible auth file password."""
-    if not _CREDENTIAL_FILE.exists():
-        return None
-    try:
-        import base64
-        import json
-
-        from cryptography.fernet import Fernet, InvalidToken
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-    except ImportError:
-        return None
-    try:
-        data = json.loads(_CREDENTIAL_FILE.read_text())
-        if data.get("version") != 1:
-            return None
-        salt = base64.b64decode(data["salt"])
-        encrypted = data["encrypted"].encode()
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(), length=32, salt=salt, iterations=480000
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
-        return Fernet(key).decrypt(encrypted).decode()
-    except (InvalidToken, json.JSONDecodeError, KeyError):
-        return None
-
-
-# Blueprint for position sync routes
+# Blueprint for position routes
 position_bp = Blueprint("position", __name__, url_prefix="/api/position")
-
-# Configuration
-AUDIBLE_CONFIG_DIR = Path.home() / ".audible"
-AUTH_FILE = AUDIBLE_CONFIG_DIR / "audible.json"
-COUNTRY_CODE = "us"
-BATCH_CHUNK_SIZE = (
-    25  # Audible API limit: "No more than 25 asins allowed in request at once"
-)
 
 # Module-level database path (set by init function)
 _db_path = None
@@ -165,140 +110,6 @@ def _save_user_position(user_id: int, audiobook_id: int, position_ms: int) -> bo
         return False
 
 
-async def get_audible_client():
-    """Create authenticated Audible client."""
-    if not AUDIBLE_AVAILABLE:
-        raise RuntimeError(f"Audible library not available: {AUDIBLE_IMPORT_ERROR}")
-
-    if not AUTH_FILE.exists():
-        raise RuntimeError(f"Audible auth file not found: {AUTH_FILE}")
-
-    # First try loading without password (unencrypted auth file)
-    try:
-        auth = audible.Authenticator.from_file(AUTH_FILE)
-        return audible.AsyncClient(auth=auth, country_code=COUNTRY_CODE)
-    except Exception:
-        pass  # Auth file might be password-protected, try with credential
-
-    # Fall back to stored credential for password-protected auth files
-    if not has_stored_credential():
-        raise RuntimeError(
-            "No stored Audible credential. Set up ~/.audible/position_sync_credentials.enc first."
-        )
-
-    password = retrieve_credential()
-    if not password:
-        raise RuntimeError("Could not retrieve stored Audible credential")
-
-    auth = audible.Authenticator.from_file(AUTH_FILE, password=password)
-    return audible.AsyncClient(auth=auth, country_code=COUNTRY_CODE)
-
-
-async def fetch_audible_position(client, asin: str) -> dict:
-    """Fetch position from Audible for a single ASIN."""
-    try:
-        response = await client.get(
-            "1.0/annotations/lastpositions", params={"asins": asin}
-        )
-
-        annotations = response.get("asin_last_position_heard_annots", [])
-        for annot in annotations:
-            if annot.get("asin") == asin:
-                pos_data = annot.get("last_position_heard", {})
-                return {
-                    "asin": asin,
-                    "position_ms": pos_data.get("position_ms"),
-                    "last_updated": pos_data.get("last_updated"),
-                    "status": pos_data.get("status"),
-                }
-
-        return {"asin": asin, "position_ms": None, "status": "NotFound"}
-
-    except Exception as e:
-        return {"asin": asin, "error": str(e)}
-
-
-async def fetch_audible_positions_batch(client, asins: list[str]) -> dict:
-    """
-    Fetch positions from Audible for multiple ASINs.
-
-    Processes ASINs in chunks to avoid CloudFront 413 (Request Entity Too Large) errors.
-    With 724+ books, a single request would exceed URL length limits.
-    """
-    results = {}
-
-    # Process ASINs in chunks to avoid CloudFront 413 errors
-    for i in range(0, len(asins), BATCH_CHUNK_SIZE):
-        chunk = asins[i : i + BATCH_CHUNK_SIZE]
-
-        try:
-            # API accepts comma-separated ASINs
-            response = await client.get(
-                "1.0/annotations/lastpositions", params={"asins": ",".join(chunk)}
-            )
-
-            annotations = response.get("asin_last_position_heard_annots", [])
-            for annot in annotations:
-                asin = annot.get("asin")
-                pos_data = annot.get("last_position_heard", {})
-                results[asin] = {
-                    "position_ms": pos_data.get("position_ms"),
-                    "last_updated": pos_data.get("last_updated"),
-                    "status": pos_data.get("status"),
-                }
-
-        except Exception as e:
-            # On chunk failure, return error immediately
-            return {"error": f"Chunk {i // BATCH_CHUNK_SIZE + 1} failed: {str(e)}"}
-
-    # Mark missing ASINs (not returned by any chunk)
-    for asin in asins:
-        if asin not in results:
-            results[asin] = {"position_ms": None, "status": "NotFound"}
-
-    return results
-
-
-async def push_audible_position(client, asin: str, position_ms: int) -> dict:
-    """Push position to Audible for a single ASIN."""
-    try:
-        # First get ACR from license request
-        license_response = await client.post(
-            f"1.0/content/{asin}/licenserequest",
-            body={
-                "drm_type": "Adrm",
-                "consumption_type": "Download",
-                "quality": "High",
-            },
-        )
-
-        content_license = license_response.get("content_license", {})
-        acr = content_license.get("acr")
-
-        if not acr:
-            return {"asin": asin, "success": False, "error": "Could not obtain ACR"}
-
-        # Push position
-        await client.put(
-            f"1.0/lastpositions/{asin}",
-            body={"acr": acr, "asin": asin, "position_ms": position_ms},
-        )
-
-        return {"asin": asin, "success": True, "position_ms": position_ms}
-
-    except Exception as e:
-        return {"asin": asin, "success": False, "error": str(e)}
-
-
-def run_async(coro):
-    """Run async coroutine in sync context."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
 # ============================================================
 # API Endpoints
 # ============================================================
@@ -307,17 +118,12 @@ def run_async(coro):
 @position_bp.route("/status", methods=["GET"])
 @auth_if_enabled
 def position_status():
-    """Check if position sync is available and configured."""
-    status = {
-        "audible_available": AUDIBLE_AVAILABLE,
-        "credential_stored": has_stored_credential() if AUDIBLE_AVAILABLE else False,
-        "auth_file_exists": AUTH_FILE.exists(),
-    }
-
-    if not AUDIBLE_AVAILABLE:
-        status["error"] = AUDIBLE_IMPORT_ERROR
-
-    return jsonify(status)
+    """Check position tracking status."""
+    return jsonify(
+        {
+            "per_user": _is_auth_enabled(),
+        }
+    )
 
 
 @position_bp.route("/<int:audiobook_id>", methods=["GET"])
@@ -336,9 +142,7 @@ def get_position(audiobook_id: int):
         cursor.execute(
             """
             SELECT id, title, asin, duration_hours,
-                   playback_position_ms, playback_position_updated,
-                   audible_position_ms, audible_position_updated,
-                   position_synced_at
+                   playback_position_ms, playback_position_updated
             FROM audiobooks WHERE id = ?
         """,
             (audiobook_id,),
@@ -369,12 +173,7 @@ def get_position(audiobook_id: int):
                 "local_position_ms": local_pos,
                 "local_position_human": ms_to_human(local_pos),
                 "local_position_updated": row["playback_position_updated"],
-                "audible_position_ms": row["audible_position_ms"],
-                "audible_position_human": ms_to_human(row["audible_position_ms"]),
-                "audible_position_updated": row["audible_position_updated"],
-                "position_synced_at": row["position_synced_at"],
                 "percent_complete": percent,
-                "syncable": bool(row["asin"]),
             }
         )
     finally:
@@ -446,368 +245,6 @@ def update_position(audiobook_id: int):
                 "position_ms": position_ms,
                 "position_human": ms_to_human(position_ms),
                 "updated_at": now,
-            }
-        )
-    finally:
-        conn.close()
-
-
-@position_bp.route("/sync/<int:audiobook_id>", methods=["POST"])
-@admin_if_enabled
-def sync_position(audiobook_id: int):
-    """
-    Sync position for a single audiobook with Audible.
-
-    Logic: "Furthest ahead wins"
-    - If Audible > local: update local from Audible
-    - If local > Audible: push local to Audible
-    - If equal: no action needed
-    """
-    if not AUDIBLE_AVAILABLE:
-        return jsonify({"error": "Audible library not available"}), 503
-
-    conn = get_db()
-    try:
-        cursor = conn.cursor()
-
-        # Get audiobook info
-        cursor.execute(
-            """
-            SELECT id, title, asin, playback_position_ms, duration_hours
-            FROM audiobooks WHERE id = ?
-        """,
-            (audiobook_id,),
-        )
-
-        row = cursor.fetchone()
-        if not row:
-            return jsonify({"error": "Audiobook not found"}), 404
-
-        if not row["asin"]:
-            return (
-                jsonify({"error": "Audiobook has no ASIN, cannot sync with Audible"}),
-                400,
-            )
-
-        asin = row["asin"]
-        local_pos = row["playback_position_ms"] or 0
-
-        async def do_sync():
-            async with await get_audible_client() as client:
-                # Fetch Audible position
-                audible_data = await fetch_audible_position(client, asin)
-
-                if "error" in audible_data:
-                    return {"error": audible_data["error"]}
-
-                audible_pos = audible_data.get("position_ms") or 0
-
-                result = {
-                    "audiobook_id": audiobook_id,
-                    "title": row["title"],
-                    "asin": asin,
-                    "local_position_ms": local_pos,
-                    "local_position_human": ms_to_human(local_pos),
-                    "audible_position_ms": audible_pos,
-                    "audible_position_human": ms_to_human(audible_pos),
-                }
-
-                now = datetime.now().isoformat()
-
-                if audible_pos > local_pos:
-                    # Audible is ahead - update local
-                    result["action"] = "pulled_from_audible"
-                    result["final_position_ms"] = audible_pos
-                    result["final_position_human"] = ms_to_human(audible_pos)
-
-                elif local_pos > audible_pos:
-                    # Local is ahead - push to Audible
-                    push_result = await push_audible_position(client, asin, local_pos)
-                    result["action"] = "pushed_to_audible"
-                    result["push_result"] = push_result
-                    result["final_position_ms"] = local_pos
-                    result["final_position_human"] = ms_to_human(local_pos)
-
-                else:
-                    result["action"] = "already_synced"
-                    result["final_position_ms"] = local_pos
-                    result["final_position_human"] = ms_to_human(local_pos)
-
-                return result, audible_pos, now
-
-        result, audible_pos, now = run_async(do_sync())
-
-        if "error" in result:
-            return jsonify(result), 500
-
-        # Update database with sync results
-        final_pos = result["final_position_ms"]
-        cursor.execute(
-            """
-            UPDATE audiobooks
-            SET playback_position_ms = ?,
-                playback_position_updated = ?,
-                audible_position_ms = ?,
-                audible_position_updated = ?,
-                position_synced_at = ?,
-                updated_at = ?
-            WHERE id = ?
-        """,
-            (final_pos, now, audible_pos, now, now, now, audiobook_id),
-        )
-
-        # Record in history
-        cursor.execute(
-            """
-            INSERT INTO playback_history (audiobook_id, position_ms, source)
-            VALUES (?, ?, 'sync')
-        """,
-            (audiobook_id, final_pos),
-        )
-
-        conn.commit()
-
-        return jsonify(result)
-
-    except Exception as e:
-        # Log the actual error server-side, return generic message to client
-        # Use %s formatting to prevent log injection via exception messages
-        import logging
-
-        logging.error("Position sync error: %s", e)
-        return jsonify({"error": "Internal server error during position sync"}), 500
-    finally:
-        conn.close()
-
-
-@position_bp.route("/sync-all", methods=["POST"])
-@admin_if_enabled
-def sync_all_positions():
-    """
-    Sync positions for all audiobooks with ASINs.
-
-    This performs batch operations for efficiency.
-    """
-    if not AUDIBLE_AVAILABLE:
-        return jsonify({"error": "Audible library not available"}), 503
-
-    conn = get_db()
-    try:
-        cursor = conn.cursor()
-
-        # Get all syncable audiobooks
-        cursor.execute(
-            """
-            SELECT id, title, asin, playback_position_ms, duration_hours
-            FROM audiobooks
-            WHERE asin IS NOT NULL AND asin != ''
-        """
-        )
-
-        books = cursor.fetchall()
-        if not books:
-            return jsonify({"message": "No syncable audiobooks found", "synced": 0})
-
-        asins = [b["asin"] for b in books]
-        asin_to_book = {b["asin"]: dict(b) for b in books}
-
-        async def do_batch_sync():
-            async with await get_audible_client() as client:
-                # Batch fetch all positions
-                audible_positions = await fetch_audible_positions_batch(client, asins)
-
-                if "error" in audible_positions:
-                    return {"error": audible_positions["error"]}
-
-                results = []
-                push_tasks = []
-
-                for asin, audible_data in audible_positions.items():
-                    book = asin_to_book.get(asin)
-                    if not book:
-                        continue
-
-                    local_pos = book["playback_position_ms"] or 0
-                    audible_pos = audible_data.get("position_ms") or 0
-
-                    result = {
-                        "audiobook_id": book["id"],
-                        "title": book["title"],
-                        "asin": asin,
-                        "local_position_ms": local_pos,
-                        "audible_position_ms": audible_pos,
-                    }
-
-                    if audible_pos > local_pos:
-                        result["action"] = "pulled_from_audible"
-                        result["final_position_ms"] = audible_pos
-                    elif local_pos > audible_pos:
-                        result["action"] = "push_to_audible"
-                        result["final_position_ms"] = local_pos
-                        push_tasks.append((asin, local_pos))
-                    else:
-                        result["action"] = "already_synced"
-                        result["final_position_ms"] = local_pos
-
-                    results.append(result)
-
-                # Batch push updates to Audible
-                for asin, position_ms in push_tasks:
-                    push_result = await push_audible_position(client, asin, position_ms)
-                    # Update result with push status
-                    for r in results:
-                        if r["asin"] == asin:
-                            r["push_result"] = push_result
-                            if push_result.get("success"):
-                                r["action"] = "pushed_to_audible"
-                            else:
-                                r["action"] = "push_failed"
-                            break
-
-                return results, audible_positions
-
-        sync_result = run_async(do_batch_sync())
-
-        # Handle error case (single dict returned instead of tuple)
-        if isinstance(sync_result, dict) and "error" in sync_result:
-            return jsonify(sync_result), 500
-
-        results, _ = sync_result  # audible_positions not needed after sync
-
-        # Update database
-        now = datetime.now().isoformat()
-        for result in results:
-            book_id = result["audiobook_id"]
-            final_pos = result["final_position_ms"]
-            audible_pos = result["audible_position_ms"]
-
-            cursor.execute(
-                """
-                UPDATE audiobooks
-                SET playback_position_ms = ?,
-                    playback_position_updated = ?,
-                    audible_position_ms = ?,
-                    audible_position_updated = ?,
-                    position_synced_at = ?,
-                    updated_at = ?
-                WHERE id = ?
-            """,
-                (final_pos, now, audible_pos, now, now, now, book_id),
-            )
-
-        conn.commit()
-
-        # Summary stats
-        pulled = sum(1 for r in results if r["action"] == "pulled_from_audible")
-        pushed = sum(1 for r in results if r["action"] == "pushed_to_audible")
-        synced = sum(1 for r in results if r["action"] == "already_synced")
-        failed = sum(1 for r in results if r["action"] == "push_failed")
-
-        return jsonify(
-            {
-                "total": len(results),
-                "pulled_from_audible": pulled,
-                "pushed_to_audible": pushed,
-                "already_synced": synced,
-                "failed": failed,
-                "results": results,
-            }
-        )
-
-    except Exception as e:
-        # Log the actual error server-side, return generic message to client
-        # Use %s formatting to prevent log injection via exception messages
-        import logging
-
-        logging.error("Batch sync error: %s", e)
-        return jsonify({"error": "Internal server error during batch sync"}), 500
-    finally:
-        conn.close()
-
-
-@position_bp.route("/syncable", methods=["GET"])
-@auth_if_enabled
-def list_syncable():
-    """List all audiobooks that can be synced with Audible."""
-    conn = get_db()
-    try:
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT id, title, author, asin, duration_hours,
-                   playback_position_ms, audible_position_ms, position_synced_at
-            FROM audiobooks
-            WHERE asin IS NOT NULL AND asin != ''
-            ORDER BY title
-        """
-        )
-
-        books = []
-        for row in cursor.fetchall():
-            duration_ms = int((row["duration_hours"] or 0) * 3600000)
-            local_pos = row["playback_position_ms"] or 0
-            percent = round(local_pos / duration_ms * 100, 1) if duration_ms > 0 else 0
-
-            books.append(
-                {
-                    "id": row["id"],
-                    "title": row["title"],
-                    "author": row["author"],
-                    "asin": row["asin"],
-                    "duration_human": ms_to_human(duration_ms),
-                    "local_position_human": ms_to_human(local_pos),
-                    "audible_position_human": ms_to_human(row["audible_position_ms"]),
-                    "percent_complete": percent,
-                    "last_synced": row["position_synced_at"],
-                }
-            )
-
-        return jsonify(
-            {
-                "total": len(books),
-                "books": books,
-            }
-        )
-    finally:
-        conn.close()
-
-
-@position_bp.route("/history/<int:audiobook_id>", methods=["GET"])
-@auth_if_enabled
-def get_position_history(audiobook_id: int):
-    """Get position history for an audiobook."""
-    conn = get_db()
-    try:
-        cursor = conn.cursor()
-
-        limit = request.args.get("limit", 50, type=int)
-
-        cursor.execute(
-            """
-            SELECT position_ms, source, recorded_at
-            FROM playback_history
-            WHERE audiobook_id = ?
-            ORDER BY recorded_at DESC
-            LIMIT ?
-        """,
-            (audiobook_id, limit),
-        )
-
-        history = [
-            {
-                "position_ms": row["position_ms"],
-                "position_human": ms_to_human(row["position_ms"]),
-                "source": row["source"],
-                "recorded_at": row["recorded_at"],
-            }
-            for row in cursor.fetchall()
-        ]
-
-        return jsonify(
-            {
-                "audiobook_id": audiobook_id,
-                "history": history,
             }
         )
     finally:
