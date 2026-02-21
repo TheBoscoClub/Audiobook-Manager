@@ -1355,14 +1355,14 @@ class AudiobookLibraryV2 {
 
     /**
      * Initialize tab bar visibility and click handlers.
-     * Tab bar is only shown when auth is enabled and user is logged in.
+     * Tab bar is shown when logged in OR when auth is disabled (default user).
      */
     initTabs() {
         const tabContainer = document.getElementById('library-tabs');
         if (!tabContainer) return;
 
-        // Only show tabs when user is logged in
-        if (this.authEnabled && this.user) {
+        // Show tabs when logged in or when auth is disabled (default user)
+        if ((this.authEnabled && this.user) || !this.authEnabled) {
             tabContainer.style.display = 'flex';
         }
 

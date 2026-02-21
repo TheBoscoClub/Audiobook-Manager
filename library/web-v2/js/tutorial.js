@@ -40,7 +40,6 @@ class LibraryTutorial {
                 target: '.tab-btn[data-tab="my-library"]',
                 title: 'My Library',
                 description: 'Switch to My Library to see books you\'ve listened to, downloaded, or have in progress. Your personal collection is tracked per-user across devices.',
-                optional: true,
             },
             {
                 target: '#new-books-marquee',

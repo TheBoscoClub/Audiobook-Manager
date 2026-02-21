@@ -266,7 +266,7 @@ body {
 
     /* Compact books grid */
     .books-grid {
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
         gap: var(--spacing-md);
     }
 
@@ -301,11 +301,33 @@ body {
 }
 
 /* ============================================
+   D2. Broader Landscape (any landscape under tablet height)
+   ============================================ */
+@media (orientation: landscape) and (max-height: 700px) {
+    .library-header {
+        padding: var(--spacing-md) var(--spacing-lg);
+        margin-bottom: var(--spacing-md);
+    }
+
+    .header-content {
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .library-stats {
+        gap: var(--spacing-lg);
+    }
+
+    .search-section {
+        margin-bottom: var(--spacing-md);
+    }
+}
+
+/* ============================================
    E. Tablet Portrait (768px-1024px)
    ============================================ */
 @media (min-width: 769px) and (max-width: 1024px) {
     .books-grid {
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
     }
 
     .header-nav {
@@ -411,4 +433,18 @@ body {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* ============================================
+   I. Smooth Orientation Transitions
+   ============================================ */
+.library-header,
+.books-grid,
+.search-section,
+.library-tabs,
+.results-info,
+.pagination-section,
+.book-card,
+.book-actions {
+    transition: padding 0.2s ease, gap 0.2s ease, margin 0.2s ease;
 }

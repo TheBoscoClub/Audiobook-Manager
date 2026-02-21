@@ -149,7 +149,8 @@
 .btn-resume,
 .btn-download {
     flex: 1;
-    padding: 8px 12px;
+    min-width: 0;
+    padding: 8px 6px;
     border: 2px solid var(--gold);
     background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
     color: var(--cream);
@@ -158,6 +159,10 @@
     cursor: pointer;
     transition: all 0.2s ease;
     font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
 }
 
 .btn-download {
@@ -363,7 +368,6 @@
 
     .edition-actions {
         width: 100%;
-        justify-content: stretch;
     }
 
     .btn-play-edition,
