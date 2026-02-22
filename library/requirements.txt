@@ -3,6 +3,7 @@ mutagen>=1.47.0
 waitress>=2.1.0
 requests>=2.31.0
 audible>=0.8.0
+audible-cli>=0.3.0
 cryptography>=46.0.5
 webauthn>=2.3.0
 pyotp>=2.9.0
