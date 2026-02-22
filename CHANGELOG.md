@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.5.0] - 2026-02-22
+
+### Added
+- **Release Workflow**: Two-phase release support (`--local` stage and `--promote` publish) for testing releases before publishing to GitHub
+
+### Changed
+- **Systemd**: Added restart limits to proxy service for boot race recovery
+- **CSS**: Improved header flex-wrap and refined marquee neon styling
+- **CSS**: Corrected viewport handling for layout consistency
+
+### Fixed
+- **Systemd**: Corrected venv path in audiobook-api service file
+- **Scripts**: Separation check no longer falsely flags legitimate production symlinks
+
 ## [6.4.0.1] - 2026-02-22
 
 ### Fixed
