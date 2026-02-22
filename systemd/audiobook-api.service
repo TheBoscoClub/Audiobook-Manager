@@ -3,8 +3,11 @@ Description=Audiobooks Library API Server (Waitress)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target
 Wants=network-online.target
-# Ensure application directory is mounted before starting
-RequiresMountsFor=/opt/audiobooks
+# Ensure application and data directories are mounted before starting.
+# ReadWritePaths in [Service] requires these paths to exist for namespace setup.
+# If your data dir is on a separate mount (e.g., RAID array), update /srv/audiobooks
+# to match — otherwise the service will fail with NAMESPACE errors until the mount is ready.
+RequiresMountsFor=/opt/audiobooks /srv/audiobooks
 
 [Service]
 Type=simple
