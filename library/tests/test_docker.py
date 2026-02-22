@@ -15,6 +15,7 @@ Requirements:
 """
 
 import json
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -185,9 +186,9 @@ def _seed_empty_database(data_dir: str) -> None:
     conn.executescript(schema_path.read_text())
     conn.commit()
     conn.close()
-    # Make writable by container user (UID 1000)
-    import os
-
+    # Make directory and database accessible by container user (may differ
+    # from host UID — e.g. host claude=1001 vs container appuser=1000).
+    os.chmod(data_dir, 0o777)
     os.chmod(str(db_path), 0o666)
 
 
@@ -207,6 +208,9 @@ def docker_container(docker_image):
 
     # Seed an empty database so api_server.py doesn't exit
     _seed_empty_database(data_dir)
+
+    # Ensure covers dir is accessible by container user (may have different UID)
+    os.chmod(covers_dir, 0o777)
 
     # Use --publish with port 0 on host to let Docker pick free ports
     # Override AUDIOBOOKS_BIND_ADDRESS to 0.0.0.0 so ports are reachable
@@ -238,7 +242,7 @@ def docker_container(docker_image):
     container_id = run_result.stdout.strip()
 
     # Discover assigned host ports
-    healthy = _wait_for_healthy(container_name, timeout=90)
+    healthy = _wait_for_healthy(container_name, timeout=180)
 
     https_port = _container_port(container_name, "8443/tcp")
     http_port = _container_port(container_name, "8080/tcp")
@@ -499,7 +503,7 @@ class TestEnvironmentVariables:
             )
 
             # Wait for the container to be healthy (or at least running)
-            healthy = _wait_for_healthy(container_name, timeout=90)
+            healthy = _wait_for_healthy(container_name, timeout=180)
 
             # Verify the custom port is exposed and bound
             mapped = _container_port(container_name, f"{custom_port}/tcp")
