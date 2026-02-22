@@ -629,7 +629,7 @@ class TestBackupCodes:
         for part in parts:
             assert len(part) == 4
             assert part.isalnum()
-            assert part.isupper()
+            assert part == part.upper()
 
     def test_generate_backup_code_no_confusing_chars(self):
         """Test backup codes exclude confusing characters (0, O, 1, I)."""
