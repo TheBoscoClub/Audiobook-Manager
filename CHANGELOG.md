@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.4.0.1] - 2026-02-22
+
+### Fixed
+- **Scripts**: Separation check in `upgrade.sh` and `install.sh` falsely flagged legitimate production symlinks as dev contamination — `grep "$SCRIPT_DIR"` matched `/opt/audiobooks` paths when run from production; changed to check for `ClaudeCodeProjects` specifically
+- **Scripts**: Fixed `install.sh` glob pattern from `audiobooks-*` to `audiobook-*` to match actual symlink names
+
 ## [6.4.0] - 2026-02-22
 
 ### Added
