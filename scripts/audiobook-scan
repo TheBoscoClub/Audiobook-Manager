@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+# Audiobook Library Scanner
+# Wrapper script — sources config and launches the metadata scanner
+source "${0:A:h}/../lib/audiobook-config.sh"
+exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"

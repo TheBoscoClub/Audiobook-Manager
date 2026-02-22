@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+# Audiobook Library Database Import
+# Wrapper script — sources config and launches the database importer
+source "${0:A:h}/../lib/audiobook-config.sh"
+exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"

@@ -371,6 +371,40 @@ if [[ "$FULL_DEPLOY" == "true" && "$DRY_RUN" != "true" ]]; then
     log_success "Systemd files installed and daemon reloaded"
 fi
 
+# Refresh /usr/local/bin symlinks on remote for full deploys
+if [[ "$FULL_DEPLOY" == "true" && "$DRY_RUN" != "true" ]]; then
+    log_info "Refreshing /usr/local/bin symlinks on remote..."
+    run_ssh "
+        # Auto-link all audiobook-* scripts
+        for script in ${REMOTE_TARGET}/scripts/audiobook-*; do
+            [ -f \"\$script\" ] || continue
+            name=\$(basename \"\$script\")
+            sudo rm -f /usr/local/bin/\$name
+            sudo ln -s \"\$script\" /usr/local/bin/\$name
+        done
+        # Alias symlinks for non-audiobook-* named scripts
+        declare -A ALIASES=(
+            [convert-audiobooks-opus-parallel]=audiobook-convert
+            [build-conversion-queue]=audiobook-build-queue
+            [download-new-audiobooks]=audiobook-download
+            [monitor-audiobook-conversion]=audiobook-monitor
+            [move-staged-audiobooks]=audiobook-move-staged
+            [copy-audiobook-metadata]=audiobook-copy-metadata
+            [cleanup-stale-indexes]=audiobook-cleanup-indexes
+            [find-duplicate-sources]=audiobook-find-duplicates
+            [fix-wrong-chapters-json]=audiobook-fix-chapters
+            [embed-cover-art.py]=audiobook-embed-covers
+        )
+        for sname in \"\${!ALIASES[@]}\"; do
+            src=\"${REMOTE_TARGET}/scripts/\$sname\"
+            [ -f \"\$src\" ] || continue
+            sudo rm -f /usr/local/bin/\${ALIASES[\$sname]}
+            sudo ln -s \"\$src\" /usr/local/bin/\${ALIASES[\$sname]}
+        done
+    " || log_warning "Could not refresh symlinks on remote"
+    log_success "Symlinks refreshed"
+fi
+
 # Restart services if requested
 if [[ "$RESTART_SERVICES" == "true" ]]; then
     log_info "Restarting all audiobook services..."

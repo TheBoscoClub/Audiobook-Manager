@@ -49,6 +49,25 @@ TARGET_TYPE=""
 CUSTOM_TARGET=""
 
 # -----------------------------------------------------------------------------
+# Script-to-CLI Name Aliases
+# -----------------------------------------------------------------------------
+# Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
+# Scripts already named audiobook-* don't need an alias — they're auto-linked.
+# Only scripts with non-audiobook-* names need explicit aliases here.
+typeset -A SCRIPT_ALIASES=(
+    ["convert-audiobooks-opus-parallel"]="audiobook-convert"
+    ["build-conversion-queue"]="audiobook-build-queue"
+    ["download-new-audiobooks"]="audiobook-download"
+    ["monitor-audiobook-conversion"]="audiobook-monitor"
+    ["move-staged-audiobooks"]="audiobook-move-staged"
+    ["copy-audiobook-metadata"]="audiobook-copy-metadata"
+    ["cleanup-stale-indexes"]="audiobook-cleanup-indexes"
+    ["find-duplicate-sources"]="audiobook-find-duplicates"
+    ["fix-wrong-chapters-json"]="audiobook-fix-chapters"
+    ["embed-cover-art.py"]="audiobook-embed-covers"
+)
+
+# -----------------------------------------------------------------------------
 # Helper Functions
 # -----------------------------------------------------------------------------
 
@@ -134,6 +153,45 @@ do_mkdir() {
             mkdir -p "$dir"
         fi
     fi
+}
+
+refresh_bin_symlinks() {
+    # Maintain /usr/local/bin symlinks pointing to canonical script location.
+    # Called after scripts are deployed to ensure CLI commands stay in sync.
+    local target="$1"
+    local use_sudo="${2:-}"
+    local bin_dir="/usr/local/bin"
+    local scripts_dir="$target/scripts"
+
+    echo -e "${BLUE}Refreshing ${bin_dir} symlinks...${NC}"
+
+    # 1. Auto-link all audiobook-* scripts (same name, no alias needed)
+    for script in "$scripts_dir"/audiobook-*; do
+        [[ -f "$script" ]] || continue
+        local name=$(basename "$script")
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo "  [DRY-RUN] Would link: ${bin_dir}/${name} -> ${script}"
+        else
+            ${use_sudo} rm -f "${bin_dir}/${name}"
+            ${use_sudo} ln -s "$script" "${bin_dir}/${name}"
+            echo "  Linked: ${name}"
+        fi
+    done
+
+    # 2. Create alias symlinks for scripts with non-audiobook-* names
+    for script_name target_name in "${(@kv)SCRIPT_ALIASES}"; do
+        local source_path="${scripts_dir}/${script_name}"
+        local link_path="${bin_dir}/${target_name}"
+        if [[ -f "$source_path" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would link: ${link_path} -> ${source_path}"
+            else
+                ${use_sudo} rm -f "$link_path"
+                ${use_sudo} ln -s "$source_path" "$link_path"
+                echo "  Linked: ${target_name} -> ${script_name}"
+            fi
+        fi
+    done
 }
 
 # -----------------------------------------------------------------------------
@@ -250,6 +308,9 @@ deploy_to_system() {
         echo -e "${BLUE}Updating /usr/local/lib/audiobooks...${NC}"
         do_copy "$target/lib/audiobook-config.sh" "/usr/local/lib/audiobooks/" "$use_sudo"
     fi
+
+    # Refresh /usr/local/bin symlinks to point to canonical scripts
+    refresh_bin_symlinks "$target" "$use_sudo"
 
     echo ""
     echo -e "${GREEN}=== System Deployment Complete ===${NC}"
@@ -396,6 +457,11 @@ deploy_to_custom() {
                 do_copy "$file" "$target/systemd/" "$use_sudo"
             fi
         done
+    fi
+
+    # Refresh /usr/local/bin symlinks if this is a system-level deployment
+    if [[ -d "/usr/local/bin" ]] && [[ "$target" == "/opt/audiobooks" || "$target" == "/usr/local/lib/audiobooks" ]]; then
+        refresh_bin_symlinks "$target" "$use_sudo"
     fi
 
     echo ""
