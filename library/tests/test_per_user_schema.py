@@ -211,10 +211,18 @@ class TestMigrationRunner:
         conn.executescript(v3_tables_sql)
         conn.commit()
 
-    def _run_migration_runner(self, conn: sqlite3.Connection) -> None:
+    def _run_migration_runner(
+        self, conn: sqlite3.Connection, max_version: int = None
+    ) -> None:
         """
         Reproduce the _apply_migrations() logic from AuthDatabase using a
         plain sqlite3 connection (no SQLCipher dependency in unit tests).
+
+        Args:
+            conn: SQLite connection
+            max_version: If set, only apply migrations up to this version.
+                         v5+ are handled programmatically in production code;
+                         tests that use a stripped-down schema should cap at v4.
         """
         migrations_dir = self.MIGRATIONS_DIR
         if not migrations_dir.exists():
@@ -223,6 +231,8 @@ class TestMigrationRunner:
         current_version = cursor.fetchone()[0] or 0
         for migration_file in sorted(migrations_dir.glob("*.sql")):
             version = int(migration_file.stem.split("_")[0])
+            if max_version is not None and version > max_version:
+                break
             if version > current_version:
                 migration_sql = migration_file.read_text()
                 conn.executescript(migration_sql)
@@ -239,7 +249,9 @@ class TestMigrationRunner:
             cursor = conn.execute("SELECT MAX(version) FROM schema_version")
             assert cursor.fetchone()[0] == 3
 
-            self._run_migration_runner(conn)
+            # Cap at v4 — v5+ needs full schema (sessions, access_requests)
+            # which the stripped-down v3 test schema doesn't include
+            self._run_migration_runner(conn, max_version=4)
 
             # Version bumped to 4
             cursor = conn.execute("SELECT MAX(version) FROM schema_version")

@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
-    auth_type TEXT NOT NULL CHECK (auth_type IN ('passkey', 'fido2', 'totp')),
+    auth_type TEXT NOT NULL CHECK (auth_type IN ('passkey', 'fido2', 'totp', 'magic_link')),
     auth_credential BLOB NOT NULL,
     can_download BOOLEAN DEFAULT FALSE,
     is_admin BOOLEAN DEFAULT FALSE,
@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP,  -- NULL = no expiry (until logout/kick)
     user_agent TEXT,
-    ip_address TEXT  -- For audit, not displayed to users
+    ip_address TEXT,  -- For audit, not displayed to users
+    is_persistent BOOLEAN DEFAULT 0  -- Persistent "remember me" sessions
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
@@ -176,6 +177,7 @@ CREATE TABLE IF NOT EXISTS access_requests (
     reviewed_at TIMESTAMP,
     reviewed_by TEXT,  -- Admin username who reviewed
     deny_reason TEXT,  -- Optional reason for denial
+    preferred_auth_method TEXT DEFAULT 'totp',  -- totp, passkey, magic_link
 
     CHECK (length(username) >= 5 AND length(username) <= 16)
 );
@@ -189,4 +191,4 @@ CREATE TABLE IF NOT EXISTS schema_version (
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (4);
+INSERT OR IGNORE INTO schema_version (version) VALUES (5);

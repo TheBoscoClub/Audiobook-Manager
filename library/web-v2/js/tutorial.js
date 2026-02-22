@@ -65,9 +65,15 @@ class LibraryTutorial {
                 fallback: 'The audio player appears at the bottom of the screen when you play a book.',
             },
             {
+                target: '#request-access-link',
+                title: 'Request Access',
+                description: 'Not a member yet? Click here to request an account. Once the admin approves your request, you\'ll receive an invitation to set up your login.',
+                optional: true,
+            },
+            {
                 target: '#user-menu, #login-link',
                 title: 'User Menu',
-                description: 'When signed in, click your name to edit your profile, contact the admin, or sign out. If not signed in, you\'ll see a Sign In link.',
+                description: 'When signed in, click your name to edit your profile, change your authentication method, contact the admin, or sign out. If not signed in, you\'ll see a Sign In link.',
                 optional: true,
             },
             {

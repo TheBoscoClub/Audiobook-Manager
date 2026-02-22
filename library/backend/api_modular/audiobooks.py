@@ -17,7 +17,7 @@ from config import COVER_DIR
 from .collections import COLLECTIONS
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
-from .auth import auth_if_enabled, download_permission_required
+from .auth import auth_if_enabled, guest_allowed, download_permission_required
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
 
@@ -33,7 +33,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
     """Initialize routes with database path and project directories."""
 
     @audiobooks_bp.route("/api/stats", methods=["GET"])
-    @auth_if_enabled
+    @guest_allowed
     def get_stats() -> Response:
         """Get library statistics (audiobooks only)"""
         conn = get_db(db_path)
@@ -117,7 +117,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
 
     @audiobooks_bp.route("/api/audiobooks", methods=["GET"])
-    @auth_if_enabled
+    @guest_allowed
     def get_audiobooks() -> Response:
         """
         Get paginated audiobooks with optional filtering
@@ -352,7 +352,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
 
     @audiobooks_bp.route("/api/filters", methods=["GET"])
-    @auth_if_enabled
+    @guest_allowed
     def get_filters() -> Response:
         """Get all available filter options (audiobooks only)"""
         conn = get_db(db_path)
@@ -425,7 +425,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         )
 
     @audiobooks_bp.route("/api/narrator-counts", methods=["GET"])
-    @auth_if_enabled
+    @guest_allowed
     def get_narrator_counts() -> Response:
         """Get narrator book counts for autocomplete (audiobooks only)"""
         conn = get_db(db_path)
@@ -450,7 +450,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         return jsonify(counts)
 
     @audiobooks_bp.route("/api/audiobooks/<int:audiobook_id>", methods=["GET"])
-    @auth_if_enabled
+    @guest_allowed
     def get_audiobook(audiobook_id: int) -> FlaskResponse:
         """Get single audiobook details"""
         conn = get_db(db_path)
@@ -506,7 +506,7 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         return jsonify(book)
 
     @audiobooks_bp.route("/covers/<path:filename>")
-    @auth_if_enabled
+    @guest_allowed
     def serve_cover(filename: str) -> Response:
         """Serve cover images from configured COVER_DIR"""
         return send_from_directory(COVER_DIR, filename)

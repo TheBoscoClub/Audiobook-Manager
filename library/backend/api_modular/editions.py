@@ -7,7 +7,7 @@ import re
 from flask import Blueprint, jsonify
 
 from .core import FlaskResponse, get_db
-from .auth import auth_if_enabled
+from .auth import guest_allowed
 
 editions_bp = Blueprint("editions", __name__)
 
@@ -77,7 +77,7 @@ def init_editions_routes(db_path):
     """Initialize routes with database path."""
 
     @editions_bp.route("/api/audiobooks/<int:book_id>/editions", methods=["GET"])
-    @auth_if_enabled
+    @guest_allowed
     def get_book_editions(book_id: int) -> FlaskResponse:
         """
         Get all editions of a specific audiobook.

@@ -74,7 +74,7 @@ class TestAuthDatabase:
         assert status["db_exists"]
         assert status["key_exists"]
         assert status["can_connect"]
-        assert status["schema_version"] == 4
+        assert status["schema_version"] == 5
         assert (
             status["table_count"] == 16
         )  # 13 original + user_listening_history, user_downloads, user_preferences

@@ -50,6 +50,13 @@
                     <span class="utilities-text">Sign In</span>
                 </a>
 
+                <!-- Request Access link (shown for guests) -->
+                <a href="register.html" id="request-access-link" class="utilities-link" hidden
+                   title="Request an account to play and download audiobooks">
+                    <span class="utilities-icon">&#9993;</span>
+                    <span class="utilities-text">Request Access</span>
+                </a>
+
                 <!-- Back Office link (admin only - controlled by JavaScript) -->
                 <a href="utilities.html" id="admin-backoffice-link" class="utilities-link" hidden title="Library Administration">
                     <span class="utilities-icon">&#9881;</span>
@@ -304,6 +311,24 @@
                                title="Email address for notifications">
                         <span class="field-hint">Used for account recovery and notifications</span>
                     </div>
+                    <div class="form-group" id="auth-method-group">
+                        <label>Sign-in Method</label>
+                        <div class="auth-method-options">
+                            <label class="radio-option" title="Sign in with a 6-digit code from an authenticator app">
+                                <input type="radio" name="auth-method" value="totp">
+                                <span>Authenticator App (TOTP)</span>
+                            </label>
+                            <label class="radio-option" title="Sign in by clicking a link sent to your email">
+                                <input type="radio" name="auth-method" value="magic_link">
+                                <span>Email Link (Magic Link)</span>
+                            </label>
+                            <label class="radio-option" title="Sign in with a passkey or security key">
+                                <input type="radio" name="auth-method" value="passkey">
+                                <span>Passkey / Security Key</span>
+                            </label>
+                        </div>
+                        <div id="auth-method-setup" hidden></div>
+                    </div>
                 </form>
                 <div id="edit-profile-error" class="error-message" style="display: none;"></div>
             </div>
@@ -315,6 +340,7 @@
     </div>
 
     <script src="js/marquee.js"></script>
+    <script src="js/session-persistence.js"></script>
     <script src="js/library.js"></script>
     <script src="js/tutorial.js"></script>
     <script>
@@ -370,19 +396,25 @@
             const closeBtn = document.getElementById('edit-profile-close');
             const errorEl = document.getElementById('edit-profile-error');
 
-            // Fetch current user data including email
+            // Fetch current user data including email and auth_type
+            let currentAuthType = 'totp';
             try {
                 const meRes = await fetch('/auth/me', { credentials: 'include' });
                 if (meRes.ok) {
                     const meData = await meRes.json();
                     usernameEl.value = meData.user.username || '';
                     emailEl.value = meData.user.email || '';
+                    currentAuthType = meData.user.auth_type || 'totp';
                 }
             } catch (e) {
                 // Fall back to displayed username
                 usernameEl.value = document.getElementById('username-display')?.textContent || '';
                 emailEl.value = '';
             }
+
+            // Set auth method radio
+            const authRadio = document.querySelector(`input[name="auth-method"][value="${currentAuthType}"]`);
+            if (authRadio) authRadio.checked = true;
             errorEl.style.display = 'none';
 
             modal.classList.add('active');
@@ -431,6 +463,7 @@
                 }
 
                 try {
+                    // Save profile (username, email)
                     const res = await fetch('/auth/me', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -441,18 +474,41 @@
                         })
                     });
 
-                    if (res.ok) {
-                        // Update header display
-                        const usernameDisplay = document.getElementById('username-display');
-                        const userInitial = document.getElementById('user-initial');
-                        if (usernameDisplay) usernameDisplay.textContent = newUsername;
-                        if (userInitial) userInitial.textContent = newUsername.charAt(0).toUpperCase();
-                        closeModal();
-                    } else {
+                    if (!res.ok) {
                         const data = await res.json();
                         errorEl.textContent = data.error || 'Failed to update profile';
                         errorEl.style.display = 'block';
+                        return;
                     }
+
+                    // Update header display
+                    const usernameDisplay = document.getElementById('username-display');
+                    const userInitial = document.getElementById('user-initial');
+                    if (usernameDisplay) usernameDisplay.textContent = newUsername;
+                    if (userInitial) userInitial.textContent = newUsername.charAt(0).toUpperCase();
+
+                    // Check if auth method changed
+                    const selectedMethod = document.querySelector('input[name="auth-method"]:checked');
+                    if (selectedMethod && selectedMethod.value !== currentAuthType) {
+                        const methodRes = await fetch('/auth/me/auth-method', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ auth_method: selectedMethod.value })
+                        });
+                        if (!methodRes.ok) {
+                            const methodData = await methodRes.json();
+                            errorEl.textContent = methodData.error || 'Failed to update auth method';
+                            errorEl.style.display = 'block';
+                            return;
+                        }
+                        // Update local state
+                        if (window.library && window.library.user) {
+                            window.library.user.auth_type = selectedMethod.value;
+                        }
+                    }
+
+                    closeModal();
                 } catch (error) {
                     errorEl.textContent = 'Connection error';
                     errorEl.style.display = 'block';
