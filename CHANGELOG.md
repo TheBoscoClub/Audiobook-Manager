@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.0] - 2026-02-22
+
+### Changed
+
+- **Scripts**: Eliminated script drift between repo and production — replaced 6 stale full copies in `/usr/local/bin/` with symlinks to canonical `/opt/audiobooks/scripts/` location
+- **Scripts**: Added versioned wrapper scripts to `scripts/` directory (audiobook-api, audiobook-web, audiobook-scan, audiobook-import, audiobook-config, audiobook-user, audiobook-upgrade, audiobook-migrate) replacing inline generation
+- **Deploy**: Added `refresh_bin_symlinks()` function and SCRIPT_ALIASES map to deploy.sh, upgrade.sh, install.sh, install-system.sh, and deploy-vm.sh for consistent symlink maintenance
+- **Install**: Replaced inline wrapper script generation with shared symlink refresh pattern across all installation entry points
+
 ## [6.5.0.1] - 2026-02-22
 
 ### Changed
