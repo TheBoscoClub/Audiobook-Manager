@@ -1,3 +1,4 @@
+---
 # GitHub Action: Automated Security Scanner
 #
 # This workflow scans for security vulnerabilities and auto-fixes what it can.
@@ -8,7 +9,7 @@
 
 name: Security Auto-Fix
 
-on:
+"on":
   schedule:
     - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
   workflow_dispatch:
@@ -32,74 +33,88 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-      with:
-        fetch-depth: 0
+      - name: Checkout
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        # v6.0.2
+        with:
+          fetch-depth: 0
 
-    - name: Set up Python
-      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: >-
+          actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        # v6.2.0
+        with:
+          python-version: '3.11'
 
-    - name: Check for Dependabot alerts
-      id: dependabot
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        echo "Checking Dependabot alerts..."
-        ALERTS=$(gh api repos/${{ github.repository }}/dependabot/alerts \
-          --jq '[.[] | select(.state=="open")] | length' 2>/dev/null || echo "0")
-        echo "open_alerts=$ALERTS" >> $GITHUB_OUTPUT
+      - name: Check for Dependabot alerts
+        id: dependabot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Checking Dependabot alerts..."
+          ALERTS=$(gh api repos/$REPO/dependabot/alerts \
+            --jq '[.[] | select(.state=="open")] | length' \
+            2>/dev/null || echo "0")
+          echo "open_alerts=$ALERTS" >> $GITHUB_OUTPUT
 
-        if [ "$ALERTS" -gt 0 ]; then
-          echo "::warning::Found $ALERTS open Dependabot alerts"
-          gh api repos/${{ github.repository }}/dependabot/alerts \
-            --jq '.[] | select(.state=="open") | "- \(.security_advisory.severity): \(.security_advisory.summary)"' \
-            2>/dev/null || true
-        fi
+          if [ "$ALERTS" -gt 0 ]; then
+            echo "::warning::Found $ALERTS open Dependabot alerts"
+            gh api repos/$REPO/dependabot/alerts \
+              --jq '.[] | select(.state=="open") |
+                "- \(.security_advisory.severity):
+                \(.security_advisory.summary)"' \
+              2>/dev/null || true
+          fi
 
-    - name: Auto-fix Python dependencies
-      if: steps.dependabot.outputs.open_alerts != '0' && inputs.fix_mode != 'report-only'
-      run: |
-        echo "Attempting to fix Python dependency vulnerabilities..."
+      - name: Auto-fix Python dependencies
+        if: >-
+          steps.dependabot.outputs.open_alerts != '0' &&
+          inputs.fix_mode != 'report-only'
+        run: |
+          echo "Attempting to fix Python dependency vulnerabilities..."
 
-        # Find requirements files
-        for req_file in $(find . -name "requirements*.txt" -not -path "./.git/*"); do
-          echo "Processing $req_file..."
+          # Find requirements files
+          for req_file in $(find . -name "requirements*.txt" \
+              -not -path "./.git/*"); do
+            echo "Processing $req_file..."
 
-          # Install pip-audit
-          pip install pip-audit -q
+            # Install pip-audit
+            pip install pip-audit -q
 
-          # Get vulnerable packages and their fixed versions
-          pip-audit -r "$req_file" --fix --dry-run 2>/dev/null || true
+            # Get vulnerable packages and their fixed versions
+            pip-audit -r "$req_file" --fix --dry-run 2>/dev/null || true
 
-          # Actually fix if not dry-run
-          pip-audit -r "$req_file" --fix 2>/dev/null || true
-        done
+            # Actually fix if not dry-run
+            pip-audit -r "$req_file" --fix 2>/dev/null || true
+          done
 
-    - name: Commit fixes
-      if: inputs.fix_mode != 'report-only'
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Commit fixes
+        if: inputs.fix_mode != 'report-only'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "github-actions[bot]@users.noreply.github.com"
 
-        if git diff --quiet; then
-          echo "No changes to commit"
-        else
-          git add -A
-          git commit -m "fix(security): auto-update vulnerable dependencies
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add -A
+            git commit -m "fix(security): auto-update vulnerable dependencies
 
-        Automated security fix by GitHub Actions.
+          Automated security fix by GitHub Actions."
+            git push
+            echo "::notice::Committed security fixes"
+          fi
 
-        🤖 Generated by security-scan workflow"
-          git push
-          echo "::notice::Committed security fixes"
-        fi
-
-    - name: Summary
-      run: |
-        echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Dependabot alerts found**: ${{ steps.dependabot.outputs.open_alerts }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Fix mode**: ${{ inputs.fix_mode || 'auto-fix' }}" >> $GITHUB_STEP_SUMMARY
+      - name: Summary
+        env:
+          ALERTS: ${{ steps.dependabot.outputs.open_alerts }}
+          FIX_MODE: ${{ inputs.fix_mode || 'auto-fix' }}
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dependabot alerts found**: $ALERTS" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "- **Fix mode**: $FIX_MODE" >> $GITHUB_STEP_SUMMARY

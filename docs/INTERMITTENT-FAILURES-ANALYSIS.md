@@ -34,6 +34,7 @@ Intermittent service failures (converter stopping mid-queue, mover leaving files
 **Location:** `scripts/move-staged-audiobooks` lines 172-176
 
 **Problem:**
+
 ```bash
 # OLD CODE - This was destroying the index!
 flock -n "${AUDIOBOOKS_RUN_DIR}/queue-rebuild.lock" \
@@ -41,12 +42,14 @@ flock -n "${AUDIOBOOKS_RUN_DIR}/queue-rebuild.lock" \
 ```
 
 After moving files, the mover triggered a full `--rebuild` which:
+
 1. Cleared `converted_asins.idx` (`: > "$temp_file"`)
 2. Tried to rebuild from chapters.json files (many missing)
 3. Tried title matching (fails for series-style files)
 4. **Lost all ASINs that were added by quick-update**
 
 This created a cycle:
+
 1. Converter finishes → quick-update adds ASIN ✓
 2. Mover moves file → triggers rebuild
 3. Rebuild clears index → tries to rediscover ASINs
@@ -69,12 +72,14 @@ For series-style audiobooks, the source filename differs from the library title:
 | `American_Scandal_(Ad-free)_Bernie_Madoff__Sins_of_the_Father__1_(Ad-free)` | `Bernie Madoff \| Sins of the Father \| 1 (Ad-free)` |
 
 After normalization:
+
 - Source: `american scandal ad free bernie madoff sins of the father 1 ad free`
 - Library: `bernie madoff sins of the father 1 ad free`
 
 **These don't match** because AAXtoMP3 uses the actual audiobook metadata title, not the source filename which includes the series prefix.
 
 **Fix:**
+
 1. Rebuild now preserves existing entries (merges instead of clearing)
 2. Added database sync as authoritative source of ASINs
 
@@ -86,11 +91,13 @@ After normalization:
 
 **Problem:**
 The `/tmp/audiobook-triggers` directory was not in tmpfiles.d configuration. On systems with tmpfs for /tmp:
+
 1. Reboot clears /tmp
 2. Services start but can't create trigger files
 3. "Read-only file system" or "No such file or directory" errors
 
 **Fix:** Added to `audiobooks-tmpfiles.conf`:
+
 ```ini
 d /tmp/audiobook-triggers 0755 audiobooks audiobooks -
 ```
@@ -102,7 +109,8 @@ d /tmp/audiobook-triggers 0755 audiobooks audiobooks -
 **Root Cause:** Some conversions fail to extract cover art (FFmpeg error), which also skips chapters.json creation.
 
 **Example Error:**
-```
+
+```text
 [out#0/image2 @ 0x55e124cebcc0] Output file does not contain any stream
 Error opening output file .../Bernie Madoff | Sins of the Father | 1.jpg
 ```
@@ -186,7 +194,7 @@ d /tmp/audiobook-triggers 0755 audiobooks audiobooks -
 
 After fixes, rebuild output shows:
 
-```
+```text
 [15:39:44]   Preserved: 1203 existing entries      ← Fix #2 working
 [15:39:45]   From chapters.json: 1136 entries      ← Existing method
 [15:40:00]   Backfilled: 1117 ASINs from title matching ← Existing method

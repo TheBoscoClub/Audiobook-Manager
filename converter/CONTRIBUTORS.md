@@ -5,7 +5,7 @@ This file acknowledges all contributors to the AAXtoMP3 project, including the o
 ## Original Project
 
 **Original Author and Maintainer**: KrumpetPirate
-**Original Repository**: https://github.com/KrumpetPirate/AAXtoMP3 (archived)
+**Original Repository**: <https://github.com/KrumpetPirate/AAXtoMP3> (archived)
 **License**: WTFPL Version 2
 **Copyright**: (c) 2015 KrumpetPirate
 
@@ -80,6 +80,7 @@ This project represents years of community effort. The fork maintainer is deeply
 ## Fork Contributions
 
 This fork adds only minor improvements to the substantial work of the original authors:
+
 - Bug fixes for AAXC handling with missing metadata files (2 commits)
 - Enhanced error messages and logging (1 commit)
 - Security documentation and multi-distro installation instructions (3 commits)

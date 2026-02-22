@@ -7,6 +7,7 @@
 **Root Cause:** AAXtoMP3 conversion to OPUS format does not preserve metadata tags from source AAXC files.
 
 **Evidence:**
+
 ```bash
 # OPUS file - NO metadata
 $ ffprobe "/path/to/file.opus" -show_entries format_tags
@@ -30,7 +31,8 @@ format: {
 **What:** Modified scanner to extract author from OPUS folder structure when metadata tags are missing.
 
 **How:** OPUS files are organized as:
-```
+
+```text
 $AUDIOBOOKS_LIBRARY/[Author Name]/[Book Title]/[Book Title].opus
 # Example: /srv/audiobooks/Library/Author Name/Book Title/Book Title.opus
 ```
@@ -40,6 +42,7 @@ The scanner now extracts `[Author Name]` from the path.
 **File Modified:** `scanner/scan_audiobooks.py`
 
 **Code Added:**
+
 ```python
 # For OPUS files, try to extract author from folder structure if metadata is missing
 author_from_path = None
@@ -73,8 +76,10 @@ The AAXtoMP3 tool needs to be modified to preserve metadata during OPUS conversi
 **Location:** `$AUDIOBOOKS_HOME/converter/AAXtoMP3`
 
 **Required Changes:**
+
 1. Extract metadata from source AAXC file before conversion
 2. After OPUS conversion, use `ffmpeg` to embed metadata:
+
 ```bash
 ffmpeg -i input.opus \
   -metadata title="$TITLE" \
@@ -91,9 +96,10 @@ ffmpeg -i input.opus \
 
 Add metadata embedding as a post-processing step in the conversion script:
 
-**File to Modify:** Your conversion script (e.g., `audiobooks-convert` or custom script)
+**File to Modify:** Your conversion script (e.g., `audiobook-convert` or custom script)
 
 **Add after line 116 (after successful conversion):**
+
 ```bash
 # Extract metadata from source AAXC
 AAXC_METADATA=$(ffprobe -v error -show_entries format_tags=title,artist,album_artist,composer,album,publisher -of json "$AAXC_FILE" 2>/dev/null)
@@ -134,12 +140,14 @@ For the 2,229 existing OPUS files without metadata, you can run a batch fix scri
 **Script Created:** `scripts/fix_opus_metadata.sh`
 
 **Usage:**
+
 ```bash
 cd "$AUDIOBOOKS_HOME/library"  # Your project directory
 ./scripts/fix_opus_metadata.sh
 ```
 
 **What it does:**
+
 1. Finds all OPUS files in the library
 2. Locates their source AAXC files
 3. Extracts metadata from AAXC
@@ -166,12 +174,14 @@ cd "$AUDIOBOOKS_HOME/library"  # Your project directory
 ## How to Apply the Complete Fix
 
 ### Step 1: Wait for Current Scan (In Progress)
+
 ```bash
 # Monitor scan progress
 tail -f /tmp/rescan.log
 ```
 
 ### Step 2: Re-import Database
+
 ```bash
 cd "$AUDIOBOOKS_HOME/library"  # Your project directory
 source venv/bin/activate
@@ -179,7 +189,8 @@ python backend/import_to_db.py
 ```
 
 ### Step 3: Refresh Web Interface
-Open http://localhost:8090 and click the "↻ Refresh" button.
+
+Open <http://localhost:8090> and click the "↻ Refresh" button.
 
 **Result:** Authors will now show correctly for OPUS files (extracted from folder path).
 
@@ -190,6 +201,7 @@ Edit your conversion script to add metadata embedding (see Option B above).
 ### Step 5 (Optional): Fix Existing OPUS Files
 
 If you want narrator information and full metadata in existing OPUS files:
+
 ```bash
 cd "$AUDIOBOOKS_HOME/library"  # Your project directory
 ./scripts/fix_opus_metadata.sh
@@ -202,7 +214,8 @@ Then repeat Steps 1-3.
 ## Directory Structure (Updated November 2024)
 
 After the directory reorganization, the new structure is:
-```
+
+```text
 $AUDIOBOOKS_DATA/      # Default: /srv/audiobooks
 ├── Sources/           # Original AAXC files + vouchers
 │   ├── *.aaxc        # Encrypted Audible audiobooks
@@ -221,6 +234,7 @@ $AUDIOBOOKS_DATA/      # Default: /srv/audiobooks
 ### Verify the Fix
 
 After re-import, check the database:
+
 ```bash
 sqlite3 backend/audiobooks.db "SELECT title, author, format FROM audiobooks WHERE format='opus' LIMIT 5"
 ```
@@ -229,7 +243,7 @@ sqlite3 backend/audiobooks.db "SELECT title, author, format FROM audiobooks WHER
 
 ### Test in Web Interface
 
-1. Navigate to http://localhost:8090
+1. Navigate to <http://localhost:8090>
 2. Filter by format: "opus"
 3. Verify author names are shown
 4. Note: Narrators may still show "Unknown Narrator" (see limitations below)
@@ -268,16 +282,19 @@ sqlite3 backend/audiobooks.db "SELECT title, author, format FROM audiobooks WHER
 ## Recommendations
 
 ### Immediate (✅ Done)
+
 - [x] Quick fix: Extract author from folder path
 - [x] Re-scan library with fixed scanner
 - [ ] Re-import database (in progress)
 - [ ] Test in web interface
 
 ### Short-term (Recommended)
+
 - [ ] Update conversion script to embed metadata for future books
 - [ ] Test one new conversion to verify metadata is preserved
 
 ### Long-term (Optional)
+
 - [ ] Run batch fix on existing 2,229 OPUS files
 - [ ] Consider converting back to M4B if metadata is critical
 - [ ] Update AAXtoMP3 tool directly to preserve metadata
@@ -289,24 +306,29 @@ sqlite3 backend/audiobooks.db "SELECT title, author, format FROM audiobooks WHER
 If metadata is critical and you prefer not to fix OPUS files:
 
 **Pros of M4B:**
+
 - ✅ Metadata always preserved
 - ✅ Better compatibility with iOS/Apple devices
 - ✅ Chapter markers work better
 
 **Cons of M4B:**
+
 - ❌ Larger file sizes (~2-3x larger than OPUS level 10)
 - ❌ Less efficient compression
 
 **Pros of OPUS:**
+
 - ✅ Excellent compression (smaller files)
 - ✅ Superior audio quality at same bitrate
 - ✅ Open format
 
 **Cons of OPUS:**
+
 - ❌ Metadata not preserved by AAXtoMP3 (fixable)
 - ❌ Less compatible with Apple devices
 
 **Your Current Setup:**
+
 - M4B files: 1,756 files (older conversions)
 - OPUS files: 2,229 files (newer conversions)
 - Both formats work in the library
@@ -322,6 +344,7 @@ If metadata is critical and you prefer not to fix OPUS files:
 **Solution Applied:** Scanner now extracts author from folder structure (✅ Done)
 
 **Next Steps:**
+
 1. Wait for scan to complete
 2. Re-import database
 3. Verify authors show correctly in web interface

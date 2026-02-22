@@ -1,6 +1,7 @@
+---
 name: Security Checks
 
-on:
+"on":
   pull_request:
     branches: [main, master]
   push:
@@ -13,133 +14,150 @@ jobs:
       contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-      with:
-        fetch-depth: 0  # Full history for better analysis
+      - name: Checkout code
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        # v6.0.2
+        with:
+          fetch-depth: 0  # Full history for better analysis
 
-    - name: Check for hardcoded credentials
-      run: |
-        echo "Checking for hardcoded credentials..."
-        # Check for potential API keys, passwords, tokens
-        if git diff HEAD~1 | grep -iE '(api.?key|password|token|secret).*=.*["\047][a-zA-Z0-9]{16,}["\047]'; then
-          echo "❌ ERROR: Potential hardcoded credential detected"
-          exit 1
-        fi
-        echo "✅ No hardcoded credentials found"
-
-    - name: Verify .gitignore integrity
-      run: |
-        echo "Verifying .gitignore protects sensitive files..."
-
-        # Critical patterns that should be in .gitignore
-        REQUIRED_IGNORES=(
-          ".env"
-          "*.key"
-          "*.log"
-        )
-
-        for pattern in "${REQUIRED_IGNORES[@]}"; do
-          if ! grep -q "$pattern" .gitignore 2>/dev/null; then
-            echo "⚠️  WARNING: .gitignore missing recommended pattern: $pattern"
-          fi
-        done
-
-        echo "✅ .gitignore check complete"
-
-    - name: Check for sensitive files committed
-      run: |
-        echo "Scanning for accidentally committed sensitive files..."
-
-        # Check for common sensitive file patterns
-        if git ls-files | grep -iE '\.(key|pem|cert|env)$' | grep -v '.env.example'; then
-          echo "❌ ERROR: Sensitive files committed to repository"
-          exit 1
-        fi
-
-        echo "✅ No sensitive files found in repository"
-
-    - name: Check for dangerous logging
-      run: |
-        echo "Checking for dangerous logging patterns..."
-
-        # Check for logging credentials
-        if git diff HEAD~1 | grep -iE '(print|echo|console\.log|logger).*\$?(API_KEY|PASSWORD|TOKEN|SECRET)'; then
-          echo "⚠️  WARNING: Code may log sensitive data"
-        fi
-
-        echo "✅ Logging check complete"
-
-    - name: Check JavaScript for dangerous patterns
-      run: |
-        echo "Checking JavaScript for dangerous patterns..."
-
-        # Check for eval() usage (potential code injection)
-        if grep -rn "eval\s*(" --include="*.js" library/ 2>/dev/null | grep -v "node_modules"; then
-          echo "⚠️  WARNING: eval() usage detected - potential code injection risk"
-        fi
-
-        # Check for document.write() (XSS risk)
-        if grep -rn "document\.write\s*(" --include="*.js" library/ 2>/dev/null; then
-          echo "⚠️  WARNING: document.write() usage detected - XSS risk"
-        fi
-
-        # Check for innerHTML without escaping (look for innerHTML = with variables)
-        if grep -rn "\.innerHTML\s*=\s*[^'\"<]" --include="*.js" library/ 2>/dev/null | grep -v "escapeHtml"; then
-          echo "⚠️  WARNING: Potential unescaped innerHTML assignment detected"
-        fi
-
-        # Check for Function constructor (similar to eval)
-        if grep -rn "new\s*Function\s*(" --include="*.js" library/ 2>/dev/null; then
-          echo "⚠️  WARNING: Function constructor usage detected - similar to eval()"
-        fi
-
-        echo "✅ JavaScript security check complete"
-
-    - name: Check shell scripts for dangerous patterns
-      run: |
-        echo "Checking shell scripts for dangerous patterns..."
-
-        # Check for eval in shell scripts
-        if grep -rn "^\s*eval\s" --include="*.sh" . 2>/dev/null | grep -v ".git"; then
-          echo "⚠️  WARNING: eval usage in shell scripts detected"
-        fi
-
-        # Check for curl | bash pattern (remote code execution)
-        if grep -rn "curl.*|.*bash\|wget.*|.*sh" --include="*.sh" . 2>/dev/null | grep -v ".git"; then
-          echo "⚠️  WARNING: Potential remote code execution pattern (curl|bash) detected"
-        fi
-
-        echo "✅ Shell script security check complete"
-
-    - name: Set up Python
-      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
-      with:
-        python-version: '3.11'
-
-    - name: Check Python dependency vulnerabilities
-      run: |
-        echo "Checking Python dependencies for known vulnerabilities..."
-        pip install pip-audit -q
-
-        # Check if requirements.txt exists and audit it
-        if [ -f "library/requirements.txt" ]; then
-          echo "Auditing library/requirements.txt..."
-          pip-audit -r library/requirements.txt --desc on || {
-            echo "❌ ERROR: Vulnerable dependencies found"
+      - name: Check for hardcoded credentials
+        run: |
+          echo "Checking for hardcoded credentials..."
+          # Check for potential API keys, passwords, tokens
+          PATTERN='(api.?key|password|token|secret).*=.*["'"'"'][a-zA-Z0-9]{16,}["'"'"']'
+          if git diff HEAD~1 | grep -iE "$PATTERN"; then
+            echo "ERROR: Potential hardcoded credential detected"
             exit 1
-          }
-        fi
+          fi
+          echo "No hardcoded credentials found"
 
-        echo "✅ No known vulnerabilities in Python dependencies"
+      - name: Verify .gitignore integrity
+        run: |
+          echo "Verifying .gitignore protects sensitive files..."
 
-    - name: Security scan summary
-      if: always()
-      run: |
-        echo "=========================================="
-        echo "Security Scan Complete"
-        echo "=========================================="
-        echo "Repository: ${{ github.repository }}"
-        echo "Branch: ${{ github.ref_name }}"
-        echo "Commit: ${{ github.sha }}"
-        echo "=========================================="
+          # Critical patterns that should be in .gitignore
+          REQUIRED_IGNORES=(
+            ".env"
+            "*.key"
+            "*.log"
+          )
+
+          for pattern in "${REQUIRED_IGNORES[@]}"; do
+            if ! grep -q "$pattern" .gitignore 2>/dev/null; then
+              echo "WARNING: .gitignore missing pattern: $pattern"
+            fi
+          done
+
+          echo ".gitignore check complete"
+
+      - name: Check for sensitive files committed
+        run: |
+          echo "Scanning for accidentally committed sensitive files..."
+
+          # Check for common sensitive file patterns
+          if git ls-files | grep -iE '\.(key|pem|cert|env)$' \
+              | grep -v '.env.example'; then
+            echo "ERROR: Sensitive files committed to repository"
+            exit 1
+          fi
+
+          echo "No sensitive files found in repository"
+
+      - name: Check for dangerous logging
+        run: |
+          echo "Checking for dangerous logging patterns..."
+
+          # Check for logging credentials
+          LOG_PATTERN='(print|echo|console\.log|logger).*\$?(API_KEY|PASSWORD|TOKEN|SECRET)'
+          if git diff HEAD~1 | grep -iE "$LOG_PATTERN"; then
+            echo "WARNING: Code may log sensitive data"
+          fi
+
+          echo "Logging check complete"
+
+      - name: Check JavaScript for dangerous patterns
+        run: |
+          echo "Checking JavaScript for dangerous patterns..."
+
+          # Check for eval() usage (potential code injection)
+          if grep -rn "eval\s*(" --include="*.js" library/ \
+              2>/dev/null | grep -v "node_modules"; then
+            echo "WARNING: eval() usage detected - code injection risk"
+          fi
+
+          # Check for document.write() (XSS risk)
+          if grep -rn "document\.write\s*(" --include="*.js" \
+              library/ 2>/dev/null; then
+            echo "WARNING: document.write() usage - XSS risk"
+          fi
+
+          # Check for innerHTML without escaping
+          if grep -rn "\.innerHTML\s*=\s*[^'\"<]" --include="*.js" \
+              library/ 2>/dev/null | grep -v "escapeHtml"; then
+            echo "WARNING: Potential unescaped innerHTML assignment"
+          fi
+
+          # Check for Function constructor (similar to eval)
+          if grep -rn "new\s*Function\s*(" --include="*.js" \
+              library/ 2>/dev/null; then
+            echo "WARNING: Function constructor usage - similar to eval()"
+          fi
+
+          echo "JavaScript security check complete"
+
+      - name: Check shell scripts for dangerous patterns
+        run: |
+          echo "Checking shell scripts for dangerous patterns..."
+
+          # Check for eval in shell scripts
+          if grep -rn "^\s*eval\s" --include="*.sh" . \
+              2>/dev/null | grep -v ".git"; then
+            echo "WARNING: eval usage in shell scripts detected"
+          fi
+
+          # Check for curl | bash pattern (remote code execution)
+          CURL_PATTERN='curl.*|.*bash|wget.*|.*sh'
+          if grep -rn "$CURL_PATTERN" --include="*.sh" . \
+              2>/dev/null | grep -v ".git"; then
+            echo "WARNING: Potential remote code execution pattern"
+          fi
+
+          echo "Shell script security check complete"
+
+      - name: Set up Python
+        uses: >-
+          actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: '3.11'
+
+      - name: Check Python dependency vulnerabilities
+        run: |
+          echo "Checking Python dependencies for known vulnerabilities..."
+          pip install pip-audit -q
+
+          # Check if requirements.txt exists and audit it
+          if [ -f "library/requirements.txt" ]; then
+            echo "Auditing library/requirements.txt..."
+            pip-audit -r library/requirements.txt --desc on || {
+              echo "ERROR: Vulnerable dependencies found"
+              exit 1
+            }
+          fi
+
+          echo "No known vulnerabilities in Python dependencies"
+
+      - name: Security scan summary
+        if: always()
+        env:
+          REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          echo "=========================================="
+          echo "Security Scan Complete"
+          echo "=========================================="
+          echo "Repository: $REPO"
+          echo "Branch: $REF_NAME"
+          echo "Commit: $SHA"
+          echo "=========================================="

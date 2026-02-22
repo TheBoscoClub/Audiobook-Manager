@@ -154,7 +154,7 @@ EOF
 
 echo "  Created: audiobook-api.service"
 
-# Proxy Service (HTTPS reverse proxy) - replaces audiobooks-web.service
+# Proxy Service (HTTPS reverse proxy) - replaces audiobook-web.service
 cat >"$SYSTEMD_DIR/audiobook-proxy.service" <<EOF
 [Unit]
 Description=Audiobooks Library HTTPS Reverse Proxy
@@ -218,7 +218,7 @@ EOF
 echo "  Created: audiobook-redirect.service (optional)"
 
 # Target (groups all services)
-cat >"$SYSTEMD_DIR/audiobooks.target" <<EOF
+cat >"$SYSTEMD_DIR/audiobook.target" <<EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -228,7 +228,7 @@ Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service
 WantedBy=default.target
 EOF
 
-echo "  Created: audiobooks.target"
+echo "  Created: audiobook.target"
 
 echo ""
 
@@ -273,7 +273,7 @@ if [[ "$START_NOW" != "n" && "$START_NOW" != "N" ]]; then
         sleep 1
     fi
 
-    systemctl --user start audiobooks.target
+    systemctl --user start audiobook.target
     sleep 2
 
     echo ""
@@ -298,9 +298,9 @@ echo "Enable auto-start at boot:"
 echo "  loginctl enable-linger \$USER"
 echo ""
 echo "Management commands:"
-echo "  systemctl --user status audiobooks.target"
-echo "  systemctl --user restart audiobooks.target"
-echo "  systemctl --user stop audiobooks.target"
+echo "  systemctl --user status audiobook.target"
+echo "  systemctl --user restart audiobook.target"
+echo "  systemctl --user stop audiobook.target"
 echo "  journalctl --user -u audiobook-api -f"
 echo "  journalctl --user -u audiobook-proxy -f"
 echo ""

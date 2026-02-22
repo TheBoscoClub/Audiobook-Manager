@@ -15,6 +15,7 @@
 ## Task 1: Database Schema Migration
 
 **Files:**
+
 - Modify: `library/auth/schema.sql`
 - Create: `library/auth/migrations/004_per_user_state.sql`
 - Modify: `library/auth/database.py` (add migration runner)
@@ -190,6 +191,7 @@ Expected: FAIL — migration file and tables don't exist yet
 **Step 3: Create migration file and update schema**
 
 Create `library/auth/migrations/004_per_user_state.sql`:
+
 ```sql
 -- Migration 004: Per-user state tables
 -- Adds listening history, download tracking, and user preferences
@@ -247,6 +249,7 @@ git commit -m "feat(schema): add per-user state tables (history, downloads, pref
 ## Task 2: Data Models for New Tables
 
 **Files:**
+
 - Modify: `library/auth/models.py` (add 3 new dataclasses + repositories)
 - Test: `library/tests/test_per_user_models.py`
 
@@ -507,6 +510,7 @@ Add to `library/auth/models.py` (after existing `PositionRepository` class, arou
 - `PreferencesRepository` with `get_or_create(user_id)`
 
 Follow existing patterns from `UserPosition`/`PositionRepository`:
+
 - `@dataclass` with typed fields
 - `from_row(cls, row)` classmethod
 - `save(self, db: AuthDatabase)` method using `with db.connection() as conn:`
@@ -529,6 +533,7 @@ git commit -m "feat(models): add data models for listening history, downloads, p
 ## Task 3: Remove Audible Sync Endpoints
 
 **Files:**
+
 - Modify: `library/backend/api_modular/position_sync.py` (remove sync endpoints + Audible code)
 - Modify: `library/tests/` (update any tests referencing sync endpoints)
 - Test: `library/tests/test_position_sync_cleanup.py`
@@ -610,6 +615,7 @@ Expected: FAIL — sync endpoints still exist
 **Step 3: Clean up position_sync.py**
 
 In `library/backend/api_modular/position_sync.py`:
+
 1. Remove all `import audible` and related imports (`asyncio`, `Path`, etc.)
 2. Remove `AUDIBLE_AVAILABLE`, `AUDIBLE_IMPORT_ERROR`, `_CREDENTIAL_FILE`
 3. Remove `has_stored_credential()`, `retrieve_credential()`, `get_audible_client()`
@@ -648,6 +654,7 @@ git commit -m "feat(position): remove Audible sync, keep per-user position track
 ## Task 4: Listening History API Endpoints
 
 **Files:**
+
 - Modify: `library/backend/api_modular/position_sync.py` (add history creation on position save)
 - Create: `library/backend/api_modular/user_state.py` (new blueprint for user endpoints)
 - Modify: `library/backend/api_modular/__init__.py` (register new blueprint)
@@ -756,6 +763,7 @@ Expected: FAIL — endpoints don't exist
 **Step 3: Implement the user_state blueprint**
 
 Create `library/backend/api_modular/user_state.py`:
+
 - Blueprint: `user_bp = Blueprint("user", __name__, url_prefix="/api/user")`
 - `GET /history` — paginated listening history from `ListeningHistoryRepository`
 - `GET /downloads` — paginated download history from `DownloadRepository`
@@ -767,6 +775,7 @@ Create `library/backend/api_modular/user_state.py`:
 All endpoints use `@login_required` decorator.
 
 Register in `__init__.py`:
+
 ```python
 from .user_state import user_bp
 flask_app.register_blueprint(user_bp)
@@ -793,6 +802,7 @@ git commit -m "feat(api): add per-user history, downloads, library, and new-book
 ## Task 5: Admin Activity API
 
 **Files:**
+
 - Create: `library/backend/api_modular/admin_activity.py` (new blueprint)
 - Modify: `library/backend/api_modular/__init__.py` (register blueprint)
 - Test: `library/tests/test_admin_activity_api.py`
@@ -860,6 +870,7 @@ Expected: FAIL
 **Step 3: Implement admin activity blueprint**
 
 Create `library/backend/api_modular/admin_activity.py`:
+
 - Blueprint: `admin_activity_bp = Blueprint("admin_activity", __name__, url_prefix="/api/admin")`
 - `GET /activity` — paginated, filterable activity log. Union query: listening history + downloads, joined with user info. Filters: `user_id`, `type` (listen/download), `audiobook_id`, `from`/`to` dates.
 - `GET /activity/stats` — aggregate stats: total listens, total downloads, distinct active users, top 10 most-listened books, top 10 most-downloaded books.
@@ -885,6 +896,7 @@ git commit -m "feat(admin): add activity audit endpoint with filtering and stats
 ## Task 6: Frontend — Download Tracking (JS fetch/blob)
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js` (change download to fetch/blob + completion callback)
 - Test: `library/tests/test_download_tracking.py` (unit tests for the API interaction)
 
@@ -1001,6 +1013,7 @@ git commit -m "feat(downloads): JS fetch/blob download with completion tracking"
 ## Task 7: Frontend — My Library Tab
 
 **Files:**
+
 - Modify: `library/web-v2/index.html` (add My Library tab toggle)
 - Modify: `library/web-v2/js/library.js` (tab switching, My Library rendering)
 - Modify: `library/web-v2/css/layout.css` (tab styles)
@@ -1060,15 +1073,18 @@ Expected: FAIL
 **Step 3: Implement My Library tab**
 
 HTML changes in `index.html`:
+
 - Add tab bar below search section with "Browse All" and "My Library" tabs
 - Both use same `.books-grid` container but different data sources
 
 CSS changes:
+
 - `.library-tabs` — Art Deco tab bar styling
 - `.book-progress` — progress bar on book cards (gold fill on dark background)
 - `.book-progress-text` — percentage/time text overlay
 
 JS changes in `library.js`:
+
 - Tab switching logic (hide/show content)
 - `loadMyLibrary()` — fetch from `/api/user/library`, render cards with progress bars
 - On Browse tab, show progress bars on cards for books user has interacted with
@@ -1093,6 +1109,7 @@ git commit -m "feat(ui): add My Library tab with progress bars and listening his
 ## Task 8: Frontend — New Books Marquee
 
 **Files:**
+
 - Modify: `library/web-v2/index.html` (marquee container)
 - Create: `library/web-v2/js/marquee.js` (marquee logic)
 - Create: `library/web-v2/css/marquee.css` (Art Deco neon marquee styles)
@@ -1184,6 +1201,7 @@ Expected: FAIL
 **Step 3: Implement marquee**
 
 `marquee.css`:
+
 - 1930s Times Square Motograph style: warm white/gold neon text on dark background
 - Desktop: horizontal scroll across header area
 - Mobile: wraps around viewport (top + sides) like a theater marquee frame
@@ -1192,12 +1210,14 @@ Expected: FAIL
 - Hidden by default (`.new-books-marquee.hidden { display: none }`)
 
 `marquee.js`:
+
 - On page load: fetch `/api/user/new-books`
 - If new books exist: populate marquee text (book titles), show marquee
 - Click marquee or dismiss button: POST `/api/user/new-books/dismiss`, hide marquee
 - No `innerHTML` — use `document.createElement` + `textContent`
 
 `index.html`:
+
 - Add `<div id="new-books-marquee" class="new-books-marquee hidden">` in header area
 - Add `<script src="js/marquee.js"></script>` and `<link rel="stylesheet" href="css/marquee.css">`
 
@@ -1218,6 +1238,7 @@ git commit -m "feat(ui): add Art Deco neon new-books marquee"
 ## Task 9: About The Library Page
 
 **Files:**
+
 - Create: `library/web-v2/about.html`
 - Create: `library/web-v2/css/about.css`
 - Modify: `library/web-v2/help.html` (add About link)
@@ -1294,15 +1315,18 @@ Expected: FAIL
 **Step 3: Create about page**
 
 `about.html`:
+
 - Art Deco themed page (same base styles as help.html)
 - Sections: Concept & Creation (Bosco credit + Claude joint authorship), Third-Party Attributions (ffmpeg, SQLCipher, Flask, mutagen, pyotp, etc.), Version (fetched from `/api/system/version`), Links (README, GitHub)
 - Uses `textContent` for dynamic version display, no `innerHTML`
 
 `about.css`:
+
 - Art Deco card styling matching help.css theme
 - Attribution list with gold borders
 
 `help.html`:
+
 - Add "About The Library" link in the navigation/menu area
 
 **Step 4: Run tests to verify they pass**
@@ -1322,6 +1346,7 @@ git commit -m "feat(ui): add About The Library page with credits and attribution
 ## Task 10: Admin Audit Section in Back Office
 
 **Files:**
+
 - Modify: `library/web-v2/utilities.html` (add Activity Audit section)
 - Modify: `library/web-v2/js/utilities.js` (activity loading/filtering JS)
 - Modify: `library/web-v2/css/utilities.css` (audit table styles)
@@ -1367,12 +1392,14 @@ Expected: FAIL
 **Step 3: Implement audit UI**
 
 Add to `utilities.html`:
+
 - New "User Activity" section with Art Deco card styling
 - Filters: user dropdown, type dropdown (listen/download/all), date range pickers
 - Stats cards: total listens, total downloads, active users, most listened book
 - Activity table: date, user, action type, book title, details
 
 JS in `utilities.js`:
+
 - `loadActivityAudit()` — fetch from `/api/admin/activity` with filters
 - `loadActivityStats()` — fetch from `/api/admin/activity/stats`
 - Filter change handlers that re-fetch data
@@ -1397,6 +1424,7 @@ git commit -m "feat(admin): add activity audit section to Back Office"
 ## Task 11: Help & Tutorial Updates
 
 **Files:**
+
 - Modify: `library/web-v2/help.html` (new sections for new features)
 - Modify: `library/web-v2/js/tutorial.js` (new tutorial steps)
 - Test: `library/tests/test_help_updates.py`
@@ -1457,12 +1485,14 @@ Expected: FAIL
 **Step 3: Update help and tutorial**
 
 `help.html` new sections:
+
 - "My Library" — explains personal library tab, progress tracking
 - "Progress Tracking" — how positions are saved per-user
 - "Download History" — how downloads are tracked
 - "New Books" — how the marquee works and how to dismiss
 
 `tutorial.js` new steps:
+
 - Step for My Library tab (highlight tab, explain)
 - Step for progress bar on a card (if user has listened to a book)
 
@@ -1483,6 +1513,7 @@ git commit -m "docs(help): add sections for My Library, progress tracking, downl
 ## Task 12: Update Position Sync Documentation
 
 **Files:**
+
 - Modify: `docs/POSITION_SYNC.md` (rewrite for per-user local-only system)
 - Modify: `docs/ARCHITECTURE.md` (update relevant sections)
 - Test: `library/tests/test_docs_position_sync.py`
@@ -1527,6 +1558,7 @@ Expected: FAIL — current docs still describe Audible sync
 **Step 3: Rewrite documentation**
 
 `docs/POSITION_SYNC.md`:
+
 - Title: "Per-User Position Tracking"
 - Overview: local-only, per-user, encrypted in auth DB
 - How it works: localStorage cache + API persistence, furthest-ahead wins
@@ -1536,6 +1568,7 @@ Expected: FAIL — current docs still describe Audible sync
 - History note: "Previously supported Audible position sync, removed in v6.3.0"
 
 `docs/ARCHITECTURE.md`:
+
 - Update position tracking section to reflect per-user local-only system
 - Add new tables to database schema section
 - Add new blueprint registrations
@@ -1558,6 +1591,7 @@ git commit -m "docs: rewrite position sync docs for per-user local-only system"
 ## Task 13: Integration Testing & Full Suite Verification
 
 **Files:**
+
 - Test: `library/tests/test_per_user_integration.py`
 
 **Step 1: Write integration tests**
@@ -1686,7 +1720,7 @@ curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/admin/activity/stats
 
 **Step 4: Visual verification with Playwright**
 
-- Load https://192.168.122.104:8443/ in Playwright
+- Load <https://192.168.122.104:8443/> in Playwright
 - Verify My Library tab appears (when logged in)
 - Verify Browse All tab still works
 - Verify new books marquee (if applicable)
@@ -1702,6 +1736,7 @@ curl -o /dev/null -s -w "%{http_code}" -X POST http://192.168.122.104:5001/api/p
 curl -o /dev/null -s -w "%{http_code}" -X POST http://192.168.122.104:5001/api/position/sync-all
 curl -o /dev/null -s -w "%{http_code}" http://192.168.122.104:5001/api/position/syncable
 ```
+
 Expected: All return `404`
 
 **Step 6: Commit verification notes**
@@ -1714,7 +1749,7 @@ git commit --allow-empty -m "verify: per-user state features confirmed on test V
 
 ## Dependency Graph
 
-```
+```text
 Task 1 (Schema) ──┬── Task 2 (Models) ──┬── Task 3 (Remove Audible)
                    │                     │
                    │                     ├── Task 4 (User API) ──┬── Task 6 (Download JS)

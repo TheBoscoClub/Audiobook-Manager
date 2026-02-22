@@ -50,7 +50,8 @@ ls -la library/backend/api_modular/
 ```
 
 Expected files:
-```
+
+```text
 __init__.py
 core.py
 collections.py
@@ -75,6 +76,7 @@ python api_server.py
 ```
 
 In another terminal:
+
 ```bash
 # Test endpoints
 curl http://localhost:5000/health
@@ -116,11 +118,13 @@ sudo nano /etc/systemd/system/audiobook-api.service
 Change the `ExecStart` line:
 
 **Before (monolithic):**
+
 ```ini
 ExecStart=/opt/audiobooks/.venv/bin/python /opt/audiobooks/library/backend/api.py
 ```
 
 **After (modular):**
+
 ```ini
 ExecStart=/opt/audiobooks/.venv/bin/python /opt/audiobooks/library/backend/api_server.py
 ```
@@ -165,6 +169,7 @@ The original `api.py` remains in place. Tests continue to work against it withou
 If you want tests to use the modular package, update mock decorators:
 
 **Audiobook streaming tests:**
+
 ```python
 # Before
 @patch('backend.api.send_file')
@@ -176,6 +181,7 @@ def test_stream_audiobook(self, mock_send_file):
 ```
 
 **Supplement download tests:**
+
 ```python
 # Before
 @patch('backend.api.send_file')
@@ -187,6 +193,7 @@ def test_supplement_download(self, mock_send_file):
 ```
 
 **Database tests:**
+
 ```python
 # Before
 from backend.api import app, get_db
@@ -286,13 +293,15 @@ curl http://localhost:5000/api/stats
 ### Error: Blueprint Route Registration
 
 **Symptom:**
-```
+
+```text
 AssertionError: The setup method 'route' can no longer be called on the blueprint
 ```
 
 **Cause:** `create_app()` was called multiple times (e.g., in test fixtures).
 
 **Solution:**
+
 1. Use the monolithic `api.py` for tests
 2. Or restart the Python process between app creations
 3. Or refactor to create fresh Blueprint instances (requires code changes)
@@ -300,13 +309,15 @@ AssertionError: The setup method 'route' can no longer be called on the blueprin
 ### Error: Import Module Not Found
 
 **Symptom:**
-```
+
+```text
 ModuleNotFoundError: No module named 'api_modular'
 ```
 
 **Cause:** Python path doesn't include the backend directory.
 
 **Solution:**
+
 ```python
 import sys
 sys.path.insert(0, '<install-dir>/library/backend')  # e.g., /opt/audiobooks/library/backend
@@ -314,6 +325,7 @@ from api_modular import create_app
 ```
 
 Or set PYTHONPATH:
+
 ```bash
 export PYTHONPATH=<install-dir>/library/backend:$PYTHONPATH  # e.g., /opt/audiobooks/library/backend
 ```
@@ -321,7 +333,8 @@ export PYTHONPATH=<install-dir>/library/backend:$PYTHONPATH  # e.g., /opt/audiob
 ### Error: Database Not Found
 
 **Symptom:**
-```
+
+```text
 Error: Database not found at /path/to/audiobooks.db
 ```
 
@@ -365,6 +378,7 @@ app = create_app(database_path, project_dir, supplements_dir, api_port)
 ### Keep Both Indefinitely
 
 There's no requirement to remove `api.py`. Many projects keep both:
+
 - `api.py` - Simple, proven, good for quick fixes
 - `api_modular/` - Structured, good for feature development
 

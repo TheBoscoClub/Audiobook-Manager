@@ -36,7 +36,7 @@ Position tracking allows you to pause an audiobook and resume at the exact same 
 
 ### System Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                   POSITION TRACKING ARCHITECTURE                            │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -57,7 +57,7 @@ Position tracking allows you to pause an audiobook and resume at the exact same 
 
 ### Position Save Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       POSITION SAVE FLOW                                    │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -126,7 +126,7 @@ When `AUTH_ENABLED=true`, each authenticated user has completely independent pla
 
 ### Example
 
-```
+```text
 User A: "The Stand" → Position: 3h 45m (chapter 12)
 User B: "The Stand" → Position: 8h 20m (chapter 31)
 ```
@@ -200,7 +200,7 @@ When you click an audiobook to play:
 4. Start playback at best position
 5. Save position every 15 seconds
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           RESUME FLOW                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -298,11 +298,13 @@ Get position for a specific audiobook:
 Update position (from player):
 
 **Request:**
+
 ```json
 {"position_ms": 3600000}
 ```
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -392,6 +394,7 @@ CREATE TABLE playback_history (
 **Symptom:** Player starts from the beginning instead of saved position
 
 **Fixes:**
+
 1. Check that the API is running: `curl -s http://localhost:5001/api/position/status`
 2. Hard refresh the page (Ctrl+Shift+R)
 3. Check browser console for API errors
@@ -402,6 +405,7 @@ CREATE TABLE playback_history (
 **Symptom:** Browser shows stale position after listening on another device
 
 **Fixes:**
+
 1. Hard refresh the page (Ctrl+Shift+R) -- this triggers a fresh API fetch
 2. Clear localStorage for the site
 3. Check that API saves are succeeding (browser console network tab)
@@ -411,6 +415,7 @@ CREATE TABLE playback_history (
 **Symptom:** All users see the same position
 
 **Checks:**
+
 1. Verify `AUTH_ENABLED=true` in configuration
 2. Check position status: `curl -s http://localhost:5001/api/position/status` should return `{"per_user": true}`
 3. Verify auth database is initialized with `user_positions` table

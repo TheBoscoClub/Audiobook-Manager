@@ -8,14 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.2] - 2025-11-29
 
 ### Added
+
 - **Opus cover art embedding using mutagen**: FFmpeg cannot embed cover art in OGG/Opus containers (error: "Unsupported codec id in stream 1"). Added Python mutagen integration using METADATA_BLOCK_PICTURE Vorbis Comments standard.
 - New `embed_ogg_cover()` function for Opus cover embedding
 - Optional mutagen dependency check at startup (warns if missing but continues)
 
 ### Fixed
+
 - **Fixed cover art for Opus output**: Cover art now properly embeds in Opus audiobooks and displays in audio players
 
 ### Documentation
+
 - Updated FORK_README.md with Opus cover art embedding documentation
 - Added mutagen to dependencies list with installation instructions
 
@@ -24,16 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1] - 2025-11-22
 
 ### Changed
+
 - Updated fork version information in FORK_README.md to reflect v2.1
 - Updated "Last Updated" date to 2025-11-22
 - Incremented commit count to 8
 
 ### Documentation
+
 - Clarified fork status and version tracking
 
 ## [2.0] - 2025-11-21
 
 ### Added
+
 - Comprehensive security documentation (SECURITY.md)
 - Multi-distribution installation instructions (Arch/CachyOS/Manjaro)
 - Repository tags and metadata improvements
@@ -41,16 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fork documentation (FORK_README.md)
 
 ### Fixed
+
 - **Fixed unbound variable error**: Script would crash with `tmp_chapter_file: unbound variable` when chapter files were missing
 - **Fixed cover extraction for AAXC files**: Used hardcoded `-activation_bytes` parameter which doesn't work for AAXC
 - Made chapter/cover file validation non-fatal - script now warns but continues
 
 ### Changed
+
 - Enhanced AAXC fallback handling and logging
 - Made audible-cli chapter and cover files optional
 - Improved user feedback with informative log messages
 
 ### Documentation
+
 - Clarified testing environment (CachyOS only)
 - Added platform support expectations
 - Enhanced attribution to original authors

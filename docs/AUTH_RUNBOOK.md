@@ -3,6 +3,7 @@
 Practical guide for operating and maintaining the secure remote access authentication system.
 
 > **Related Documentation:**
+>
 > - [README — Authentication Section](../README.md#authentication-v50) — User-facing setup guide
 > - [Architecture — Auth Module](ARCHITECTURE.md#authentication-module-architecture) — System design and database schema
 > - [Auth Failure Modes](AUTH_FAILURE_MODES.md) — Troubleshooting guide
@@ -298,11 +299,13 @@ echo "Restore complete. Verify by logging in."
 ### User Cannot Login
 
 1. **Check if user exists:**
+
    ```bash
    ./library/tools/auth_admin.py --info USERNAME
    ```
 
 2. **Check for active sessions:**
+
    ```bash
    ./library/tools/auth_admin.py --sessions USERNAME
    ```
@@ -313,6 +316,7 @@ echo "Restore complete. Verify by logging in."
    - Magic Link: Check email delivery
 
 4. **Reset if needed:**
+
    ```bash
    ./library/tools/auth_admin.py --reset-auth USERNAME
    ```
@@ -320,22 +324,26 @@ echo "Restore complete. Verify by logging in."
 ### API Not Starting
 
 1. **Check service status:**
+
    ```bash
    systemctl status audiobook-api
    journalctl -u audiobook-api -n 50
    ```
 
 2. **Check database accessibility:**
+
    ```bash
    sqlite3 /var/lib/audiobooks/auth.db "PRAGMA key = \"x'$(cat /etc/audiobooks/auth.key)'\"" "SELECT 1;"
    ```
 
 3. **Check port availability:**
+
    ```bash
    ss -tlnp | grep 5001
    ```
 
 4. **Check permissions:**
+
    ```bash
    ls -la /var/lib/audiobooks/
    # Should be owned by audiobooks:audiobooks
@@ -344,11 +352,13 @@ echo "Restore complete. Verify by logging in."
 ### High Memory/CPU Usage
 
 1. **Check for runaway processes:**
+
    ```bash
    top -p $(pgrep -f audiobook-api)
    ```
 
 2. **Check session count:**
+
    ```bash
    sqlite3 /var/lib/audiobooks/auth.db "SELECT COUNT(*) FROM sessions;"
    # If very high, run cleanup:
@@ -356,6 +366,7 @@ echo "Restore complete. Verify by logging in."
    ```
 
 3. **Check database size:**
+
    ```bash
    ls -lh /var/lib/audiobooks/auth.db*
    # If WAL file is huge:
@@ -365,11 +376,13 @@ echo "Restore complete. Verify by logging in."
 ### SSL Certificate Issues
 
 1. **Check certificate status:**
+
    ```bash
    curl -vI https://your-domain.com 2>&1 | grep -A5 "SSL certificate"
    ```
 
 2. **Renew with Caddy:**
+
    ```bash
    # Caddy auto-renews, but you can force:
    caddy reload --config /etc/caddy/Caddyfile
@@ -380,21 +393,25 @@ echo "Restore complete. Verify by logging in."
 ### Suspected Unauthorized Access
 
 1. **Immediately disable affected account:**
+
    ```bash
    ./library/tools/auth_admin.py --disable USERNAME
    ```
 
 2. **Force logout all sessions:**
+
    ```bash
    ./library/tools/auth_admin.py --logout USERNAME
    ```
 
 3. **Review recent activity:**
+
    ```bash
    journalctl -u audiobook-api --since "24 hours ago" | grep -i "USERNAME"
    ```
 
 4. **Check for unusual patterns:**
+
    ```bash
    # Multiple failed logins
    journalctl -u audiobook-api | grep "login failed" | tail -50
@@ -407,12 +424,14 @@ echo "Restore complete. Verify by logging in."
 ### Suspected Data Breach
 
 1. **Preserve evidence:**
+
    ```bash
    cp /var/lib/audiobooks/auth.db /var/lib/audiobooks/auth.db.evidence
    journalctl -u audiobook-api > /var/log/audiobooks/incident-$(date +%s).log
    ```
 
 2. **Rotate encryption key (nuclear option):**
+
    ```bash
    # This invalidates ALL sessions and requires DB migration
    # Only do this if key compromise is confirmed
@@ -420,6 +439,7 @@ echo "Restore complete. Verify by logging in."
    ```
 
 3. **Force password reset for all users:**
+
    ```bash
    ./library/tools/auth_admin.py --reset-all-auth
    ```

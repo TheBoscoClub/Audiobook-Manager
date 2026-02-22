@@ -1,6 +1,7 @@
+---
 name: CI
 
-on:
+"on":
   pull_request:
     branches: [main, master]
   push:
@@ -14,35 +15,43 @@ jobs:
       contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Checkout code
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        # v6.0.2
 
-    - name: Set up Python
-      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: >-
+          actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        # v6.2.0
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        cd library
-        python -m pip install --upgrade pip
-        pip install pytest pytest-cov
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install dependencies
+        run: |
+          cd library
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
 
-    - name: Run pytest with coverage
-      run: |
-        cd library
-        pytest tests/ -v --tb=short --cov=. --cov-report=xml
+      - name: Run pytest with coverage
+        run: |
+          cd library
+          pytest tests/ -v --tb=short --cov=. --cov-report=xml
 
-    - name: Upload coverage to Codecov
-      if: ${{ !cancelled() }}
-      uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de  # v5.5.2
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: library/coverage.xml
-        flags: unittests
-        name: audiobook-manager
-        fail_ci_if_error: true
+      - name: Upload coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: >-
+          codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+        # v5.5.2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: library/coverage.xml
+          flags: unittests
+          name: audiobook-manager
+          fail_ci_if_error: true
 
   docker-build:
     name: Docker Build Check
@@ -51,21 +60,25 @@ jobs:
       contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Checkout code
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        # v6.0.2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
+      - name: Set up Docker Buildx
+        uses: >-
+          docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        # v3
 
-    - name: Validate Dockerfile
-      run: |
-        docker buildx build --check -f Dockerfile .
-        echo "✅ Dockerfile is valid"
+      - name: Validate Dockerfile
+        run: |
+          docker buildx build --check -f Dockerfile .
+          echo "Dockerfile is valid"
 
-    - name: Build Docker image (no push)
-      run: |
-        docker buildx build --load -t audiobooks:test -f Dockerfile .
-        echo "✅ Docker image builds successfully"
+      - name: Build Docker image (no push)
+        run: |
+          docker buildx build --load -t audiobooks:test -f Dockerfile .
+          echo "Docker image builds successfully"
 
   yaml-lint:
     name: YAML Validation
@@ -74,17 +87,19 @@ jobs:
       contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Checkout code
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        # v6.0.2
 
-    - name: Validate docker-compose.yml
-      run: |
-        python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"
-        echo "✅ docker-compose.yml is valid YAML"
+      - name: Validate docker-compose.yml
+        run: |
+          python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"
+          echo "docker-compose.yml is valid YAML"
 
-    - name: Validate GitHub Actions workflows
-      run: |
-        for f in .github/workflows/*.yml; do
-          python3 -c "import yaml; yaml.safe_load(open('$f'))"
-          echo "✅ $f is valid YAML"
-        done
+      - name: Validate GitHub Actions workflows
+        run: |
+          for f in .github/workflows/*.yml; do
+            python3 -c "import yaml; yaml.safe_load(open('$f'))"
+            echo "$f is valid YAML"
+          done

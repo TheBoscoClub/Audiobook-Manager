@@ -38,6 +38,7 @@ sudo systemctl status 'audiobook*'
 ```
 
 **Common causes** (check in order):
+
 1. Port already in use → see [Port Conflicts](#2-port-conflicts)
 2. Missing `/tmp` directories → see [Missing Runtime Directories](#5-missing-runtime-directories-after-reboot)
 3. Data mount not ready → see [Network Storage Boot Failures](#8-network-storage--hdd-boot-failures)
@@ -167,6 +168,7 @@ ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
 ```
 
 Also verify persistent runtime directories:
+
 ```bash
 ls -la /var/lib/audiobooks/.run
 ls -la /var/lib/audiobooks/.control
@@ -221,6 +223,7 @@ sudo systemctl restart audiobook-converter
 ```
 
 **If disk full**: Clear stale staging files:
+
 ```bash
 # Check what's in staging (old failed conversions)
 ls -la /tmp/audiobook-staging/
@@ -234,7 +237,8 @@ find /tmp/audiobook-staging -maxdepth 2 -mtime +7 -type f -delete
 ## 8. Network Storage / HDD Boot Failures
 
 **Symptoms**: Services fail at boot but recover after a few minutes. Log shows:
-```
+
+```text
 Failed at step NAMESPACE spawning /bin/sh: No such file or directory
 ```
 
@@ -247,6 +251,7 @@ sudo systemctl edit --full audiobook-api.service
 ```
 
 Add to `[Unit]` section:
+
 ```ini
 # For local storage (HDD, BTRFS subvolume)
 RequiresMountsFor=/opt/audiobooks /path/to/audiobooks
@@ -257,6 +262,7 @@ Wants=network-online.target
 ```
 
 Then reload:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart audiobook-api
@@ -271,6 +277,7 @@ sudo systemctl restart audiobook-api
 **Fix for local access**: Click "Advanced" → "Proceed to localhost (unsafe)". Browser remembers the exception.
 
 **Fix for production**: Use a reverse proxy with real certificates:
+
 ```bash
 # Example with Caddy (auto Let's Encrypt)
 # /etc/caddy/Caddyfile
@@ -280,6 +287,7 @@ audiobooks.example.com {
 ```
 
 **If certificate files are missing**:
+
 ```bash
 # Regenerate self-signed cert
 openssl req -x509 -newkey rsa:4096 -nodes \

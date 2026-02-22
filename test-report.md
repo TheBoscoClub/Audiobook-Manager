@@ -56,6 +56,7 @@ The test suite demonstrates **strong overall health** with 1,230 of 1,259 tests 
 ## Detailed Failure Analysis
 
 ### Critical Failures: 0
+
 All failures are **non-blocking** — they are either environmental limitations or missing external configurations.
 
 ### Failures by Category
@@ -73,12 +74,14 @@ All failures are **non-blocking** — they are either environmental limitations 
 **Severity**: Low (non-functional test environment limitation, not a code bug)
 
 **Workaround Available**:
+
 ```bash
 # Run with headed mode to test audio playback
 pytest --headed --browser=chromium library/tests/test_player_navigation_persistence.py
 ```
 
 **Recommendation**:
+
 - Mark these tests as conditional with `@pytest.mark.skipif(HEADLESS_MODE, reason="...")`
 - Or add `:headless` mode detector to skip them automatically in CI
 
@@ -95,6 +98,7 @@ pytest --headed --browser=chromium library/tests/test_player_navigation_persiste
 **Severity**: Low (intended external API test)
 
 **Configuration Required**:
+
 ```bash
 export AUDIBLE_ACCOUNT_EMAIL="your-email@example.com"
 export AUDIBLE_ACCOUNT_PASSWORD="your-password"
@@ -102,6 +106,7 @@ export AUDIBLE_ACCOUNT_COUNTRY_CODE="us"
 ```
 
 **Recommendation**:
+
 - Add to test documentation or CI skip instructions
 - Mark with `@pytest.mark.skipif(not AUDIBLE_CONFIGURED, reason="Audible account not configured")`
 
@@ -124,6 +129,7 @@ export AUDIBLE_ACCOUNT_COUNTRY_CODE="us"
 **Impact**: Wrapper scripts are required for systemd services to start. This is a **deployment issue**, not a code issue.
 
 **Fix Required**: Re-run deployment with:
+
 ```bash
 ./deploy-vm.sh --host 192.168.122.104 --full --restart
 ```
@@ -132,7 +138,7 @@ export AUDIBLE_ACCOUNT_COUNTRY_CODE="us"
 
 ## Pass Rate Analysis
 
-```
+```text
 Pass Rate: 1230/1259 = 97.7%
 
 Excluding non-blocking failures:
@@ -147,15 +153,18 @@ Effective Code Quality Pass Rate: 99.7% (1230/1235 applicable tests)
 ## Recommendations
 
 ### Immediate (High Priority)
+
 1. **Re-deploy to VM**: Run `./deploy-vm.sh --host 192.168.122.104 --full --restart` to install wrapper scripts for worker services
 2. **Mark Playwright audio tests**: Add conditional skip for headless mode to prevent false negatives in CI
 
 ### Short Term (Medium Priority)
-3. **Audible Integration Tests**: Document external configuration requirement for `test_populate_asins_dry_run` or move to optional test suite
-4. **Headed Test Mode**: Add CI step to run player tests with headed browser on optional schedule (nightly/weekly)
+
+1. **Audible Integration Tests**: Document external configuration requirement for `test_populate_asins_dry_run` or move to optional test suite
+2. **Headed Test Mode**: Add CI step to run player tests with headed browser on optional schedule (nightly/weekly)
 
 ### Documentation
-5. Add section to `docs/TESTING.md`:
+
+1. Add section to `docs/TESTING.md`:
    - Playwright headless limitations and workarounds
    - External API configuration (Audible) requirements
    - VM deployment verification checklist
@@ -165,16 +174,19 @@ Effective Code Quality Pass Rate: 99.7% (1230/1235 applicable tests)
 ## Test Categories Summary
 
 ### Unit Tests: 87.0% (1,095 tests)
+
 - **Pass**: 1,095/1,095 (100%)
 - Covers: metadata, database, utilities, config, auth, conversion
 - No failures
 
 ### Integration Tests: 8.2% (103 tests)
+
 - **Pass**: 99/103 (96.1%)
 - Failures: 1 (Audible config), 3 (Playwright audio)
 - Covers: Auth lifecycle, backoffice, API endpoints, library scanning, import/conversion
 
 ### E2E/UI Tests: 4.8% (61 tests)
+
 - **Pass**: 58/61 (95.1%)
 - Failures: 3 (Playwright headless audio)
 - Covers: Player navigation, position sync, UI interactions
@@ -186,12 +198,14 @@ Effective Code Quality Pass Rate: 99.7% (1230/1235 applicable tests)
 **Status**: ✅ **ACCEPTABLE FOR MERGE** (97.7% pass rate, all failures non-blocking)
 
 The test suite demonstrates **strong code quality** and **comprehensive coverage**. The 4 test failures are:
+
 - **Environment limitations** (3 Playwright headless audio tests)
 - **External configuration** (1 Audible API test)
 
 These are NOT code defects and do not block releases.
 
 **Next Steps**:
+
 1. Deploy to VM to activate worker services
 2. Add conditional skips for Playwright audio tests
 3. Continue normal development workflow

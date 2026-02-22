@@ -1,4 +1,5 @@
 # Audiobook-Manager Project Audit Report
+
 **Date**: 2026-02-20 | **Status**: ISSUES | **Phase**: 3 (Report)
 
 ---
@@ -29,16 +30,19 @@ Audiobook-Manager v6.1.3 is **production-ready with one blocking deployment issu
 ### CRITICAL: Authentication Endpoint Mismatch
 
 **Failure**: `test_admin_totp_login`
+
 - **Error**: HTTP 405 (Method Not Allowed) on `POST /auth/login` at VM (192.168.122.104:5001)
 - **Root Cause**: VM is running stale `auth.py` from v6.1.0; project has v6.1.3 with refactored auth endpoints
 - **Impact**: Blocks all admin TOTP login tests (1 failure + 3 cascading errors)
 
 **Cascading Errors**:
+
 1. `test_full_totp_lifecycle` - admin_session fixture fails on `/auth/login`
 2. `test_full_passkey_lifecycle` - admin_session fixture fails on `/auth/login`
 3. `test_player_features_documented` - admin_session fixture fails on `/auth/login`
 
 **Fix**:
+
 ```bash
 ./deploy-vm.sh --host 192.168.122.104 --full --restart
 ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERSION"
@@ -64,6 +68,7 @@ ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERS
 ## Code Quality Warnings
 
 **2 RuntimeWarnings** in `test_utilities_ops_maintenance_extended.py`:
+
 - Unawaited coroutines in async test fixtures
 - **Severity**: Low (warnings only, no test failures)
 - **Recommended**: Add `await` statements or use `asyncio.create_task()` wrappers
@@ -74,6 +79,7 @@ ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERS
 ## Runtime Health Check (Phase 2a Results)
 
 ### Production Environment
+
 - **Status**: All services operational
 - **Version**: v6.1.0 (deployed)
 - **Database**: Healthy (1,837 audiobooks, 1.2GB library)
@@ -81,6 +87,7 @@ ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERS
 - **Auth**: Working (token-based and localhost)
 
 ### Version Gap
+
 - **Project**: v6.1.3 (3 patch versions ahead)
 - **VM**: v6.1.0 (stale, requires deployment)
 - **Production data**: Verified intact, 0 corruption detected
@@ -98,6 +105,7 @@ ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERS
 | Lines of test code | 4,200+ |
 
 ### Coverage by Module
+
 - **Good (60%+)**: `backoffice_integration.py`, `player_features.py`, `auth_lifecycle.py`
 - **Medium (20-60%)**: `position_sync.py` (15%), `utilities_db.py` (9%)
 - **Poor (<10%)**: `add_new_audiobooks.py` (0%)
@@ -107,11 +115,13 @@ ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERS
 ## Deployment Readiness
 
 ### Before Release (BLOCKING)
+
 - [ ] Deploy v6.1.3 to test VM
 - [ ] Re-run auth tests to verify 405 error is resolved
 - [ ] Confirm all 4 errors convert to passes
 
 ### Optional Pre-Release
+
 - [ ] Add `await` statements in `test_utilities_ops_maintenance_extended.py` (2 warnings)
 - [ ] Expand test coverage for `add_new_audiobooks.py` (currently 0%)
 - [ ] Review position_sync coverage (currently 15%)
@@ -160,7 +170,8 @@ The codebase is production-ready. The test failure is environmental (stale VM de
 #### Auth Blueprint Registration Issue (P0)
 
 **Tests Failing**: 4 tests in auth-disabled mode
-```
+
+```text
 - test_auth_login_disabled        → 405 POST /auth/login
 - test_auth_admin_disabled        → 405 GET /auth/admin/users
 - test_auth_logout_disabled       → 405 POST /auth/logout
@@ -172,6 +183,7 @@ The codebase is production-ready. The test failure is environmental (stale VM de
 **Code Location**: `/hddRaid1/ClaudeCodeProjects/Audiobook-Manager/library/backend/app.py`
 
 **Fix Pattern**:
+
 ```python
 # Current (WRONG)
 app.register_blueprint(auth_bp)  # Always registered
@@ -186,18 +198,21 @@ if config.get("AUTH_ENABLED", True):
 #### Runtime Service Issues (P0)
 
 **1. Service Crash Loop**
+
 - Component: `audiobooks-web.service`
 - Status: CRASH-LOOP (1,324+ restarts)
 - Root Cause: Port 8090 conflict with `audiobook-proxy.service`
 - Impact: Web UI completely inaccessible
 
 **2. Version Mismatch**
+
 - API reports: 5.0.2
 - VERSION file: 6.1.3
 - Root Cause: Incomplete deployment
 - Impact: Monitoring shows incorrect version
 
 **3. Health Endpoint Missing**
+
 - Endpoint: GET /api/system/health
 - Status: Returns 405 (Method Not Allowed)
 - Expected: 200 OK with `{"status": "healthy"}`
@@ -206,6 +221,7 @@ if config.get("AUTH_ENABLED", True):
 ### Test Coverage Breakdown
 
 **Unit Tests** (100% pass rate):
+
 - Metadata Parsing: 180 tests ✅
 - Audio Conversion: 320 tests ✅
 - Database Utilities: 150 tests ✅
@@ -214,6 +230,7 @@ if config.get("AUTH_ENABLED", True):
 - **Total**: 965 tests, 0 failures
 
 **Integration Tests** (92.6% pass rate):
+
 - API Integration: 140 tests ✅ (100%)
 - Auth Disabled Mode: 12 tests ❌ (67% - 4 failures)
 - Auth Lifecycle: 45 tests ✅ (100%)
@@ -225,10 +242,12 @@ if config.get("AUTH_ENABLED", True):
 ### Code Quality Assessment
 
 **Overall Estimate**: 92% coverage
+
 - **Strong (85-98%)**: Audio conversion (98%), Metadata utils (95%), Auth system (92%), Database layer (88%), API routes (85%)
 - **Weak (<15%)**: add_new_audiobooks.py (0%), position_sync.py (15%), utilities_db.py (9%)
 
 **Non-Blocking Warnings**:
+
 - 2 RuntimeWarnings in async test fixtures (benign, no functional impact)
 
 ### Recommendations Summary
@@ -250,21 +269,23 @@ if config.get("AUTH_ENABLED", True):
 
 **P1 (Fix This Sprint)** — Next sprint
 
-4. Health Check Endpoint (1 hour)
-5. Fix Integration Test Fixtures (1-2 hours)
-6. Increase Coverage (Medium priority)
+1. Health Check Endpoint (1 hour)
+2. Fix Integration Test Fixtures (1-2 hours)
+3. Increase Coverage (Medium priority)
 
 ### Release Status
 
 **Can Ship?** ❌ NO
 
 **Blocking Issues**:
+
 1. 4 critical test failures (auth mode switching)
 2. Service port conflict (web UI inaccessible)
 3. Version mismatch (user-facing)
 
 **Path to Release**:
-```
+
+```text
 Current: ⚠️ ISSUES (99.6% pass, 4 critical failures)
         ↓
 Apply P0 Fixes: (auth blueprint, port conflict, version)
@@ -305,6 +326,7 @@ This phase examines the entire codebase as an interconnected system -- how shell
 **Severity**: MEDIUM -- Breaks authenticated cross-origin requests
 
 **Affected Components**:
+
 - `library/backend/api_modular/core.py` (CORS headers)
 - `library/web-v2/proxy_server.py` (CORS preflight)
 - `library/web-v2/js/library.js`, `login.html`, `admin.html`, etc. (25+ frontend calls)
@@ -312,6 +334,7 @@ This phase examines the entire codebase as an interconnected system -- how shell
 **Root Cause**: The frontend uses `credentials: 'include'` on 25+ fetch() calls (login, logout, session check, admin operations), which requires the server to respond with `Access-Control-Allow-Credentials: true`. Neither the Flask CORS handler (`core.py` line 28-39) nor the proxy's OPTIONS handler (`proxy_server.py` line 73-85) includes this header.
 
 **Current CORS Headers** (core.py):
+
 ```python
 response.headers["Access-Control-Allow-Origin"] = CORS_ORIGIN
 response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
@@ -319,11 +342,13 @@ response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range"
 ```
 
 **Missing**:
+
 ```python
 response.headers["Access-Control-Allow-Credentials"] = "true"
 ```
 
 **Why It Works Today**: The proxy server operates as same-origin (HTTPS on port 8443 serves both static files and proxies API calls to localhost:5001). Since the browser sees a single origin, CORS is not triggered. However, this breaks if:
+
 1. The API is accessed directly from a different origin
 2. Docker/reverse-proxy configurations split the frontend and backend onto different ports
 3. Development mode uses different ports (9443 vs 6001)
@@ -339,6 +364,7 @@ Additionally, when `Access-Control-Allow-Credentials: true` is used, `Access-Con
 **Severity**: LOW -- Inconsistent defaults across components; overridden by config in production
 
 **Affected Components**:
+
 - `lib/audiobook-config.sh` line 125: defaults to `8080`
 - `library/config.py` line 180: defaults to `8081`
 - `docker-entrypoint.sh` line 32: defaults to `8080`
@@ -357,6 +383,7 @@ Additionally, when `Access-Control-Allow-Credentials: true` is used, `Access-Con
 **Severity**: MEDIUM -- API starts in dev mode instead of production mode
 
 **Affected Components**:
+
 - `library/backend/api_server.py` line 44: defaults to `"false"`
 - `lib/audiobook-config.sh` line 128: defaults to `"true"`
 - `install-services.sh` line 140: sets `true`
@@ -367,6 +394,7 @@ Additionally, when `Access-Control-Allow-Credentials: true` is used, `Access-Con
 **Impact**: If `AUDIOBOOKS_USE_WAITRESS` is not explicitly set in the environment (e.g., systemd EnvironmentFile not loaded), the API falls back to Flask's development server instead of waitress. The development server is single-threaded, has debug mode enabled, and should never be used in production.
 
 **Fix**: Change `api_server.py` line 44 to read from `config.py` instead of `os.environ`:
+
 ```python
 # Current (WRONG default):
 use_waitress = os.environ.get("AUDIOBOOKS_USE_WAITRESS", "false").lower() in (...)
@@ -383,11 +411,13 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Severity**: LOW -- Overridden by config in all deployment scenarios
 
 **Affected Components**:
+
 - `lib/audiobook-config.sh` line 93 (with AUDIOBOOKS_HOME): `${AUDIOBOOKS_HOME}/library/web-v2/covers`
 - `lib/audiobook-config.sh` line 99 (without AUDIOBOOKS_HOME): `/var/lib/audiobooks/covers`
 - `library/config.py` line 160: `${AUDIOBOOKS_DATA}/.covers` (i.e., `/srv/audiobooks/.covers`)
 
 **Root Cause**: Three different default paths for cover images depending on which config layer resolves:
+
 1. Shell with AUDIOBOOKS_HOME: `<HOME>/library/web-v2/covers` (web-accessible location)
 2. Shell without AUDIOBOOKS_HOME: `/var/lib/audiobooks/covers` (state directory)
 3. Python: `/srv/audiobooks/.covers` (data directory, hidden folder)
@@ -403,6 +433,7 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Severity**: LOW -- Overridden by explicit config in all deployment modes
 
 **Affected Components**:
+
 - `lib/audiobook-config.sh` line 92 (with HOME): `${AUDIOBOOKS_HOME}/library/backend/audiobooks.db`
 - `lib/audiobook-config.sh` line 98 (without HOME): `/var/lib/audiobooks/audiobooks.db`
 - `library/config.py` line 157: `/var/lib/audiobooks/db/audiobooks.db` (note extra `db/` subdirectory)
@@ -420,10 +451,12 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Severity**: MEDIUM -- Dev DB missing objects defined in schema.sql
 
 **Affected Components**:
+
 - `library/backend/schema.sql` (canonical production schema)
 - `library/backend/audiobooks-dev.db` (development database)
 
 **Missing from Dev DB** (present in schema.sql):
+
 1. **Table `playback_history`** -- Used by position sync to track history
 2. **View `audiobooks_full`** -- Convenience view joining genres/eras/topics
 3. **View `audiobooks_syncable`** -- View for Audible sync-capable books
@@ -442,6 +475,7 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Severity**: MEDIUM -- Violates project's no-hardcoded-paths rule
 
 **Affected Files**:
+
 - `scripts/find-duplicate-sources` line 20: `SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/hddRaid1/Audiobooks/Sources}"`
 - `scripts/build-conversion-queue` lines 25-28: Three `/hddRaid1/Audiobooks/` fallbacks
 - `scripts/convert-audiobooks-opus-parallel` line 233: `/hddRaid1/Audiobooks` fallback
@@ -462,6 +496,7 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Affected File**: `scripts/find-duplicate-sources` lines 14-18
 
 **Root Cause**: Most scripts have a three-tier config source pattern:
+
 1. `${SCRIPT_DIR}/../lib/audiobook-config.sh` (relative, for development)
 2. `/opt/audiobooks/lib/audiobook-config.sh` (system install)
 3. `/usr/local/lib/audiobooks/audiobook-config.sh` (shared library install)
@@ -477,6 +512,7 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Severity**: INFO -- Intentional design, but a maintenance risk
 
 **Affected Components**:
+
 - `systemd/audiobook-api.service`: `ExecStart=/opt/audiobooks/venv/bin/python api_server.py`
 - `systemd/audiobook-proxy.service`: `ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/proxy_server.py`
 - `systemd/audiobook-redirect.service`: `ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/redirect_server.py`
@@ -492,6 +528,7 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Severity**: LOW -- Cosmetic, does not affect functionality
 
 **Affected Files**:
+
 - `systemd/audiobook.target` line 3: `Documentation=https://github.com/greogory/Audiobook-Manager`
 - `systemd/audiobook-upgrade-helper.path` line 3: `Documentation=https://github.com/greogory/Audiobook-Manager`
 - Other service files use: `Documentation=https://github.com/TheBoscoClub/Audiobook-Manager`
@@ -509,6 +546,7 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 **Affected Components**: All API endpoint files in `library/backend/api_modular/`
 
 **Pattern Found**: Most endpoints follow this pattern:
+
 ```python
 conn = get_db(db_path)
 cursor = conn.cursor()
@@ -524,6 +562,7 @@ If an exception occurs between `get_db()` and `conn.close()`, the connection is 
 **Impact**: LOW for SQLite (which handles this gracefully via garbage collection and has no connection limit issues for typical workloads). Would be CRITICAL for a database with connection pooling.
 
 **Recommendation**: For a future refactor, wrap connections in a context manager:
+
 ```python
 with contextlib.closing(get_db(db_path)) as conn:
     cursor = conn.cursor()
@@ -560,7 +599,7 @@ with contextlib.closing(get_db(db_path)) as conn:
 | H-9 | INFO | Systemd services | Proxy uses system Python while API uses venv Python |
 | H-10 | LOW | Systemd files | Documentation URL typo (`greogory` vs `TheBoscoClub`) |
 | H-11 | LOW | API endpoints | No try/finally for database connections |
-| H-12 | LOW | __init__.py | `admin_or_localhost` not exported |
+| H-12 | LOW | **init**.py | `admin_or_localhost` not exported |
 
 **MEDIUM issues (fix before next release)**: H-1, H-3, H-6, H-7
 **LOW issues (fix in next sprint)**: H-2, H-4, H-5, H-8, H-10, H-11, H-12
@@ -568,4 +607,3 @@ with contextlib.closing(get_db(db_path)) as conn:
 
 **Phase H Status**: ISSUES (4 MEDIUM, 7 LOW, 1 INFO)
 **Phase H Completed**: 2026-02-20
-

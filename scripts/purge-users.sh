@@ -35,13 +35,31 @@ EOF
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --host)     HOST="$2"; shift 2 ;;
-        --keep)     KEEP_LIST="$2"; shift 2 ;;
-        --port)     PORT="$2"; shift 2 ;;
-        --protocol) PROTOCOL="$2"; shift 2 ;;
-        --dry-run)  DRY_RUN=true; shift ;;
-        -h|--help)  usage ;;
-        *)          echo "Unknown option: $1"; usage ;;
+    --host)
+        HOST="$2"
+        shift 2
+        ;;
+    --keep)
+        KEEP_LIST="$2"
+        shift 2
+        ;;
+    --port)
+        PORT="$2"
+        shift 2
+        ;;
+    --protocol)
+        PROTOCOL="$2"
+        shift 2
+        ;;
+    --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+    -h | --help) usage ;;
+    *)
+        echo "Unknown option: $1"
+        usage
+        ;;
     esac
 done
 
@@ -55,7 +73,7 @@ COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
 # Convert keep list to array
-IFS=',' read -rA KEEP_USERS <<< "$KEEP_LIST"
+IFS=',' read -rA KEEP_USERS <<<"$KEEP_LIST"
 
 is_kept() {
     local username="$1"
