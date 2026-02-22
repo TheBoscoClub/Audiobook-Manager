@@ -83,9 +83,18 @@
       }
     },
 
+    "install": {
+      "script": "install.sh",
+      "command": "./install.sh --system",
+      "required_on_pristine": true,
+      "creates": ["audiobooks user/group", "/opt/audiobooks/", "/etc/audiobooks/", "/var/lib/audiobooks/", "venv", "SSL certs", "systemd services"],
+      "detects_pristine_by": "getent passwd audiobooks"
+    },
+
     "deploy": {
       "script": "deploy-vm.sh",
       "command": "./deploy-vm.sh --host 192.168.122.104 --full --restart",
+      "requires_install_first": true,
       "verify": [
         "ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 'cat /opt/audiobooks/VERSION'",
         "curl -s http://192.168.122.104:5001/api/system/version"
