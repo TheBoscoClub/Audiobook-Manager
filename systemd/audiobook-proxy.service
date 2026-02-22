@@ -25,10 +25,10 @@ ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/proxy_server.py
 
 Restart=on-failure
 RestartSec=3
-# Use journal logging (query with: journalctl -u audiobooks-proxy)
+# Use journal logging (query with: journalctl -u audiobook-proxy)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobooks-proxy
+SyslogIdentifier=audiobook-proxy
 
 # Security hardening
 NoNewPrivileges=yes

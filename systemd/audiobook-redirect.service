@@ -22,10 +22,10 @@ ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/redirect_server.py
 
 Restart=on-failure
 RestartSec=5
-# Use journal logging (query with: journalctl -u audiobooks-redirect)
+# Use journal logging (query with: journalctl -u audiobook-redirect)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobooks-redirect
+SyslogIdentifier=audiobook-redirect
 
 # Security hardening
 NoNewPrivileges=yes

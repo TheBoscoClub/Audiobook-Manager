@@ -88,18 +88,18 @@ if [[ "$UNINSTALL" == "true" ]]; then
     echo -e "${YELLOW}=== Uninstalling Audiobook Library (System) ===${NC}"
 
     # Stop and disable services
-    systemctl stop audiobook-api.service audiobooks-web.service 2>/dev/null || true
-    systemctl disable audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    systemctl stop audiobook-api.service audiobook-web.service 2>/dev/null || true
+    systemctl disable audiobook-api.service audiobook-web.service 2>/dev/null || true
 
     # Remove files
     rm -f "${BIN_DIR}/audiobook-api"
-    rm -f "${BIN_DIR}/audiobooks-web"
-    rm -f "${BIN_DIR}/audiobooks-scan"
-    rm -f "${BIN_DIR}/audiobooks-import"
+    rm -f "${BIN_DIR}/audiobook-web"
+    rm -f "${BIN_DIR}/audiobook-scan"
+    rm -f "${BIN_DIR}/audiobook-import"
     rm -rf "${LIB_DIR}"
     rm -f "${SYSTEMD_DIR}/audiobook-api.service"
-    rm -f "${SYSTEMD_DIR}/audiobooks-web.service"
-    rm -f "${SYSTEMD_DIR}/audiobooks.target"
+    rm -f "${SYSTEMD_DIR}/audiobook-web.service"
+    rm -f "${SYSTEMD_DIR}/audiobook.target"
 
     # Reload systemd
     systemctl daemon-reload
@@ -248,40 +248,40 @@ EOF
 chmod 755 "${BIN_DIR}/audiobook-api"
 
 # Web server wrapper
-cat >"${BIN_DIR}/audiobooks-web" <<'EOF'
+cat >"${BIN_DIR}/audiobook-web" <<'EOF'
 #!/usr/bin/env zsh
 # Audiobook Library Web Server (HTTPS)
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
 EOF
-chmod 755 "${BIN_DIR}/audiobooks-web"
+chmod 755 "${BIN_DIR}/audiobook-web"
 
 # Scanner wrapper
-cat >"${BIN_DIR}/audiobooks-scan" <<'EOF'
+cat >"${BIN_DIR}/audiobook-scan" <<'EOF'
 #!/usr/bin/env zsh
 # Audiobook Library Scanner
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
 EOF
-chmod 755 "${BIN_DIR}/audiobooks-scan"
+chmod 755 "${BIN_DIR}/audiobook-scan"
 
 # Database import wrapper
-cat >"${BIN_DIR}/audiobooks-import" <<'EOF'
+cat >"${BIN_DIR}/audiobook-import" <<'EOF'
 #!/usr/bin/env zsh
 # Audiobook Library Database Import
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
 EOF
-chmod 755 "${BIN_DIR}/audiobooks-import"
+chmod 755 "${BIN_DIR}/audiobook-import"
 
 # Config viewer
-cat >"${BIN_DIR}/audiobooks-config" <<'EOF'
+cat >"${BIN_DIR}/audiobook-config" <<'EOF'
 #!/usr/bin/env zsh
 # Show audiobook library configuration
 source /usr/local/lib/audiobooks/lib/audiobook-config.sh
 audiobooks_print_config
 EOF
-chmod 755 "${BIN_DIR}/audiobooks-config"
+chmod 755 "${BIN_DIR}/audiobook-config"
 
 # Setup Python virtual environment (recreate if broken or missing)
 if ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
@@ -339,7 +339,7 @@ WantedBy=multi-user.target
 EOF
 
     # Web service
-    cat >"${SYSTEMD_DIR}/audiobooks-web.service" <<EOF
+    cat >"${SYSTEMD_DIR}/audiobook-web.service" <<EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -362,11 +362,11 @@ WantedBy=multi-user.target
 EOF
 
     # Target
-    cat >"${SYSTEMD_DIR}/audiobooks.target" <<EOF
+    cat >"${SYSTEMD_DIR}/audiobook.target" <<EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobooks-web.service
+Wants=audiobook-api.service audiobook-web.service
 
 [Install]
 WantedBy=multi-user.target
@@ -377,10 +377,10 @@ EOF
 
     echo ""
     echo -e "${YELLOW}To enable services at boot:${NC}"
-    echo "  sudo systemctl enable audiobook-api audiobooks-web"
+    echo "  sudo systemctl enable audiobook-api audiobook-web"
     echo ""
     echo -e "${YELLOW}To start services now:${NC}"
-    echo "  sudo systemctl start audiobook-api audiobooks-web"
+    echo "  sudo systemctl start audiobook-api audiobook-web"
 fi
 
 # Create /etc/profile.d script for environment
@@ -402,10 +402,10 @@ echo "Data directory: ${DATA_DIR}"
 echo ""
 echo "Commands available:"
 echo "  audiobook-api      - Start API server"
-echo "  audiobooks-web      - Start web server"
-echo "  audiobooks-scan     - Scan audiobook library"
-echo "  audiobooks-import   - Import to database"
-echo "  audiobooks-config   - Show configuration"
+echo "  audiobook-web      - Start web server"
+echo "  audiobook-scan     - Scan audiobook library"
+echo "  audiobook-import   - Import to database"
+echo "  audiobook-config   - Show configuration"
 echo ""
 echo "Access the library at: https://localhost:8090"
 echo ""

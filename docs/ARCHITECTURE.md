@@ -28,7 +28,7 @@ This document describes the system architecture, installation workflows, storage
 
 Audiobook-Manager consists of seven logical component groups:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         AUDIOBOOK-MANAGER SYSTEM                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -92,14 +92,14 @@ Audiobook-Manager consists of seven logical component groups:
 
 ### Symlink Architecture
 
-```
+```text
 /usr/local/bin/                          /opt/audiobooks/scripts/
 ┌──────────────────────┐                 ┌──────────────────────────────────┐
-│ audiobooks-convert ──┼────symlink────▶ │ audiobook-convert │
-│ audiobooks-download ─┼────symlink────▶ │ download-new-audiobooks          │
-│ audiobooks-move ─────┼────symlink────▶ │ move-staged-audiobooks           │
-│ audiobook-upgrade ──┼────symlink────▶ │ upgrade.sh                       │
-│ audiobooks-migrate ──┼────symlink────▶ │ migrate-api.sh                   │
+│ audiobook-convert ───┼────symlink────▶ │ audiobook-convert │
+│ audiobook-download ──┼────symlink────▶ │ download-new-audiobooks          │
+│ audiobook-move ──────┼────symlink────▶ │ move-staged-audiobooks           │
+│ audiobook-upgrade ───┼────symlink────▶ │ upgrade.sh                       │
+│ audiobook-migrate ───┼────symlink────▶ │ migrate-api.sh                   │
 └──────────────────────┘                 └──────────────────────────────────┘
          │                                              │
          │                                              │
@@ -108,6 +108,7 @@ Audiobook-Manager consists of seven logical component groups:
 ```
 
 **Benefits:**
+
 - `upgrade.sh` updates `/opt/audiobooks/scripts/` → all commands updated automatically
 - No need to re-create symlinks after upgrades
 - Single source of truth for each script
@@ -116,7 +117,7 @@ Audiobook-Manager consists of seven logical component groups:
 
 The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `ProtectSystem=strict`) which prevents direct `sudo` usage. Privileged operations use a **privilege-separated helper service pattern**:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    PRIVILEGE-SEPARATED HELPER PATTERN                        │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -162,6 +163,7 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
 | `/var/lib/audiobooks/.control/` | IPC directory (owned by audiobooks user) |
 
 **Supported Operations:**
+
 - Service control: start, stop, restart individual services
 - Bulk operations: start-all, stop-all
 - Application upgrades: from GitHub or local project directory
@@ -174,7 +176,7 @@ The API runs with `ProtectSystem=strict` which creates a read-only filesystem ov
 
 The application supports two deployment modes, controlled by a single configuration variable (`AUTH_ENABLED`). The `admin_or_localhost` decorator in `auth.py` is the keystone — it adapts endpoint security automatically:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    DUAL-MODE SECURITY ARCHITECTURE                          │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -212,6 +214,7 @@ def some_admin_endpoint():
 ```
 
 **Applied to 9 endpoints** in `utilities_system.py`:
+
 - Service control (start/stop/restart)
 - System status and health
 - Application upgrades
@@ -254,6 +257,7 @@ for header, value in response.headers.items():
 ```
 
 **Symptoms of Missing Hop-by-hop Filter:**
+
 - `AssertionError: Connection is a "hop-by-hop" header` from Waitress/WSGI
 - Silently dropped API responses
 - Intermittent failures only when accessed through proxy
@@ -266,7 +270,7 @@ HTTP/1.1 defines hop-by-hop headers as connection-specific; they must be consume
 
 The `audiobooks` service user must have write access to all data directories:
 
-```
+```text
 Owner: audiobooks:audiobooks
 ├── /var/lib/audiobooks/     # Database, indexes, control files
 ├── /srv/audiobooks/Sources/ # Downloaded AAXC files (MUST be writable)
@@ -277,6 +281,7 @@ Owner: audiobooks:audiobooks
 **Common Issue**: Downloads or writes "fail silently" when directories are owned by a different user (e.g., `root` or `bosco`) but the service runs as `audiobooks`. The service can start successfully but cannot perform write operations.
 
 **Detection**:
+
 ```bash
 # Check for permission mismatches
 for dir in /var/lib/audiobooks /srv/audiobooks/Sources /srv/audiobooks/Library; do
@@ -295,7 +300,7 @@ The authentication subsystem (v5.0+) provides multi-user access control with Web
 
 ### Auth Module Components
 
-```
+```text
 library/auth/
 ├── __init__.py       # Module entry point, exports public API
 ├── database.py       # SQLCipher encryption wrapper, key management
@@ -311,7 +316,7 @@ library/auth/
 
 ### Authentication Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    AUTHENTICATION ARCHITECTURE                               │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -336,7 +341,7 @@ library/auth/
 
 ### Claim Flow (New User Registration)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       CLAIM FLOW (ADMIN APPROVAL)                            │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -406,7 +411,7 @@ library/auth/
 
 WebAuthn RP ID and origin are derived automatically from deployment config:
 
-```
+```text
 Priority chain:
   1. Explicit: WEBAUTHN_RP_ID, WEBAUTHN_ORIGIN env vars
   2. Derived:  AUDIOBOOKS_HOSTNAME + WEB_PORT + HTTPS setting
@@ -449,7 +454,7 @@ The scanner subsystem handles metadata extraction, library scanning, and databas
 
 ### Scanner Components
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       SCANNER MODULE HIERARCHY                               │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -465,7 +470,7 @@ The scanner subsystem handles metadata extraction, library scanning, and databas
 
 ### Data Pipeline Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         AUDIOBOOK DATA PIPELINE                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -561,7 +566,7 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 
 The `utilities_ops/` package contains specialized operation handlers (refactored from monolithic `utilities_ops.py` in v3.9.8):
 
-```
+```text
 library/backend/api_modular/utilities_ops/
 ├── __init__.py      # Re-exports all operations
 ├── audible.py       # Audible API operations (download, metadata sync)
@@ -587,7 +592,7 @@ Audiobook-Manager provides local-only per-user playback position tracking. When 
 
 ### Position Tracking Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                   POSITION TRACKING ARCHITECTURE                            │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -614,7 +619,7 @@ Audiobook-Manager provides local-only per-user playback position tracking. When 
 
 ### Position Save Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    POSITION SAVE DATA FLOW                                   │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -866,11 +871,12 @@ All scripts are located in `scripts/` and installed to `/opt/audiobooks/scripts/
 
 Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
-```
+```text
 /usr/local/bin/audiobook-*  →  /opt/audiobooks/scripts/*
 ```
 
 **Key wrappers:**
+
 - `audiobook-convert` → `convert-audiobooks-opus-parallel`
 - `audiobook-download` → `download-new-audiobooks`
 - `audiobook-move` → `move-staged-audiobooks`
@@ -885,7 +891,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
 ### System Installation Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      SYSTEM INSTALLATION (v6.0+)                            │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -967,10 +973,10 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                     ┌───────────────────────────────┐
                     │   Create wrapper scripts      │
                     │   • audiobook-api             │
-                    │   • audiobooks-web            │
-                    │   • audiobooks-scan           │
-                    │   • audiobooks-import         │
-                    │   • audiobooks-config         │
+                    │   • audiobook-web             │
+                    │   • audiobook-scan            │
+                    │   • audiobook-import          │
+                    │   • audiobook-config          │
                     └───────────────────────────────┘
                                   │
                                   ▼
@@ -1018,7 +1024,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
 ### User Installation Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            USER INSTALLATION                                │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -1066,7 +1072,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
 ## Upgrade Workflow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              UPGRADE WORKFLOW                               │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -1151,13 +1157,13 @@ Note: Symlinks in /usr/local/bin/ automatically point to updated scripts
 
 The migration workflow switches between API architectures (monolithic ↔ modular):
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                             MIGRATION WORKFLOW                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
                     ┌───────────────────────────────┐
-                    │   audiobooks-migrate          │
+                    │   audiobook-migrate           │
                     │        --to modular           │
                     │        --to monolithic        │
                     │        --check                │
@@ -1244,7 +1250,7 @@ Architecture Comparison:
 
 ### Configuration Priority
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        CONFIGURATION PRIORITY                               │
 │                     (later sources override earlier)                        │
@@ -1282,7 +1288,7 @@ Architecture Comparison:
 
 ### By Component Type
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       STORAGE TIER RECOMMENDATIONS                          │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -1358,7 +1364,7 @@ Architecture Comparison:
 
 #### Home Server (Budget)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  BUDGET HOME SERVER                                                         │
 │  Single 1TB NVMe + 4TB HDD                                                  │
@@ -1379,7 +1385,7 @@ Architecture Comparison:
 
 #### Performance-Optimized
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  PERFORMANCE-OPTIMIZED                                                      │
 │  NVMe + SATA SSD + HDD RAID                                                │
@@ -1402,7 +1408,7 @@ Architecture Comparison:
 
 #### High-Availability
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  HIGH-AVAILABILITY                                                          │
 │  NVMe RAID1 + HDD RAID6                                                    │
@@ -1438,7 +1444,7 @@ Architecture Comparison:
 
 #### ext4 (Recommended for Most Users)
 
-```
+```sql
 Best for: General-purpose, maximum compatibility
 Kernel support: All Linux kernels (stable since 2.6.28)
 
@@ -1462,7 +1468,7 @@ Tuning for SQLite (database partition):
 
 #### XFS (Recommended for Large Audiobook Libraries)
 
-```
+```text
 Best for: Large files, high-throughput streaming, >1TB libraries
 Kernel support: All Linux kernels (stable since 2.4)
 
@@ -1486,7 +1492,7 @@ Tuning:
 
 #### Btrfs (Recommended for Snapshot/Backup Workflows)
 
-```
+```text
 Best for: Snapshots, compression, flexible storage
 Kernel support: Stable for single-disk since 3.10, RAID since 5.0+
 
@@ -1516,7 +1522,7 @@ Compression notes:
 
 #### ZFS (Recommended for Enterprise/Data Integrity)
 
-```
+```text
 Best for: Data integrity, enterprise deployments, large arrays
 Kernel support: Via OpenZFS module (all modern kernels)
 
@@ -1542,7 +1548,7 @@ Tuning for audiobook streaming:
 
 #### F2FS (Recommended for Flash-Only Systems)
 
-```
+```text
 Best for: All-flash systems, embedded devices, SSDs
 Kernel support: Stable since 3.8
 
@@ -1567,7 +1573,7 @@ If your `/tmp` or `/var` directories (or subdirectories) are mounted as **tmpfs*
 
 #### tmpfs Overview
 
-```
+```text
 tmpfs (temporary filesystem):
   • Resides entirely in RAM (and swap if needed)
   • Contents are lost on reboot
@@ -1664,7 +1670,7 @@ journalctl -u 'audiobook-*' --since today | \
 
 Despite the configuration overhead, keeping `/tmp` as tmpfs is often beneficial:
 
-```
+```text
 ✓ KEEP tmpfs for /tmp if:
   • SSD/NVMe wear is a concern
   • System has adequate RAM (4GB+)
@@ -1706,7 +1712,7 @@ Audiobook-Manager is tested and supported on:
 
 #### Enterprise/LTS Distributions
 
-```
+```text
 RHEL/Rocky/Alma 8.x:    Kernel 4.18 ✅ (with backports)
 RHEL/Rocky/Alma 9.x:    Kernel 5.14 ✅
 Ubuntu 20.04 LTS:       Kernel 5.4  ✅
@@ -1718,7 +1724,7 @@ Debian 12 (Bookworm):   Kernel 6.1  ✅
 
 #### Rolling Release Distributions
 
-```
+```yaml
 Arch Linux:             Latest stable  ✅
 CachyOS:                Latest + patches ✅ (optimized for performance)
 openSUSE Tumbleweed:    Latest stable  ✅
@@ -1739,7 +1745,7 @@ Gentoo:                 User choice    ✅
 
 ### Performance Optimizations by Kernel
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                     KERNEL PERFORMANCE FEATURES                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -1834,9 +1840,9 @@ audiobook-upgrade --check         # Check for updates
 upgrade.sh --from-project /path    # From local project
 
 # Migration
-audiobooks-migrate --check         # Show current architecture
-audiobooks-migrate --to modular    # Switch to modular
-audiobooks-migrate --to monolithic # Switch to monolithic
+audiobook-migrate --check         # Show current architecture
+audiobook-migrate --to modular    # Switch to modular
+audiobook-migrate --to monolithic # Switch to monolithic
 
 # Services
 sudo systemctl start audiobook.target
@@ -1867,7 +1873,7 @@ systemctl status audiobook.target --no-pager
 
 ## Appendix: Storage Decision Tree
 
-```
+```text
                                     START
                                       │
                                       ▼

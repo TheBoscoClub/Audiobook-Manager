@@ -16,11 +16,13 @@ Complete installation instructions for the Audiobook Library system.
 ## System Requirements
 
 ### Operating System
+
 - **Linux** (tested on CachyOS/Arch, Ubuntu, Debian)
 - **macOS** (10.15+)
 - **Windows** (via WSL2 recommended)
 
 ### Hardware
+
 - **CPU**: Any modern processor (2+ cores recommended)
 - **RAM**: 2GB minimum, 4GB+ recommended
 - **Storage**: Varies based on audiobook collection size
@@ -41,6 +43,7 @@ For optimal performance, place components on appropriate storage tiers:
 | **Source files** (`Sources/`) | HDD | Sequential read during conversion |
 
 **Key Insight**: SQLite database performance is dramatically affected by storage tier:
+
 - NVMe: ~0.002s query time
 - HDD: Can be 100x slower due to random I/O
 
@@ -103,11 +106,13 @@ If tmpfiles.d is not configured correctly, you may experience:
 - **Intermittent service deaths** that require manual restarts
 
 Check the journal for these errors:
+
 ```bash
 journalctl -u 'audiobook-*' --since today | grep -E '(No such file|Read-only|Permission denied)'
 ```
 
 ### Software
+
 - **Python**: 3.8 or higher
 - **ffmpeg**: 4.0 or higher (with ffprobe)
 - **openssl**: For SSL certificate generation
@@ -161,12 +166,14 @@ All Python dependencies are listed in `requirements.txt`:
 ### Automatic Storage Tier Detection
 
 The installer automatically detects storage tiers (NVMe, SSD, HDD) and:
+
 - Displays detected storage type for each installation path
 - Warns if database would be placed on slow storage (HDD)
 - Recommends optimal placement for performance-critical components
 
 Example installer output:
-```
+
+```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Detected Storage Tiers
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -177,7 +184,8 @@ Detected Storage Tiers
 ```
 
 If the database is detected on HDD, you'll see a warning:
-```
+
+```yaml
 ⚠ Storage Warning:
   Path: /var/lib/audiobooks
   Detected: HDD
@@ -199,6 +207,7 @@ cd Audiobook-Manager
 ```
 
 The installer will:
+
 - Create directories for audiobook data
 - Install commands to `~/.local/bin`
 - Create configuration at `~/.config/audiobooks/audiobooks.conf`
@@ -253,7 +262,7 @@ ffmpeg -version
 ffprobe -version
 
 # Check configuration (if installed via install scripts)
-audiobooks-config
+audiobook-config
 
 # Or source config manually
 source lib/audiobook-config.sh
@@ -317,7 +326,7 @@ AUDIOBOOKS_WEB_PORT="8090"
 You can override any configuration variable:
 
 ```bash
-AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks audiobooks-scan
+AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks audiobook-scan
 ```
 
 ---
@@ -330,10 +339,10 @@ After installation, scan your audiobook collection:
 
 ```bash
 # Scan audiobooks
-audiobooks-scan
+audiobook-scan
 
 # Import to database
-audiobooks-import
+audiobook-import
 
 # Or with manual installation:
 cd library/scanner
@@ -370,13 +379,14 @@ sudo systemctl start audiobook.target
 audiobook-api
 
 # Terminal 2: Web Server
-audiobooks-web
+audiobook-web
 ```
 
 ### Access the Library
 
 Open your browser and navigate to:
-```
+
+```text
 https://localhost:8443
 ```
 
@@ -403,6 +413,7 @@ journalctl -u 'audiobooks-*' --since today # All logs since today
 ```
 
 **Services in `audiobook.target`:**
+
 | Service | Purpose |
 |---------|---------|
 | `audiobook-api` | REST API (port 5001) |
@@ -420,12 +431,14 @@ All services are **automatically enabled** at installation and start at boot.
 ### Scanner Issues
 
 **Problem**: Scanner fails with "ffprobe not found"
+
 ```bash
 # Solution: Install ffmpeg using your system's package manager
 # See the Dependencies section above for your OS-specific command
 ```
 
 **Problem**: No metadata extracted from files
+
 ```bash
 # Check if ffprobe can read the file
 ffprobe /path/to/audiobook.m4b
@@ -434,6 +447,7 @@ ffprobe /path/to/audiobook.m4b
 ### API Issues
 
 **Problem**: API won't start - "Address already in use"
+
 ```bash
 # Check what's using the port
 lsof -i :5001
@@ -442,6 +456,7 @@ lsof -i :5001
 ```
 
 **Problem**: CORS errors in browser console
+
 ```bash
 # CORS is handled natively by the API (no flask-cors needed)
 # Verify API is running on the correct host/port
@@ -452,6 +467,7 @@ curl -I http://localhost:5001/api/audiobooks
 ### Web Interface Issues
 
 **Problem**: Cover images not displaying
+
 ```bash
 # Check symlink exists
 ls -la library/web-v2/covers
@@ -462,6 +478,7 @@ ln -s ../web/covers covers
 ```
 
 **Problem**: Audio player shows "Failed to load audio file"
+
 ```bash
 # Verify API is running
 curl http://localhost:5001/health
@@ -473,26 +490,29 @@ curl http://localhost:5001/health
 ### Database Issues
 
 **Problem**: No audiobooks showing in web interface
+
 ```bash
 # Verify database exists and has data
 sqlite3 $AUDIOBOOKS_DATABASE "SELECT COUNT(*) FROM audiobooks"
 
 # Re-import if needed
-audiobooks-import
+audiobook-import
 ```
 
 **Problem**: Search not working
+
 ```bash
 # Verify FTS5 index exists
 sqlite3 $AUDIOBOOKS_DATABASE "SELECT name FROM sqlite_master WHERE type='table'"
 
 # Re-import database to rebuild indexes
-audiobooks-import
+audiobook-import
 ```
 
 ### Configuration Issues
 
 **Problem**: Commands not found
+
 ```bash
 # Add ~/.local/bin to PATH
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
@@ -504,6 +524,7 @@ source ~/.zshrc
 ```
 
 **Problem**: Configuration not loading
+
 ```bash
 # Check config file syntax
 cat ~/.config/audiobooks/audiobooks.conf
@@ -516,6 +537,7 @@ audiobooks_print_config
 ### SSL Certificate Issues
 
 **Problem**: Certificate expired
+
 ```bash
 # Regenerate certificate
 ./install-user.sh  # Will prompt to regenerate
@@ -533,11 +555,13 @@ openssl req -x509 -newkey rsa:4096 -sha256 -days 1095 \
 ## Uninstalling
 
 ### User Installation
+
 ```bash
 ./install-user.sh --uninstall
 ```
 
 ### System Installation
+
 ```bash
 sudo ./install-system.sh --uninstall
 ```
@@ -556,6 +580,7 @@ If you encounter issues not covered here:
    - Browser console (F12)
 
 2. **Verify Setup**:
+
    ```bash
    # Check Python version
    python3 --version
@@ -564,14 +589,14 @@ If you encounter issues not covered here:
    ffmpeg -version
 
    # Check configuration
-   audiobooks-config
+   audiobook-config
 
    # Check Python packages
    pip list | grep Flask
    ```
 
 3. **GitHub Issues**: Report bugs or ask questions at:
-   https://github.com/YOUR_USERNAME/Audiobook-Manager/issues
+   <https://github.com/YOUR_USERNAME/Audiobook-Manager/issues>
 
 ---
 
@@ -579,12 +604,13 @@ If you encounter issues not covered here:
 
 After installation:
 
-1. **Scan Your Library**: Run `audiobooks-scan` to index your audiobooks
-2. **Import to Database**: Run `audiobooks-import` to build searchable database
+1. **Scan Your Library**: Run `audiobook-scan` to index your audiobooks
+2. **Import to Database**: Run `audiobook-import` to build searchable database
 3. **Start Services**: Enable systemd services for automatic startup
-4. **Access Web Interface**: Open https://localhost:8443
+4. **Access Web Interface**: Open <https://localhost:8443>
 
 **Features to Explore**:
+
 - Full-text search
 - Filter by author, narrator, format
 - Playback speed control (0.75x - 2.0x)

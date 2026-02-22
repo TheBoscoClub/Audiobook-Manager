@@ -1,6 +1,7 @@
+---
 name: Release
 
-on:
+"on":
   push:
     tags:
       - 'v*'
@@ -15,35 +16,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Checkout code
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        # v6.0.2
 
-    - name: Validate version tag matches VERSION file
-      run: |
-        TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-        FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
-        if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
-          echo "❌ Tag version ($TAG_VERSION) does not match VERSION file ($FILE_VERSION)"
-          exit 1
-        fi
-        echo "✅ Version $TAG_VERSION validated"
+      - name: Validate version tag matches VERSION file
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "Tag ($TAG_VERSION) != VERSION file ($FILE_VERSION)"
+            exit 1
+          fi
+          echo "Version $TAG_VERSION validated"
 
-    - name: Install zsh
-      run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
 
-    - name: Build release tarball
-      run: |
-        chmod +x create-release.sh
-        ./create-release.sh
+      - name: Build release tarball
+        run: |
+          chmod +x create-release.sh
+          ./create-release.sh
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
-      with:
-        name: release-artifacts
-        path: |
-          build/*.tar.gz
-          build/*.sha256
-        retention-days: 1
+      - name: Upload build artifacts
+        uses: >-
+          actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: release-artifacts
+          path: |
+            build/*.tar.gz
+            build/*.sha256
+          retention-days: 1
 
   create-release:
     name: Create GitHub Release
@@ -51,92 +55,100 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Download build artifacts
-      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
-      with:
-        name: release-artifacts
-        path: artifacts
+      - name: Download build artifacts
+        uses: >-
+          actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: release-artifacts
+          path: artifacts
 
-    - name: Get version from tag
-      id: version
-      env:
-        REF: ${{ github.ref }}
-      run: |
-        VERSION="${REF#refs/tags/v}"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Release version: $VERSION"
+      - name: Get version from tag
+        id: version
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          VERSION="${REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION"
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b  # v2
-      with:
-        files: |
-          artifacts/*.tar.gz
-          artifacts/*.sha256
-        generate_release_notes: true
-        draft: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        uses: >-
+          softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
+        with:
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.sha256
+          generate_release_notes: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Checkout code
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        # v6.0.2
 
-    - name: Get version from tag
-      id: version
-      env:
-        REF: ${{ github.ref }}
-      run: |
-        VERSION="${REF#refs/tags/v}"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Docker image version: $VERSION"
+      - name: Get version from tag
+        id: version
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          VERSION="${REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Docker image version: $VERSION"
 
-    - name: Validate version tag matches VERSION file
-      run: |
-        TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-        FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
-        if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
-          echo "❌ Tag version ($TAG_VERSION) does not match VERSION file ($FILE_VERSION)"
-          exit 1
-        fi
-        echo "✅ Version $TAG_VERSION validated"
+      - name: Validate version tag matches VERSION file
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "Tag ($TAG_VERSION) != VERSION file ($FILE_VERSION)"
+            exit 1
+          fi
+          echo "Version $TAG_VERSION validated"
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3
+      - name: Set up QEMU
+        uses: >-
+          docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
+        # v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
+      - name: Set up Docker Buildx
+        uses: >-
+          docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        # v3
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: >-
+          docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata for Docker
-      id: meta
-      uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051  # v5
-      with:
-        images: ghcr.io/${{ github.repository }}
-        tags: |
-          # Full version tag (works for both 3-digit and 4-digit versions)
-          type=raw,value=${{ steps.version.outputs.version }}
-          # Major.minor tag (only for 3-digit semver, skipped for 4-digit)
-          type=semver,pattern={{major}}.{{minor}}
-          # Latest tag
-          type=raw,value=latest
+      - name: Extract metadata for Docker
+        id: meta
+        uses: >-
+          docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Build and push Docker image
+        uses: >-
+          docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

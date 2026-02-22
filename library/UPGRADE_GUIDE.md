@@ -7,6 +7,7 @@ Version 2 is a **complete rewrite** with a database backend for dramatically imp
 ### Performance Improvements
 
 **Before (V1):**
+
 - Loading 3.4MB JSON file every time
 - Browser rendering 2,702 book cards simultaneously
 - Page freeze/hang on load
@@ -14,6 +15,7 @@ Version 2 is a **complete rewrite** with a database backend for dramatically imp
 - Client-side filtering (slow)
 
 **After (V2):**
+
 - SQLite database with full-text search indices
 - Server-side pagination (loads 50 books at a time)
 - Instant page loads
@@ -59,6 +61,7 @@ This creates `backend/audiobooks.db` (4 MB) with all 2,702 audiobooks indexed fo
 ```
 
 This will:
+
 1. Start Flask API server on port 5000
 2. Start web server on port 8090-8099
 3. Open your browser to the library
@@ -67,7 +70,7 @@ This will:
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │              Web Browser                    │
 │  Modern UI with pagination & filters        │
@@ -94,14 +97,17 @@ This will:
 ## API Documentation
 
 ### Base URL
+
 `http://localhost:5000/api`
 
 ### Endpoints
 
 #### GET /api/stats
+
 Get library statistics
 
 **Response:**
+
 ```json
 {
   "total_audiobooks": 2702,
@@ -115,9 +121,11 @@ Get library statistics
 ```
 
 #### GET /api/audiobooks
+
 Get paginated audiobooks
 
 **Query Parameters:**
+
 - `page` - Page number (default: 1)
 - `per_page` - Items per page (default: 50, max: 200)
 - `search` - Full-text search query
@@ -129,6 +137,7 @@ Get paginated audiobooks
 - `order` - Sort order (asc, desc)
 
 **Examples:**
+
 ```bash
 # Get first page (50 books)
 curl http://localhost:5000/api/audiobooks
@@ -147,6 +156,7 @@ curl http://localhost:5000/api/audiobooks?page=2&per_page=100
 ```
 
 **Response:**
+
 ```json
 {
   "audiobooks": [
@@ -173,9 +183,11 @@ curl http://localhost:5000/api/audiobooks?page=2&per_page=100
 ```
 
 #### GET /api/audiobooks/:id
+
 Get single audiobook details
 
 #### GET /api/filters
+
 Get all available filter options (authors, narrators, formats, etc.)
 
 ---
@@ -203,6 +215,7 @@ python backend/import_to_db.py
 You can integrate database updates into your existing automation:
 
 **Update conversion script** to rebuild database after conversions:
+
 ```bash
 # Add to your conversion script
 # After conversion completes:
@@ -281,6 +294,7 @@ python backend/export_static.py
 
 **Problem:** Flask API server not running
 **Solution:**
+
 ```bash
 cd /path/to/audiobook-library  # Your project directory
 source venv/bin/activate
@@ -291,6 +305,7 @@ python backend/api.py
 
 **Problem:** Database hasn't been created yet
 **Solution:**
+
 ```bash
 python backend/import_to_db.py
 ```
@@ -299,11 +314,13 @@ python backend/import_to_db.py
 
 **Problem:** Another service using port 5000
 **Solution:** Edit `backend/api.py` and change the port:
+
 ```python
 app.run(debug=True, host='0.0.0.0', port=5001)  # Changed from 5000
 ```
 
 Also update `web-v2/js/library.js`:
+
 ```javascript
 const API_BASE = 'http://localhost:5001/api';  // Changed from 5000
 ```
@@ -313,14 +330,17 @@ const API_BASE = 'http://localhost:5001/api';  // Changed from 5000
 ## Performance Benchmarks
 
 **Search Query Performance:**
+
 - V1 (client-side): ~2-5 seconds for 2,702 books
 - V2 (database): ~10-50ms (100x faster)
 
 **Page Load:**
+
 - V1: 8-15 seconds + browser freeze
 - V2: <500ms instant load
 
 **Memory Usage:**
+
 - V1: ~500MB browser memory
 - V2: ~50MB browser memory (90% reduction)
 

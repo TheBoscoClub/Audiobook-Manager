@@ -5,6 +5,7 @@
 **Last Updated:** 2026-02-18
 
 > **Related Documentation:**
+>
 > - [README — Authentication Section](../README.md#authentication-v50) — User-facing setup guide
 > - [Architecture — Auth Module](ARCHITECTURE.md#authentication-module-architecture) — System design and database schema
 > - [Auth Runbook](AUTH_RUNBOOK.md) — Operational procedures
@@ -108,7 +109,7 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 
 ### 3.1 High-Level Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                                    INTERNET                                              │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
@@ -242,7 +243,7 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 
 ### 4.2 Defense Layers
 
-```
+```text
 LAYER 1: NETWORK
 ├── Caddy as sole entry point
 ├── TLS 1.2+ only
@@ -281,7 +282,7 @@ LAYER 5: OPERATIONAL
 
 ### 4.3 Security Headers
 
-```
+```yaml
 Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
@@ -341,6 +342,7 @@ Users choose at registration whether to store contact information for recovery:
 | **Both Stored** | Yes (encrypted) | Backup codes + Magic link (user's choice) |
 
 **Important Security Note:**
+
 - Backup codes are ALWAYS generated regardless of recovery setting
 - Users who choose not to store contact info are explicitly warned that losing both their authenticator AND all backup codes means the account is unrecoverable
 - Admin can delete the account and user can re-register, but listening positions are lost
@@ -367,7 +369,7 @@ Users choose at registration whether to store contact information for recovery:
 
 ### 6.2 Registration Flow
 
-```
+```text
 User visits /register
          │
          ▼
@@ -430,7 +432,7 @@ User visits /register
 
 ### 6.3 Login Flow
 
-```
+```text
 User visits /login
          │
          ▼
@@ -509,7 +511,7 @@ System checks user's registered auth method
 
 ### 7.2 Session Lifecycle
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                              SESSION STATES                                              │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
@@ -556,12 +558,14 @@ System checks user's registered auth method
 ### 7.3 Single Session Enforcement
 
 When a user logs in:
+
 1. Query for existing sessions for this user
 2. Invalidate all existing sessions
 3. Create new session
 4. Return new session token
 
 If an old session tries to use an invalidated token:
+
 - Return 401 with message: "Session ended because you logged in elsewhere"
 
 ---
@@ -601,6 +605,7 @@ def admin_endpoint():
 ```
 
 **Applied to 9 endpoints** in `utilities_system.py`:
+
 - `GET /api/system/services` — List services
 - `POST /api/system/services/<name>/<action>` — Start/stop/restart
 - `POST /api/system/services/start-all` — Start all services
@@ -768,7 +773,7 @@ CREATE INDEX idx_pending_recovery_user ON pending_recovery(user_id);
 
 ### 9.3 Session Token Format
 
-```
+```text
 Session token: 256-bit cryptographically random bytes
 Encoded as: Base64URL (43 characters)
 Storage: SHA-256 hash of token (not the token itself)
@@ -865,7 +870,7 @@ Example:
 
 #### 11.2.1 Notification Banner
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │ ⓘ Library updated with 12 new titles!                                     [ Dismiss ]  │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
@@ -885,7 +890,7 @@ Example:
 
 #### 11.2.2 User Menu
 
-```
+```text
 ┌─────────────────────┐
 │  Bob            ▾   │
 ├─────────────────────┤
@@ -898,7 +903,7 @@ Example:
 
 #### 11.2.3 Session Expired Modal
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                         │
 │                          Session Ended                                                  │
@@ -925,7 +930,7 @@ Example:
 
 ### 12.2 Contact Flow
 
-```
+```text
 User submits message
          │
          ▼
@@ -1193,6 +1198,7 @@ Protonmail Bridge setup (scripts/setup-email.sh).
 **Deliverable:** Two-way communication
 
 **Implementation Notes:**
+
 - Notification types: info, maintenance, outage, personal
 - Notifications shown as Art Deco styled banners on main library page
 - Personal notifications target specific users
@@ -1219,6 +1225,7 @@ Protonmail Bridge setup (scripts/setup-email.sh).
 **Deliverable:** Confidence to go live
 
 **Test Summary:**
+
 - Security tests: 17 passed
 - Backup tests: 7 passed
 - Performance tests: 13 passed
@@ -1274,7 +1281,7 @@ If a user loses their authenticator AND all backup codes, the account is unrecov
 
 ### Appendix A: Caddyfile Template
 
-```
+```text
 library.thebosco.club {
     # TLS configuration (automatic via Let's Encrypt)
 

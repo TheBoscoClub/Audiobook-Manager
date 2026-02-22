@@ -27,10 +27,10 @@ ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
 RestartSec=5
-# Use journal logging for better log management (query with: journalctl -u audiobooks-api)
+# Use journal logging for better log management (query with: journalctl -u audiobook-api)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobooks-api
+SyslogIdentifier=audiobook-api
 
 # Security hardening
 NoNewPrivileges=yes

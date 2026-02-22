@@ -22,6 +22,7 @@ If you discover a security vulnerability in this project, please report it priva
 **NEVER commit sensitive data to the repository.**
 
 **Safe practices:**
+
 - ✅ Use environment variables for secrets
 - ✅ Keep `.gitignore` up to date
 - ✅ Use config templates (`.example` files)
@@ -31,6 +32,7 @@ If you discover a security vulnerability in this project, please report it priva
 ### Protected Files
 
 The following types of files should NEVER be committed (add to `.gitignore`):
+
 - Configuration files with credentials
 - API keys or tokens
 - Personal data files
@@ -40,6 +42,7 @@ The following types of files should NEVER be committed (add to `.gitignore`):
 ### Code Review Requirements
 
 All pull requests must:
+
 1. Not modify `.gitignore` to expose sensitive files
 2. Not add code that logs or transmits credentials
 3. Not add code that exfiltrates sensitive data
@@ -61,21 +64,25 @@ The following changes will be **rejected**:
 **Before submitting a PR:**
 
 1. **Review your changes for sensitive data:**
+
    ```bash
    git diff | grep -iE "(api.?key|password|token|secret|auth)"
    ```
 
 2. **Verify `.gitignore` is intact:**
+
    ```bash
    git status --ignored
    ```
 
 3. **Check for hardcoded credentials:**
+
    ```bash
    grep -r "API_KEY=" . --include="*.sh" --include="*.py" --include="*.js"
    ```
 
 4. **Run local security check:**
+
    ```bash
    # Ensure no sensitive files are staged
    git diff --cached --name-only
@@ -86,12 +93,14 @@ The following changes will be **rejected**:
 **Check for vulnerabilities regularly:**
 
 **Python:**
+
 ```bash
 pip install safety && safety check
 # Or: pip install pip-audit && pip-audit
 ```
 
 **Node.js:**
+
 ```bash
 npm audit
 # Or: yarn audit
@@ -111,6 +120,7 @@ Use your system's package manager to keep packages up to date:
 | Alpine | `apk update && apk upgrade` |
 
 **Update dependencies regularly:**
+
 ```bash
 # Python: pip list --outdated
 # Node.js: npm outdated
@@ -120,6 +130,7 @@ Use your system's package manager to keep packages up to date:
 ### Local Security
 
 **Protect your environment:**
+
 ```bash
 # Secure config files
 chmod 600 config/sensitive-file.conf
@@ -129,6 +140,7 @@ chmod 700 sensitive-directory/
 ```
 
 **Verify .gitignore is working:**
+
 ```bash
 git check-ignore -v sensitive-file.conf
 ```
@@ -138,12 +150,14 @@ git check-ignore -v sensitive-file.conf
 ### Recommended Settings (Repository Owner)
 
 **Branch Protection Rules:**
+
 1. Require pull request reviews before merging
 2. Require status checks to pass
 3. Require conversation resolution before merging
 4. Restrict who can push to protected branches
 
 **Repository Settings:**
+
 - ✅ Enable vulnerability alerts (Dependabot)
 - ✅ Enable automated security fixes
 - ✅ Enable private vulnerability reporting
@@ -190,6 +204,7 @@ git push --force --all
 ```
 
 **Then immediately:**
+
 1. Revoke the exposed credential
 2. Generate new credentials
 3. Update your environment
@@ -197,16 +212,19 @@ git push --force --all
 ## Regular Security Maintenance
 
 ### Monthly
+
 - [ ] Review dependencies for updates
 - [ ] Check for security advisories
 - [ ] Review access logs (if available)
 
 ### Quarterly
+
 - [ ] Security audit of codebase
 - [ ] Review and update `.gitignore`
 - [ ] Review branch protection rules
 
 ### Annually
+
 - [ ] Comprehensive security review
 - [ ] Update security documentation
 - [ ] Review threat model

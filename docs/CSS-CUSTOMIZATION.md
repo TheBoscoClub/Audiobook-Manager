@@ -45,6 +45,7 @@ The easiest way to customize is by modifying CSS variables in `theme-art-deco.cs
 ```
 
 **To change the color scheme:**
+
 1. Edit the hex values in `theme-art-deco.css`
 2. Keep contrast ratios accessible (light text on dark backgrounds)
 3. The gold accents can be changed to any color (blue, green, etc.)
@@ -61,10 +62,12 @@ The easiest way to customize is by modifying CSS variables in `theme-art-deco.cs
 ```
 
 **To use different fonts:**
+
 1. Add a Google Fonts `@import` at the top of `theme-art-deco.css`
 2. Update the `--font-primary` and `--font-serif` variables
 
 Example with Inter + Merriweather:
+
 ```css
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Merriweather:wght@400;700&display=swap');
 
@@ -110,9 +113,11 @@ The UI uses a 4-level elevation system for depth:
 ```
 
 **To reduce shadows** (flatter design):
+
 - Set shadow variables to `none` or reduce opacity values
 
 **To increase shadows** (more dramatic):
+
 - Increase blur radius (3rd value) and spread
 - Increase opacity in rgba()
 
@@ -173,6 +178,7 @@ The UI uses a 4-level elevation system for depth:
 ### Header (`layout.css`)
 
 The sunburst header effect:
+
 ```css
 .library-header {
     background:
@@ -188,6 +194,7 @@ The sunburst header effect:
 ```
 
 **To remove the sunburst:**
+
 ```css
 .library-header {
     background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-black) 100%);
@@ -201,6 +208,7 @@ For major changes, create a new theme file:
 1. Copy `theme-art-deco.css` to `theme-custom.css`
 2. Modify colors, fonts, shadows as desired
 3. Update `library.css` import at line 6:
+
    ```css
    @import url('theme-custom.css');
    ```
@@ -208,6 +216,7 @@ For major changes, create a new theme file:
 ### Alternative Theme Ideas
 
 **Dark Blue/Silver (Modern):**
+
 ```css
 --deco-black: #0a0f1a;
 --deco-charcoal: #141d2e;
@@ -216,6 +225,7 @@ For major changes, create a new theme file:
 ```
 
 **Dark Green/Gold (Library):**
+
 ```css
 --deco-black: #0a120a;
 --deco-charcoal: #1a2e1a;
@@ -223,6 +233,7 @@ For major changes, create a new theme file:
 ```
 
 **Purple/Pink (Cyberpunk):**
+
 ```css
 --deco-black: #0d0015;
 --deco-charcoal: #1a0a2e;
@@ -235,6 +246,7 @@ For major changes, create a new theme file:
 CSS changes take effect immediately on browser refresh. No restart required.
 
 If you've modified files in the project directory:
+
 ```bash
 # Deploy changes to production
 sudo rsync -av library/web-v2/css/ /opt/audiobooks/library/web-v2/css/
@@ -244,6 +256,7 @@ sudo chown -R audiobooks:audiobooks /opt/audiobooks/library/web-v2/css/
 ## Accessibility Notes
 
 When customizing colors:
+
 - Maintain minimum 4.5:1 contrast ratio for normal text
 - Maintain minimum 3:1 contrast ratio for large text and UI components
 - Test with browser DevTools color contrast checker

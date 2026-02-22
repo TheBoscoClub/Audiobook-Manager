@@ -7,6 +7,7 @@ A beautiful, old-fashioned library-themed web interface for browsing, searching,
 ## Features
 
 ### Core Features
+
 - **Vintage Library Aesthetic**: Relaxing, classic library appearance with rich wood tones and leather textures
 - **Built-in Audio Player**: Play audiobooks directly from the web interface
   - Playback speed control (0.75x - 2.0x)
@@ -24,6 +25,7 @@ A beautiful, old-fashioned library-themed web interface for browsing, searching,
 - **Fully Local**: Runs entirely on your machine, no internet required
 
 ### Backend
+
 - **SQLite Database**: Fast, indexed database with 2,700+ audiobooks
 - **Flask REST API**: RESTful API with CORS support
 - **Streaming Support**: Direct audiobook streaming with seek support
@@ -56,13 +58,14 @@ cd .. && ./launch-v2.sh
 ```
 
 The launcher script will:
+
 - Start the Flask API server (port 5001)
 - Start the web server (ports 8090-8099)
 - Open your default browser
 
 ## Structure
 
-```
+```text
 audiobook-library/
 ├── backend/              # Flask API and database
 │   ├── api_modular/     # Modular REST API (replaces monolithic api.py)
@@ -109,6 +112,7 @@ All audiobooks are standardized to **OPUS** format for optimal compression and q
 Default audiobook directory: `/srv/audiobooks` (system install) or `~/Audiobooks` (user install)
 
 Configure via environment variable or config file:
+
 ```bash
 # Environment variable
 export AUDIOBOOKS_LIBRARY=/your/path/to/audiobooks
@@ -138,7 +142,8 @@ The Flask API provides the following endpoints:
 - `GET /covers/<filename>` - Serve cover images
 
 Example queries:
-```
+
+```text
 /api/audiobooks?search=tolkien
 /api/audiobooks?author=Brandon%20Sanderson&sort=duration_hours&order=desc
 /api/audiobooks?narrator=Ray%20Porter&per_page=100
@@ -147,14 +152,17 @@ Example queries:
 ## Screenshots
 
 ### Library View
+
 Browse your collection with cover art, search, and filters.
 
 ### Audio Player
+
 Built-in player with speed control, skip buttons, and progress tracking.
 
 ## Contributing
 
 Contributions are welcome! Please:
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
@@ -170,15 +178,18 @@ This project is open source. See LICENSE file for details.
 This library interface was built with the help of many excellent open-source projects and tools:
 
 ### Core Technologies
+
 - **[Flask](https://flask.palletsprojects.com/)** - Python web framework powering the REST API
 - **[SQLite](https://sqlite.org/)** with FTS5 - Fast, embedded database with full-text search
 - **[FFmpeg](https://ffmpeg.org/)** / ffprobe - Metadata extraction from audio files
 - **Vanilla JavaScript** - No framework bloat, just clean ES6+
 
 ### Development
+
 - **[Claude Code](https://claude.ai/code)** (Anthropic) - AI coding assistant that helped with implementation details, debugging, and documentation throughout development.
 
 ### Related Projects
+
 - **[AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3)** - The converter component (included as a fork in `converter/`)
 - **[audible-cli](https://github.com/mkb79/audible-cli)** - CLI tool for Audible integration
 - **[mutagen](https://mutagen.readthedocs.io/)** - Audio metadata library for Opus cover embedding

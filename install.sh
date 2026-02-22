@@ -1241,40 +1241,40 @@ EOF
     sudo chmod 755 "${BIN_DIR}/audiobook-api"
 
     # Web server wrapper
-    sudo tee "${BIN_DIR}/audiobooks-web" > /dev/null << 'EOF'
+    sudo tee "${BIN_DIR}/audiobook-web" > /dev/null << 'EOF'
 #!/usr/bin/env zsh
 # Audiobook Library Web Server (HTTPS)
 source /opt/audiobooks/lib/audiobook-config.sh
 exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
 EOF
-    sudo chmod 755 "${BIN_DIR}/audiobooks-web"
+    sudo chmod 755 "${BIN_DIR}/audiobook-web"
 
     # Scanner wrapper
-    sudo tee "${BIN_DIR}/audiobooks-scan" > /dev/null << 'EOF'
+    sudo tee "${BIN_DIR}/audiobook-scan" > /dev/null << 'EOF'
 #!/usr/bin/env zsh
 # Audiobook Library Scanner
 source /opt/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
 EOF
-    sudo chmod 755 "${BIN_DIR}/audiobooks-scan"
+    sudo chmod 755 "${BIN_DIR}/audiobook-scan"
 
     # Database import wrapper
-    sudo tee "${BIN_DIR}/audiobooks-import" > /dev/null << 'EOF'
+    sudo tee "${BIN_DIR}/audiobook-import" > /dev/null << 'EOF'
 #!/usr/bin/env zsh
 # Audiobook Library Database Import
 source /opt/audiobooks/lib/audiobook-config.sh
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
 EOF
-    sudo chmod 755 "${BIN_DIR}/audiobooks-import"
+    sudo chmod 755 "${BIN_DIR}/audiobook-import"
 
     # Config viewer
-    sudo tee "${BIN_DIR}/audiobooks-config" > /dev/null << 'EOF'
+    sudo tee "${BIN_DIR}/audiobook-config" > /dev/null << 'EOF'
 #!/usr/bin/env zsh
 # Show audiobook library configuration
 source /opt/audiobooks/lib/audiobook-config.sh
 audiobooks_print_config
 EOF
-    sudo chmod 755 "${BIN_DIR}/audiobooks-config"
+    sudo chmod 755 "${BIN_DIR}/audiobook-config"
 
     # User management CLI (authentication)
     sudo tee "${BIN_DIR}/audiobook-user" > /dev/null << 'EOF'
@@ -1320,24 +1320,24 @@ EOF
     echo -e "${BLUE}Creating symlinks in ${BIN_DIR}...${NC}"
     # Map original script names to user-friendly command names
     typeset -A SCRIPT_ALIASES=(
-        ["convert-audiobooks-opus-parallel"]="audiobooks-convert"
-        ["move-staged-audiobooks"]="audiobooks-move-staged"
-        ["download-new-audiobooks"]="audiobooks-download"
-        ["audiobook-save-staging"]="audiobooks-save-staging"
-        ["audiobook-save-staging-auto"]="audiobooks-save-staging-auto"
-        ["audiobook-status"]="audiobooks-status"
-        ["audiobook-start"]="audiobooks-start"
-        ["audiobook-stop"]="audiobooks-stop"
-        ["audiobook-enable"]="audiobooks-enable"
-        ["audiobook-disable"]="audiobooks-disable"
-        ["audiobook-help"]="audiobooks-help"
-        ["monitor-audiobook-conversion"]="audiobooks-monitor"
-        ["copy-audiobook-metadata"]="audiobooks-copy-metadata"
-        ["audiobook-download-monitor"]="audiobooks-download-monitor"
-        ["embed-cover-art.py"]="audiobooks-embed-cover"
-        ["build-conversion-queue"]="audiobooks-build-queue"
+        ["convert-audiobooks-opus-parallel"]="audiobook-convert"
+        ["move-staged-audiobooks"]="audiobook-move-staged"
+        ["download-new-audiobooks"]="audiobook-download"
+        ["audiobook-save-staging"]="audiobook-save-staging"
+        ["audiobook-save-staging-auto"]="audiobook-save-staging-auto"
+        ["audiobook-status"]="audiobook-status"
+        ["audiobook-start"]="audiobook-start"
+        ["audiobook-stop"]="audiobook-stop"
+        ["audiobook-enable"]="audiobook-enable"
+        ["audiobook-disable"]="audiobook-disable"
+        ["audiobook-help"]="audiobook-help"
+        ["monitor-audiobook-conversion"]="audiobook-monitor"
+        ["copy-audiobook-metadata"]="audiobook-copy-metadata"
+        ["audiobook-download-monitor"]="audiobook-download-monitor"
+        ["embed-cover-art.py"]="audiobook-embed-cover"
+        ["build-conversion-queue"]="audiobook-build-queue"
         ["upgrade.sh"]="audiobook-upgrade"
-        ["migrate-api.sh"]="audiobooks-migrate"
+        ["migrate-api.sh"]="audiobook-migrate"
     )
 
     for script_name in "${(k)SCRIPT_ALIASES[@]}"; do
@@ -1380,14 +1380,14 @@ EOF
     echo "  Installed: audiobook-upgrade"
 
     # Create migrate wrapper
-    sudo tee "${BIN_DIR}/audiobooks-migrate" > /dev/null << 'EOF'
+    sudo tee "${BIN_DIR}/audiobook-migrate" > /dev/null << 'EOF'
 #!/usr/bin/env zsh
 # Audiobook Toolkit API Migration Script
 # Switch between monolithic and modular API architectures
 exec /opt/audiobooks/scripts/migrate-api.sh --target /opt/audiobooks "$@"
 EOF
-    sudo chmod 755 "${BIN_DIR}/audiobooks-migrate"
-    echo "  Installed: audiobooks-migrate"
+    sudo chmod 755 "${BIN_DIR}/audiobook-migrate"
+    echo "  Installed: audiobook-migrate"
 
     # Setup Python virtual environment if needed
     if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
@@ -1434,7 +1434,7 @@ WantedBy=multi-user.target
 EOF
 
         # Web service
-        sudo tee "${SYSTEMD_DIR}/audiobooks-web.service" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/audiobook-web.service" > /dev/null << EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -1445,7 +1445,7 @@ Wants=audiobook-api.service
 Type=simple
 EnvironmentFile=${CONFIG_DIR}/audiobooks.conf
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:\${AUDIOBOOKS_WEB_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobooks-web
+ExecStart=${BIN_DIR}/audiobook-web
 Restart=on-failure
 RestartSec=5
 
@@ -1460,7 +1460,7 @@ EOF
                 if [[ -f "$service_file" ]]; then
                     local service_name=$(basename "$service_file")
                     # Skip the target file - we handle that specially
-                    if [[ "$service_name" == "audiobooks.target" ]]; then
+                    if [[ "$service_name" == "audiobook.target" ]]; then
                         continue
                     fi
                     sudo cp "$service_file" "${SYSTEMD_DIR}/${service_name}"
@@ -1495,11 +1495,11 @@ EOF
         fi
 
         # Target (includes all services)
-        sudo tee "${SYSTEMD_DIR}/audiobooks.target" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/audiobook.target" > /dev/null << EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobooks-web.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
+Wants=audiobook-api.service audiobook-web.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
 
 [Install]
 WantedBy=multi-user.target
@@ -1512,14 +1512,14 @@ EOF
         echo -e "${BLUE}Enabling services for automatic start at boot...${NC}"
 
         # Enable the target and all individual services
-        sudo systemctl enable audiobooks.target 2>/dev/null || true
+        sudo systemctl enable audiobook.target 2>/dev/null || true
         for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
 
         echo -e "${BLUE}Starting services...${NC}"
         # Start the target (which starts all wanted services)
-        sudo systemctl start audiobooks.target 2>/dev/null || {
+        sudo systemctl start audiobook.target 2>/dev/null || {
             # Fallback: start individual services
             for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
                 sudo systemctl start "$svc" 2>/dev/null || true
@@ -1574,21 +1574,21 @@ EOF
     echo ""
     echo "Commands available:"
     echo "  audiobook-api             - Start API server"
-    echo "  audiobooks-web             - Start web server"
-    echo "  audiobooks-scan            - Scan audiobook library"
-    echo "  audiobooks-import          - Import to database"
-    echo "  audiobooks-config          - Show configuration"
+    echo "  audiobook-web             - Start web server"
+    echo "  audiobook-scan            - Scan audiobook library"
+    echo "  audiobook-import          - Import to database"
+    echo "  audiobook-config          - Show configuration"
     echo ""
     echo "Conversion and management:"
-    echo "  audiobooks-convert         - Convert AAX/AAXC to Opus"
-    echo "  audiobooks-download        - Download from Audible"
-    echo "  audiobooks-move-staged     - Move staged files to library"
-    echo "  audiobooks-save-staging    - Save tmpfs staging before reboot"
-    echo "  audiobooks-status          - Show service status"
-    echo "  audiobooks-start/stop      - Start/stop services"
-    echo "  audiobooks-enable/disable  - Enable/disable at boot"
-    echo "  audiobooks-monitor         - Live conversion monitor"
-    echo "  audiobooks-help            - Quick reference guide"
+    echo "  audiobook-convert         - Convert AAX/AAXC to Opus"
+    echo "  audiobook-download        - Download from Audible"
+    echo "  audiobook-move-staged     - Move staged files to library"
+    echo "  audiobook-save-staging    - Save tmpfs staging before reboot"
+    echo "  audiobook-status          - Show service status"
+    echo "  audiobook-start/stop      - Start/stop services"
+    echo "  audiobook-enable/disable  - Enable/disable at boot"
+    echo "  audiobook-monitor         - Live conversion monitor"
+    echo "  audiobook-help            - Quick reference guide"
     echo ""
     echo "Access the library at: https://localhost:${WEB_PORT}"
 
@@ -1606,13 +1606,13 @@ do_system_uninstall() {
 
     # Stop and disable services
     echo -e "${BLUE}Stopping services...${NC}"
-    sudo systemctl stop audiobooks.target 2>/dev/null || true
-    sudo systemctl stop audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    sudo systemctl stop audiobook.target 2>/dev/null || true
+    sudo systemctl stop audiobook-api.service audiobook-web.service 2>/dev/null || true
     sudo systemctl stop audiobook-converter.service audiobook-mover.service 2>/dev/null || true
     sudo systemctl stop audiobook-downloader.timer audiobook-downloader.service 2>/dev/null || true
     sudo systemctl stop audiobook-shutdown-saver.service 2>/dev/null || true
-    sudo systemctl disable audiobooks.target 2>/dev/null || true
-    sudo systemctl disable audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    sudo systemctl disable audiobook.target 2>/dev/null || true
+    sudo systemctl disable audiobook-api.service audiobook-web.service 2>/dev/null || true
     sudo systemctl disable audiobook-converter.service audiobook-mover.service 2>/dev/null || true
     sudo systemctl disable audiobook-downloader.timer audiobook-shutdown-saver.service 2>/dev/null || true
 
@@ -1620,37 +1620,37 @@ do_system_uninstall() {
     echo -e "${BLUE}Removing application files...${NC}"
     # Core wrappers
     sudo rm -f "${BIN_DIR}/audiobook-api"
-    sudo rm -f "${BIN_DIR}/audiobooks-web"
-    sudo rm -f "${BIN_DIR}/audiobooks-scan"
-    sudo rm -f "${BIN_DIR}/audiobooks-import"
-    sudo rm -f "${BIN_DIR}/audiobooks-config"
+    sudo rm -f "${BIN_DIR}/audiobook-web"
+    sudo rm -f "${BIN_DIR}/audiobook-scan"
+    sudo rm -f "${BIN_DIR}/audiobook-import"
+    sudo rm -f "${BIN_DIR}/audiobook-config"
     # Management scripts
-    sudo rm -f "${BIN_DIR}/audiobooks-convert"
-    sudo rm -f "${BIN_DIR}/audiobooks-move-staged"
-    sudo rm -f "${BIN_DIR}/audiobooks-download"
-    sudo rm -f "${BIN_DIR}/audiobooks-save-staging"
-    sudo rm -f "${BIN_DIR}/audiobooks-save-staging-auto"
-    sudo rm -f "${BIN_DIR}/audiobooks-status"
-    sudo rm -f "${BIN_DIR}/audiobooks-start"
-    sudo rm -f "${BIN_DIR}/audiobooks-stop"
-    sudo rm -f "${BIN_DIR}/audiobooks-enable"
-    sudo rm -f "${BIN_DIR}/audiobooks-disable"
-    sudo rm -f "${BIN_DIR}/audiobooks-help"
-    sudo rm -f "${BIN_DIR}/audiobooks-monitor"
-    sudo rm -f "${BIN_DIR}/audiobooks-copy-metadata"
-    sudo rm -f "${BIN_DIR}/audiobooks-download-monitor"
-    sudo rm -f "${BIN_DIR}/audiobooks-embed-cover"
+    sudo rm -f "${BIN_DIR}/audiobook-convert"
+    sudo rm -f "${BIN_DIR}/audiobook-move-staged"
+    sudo rm -f "${BIN_DIR}/audiobook-download"
+    sudo rm -f "${BIN_DIR}/audiobook-save-staging"
+    sudo rm -f "${BIN_DIR}/audiobook-save-staging-auto"
+    sudo rm -f "${BIN_DIR}/audiobook-status"
+    sudo rm -f "${BIN_DIR}/audiobook-start"
+    sudo rm -f "${BIN_DIR}/audiobook-stop"
+    sudo rm -f "${BIN_DIR}/audiobook-enable"
+    sudo rm -f "${BIN_DIR}/audiobook-disable"
+    sudo rm -f "${BIN_DIR}/audiobook-help"
+    sudo rm -f "${BIN_DIR}/audiobook-monitor"
+    sudo rm -f "${BIN_DIR}/audiobook-copy-metadata"
+    sudo rm -f "${BIN_DIR}/audiobook-download-monitor"
+    sudo rm -f "${BIN_DIR}/audiobook-embed-cover"
     # Library
     sudo rm -rf "${LIB_DIR}"
     # Systemd services
     sudo rm -f "${SYSTEMD_DIR}/audiobook-api.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks-web.service"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook-web.service"
     sudo rm -f "${SYSTEMD_DIR}/audiobook-converter.service"
     sudo rm -f "${SYSTEMD_DIR}/audiobook-mover.service"
     sudo rm -f "${SYSTEMD_DIR}/audiobook-downloader.service"
     sudo rm -f "${SYSTEMD_DIR}/audiobook-downloader.timer"
     sudo rm -f "${SYSTEMD_DIR}/audiobook-shutdown-saver.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobooks.target"
+    sudo rm -f "${SYSTEMD_DIR}/audiobook.target"
     sudo rm -f /etc/profile.d/audiobooks.sh
 
     # Remove database and logs
@@ -1820,40 +1820,40 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-api"
 
     # Web server wrapper
-    cat > "${BIN_DIR}/audiobooks-web" << EOF
+    cat > "${BIN_DIR}/audiobook-web" << EOF
 #!/usr/bin/env zsh
 # Audiobook Library Web Server (HTTPS)
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec python3 "\${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobooks-web"
+    chmod 755 "${BIN_DIR}/audiobook-web"
 
     # Scanner wrapper
-    cat > "${BIN_DIR}/audiobooks-scan" << EOF
+    cat > "${BIN_DIR}/audiobook-scan" << EOF
 #!/usr/bin/env zsh
 # Audiobook Library Scanner
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobooks-scan"
+    chmod 755 "${BIN_DIR}/audiobook-scan"
 
     # Database import wrapper
-    cat > "${BIN_DIR}/audiobooks-import" << EOF
+    cat > "${BIN_DIR}/audiobook-import" << EOF
 #!/usr/bin/env zsh
 # Audiobook Library Database Import
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobooks-import"
+    chmod 755 "${BIN_DIR}/audiobook-import"
 
     # Config viewer
-    cat > "${BIN_DIR}/audiobooks-config" << EOF
+    cat > "${BIN_DIR}/audiobook-config" << EOF
 #!/usr/bin/env zsh
 # Show audiobook library configuration
 source "${LIB_DIR}/lib/audiobook-config.sh"
 audiobooks_print_config
 EOF
-    chmod 755 "${BIN_DIR}/audiobooks-config"
+    chmod 755 "${BIN_DIR}/audiobook-config"
 
     # Install conversion and management scripts from scripts/ directory
     echo -e "${BLUE}Installing audiobook management scripts...${NC}"
@@ -1861,56 +1861,56 @@ EOF
         for script in "${SCRIPT_DIR}/scripts/"*; do
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
-                # Map script names to consistent audiobooks- prefix
+                # Map script names to consistent audiobook- prefix
                 local target_name
                 case "$script_name" in
                     convert-audiobooks-opus-parallel)
-                        target_name="audiobooks-convert"
+                        target_name="audiobook-convert"
                         ;;
                     move-staged-audiobooks)
-                        target_name="audiobooks-move-staged"
+                        target_name="audiobook-move-staged"
                         ;;
                     download-new-audiobooks)
-                        target_name="audiobooks-download"
+                        target_name="audiobook-download"
                         ;;
                     audiobook-save-staging)
-                        target_name="audiobooks-save-staging"
+                        target_name="audiobook-save-staging"
                         ;;
                     audiobook-save-staging-auto)
-                        target_name="audiobooks-save-staging-auto"
+                        target_name="audiobook-save-staging-auto"
                         ;;
                     audiobook-status)
-                        target_name="audiobooks-status"
+                        target_name="audiobook-status"
                         ;;
                     audiobook-start)
-                        target_name="audiobooks-start"
+                        target_name="audiobook-start"
                         ;;
                     audiobook-stop)
-                        target_name="audiobooks-stop"
+                        target_name="audiobook-stop"
                         ;;
                     audiobook-enable)
-                        target_name="audiobooks-enable"
+                        target_name="audiobook-enable"
                         ;;
                     audiobook-disable)
-                        target_name="audiobooks-disable"
+                        target_name="audiobook-disable"
                         ;;
                     audiobook-help)
-                        target_name="audiobooks-help"
+                        target_name="audiobook-help"
                         ;;
                     monitor-audiobook-conversion)
-                        target_name="audiobooks-monitor"
+                        target_name="audiobook-monitor"
                         ;;
                     copy-audiobook-metadata)
-                        target_name="audiobooks-copy-metadata"
+                        target_name="audiobook-copy-metadata"
                         ;;
                     audiobook-download-monitor)
-                        target_name="audiobooks-download-monitor"
+                        target_name="audiobook-download-monitor"
                         ;;
                     embed-cover-art.py)
-                        target_name="audiobooks-embed-cover"
+                        target_name="audiobook-embed-cover"
                         ;;
                     *)
-                        target_name="audiobooks-${script_name}"
+                        target_name="audiobook-${script_name}"
                         ;;
                 esac
                 cp "$script" "${BIN_DIR}/${target_name}"
@@ -1963,14 +1963,14 @@ EOF
     echo "  Installed: audiobook-upgrade"
 
     # Create migrate wrapper
-    cat > "${BIN_DIR}/audiobooks-migrate" << EOF
+    cat > "${BIN_DIR}/audiobook-migrate" << EOF
 #!/usr/bin/env zsh
 # Audiobook Toolkit API Migration Script
 # Switch between monolithic and modular API architectures
 exec "${LIB_DIR}/scripts/migrate-api.sh" --target "${LIB_DIR}" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobooks-migrate"
-    echo "  Installed: audiobooks-migrate"
+    chmod 755 "${BIN_DIR}/audiobook-migrate"
+    echo "  Installed: audiobook-migrate"
 
     # Setup Python virtual environment if needed
     if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
@@ -2032,7 +2032,7 @@ WantedBy=default.target
 EOF
 
         # Web service
-        cat > "${SYSTEMD_DIR}/audiobooks-web.service" << EOF
+        cat > "${SYSTEMD_DIR}/audiobook-web.service" << EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -2048,7 +2048,7 @@ Environment=AUDIOBOOKS_HTTP_REDIRECT_PORT=${HTTP_REDIRECT_PORT}
 Environment=AUDIOBOOKS_CERTS=${CONFIG_DIR}/certs
 
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${WEB_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobooks-web
+ExecStart=${BIN_DIR}/audiobook-web
 Restart=on-failure
 RestartSec=5
 
@@ -2057,11 +2057,11 @@ WantedBy=default.target
 EOF
 
         # Target
-        cat > "${SYSTEMD_DIR}/audiobooks.target" << EOF
+        cat > "${SYSTEMD_DIR}/audiobook.target" << EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobooks-web.service
+Wants=audiobook-api.service audiobook-web.service
 
 [Install]
 WantedBy=default.target
@@ -2072,14 +2072,14 @@ EOF
 
         # Enable and start services by default
         echo -e "${BLUE}Enabling and starting user services...${NC}"
-        systemctl --user enable audiobooks.target 2>/dev/null || true
-        systemctl --user enable audiobook-api.service audiobooks-web.service 2>/dev/null || true
+        systemctl --user enable audiobook.target 2>/dev/null || true
+        systemctl --user enable audiobook-api.service audiobook-web.service 2>/dev/null || true
 
         # Start services
-        systemctl --user start audiobooks.target 2>/dev/null || {
+        systemctl --user start audiobook.target 2>/dev/null || {
             # Fallback: start individual services
             systemctl --user start audiobook-api.service 2>/dev/null || true
-            systemctl --user start audiobooks-web.service 2>/dev/null || true
+            systemctl --user start audiobook-web.service 2>/dev/null || true
         }
 
         echo ""
@@ -2107,25 +2107,25 @@ EOF
     echo ""
     echo "Commands available:"
     echo "  audiobook-api             - Start API server"
-    echo "  audiobooks-web             - Start web server"
-    echo "  audiobooks-scan            - Scan audiobook library"
-    echo "  audiobooks-import          - Import to database"
-    echo "  audiobooks-config          - Show configuration"
+    echo "  audiobook-web             - Start web server"
+    echo "  audiobook-scan            - Scan audiobook library"
+    echo "  audiobook-import          - Import to database"
+    echo "  audiobook-config          - Show configuration"
     echo ""
     echo "Conversion and management:"
-    echo "  audiobooks-convert         - Convert AAX/AAXC to Opus"
-    echo "  audiobooks-download        - Download from Audible"
-    echo "  audiobooks-move-staged     - Move staged files to library"
-    echo "  audiobooks-save-staging    - Save tmpfs staging before reboot"
-    echo "  audiobooks-status          - Show service status"
-    echo "  audiobooks-start/stop      - Start/stop services"
-    echo "  audiobooks-enable/disable  - Enable/disable at boot"
-    echo "  audiobooks-monitor         - Live conversion monitor"
-    echo "  audiobooks-help            - Quick reference guide"
+    echo "  audiobook-convert         - Convert AAX/AAXC to Opus"
+    echo "  audiobook-download        - Download from Audible"
+    echo "  audiobook-move-staged     - Move staged files to library"
+    echo "  audiobook-save-staging    - Save tmpfs staging before reboot"
+    echo "  audiobook-status          - Show service status"
+    echo "  audiobook-start/stop      - Start/stop services"
+    echo "  audiobook-enable/disable  - Enable/disable at boot"
+    echo "  audiobook-monitor         - Live conversion monitor"
+    echo "  audiobook-help            - Quick reference guide"
     echo ""
     echo "Service management:"
-    echo "  systemctl --user status audiobooks.target"
-    echo "  systemctl --user restart audiobooks.target"
+    echo "  systemctl --user status audiobook.target"
+    echo "  systemctl --user restart audiobook.target"
     echo "  journalctl --user -u audiobook-converter -f"
     echo ""
     echo "Access the library at: https://localhost:${WEB_PORT}"
@@ -2149,12 +2149,12 @@ do_user_uninstall() {
 
     # Stop and disable services
     echo -e "${BLUE}Stopping services...${NC}"
-    systemctl --user stop audiobooks.target 2>/dev/null || true
-    systemctl --user stop audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    systemctl --user stop audiobook.target 2>/dev/null || true
+    systemctl --user stop audiobook-api.service audiobook-web.service 2>/dev/null || true
     systemctl --user stop audiobook-converter.service audiobook-mover.service 2>/dev/null || true
     systemctl --user stop audiobook-downloader.timer audiobook-downloader.service 2>/dev/null || true
-    systemctl --user disable audiobooks.target 2>/dev/null || true
-    systemctl --user disable audiobook-api.service audiobooks-web.service 2>/dev/null || true
+    systemctl --user disable audiobook.target 2>/dev/null || true
+    systemctl --user disable audiobook-api.service audiobook-web.service 2>/dev/null || true
     systemctl --user disable audiobook-converter.service audiobook-mover.service 2>/dev/null || true
     systemctl --user disable audiobook-downloader.timer 2>/dev/null || true
 
@@ -2162,36 +2162,36 @@ do_user_uninstall() {
     echo -e "${BLUE}Removing application files...${NC}"
     # Core wrappers
     rm -f "${BIN_DIR}/audiobook-api"
-    rm -f "${BIN_DIR}/audiobooks-web"
-    rm -f "${BIN_DIR}/audiobooks-scan"
-    rm -f "${BIN_DIR}/audiobooks-import"
-    rm -f "${BIN_DIR}/audiobooks-config"
+    rm -f "${BIN_DIR}/audiobook-web"
+    rm -f "${BIN_DIR}/audiobook-scan"
+    rm -f "${BIN_DIR}/audiobook-import"
+    rm -f "${BIN_DIR}/audiobook-config"
     # Management scripts
-    rm -f "${BIN_DIR}/audiobooks-convert"
-    rm -f "${BIN_DIR}/audiobooks-move-staged"
-    rm -f "${BIN_DIR}/audiobooks-download"
-    rm -f "${BIN_DIR}/audiobooks-save-staging"
-    rm -f "${BIN_DIR}/audiobooks-save-staging-auto"
-    rm -f "${BIN_DIR}/audiobooks-status"
-    rm -f "${BIN_DIR}/audiobooks-start"
-    rm -f "${BIN_DIR}/audiobooks-stop"
-    rm -f "${BIN_DIR}/audiobooks-enable"
-    rm -f "${BIN_DIR}/audiobooks-disable"
-    rm -f "${BIN_DIR}/audiobooks-help"
-    rm -f "${BIN_DIR}/audiobooks-monitor"
-    rm -f "${BIN_DIR}/audiobooks-copy-metadata"
-    rm -f "${BIN_DIR}/audiobooks-download-monitor"
-    rm -f "${BIN_DIR}/audiobooks-embed-cover"
+    rm -f "${BIN_DIR}/audiobook-convert"
+    rm -f "${BIN_DIR}/audiobook-move-staged"
+    rm -f "${BIN_DIR}/audiobook-download"
+    rm -f "${BIN_DIR}/audiobook-save-staging"
+    rm -f "${BIN_DIR}/audiobook-save-staging-auto"
+    rm -f "${BIN_DIR}/audiobook-status"
+    rm -f "${BIN_DIR}/audiobook-start"
+    rm -f "${BIN_DIR}/audiobook-stop"
+    rm -f "${BIN_DIR}/audiobook-enable"
+    rm -f "${BIN_DIR}/audiobook-disable"
+    rm -f "${BIN_DIR}/audiobook-help"
+    rm -f "${BIN_DIR}/audiobook-monitor"
+    rm -f "${BIN_DIR}/audiobook-copy-metadata"
+    rm -f "${BIN_DIR}/audiobook-download-monitor"
+    rm -f "${BIN_DIR}/audiobook-embed-cover"
     # Library
     rm -rf "${LIB_DIR}"
     # Systemd services
     rm -f "${SYSTEMD_DIR}/audiobook-api.service"
-    rm -f "${SYSTEMD_DIR}/audiobooks-web.service"
+    rm -f "${SYSTEMD_DIR}/audiobook-web.service"
     rm -f "${SYSTEMD_DIR}/audiobook-converter.service"
     rm -f "${SYSTEMD_DIR}/audiobook-mover.service"
     rm -f "${SYSTEMD_DIR}/audiobook-downloader.service"
     rm -f "${SYSTEMD_DIR}/audiobook-downloader.timer"
-    rm -f "${SYSTEMD_DIR}/audiobooks.target"
+    rm -f "${SYSTEMD_DIR}/audiobook.target"
 
     # Remove database and logs
     rm -rf "${STATE_DIR}"

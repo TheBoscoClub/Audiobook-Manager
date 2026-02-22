@@ -16,15 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.5.0] - 2026-02-22
 
 ### Added
+
 - **Release Workflow**: Two-phase release support (`--local` stage and `--promote` publish) for testing releases before publishing to GitHub
 
 ### Changed
+
 - **Systemd**: Added restart limits to proxy service for boot race recovery
 - **Systemd**: Added `RequiresMountsFor` data directory mount dependency to prevent boot race 502s
 - **CSS**: Improved header flex-wrap and refined marquee neon styling
 - **CSS**: Corrected viewport handling for layout consistency
 
 ### Fixed
+
 - **Security**: Fixed log injection vulnerability in utilities_crud.py (integer cast sanitization)
 - **Dependencies**: Added missing `audible-cli` to requirements.txt
 - **Tests**: Backoffice integration tests gracefully skip when Audible is unconfigured
@@ -34,12 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.4.0.1] - 2026-02-22
 
 ### Fixed
+
 - **Scripts**: Separation check in `upgrade.sh` and `install.sh` falsely flagged legitimate production symlinks as dev contamination — `grep "$SCRIPT_DIR"` matched `/opt/audiobooks` paths when run from production; changed to check for `ClaudeCodeProjects` specifically
 - **Scripts**: Fixed `install.sh` glob pattern from `audiobooks-*` to `audiobook-*` to match actual symlink names
 
 ## [6.4.0] - 2026-02-22
 
 ### Added
+
 - **Guest Access**: Unauthenticated visitors can browse the library, search, and view book details without an account
 - **Guest Gate**: Play/download buttons show a styled tooltip directing guests to sign in or request access
 - **Magic Link Auth**: Email-based authentication as an alternative to TOTP — admin can invite users with magic link auth type
@@ -55,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Upgrade Safety Tests**: Migration integrity tests verifying tokens, sessions, and credentials survive schema upgrades
 
 ### Changed
+
 - **Docker**: Upgraded base image from `python:3.11-slim` to `python:3.14-slim` (Debian Trixie, Python 3.14.3)
 - **Docker**: Added `apt-get upgrade -y` and `pip install --upgrade pip` for security patching
 - **Docker**: Created `requirements-docker.txt` excluding `audible` package (not needed in standalone container)
@@ -63,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Admin Invite**: Invite modal includes auth method selector (TOTP, Magic Link, Passkey)
 
 ### Fixed
+
 - **Test**: Fixed `test_generate_backup_code_format` — `isupper()` returns `False` for all-digit strings, changed to `part == part.upper()`
 - **Docker**: Increased health check timeout for slower build environments
 - **Docker**: Fixed entrypoint bind address for container networking
@@ -70,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.3.0] - 2026-02-21
 
 ### Added
+
 - **Per-User State**: New auth database tables for listening history, download tracking, and user preferences (migration `004_per_user_state.sql`)
 - **API**: New `/api/user/history` endpoint — per-user listening history with pagination and date filters
 - **API**: New `/api/user/downloads` endpoint — per-user download history with pagination
@@ -95,27 +103,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests**: About page, activity audit UI, genre management, help update tests
 
 ### Changed
+
 - **Position Sync**: Removed Audible cloud sync dependency — position tracking is now fully local and per-user
 - **Position Sync**: Positions stored in encrypted auth database (SQLCipher) instead of main library database
 - **Docs**: Rewrote `docs/POSITION_SYNC.md` for per-user local-only system
 - **Docs**: Updated `docs/ARCHITECTURE.md` with new tables, blueprints, and endpoint documentation
 
 ### Fixed
+
 - **UI**: About page version display parsed raw JSON text instead of extracting version field (`r.text()` → `r.json().version`)
 
 ## [6.2.0.1] - 2026-02-20
 
 ### Fixed
+
 - **UI**: Header title now visually centered using 3-column flex layout (replaced absolute positioning that caused off-center title with asymmetric nav content)
 
 ## [6.2.0] - 2026-02-20
 
 ### Added
+
 - **Health**: New unauthenticated `/api/system/health` endpoint for monitoring (returns status, version, database connectivity)
 - **UI**: Help system with 11-section user guide and interactive 11-step spotlight tutorial
 - **Tests**: 50 new tests for health endpoint, proxy headers, help page, tutorial, header layout
 
 ### Changed
+
 - **Security**: FLASK_DEBUG default changed from `true` to `false`
 - **Security**: USE_WAITRESS default changed from `false` to `true` (production-safe)
 - **Security**: Added `Access-Control-Allow-Credentials` header when CORS origin is specific
@@ -129,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Quality**: YAML lint fixes in CI workflows
 
 ### Fixed
+
 - **UI**: Back Office button no longer visible to non-admin users (CSS `display:flex` was overriding `hidden` attribute)
 - **UI**: Header restructured with balanced left/right navigation
 - **Database**: Added `try/finally` to `get_hash_stats` and `get_duplicates` for connection cleanup
@@ -142,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.1.3] - 2026-02-19
 
 ### Fixed
+
 - **Auth**: Rewrite invite flow — invitations no longer pre-create users, eliminating "credentials already claimed" and method selection loop bugs during claim
 - **Auth**: TOTP and WebAuthn claim endpoints now read invite metadata for admin-set download permissions
 - **Auth**: Delete user now cascade-deletes associated access requests, preventing orphaned records
@@ -152,11 +167,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.1.2.1] - 2026-02-18
 
 ### Added
+
 - **Admin**: Invite User button in user administration page for pre-registering and approving new users with claim token workflow
 
 ## [6.1.2] - 2026-02-18
 
 ### Fixed
+
 - **Auth**: First-user registration returned backup codes as formatted string instead of JSON array, causing JavaScript TypeError displayed as "Connection error"
 - **Auth**: Added clipboard copy button for TOTP backup codes on registration page
 - **Proxy**: HTTP error handler now forwards Flask's original response body instead of generic error message
@@ -166,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.1.1] - 2026-02-18
 
 ### Fixed
+
 - **Scripts**: Comprehensive bash-to-zsh compatibility fixes across all shell scripts
   - Convert `read -p` bash-isms to zsh `read "?prompt"` syntax
   - Convert `${var,,}` bash lowercase to zsh `${(L)var}` syntax
@@ -176,6 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.1.0] - 2026-02-18
 
 ### Added
+
 - **UI**: Comprehensive responsive design for mobile, desktop, portrait, landscape, and zoom/pinch scenarios
   - New `responsive.css` (425 lines, 6 media queries) with safe area insets, touch-aware interactions, landscape compaction, tablet/small phone layouts, fluid scaling, and reduced motion support
   - `viewport-fit=cover` on all HTML pages for notched device support
@@ -184,12 +203,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `clamp()` fluid typography and spacing for smooth desktop resize
 
 ### Changed
+
 - **UI**: Header navigation converts to flex column layout at 768px breakpoint (fixes overlap with title)
 - **UI**: Audio player compacts in landscape mobile orientation (max-height: 500px)
 - **CI**: GitHub Actions release workflow installs zsh on runner for script compatibility
 - **CI**: Fixed GHCR package permissions for Docker image push
 
 ### Fixed
+
 - **Install**: `install.sh` separation check uses dynamic `$SCRIPT_DIR` instead of hardcoded path pattern
 - **Install**: `upgrade.sh` separation check uses dynamic `$SCRIPT_DIR` instead of hardcoded path pattern
 - **Code**: Removed unused `PilImage` import from `library/auth/totp.py`
@@ -197,6 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.0.0] - 2026-02-18
 
 ### Added
+
 - **Security**: Dual-mode security architecture — `admin_or_localhost` decorator adapts endpoint protection based on deployment mode
   - `AUTH_ENABLED=true` (remote): Admin endpoints require authenticated admin user
   - `AUTH_ENABLED=false` (standalone): Admin endpoints restricted to localhost only
@@ -213,6 +235,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Rules**: Project-specific `.claude/rules/` files: `audio-metadata.md`, `paths-and-separation.md`, `testing.md`
 
 ### Changed
+
 - **BREAKING**: All 27 shell scripts converted from `#!/bin/bash` to `#!/usr/bin/env zsh`
 - **Security**: 9 admin endpoints in `utilities_system.py` now use `@admin_or_localhost` instead of `@localhost_only`
 - **API**: CORS origin defaults to `*` (permissive, safe for standalone) — configurable via `CORS_ORIGIN` env var for remote deployments
@@ -224,6 +247,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Removed `.github/workflows/ci.yml` (was using Python 3.11, incompatible with current Python 3.14 stack)
 
 ### Fixed
+
 - **Install**: Wrapper scripts reference `api_server.py` (not stale `api.py`)
 - **Install**: Auth key generated as 64 hex chars (`xxd -p | tr -d '\n'`), matching code validation — was base64 (~44 chars)
 - **Install**: Auth key permissions set to `audiobooks:audiobooks 0600` — was `root:audiobooks 0640`
@@ -235,14 +259,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.0.2] - 2026-02-06
 
 ### Added
+
 - **Testing**: VM_TESTS environment variable for proper WebAuthn origin selection in integration tests
 - **JS**: Optional onCancel callback for showConfirmModal to support async confirm dialogs
 
 ### Changed
+
 - **Testing**: Update test VM from test-vm-cachyos to test-audiobook-cachyos (192.168.122.104)
 - **Deploy**: Add library/scripts/ and library/common.py to VM deployment sync
 
 ### Fixed
+
 - **API**: Use sys.executable instead of hardcoded "python3" in subprocess calls for venv compatibility
 - **API**: Prevent duplicate access request errors with has_any_request() check
 - **Scripts**: Initialize bash array to avoid unbound variable error with set -u
@@ -253,15 +280,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests**: Fix SSH cleanup command venv path in auth integration tests
 
 ### Security
+
 - **CI**: Add explicit permissions blocks to all GitHub Actions workflow jobs
 
 ## [5.0.1.1] - 2026-02-01
 
 ### Removed
+
 - **Periodicals**: Remove all remaining periodicals code, systemd services, sync scripts, and install manifest entries (feature was removed in v4.0.3 but artifacts remained)
 - **Periodicals**: Clean up "periodicals" and "Reading Room" references in code comments across audiobooks.py, schema.sql, metadata_utils.py, populate_asins.py
 
 ### Fixed
+
 - **Systemd**: Fix API service boot failures caused by ProtectSystem=strict resolving `/hddRaid1` symlink to unmounted `/hddRaid1/Audiobooks` — use real mount path and explicit After=hddRaid1-Audiobooks.mount ordering
 - **Systemd**: Fix HTTPS proxy permanently failing on boot due to cascade dependency failure from API service
 - **Systemd**: Fix stale symlinks with wrong "audiobooks-" prefix (should be "audiobook-") for shutdown-saver and upgrade-helper units
@@ -270,6 +300,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.0.1] - 2026-01-30
 
 ### Fixed
+
 - **Proxy**: HTTPS reverse proxy now routes `/auth/*` endpoints to Flask backend (was only proxying `/api/*` and `/covers/*`, causing auth endpoints to return 405)
 - **Proxy**: Forward `Cookie` header through reverse proxy for session-based authentication
 - **Docs**: Updated all project documentation for v5.0.0 authentication release
@@ -277,6 +308,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.0.0] - 2026-01-29
 
 ### Added
+
 - **Authentication**: Multi-user authentication system with three auth methods:
   - **TOTP** (authenticator app) - time-based one-time passwords via Authy, Google Authenticator, etc.
   - **Passkey** (platform authenticator) - biometrics, phone, password manager (Bitwarden, 1Password)
@@ -298,6 +330,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Infrastructure**: Caddy-based development server configuration
 
 ### Changed
+
 - **BREAKING**: All API endpoints now require authentication when AUTH_ENABLED=true
 - **BREAKING**: Web UI redirects to login page for unauthenticated users
 - Passkey registration no longer restricts to platform authenticators (allows phone, password manager, hardware key)
@@ -305,6 +338,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token generation uses alphanumeric-only alphabet to avoid dash ambiguity in formatted tokens
 
 ### Fixed
+
 - WebAuthn registration parsing uses py-webauthn 2.7.0 helper functions (not Pydantic model methods)
 - NoneType.strip() crash on nullable recovery_email/recovery_phone fields
 - WebAuthn JS API paths corrected from /api/auth/ to /auth/
@@ -315,12 +349,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.1.2] - 2026-01-22
 
 ### Added
+
 - **Web UI**: "Check for Updates" button in Utilities page for dry-run upgrade preview
   - Shows verbose output of what would happen without making changes
   - Displays current vs available version comparison
   - Reports result of multi-installation detection
 
 ### Fixed
+
 - **Upgrade**: Fixed `--from-github` and `--from-project` options not upgrading the correct installation
   - `find_installed_dir()` now prioritizes system paths (`/opt/audiobooks`) over custom data locations
   - Adds warning when multiple installations are found, showing versions of each
@@ -329,6 +365,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.1.1] - 2026-01-20
 
 ### Fixed
+
 - **Security**: Fixed insecure temporary file creation in ASIN population subprocess (CodeQL alert #187)
   - Changed `tempfile.mktemp()` to `tempfile.mkstemp()` in `maintenance.py`
   - Prevents TOCTOU (time-of-check-time-of-use) race condition vulnerability
@@ -337,6 +374,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.1.0] - 2026-01-20
 
 ### Added
+
 - **Player**: Media Session API integration for OS-level media controls:
   - Lock screen playback controls (play/pause, seek forward/back, skip)
   - Notification center media controls
@@ -351,6 +389,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.0.5] - 2026-01-20
 
 ### Fixed
+
 - **Security**: Addressed 26 CodeQL alerts with TLS hardening and documentation:
   - Enforce TLS 1.2 minimum version in HTTPS server (was allowing older versions)
   - Replace stack trace exposure with generic error message in bulk delete API
@@ -359,15 +398,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.0.4] - 2026-01-20
 
 ### Fixed
+
 - **Systemd**: Fixed API service failing at boot with NAMESPACE error on HDD/NAS storage. Added `/hddRaid1/Audiobooks` to `RequiresMountsFor` so systemd waits for the data mount before setting up the security namespace. Previously only waited for `/opt/audiobooks`.
 - **Auth**: Fixed timestamp format mismatch in session cleanup causing incorrect stale session deletion. SQLite uses space separator (`YYYY-MM-DD HH:MM:SS`) while Python's `isoformat()` uses `T` separator, causing string comparison failures.
 
 ### Added
+
 - **Documentation**: Added "HDD and Network Storage Considerations" section to README explaining how to configure `RequiresMountsFor` for slow mounts (HDDs, NAS, NFS, CIFS)
 
 ## [4.0.3] - 2026-01-18
 
 ### Fixed
+
 - **API**: All async operations (Audible download, library import, rescan) now stream real-time progress with detailed item counts, percentages, and status updates
 - **Docker**: Synced Dockerfile `ARG APP_VERSION` default to match VERSION file (4.0.2 → 4.0.3)
 - **Code Quality**: Removed unused imports and marked unused regex patterns in test and library code
@@ -375,6 +417,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.0.2] - 2026-01-18
 
 ### Fixed
+
 - **API**: Fixed library rescan progress reporting to properly capture scanner output. Scanner uses carriage returns (`\r`) for in-place progress updates, but the API was only reading newline-terminated lines. Now reads character-by-character to capture both `\r` and `\n` delimited output.
 - **Scripts**: Fixed duplicate entries in `source_checksums.idx`. The `generate_source_checksum()` function now checks if a filepath already exists before appending, preventing the same file from being indexed multiple times.
 - **Systemd**: Fixed "Read-only file system" error when rebuilding conversion queue. Added `AUDIOBOOKS_DATA` path (`/hddRaid1/Audiobooks`) to `ReadWritePaths` in `audiobook-api.service` since `ProtectSystem=strict` was blocking write access to the index directory.
@@ -382,6 +425,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.0.1] - 2026-01-17
 
 ### Fixed
+
 - **API**: Library rescan now streams real-time progress updates to the web UI. Previously showed "Starting scanner..." for the entire scan duration; now shows actual progress with file counts and percentages.
 - **Security**: Patched CVE-2025-43859 (h11 HTTP request smuggling) by upgrading to h11 0.16.0
 - **Security**: Patched CVE-2026-23490 (pyasn1 parsing issue) by upgrading to pyasn1 0.6.2
@@ -390,16 +434,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.0.0.2] - 2026-01-17
 
 ### Fixed
+
 - **CI**: Fixed Docker workflow to support 4-digit tweak versions (X.Y.Z.W). The `docker/metadata-action` semver pattern doesn't handle 4-segment versions, so switched to raw tag extraction.
 
 ## [4.0.0.1] - 2026-01-17
 
 ### Fixed
+
 - **Documentation**: Corrected migration path in CHANGELOG.md - was `migrations/010_drop_periodicals.sql`, now correctly shows `library/backend/migrations/010_drop_periodicals.sql`
 
 ## [4.0.0] - 2026-01-17
 
 ### Removed
+
 - **BREAKING: Periodicals Feature Extracted**: The entire "Reading Room" periodicals subsystem has been removed from the main codebase
   - Removed `library/backend/api_modular/periodicals.py` - Flask Blueprint (~1,345 lines)
   - Removed `library/tests/test_periodicals.py` - Test suite (~1,231 lines)
@@ -412,6 +459,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Total: ~5,700 lines removed
 
 ### Changed
+
 - **Database Migration**: Added `010_drop_periodicals.sql` to clean up periodicals tables
   - Drops `periodicals`, `periodicals_sync_status`, `periodicals_playback_history` tables
   - Drops related views and triggers
@@ -422,20 +470,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Updated README.md and ARCHITECTURE.md to remove periodicals references
 
 ### Migration Notes
+
 - **Before upgrading**: Disable periodicals services
+
   ```bash
   sudo systemctl stop audiobook-periodicals-sync.timer
   sudo systemctl disable audiobook-periodicals-sync.timer
   ```
+
 - **After upgrading**: Run the cleanup migration
+
   ```bash
   sqlite3 /path/to/audiobooks.db < /opt/audiobooks/library/backend/migrations/010_drop_periodicals.sql
   ```
+
 - **To restore periodicals**: Use tag `v3.11.2-with-periodicals` or branch `feature/periodicals-rnd`
 
 ## [3.11.2] - 2026-01-17
 
 ### Added
+
 - **Podcast Episode Download & Conversion**: Full support for downloading and converting podcast episodes from Audible
   - `download-new-audiobooks`: Detects podcast episodes via database, uses `--resolve-podcasts` flag for proper MP3 download
   - `convert-audiobooks-opus-parallel`: Handles MP3-to-Opus conversion for podcasts (no DRM, simple ffmpeg transcode)
@@ -446,6 +500,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - UI button "🔍 Find Orphans" in periodicals header with modal display
 
 ### Fixed
+
 - **Periodicals SSE**: Fixed Flask request context issue in SSE generator by capturing `g.db_path` before generator starts
 - **Security - SQL Injection**: Added table name whitelist (`ALLOWED_LOOKUP_TABLES`) in scanner modules to prevent SQL injection via genre/era/topic lookups
 - **Security - Log Injection**: Converted 4 files to use `%s` formatting instead of f-strings in log calls (`periodicals.py`, `add_new_audiobooks.py`, `position_sync.py`, `import_single.py`)
@@ -456,11 +511,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.11.1] - 2026-01-14
 
 ### Fixed
+
 - **Deploy Script**: Fixed `deploy.sh` to include root-level management scripts (`upgrade.sh`, `migrate-api.sh`) that were being silently skipped during deployment. These scripts live in the project root but need to be copied to `$target/scripts/` for the `audiobook-upgrade` wrapper to function.
 
 ## [3.11.0] - 2026-01-14
 
 ### Added
+
 - **Periodicals Sorting**: Reading Room now supports multiple sort options:
   - By title (A-Z, Z-A)
   - By release date (newest/oldest first)
@@ -478,10 +535,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ASIN Sync**: Periodicals table now syncs `is_downloaded` status when audiobooks are imported
 
 ### Changed
+
 - **Database Path Handling**: Clarified and fixed database path configuration across the codebase
 - **Index Rebuilds**: Prevented destructive index rebuilds, added database sync protection
 
 ### Fixed
+
 - **Test Schema**: Made periodicals sync conditional to prevent test failures
 - **Duplicates Test**: Fixed path validation assertion for out-of-bounds paths
 - **SSE Headers**: Removed hop-by-hop `Connection` header for PEP 3333 compliance
@@ -492,6 +551,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.10.1] - 2026-01-14
 
 ### Added
+
 - **Architecture Documentation**: Comprehensive update to ARCHITECTURE.md with 4 new sections:
   - Scanner Module Architecture (data pipeline flow diagram)
   - API Module Architecture (utilities_ops submodules documentation)
@@ -499,11 +559,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scripts Reference (21 scripts organized by category)
 
 ### Changed
+
 - **Periodicals Sync**: Enhanced parent/child hierarchy support for podcast episodes
   - Sync script now properly tracks episode parent ASINs
   - Improved episode metadata extraction from Audible API
 
 ### Fixed
+
 - **Hardcoded Paths**: Fixed 2 hardcoded paths in shell scripts:
   - `move-staged-audiobooks`: Changed `/opt/audiobooks/library/scanner/import_single.py` to `${AUDIOBOOKS_HOME}/...`
   - `sync-periodicals-index`: Changed `/opt/audiobooks/library/backend/migrations/006_periodicals.sql` to `${AUDIOBOOKS_HOME}/...`
@@ -513,6 +575,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.10.0] - 2026-01-14
 
 ### Changed
+
 - **BREAKING: Naming Convention Standardization**: All service names, CLI commands, and config files
   now use singular "audiobook-" prefix instead of plural "audiobooks-" to align with project name
   "audiobook-manager"
@@ -522,13 +585,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Status Script Enhancement**: `audiobook-status` now displays services and timers in separate sections
 
 ### Fixed
+
 - **Unused Imports**: Removed 45 unused imports across codebase via ruff auto-fix
 - **Test Schema Handling**: Marked schema-dependent tests as xfail pending migration 007
   (source_asin column, content_type column, indexes, FTS triggers)
 - **Documentation Dates**: Updated last-modified dates in ARCHITECTURE.md and POSITION_SYNC.md
 
 ### Migration Notes
+
 After upgrading, run these commands to migrate systemd services:
+
 ```bash
 # Stop old services
 sudo systemctl stop audiobooks-api audiobooks-converter audiobooks-mover audiobooks-proxy audiobooks-redirect
@@ -546,6 +612,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.9.8] - 2026-01-14
 
 ### Changed
+
 - **Major Refactoring**: Split monolithic `utilities_ops.py` (994 lines) into modular package
   - `utilities_ops/audible.py` - Audible API operations (download, metadata sync)
   - `utilities_ops/hashing.py` - Hash generation operations
@@ -559,18 +626,21 @@ sudo /opt/audiobooks/upgrade.sh
   - Extended test coverage for edge cases and error handling
 
 ### Fixed
+
 - **Unused Imports**: Removed `TextIO` from utilities_conversion.py, `Path` from utilities_ops/library.py
 - **Incorrect Default**: Fixed AUDIOBOOKS_DATA default in audible.py from `/var/lib/audiobooks` to `/srv/audiobooks`
 - **Example Config**: Added missing PARALLEL_JOBS, DATA_DIR, and INDEX variables to audiobooks.conf.example
 - **Documentation**: Updated api_modular/README.md to remove obsolete utilities_ops.py references
 
 ### Security
+
 - **CVE-2025-43859 Documentation**: Documented h11 vulnerability as blocked by audible 0.8.2 dependency chain
   (audible pins httpx<0.24.0 which requires h11<0.15). Monitor for audible updates.
 
 ## [3.9.7.1] - 2026-01-13
 
 ### Fixed (Audit Fixes)
+
 - **PIL Rebuild for Python 3.14**: Rebuilt Pillow wheel in virtual environment to fix compatibility
   with Python 3.14 (CachyOS rolling release). PIL was compiled against older Python, causing
   import failures during audiobook cover processing.
@@ -584,6 +654,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.9.7] - 2026-01-13
 
 ### Fixed
+
 - **Upgrade Script Path Bug**: Fixed `upgrade-helper-process` referencing wrong path
   - Was: `/opt/audiobooks/upgrade.sh` (root level, doesn't exist)
   - Now: `/opt/audiobooks/scripts/upgrade.sh` (correct location)
@@ -599,6 +670,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.9.6] - 2026-01-13
 
 ### Security
+
 - **CVE-2025-43859**: Fix HTTP request smuggling vulnerability by upgrading h11 to >=0.16.0
 - **TLS 1.2 Minimum**: Enforce TLS 1.2 as minimum protocol version in proxy_server.py
   - Prevents downgrade attacks to SSLv3, TLS 1.0, or TLS 1.1
@@ -609,6 +681,7 @@ sudo /opt/audiobooks/upgrade.sh
   with generic error messages; full tracebacks now logged server-side only
 
 ### Fixed
+
 - **CodeQL Remediation**: Fix 30 code scanning alerts across the codebase
   - Add missing `from typing import Any` import in duplicates.py
   - Fix import order in utilities_ops.py (E402)
@@ -623,17 +696,20 @@ sudo /opt/audiobooks/upgrade.sh
   - Fix: Now removes existing entry before appending (idempotent operation)
 
 ### Changed
+
 - Upgrade httpx to 0.28.1 and httpcore to 1.0.9 (required for h11 CVE fix)
 
 ## [3.9.5.1] - 2026-01-13
 
 ### Added
+
 - Multi-segment version badges in README with hierarchical color scheme
 - Version history table showing release progression
 
 ## [3.9.5] - (Previous)
 
 ### Fixed (rolled back from 3.9.7)
+
 - **CRITICAL: Parallelism Restored**: Fixed 7 variable expansion bugs in `build-conversion-queue`
   that completely broke parallel conversions (was running 1 at a time instead of 12)
   - Bug: `: > "queue_file"` (literal string) instead of `: > "$queue_file"` (variable)
@@ -655,6 +731,7 @@ sudo /opt/audiobooks/upgrade.sh
 > alongside unfixed bugs from 3.9.6. See [Unreleased] for the complete fixes.
 
 ### Fixed
+
 - **Database Connection Leaks**: Fixed 6 connection leaks in `position_sync.py`
   - All API endpoints now properly close database connections via try/finally blocks
   - Affected routes: `get_position`, `update_position`, `sync_position`, `sync_all_positions`, `list_syncable`, `get_position_history`
@@ -663,6 +740,7 @@ sudo /opt/audiobooks/upgrade.sh
   - Changed from `/var/lib/audiobooks/audiobooks.db` to `/var/lib/audiobooks/db/audiobooks.db`
 
 ### Changed
+
 - **Code Cleanup**: Removed unused `Any` import from `duplicates.py`
 
 ## [3.9.6] - 2026-01-10 *(never released)*
@@ -672,6 +750,7 @@ sudo /opt/audiobooks/upgrade.sh
 > the complete fix.
 
 ### Added
+
 - **Storage Tier Detection**: Installer now automatically detects NVMe, SSD, and HDD storage
   - Displays detected storage tier for each installation path
   - Warns if database would be placed on slow storage (HDD)
@@ -683,6 +762,7 @@ sudo /opt/audiobooks/upgrade.sh
   - `USAGE.md` - Comprehensive usage guide with troubleshooting
 
 ### Fixed
+
 - **Proxy hop-by-hop headers**: Fixed `AssertionError: Connection is a "hop-by-hop" header` from Waitress
   - Added `HOP_BY_HOP_HEADERS` filter to `proxy_server.py` (PEP 3333 / RFC 2616 compliance)
   - Prevents silently dropped API responses through reverse proxy
@@ -692,12 +772,14 @@ sudo /opt/audiobooks/upgrade.sh
   - Fixed 3 of 7 instances; remaining 4 caused parallelism to fail
 
 ### Changed
+
 - **ARCHITECTURE.md**: Added reverse proxy architecture and service permissions sections
 - **INSTALL.md**: Added storage tier detection documentation with example output
 
 ## [3.9.5] - 2026-01-10
 
 ### Added
+
 - **Schema Tracking**: `schema.sql` now tracked in git repository
   - Contains authoritative database schema with all columns, indices, and views
   - Includes `content_type` and `source_asin` columns for periodical classification
@@ -707,12 +789,14 @@ sudo /opt/audiobooks/upgrade.sh
   - Handles Audible's pagination and inconsistent tagging
 
 ### Changed
+
 - **Content Filter**: Expanded `AUDIOBOOK_FILTER` to include more content types
   - Now includes: Product, Lecture, Performance, Speech (main library)
   - Excludes: Podcast, Radio/TV Program (Reading Room)
   - Handles NULL content_type for legacy entries
 
 ### Fixed
+
 - **Reliability**: Prevent concurrent `build-conversion-queue` processes with flock
   - Multiple simultaneous rebuilds caused race conditions and duplicate conversions
 - **Scripts**: Fixed shellcheck warnings in `build-conversion-queue` and `move-staged-audiobooks`
@@ -722,6 +806,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.9.4] - 2026-01-09
 
 ### Added
+
 - **Developer Safeguards**: Pre-commit hook blocks hardcoded paths in scripts and services
   - Rejects commits containing literal paths like `/run/audiobooks`, `/var/lib/audiobooks`, `/srv/audiobooks`
   - Enforces use of configuration variables (`$AUDIOBOOKS_RUN_DIR`, `$AUDIOBOOKS_VAR_DIR`, etc.)
@@ -733,11 +818,13 @@ sudo /opt/audiobooks/upgrade.sh
   - Used by `AUDIOBOOK_FILTER` to exclude periodical content from main library queries
 
 ### Changed
+
 - **Runtime Directory**: Changed `AUDIOBOOKS_RUN_DIR` from `/run/audiobooks` to `/var/lib/audiobooks/.run`
   - Fixes namespace isolation issues with systemd's `ProtectSystem=strict` security hardening
   - Using `/run/` directories doesn't work reliably with sandboxed services
 
 ### Fixed
+
 - **Security**: Replace insecure `mktemp()` with `mkstemp()` in `google_play_processor.py`
   - Eliminates TOCTOU (time-of-check-time-of-use) race condition vulnerability
 - **Reliability**: Add signal trap to converter script for clean FFmpeg shutdown
@@ -755,6 +842,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.9.3] - 2026-01-08
 
 ### Changed
+
 - **Periodicals (Reading Room)**: Simplified to flat data schema with skip list support
   - Each periodical is now a standalone item (matching Audible's content_type classification)
   - API endpoints use single `asin` instead of parent/child model
@@ -763,6 +851,7 @@ sudo /opt/audiobooks/upgrade.sh
   - Content types: Podcast, Newspaper/Magazine, Show, Radio/TV Program
 
 ### Fixed
+
 - **Mover Service**: Prevented `build-conversion-queue` process stampede
   - Added `flock -n` wrapper to prevent multiple concurrent rebuilds
   - Previously, 167+ zombie processes could accumulate consuming 200% CPU
@@ -770,12 +859,14 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.9.2] - 2026-01-08
 
 ### Fixed
+
 - **Reading Room API**: Fixed 500 Internal Server Error - all `get_db()` calls were missing required `db_path` argument
 - **Periodicals Sync Service**: Fixed startup failure - removed non-existent `/var/log/audiobooks` from ReadWritePaths (service logs to systemd journal)
 
 ## [3.9.1] - 2026-01-08
 
 ### Fixed
+
 - **Systemd Target**: All services now properly bind to `audiobook.target` for correct stop/start behavior during upgrades
   - Added `audiobook.target` to WantedBy for: api, proxy, redirect, periodicals-sync services and timer
   - Added explicit `Wants=` in audiobook.target for all core services and timers
@@ -784,6 +875,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.9.0] - 2026-01-08
 
 ### Added
+
 - **Periodicals "Reading Room"**: New subsystem for episodic Audible content
   - Dedicated page for browsing podcasts, newspapers, meditation series
   - Category filtering (All, Podcasts, News, Meditation, Other)
@@ -807,10 +899,12 @@ sudo /opt/audiobooks/upgrade.sh
 - **Technology**: HTMX for declarative interactions, SSE for real-time updates
 
 ### Changed
+
 - **Library Header**: Added "Reading Room" navigation link next to "Back Office"
 - **CSS Layout**: Header navigation now uses flex container for multiple links
 
 ### Fixed
+
 - **Security**: Pinned minimum versions for transitive dependencies with CVEs
   - urllib3>=2.6.3 (CVE-2026-21441)
   - h11>=0.16.0 (CVE-2025-43859)
@@ -820,6 +914,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.8.0] - 2026-01-07
 
 ### Added
+
 - **Position Sync with Audible**: Bidirectional playback position synchronization with Audible cloud
   - "Furthest ahead wins" conflict resolution - you never lose progress
   - Seamlessly switch between Audible apps and self-hosted library
@@ -847,12 +942,14 @@ sudo /opt/audiobooks/upgrade.sh
   - Troubleshooting guide
 
 ### Changed
+
 - **Architecture Docs**: Added Position Sync Architecture section with data flow diagrams
 - **README**: Added Position Sync section with quick setup guide
 
 ## [3.7.2] - 2026-01-07
 
 ### Added
+
 - **Position Sync with Audible**: Bidirectional playback position synchronization with Audible cloud
   - "Furthest ahead wins" conflict resolution - you never lose progress
   - Seamlessly switch between Audible apps and self-hosted library
@@ -880,12 +977,14 @@ sudo /opt/audiobooks/upgrade.sh
   - Troubleshooting guide
 
 ### Changed
+
 - **Architecture Docs**: Added Position Sync Architecture section with data flow diagrams
 - **README**: Added Position Sync section with quick setup guide
 - **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobook-downloader.timer` in API
   and helper script to match actual systemd unit name
 
 ### Fixed
+
 - **Download Feature**: Fixed "Read-only file system" error when downloading audiobooks
   - Added `/run/audiobooks` to `ReadWritePaths` in API service for lock files and temp storage
 - **Vacuum Database**: Fixed "disk I/O error" when vacuuming database
@@ -896,6 +995,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.7.1] - 2026-01-05
 
 ### Added
+
 - **Duplicate Deletion**: Added delete capability for checksum-based duplicates in Back Office
   - New API endpoint `POST /api/duplicates/delete-by-path` for path-based deletion
   - Library checksum duplicates now show checkboxes for selection
@@ -903,12 +1003,14 @@ sudo /opt/audiobooks/upgrade.sh
   - Removed "manual deletion required" notice - duplicates can now be deleted from the UI
 
 ### Changed
+
 - **Service Management**: Renamed `audiobooks-scanner.timer` to `audiobook-downloader.timer` in API
   and helper script to match actual systemd unit name
 - **API Service**: Updated systemd service `ReadWritePaths` to include Library and Sources directories
   - Required for API to delete duplicate files (previously had read-only access)
 
 ### Fixed
+
 - **Download Feature**: Fixed "Read-only file system" error when downloading audiobooks
   - Added runtime directory to `ReadWritePaths` in API service for lock files and temp storage
 - **Vacuum Database**: Fixed "disk I/O error" when vacuuming database
@@ -919,15 +1021,18 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.7.0.1] - 2026-01-04
 
 ### Changed
+
 - **Documentation**: Mark v3.5.x as end-of-life (no security patches or updates)
 
 ## [3.7.0] - 2026-01-04
 
 ### Changed
+
 - **UI Styling**: Changed dark green text on dark backgrounds to cream-light for better contrast
   - Progress output text, success stats, active file indicators now use `--cream-light`
 
 ### Fixed
+
 - **upgrade.sh**: Fixed non-interactive upgrade failures in systemd service
   - Fixed arithmetic increment `((issues_found++))` causing exit code 1 with `set -e`
   - Changed to `issues_found=$((issues_found + 1))` which always succeeds
@@ -938,16 +1043,21 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.6.4.1] - 2026-01-04
 
 ### Added
+
 - **CSS Customization Guide**: New `docs/CSS-CUSTOMIZATION.md` documenting how to customize
   colors, fonts, shadows, and create custom themes for the web UI
+
 ### Changed
+
 - **UI Styling**: Enhanced visual depth and contrast across web interface
   - Darkened header sunburst background for better separation from content
   - Brightened all cream-colored text (85% opacity → 100% with cream-light color)
   - Added shadow elevation system to theme for consistent depth cues
   - Matched Back Office header/background styling to main Library page
 - **Back Office**: Removed hardcoded version from header (available in System tab)
+
 ### Fixed
+
 - **Upgrade Button**: Fixed confirm dialog always resolving as "Cancel"
   - `confirmAction()` was resolving with `false` before `resolve(true)` could run
   - Clicking "Confirm" on upgrade dialog now properly triggers the upgrade
@@ -961,6 +1071,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.6.4] - 2026-01-04
 
 ### Fixed
+
 - **upgrade.sh**: Self-healing tarball extraction with flexible pattern matching
   - Now tries multiple directory patterns (`audiobook-manager-*`, `audiobooks-*`, `Audiobook-Manager-*`)
   - Fallback pattern for any versioned directory (`*-[0-9]*`)
@@ -970,6 +1081,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.6.3] - 2026-01-03
 
 ### Fixed
+
 - **upgrade.sh**: Fixed GitHub release extraction failing with "Could not find extracted directory"
   - Changed glob pattern from `audiobooks-*` to `audiobook-manager-*` to match actual tarball structure
 - **upgrade.sh**: Fixed project upgrade (`--from-project`) failing with exit code 1 when no upgrade needed
@@ -979,11 +1091,13 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.6.2] - 2026-01-03
 
 ### Changed
+
 - **utilities_system.py**: Project discovery now searches multiple paths instead of hardcoded
   `/hddRaid1/ClaudeCodeProjects` - checks `AUDIOBOOKS_PROJECT_DIR` env, `~/ClaudeCodeProjects`,
   `~/projects`, and `/opt/projects`
 
 ### Fixed
+
 - Version sync: Updated `install-manifest.json`, `Dockerfile`, `CLAUDE.md`, and
   `docs/ARCHITECTURE.md` to match VERSION file (3.6.1 → now 3.6.2)
 - Removed unused imports in `scan_audiobooks.py` (re-exported from `metadata_utils` for
@@ -993,15 +1107,20 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.6.1] - 2026-01-03
 
 ### Added
+
 - **Privilege-separated helper service**: System operations (service control, upgrades) now work
   with the API's `NoNewPrivileges=yes` security hardening via a helper service pattern
   - `audiobook-upgrade-helper.service`: Runs privileged operations as root
   - `audiobook-upgrade-helper.path`: Watches for request files to trigger helper
   - Control files stored in `/var/lib/audiobooks/.control/` (avoids systemd namespace issues)
+
 ### Changed
+
 - **API utilities_system.py**: Refactored from direct sudo calls to file-based IPC with helper
 - **install.sh/upgrade.sh**: Now deploy the helper service units
+
 ### Fixed
+
 - Service control (start/stop/restart) from web UI now works with sandboxed API
 - Upgrade from web UI now works with `NoNewPrivileges=yes` security hardening
 - Race condition in status polling that caused false failure responses
@@ -1009,6 +1128,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.6.0] - 2026-01-03
 
 ### Added
+
 - **Audible Sync tab**: New Back Office section for syncing metadata from Audible library exports
   - Sync Genres: Match audiobooks to Audible entries and populate genre fields
   - Update Narrators: Fill in missing narrator information from Audible data
@@ -1024,7 +1144,9 @@ sudo /opt/audiobooks/upgrade.sh
   - `player.css`: Audio player styling
   - `modals.css`: Dialog and modal styling
 - **Check Audible Prerequisites endpoint**: `/api/utilities/check-audible-prereqs`
+
 ### Changed
+
 - **Art Deco theme applied globally**: Complete visual redesign across entire application:
   - Dark geometric diamond background pattern
   - Gold, cream, and charcoal color palette
@@ -1036,7 +1158,9 @@ sudo /opt/audiobooks/upgrade.sh
 - Updated Python script API endpoints to use `--execute` flag (dry-run is default)
 - Improved column balance with `align-items: stretch` for equal card heights
 - Database tab reorganized into balanced 2x2 card layout
+
 ### Fixed
+
 - Removed duplicate API endpoint definitions causing Flask startup failures
 - Fixed bash `log()` functions to work with `set -e` (use if/then instead of &&)
 - Fixed genre sync, narrator sync, and sort field population API argument handling
@@ -1048,6 +1172,7 @@ sudo /opt/audiobooks/upgrade.sh
 > ⚠️ **END OF LIFE - NO LONGER SUPPORTED**
 >
 > The 3.5.x branch reached end-of-life with the release of v3.7.0.
+>
 > - **No further updates** will be released for 3.5.x
 > - **No security patches** - upgrade to 3.7.0+ immediately
 > - **Migration required**: v3.5.0 was the last version supporting the legacy monolithic API (`api.py`)
@@ -1055,6 +1180,7 @@ sudo /opt/audiobooks/upgrade.sh
 > Users still on 3.5.x must upgrade to v3.7.0 or later. See [upgrade documentation](docs/ARCHITECTURE.md).
 
 ### Added
+
 - **Checksum tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations
 - **Generate Checksums button**: New Utilities maintenance feature for Sources AND Library with hover tooltips
 - **Index cleanup script**: `cleanup-stale-indexes` removes entries for deleted files from all indexes
@@ -1062,14 +1188,18 @@ sudo /opt/audiobooks/upgrade.sh
 - Real-time index updates after each conversion completes
 - Prominent remaining summary box in Conversion Monitor
 - Inline database import in Back Office UI
+
 ### Changed
+
 - **Bulk Operations redesign**: Clear step-by-step workflow with explanatory intro, descriptive filter options, and use-case examples
 - **Conversion queue**: Hybrid ASIN + title matching for accurate queue building
 - Removed redundant "Audiobooks" tab from Back Office (audiobook search available on main library page)
 - Updated "Generate Hashes" button tooltip to clarify it regenerates ALL hashes
 - Download and mover services now append checksums to index files in real-time
 - Mover timing optimization: reduced file age check from 5min to 1min, polling from 5min to 30sec
+
 ### Fixed
+
 - Fixed chapters.json ASIN extraction in cleanup script (ASINs are in JSON content, not filename)
 - Queue builder robustness: title normalization, subshell issues, edition handling
 - Version display fixes in Back Office header
@@ -1077,6 +1207,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.4.2] - 2026-01-02
 
 ### Changed
+
 - Refactored utilities.py (1067 lines) into 4 focused sub-modules:
   - `utilities_crud.py`: CRUD operations (259 lines)
   - `utilities_db.py`: Database maintenance (291 lines)
@@ -1091,6 +1222,7 @@ sudo /opt/audiobooks/upgrade.sh
 - Extracted helper functions (`get_ffmpeg_processes`, `parse_job_io`, `get_system_stats`) for testability
 
 ### Fixed
+
 - Fixed conversion progress showing "100% Complete" while active FFmpeg processes still running
 - Fixed REMAINING and QUEUE SIZE showing 0 when conversions are in-progress (now shows active count)
 - Removed unused imports and variables (code cleanup)
@@ -1100,6 +1232,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.4.1] - 2026-01-02
 
 ### Added
+
 - Comprehensive ARCHITECTURE.md guide with:
   - System component diagrams and symlink architecture
   - Install, upgrade, and migrate workflow diagrams
@@ -1108,32 +1241,41 @@ sudo /opt/audiobooks/upgrade.sh
   - Kernel compatibility matrix (LTS through rolling release)
   - I/O scheduler recommendations
 - Installed directory structure documentation in README.md
+
 ### Changed
+
 - `install.sh` now uses `/opt/audiobooks` as canonical install location instead of `/usr/local/lib/audiobooks`
 - Wrapper scripts now source from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path)
 - Added backward-compatibility symlink `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
 - `install.sh` now automatically enables and starts services after installation (no manual step needed)
 - `migrate-api.sh` now stops services before migration and starts them after (proper lifecycle management)
 - `/etc/profile.d/audiobooks.sh` now sources from canonical `/opt/audiobooks/lib/` path
+
 ### Fixed
+
 - Fixed `install.sh` to create symlinks in `/usr/local/bin/` instead of copying scripts
 - Fixed proxy server to forward `/covers/` requests to API backend
 
 ## [3.4.0] - 2026-01-02
 
 ### Added
+
 - Per-job conversion stats with progress percentage and throughput (MiB/s)
 - Sortable Active Conversions list (by percent, throughput, or name)
 - Expandable conversion details panel in Back Office UI
 - Text-search based collection subgenres: Short Stories & Anthologies, Action & Adventure, Historical Fiction
 - Short Stories collection detects: editor in author field, ": Stories" suffix, "Complete/Collected" patterns
+
 ### Changed
+
 - Active conversions now use light background with dark text for better readability
 - Cover art now stored in data directory (`${AUDIOBOOKS_DATA}/.covers`) instead of application directory
 - Config template uses `${AUDIOBOOKS_DATA}` references for portability across installations
 - Scripts now installed to `/opt/audiobooks/scripts/` (canonical) with symlinks in `/usr/local/bin/`
 - Clear separation: `/opt/audiobooks/` (application), `${AUDIOBOOKS_DATA}/` (user data), `/var/lib/` (database)
+
 ### Fixed
+
 - **CRITICAL**: Fixed `DATA_DIR` config not reading from `/etc/audiobooks/audiobooks.conf`, which caused "Reimport Database" to read from test fixtures instead of production data
 - Fixed collection genre queries to match actual database genre names (Fiction, Sci-Fi & Fantasy, etc.)
 - Fixed queue count sync - now shows actual remaining files instead of stale queue.txt count
@@ -1150,6 +1292,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.3.1] - 2026-01-01
 
 ### Changed
+
 - Upgrade script now automatically stops services before upgrade and restarts them after
 - Removed manual "Remember to restart services" reminder (now handled automatically)
 - Service status summary displayed after upgrade completes
@@ -1157,6 +1300,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.3.0] - 2026-01-01
 
 ### Added
+
 - Conversion Monitor in Back Office web UI with real-time progress bar, rate calculation, and ETA
 - `/api/conversion/status` endpoint returning file counts, active ffmpeg processes, and system stats
 - ProgressTracker class in scanner with visual progress bar (█░), rate, and ETA display
@@ -1164,10 +1308,14 @@ sudo /opt/audiobooks/upgrade.sh
 - `find-duplicate-sources` script for identifying duplicate .aaxc files
 - Incremental audiobook scanner with progress tracking UI
 - Ananicy rules for ffmpeg priority tuning during conversions
+
 ### Changed
+
 - Scanner now shows visual progress bar instead of simple percentage output
 - Conversion queue includes unique non-ASIN files that have no ASIN equivalent
+
 ### Fixed
+
 - Type safety improvements across codebase
 - Version sync between project files
 - Duplicate file handling in source directory
@@ -1175,28 +1323,40 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.2.1] - 2025-12-30
 
 ### Added
+
 - Docker build job to release workflow for automated container builds
+
 ### Changed
+
 - Increased default parallel conversion jobs from 8 to 12
 - Removed redundant config fallbacks from scripts (single source of truth in audiobook-config.sh)
+
 ### Fixed
+
 - Updated documentation to v3.2.0 and fixed obsolete paths
 
 ## [3.2.0] - 2025-12-29
 
 ### Added
+
 - Standalone installation via GitHub releases (`bootstrap-install.sh`)
 - GitHub-based upgrade system (`audiobook-upgrade --from-github`)
 - Release automation workflow (`.github/workflows/release.yml`)
 - Release tarball builder (`create-release.sh`)
+
 ### Changed
+
 - Renamed repository from `audiobook-toolkit` to `Audiobook-Manager`
 - Removed Flask-CORS dependency (CORS now handled natively)
 - Updated all documentation to reflect new repository name
+
 ### Removed
+
 - Deleted monolithic `api.py` (2,244 lines) - superseded by `api_modular/`
 - Deleted legacy `web.legacy/` directory - superseded by `web-v2/`
+
 ### Fixed
+
 - Flask blueprint double-registration error in `api_modular`
 - SQL injection vulnerability in `generate_hashes.py`
 - Configuration path mismatch after repository rename
@@ -1204,19 +1364,25 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.1.1] - 2025-12-29
 
 ### Fixed
+
 - RuntimeDirectoryMode changed from 0755 to 0775 to allow group write access, fixing permission errors when running downloader from desktop shortcuts
 
 ## [3.1.0] - 2025-12-29
 
 ### Added
+
 - Install manifest (`install-manifest.json`) for production validation
 - API architecture selection and migration tools (`migrate-api.sh`)
 - Modular Flask Blueprint architecture (`api_modular/`)
 - Deployment infrastructure with dev configuration
 - Post-install permission verification with umask 022
+
 ### Changed
+
 - Refactored codebase with linting fixes and test migration to api_modular
+
 ### Fixed
+
 - Resolved 7 hanging tests by correcting mock paths in test suite
 - Fixed 13 shellcheck warnings across shell scripts
 - Resolved 18 mypy type errors across Python modules
@@ -1225,32 +1391,42 @@ sudo /opt/audiobooks/upgrade.sh
 ## [3.0.5] - 2025-12-27
 
 ### Security
+
 - Fixed SQL injection vulnerability in genre query functions
 - Docker container now runs as non-root user
 - Added input escaping for LIKE patterns
 
 ### Changed
+
 - Pinned Docker base image to python:3.11.11-slim
 - Standardized port configuration (8443 for HTTPS, 8080 for HTTP redirect)
 - Updated Flask version constraint to >=3.0.0
 
 ### Added
+
 - LICENSE file (MIT)
 - CONTRIBUTING.md with contribution guidelines
 - .env.example template for easier setup
 - This CHANGELOG.md
+
 ## [3.0.0] - 2025-12-25
+
 ### Added
+
 - Modular API architecture (api_modular/ blueprints)
 - PDF supplements support with viewer
 - Multi-source audiobook support (experimental)
 - HTTPS support with self-signed certificates
 - Docker multi-platform builds (amd64, arm64)
+
 ### Changed
+
 - Migrated from monolithic api.py to Flask Blueprints
 - Improved test coverage (234 tests)
 - Enhanced deployment scripts with dry-run support
+
 ### Fixed
+
 - Cover art extraction for various formats
 - Database import performance improvements
 - CORS configuration for cross-origin requests
@@ -1258,6 +1434,7 @@ sudo /opt/audiobooks/upgrade.sh
 ## [2.0.0] - 2024-11-28
 
 ### Added
+
 - Web-based audiobook browser
 - Search and filtering capabilities
 - Cover art display and caching
@@ -1265,10 +1442,15 @@ sudo /opt/audiobooks/upgrade.sh
 - SQLite database backend
 - Docker containerization
 - Systemd service integration
+
 ### Changed
+
 - Complete rewrite from shell scripts to Python/Flask
+
 ## [1.0.0] - 2024-09-15
+
 ### Added
+
 - Initial release
 - AAXtoMP3 converter integration
 - Basic audiobook scanning

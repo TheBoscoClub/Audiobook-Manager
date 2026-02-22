@@ -19,13 +19,14 @@ cd /opt/audiobooks/library
 ./launch-v3.sh
 ```
 
-Your browser will open to: **https://localhost:8443**
+Your browser will open to: **<https://localhost:8443>**
 
 ---
 
 ## ✅ Verify It's Working
 
 You should see:
+
 - **"The Library"** at the top
 - **Statistics** showing your collection size
 - **Book grid loading instantly** (not stuck on "Loading audiobooks...")
@@ -36,6 +37,7 @@ You should see:
 ## ⚠️ Browser Security Warning
 
 You'll see a self-signed certificate warning. Click:
+
 - **Chrome**: Advanced → Proceed to localhost
 - **Firefox**: Advanced → Accept the Risk and Continue
 - **Safari**: Show Details → visit this website
@@ -60,6 +62,7 @@ You'll see a self-signed certificate warning. Click:
 **Problem:** API server not running
 
 **Solution:**
+
 ```bash
 sudo systemctl status audiobook-api
 sudo systemctl start audiobook-api
@@ -70,6 +73,7 @@ sudo systemctl start audiobook-api
 **Problem:** Check browser console (F12) for errors
 
 **Solution:**
+
 1. Verify API is running: `curl -sk https://localhost:8443/api/stats`
 2. Check browser console for JavaScript errors
 3. Restart services: `sudo systemctl restart audiobook.target`
@@ -79,6 +83,7 @@ sudo systemctl start audiobook-api
 **Problem:** Port 5001 or 8443 in use
 
 **Solution:**
+
 ```bash
 # Check what's using the ports
 ss -tlnp | grep -E "5001|8443"
@@ -95,6 +100,7 @@ sudo systemctl start audiobook-api audiobook-proxy
 **Problem:** If `/tmp` or `/var` is mounted as tmpfs, required directories are cleared on reboot
 
 **Solution:**
+
 ```bash
 # Check if tmpfiles.d is configured
 ls /etc/tmpfiles.d/audiobooks.conf

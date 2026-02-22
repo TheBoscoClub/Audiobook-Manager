@@ -3,6 +3,7 @@
 This document describes failure modes in the secure remote access authentication system, their symptoms, impacts, and recovery procedures.
 
 > **Related Documentation:**
+>
 > - [Auth Runbook](AUTH_RUNBOOK.md) — Operational procedures and admin guide
 > - [Architecture — Auth Module](ARCHITECTURE.md#authentication-module-architecture) — System design and database schema
 > - [README — Authentication Section](../README.md#authentication-v50) — User-facing setup guide
@@ -13,21 +14,25 @@ This document describes failure modes in the secure remote access authentication
 ### 1. Auth Database Unavailable
 
 **Symptoms:**
+
 - HTTP 500 errors on all auth endpoints
 - Login/registration completely fails
 - Existing sessions cannot be validated
 
 **Cause:**
+
 - `auth.db` file missing or corrupted
 - Disk full preventing writes
 - File permissions changed
 
 **Impact:**
+
 - All users locked out
 - No new logins possible
 - Library browsing may work (if not requiring auth)
 
 **Recovery:**
+
 ```bash
 # Check if database exists
 ls -la /var/lib/audiobooks/auth.db
@@ -46,20 +51,24 @@ systemctl restart audiobook-api
 ### 2. Encryption Key Missing/Wrong
 
 **Symptoms:**
+
 - Database operations fail with "file is not a database" or "SQLCipher: key is incorrect"
 - API startup fails silently or with cryptic errors
 
 **Cause:**
+
 - `auth.key` file deleted or corrupted
 - Key file has wrong permissions
 - Backup restored without matching key
 
 **Impact:**
+
 - Complete auth system failure
 - All user data inaccessible
 - Cannot decrypt existing credentials
 
 **Recovery:**
+
 ```bash
 # Check key file exists
 ls -la /etc/audiobooks/auth.key
@@ -77,6 +86,7 @@ chown audiobooks:audiobooks /var/lib/audiobooks/auth.*
 ```
 
 **Prevention:**
+
 - Always backup both `auth.db` AND `auth.key` together
 - Keep key file in multiple secure locations
 - Test restore procedure periodically
@@ -86,38 +96,46 @@ chown audiobooks:audiobooks /var/lib/audiobooks/auth.*
 ### 3. Session Token Expired
 
 **Symptoms:**
+
 - User sees "Session expired" message
 - Redirected to login page unexpectedly
 - API returns 401 Unauthorized
 
 **Cause:**
+
 - Session exceeded configured timeout (default 30 min inactivity)
 - Session explicitly logged out
 - Server restarted
 
 **Impact:**
+
 - Single user affected
 - Normal behavior - not a failure
 
 **Recovery:**
+
 - User logs in again
 - No administrator action needed
 
 ### 4. Session Cookie Not Set
 
 **Symptoms:**
+
 - Login succeeds but user redirected back to login
 - Authentication doesn't persist across requests
 
 **Cause:**
+
 - Browser blocking cookies
 - Incorrect SameSite/Secure cookie settings
 - HTTP instead of HTTPS (cookies marked Secure won't be sent)
 
 **Impact:**
+
 - Affected users cannot maintain logged-in state
 
 **Recovery:**
+
 ```bash
 # Verify Caddy/reverse proxy is using HTTPS
 curl -I https://your-domain.com/api/auth/session
@@ -132,18 +150,22 @@ curl -I https://your-domain.com/api/auth/session
 ### 5. Session Database Corruption
 
 **Symptoms:**
+
 - Some users suddenly logged out
 - Session validation errors in logs
 
 **Cause:**
+
 - Crash during session write
 - Concurrent access issues (rare with SQLite WAL mode)
 
 **Impact:**
+
 - Affected users need to log in again
 - No data loss for user accounts
 
 **Recovery:**
+
 ```bash
 # Sessions table can be safely truncated
 # Users just need to log in again
@@ -158,18 +180,22 @@ sqlite3 /var/lib/audiobooks/auth.db "DELETE FROM sessions;"
 ### 6. TOTP Code Rejected
 
 **Symptoms:**
+
 - User enters 6-digit code, gets "Invalid code"
 - Repeated failures
 
 **Cause:**
+
 - Server/device clock skew > 30 seconds
 - User entering old code
 - Wrong secret provisioned
 
 **Impact:**
+
 - User cannot log in via TOTP
 
 **Recovery:**
+
 ```bash
 # Check server time
 timedatectl
@@ -187,18 +213,22 @@ sudo systemctl restart systemd-timesyncd
 ### 7. Passkey Authentication Fails
 
 **Symptoms:**
+
 - Passkey prompt doesn't appear
 - "Authenticator not recognized" error
 
 **Cause:**
+
 - Passkey deleted from user's device
 - Domain mismatch (RP ID changed)
 - Browser/device doesn't support WebAuthn
 
 **Impact:**
+
 - User cannot log in with passkey
 
 **Recovery:**
+
 ```bash
 # Admin can add alternative auth method:
 ./library/tools/auth_admin.py --add-magic-link USERNAME email@example.com
@@ -210,19 +240,23 @@ sudo systemctl restart systemd-timesyncd
 ### 8. Magic Link Email Not Delivered
 
 **Symptoms:**
+
 - User clicks "Send magic link"
 - Shows success but email never arrives
 - Nothing in spam folder
 
 **Cause:**
+
 - SMTP server configuration wrong
 - Email in blocklist/spam filter
 - Rate limiting by email provider
 
 **Impact:**
+
 - Users relying on magic link cannot log in
 
 **Recovery:**
+
 ```bash
 # Check SMTP configuration
 grep SMTP /etc/audiobooks/audiobooks.conf
@@ -243,19 +277,23 @@ journalctl -u audiobook-api | grep -i "email\|smtp\|magic"
 ### 9. Reverse Proxy Misconfiguration
 
 **Symptoms:**
+
 - 502 Bad Gateway errors
 - API unreachable from outside
 - Works internally but not externally
 
 **Cause:**
+
 - Caddy/nginx configuration error
 - Wrong upstream port
 - SSL certificate expired
 
 **Impact:**
+
 - All external users affected
 
 **Recovery:**
+
 ```bash
 # Check Caddy status
 systemctl status caddy
@@ -274,19 +312,23 @@ caddy validate --config /etc/caddy/Caddyfile
 ### 10. Rate Limiting Triggered
 
 **Symptoms:**
+
 - HTTP 429 Too Many Requests
 - Users temporarily blocked
 - Legitimate users affected by shared IP
 
 **Cause:**
+
 - Brute force protection triggered
 - Legitimate high traffic
 - Crawler/bot activity
 
 **Impact:**
+
 - Affected IP addresses temporarily blocked
 
 **Recovery:**
+
 ```bash
 # Rate limits are at Caddy level
 # Check Caddy rate limit configuration
@@ -304,37 +346,45 @@ sudo ufw deny from ATTACKER_IP
 ### 11. Simultaneous Login Race Condition
 
 **Symptoms:**
+
 - User logs in on two devices rapidly
 - One device unexpectedly logged out
 
 **Cause:**
+
 - Single-session-per-user design (intentional security feature)
 - New login invalidates existing session
 
 **Impact:**
+
 - Normal behavior - not a failure
 - User understands only one session allowed
 
 **Recovery:**
+
 - No action needed - this is expected behavior
 - Users log in on the device they want to use
 
 ### 12. Database Lock Contention
 
 **Symptoms:**
+
 - Slow authentication responses
 - Occasional timeout errors
 - "database is locked" errors in logs
 
 **Cause:**
+
 - Many concurrent auth operations
 - Long-running transactions
 - WAL checkpoint blocking
 
 **Impact:**
+
 - Degraded performance for all users
 
 **Recovery:**
+
 ```bash
 # Check for stuck transactions
 sqlite3 /var/lib/audiobooks/auth.db ".timeout 5000" "PRAGMA wal_checkpoint;"
@@ -382,11 +432,13 @@ sqlite3 /var/lib/audiobooks/auth.db \
 ## Backup Checklist
 
 **Daily Backups Must Include:**
+
 1. `/var/lib/audiobooks/auth.db` - User accounts, sessions
 2. `/etc/audiobooks/auth.key` - Encryption key (CRITICAL)
 3. `/etc/audiobooks/audiobooks.conf` - Configuration
 
 **Backup Verification:**
+
 ```bash
 # Test backup restore monthly:
 mkdir /tmp/auth-restore-test

@@ -9,7 +9,7 @@ This package provides a **modular Flask Blueprint-based architecture** for the A
 
 ## Architecture Overview
 
-```
+```text
 api_modular/
 ├── __init__.py             # Package initialization, app factory, exports
 ├── core.py                 # Database connections, CORS, shared utilities
@@ -31,11 +31,13 @@ api_modular/
 ## Module Responsibilities
 
 ### `core.py` - Shared Utilities
+
 - Database connection factory (`get_db()`)
 - CORS header configuration (`add_cors_headers()`)
 - Common type definitions (`FlaskResponse`)
 
 ### `collections.py` - Genre Collections
+
 - Main genre collections matching database genres (Fiction, Sci-Fi & Fantasy, Mystery & Thriller, etc.)
 - Text-search subgenres (Short Stories & Anthologies, Action & Adventure, Historical Fiction)
 - Special collections (The Great Courses)
@@ -43,11 +45,13 @@ api_modular/
 - Routes: `/api/collections`, `/api/collections/<name>`
 
 ### `editions.py` - Edition Detection
+
 - Identifies special editions from title text
 - Supported types: Dramatized, Full Cast, Unabridged, Abridged
 - Normalizes base titles for comparison
 
 ### `audiobooks.py` - Core Endpoints
+
 - Main audiobook listing with pagination
 - Advanced filtering (genre, narrator, series, etc.)
 - Audio streaming with range request support
@@ -55,18 +59,21 @@ api_modular/
 - Routes: `/api/audiobooks`, `/api/stats`, `/api/filters`, `/api/stream/<id>`, `/covers/<filename>`
 
 ### `duplicates.py` - Duplicate Management
+
 - Hash-based duplicate detection
 - Title-based duplicate grouping
 - Bulk duplicate operations
 - Routes: `/api/duplicates`, `/api/hash-stats`
 
 ### `supplements.py` - Companion Files
+
 - PDF, image, and document management
 - Per-audiobook supplement listing
 - File download endpoints
 - Routes: `/api/supplements`, `/api/audiobooks/<id>/supplements`
 
 ### `position_sync.py` - Audible Position Sync (v3.7.2+)
+
 - Bidirectional playback position synchronization with Audible cloud
 - "Furthest ahead wins" conflict resolution
 - Batch sync for all audiobooks with ASINs
@@ -75,6 +82,7 @@ api_modular/
 - Routes: `/api/position/*`, `/api/position/sync/*`
 
 ### `utilities*.py` - Admin Operations (Modular)
+
 The utilities module is split into focused sub-modules for maintainability:
 
 - **`utilities.py`**: Blueprint aggregator that registers all utility routes
@@ -101,6 +109,7 @@ Routes: `/api/utilities/*`, `/api/conversion/*`, `/api/system/*`
 | **Best For** | Larger teams, microservice migration prep |
 
 **Pros:**
+
 - Clear separation of concerns
 - Easier code navigation
 - Better git history per feature area
@@ -109,6 +118,7 @@ Routes: `/api/utilities/*`, `/api/conversion/*`, `/api/system/*`
 - Foundation for microservices migration
 
 **Cons:**
+
 - More complex import structure
 - Requires test mock path updates
 - Blueprint registration limitation (see Cautions)
@@ -162,7 +172,8 @@ python api_server.py
 **Issue:** Flask blueprints are module-level objects. Calling `create_app()` multiple times (e.g., in test fixtures) will attempt to add routes to already-registered blueprints.
 
 **Error:**
-```
+
+```text
 AssertionError: The setup method 'route' can no longer be called on the blueprint
 ```
 
@@ -175,6 +186,7 @@ AssertionError: The setup method 'route' can no longer be called on the blueprin
 **Issue:** Existing tests patch paths like `backend.api.send_file`. The modular package requires different paths.
 
 **If migrating tests:**
+
 ```python
 # Old (monolithic)
 @patch('backend.api.send_file')

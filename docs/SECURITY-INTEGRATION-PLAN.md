@@ -12,6 +12,7 @@ This document tracked the requirements and gaps for integrating the security/aut
 ## Current State
 
 **Branch commits**: 18 commits implementing:
+
 - Phase 0: Caddy-based dev infrastructure
 - Phase 1-2: User auth with backup code recovery
 - Phase 3: Per-user playback position tracking, conditional auth decorators
@@ -31,11 +32,13 @@ This document tracked the requirements and gaps for integrating the security/aut
 **Problem**: No mechanism to create the initial admin user.
 
 **Current state**:
+
 - CLI tool `audiobook-user add --admin` exists
 - Web registration creates "pending" users awaiting approval
 - No admin exists to approve anyone
 
 **Required**:
+
 - [ ] Option A: First registered user automatically becomes admin
 - [ ] Option B: CLI-only admin creation (current, but needs documentation)
 - [ ] Option C: Environment variable to set initial admin username
@@ -49,12 +52,14 @@ This document tracked the requirements and gaps for integrating the security/aut
 **Problem**: Admins cannot see or approve pending registration requests.
 
 **Current state**:
+
 - `pending_registrations` table stores requests
 - No endpoint to list pending registrations
 - No endpoint to approve/deny requests
 - No admin UI for user management
 
 **Required**:
+
 - [ ] `GET /api/admin/pending` - List pending registrations
 - [ ] `POST /api/admin/approve/<id>` - Approve registration
 - [ ] `POST /api/admin/deny/<id>` - Deny registration
@@ -69,6 +74,7 @@ This document tracked the requirements and gaps for integrating the security/aut
 **Problem**: No CLI command to approve pending users.
 
 **Required**:
+
 ```bash
 audiobook-user approve <username>    # Approve pending registration
 audiobook-user deny <username>       # Deny and delete pending registration
@@ -82,12 +88,14 @@ audiobook-user pending               # List pending registrations
 **Problem**: Install scripts assume `audiobooks` user/group exists but don't create it.
 
 **Current state**:
+
 - Scripts reference `SERVICE_USER="audiobooks"` and `SERVICE_GROUP="audiobooks"`
 - No `useradd`/`groupadd` commands in any install script
 - User must manually create before installation
 
 **Required**:
 Add to `install.sh` (system installation mode):
+
 ```bash
 # Create audiobooks group if not exists
 if ! getent group audiobooks >/dev/null; then
@@ -106,6 +114,7 @@ echo "NOTE: Log out and back in for group membership to take effect"
 ```
 
 **Important**:
+
 - Application users (web auth) are stored in SQLite only - NO Linux accounts
 - Only the service account `audiobooks` and installer need Linux access
 
@@ -116,11 +125,13 @@ echo "NOTE: Log out and back in for group membership to take effect"
 **Problem**: Web UI expects API at same origin (`/api`), but dev config uses different ports.
 
 **Current state**:
+
 - Dev config: API on port 6001, Web on port 9090
 - Production: API on port 5001, Web on port 8443
 - Web JS uses `API_BASE = '/api'` (relative)
 
 **Required**:
+
 - [ ] Document that proxy_server.py must be used (handles `/api/*` proxying)
 - [ ] Or: Add CORS support and configurable API_BASE for development
 
@@ -176,6 +187,7 @@ echo "NOTE: Log out and back in for group membership to take effect"
 ## Files Changed on Branch
 
 Key files to review during merge:
+
 - `library/auth/` - New auth module
 - `library/backend/api_modular/auth.py` - Auth API endpoints
 - `library/web-v2/login.html`, `register.html`, etc. - Auth UI

@@ -1,7 +1,7 @@
 # Personal Fork with AAXC Improvements
 
 > **⚠️ This is a personal fork, not an "official" maintained version**
-
+>
 > **📜 Original Work**: This fork is based on [AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3) by **KrumpetPirate** and 55+ community contributors. All credit for the core functionality goes to the original authors. This fork only adds minor bug fixes and improvements.
 
 ---
@@ -55,7 +55,7 @@ This is a **casual personal fork** of [KrumpetPirate/AAXtoMP3](https://github.co
 
 ### Opus Cover Art Embedding (v2.2)
 
-3. **Fixed cover art embedding for Opus files**
+1. **Fixed cover art embedding for Opus files**
    - Issue: FFmpeg cannot embed cover art in OGG/Opus containers (error: "Unsupported codec id in stream 1")
    - Fix: Use Python mutagen library with METADATA_BLOCK_PICTURE (Vorbis Comments standard)
    - Benefit: Opus audiobooks now have embedded cover art that displays in audio players
@@ -63,18 +63,19 @@ This is a **casual personal fork** of [KrumpetPirate/AAXtoMP3](https://github.co
 
 ### Robustness Improvements
 
-4. **Made chapter/cover file validation non-fatal**
+1. **Made chapter/cover file validation non-fatal**
    - Before: Script would fail with ERROR if audible-cli metadata files were missing
    - After: Script warns but continues, extracting data directly from AAXC file
    - Benefit: Works with incomplete audible-cli setups
 
-5. **Enhanced user feedback**
+2. **Enhanced user feedback**
    - Added informative log messages when extracting chapters/cover as fallback
    - Users now understand what the script is doing during conversion
 
 ### Technical Details
 
 See commits:
+
 - `556b39a` - Make audible-cli chapter and cover files optional
 - `4a29bed` - Improve AAXC fallback handling and logging
 
@@ -85,6 +86,7 @@ For full documentation on how to use AAXtoMP3, see the [original README.md](READ
 ## Installation
 
 Same as original:
+
 ```bash
 git clone https://github.com/TheBoscoClub/AAXtoMP3.git
 cd AAXtoMP3
@@ -133,7 +135,7 @@ See the [LICENSE](LICENSE) file for full license text.
 ### Original Project
 
 **Original Author**: KrumpetPirate
-**Original Repository**: https://github.com/KrumpetPirate/AAXtoMP3 (now archived)
+**Original Repository**: <https://github.com/KrumpetPirate/AAXtoMP3> (now archived)
 **Contributors**: 55+ community contributors (see git history)
 
 This fork is built upon the excellent work of KrumpetPirate and the entire AAXtoMP3 community. All improvements in this fork are minor additions to the substantial codebase created by the original author and contributors.
@@ -141,10 +143,12 @@ This fork is built upon the excellent work of KrumpetPirate and the entire AAXto
 ### Attribution
 
 **ALL credit for the core functionality goes to:**
+
 - **KrumpetPirate** - Original author and maintainer
 - **The AAXtoMP3 community** - 55+ contributors who improved the project over the years
 
 **This fork only adds:**
+
 - Bug fixes for AAXC handling with missing metadata files
 - Enhanced error messages and logging
 - Security documentation
@@ -154,6 +158,7 @@ The original project represents years of community effort and is the foundation 
 ### License Compliance
 
 This fork complies with the WTFPL license by:
+
 - ✅ Maintaining the original LICENSE file unchanged
 - ✅ Providing full attribution to original author and contributors
 - ✅ Clearly identifying this as a derivative work/fork
@@ -168,6 +173,7 @@ The complete git history from the original repository is preserved in this fork,
 ### Use at Your Own Risk
 
 This software is provided "as is" without warranty of any kind, express or implied. The fork maintainer makes no representations or warranties regarding:
+
 - Functionality or fitness for any particular purpose
 - Compliance with any laws or regulations
 - Freedom from errors or defects
@@ -176,6 +182,7 @@ This software is provided "as is" without warranty of any kind, express or impli
 ### Limited Liability
 
 **The fork maintainer shall not be liable for:**
+
 - Any damages arising from use or inability to use this software
 - Any claims by third parties
 - Any legal consequences of using this software
@@ -191,6 +198,7 @@ This software is provided "as is" without warranty of any kind, express or impli
 ### Copyright and DRM
 
 Using this tool to circumvent DRM may be illegal in your jurisdiction. Users are responsible for:
+
 - Understanding and complying with local copyright laws
 - Complying with Audible's Terms of Service
 - Only converting audiobooks they legally purchased and own
@@ -221,23 +229,28 @@ For additional legal and security considerations, see [SECURITY.md](SECURITY.md)
 ## References & Related Projects
 
 ### Upstream Project
+
 - **Original AAXtoMP3**: [KrumpetPirate/AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3) (archived)
 - **Original Documentation**: [AAXtoMP3 Wiki](https://krumpetpirate.github.io/AAXtoMP3/)
 
 ### Related Tools
+
 - **audible-cli**: [mkb79/audible-cli](https://github.com/mkb79/audible-cli) - CLI for Audible (used for metadata extraction)
 - **FFmpeg**: [ffmpeg.org](https://ffmpeg.org/) - Multimedia framework (core dependency)
 - **inAudible**: [inAudible-NG](https://github.com/inAudible-NG) - Tools for Audible activation
 
 ### Community
+
 - **Audible subreddit**: [r/audible](https://www.reddit.com/r/audible/)
 - **Audiobook subreddit**: [r/audiobooks](https://www.reddit.com/r/audiobooks/)
 
 ### Legal Resources
+
 - **DMCA Information**: [U.S. Copyright Office](https://www.copyright.gov/dmca/)
 - **Audible Terms of Service**: [Audible ToS](https://www.audible.com/conditions-of-use)
 
 ### Technical Documentation
+
 - **AAX Format**: Audible's DRM-protected audio format
 - **AAXC Format**: Newer Audible encryption format (requires voucher files)
 - **MP4v2 Tools**: [enzo1982/mp4v2](https://github.com/enzo1982/mp4v2) - MP4 metadata utilities

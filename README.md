@@ -4,7 +4,7 @@
 
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 
-### Version History
+## Version History
 
 | Version | Status | Release |
 |---------|--------|---------|
@@ -76,23 +76,28 @@ This project includes a **personal fork of [AAXtoMP3](https://github.com/Krumpet
 <summary>Fork modifications from original AAXtoMP3</summary>
 
 **Bug Fixes:**
+
 - Fixed `tmp_chapter_file: unbound variable` crash when chapter files are missing
 - Fixed cover extraction for AAXC files (was using hardcoded `-activation_bytes` instead of `${decrypt_param}`)
 - Made audible-cli chapter/cover files optional instead of required
 
 **New Features:**
+
 - **Opus cover art embedding** via Python mutagen library (FFmpeg cannot embed covers in OGG/Opus)
 - Enhanced fallback handling - extracts metadata directly from AAXC when audible-cli files are missing
 - Improved logging and user feedback during conversion
 
 **Dependencies Added:**
+
 - `mutagen` (optional) - Required for Opus cover art embedding
 
 See [converter/CHANGELOG.md](converter/CHANGELOG.md) for version history.
 </details>
 
 ### 2. Library (`library/`)
+
 Web-based audiobook library browser with:
+
 - Vintage library-themed interface
 - Built-in audio player with playback position saving
 - Resume from last position
@@ -117,6 +122,7 @@ Web-based audiobook library browser with:
 ## Quick Start
 
 ### Browse Library
+
 ```bash
 # Launch the web interface (production mode)
 cd library
@@ -133,6 +139,7 @@ cd library
 **Note**: Your browser will show a security warning (self-signed certificate). Click "Advanced" → "Proceed to localhost" to continue.
 
 ### Convert Audiobooks
+
 ```bash
 # Convert to OPUS (recommended, default for this project)
 ./converter/AAXtoMP3 --opus --single --use-audible-cli-data input.aaxc
@@ -142,6 +149,7 @@ cd library
 ```
 
 ### Scan New Audiobooks
+
 ```bash
 cd library/scanner
 python3 scan_audiobooks.py
@@ -151,6 +159,7 @@ python3 import_to_db.py
 ```
 
 ### Manage Duplicates
+
 ```bash
 cd library
 
@@ -180,7 +189,9 @@ python3 scripts/find_duplicates.py --execute
 ```
 
 ### Manage Supplements
+
 Some Audible audiobooks include supplemental PDFs (course materials, maps, reference guides).
+
 ```bash
 # Scan supplements directory and link to audiobooks
 cd library/scripts
@@ -188,10 +199,13 @@ python3 scan_supplements.py --supplements-dir /path/to/supplements
 
 # In Docker, supplements are scanned automatically on startup
 ```
+
 Books with supplements show a red "PDF" badge in the UI. Click to download.
 
 ### Update Narrator Metadata
+
 Narrator information is often missing from converted audio files. Sync from your Audible library:
+
 ```bash
 # Export your Audible library metadata (requires audible-cli authentication)
 audible library export -f json -o /path/to/Audiobooks/library_metadata.json
@@ -205,7 +219,9 @@ python3 update_narrators_from_audible.py --execute
 ```
 
 ### Populate Genres
+
 Genre information enables the Collections sidebar for browsing by category. Sync genres from your Audible library export:
+
 ```bash
 # Export your Audible library metadata (if not already done)
 audible library export -f json -o /path/to/Audiobooks/library_metadata.json
@@ -217,6 +233,7 @@ python3 populate_genres.py
 # Apply changes
 python3 populate_genres.py --execute
 ```
+
 The script matches books by ASIN, exact title, or fuzzy title matching (85% threshold). This populates the genres table and enables collection-based filtering in the web UI.
 
 ### Multi-Source Audiobooks (Experimental - Disabled by Default)
@@ -226,6 +243,7 @@ The script matches books by ASIN, exact title, or fuzzy title matching (85% thre
 > Multi-source audiobook support (Google Play, Chirp, Librivox, etc.) is **disabled by default**. The only fully tested and verified format is **Audible's AAXC**.
 >
 > **Known Issues with non-AAXC formats:**
+>
 > - Metadata extraction may be incomplete or incorrect
 > - Chapter detection/ordering may fail for some sources
 > - Cover art extraction is unreliable for many formats
@@ -258,6 +276,7 @@ python3 librivox_downloader.py --id 12345  # Download by Librivox ID
 ```
 
 The Google Play processor:
+
 - Accepts ZIP files, directories of chapters, or single audio files (MP3/M4A/M4B)
 - Merges chapters into a single OPUS file at 64kbps (optimal for speech)
 - Extracts and embeds cover art
@@ -268,7 +287,9 @@ The Google Play processor:
 </details>
 
 ### Populate Sort Fields
+
 Extract author/narrator names and series info for enhanced sorting:
+
 ```bash
 cd library/scripts
 
@@ -278,7 +299,9 @@ python3 populate_sort_fields.py
 # Apply changes
 python3 populate_sort_fields.py --execute
 ```
+
 This extracts:
+
 - Author first/last name from full name (handles "J.R.R. Tolkien", "John le Carré", etc.)
 - Narrator first/last name
 - Series sequence numbers from titles ("Book 1", "#2", "Part 3", Roman numerals)
@@ -313,11 +336,13 @@ cd Audiobook-Manager
 ```
 
 You'll be presented with a menu to choose:
+
 - **System Installation** - Installs application to `/opt/audiobooks`, commands to `/usr/local/bin`, config to `/etc/audiobooks` (requires sudo). Services are automatically enabled and started.
 - **User Installation** - Installs to `~/.local/bin` and `~/.config/audiobooks` (no root required)
 - **Exit** - Exit without changes
 
 ### Command-Line Options
+
 ```bash
 ./install.sh --system              # Skip menu, system install
 ./install.sh --user                # Skip menu, user install
@@ -327,12 +352,15 @@ You'll be presented with a menu to choose:
 ```
 
 ### Port Conflict Detection
+
 The installer automatically checks if the required ports (5001, 8443, 8080) are available before installation. If a port is in use, you'll see options to:
+
 1. Choose an alternate port
 2. Continue anyway (if you plan to stop the conflicting service)
 3. Abort installation
 
 ### Storage Tier Detection
+
 The installer automatically detects storage types (NVMe, SSD, HDD) and warns if performance-critical components would be placed on slow storage:
 
 | Component | Recommended | Why |
@@ -348,6 +376,7 @@ If the database path is on HDD, you'll see a warning with the option to cancel a
 If your `/tmp` directory is mounted as tmpfs (RAM-based filesystem), you'll need to ensure required directories are recreated on each boot. This is a common configuration to reduce SSD/NVMe wear.
 
 **Why tmpfs is recommended for /tmp:**
+
 - Reduces write wear on SSDs/NVMes (especially important for high-write workloads)
 - Faster I/O since it's RAM-backed
 - Auto-cleans on reboot
@@ -373,6 +402,7 @@ ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
 ```
 
 **Symptoms of missing directories:**
+
 - Services fail with "No such file or directory" errors
 - Converter reports files stuck in queue but shows "idle"
 - Mover service fails silently
@@ -380,6 +410,7 @@ ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#tmpfs-runtime-directories) for detailed tmpfs architecture.
 
 Both installation modes:
+
 - Create `audiobooks` service account (system install) or use current user (user install)
 - Create configuration files with auth and remote access templates
 - Generate auth encryption key (64 hex chars, mode 0600)
@@ -390,12 +421,13 @@ Both installation modes:
 - Install systemd services with proper `User`/`Group`/`WorkingDirectory`
 
 After installation, use these commands:
+
 ```bash
 audiobook-api      # Start API server
-audiobooks-web      # Start web server (HTTPS)
-audiobooks-scan     # Scan audiobook library
-audiobooks-import   # Import to database
-audiobooks-config   # Show configuration
+audiobook-web      # Start web server (HTTPS)
+audiobook-scan     # Scan audiobook library
+audiobook-import   # Import to database
+audiobook-config   # Show configuration
 ```
 
 ## Upgrading
@@ -409,6 +441,7 @@ audiobooks-config   # Show configuration
 > - **v3.7.0+**: Current supported release
 >
 > If upgrading from v3.5.x with the legacy monolithic API, migrate first:
+>
 > ```bash
 > ./migrate-api.sh --to-modular --target /opt/audiobooks
 > ```
@@ -483,6 +516,7 @@ Switch between monolithic and modular Flask architectures:
 ## Configuration
 
 Configuration is loaded from multiple sources in priority order:
+
 1. System config: `/etc/audiobooks/audiobooks.conf`
 2. User config: `~/.config/audiobooks/audiobooks.conf`
 3. Environment variables
@@ -518,18 +552,20 @@ Configuration is loaded from multiple sources in priority order:
 | `CORS_ORIGIN` | CORS allowed origin (default: * for standalone, set for remote) |
 
 ### Override via Environment
+
 ```bash
 AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks ./launch.sh
 ```
 
 ### View Current Configuration
+
 ```bash
-audiobooks-config
+audiobook-config
 ```
 
 ## Directory Structure
 
-```
+```text
 Audiobooks/
 ├── etc/
 │   └── audiobooks.conf.example  # Config template
@@ -606,7 +642,7 @@ Audiobooks/
 
 After system installation, files are organized as follows:
 
-```
+```text
 /opt/audiobooks/                    # Application installation (AUDIOBOOKS_HOME)
 ├── scripts/                        # Canonical script location
 │   ├── audiobook-convert
@@ -626,9 +662,9 @@ After system installation, files are organized as follows:
 
 /usr/local/bin/                     # Symlinks for PATH accessibility
 ├── audiobook-api                  # Wrapper script
-├── audiobooks-convert -> /opt/audiobooks/scripts/audiobook-convert
-├── audiobooks-download -> /opt/audiobooks/scripts/download-new-audiobooks
-├── audiobooks-move-staged -> /opt/audiobooks/scripts/move-staged-audiobooks
+├── audiobook-convert -> /opt/audiobooks/scripts/audiobook-convert
+├── audiobook-download -> /opt/audiobooks/scripts/download-new-audiobooks
+├── audiobook-move-staged -> /opt/audiobooks/scripts/move-staged-audiobooks
 └── ...
 
 ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks)
@@ -663,6 +699,7 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 > **Note:** If `/tmp` is a tmpfs (RAM-based), these directories are recreated on boot via `/etc/tmpfiles.d/audiobooks.conf`. See [tmpfs Considerations](#tmpfs-considerations) for setup details.
 
 **Architecture Notes:**
+
 - Scripts are installed to `/opt/audiobooks/scripts/` (canonical location)
 - Symlinks in `/usr/local/bin/` point to canonical scripts, so upgrades automatically update commands
 - Wrapper scripts source from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path)
@@ -674,13 +711,16 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 ## Web Interface Features
 
 ### Collections Sidebar
+
 Browse your library by curated categories:
+
 - **Toggle button**: Click "Collections" in the results bar to open the sidebar
 - **Categories**: Special (The Great Courses), Main Genres (Fiction, Nonfiction), Nonfiction (History, Science, Biography, Memoir), Subgenres (Mystery & Thriller, Science Fiction, Fantasy, Romance)
 - **Active filter badge**: Shows current collection on toggle button
 - **Close options**: × button, click overlay, or press Escape
 
 ### Search & Filtering
+
 - **Full-text search**: Search across titles, authors, and narrators
 - **Author filter**: Autocomplete dropdown with A-E, F-J, K-O, P-T, U-Z letter groups
 - **Narrator filter**: Autocomplete dropdown with book counts and letter groups
@@ -688,6 +728,7 @@ Browse your library by curated categories:
 - **Clear button**: Reset all filters with one click
 
 ### Sorting Options
+
 | Sort By | Description |
 |---------|-------------|
 | Title (A-Z/Z-A) | Alphabetical by title |
@@ -703,26 +744,33 @@ Browse your library by curated categories:
 | Edition | Sort by edition type |
 
 ### Duplicate Detection
+
 Four detection methods available in the Back Office Duplicates tab:
+
 1. **By Title/Author/Narrator**: Finds books with matching metadata (may be different files)
 2. **By SHA-256 Hash**: Finds byte-identical Library files using cryptographic hashes (from database)
 3. **Source File Checksums**: Fast MD5 partial checksums to find duplicate .aaxc files in Sources folder
 4. **Library File Checksums**: Fast MD5 partial checksums to find duplicate .opus files in Library folder
 
 ### My Library Tab
+
 Personalized view of your audiobook activity (requires authentication):
+
 - **Progress bars**: Visual completion percentage for each book you've listened to
 - **Recently Listened**: Quick access to books you've been listening to, sorted by last played
 - **Listening History**: Complete log of your listening sessions with timestamps and durations
 - **Download History**: Track which books you've downloaded
 
 ### New Books Marquee
+
 An Art Deco neon-styled marquee highlights audiobooks added since your last visit. Click "Dismiss" to mark them as seen. The marquee only appears when new books exist.
 
 ### About Page
+
 Credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js), version info, and project links. Accessible from the Help page header.
 
 ### Audio Player
+
 - Play/pause with progress bar
 - Skip forward/back 30 seconds
 - Adjustable playback speed (0.5x - 2.5x)
@@ -823,6 +871,7 @@ WebAuthn (Passkey/FIDO2) auto-configures from your deployment settings:
 | RP Name | `WEBAUTHN_RP_NAME` | `The Library` |
 
 For custom deployments, override via environment or config:
+
 ```bash
 WEBAUTHN_RP_ID=audiobooks.example.com
 WEBAUTHN_ORIGIN=https://audiobooks.example.com
@@ -831,6 +880,7 @@ WEBAUTHN_ORIGIN=https://audiobooks.example.com
 ### Standalone Mode (Default)
 
 For single-user or LAN-only deployments (default configuration):
+
 ```bash
 # In /etc/audiobooks/audiobooks.conf (this is the default)
 AUTH_ENABLED=false
@@ -841,6 +891,7 @@ When disabled, library endpoints are accessible without login. Admin endpoints (
 ### Remote Access Mode
 
 For internet-facing deployments behind a reverse proxy:
+
 ```bash
 # In /etc/audiobooks/audiobooks.conf
 AUTH_ENABLED=true
@@ -1039,6 +1090,7 @@ The library exposes a REST API on port 5001:
 > Non-admin users receive 403 Forbidden.
 
 ### Query Parameters for `/api/audiobooks`
+
 - `page` - Page number (default: 1)
 - `per_page` - Items per page (default: 50, max: 200)
 - `search` - Full-text search query
@@ -1096,6 +1148,7 @@ The encrypted auth database (SQLCipher) stores per-user state:
 The Docker container is a **fully self-contained, standalone product** designed for portability and cross-platform deployment. It includes all databases, dependencies, and runtime components needed to function entirely by itself — no external services, no host dependencies, no native install required.
 
 **Why Docker?**
+
 - **Cross-platform**: Run on macOS, Windows, or any Linux distribution without compatibility concerns
 - **Cross-architecture**: Supports amd64 and arm64 (Apple Silicon, Raspberry Pi, etc.)
 - **Zero setup**: All dependencies (Python, ffmpeg, SQLCipher, TLS) are bundled inside the container
@@ -1122,6 +1175,7 @@ open https://localhost:8443
 ```
 
 On first run, the container automatically:
+
 1. Detects mounted audiobooks
 2. Scans and indexes your library
 3. Imports metadata into the database
@@ -1196,6 +1250,7 @@ docker exec -it audiobooks cat /app/README.md
 ### Docker Health Check
 
 The container includes a health check that verifies the API is responding:
+
 ```bash
 # Check container health
 docker inspect --format='{{.State.Health.Status}}' audiobooks
@@ -1239,6 +1294,7 @@ docker restart audiobooks
 - pyotp (for TOTP auth, v5.0+)
 
 ### First-time setup
+
 ```bash
 # Create virtual environment and install dependencies
 cd library
@@ -1257,7 +1313,7 @@ python3 import_to_db.py
 
 ## Systemd Services
 
-All services use the `audiobooks-*` naming convention for easy management.
+All services use the `audiobook-*` naming convention for easy management.
 
 ### Core Services
 
@@ -1307,8 +1363,8 @@ sudo systemctl status audiobook.target
 You can also manage individual services when needed:
 
 ```bash
-# Check all audiobooks services
-sudo systemctl status 'audiobooks-*'
+# Check all audiobook services
+sudo systemctl status 'audiobook-*'
 
 # Restart just the API server
 sudo systemctl restart audiobook-api
@@ -1317,7 +1373,7 @@ sudo systemctl restart audiobook-api
 journalctl -u audiobook-api -f
 
 # View all audiobook service logs since today
-journalctl -u 'audiobooks-*' --since today
+journalctl -u 'audiobook-*' --since today
 ```
 
 #### Services Included in `audiobook.target`
@@ -1333,6 +1389,7 @@ journalctl -u 'audiobooks-*' --since today
 ### Conversion Priority
 
 The converter service runs with low CPU and I/O priority to avoid impacting interactive use:
+
 - **CPU**: `nice -n 19` (lowest priority)
 - **I/O**: `ionice -c 2 -n 7` (best-effort, lowest priority within class)
 
@@ -1343,7 +1400,8 @@ This ensures audiobook conversion happens in the background without affecting sy
 If your audiobook library is stored on HDDs, NAS, or network mounts that may not be immediately available at boot, you need to configure the services to wait for those mounts.
 
 **Symptom:** Services fail at boot with errors like:
-```
+
+```text
 Failed at step NAMESPACE spawning /bin/sh: No such file or directory
 audiobook-api.service: Failed with result 'exit-code'.
 ```
@@ -1428,6 +1486,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 ## Changelog
 
 ### v7.0 (Unreleased)
+
 - **Per-User State**: Listening history, download tracking, and user preferences with encrypted storage
 - **UI**: My Library tab, new-books marquee, About page, activity audit in Back Office, genre management in Bulk Ops
 - **API**: 11 new endpoints for user state, genre management, and admin activity audit
@@ -1435,6 +1494,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.2.0
+
 - **Security**: FLASK_DEBUG default false, USE_WAITRESS default true, CORS credentials header, admin_or_localhost on upgrade check
 - **Infrastructure**: systemd service wrapper names match installed scripts, Dockerfile HEALTHCHECK uses /api/system/health
 - **Quality**: Shell formatting (shfmt), ruff format, YAML lint fixes, hardcoded path elimination
@@ -1442,32 +1502,38 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.1.3
+
 - **Fix**: Rewrite invite flow — eliminates "credentials already claimed" and method selection loop bugs during claim
 - **Fix**: Download toggle button now calls correct API endpoint
 - **Fix**: Library rescan progress meter shows real-time updates (ANSI escape code stripping)
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.1.2.1
+
 - **Admin**: Invite User button for pre-registering and approving new users with claim token workflow
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.1.2
+
 - **Fix**: First-user registration returned backup codes as string instead of JSON array (caused JavaScript TypeError)
 - **Fix**: Proxy HTTP error handler forwards Flask's original response body
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.1.1
+
 - **Scripts**: Comprehensive bash-to-zsh compatibility fixes across all shell scripts
 - **CI**: Track `library/auth/schema.sql` in git; fix ruff linting in CI
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.1.0
+
 - **UI**: Comprehensive responsive design — mobile/desktop, portrait/landscape, zoom/pinch
 - **UI**: Touch-aware interactions, safe area insets, reduced motion support
 - **Fix**: Install/upgrade separation checks use dynamic paths
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.0.0
+
 - **Security**: Dual-mode security architecture — admin endpoints adapt protection based on deployment mode
 - **Install**: Service account creation, auth key generation, DB initialization, venv validation
 - **BREAKING**: All 27 shell scripts converted from bash to zsh
@@ -1475,23 +1541,27 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v5.0.2
+
 - **Testing**: VM_TESTS environment variable for WebAuthn origin selection
 - **API**: Use sys.executable for venv compatibility in subprocess calls
 - **Deploy**: Add library/scripts/ and library/common.py to VM deployment sync
 - **Security**: Explicit permissions blocks for all GitHub Actions workflow jobs
 
 ### v5.0.1.1
+
 - **Cleanup**: Remove all remaining periodicals code, services, and references
 - **Systemd**: Fix boot failures caused by symlink resolution in ProtectSystem=strict namespaces
 - **Systemd**: Fix stale symlinks with wrong "audiobooks-" prefix (should be "audiobook-")
 - **Systemd**: Update ExecStartPre checks from lsof to ss (iproute2)
 
 ### v5.0.1
+
 - **Proxy**: Route `/auth/*` endpoints through HTTPS reverse proxy to Flask backend
 - **Proxy**: Forward `Cookie` header for session-based authentication
 - **Docs**: Updated all project documentation for v5.0.0 authentication release
 
 ### v5.0.0
+
 - **Authentication**: Multi-user auth system with TOTP, Passkey (WebAuthn), and FIDO2 hardware key support
 - **Authentication**: SQLCipher encrypted auth database (AES-256 at rest)
 - **Authentication**: Admin approval flow with claim token system for new user registration
@@ -1501,15 +1571,18 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **BREAKING**: Unauthenticated API requests return 401 when auth is enabled
 
 ### v4.1.2
+
 - **Web UI**: "Check for Updates" button in Utilities page
 - **Upgrade**: Fixed multi-installation detection for `--from-github` and `--from-project`
 
 ### v4.0.0
+
 - **BREAKING: Periodicals Feature Removed**: The "Reading Room" periodicals subsystem (podcasts, newspapers, meditation) has been extracted to a separate R&D branch (`feature/periodicals-rnd`). This simplifies the main codebase to focus on audiobooks only.
   - Migration `010_drop_periodicals.sql` removes periodicals tables
   - To restore periodicals, use tag `v3.11.2-with-periodicals`
 
 ### v3.11.2
+
 - **Podcast Episode Download & Conversion**: Full support for downloading and converting podcast episodes from Audible
 - **Periodicals Orphan Detection**: Find and delete episodes whose parent series no longer exists
 - **Security Fixes**: SQL injection prevention, log injection fixes, XSS prevention in library.js
@@ -1517,9 +1590,11 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Build Queue Fix**: Fixed to only process AAX/AAXC files, not MP3 podcasts
 
 ### v3.11.1
+
 - **Deploy Fix**: Fixed `deploy.sh` to include root-level management scripts (`upgrade.sh`, `migrate-api.sh`) that were being silently skipped during deployment
 
 ### v3.11.0
+
 - **Periodicals Sorting**: Reading Room supports title, date, subscription, and download status sorting
 - **Whispersync Position Sync**: Periodicals now sync listening positions with Audible
 - **Auto-Download**: Subscribed podcast series automatically queue new episodes
@@ -1527,53 +1602,64 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Test Fixes**: Resolved 19 test failures, improved code quality
 
 ### v3.10.1
+
 - **Architecture Documentation**: Comprehensive ARCHITECTURE.md update with Scanner Module, API Module, Systemd Services, and Scripts Reference sections
 - **Periodicals Sync**: Enhanced parent/child hierarchy support for podcast episodes
 - **Hardcoded Paths Fix**: Fixed 2 hardcoded paths in shell scripts, removed invalid inline comments from systemd files
 
 ### v3.10.0
+
 - **BREAKING: Naming Convention Standardization**: All service names, CLI commands, and config files now use singular "audiobook-" prefix instead of plural "audiobooks-" to align with project name
 - **Status Script Enhancement**: `audiobook-status` now displays services and timers in separate sections
 - **Documentation Dates**: Updated last-modified dates in ARCHITECTURE.md and POSITION_SYNC.md
 
 ### v3.9.8
+
 - **Major Refactoring**: Split monolithic `utilities_ops.py` (994 lines) into modular package with 5 focused modules
 - **Test Coverage**: Added 27 new test files, increased coverage from 77% to 85%
 - **Code Quality**: Removed unused imports, fixed incorrect default paths
 
 ### v3.9.7.1
+
 - **Audit Fixes**: PIL rebuilt for Python 3.14, flask-cors removed from install scripts, systemd ConditionPathExists paths fixed
 
 ### v3.9.7
+
 - **Upgrade Script Path Bug**: Fixed `upgrade-helper-process` referencing wrong path (was `/opt/audiobooks/upgrade.sh`, now `/opt/audiobooks/scripts/upgrade.sh`)
 - **Duplicate Finder Endpoint**: Fixed JavaScript calling non-existent `/api/duplicates/by-hash` (now `/api/duplicates`)
 - **Upgrade Script Sync**: Root-level management scripts now properly sync during upgrades
 
 ### v3.9.6
+
 - **Security Hardening**: Fix CVE-2025-43859 (h11 HTTP smuggling), enforce TLS 1.2 minimum, add SSRF path validation
 - **CodeQL Remediation**: Fix 30 code scanning alerts (stack trace exposure, empty except handlers, type errors)
 - **Code Quality**: Fix ruff linting errors, add missing type imports, improve error logging
 
 ### v3.9.5.1
+
 - **Version Badges**: Multi-segment version badges with hierarchical color scheme
 - **Documentation**: Version history table showing release progression
 
 ### v3.9.5
+
 - **Schema Tracking**: Database schema now tracked in git (schema.sql)
 - **Content Filter**: Expanded AUDIOBOOK_FILTER to include Lecture, Performance, Speech types
 - **Reliability**: Prevent concurrent queue rebuild processes with flock
 - **Scripts**: Fixed shellcheck warnings in build scripts
 
 ### v3.9.4
+
 - **Security**: Replace insecure mktemp() with mkstemp() for temp file creation
 - **Reliability**: Add signal trap to converter script for clean FFmpeg shutdown
 - **Code Quality**: Fix missing imports, remove unused variables, add exception logging
 
 ### v3.9.3
+
 - **Periodicals (Reading Room)**: Simplified to flat data schema with skip list support
 - **Mover Service**: Fixed process stampede with flock wrapper
 
 ### v3.9.0
+
 - **Periodicals "Reading Room"**: New subsystem for Audible episodic content
   - Manages podcasts, newspapers, meditation series separately from main library
   - Real-time sync status via Server-Sent Events (SSE)
@@ -1583,6 +1669,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Code Cleanup**: Removed deprecated Flask-CORS, dead CSS code
 
 ### v3.8.0
+
 - **Position Sync with Audible**: Bidirectional playback position synchronization
   - "Furthest ahead wins" conflict resolution - you never lose progress
   - Seamlessly switch between Audible apps and self-hosted library
@@ -1591,6 +1678,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Comprehensive Documentation**: New `docs/POSITION_SYNC.md` with setup guides, API reference, troubleshooting
 
 ### v3.7.2
+
 - **Position Sync API**: Bidirectional playback position synchronization with Audible cloud
   - Sync single books or batch sync all audiobooks with ASINs
   - "Furthest ahead wins" logic for conflict resolution
@@ -1598,12 +1686,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Bug Fixes**: Service timer control, download path, database vacuum improvements
 
 ### v3.7.0
+
 - **Upgrade System**: Fixed non-interactive upgrade failures in systemd service
   - Fixed bash arithmetic causing exit code 1 with `set -e`
   - Auto-confirm prompts when triggered from web UI
 - **UI**: Changed dark green text to cream-light for better contrast
 
 ### v3.6.x
+
 - **Security**: Privilege-separated helper service for system operations
   - API now runs with `NoNewPrivileges=yes` security hardening
   - Service control and upgrades work via file-based IPC with helper service
@@ -1612,8 +1702,10 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Fixes**: Service control from web UI, upgrade from web UI, race conditions
 
 ### v3.5.x ⚠️ END OF LIFE
+>
 > **No longer supported.** Upgrade to v3.7.0 or later immediately.
 > No security patches or updates will be released for 3.5.x.
+
 - **Checksum Tracking**: MD5 checksums (first 1MB) generated automatically during download and move operations for fast duplicate detection
 - **Generate Checksums**: New Utilities button to regenerate all checksums for Sources (.aaxc) and Library (.opus) files
 - **Index Cleanup**: `cleanup-stale-indexes` script removes entries for deleted files from all indexes; automatic cleanup on file deletion
@@ -1623,32 +1715,38 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Fixes**: Queue builder robustness, mover timing optimization, version display
 
 ### v3.4.2
+
 - **Refactoring**: Split utilities.py (1067 lines) into 4 focused sub-modules with reduced complexity
 - **Scanner**: New shared `metadata_utils.py` module, complexity D(24) → A(3)
 - **Quality**: Average cyclomatic complexity reduced from D to A (3.7)
 - **Fixes**: Conversion progress accuracy, queue count sync, code cleanup
 
 ### v3.4.1
+
 - **Architecture**: Comprehensive ARCHITECTURE.md guide with install/upgrade/migrate workflows
 - **Install**: Fixed to use `/opt/audiobooks` as canonical location with auto-service start
 - **Migrate**: Added service stop/start lifecycle to `migrate-api.sh`
 - **Symlinks**: Wrapper scripts now source from canonical `/opt/audiobooks/lib/` path
 
 ### v3.4.0
+
 - **Collections**: Per-job conversion stats, sortable active conversions, text-search based genres
 - **Config**: Fixed critical DATA_DIR config reading issue
 - **Covers**: Cover art now stored in data directory (`${AUDIOBOOKS_DATA}/.covers`)
 
 ### v3.3.x
+
 - **Conversion Monitor**: Real-time progress bar, rate calculation, ETA in Back Office
 - **Upgrade**: Auto stop/start services during upgrade
 
 ### v3.2.1
+
 - **Docker Build**: Added Docker build job to release workflow for automated container builds
 - **Performance**: Increased default parallel conversion jobs from 8 to 12
 - **Cleanup**: Removed redundant config fallbacks from scripts (single source of truth)
 
 ### v3.2.0
+
 - **GitHub Releases**: Standalone installation via `bootstrap-install.sh`
 - **Upgrade System**: GitHub-based upgrades with `audiobook-upgrade --from-github`
 - **Release Automation**: CI/CD workflow and release tarball builder
@@ -1658,9 +1756,11 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Security**: Fixed SQL injection in `generate_hashes.py`, Flask blueprint registration
 
 ### v3.1.1
+
 - **Fix**: RuntimeDirectoryMode changed from 0755 to 0775 for group write access
 
 ### v3.1.0
+
 - **Install Manifest**: `install-manifest.json` for production validation
 - **API Migration**: Tools for switching between monolithic and modular architectures
 - **Modular API**: Flask Blueprint architecture (`api_modular/`)
@@ -1668,12 +1768,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Quality**: Fixed 13 shellcheck warnings, 18 mypy type errors
 
 ### v3.0.5
+
 - **Security**: SQL injection fix in genre queries, non-root Docker user
 - **Docker**: Pinned base image to `python:3.11.11-slim`
 - **Ports**: Standardized to 8443 (HTTPS), 8080 (HTTP redirect)
 - **Documentation**: Added LICENSE, CONTRIBUTING.md, CHANGELOG.md
 
 ### v3.0.0
+
 - **The Back Office**: New utilities page with vintage library back-office aesthetic
   - Database management: stats, vacuum, rescan, reimport, export (JSON/CSV/SQLite)
   - Metadata editing: search, view, and edit audiobook metadata
@@ -1689,26 +1791,31 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 - **Removed**: Find Duplicates dropdown from main Library page (moved to Back Office)
 
 ### v2.9
+
 - **Metadata Preservation**: Import now preserves manually-populated narrator and genre data from Audible exports, preventing data loss on reimport
 - **Improved Deduplication**: Scanner now intelligently deduplicates between main library and `/Library/Audiobook/` folder, preferring main library files while keeping unique entries
 - **Security**: Updated flask-cors from 4.0.0 to 6.0.0 (fixes CVE-2024-6839, CVE-2024-6844, CVE-2024-6866)
 
 ### v2.8
+
 - Multi-source audiobook support (Google Play, Librivox, OpenLibrary)
 - Parallel SHA-256 hash generation (24x speedup on multi-core systems)
 - Automatic hashing during import
 - New `isbn` and `source` database fields
 
 ### v2.7
+
 - Collections sidebar for browsing by category
 - Genre sync from Audible library export
 
 ### v2.6
+
 - Author/narrator autocomplete with letter group filters
 - Enhanced sorting options (first/last name, series sequence, edition)
 - Narrator metadata sync from Audible
 
 ### v2.5
+
 - Docker auto-initialization
 - Portable configuration system
 - Production-ready HTTPS server with Waitress
@@ -1729,12 +1836,14 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 ### Completed Milestones
 
 **Secure by Design (v5.0)**
+
 - ~~**Authentication & Authorization**~~: ✅ Multi-user auth with TOTP, Passkey, FIDO2
 - ~~**Secrets Management**~~: ✅ SQLCipher encrypted auth database, Fernet-encrypted credentials
 - ~~**Audit Logging**~~: ✅ Contact log, access request tracking, session audit trail
 - ~~**Input Validation**~~: ✅ Username validation, token sanitization, auth-gated endpoints
 
 **Per-User Experience (v7.0)**
+
 - ~~**My Library**~~: ✅ Personalized library tab with progress bars and listening history
 - ~~**Activity Tracking**~~: ✅ Per-user listening history and download tracking
 - ~~**New Books**~~: ✅ Art Deco marquee for newly added audiobooks
@@ -1743,6 +1852,7 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - ~~**About Page**~~: ✅ Credits, attributions, and version display
 
 **Back Office (v3.0–v6.0)**
+
 - ~~**Database Management**~~: ✅ Stats, vacuum, rescan, reimport, export (JSON/CSV/SQLite)
 - ~~**Duplicate Management**~~: ✅ Four detection methods (title/author, SHA-256, source checksums, library checksums)
 - ~~**Audiobook Management**~~: ✅ Metadata editing, bulk operations, bulk delete
@@ -1751,17 +1861,20 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 ### Planned Features
 
 **Security Hardening**
+
 - Certificate Authority Integration (Let's Encrypt / trusted CAs)
 - Container Hardening (read-only filesystems, non-root execution)
 - Rate limiting, CSP headers
 
 **Enhanced Player**
+
 - Chapter navigation
 - Bookmarks and notes
 - Sleep timer
 - Queue/playlist management
 
 **Mobile Support**
+
 - Progressive Web App (PWA) support
 - Offline playback caching
 

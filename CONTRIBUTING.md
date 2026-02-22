@@ -7,12 +7,15 @@ Thank you for your interest in contributing to the Audiobooks project!
 1. **Fork the repository** and clone it locally
 
 2. **Install git hooks** (required):
+
    ```bash
    ./scripts/install-hooks.sh
    ```
+
    This installs commit safeguards that enforce coding standards.
 
 3. **Install dependencies**:
+
    ```bash
    cd library
    python -m venv venv
@@ -22,6 +25,7 @@ Thank you for your interest in contributing to the Audiobooks project!
    ```
 
 4. **Run tests** to ensure everything works:
+
    ```bash
    cd library
    pytest tests/ -v
@@ -40,6 +44,7 @@ Thank you for your interest in contributing to the Audiobooks project!
 ### Why This Matters
 
 End users configure their own paths. Hardcoded paths:
+
 - Break user customization
 - Cause silent failures when paths differ
 - Have repeatedly caused regressions in past releases
@@ -93,7 +98,7 @@ pytest tests/test_api_modular.py -v
 
 ### Project Structure
 
-```
+```text
 audiobooks/
 ├── library/              # Main application
 │   ├── backend/          # Flask API
@@ -111,6 +116,7 @@ audiobooks/
 ## Pull Request Process
 
 1. **Create a feature branch**:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -121,7 +127,8 @@ audiobooks/
    - Code is formatted (`ruff format library/`)
 
 3. **Write meaningful commit messages**:
-   ```
+
+   ```text
    Add feature X for Y
 
    - Detail about change 1

@@ -160,17 +160,20 @@ All standard REST — JSON in, JSON out, session cookie auth.
 ## Audible Sync Removal
 
 **Remove:**
+
 - Audible sync functions in `position_sync.py` (keep local position get/save)
 - Three sync API endpoints
 - Audible sync UI elements in frontend
 - Stop writing to `audible_position_ms`, `audible_position_updated`, `position_synced_at` columns
 
 **Keep:**
+
 - Audible downloader service (downloads new audiobooks — completely separate system)
 - `audible` library dependency (used by downloader)
 - Columns can remain in library DB schema (just unused) to avoid migration complexity
 
 **Documentation:**
+
 - Rewrite `docs/POSITION_SYNC.md` to document per-user local position system
 - Update `docs/ARCHITECTURE.md`
 
