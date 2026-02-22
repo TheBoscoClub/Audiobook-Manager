@@ -787,9 +787,11 @@ verify_installation_permissions() {
             echo -e "${GREEN}OK${NC}"
         fi
 
-        # Verify no symlinks point to project source directory
+        # Verify no symlinks point to development project directory
+        # Must check for ClaudeCodeProjects specifically, not $SCRIPT_DIR,
+        # because when run from /opt/audiobooks, $SCRIPT_DIR matches legitimate production links
         echo -n "  Checking for project source dependencies... "
-        local project_links=$(find /usr/local/bin -name "audiobooks-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "$SCRIPT_DIR" || true)
+        local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
         if [[ "$project_links" -gt 0 ]]; then
             echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
             echo -e "         Production should be independent of source repo."
