@@ -8,7 +8,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v6.6.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.0) |
+| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v6.6.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.1) |
+| ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v6.6.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.0) |
 | ![6](https://img.shields.io/badge/6-brightred)![5](https://img.shields.io/badge/5-darkred)![0](https://img.shields.io/badge/0-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v6.5.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.5.0.1) |
 | ![6](https://img.shields.io/badge/6-brightred)![5](https://img.shields.io/badge/5-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v6.5.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.5.0) |
 | ![6](https://img.shields.io/badge/6-brightred)![4](https://img.shields.io/badge/4-darkred)![0](https://img.shields.io/badge/0-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v6.4.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.4.0.1) |
@@ -1487,16 +1488,21 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v6.6.0
+### v6.6.1
 
 - **Security**: HTTP security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) on all API responses
 - **Security**: Session cookies hardened (Secure, HttpOnly, SameSite=Lax)
+- **Security**: Patched CVE-2025-43859 (h11 HTTP request smuggling)
 - **Security**: `NoNewPrivileges=yes` enforced in upgrade-helper service
 - **Fix**: tmpfiles.conf source path corrected in install.sh and upgrade.sh (fixes /tmp directories not recreated on reboot)
 - **Fix**: .dockerignore glob patterns fixed to exclude Python bytecode in all subdirectories
-- **Fix**: install-manifest.json updated to v6.6.0 with correct port and service state
 - **CI**: Python upgraded from 3.11 to 3.14 in ci.yml
-- **Config**: AUDIOBOOKS_HTTP_REDIRECT_ENABLED added to config defaults
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.6.0
+
+- **Scripts**: Eliminated script drift — replaced stale full copies in `/usr/local/bin/` with symlinks to canonical scripts
+- **Deploy**: Added `refresh_bin_symlinks()` and SCRIPT_ALIASES map across all install/deploy/upgrade entry points
 - See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.3.0
