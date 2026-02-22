@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.5.0.1] - 2026-02-22
+
+### Changed
+
+- **CLI Naming**: Standardized all CLI commands from plural `audiobooks-*` to singular `audiobook-*` across install scripts, systemd services, docs, and install-manifest
+- **YAML**: Fixed 76 yamllint issues (document-start markers, truthy quoting, indentation, line-length wrapping) across all workflow and config YAML files
+- **Markdown**: Fixed ~2,255 markdownlint issues (heading spacing, code block language specifiers, list formatting) across 40+ documentation files
+- **Shell**: Applied shfmt formatting to scripts/purge-users.sh
+
 ## [6.5.0] - 2026-02-22
 
 ### Added
