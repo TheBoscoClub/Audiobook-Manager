@@ -1,30 +1,33 @@
-# Audiobooks - Web-based audiobook library browser
-# Supports: Linux, macOS, Windows (via Docker Desktop)
+# Audiobooks - Standalone audiobook library browser
+# A fully self-contained, portable product for cross-platform deployment.
+# Includes all databases, dependencies, and runtime — no external services needed.
+# Supports: Linux, macOS, Windows (via Docker Desktop), any architecture with Docker
 #
 # Build: docker build -t audiobooks .
 # Run:   docker-compose up -d
 
-FROM python:3.11.11-slim
+FROM python:3.14-slim
 
 # Read version from VERSION file during build
 ARG APP_VERSION=6.3.0
 
 LABEL maintainer="Audiobooks Project"
-LABEL description="Web-based audiobook library with search, playback, cover art, and PDF supplements"
+LABEL description="Standalone audiobook library — fully self-contained with all databases and dependencies"
 LABEL version="${APP_VERSION}"
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.source="https://github.com/TheBoscoClub/Audiobook-Manager"
-LABEL org.opencontainers.image.description="Web-based audiobook library browser with search, playback, and PDF supplements"
+LABEL org.opencontainers.image.description="Standalone audiobook library browser — portable, cross-platform, self-contained"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Install system dependencies
+# Install system dependencies (Debian Trixie packages)
 # - ffmpeg: Audio/video processing for conversion and metadata
 # - mediainfo: Audio file metadata extraction
 # - jq: JSON processing for AAXtoMP3 converter
 # - curl: Health checks and API testing
-# Note: mp4v2-utils (mp4art, mp4chaps) not available in Debian trixie
-# Chapter/cover tools use ffmpeg fallback instead
+# - libsqlcipher-dev: Encrypted SQLite for auth database
+# - openssl: TLS certificate generation
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     mediainfo \
@@ -37,8 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better Docker layer caching
-COPY library/requirements.txt /app/requirements.txt
+# Copy Docker-specific requirements (excludes audible CLI — not needed in standalone container)
+COPY library/requirements-docker.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy configuration module (shared by all Python scripts)
@@ -64,13 +67,10 @@ COPY VERSION /app/VERSION
 
 # Create .release-info for version identification
 # Note: Docker upgrades via image pulls, not upgrade.sh
-RUN echo '{\n\
-  "github_repo": "TheBoscoClub/Audiobook-Manager",\n\
-  "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",\n\
-  "version": "'$(cat /app/VERSION | tr -d '[:space:]')'",\n\
-  "install_type": "docker",\n\
-  "install_date": "'$(date -Iseconds)'"\n\
-}' > /app/.release-info
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN printf '{\n  "github_repo": "TheBoscoClub/Audiobook-Manager",\n  "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",\n  "version": "%s",\n  "install_type": "docker",\n  "install_date": "%s"\n}\n' \
+  "$(tr -d '[:space:]' < /app/VERSION)" "$(date -Iseconds)" > /app/.release-info
+SHELL ["/bin/sh", "-c"]
 
 # Create directories for data persistence
 # Covers and supplements will be populated at runtime or mounted as volumes
