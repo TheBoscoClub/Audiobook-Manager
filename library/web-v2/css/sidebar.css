@@ -27,6 +27,7 @@
     left: -340px;
     width: 320px;
     height: 100vh;
+    height: 100dvh;
     background:
         /* Wood grain texture overlay */
         repeating-linear-gradient(

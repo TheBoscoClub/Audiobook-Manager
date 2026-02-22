@@ -20,7 +20,7 @@ Environment=HOME=/var/lib/audiobooks
 
 # Only start if port is not already in use (uses ss from iproute2, always available)
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_API_PORT} "'
-ExecStart=/opt/audiobooks/venv/bin/python api_server.py
+ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
 RestartSec=5
