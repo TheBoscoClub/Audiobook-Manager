@@ -1088,9 +1088,18 @@ The encrypted auth database (SQLCipher) stores per-user state:
 | `user_downloads` | Download completions with timestamps and format |
 | `user_preferences` | User settings including `new_books_seen_at` for new-books marquee |
 
-## Docker (macOS, Windows, Linux)
+## Docker — Standalone Container (macOS, Windows, Linux)
 
-Run the library in Docker for easy cross-platform deployment. The Docker container automatically initializes the database on first run - just mount your audiobooks and start the container.
+The Docker container is a **fully self-contained, standalone product** designed for portability and cross-platform deployment. It includes all databases, dependencies, and runtime components needed to function entirely by itself — no external services, no host dependencies, no native install required.
+
+**Why Docker?**
+- **Cross-platform**: Run on macOS, Windows, or any Linux distribution without compatibility concerns
+- **Cross-architecture**: Supports amd64 and arm64 (Apple Silicon, Raspberry Pi, etc.)
+- **Zero setup**: All dependencies (Python, ffmpeg, SQLCipher, TLS) are bundled inside the container
+- **Isolation**: The container runs as a non-root user with no access to the host system beyond mounted volumes
+- **Portable**: Move your library to any machine by copying your audiobooks and the Docker volume
+
+The container automatically initializes the database on first run — just mount your audiobooks and start.
 
 ### Quick Start (Recommended)
 
