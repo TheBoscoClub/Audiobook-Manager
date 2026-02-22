@@ -6,11 +6,16 @@ with claim tokens, then run the v5 migration, and verify all data is intact.
 """
 
 import os
+import sys
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+
+# Add library directory to path
+LIBRARY_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(LIBRARY_DIR))
 
 try:
     import sqlcipher3 as sqlcipher
@@ -249,8 +254,8 @@ class TestUpgradeSafety:
 
     def test_users_survive_migration(self, v4_db_path, key_path):
         """All users must exist after migration with identical data."""
-        from library.auth.database import AuthDatabase
-        from library.auth.models import UserRepository
+        from auth.database import AuthDatabase
+        from auth.models import UserRepository
 
         create_v4_database(v4_db_path, key_path)
 
@@ -280,7 +285,7 @@ class TestUpgradeSafety:
         """All sessions must remain valid after migration."""
         create_v4_database(v4_db_path, key_path)
 
-        from library.auth.database import AuthDatabase
+        from auth.database import AuthDatabase
 
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
@@ -298,7 +303,7 @@ class TestUpgradeSafety:
         """Pending recovery tokens must still resolve after migration."""
         create_v4_database(v4_db_path, key_path)
 
-        from library.auth.database import AuthDatabase
+        from auth.database import AuthDatabase
 
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
@@ -312,7 +317,7 @@ class TestUpgradeSafety:
         """Access requests must survive and get preferred_auth_method default."""
         create_v4_database(v4_db_path, key_path)
 
-        from library.auth.database import AuthDatabase
+        from auth.database import AuthDatabase
 
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
@@ -330,7 +335,7 @@ class TestUpgradeSafety:
         """Schema version must be 5 after migration."""
         create_v4_database(v4_db_path, key_path)
 
-        from library.auth.database import AuthDatabase
+        from auth.database import AuthDatabase
 
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
@@ -345,8 +350,8 @@ class TestUpgradeSafety:
         """After migration, magic_link auth type must be insertable."""
         create_v4_database(v4_db_path, key_path)
 
-        from library.auth.database import AuthDatabase
-        from library.auth.models import User, AuthType
+        from auth.database import AuthDatabase
+        from auth.models import User, AuthType
 
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
@@ -367,8 +372,8 @@ class TestUpgradeSafety:
         """Running migration twice must not corrupt data."""
         create_v4_database(v4_db_path, key_path)
 
-        from library.auth.database import AuthDatabase
-        from library.auth.models import UserRepository
+        from auth.database import AuthDatabase
+        from auth.models import UserRepository
 
         # Run migration once
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
@@ -393,8 +398,8 @@ class TestUpgradeSafety:
         """New persistent sessions must work after migration."""
         create_v4_database(v4_db_path, key_path)
 
-        from library.auth.database import AuthDatabase
-        from library.auth.models import Session
+        from auth.database import AuthDatabase
+        from auth.models import Session
 
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
