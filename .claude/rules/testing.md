@@ -6,7 +6,9 @@
 
 - **Dev machine**: Unit tests, linting, static analysis, code editing
 - **VM (test-audiobook-cachyos)**: Integration tests, API tests, UI/Playwright tests, auth tests, E2E tests
-- **Before testing**: Always deploy latest code with `./deploy-vm.sh --host 192.168.122.104 --full --restart`
+- **Before testing on pristine VM**: Run `./install.sh --system` first (creates audiobooks user/group, dirs, venv, DB, services), then deploy
+- **Before testing on installed VM**: Deploy latest code with `./deploy-vm.sh --host 192.168.122.104 --full --restart`
+- **`/test` handles this automatically**: Phase VM-lifecycle detects pristine state and auto-installs before tests run
 
 ### VM Connection Details
 
@@ -63,7 +65,20 @@ virt-viewer --connect qemu:///system test-audiobook-cachyos
 | Auth/WebAuthn | Dev (unit) / VM (integration) | Unit mocks OK; real auth flow needs VM |
 | Auth lifecycle | VM | `pytest library/tests/test_auth_lifecycle_integration.py` |
 
-### Deploy Before Testing
+### Fresh Install on Pristine VM
+
+The VM always starts from a pristine snapshot (no app installed). The `/test` framework
+automatically detects this and runs `install.sh --system` before tests. For manual testing:
+
+```bash
+# SSH uses claude account (password: REDACTED_VM_PASSWORD, key: ~/.ssh/id_ed25519)
+# install.sh creates the audiobooks no-login service user/group that owns the app
+scp -i ~/.ssh/id_ed25519 -r . claude@192.168.122.104:/tmp/fresh-install/
+ssh -i ~/.ssh/id_ed25519 claude@192.168.122.104 \
+  "cd /tmp/fresh-install && sudo ./install.sh --system"
+```
+
+### Deploy Updates (after initial install)
 
 ```bash
 ./deploy-vm.sh --host 192.168.122.104 --full --restart
