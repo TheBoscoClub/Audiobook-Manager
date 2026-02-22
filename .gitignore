@@ -368,3 +368,6 @@ vm-ips.txt
 .session-count
 .playwright-mcp/
 *.png
+
+# Staged release breadcrumb (two-phase release workflow)
+.staged-release
