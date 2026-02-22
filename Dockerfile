@@ -28,7 +28,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 # - libsqlcipher-dev: Encrypted SQLite for auth database
 # - openssl: TLS certificate generation
 # hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ffmpeg \
     mediainfo \
     jq \
@@ -39,6 +39,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Set working directory
 WORKDIR /app
+
+# Upgrade pip to latest before installing dependencies
+RUN pip install --no-cache-dir --upgrade pip
 
 # Copy Docker-specific requirements (excludes audible CLI — not needed in standalone container)
 COPY library/requirements-docker.txt /app/requirements.txt
