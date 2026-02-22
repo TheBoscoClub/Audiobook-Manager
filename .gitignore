@@ -367,3 +367,4 @@ vm-ips.txt
 *-local-config*
 .session-count
 .playwright-mcp/
+*.png
