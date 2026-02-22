@@ -203,7 +203,7 @@ echo ""
 # Start API server with waitress (production WSGI)
 echo -e "Starting API server (waitress) on port ${API_PORT}..."
 cd /app/backend
-AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS=127.0.0.1 python3 api_server.py &
+AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS="${AUDIOBOOKS_BIND_ADDRESS}" python3 api_server.py &
 API_PID=$!
 
 # Wait for API to start
