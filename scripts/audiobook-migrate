@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+# Audiobook Toolkit API Migration Script
+# Wrapper — delegates to the full migrate-api.sh in the scripts directory
+exec "${0:A:h}/migrate-api.sh" --target "$(dirname "${0:A:h}")" "$@"

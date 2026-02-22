@@ -57,8 +57,58 @@ UNINSTALL=false
 API_ARCHITECTURE="monolithic"  # monolithic (api.py) or modular (api_modular/)
 
 # -----------------------------------------------------------------------------
+# Script-to-CLI Name Aliases (shared with deploy.sh, upgrade.sh)
+# -----------------------------------------------------------------------------
+# Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
+# Scripts already named audiobook-* don't need an alias — they're auto-linked.
+typeset -A SCRIPT_ALIASES=(
+    ["convert-audiobooks-opus-parallel"]="audiobook-convert"
+    ["build-conversion-queue"]="audiobook-build-queue"
+    ["download-new-audiobooks"]="audiobook-download"
+    ["monitor-audiobook-conversion"]="audiobook-monitor"
+    ["move-staged-audiobooks"]="audiobook-move-staged"
+    ["copy-audiobook-metadata"]="audiobook-copy-metadata"
+    ["cleanup-stale-indexes"]="audiobook-cleanup-indexes"
+    ["find-duplicate-sources"]="audiobook-find-duplicates"
+    ["fix-wrong-chapters-json"]="audiobook-fix-chapters"
+    ["embed-cover-art.py"]="audiobook-embed-covers"
+)
+
+# -----------------------------------------------------------------------------
 # Helper Functions
 # -----------------------------------------------------------------------------
+
+refresh_bin_symlinks() {
+    # Maintain /usr/local/bin symlinks pointing to canonical script location.
+    local target="$1"
+    local use_sudo="${2:-}"
+    local bin_dir="/usr/local/bin"
+    local scripts_dir="$target/scripts"
+
+    [[ -d "$bin_dir" ]] || return 0
+
+    echo -e "${BLUE}Creating symlinks in ${bin_dir}...${NC}"
+
+    # 1. Auto-link all audiobook-* scripts (same name, no alias needed)
+    for script in "$scripts_dir"/audiobook-*; do
+        [[ -f "$script" ]] || continue
+        local name=$(basename "$script")
+        ${use_sudo} rm -f "${bin_dir}/${name}"
+        ${use_sudo} ln -s "$script" "${bin_dir}/${name}"
+        echo "  Linked: ${name}"
+    done
+
+    # 2. Create alias symlinks for scripts with non-audiobook-* names
+    for script_name target_name in "${(@kv)SCRIPT_ALIASES}"; do
+        local source_path="${scripts_dir}/${script_name}"
+        local link_path="${bin_dir}/${target_name}"
+        if [[ -f "$source_path" ]]; then
+            ${use_sudo} rm -f "$link_path"
+            ${use_sudo} ln -s "$source_path" "$link_path"
+            echo "  Linked: ${target_name} -> ${script_name}"
+        fi
+    done
+}
 
 print_header() {
     clear
@@ -1224,74 +1274,10 @@ EOF
     fi
     echo ""
 
-    # Create wrapper scripts
-    echo -e "${BLUE}Creating executable wrappers...${NC}"
-
-    # Determine API entry point based on architecture choice
-    local api_entry=$(get_api_entry_point)
-    echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
-
-    # API server wrapper
-    sudo tee "${BIN_DIR}/audiobook-api" > /dev/null << EOF
-#!/usr/bin/env zsh
-# Audiobook Library API Server
-source /opt/audiobooks/lib/audiobook-config.sh
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-api"
-
-    # Web server wrapper
-    sudo tee "${BIN_DIR}/audiobook-web" > /dev/null << 'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library Web Server (HTTPS)
-source /opt/audiobooks/lib/audiobook-config.sh
-exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-web"
-
-    # Scanner wrapper
-    sudo tee "${BIN_DIR}/audiobook-scan" > /dev/null << 'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library Scanner
-source /opt/audiobooks/lib/audiobook-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-scan"
-
-    # Database import wrapper
-    sudo tee "${BIN_DIR}/audiobook-import" > /dev/null << 'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library Database Import
-source /opt/audiobooks/lib/audiobook-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-import"
-
-    # Config viewer
-    sudo tee "${BIN_DIR}/audiobook-config" > /dev/null << 'EOF'
-#!/usr/bin/env zsh
-# Show audiobook library configuration
-source /opt/audiobooks/lib/audiobook-config.sh
-audiobooks_print_config
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-config"
-
-    # User management CLI (authentication)
-    sudo tee "${BIN_DIR}/audiobook-user" > /dev/null << 'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library User Management CLI
-# Manage authenticated users for multi-user access
-source /opt/audiobooks/lib/audiobook-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/auth/cli.py" \
-    --database "${AUTH_DATABASE:-/var/lib/audiobooks/auth.db}" \
-    --key-file "${AUTH_KEY_FILE:-/etc/audiobooks/auth.key}" \
-    "$@"
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-user"
-
-    # Install management scripts to /opt/audiobooks/scripts/ (canonical location)
-    # Then create symlinks in /usr/local/bin/ for PATH accessibility
-    echo -e "${BLUE}Installing management scripts...${NC}"
+    # Install ALL scripts to /opt/audiobooks/scripts/ (canonical location)
+    # This includes management scripts AND wrapper scripts (audiobook-api, etc.)
+    # All /usr/local/bin/ entries will be symlinks to this canonical location.
+    echo -e "${BLUE}Installing scripts to canonical location...${NC}"
     local APP_SCRIPTS_DIR="/opt/audiobooks/scripts"
     sudo mkdir -p "${APP_SCRIPTS_DIR}"
 
@@ -1317,39 +1303,7 @@ EOF
     done
 
     # Create symlinks in /usr/local/bin/ pointing to canonical scripts
-    echo -e "${BLUE}Creating symlinks in ${BIN_DIR}...${NC}"
-    # Map original script names to user-friendly command names
-    typeset -A SCRIPT_ALIASES=(
-        ["convert-audiobooks-opus-parallel"]="audiobook-convert"
-        ["move-staged-audiobooks"]="audiobook-move-staged"
-        ["download-new-audiobooks"]="audiobook-download"
-        ["audiobook-save-staging"]="audiobook-save-staging"
-        ["audiobook-save-staging-auto"]="audiobook-save-staging-auto"
-        ["audiobook-status"]="audiobook-status"
-        ["audiobook-start"]="audiobook-start"
-        ["audiobook-stop"]="audiobook-stop"
-        ["audiobook-enable"]="audiobook-enable"
-        ["audiobook-disable"]="audiobook-disable"
-        ["audiobook-help"]="audiobook-help"
-        ["monitor-audiobook-conversion"]="audiobook-monitor"
-        ["copy-audiobook-metadata"]="audiobook-copy-metadata"
-        ["audiobook-download-monitor"]="audiobook-download-monitor"
-        ["embed-cover-art.py"]="audiobook-embed-cover"
-        ["build-conversion-queue"]="audiobook-build-queue"
-        ["upgrade.sh"]="audiobook-upgrade"
-        ["migrate-api.sh"]="audiobook-migrate"
-    )
-
-    for script_name in "${(k)SCRIPT_ALIASES[@]}"; do
-        local target_name="${SCRIPT_ALIASES[$script_name]}"
-        local source_path="${APP_SCRIPTS_DIR}/${script_name}"
-        local link_path="${BIN_DIR}/${target_name}"
-        if [[ -f "$source_path" ]]; then
-            sudo rm -f "$link_path"
-            sudo ln -s "$source_path" "$link_path"
-            echo "  Linked: ${target_name} -> ${source_path}"
-        fi
-    done
+    refresh_bin_symlinks "/opt/audiobooks" "sudo"
 
     # Store release info for GitHub-based upgrades
     echo -e "${BLUE}Storing release metadata...${NC}"
@@ -1368,26 +1322,6 @@ EOF
 EOF
     fi
     sudo chmod 644 "/opt/audiobooks/.release-info"
-
-    # Create upgrade wrapper
-    sudo tee "${BIN_DIR}/audiobook-upgrade" > /dev/null << 'EOF'
-#!/usr/bin/env zsh
-# Audiobook Toolkit Upgrade Script
-# Fetches and applies updates from GitHub releases
-exec /opt/audiobooks/scripts/upgrade.sh --target /opt/audiobooks "$@"
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-upgrade"
-    echo "  Installed: audiobook-upgrade"
-
-    # Create migrate wrapper
-    sudo tee "${BIN_DIR}/audiobook-migrate" > /dev/null << 'EOF'
-#!/usr/bin/env zsh
-# Audiobook Toolkit API Migration Script
-# Switch between monolithic and modular API architectures
-exec /opt/audiobooks/scripts/migrate-api.sh --target /opt/audiobooks "$@"
-EOF
-    sudo chmod 755 "${BIN_DIR}/audiobook-migrate"
-    echo "  Installed: audiobook-migrate"
 
     # Setup Python virtual environment if needed
     if [[ ! -d "${LIB_DIR}/library/venv" ]]; then

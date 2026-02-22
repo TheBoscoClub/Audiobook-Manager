@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+# Audiobook Library Web Server (HTTPS)
+# Wrapper script — sources config and launches the HTTPS proxy
+source "${0:A:h}/../lib/audiobook-config.sh"
+exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/web-v2/proxy_server.py" "$@"

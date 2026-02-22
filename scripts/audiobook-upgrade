@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+# Audiobook Toolkit Upgrade Script
+# Wrapper — delegates to the full upgrade.sh in the scripts directory
+exec "${0:A:h}/upgrade.sh" --target "$(dirname "${0:A:h}")" "$@"

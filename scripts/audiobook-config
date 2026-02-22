@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+# Audiobook Library Configuration Viewer
+# Wrapper script — sources config and prints current settings
+source "${0:A:h}/../lib/audiobook-config.sh"
+audiobooks_print_config "$@"

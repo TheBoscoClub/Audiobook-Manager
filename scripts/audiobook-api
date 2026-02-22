@@ -1,0 +1,6 @@
+#!/usr/bin/env zsh
+# Audiobook Library API Server
+# Wrapper script — sources config and launches the Flask API
+source "${0:A:h}/../lib/audiobook-config.sh"
+cd "${AUDIOBOOKS_HOME}/library/backend"
+exec "$(audiobooks_python)" api_server.py "$@"

@@ -1,0 +1,8 @@
+#!/usr/bin/env zsh
+# Audiobook Library User Management CLI
+# Wrapper script — manage authenticated users for multi-user access
+source "${0:A:h}/../lib/audiobook-config.sh"
+exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/auth/cli.py" \
+	--database "${AUTH_DATABASE:-${AUDIOBOOKS_VAR_DIR}/auth.db}" \
+	--key-file "${AUTH_KEY_FILE:-/etc/audiobooks/auth.key}" \
+	"$@"

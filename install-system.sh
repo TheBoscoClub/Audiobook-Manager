@@ -45,6 +45,48 @@ SCRIPT_DIR="${0:A:h}"
 INSTALL_SERVICES=true
 UNINSTALL=false
 
+# Script-to-CLI Name Aliases (shared with install.sh, deploy.sh, upgrade.sh)
+typeset -A SCRIPT_ALIASES=(
+    ["convert-audiobooks-opus-parallel"]="audiobook-convert"
+    ["build-conversion-queue"]="audiobook-build-queue"
+    ["download-new-audiobooks"]="audiobook-download"
+    ["monitor-audiobook-conversion"]="audiobook-monitor"
+    ["move-staged-audiobooks"]="audiobook-move-staged"
+    ["copy-audiobook-metadata"]="audiobook-copy-metadata"
+    ["cleanup-stale-indexes"]="audiobook-cleanup-indexes"
+    ["find-duplicate-sources"]="audiobook-find-duplicates"
+    ["fix-wrong-chapters-json"]="audiobook-fix-chapters"
+    ["embed-cover-art.py"]="audiobook-embed-covers"
+)
+
+refresh_bin_symlinks() {
+    local target="$1"
+    local bin_dir="/usr/local/bin"
+    local scripts_dir="$target/scripts"
+
+    [[ -d "$scripts_dir" ]] || return 0
+
+    echo -e "${BLUE}Creating symlinks in ${bin_dir}...${NC}"
+
+    for script in "$scripts_dir"/audiobook-*; do
+        [[ -f "$script" ]] || continue
+        local name=$(basename "$script")
+        rm -f "${bin_dir}/${name}"
+        ln -s "$script" "${bin_dir}/${name}"
+        echo "  Linked: ${name}"
+    done
+
+    for script_name target_name in "${(@kv)SCRIPT_ALIASES}"; do
+        local source_path="${scripts_dir}/${script_name}"
+        local link_path="${bin_dir}/${target_name}"
+        if [[ -f "$source_path" ]]; then
+            rm -f "$link_path"
+            ln -s "$source_path" "$link_path"
+            echo "  Linked: ${target_name} -> ${script_name}"
+        fi
+    done
+}
+
 # -----------------------------------------------------------------------------
 # Parse arguments
 # -----------------------------------------------------------------------------
@@ -154,9 +196,15 @@ mkdir -p "/var/log/audiobooks"
 echo -e "${BLUE}Installing library files...${NC}"
 cp -r "${SCRIPT_DIR}/library" "${LIB_DIR}/"
 cp -r "${SCRIPT_DIR}/lib" "${LIB_DIR}/"
+cp -r "${SCRIPT_DIR}/scripts" "${LIB_DIR}/"
 [[ -d "${SCRIPT_DIR}/converter" ]] && cp -r "${SCRIPT_DIR}/converter" "${LIB_DIR}/"
 [[ -f "${SCRIPT_DIR}/VERSION" ]] && cp "${SCRIPT_DIR}/VERSION" "${LIB_DIR}/"
 cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
+# Copy root-level management scripts to canonical scripts dir
+for script in upgrade.sh migrate-api.sh; do
+    [[ -f "${SCRIPT_DIR}/${script}" ]] && cp "${SCRIPT_DIR}/${script}" "${LIB_DIR}/scripts/"
+done
+chmod -R 755 "${LIB_DIR}/scripts/"
 # Ensure installed files are readable by the audiobooks service user
 chmod -R a+rX "${LIB_DIR}"
 
@@ -235,53 +283,8 @@ chown -R audiobooks:audiobooks "/var/lib/audiobooks"
 chown -R audiobooks:audiobooks "/var/log/audiobooks"
 echo ""
 
-# Create wrapper scripts in /usr/local/bin
-echo -e "${BLUE}Creating executable wrappers...${NC}"
-
-# API server wrapper
-cat >"${BIN_DIR}/audiobook-api" <<'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library API Server
-source /usr/local/lib/audiobooks/lib/audiobook-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/api_server.py" "$@"
-EOF
-chmod 755 "${BIN_DIR}/audiobook-api"
-
-# Web server wrapper
-cat >"${BIN_DIR}/audiobook-web" <<'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library Web Server (HTTPS)
-source /usr/local/lib/audiobooks/lib/audiobook-config.sh
-exec python3 "${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "$@"
-EOF
-chmod 755 "${BIN_DIR}/audiobook-web"
-
-# Scanner wrapper
-cat >"${BIN_DIR}/audiobook-scan" <<'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library Scanner
-source /usr/local/lib/audiobooks/lib/audiobook-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
-EOF
-chmod 755 "${BIN_DIR}/audiobook-scan"
-
-# Database import wrapper
-cat >"${BIN_DIR}/audiobook-import" <<'EOF'
-#!/usr/bin/env zsh
-# Audiobook Library Database Import
-source /usr/local/lib/audiobooks/lib/audiobook-config.sh
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "$@"
-EOF
-chmod 755 "${BIN_DIR}/audiobook-import"
-
-# Config viewer
-cat >"${BIN_DIR}/audiobook-config" <<'EOF'
-#!/usr/bin/env zsh
-# Show audiobook library configuration
-source /usr/local/lib/audiobooks/lib/audiobook-config.sh
-audiobooks_print_config
-EOF
-chmod 755 "${BIN_DIR}/audiobook-config"
+# Create symlinks in /usr/local/bin pointing to canonical scripts
+refresh_bin_symlinks "${LIB_DIR}"
 
 # Setup Python virtual environment (recreate if broken or missing)
 if ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
