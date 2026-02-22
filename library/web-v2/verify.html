@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="css/help-tooltips.css">
     <link rel="stylesheet" href="css/responsive.css">
+    <script src="js/session-persistence.js"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
@@ -145,18 +146,31 @@
             states[stateName].hidden = false;
         }
 
-        async function verifyToken(token) {
+        async function verifyToken(token, activate) {
             try {
+                const body = { token };
+                if (activate) body.activate = true;
+
                 const response = await fetch(`${API_BASE}/auth/magic-link/verify`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ token })
+                    body: JSON.stringify(body)
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
+                    // Store session token for persistent login recovery
+                    if (data.session_token && typeof SessionPersistence !== 'undefined') {
+                        await SessionPersistence.store(data.session_token);
+                    }
+                    // Update success message for activations
+                    if (data.activation) {
+                        document.querySelector('#state-success .state-title').textContent = 'Welcome!';
+                        document.querySelector('#state-success .state-message').textContent =
+                            'Your account is activated. Taking you to The Library now...';
+                    }
                     showState('success');
                     // Redirect to library after brief delay
                     setTimeout(() => {
@@ -174,13 +188,14 @@
             }
         }
 
-        // Check URL for token
+        // Check URL for token and activate flag
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token');
+        const activate = params.get('activate') === '1';
 
         if (token) {
             // Auto-verify token from URL
-            verifyToken(token);
+            verifyToken(token, activate);
         } else {
             // Show manual entry form
             showState('manual');

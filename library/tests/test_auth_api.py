@@ -290,7 +290,7 @@ class TestAuthHealth:
         data = r.get_json()
         assert data["status"] == "ok"
         assert data["auth_db"] is True
-        assert data["schema_version"] == 4
+        assert data["schema_version"] == 5
 
 
 class TestRegistrationWithRecovery:
@@ -500,26 +500,25 @@ class TestRecoveryContactManagement:
 class TestProtectedEndpointsUnauthenticated:
     """Test that protected endpoints require authentication when auth is enabled."""
 
-    def test_audiobooks_requires_auth(self, client):
-        """Test /api/audiobooks requires authentication."""
+    def test_audiobooks_allows_guest(self, client):
+        """Test /api/audiobooks allows guest access (read-only)."""
         r = client.get("/api/audiobooks")
-        assert r.status_code == 401
-        assert "Authentication required" in r.get_json()["error"]
+        assert r.status_code == 200
 
-    def test_stats_requires_auth(self, client):
-        """Test /api/stats requires authentication."""
+    def test_stats_allows_guest(self, client):
+        """Test /api/stats allows guest access."""
         r = client.get("/api/stats")
-        assert r.status_code == 401
+        assert r.status_code == 200
 
-    def test_filters_requires_auth(self, client):
-        """Test /api/filters requires authentication."""
+    def test_filters_allows_guest(self, client):
+        """Test /api/filters allows guest access."""
         r = client.get("/api/filters")
-        assert r.status_code == 401
+        assert r.status_code == 200
 
-    def test_collections_requires_auth(self, client):
-        """Test /api/collections requires authentication."""
+    def test_collections_allows_guest(self, client):
+        """Test /api/collections allows guest access."""
         r = client.get("/api/collections")
-        assert r.status_code == 401
+        assert r.status_code == 200
 
     def test_duplicates_requires_auth(self, client):
         """Test /api/duplicates requires authentication."""

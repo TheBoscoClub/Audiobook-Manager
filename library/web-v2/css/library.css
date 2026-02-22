@@ -345,6 +345,101 @@
 }
 
 /* ============================================
+   Guest Gate Tooltip
+   Art Deco styled popover for unauthenticated users
+   ============================================ */
+.guest-gate-tooltip {
+    position: fixed;
+    z-index: 10000;
+    background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    border: 2px solid var(--gold);
+    padding: 1.25rem 1.5rem;
+    min-width: 260px;
+    max-width: 320px;
+    box-shadow:
+        var(--shadow-elevation-3),
+        var(--shadow-gold-glow),
+        inset 0 1px 0 rgba(255, 215, 0, 0.1);
+    animation: guestGateFadeIn 0.2s ease-out;
+}
+
+@keyframes guestGateFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.guest-gate-tooltip::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+        var(--gold-dark) 0%,
+        var(--gold-bright) 50%,
+        var(--gold-dark) 100%
+    );
+}
+
+.guest-gate-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--deco-slate);
+    border-top: 2px solid var(--gold);
+    border-left: 2px solid var(--gold);
+    transform: rotate(45deg);
+    top: -7px;
+    left: 24px;
+}
+
+.guest-gate-tooltip h4 {
+    color: var(--gold-bright);
+    font-size: 1rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.5px;
+}
+
+.guest-gate-tooltip p {
+    color: var(--cream-light);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    opacity: 0.9;
+}
+
+.guest-gate-links {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.guest-gate-links a {
+    color: var(--gold);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--gold-dark);
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+}
+
+.guest-gate-links a:hover {
+    background: rgba(218, 165, 32, 0.15);
+    border-color: var(--gold-bright);
+    color: var(--gold-bright);
+}
+
+.guest-gate-separator {
+    color: var(--gold-dark);
+    font-size: 0.75rem;
+    user-select: none;
+}
+
+/* ============================================
    Responsive - Book Cards
    ============================================ */
 @media (max-width: 768px) {

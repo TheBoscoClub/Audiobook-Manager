@@ -72,6 +72,9 @@ _session_cookie_secure = True  # Always use secure cookies
 _session_cookie_httponly = True
 _session_cookie_samesite = "Lax"
 
+# In-memory storage for pending TOTP setup secrets during auth method switch
+_pending_totp_secrets: dict[int, str] = {}
+
 
 def init_auth_routes(
     auth_db_path: Path,
@@ -306,6 +309,28 @@ def admin_if_enabled(f: Callable) -> Callable:
     return decorated
 
 
+def guest_allowed(f: Callable) -> Callable:
+    """
+    Decorator to allow unauthenticated read access.
+
+    Sets g.user if a valid session exists, None otherwise.
+    Always allows the request through — never returns 401.
+
+    When AUTH_ENABLED is False, behaves identically to no decorator.
+    """
+
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if not current_app.config.get("AUTH_ENABLED", False):
+            # Auth disabled — allow through (single-user mode)
+            return f(*args, **kwargs)
+        # Auth enabled — try to populate user, but allow guest access
+        g.user = get_current_user()  # None for guests, User for logged-in
+        return f(*args, **kwargs)
+
+    return decorated
+
+
 def admin_or_localhost(f: Callable) -> Callable:
     """
     Decorator for sensitive admin endpoints (service control, upgrades).
@@ -426,23 +451,25 @@ def login():
         user.id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
+        remember_me=remember_me,
     )
 
     # Update last login
     user.update_last_login(db)
 
-    # Build response
-    response = jsonify(
-        {
-            "success": True,
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "can_download": user.can_download,
-                "is_admin": user.is_admin,
-            },
-        }
-    )
+    # Build response — include session_token for client-side persistence
+    response_data = {
+        "success": True,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "can_download": user.can_download,
+            "is_admin": user.is_admin,
+        },
+    }
+    if remember_me:
+        response_data["session_token"] = token
+    response = jsonify(response_data)
 
     # Set session cookie (persistent if remember_me is true)
     return set_session_cookie(response, token, remember_me=remember_me)
@@ -462,6 +489,69 @@ def logout():
 
     response = jsonify({"success": True})
     return clear_session_cookie(response)
+
+
+@auth_bp.route("/session/restore", methods=["POST"])
+def restore_session():
+    """
+    Restore a persistent session from a client-stored token.
+
+    Called by the frontend when the session cookie is missing but the client
+    has a stored token (localStorage or IndexedDB). Re-validates the token
+    and re-sets the session cookie.
+
+    Request body:
+        {"token": "raw_session_token"}
+
+    Returns:
+        200: {"success": true, "user": {...}}
+        401: {"error": "Invalid or expired session"}
+    """
+    data = request.get_json()
+    if not data or not data.get("token"):
+        return jsonify({"error": "Token is required"}), 400
+
+    raw_token = data["token"].strip()
+    db = get_auth_db()
+    session_repo = SessionRepository(db)
+
+    session = session_repo.get_by_token(raw_token)
+    if session is None:
+        return jsonify({"error": "Invalid or expired session"}), 401
+
+    # Only allow restore for persistent sessions
+    if not session.is_persistent:
+        return jsonify({"error": "Session is not persistent"}), 401
+
+    # Check if session is still valid (not stale)
+    if session.is_stale():
+        session.invalidate(db)
+        return jsonify({"error": "Session has expired"}), 401
+
+    # Touch session to update last_seen
+    session.touch(db)
+
+    # Get user info
+    user_repo = UserRepository(db)
+    user = user_repo.get_by_id(session.user_id)
+    if user is None:
+        session.invalidate(db)
+        return jsonify({"error": "User not found"}), 401
+
+    response = jsonify(
+        {
+            "success": True,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "can_download": user.can_download,
+                "is_admin": user.is_admin,
+            },
+        }
+    )
+
+    # Re-set the session cookie
+    return set_session_cookie(response, raw_token, remember_me=True)
 
 
 @auth_bp.route("/me", methods=["GET"])
@@ -487,6 +577,7 @@ def get_current_user_info():
                 "id": user.id,
                 "username": user.username,
                 "email": user.recovery_email,
+                "auth_type": user.auth_type.value,
                 "can_download": user.can_download,
                 "is_admin": user.is_admin,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -577,11 +668,122 @@ def update_current_user():
                 "id": updated_user.id,
                 "username": updated_user.username,
                 "email": updated_user.recovery_email,
+                "auth_type": updated_user.auth_type.value,
                 "can_download": updated_user.can_download,
                 "is_admin": updated_user.is_admin,
             },
         }
     )
+
+
+@auth_bp.route("/me/auth-method", methods=["PUT"])
+@login_required
+def update_auth_method():
+    """
+    Update the user's authentication method.
+
+    Supports switching between totp, passkey, and magic_link.
+
+    JSON body:
+        auth_method: "totp" | "passkey" | "magic_link"
+        phase: "setup" | "confirm" (for totp/passkey multi-step)
+        code: 6-digit TOTP code (for totp confirm phase)
+
+    Returns:
+        200: {"success": true, "auth_type": "..."}
+        400: {"error": "..."}
+    """
+    user = get_current_user()
+    data = request.get_json() or {}
+
+    auth_method = data.get("auth_method", "").strip()
+    phase = data.get("phase", "setup")
+
+    if auth_method not in ("totp", "passkey", "magic_link"):
+        return jsonify({"error": "Invalid auth method"}), 400
+
+    db = get_auth_db()
+
+    if auth_method == "magic_link":
+        # Requires recovery_email to be set
+        if not user.recovery_email:
+            return jsonify(
+                {"error": "Email address required. Add an email in your profile first."}
+            ), 400
+
+        # Switch immediately — no setup phase needed
+        with db.connection() as conn:
+            conn.execute(
+                "UPDATE users SET auth_type = ?, recovery_enabled = 1 WHERE id = ?",
+                ("magic_link", user.id),
+            )
+        return jsonify({"success": True, "auth_type": "magic_link"})
+
+    if auth_method == "totp":
+        if phase == "setup":
+            # Generate new TOTP secret and return QR data
+            import pyotp
+
+            secret = pyotp.random_base32()
+            totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+                name=user.username, issuer_name="The Library"
+            )
+
+            # Store pending secret in memory for confirmation
+            _pending_totp_secrets[user.id] = secret
+
+            return jsonify(
+                {
+                    "success": True,
+                    "phase": "setup",
+                    "totp_secret": secret,
+                    "totp_uri": totp_uri,
+                }
+            )
+
+        elif phase == "confirm":
+            # Verify the TOTP code against the pending secret
+            import pyotp
+
+            code = data.get("code", "").strip()
+            if not code or len(code) != 6:
+                return jsonify({"error": "6-digit code required"}), 400
+
+            pending_secret = _pending_totp_secrets.get(user.id)
+            if not pending_secret:
+                return jsonify({"error": "No pending TOTP setup. Start over."}), 400
+
+            totp = pyotp.TOTP(pending_secret)
+            if not totp.verify(code, valid_window=1):
+                return jsonify({"error": "Invalid code. Try again."}), 400
+
+            # Encrypt and store the new credential
+            encrypted = db.encrypt_credential(pending_secret.encode())
+
+            with db.connection() as conn:
+                conn.execute(
+                    "UPDATE users SET auth_type = ?, auth_credential = ? WHERE id = ?",
+                    ("totp", encrypted, user.id),
+                )
+
+            # Clear pending secret
+            _pending_totp_secrets.pop(user.id, None)
+
+            return jsonify({"success": True, "auth_type": "totp"})
+
+    if auth_method == "passkey":
+        # Return WebAuthn registration options
+        # The actual WebAuthn flow uses existing endpoints
+        return jsonify(
+            {
+                "success": True,
+                "phase": "setup",
+                "message": "Use the passkey registration flow to complete setup.",
+                "registration_url": "/auth/register/webauthn/begin",
+            }
+        )
+
+    return jsonify({"error": "Unsupported auth method"}), 400
 
 
 @auth_bp.route("/check", methods=["GET"])
@@ -1848,7 +2050,7 @@ def get_auth_type():
         {"username": "string"}
 
     Returns:
-        200: {"auth_type": "totp" | "passkey" | "fido2"}
+        200: {"auth_type": "totp" | "passkey" | "fido2" | "magic_link"}
         404: {"error": "User not found"}
     """
     data = request.get_json()
@@ -2071,8 +2273,74 @@ def update_recovery_contact():
 
 
 # =============================================================================
-# Magic Link Recovery
+# Magic Link Login & Recovery
 # =============================================================================
+
+
+@auth_bp.route("/magic-link/login", methods=["POST"])
+def magic_link_login():
+    """
+    Primary magic link login endpoint.
+
+    For magic_link auth_type users: always sends a sign-in link.
+    For other users with recovery_email: sends as recovery option.
+    Anti-enumeration: always returns generic success message.
+
+    Request body:
+        {"identifier": "username_or_email"}
+
+    Returns:
+        200: {"success": true, "message": "..."}
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    identifier = data.get("identifier", "").strip()
+    if not identifier:
+        return jsonify({"error": "Username or email is required"}), 400
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    generic_message = (
+        "If an account exists with that identifier, "
+        "a sign-in link has been sent. Please check your email."
+    )
+
+    # Look up by username or email
+    user = user_repo.get_by_username(identifier)
+    if user is None:
+        user = user_repo.get_by_email(identifier)
+
+    if user is None:
+        return jsonify({"success": True, "message": generic_message})
+
+    # Magic link users always get a link; others need recovery_email
+    if user.auth_type != AuthType.MAGIC_LINK:
+        if not user.recovery_enabled or not user.recovery_email:
+            return jsonify({"success": True, "message": generic_message})
+
+    email = user.recovery_email
+    if not email:
+        return jsonify({"success": True, "message": generic_message})
+
+    # Create recovery token (reuse PendingRecovery infrastructure)
+    recovery_repo = PendingRecoveryRepository(db)
+    recovery_repo.delete_for_user(user.id)
+
+    recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
+
+    magic_link_url = f"/verify.html?token={raw_token}"
+
+    _send_magic_link_email(
+        to_email=email,
+        username=user.username,
+        magic_link=magic_link_url,
+        expires_minutes=15,
+    )
+
+    return jsonify({"success": True, "message": generic_message})
 
 
 @auth_bp.route("/magic-link", methods=["POST"])
@@ -2153,13 +2421,18 @@ def verify_magic_link():
     """
     Verify a magic link token and create a session.
 
+    Handles both login recovery and first-time activation.
+    When activate=true and user has never logged in (last_login IS NULL),
+    this is treated as an account activation.
+
     Request body:
         {
-            "token": "verification_token"
+            "token": "verification_token",
+            "activate": true  (optional, for first-time activation)
         }
 
     Returns:
-        200: {"success": true, "message": "..."}
+        200: {"success": true, "message": "...", "activation": bool}
         400: {"error": "..."}
     """
     data = request.get_json()
@@ -2169,6 +2442,8 @@ def verify_magic_link():
     token = data.get("token", "").strip()
     if not token:
         return jsonify({"error": "Token is required"}), 400
+
+    is_activation = data.get("activate", False)
 
     db = get_auth_db()
     recovery_repo = PendingRecoveryRepository(db)
@@ -2193,38 +2468,34 @@ def verify_magic_link():
     # Mark recovery as used
     recovery.mark_used(db)
 
-    # Create a new session
-    session_repo = SessionRepository(db)
-    session_repo.invalidate_user_sessions(user.id)  # Single session enforcement
+    # Detect first-time activation
+    first_login = is_activation and user.last_login is None
 
+    # Create a persistent session (magic link users get persistent by default)
     user_agent = request.headers.get("User-Agent", "")
     ip_address = request.remote_addr or ""
 
-    session, raw_token = Session.create_for_user(db, user.id, user_agent, ip_address)
+    session, raw_token = Session.create_for_user(
+        db, user.id, user_agent, ip_address, remember_me=True
+    )
 
     # Update last login
     user.last_login = datetime.now()
     user.save(db)
 
-    # Set session cookie
+    # Set session cookie and include token for client-side persistence
+    message = "Welcome to The Library!" if first_login else "Login successful"
     response = jsonify(
         {
             "success": True,
-            "message": "Login successful",
+            "message": message,
             "username": user.username,
+            "activation": first_login,
+            "session_token": raw_token,
         }
     )
 
-    response.set_cookie(
-        _session_cookie_name,
-        raw_token,
-        httponly=_session_cookie_httponly,
-        secure=_session_cookie_secure,
-        samesite=_session_cookie_samesite,
-        max_age=60 * 60 * 24 * 365,  # 1 year
-    )
-
-    return response
+    return set_session_cookie(response, raw_token, remember_me=True)
 
 
 def _get_base_url() -> str:
@@ -2675,6 +2946,43 @@ def auth_health():
                 "error": str(e),
             }
         ), 500
+
+
+# =============================================================================
+# Auth Status (Public)
+# =============================================================================
+
+
+@auth_bp.route("/status", methods=["GET"])
+def auth_status():
+    """
+    Public endpoint: returns auth state for frontend.
+
+    No authentication required. Returns whether auth is enabled,
+    the current user (if logged in), and whether the caller is a guest.
+    """
+    auth_enabled = current_app.config.get("AUTH_ENABLED", False)
+    user = None
+    if auth_enabled:
+        user = get_current_user()
+
+    user_dict = None
+    if user:
+        user_dict = {
+            "id": user.id,
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "can_download": user.can_download,
+            "auth_type": user.auth_type.value,
+        }
+
+    return jsonify(
+        {
+            "auth_enabled": auth_enabled,
+            "user": user_dict,
+            "guest": auth_enabled and user is None,
+        }
+    )
 
 
 # =============================================================================
@@ -3336,17 +3644,20 @@ def invite_user():
     """
     Invite a new user with pre-approval (admin only).
 
-    Creates a pre-approved access request and immediately sends a claim email
-    to the provided email address. The user can then claim their credentials
-    and set up their authenticator.
+    Supports two auth methods:
+    - "totp" (default): Creates access request with claim token, sends claim email.
+      User claims credentials and sets up authenticator.
+    - "magic_link": Creates user account directly with magic_link auth_type,
+      sends activation email with a one-click link. No claim step needed.
 
     JSON body:
-        username: Username (5-16 chars, alphanumeric)
+        username: Username (5-16 chars, printable ASCII)
         email: Email address to send invitation to (required)
         can_download: Optional download permission (default: true)
+        auth_method: Optional auth method - "totp" (default) or "magic_link"
 
     Returns:
-        200: {"success": true, "user": {...}, "email_sent": bool, "claim_token": "..."}
+        200: {"success": true, "user": {...}, "email_sent": bool, ...}
         400: {"error": "..."}
         409: {"error": "Username already taken"}
     """
@@ -3357,6 +3668,13 @@ def invite_user():
     username = data.get("username", "").strip()
     email = data.get("email", "").strip()
     can_download = data.get("can_download", True)
+    auth_method = data.get("auth_method", "totp").strip()
+
+    # Validate auth_method
+    if auth_method not in ("totp", "magic_link", "passkey"):
+        return jsonify(
+            {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
+        ), 400
 
     # Validate username
     if not username:
@@ -3388,6 +3706,12 @@ def invite_user():
     # Check if username exists
     if user_repo.username_exists(username):
         return jsonify({"error": "Username already taken"}), 409
+
+    if auth_method == "magic_link":
+        # Magic link flow: create user account directly, send activation email
+        return _invite_magic_link_user(db, user_repo, username, email, can_download)
+
+    # Default TOTP/passkey flow: create access request with claim token
 
     # Remove any stale access request (e.g. user was deleted but request lingered)
     existing = request_repo.get_by_username(username)
@@ -3428,13 +3752,68 @@ def invite_user():
                 "is_admin": False,
             },
             "email_sent": email_sent,
-            "claim_token": formatted_token,  # Also return token so admin can share manually if email fails
+            "claim_token": formatted_token,
             "message": (
                 f"Invitation for '{username}' sent. "
                 + (
                     "Email delivered."
                     if email_sent
                     else "Email failed - share claim token manually."
+                )
+            ),
+        }
+    )
+
+
+def _invite_magic_link_user(db, user_repo, username, email, can_download):
+    """
+    Create a magic_link user account directly and send activation email.
+
+    No claim step needed — user clicks the link and they're in.
+    """
+    # Create user account with magic_link auth type
+    user = User(
+        username=username,
+        auth_type=AuthType.MAGIC_LINK,
+        auth_credential=b"",  # No credential needed for magic link
+        can_download=can_download,
+        is_admin=False,
+        recovery_email=email,
+        recovery_enabled=True,
+    )
+    user.save(db)
+
+    # Generate activation token (24h expiry for invitations)
+    recovery, raw_token = PendingRecovery.create(
+        db,
+        user.id,
+        expiry_minutes=60 * 24,  # 24 hours
+    )
+
+    # Send activation email
+    email_sent = _send_activation_email(
+        to_email=email,
+        username=username,
+        activation_token=raw_token,
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "user": {
+                "username": username,
+                "email": email,
+                "can_download": can_download,
+                "is_admin": False,
+                "auth_type": "magic_link",
+            },
+            "email_sent": email_sent,
+            "message": (
+                f"Magic link invitation for '{username}' sent. "
+                + (
+                    "Activation email delivered."
+                    if email_sent
+                    else "Email failed - admin can resend from user management."
                 )
             ),
         }
@@ -3624,6 +4003,116 @@ STEP 2: SET UP YOUR ACCOUNT
 
     except Exception as e:
         current_app.logger.error(f"Failed to send invitation email: {type(e).__name__}")
+        return False
+
+
+def _send_activation_email(to_email: str, username: str, activation_token: str) -> bool:
+    """
+    Send an activation email for magic link invitations.
+
+    Much simpler than the TOTP claim email — just one button to click.
+    Returns True if email was sent successfully, False otherwise.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    base_url = _get_base_url()
+
+    activation_url = f"{base_url}/verify.html?token={activation_token}&activate=1"
+
+    subject = "Welcome to The Library"
+
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">Welcome to The Library</h1>
+
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
+            Hello {username},
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
+            You've been invited to The Library &mdash; a private audiobook collection.
+            Click the big gold button below to activate your account and start listening.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{activation_url}"
+               style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+                      color: #1a1a1a;
+                      padding: 18px 40px;
+                      text-decoration: none;
+                      font-weight: bold;
+                      font-size: 1.1em;
+                      letter-spacing: 2px;">
+                ACTIVATE MY ACCOUNT
+            </a>
+        </div>
+
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
+            This link works for 24 hours. After that, ask the admin to resend your invitation.
+        </p>
+
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
+            <strong>How it works:</strong> Each time you want to sign in, you'll enter your username
+            and we'll email you a sign-in link. No passwords or apps needed!
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+
+        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
+            If the button doesn't work, copy this link and paste it into your browser:<br>
+            <a href="{activation_url}" style="color: #daa520; word-break: break-all;">{activation_url}</a>
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+    text_content = f"""Welcome to The Library
+
+Hello {username},
+
+You've been invited to The Library - a private audiobook collection.
+
+Click the link below to activate your account and start listening:
+
+{activation_url}
+
+This link works for 24 hours. After that, ask the admin to resend your invitation.
+
+How it works: Each time you want to sign in, you'll enter your username
+and we'll email you a sign-in link. No passwords or apps needed!
+
+If the link doesn't work, copy it and paste it into your browser's address bar.
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = to_email
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_pass:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+
+        return True
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to send activation email: {type(e).__name__}")
         return False
 
 

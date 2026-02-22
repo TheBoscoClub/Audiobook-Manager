@@ -5,7 +5,7 @@ Collection definitions and helpers for predefined audiobook groups.
 from flask import Blueprint, Response, jsonify
 
 from .core import get_db
-from .auth import auth_if_enabled
+from .auth import guest_allowed
 
 collections_bp = Blueprint("collections", __name__)
 
@@ -210,7 +210,7 @@ def init_collections_routes(db_path):
     """Initialize routes with database path."""
 
     @collections_bp.route("/api/collections", methods=["GET"])
-    @auth_if_enabled
+    @guest_allowed
     def get_collections() -> Response:
         """Get available collections with counts, grouped by category"""
         conn = get_db(db_path)

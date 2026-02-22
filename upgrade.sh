@@ -521,6 +521,99 @@ do_upgrade() {
 }
 
 # -----------------------------------------------------------------------------
+# Auth Database Safety
+# -----------------------------------------------------------------------------
+
+backup_auth_db() {
+    # Back up the auth database before any file operations
+    local target="$1"
+    local use_sudo="$2"
+
+    # Try to find auth database
+    local auth_db=""
+    for candidate in \
+        "${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/auth.db" \
+        "$target/../auth.db"; do
+        if [[ -f "$candidate" ]]; then
+            auth_db="$candidate"
+            break
+        fi
+    done
+
+    if [[ -z "$auth_db" ]]; then
+        echo -e "${YELLOW}  No auth database found — skipping auth backup${NC}"
+        return 0
+    fi
+
+    local backup="${auth_db}.pre-upgrade-$(date +%Y%m%d%H%M%S)"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo -e "  [DRY-RUN] Would backup: $auth_db → $backup"
+        return 0
+    fi
+
+    echo -e "${BLUE}Backing up auth database...${NC}"
+    echo "  Source: $auth_db"
+    echo "  Backup: $backup"
+    if [[ -n "$use_sudo" ]]; then
+        sudo cp -p "$auth_db" "$backup"
+    else
+        cp -p "$auth_db" "$backup"
+    fi
+    echo -e "${GREEN}  Auth database backed up${NC}"
+}
+
+validate_auth_post_upgrade() {
+    # Verify auth database integrity after upgrade
+    local target="$1"
+
+    local auth_db=""
+    for candidate in \
+        "${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/auth.db" \
+        "$target/../auth.db"; do
+        if [[ -f "$candidate" ]]; then
+            auth_db="$candidate"
+            break
+        fi
+    done
+
+    if [[ -z "$auth_db" ]]; then
+        return 0  # No auth DB — nothing to validate
+    fi
+
+    echo -e "${BLUE}Validating auth database post-upgrade...${NC}"
+
+    # Check if API is responding
+    local api_port="${API_PORT:-5001}"
+    local max_wait=10
+    local waited=0
+    while [[ $waited -lt $max_wait ]]; do
+        if curl -s "http://localhost:${api_port}/api/system/version" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    if [[ $waited -ge $max_wait ]]; then
+        echo -e "${YELLOW}  API not responding on port $api_port — skipping auth validation${NC}"
+        return 0
+    fi
+
+    # Query user count via API (if auth enabled)
+    local status_resp
+    status_resp=$(curl -s "http://localhost:${api_port}/auth/status" 2>/dev/null)
+    if [[ -n "$status_resp" ]]; then
+        local auth_enabled
+        auth_enabled=$(echo "$status_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('auth_enabled',False))" 2>/dev/null || echo "unknown")
+        echo "  Auth enabled: $auth_enabled"
+        echo -e "${GREEN}  Auth database validated — API responding${NC}"
+    else
+        echo -e "${YELLOW}  Could not reach /auth/status — auth may not be configured${NC}"
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Post-Upgrade Verification
 # -----------------------------------------------------------------------------
 
@@ -985,6 +1078,9 @@ do_github_upgrade() {
         use_sudo="sudo"
     fi
 
+    # Backup auth database before any changes
+    backup_auth_db "$target" "$use_sudo"
+
     # Stop services before upgrade
     stop_services "$use_sudo"
     echo ""
@@ -996,6 +1092,9 @@ do_github_upgrade() {
 
     # Start services after upgrade
     start_services "$use_sudo"
+
+    # Validate auth database post-upgrade
+    validate_auth_post_upgrade "$target"
 
     echo ""
     echo -e "${GREEN}Successfully upgraded to version $install_version${NC}"
@@ -1158,6 +1257,9 @@ if [[ ! -w "$TARGET_DIR" ]]; then
     use_sudo="true"
 fi
 
+# Backup auth database before any changes
+backup_auth_db "$TARGET_DIR" "$use_sudo"
+
 # Stop services before upgrade
 stop_services "$use_sudo"
 echo ""
@@ -1168,6 +1270,9 @@ do_upgrade "$PROJECT_DIR" "$TARGET_DIR"
 # Start services after upgrade
 echo ""
 start_services "$use_sudo"
+
+# Validate auth database post-upgrade
+validate_auth_post_upgrade "$TARGET_DIR"
 
 # Handle architecture switching if requested
 if [[ -n "$SWITCH_ARCHITECTURE" ]]; then

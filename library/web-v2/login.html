@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/help-tooltips.css">
     <link rel="stylesheet" href="css/responsive.css">
     <script src="js/webauthn.js"></script>
+    <script src="js/session-persistence.js"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
@@ -83,6 +84,14 @@
                 </div>
             </div>
 
+            <!-- Magic link confirmation - shown for magic_link users -->
+            <div class="form-group" id="magic-link-sent-group" hidden>
+                <div id="magic-link-sent-message" class="success-message-box" style="text-align: center; padding: 1rem;">
+                    <p style="margin: 0 0 0.5rem 0; font-weight: bold;">Check your email</p>
+                    <p style="margin: 0; font-size: 0.9em;">We sent a sign-in link to your email address. Click the link to sign in.</p>
+                </div>
+            </div>
+
             <!-- Change username link - shown after auth type detected -->
             <div id="change-username-link" class="form-group" hidden style="text-align: center; margin-top: -0.5rem;">
                 <a href="#" id="change-username" class="auth-link" style="font-size: 0.9em;">&larr; Use different username</a>
@@ -96,7 +105,7 @@
                     <input type="checkbox" id="remember-me" name="remember_me">
                     <span class="checkbox-text">Stay logged in</span>
                 </label>
-                <span class="field-hint">Keep me logged in on this device until I sign out</span>
+                <span class="field-hint">Your login will be remembered on this device so you won't need to sign in each time. This stores a secure session key in your browser. Only use this on a device you trust. To fully sign out later, use the Sign Out button.</span>
             </div>
 
             <!-- Continue button - first step -->
@@ -417,7 +426,11 @@
                 usernameInput.readOnly = true;
                 updateEditButtonVisibility();
 
-                if (currentAuthType === 'passkey' || currentAuthType === 'fido2') {
+                if (currentAuthType === 'magic_link') {
+                    // Magic link flow — auto-submit to send login link
+                    changeUsernameLink.hidden = false;
+                    await sendMagicLinkLogin(username);
+                } else if (currentAuthType === 'passkey' || currentAuthType === 'fido2') {
                     // WebAuthn flow
                     if (!WebAuthn.isSupported()) {
                         showError(errorMessage, 'Your browser does not support passkeys. Please use a backup code instead.');
@@ -517,6 +530,10 @@
                     const data = await response.json();
 
                     if (response.ok) {
+                        // Store session token for persistent login recovery
+                        if (data.session_token && typeof SessionPersistence !== 'undefined') {
+                            await SessionPersistence.store(data.session_token);
+                        }
                         window.location.href = 'index.html';
                     } else {
                         showError(errorMessage, data.error || 'Login failed');
@@ -591,6 +608,7 @@
             rememberMeGroup.hidden = true;
             webauthnGroup.hidden = true;
             changeUsernameLink.hidden = true;
+            document.getElementById('magic-link-sent-group').hidden = true;
             continueButton.hidden = false;
             loginButton.hidden = true;
             loginButton.querySelector('.button-text').textContent = 'Enter the Library';
@@ -657,6 +675,32 @@
                 setLoading(magicLinkButton, false);
             }
         });
+
+        // Magic link login for magic_link auth type users
+        async function sendMagicLinkLogin(username) {
+            const magicLinkSentGroup = document.getElementById('magic-link-sent-group');
+            clearError(errorMessage);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/magic-link/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier: username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    magicLinkSentGroup.hidden = false;
+                } else {
+                    showError(errorMessage, data.error || 'Unable to send login link');
+                    continueButton.hidden = false;
+                }
+            } catch (e) {
+                showError(errorMessage, 'Connection error. Please try again.');
+                continueButton.hidden = false;
+            }
+        }
 
         document.getElementById('code').addEventListener('input', (e) => {
             e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);

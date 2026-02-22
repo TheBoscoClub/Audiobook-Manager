@@ -2,6 +2,8 @@
 // Use relative URL for proxy support (works with both direct API and HTTPS proxy)
 const API_BASE = '/api';
 
+// SessionPersistence is loaded from js/session-persistence.js (shared with login/verify pages)
+
 class AudiobookLibraryV2 {
     constructor() {
         this.currentPage = 1;
@@ -36,6 +38,7 @@ class AudiobookLibraryV2 {
         // Auth state
         this.user = null;
         this.authEnabled = false;
+        this.guestMode = false;
 
         // Tab state
         this.currentTab = 'browse';
@@ -46,30 +49,43 @@ class AudiobookLibraryV2 {
 
     /**
      * Check authentication status and get current user info.
-     * Returns true if user can access the library, false if redirect needed.
+     * Always returns true — guests can browse, no redirect.
      */
     async checkAuth() {
         try {
-            const response = await fetch('/auth/me', {
+            let response = await fetch('/auth/status', {
                 credentials: 'include'
             });
 
-            if (response.status === 401) {
-                // Auth is enabled but user is not logged in
-                this.authEnabled = true;
-                window.location.href = 'login.html';
-                return false;
-            }
-
             if (response.ok) {
-                const data = await response.json();
-                this.authEnabled = true;
+                let data = await response.json();
+                this.authEnabled = data.auth_enabled;
                 this.user = data.user;
-                this.updateUserUI();
+                this.guestMode = data.guest;
+
+                // If guest (no session cookie), try to recover from client storage
+                if (this.guestMode && !this.user) {
+                    const recovered = await this._trySessionRecover();
+                    if (recovered) {
+                        // Re-check auth status after session restore
+                        const retry = await fetch('/auth/status', { credentials: 'include' });
+                        if (retry.ok) {
+                            data = await retry.json();
+                            this.user = data.user;
+                            this.guestMode = data.guest;
+                        }
+                    }
+                }
+
+                if (this.user) {
+                    this.updateUserUI();
+                } else if (this.guestMode) {
+                    this.updateGuestUI();
+                }
                 return true;
             }
 
-            // Auth might not be enabled (404 or other)
+            // /auth/status not available — auth not configured
             this.authEnabled = false;
             return true;
         } catch (error) {
@@ -77,6 +93,28 @@ class AudiobookLibraryV2 {
             console.log('Auth check skipped:', error.message);
             this.authEnabled = false;
             return true;
+        }
+    }
+
+    async _trySessionRecover() {
+        try {
+            const token = await SessionPersistence.recover();
+            if (!token) return false;
+
+            const response = await fetch('/auth/session/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ token })
+            });
+
+            if (response.ok) return true;
+
+            // Token invalid — clear stale stored token
+            await SessionPersistence.clear();
+            return false;
+        } catch (e) {
+            return false;
         }
     }
 
@@ -125,6 +163,95 @@ class AudiobookLibraryV2 {
     }
 
     /**
+     * Update UI for guest mode — show sign in / request access, hide user elements.
+     */
+    updateGuestUI() {
+        const userMenu = document.getElementById('user-menu');
+        const loginLink = document.getElementById('login-link');
+        const requestAccessLink = document.getElementById('request-access-link');
+        const backOfficeLink = document.getElementById('admin-backoffice-link');
+        const myLibraryTab = document.querySelector('.tab-btn[data-tab="my-library"]');
+
+        if (userMenu) userMenu.hidden = true;
+        if (loginLink) loginLink.hidden = false;
+        if (requestAccessLink) requestAccessLink.hidden = false;
+        if (backOfficeLink) backOfficeLink.hidden = true;
+        if (myLibraryTab) myLibraryTab.style.display = 'none';
+    }
+
+    /**
+     * Show guest gate tooltip near the clicked button.
+     * Explains that play/download requires an account.
+     */
+    showGuestGate(targetElement) {
+        // Remove any existing tooltip
+        const existing = document.querySelector('.guest-gate-tooltip');
+        if (existing) existing.remove();
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'guest-gate-tooltip';
+
+        // Build tooltip content with safe DOM methods (no innerHTML)
+        const arrow = document.createElement('div');
+        arrow.className = 'guest-gate-arrow';
+        tooltip.appendChild(arrow);
+
+        const heading = document.createElement('strong');
+        heading.textContent = 'Sign in to listen';
+        tooltip.appendChild(heading);
+
+        const desc = document.createElement('p');
+        desc.textContent = 'Playing and downloading audiobooks is available to members.';
+        tooltip.appendChild(desc);
+
+        const links = document.createElement('div');
+        links.className = 'guest-gate-links';
+
+        const signInLink = document.createElement('a');
+        signInLink.href = 'login.html';
+        signInLink.textContent = 'Sign In';
+        links.appendChild(signInLink);
+
+        const sep = document.createElement('span');
+        sep.className = 'guest-gate-separator';
+        sep.textContent = '\u00B7';
+        links.appendChild(sep);
+
+        const requestLink = document.createElement('a');
+        requestLink.href = 'register.html';
+        requestLink.textContent = 'Request Access';
+        links.appendChild(requestLink);
+
+        tooltip.appendChild(links);
+        document.body.appendChild(tooltip);
+
+        // Position near the clicked button
+        const rect = targetElement.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let top = rect.bottom + 8 + window.scrollY;
+        let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2) + window.scrollX;
+
+        // Keep within viewport
+        if (left < 8) left = 8;
+        if (left + tooltipRect.width > window.innerWidth - 8) {
+            left = window.innerWidth - tooltipRect.width - 8;
+        }
+
+        tooltip.style.top = top + 'px';
+        tooltip.style.left = left + 'px';
+
+        // Dismiss on click-away
+        const dismiss = (e) => {
+            if (!tooltip.contains(e.target)) {
+                tooltip.remove();
+                document.removeEventListener('click', dismiss);
+            }
+        };
+        // Delay to avoid immediate dismiss from current click
+        setTimeout(() => document.addEventListener('click', dismiss), 0);
+    }
+
+    /**
      * Show/hide download buttons based on user's download permission.
      */
     updateDownloadButtons() {
@@ -138,6 +265,8 @@ class AudiobookLibraryV2 {
      * Log out the current user.
      */
     async logout() {
+        // Clear client-side session storage before server logout
+        await SessionPersistence.clear();
         try {
             await fetch('/auth/logout', {
                 method: 'POST',
@@ -252,6 +381,42 @@ class AudiobookLibraryV2 {
         }
     }
 
+    maybeShowPasskeyPrompt() {
+        // One-time prompt for magic_link users suggesting passkey for better persistence
+        if (!this.user || this.user.auth_type !== 'magic_link') return;
+        try {
+            if (localStorage.getItem('library_passkey_prompt_dismissed')) return;
+        } catch (e) { return; }
+
+        // Check if browser supports WebAuthn
+        if (!window.PublicKeyCredential) return;
+
+        const banner = document.createElement('div');
+        banner.className = 'notification-banner';
+        banner.setAttribute('role', 'status');
+        const content = document.createElement('div');
+        content.className = 'notification-content';
+        const msg = document.createElement('span');
+        msg.className = 'notification-message';
+        msg.textContent = 'Your browser supports passkeys. Setting up a passkey means you can sign in instantly without waiting for an email link. You can switch in your profile settings.';
+        content.appendChild(msg);
+        const dismiss = document.createElement('button');
+        dismiss.className = 'notification-dismiss';
+        dismiss.setAttribute('aria-label', 'Dismiss');
+        dismiss.title = 'Dismiss this suggestion';
+        dismiss.textContent = '\u00D7';
+        dismiss.addEventListener('click', () => {
+            try { localStorage.setItem('library_passkey_prompt_dismissed', '1'); } catch (e) {}
+            banner.classList.add('dismissing');
+            setTimeout(() => banner.remove(), 300);
+        });
+        content.appendChild(dismiss);
+        banner.appendChild(content);
+
+        const container = document.getElementById('notification-container');
+        if (container) container.appendChild(banner);
+    }
+
     /**
      * Download an audiobook for offline listening.
      * Fetches the file as a blob, triggers the browser download, then
@@ -260,7 +425,13 @@ class AudiobookLibraryV2 {
      *
      * Failed or cancelled downloads are intentionally NOT recorded.
      */
-    async downloadAudiobook(bookId) {
+    async downloadAudiobook(bookId, event) {
+        // Guest gate: block download for unauthenticated visitors
+        if (this.guestMode) {
+            const target = event ? event.target : document.querySelector(`[onclick*="downloadAudiobook(${bookId})"]`);
+            if (target) this.showGuestGate(target);
+            return;
+        }
         const downloadBtn = document.querySelector(
             `[onclick*="downloadAudiobook(${bookId})"]`
         );
@@ -385,13 +556,16 @@ class AudiobookLibraryV2 {
             return; // Redirect in progress
         }
 
-        // Initialize new books marquee (auth-only feature)
+        // Initialize new books marquee (visible to all)
         if (typeof initMarquee === 'function') {
             initMarquee();
         }
 
-        // Load notifications if authenticated
-        await this.loadNotifications();
+        // Load notifications only if authenticated (not guest)
+        if (this.user) {
+            await this.loadNotifications();
+            this.maybeShowPasskeyPrompt();
+        }
 
         await this.loadStats();
         await this.loadFilters();
@@ -1961,7 +2135,14 @@ class AudioPlayer {
         }
     }
 
-    async playAudiobook(book, resume = false) {
+    async playAudiobook(book, resume = false, event = null) {
+        // Guest gate: block playback for unauthenticated visitors
+        if (window.library && window.library.guestMode) {
+            const target = event ? event.target : document.querySelector('.btn-play');
+            if (target) window.library.showGuestGate(target);
+            return;
+        }
+
         this.currentBook = book;
 
         // Update player UI

@@ -37,7 +37,9 @@
                 <li><a href="#player">Audio Player</a></li>
                 <li><a href="#position-saving">Progress Tracking</a></li>
                 <li><a href="#downloads">Downloads</a></li>
+                <li><a href="#auth-methods">Authentication Methods</a></li>
                 <li><a href="#profile">Your Profile</a></li>
+                <li><a href="#stay-logged-in">Stay Logged In</a></li>
                 <li><a href="#notifications">Notifications</a></li>
                 <li><a href="#keyboard">Keyboard &amp; Media Keys</a></li>
             </ol>
@@ -48,8 +50,11 @@
             <h2><span class="section-icon">&#9733;</span> Getting Started</h2>
             <p>Welcome to The Library. Here you can browse, listen to, and download audiobooks from a curated private collection.</p>
 
+            <h3>Browsing as a Guest</h3>
+            <p>You can explore the entire library without an account &mdash; browse books, search, filter, and read descriptions. To <em>listen</em> to or <em>download</em> audiobooks, you'll need to sign in or request access.</p>
+
             <h3>First Time Here?</h3>
-            <p>If authentication is enabled, you'll need to sign in with a code from your authenticator app. Your account was created by the library administrator &mdash; contact them if you need help getting set up.</p>
+            <p>If you have an account, sign in using your chosen authentication method (see <a href="#auth-methods">Authentication Methods</a> below). If you don't have an account yet, click <strong>Request Access</strong> to ask the administrator for an invitation.</p>
 
             <h3>Quick Overview</h3>
             <div class="help-feature-grid">
@@ -268,23 +273,67 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 11. Profile -->
+        <!-- 11. Authentication Methods -->
+        <section id="auth-methods" class="help-section">
+            <h2><span class="section-icon">&#128274;</span> Authentication Methods</h2>
+            <p>The Library supports three ways to sign in. Your administrator may set your initial method when they invite you, and you can change it later in your profile.</p>
+
+            <h3>Authenticator App (TOTP)</h3>
+            <p>Use an app like Google Authenticator, Authy, or 1Password to generate a 6-digit code that changes every 30 seconds. This is the most common method and works without internet access on your phone.</p>
+
+            <h3>Passkey / Security Key</h3>
+            <p>Use your device's biometric sensor (fingerprint, face recognition) or a physical security key (like a YubiKey). Passkeys are the most convenient &mdash; just tap to sign in. Your browser must support WebAuthn.</p>
+
+            <h3>Email Link (Magic Link)</h3>
+            <p>Receive a sign-in link via email. Click the link to be logged in automatically &mdash; no codes or passwords needed. Links expire after 15 minutes and can only be used once. This is the simplest method for non-technical users.</p>
+
+            <h3>Changing Your Method</h3>
+            <p>Open your user menu, select <strong>Edit Profile</strong>, and choose a new authentication method. You'll go through a brief setup process (scanning a QR code for TOTP, registering a passkey, or confirming your email for magic link). See <a href="#profile">Your Profile</a> for details.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 12. Profile -->
         <section id="profile" class="help-section">
             <h2><span class="section-icon">&#128100;</span> Your Profile</h2>
             <p>When signed in, click your name/avatar in the header to open the user menu.</p>
 
             <h3>Edit Profile</h3>
-            <p>Select <strong>Edit Profile</strong> to change your display name or email address. Your username is shown in the header and on your avatar.</p>
+            <p>Select <strong>Edit Profile</strong> to change your display name, email address, or authentication method. Your username is shown in the header and on your avatar.</p>
+            <p>To change your sign-in method, select a new option under <strong>Authentication Method</strong> and follow the setup prompts. See <a href="#auth-methods">Authentication Methods</a> for what each option means.</p>
 
             <h3>Contact Admin</h3>
             <p>Select <strong>Contact Admin</strong> to send a message to the library administrator. You can request new audiobooks, report issues, or ask questions.</p>
 
             <h3>Sign Out</h3>
-            <p>Select <strong>Sign Out</strong> to end your session. You'll need to sign in again with your authenticator code.</p>
+            <p>Select <strong>Sign Out</strong> to end your session. If you enabled <strong>Stay logged in</strong>, your session is cleared from this device when you sign out. See <a href="#stay-logged-in">Stay Logged In</a> for details.</p>
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- 12. Notifications -->
+        <!-- 13. Stay Logged In -->
+        <section id="stay-logged-in" class="help-section">
+            <h2><span class="section-icon">&#128274;</span> Stay Logged In</h2>
+            <p>When you sign in, you can check <strong>Stay logged in on this device</strong> to keep your session active for up to 30 days without needing to sign in again.</p>
+
+            <h3>How It Works</h3>
+            <ul>
+                <li>A secure session key is stored in your browser so you're automatically recognized when you return</li>
+                <li>Your session stays active as long as you visit The Library within 30 days</li>
+                <li>If you don't visit for 30 days, you'll need to sign in again</li>
+            </ul>
+
+            <h3>Privacy &amp; Security</h3>
+            <ul>
+                <li>Anyone with access to this device could use your Library account while you're logged in</li>
+                <li>Only use this on a device you trust</li>
+                <li>To fully sign out, use the <strong>Sign Out</strong> button in the user menu &mdash; this clears your session from the device</li>
+            </ul>
+
+            <h3>Passkey Suggestion</h3>
+            <p>If you sign in with email links and enable "stay logged in," you may see a one-time suggestion to set up a passkey instead. Passkeys provide even more reliable persistent login because they're tied to your device's biometric hardware.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
+        <!-- 14. Notifications -->
         <section id="notifications" class="help-section">
             <h2><span class="section-icon">&#128276;</span> Notifications</h2>
             <p>Notification banners appear below the header when the administrator sends you a message or when something important happens.</p>

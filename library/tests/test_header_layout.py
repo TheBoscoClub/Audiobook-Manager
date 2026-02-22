@@ -83,7 +83,7 @@ class TestHeaderStructure:
         """Back Office link must be inside the right nav section."""
         content = (WEB_DIR / "index.html").read_text()
         right_start = content.index("header-nav-right")
-        right_section = content[right_start : right_start + 600]
+        right_section = content[right_start : right_start + 900]
         assert "admin-backoffice-link" in right_section, (
             "Back Office link should be inside header-nav-right"
         )

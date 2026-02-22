@@ -24,6 +24,7 @@ class AuthType(Enum):
     PASSKEY = "passkey"
     FIDO2 = "fido2"
     TOTP = "totp"
+    MAGIC_LINK = "magic_link"
 
 
 class NotificationType(Enum):
@@ -287,6 +288,15 @@ class UserRepository:
             cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
             return cursor.rowcount > 0
 
+    def get_by_email(self, email: str) -> Optional[User]:
+        """Get user by recovery email address."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE recovery_email = ?", (email,)
+            )
+            row = cursor.fetchone()
+            return User.from_row(row) if row else None
+
     def has_any_admin(self) -> bool:
         """Check if any admin user exists."""
         with self.db.connection() as conn:
@@ -310,11 +320,12 @@ class Session:
     expires_at: Optional[datetime] = None
     user_agent: Optional[str] = None
     ip_address: Optional[str] = None
+    is_persistent: bool = False
 
     @classmethod
     def from_row(cls, row: tuple) -> "Session":
         """Create Session from database row."""
-        return cls(
+        session = cls(
             id=row[0],
             user_id=row[1],
             token_hash=row[2],
@@ -324,6 +335,10 @@ class Session:
             user_agent=row[6],
             ip_address=row[7],
         )
+        # Handle is_persistent column (added in v5 migration)
+        if len(row) > 8:
+            session.is_persistent = bool(row[8]) if row[8] is not None else False
+        return session
 
     @classmethod
     def create_for_user(
@@ -332,9 +347,17 @@ class Session:
         user_id: int,
         user_agent: Optional[str] = None,
         ip_address: Optional[str] = None,
+        remember_me: bool = False,
     ) -> tuple["Session", str]:
         """
         Create new session for user, invalidating any existing sessions.
+
+        Args:
+            db: Auth database instance
+            user_id: User to create session for
+            user_agent: Client user agent string
+            ip_address: Client IP address
+            remember_me: If True, create a persistent session (30-day timeout)
 
         Returns:
             Tuple of (Session, raw_token)
@@ -349,10 +372,10 @@ class Session:
             # Create new session
             cursor = conn.execute(
                 """
-                INSERT INTO sessions (user_id, token_hash, user_agent, ip_address)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO sessions (user_id, token_hash, user_agent, ip_address, is_persistent)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (user_id, token_hash, user_agent, ip_address),
+                (user_id, token_hash, user_agent, ip_address, remember_me),
             )
             session_id = cursor.lastrowid
 
@@ -383,9 +406,14 @@ class Session:
         return True
 
     def is_stale(self, grace_minutes: int = 30) -> bool:
-        """Check if session is stale (no activity within grace period)."""
+        """Check if session is stale (no activity within grace period).
+
+        Persistent sessions use 30-day timeout instead of the default 30 minutes.
+        """
         if self.last_seen is None:
             return True
+        if self.is_persistent:
+            grace_minutes = 30 * 24 * 60  # 30 days
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
         return self.last_seen < threshold
 
@@ -422,13 +450,21 @@ class SessionRepository:
             return cursor.rowcount
 
     def cleanup_stale(self, grace_minutes: int = 30) -> int:
-        """Remove stale sessions. Returns count of deleted sessions."""
+        """Remove stale sessions. Returns count of deleted sessions.
+
+        Persistent sessions use 30-day timeout instead of the default grace period.
+        """
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
+        persistent_threshold = datetime.now() - timedelta(days=30)
         # Use SQLite-compatible format (space separator) to match DEFAULT CURRENT_TIMESTAMP
         threshold_str = threshold.strftime("%Y-%m-%d %H:%M:%S")
+        persistent_str = persistent_threshold.strftime("%Y-%m-%d %H:%M:%S")
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM sessions WHERE last_seen < ?", (threshold_str,)
+                """DELETE FROM sessions WHERE
+                   (is_persistent = 0 AND last_seen < ?) OR
+                   (is_persistent = 1 AND last_seen < ?)""",
+                (threshold_str, persistent_str),
             )
             return cursor.rowcount
 
@@ -1374,13 +1410,15 @@ class AccessRequest:
     totp_uri: Optional[str] = None
     backup_codes_json: Optional[str] = None  # JSON array of codes
     credentials_claimed: bool = False
+    # Preferred auth method (totp, passkey, magic_link)
+    preferred_auth_method: str = "totp"
 
     @classmethod
     def from_row(cls, row: tuple) -> "AccessRequest":
         """Create from database row."""
-        # Handle both old (7 columns) and new (14 columns) schema
+        # Handle both old (7 columns) and new (14+ columns) schema
         if len(row) >= 13:
-            return cls(
+            ar = cls(
                 id=row[0],
                 username=row[1],
                 requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
@@ -1397,6 +1435,10 @@ class AccessRequest:
                 backup_codes_json=row[11],
                 credentials_claimed=bool(row[12]) if row[12] is not None else False,
             )
+            # Handle preferred_auth_method (added in v5)
+            if len(row) > 13:
+                ar.preferred_auth_method = row[13] or "totp"
+            return ar
         else:
             # Old schema without claim fields
             return cls(

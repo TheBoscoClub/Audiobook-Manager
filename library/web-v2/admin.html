@@ -513,6 +513,15 @@
                     <div class="form-help">Invitation with claim token will be sent here</div>
                 </div>
                 <div class="form-group">
+                    <label for="invite-auth-method">Authentication Method</label>
+                    <select id="invite-auth-method" title="Choose how this user will sign in">
+                        <option value="totp">Authenticator App (TOTP)</option>
+                        <option value="magic_link">Email Link (Magic Link)</option>
+                        <option value="passkey">Passkey</option>
+                    </select>
+                    <div class="form-help" id="invite-auth-help">User sets up an authenticator app on their phone</div>
+                </div>
+                <div class="form-group">
                     <div class="form-toggle">
                         <input type="checkbox" id="invite-download" checked>
                         <label for="invite-download" style="margin: 0;">Allow downloads</label>
@@ -929,11 +938,28 @@
             document.getElementById('invite-username').value = '';
             document.getElementById('invite-email').value = '';
             document.getElementById('invite-download').checked = true;
+            document.getElementById('invite-auth-method').value = 'totp';
+            updateInviteAuthHelp('totp');
             document.getElementById('invite-error').style.display = 'none';
             document.getElementById('invite-submit-btn').disabled = false;
             document.getElementById('invite-submit-btn').textContent = 'Send Invite';
             document.getElementById('invite-modal').classList.add('active');
             document.getElementById('invite-username').focus();
+        }
+
+        // Auth method help text
+        document.getElementById('invite-auth-method').addEventListener('change', function() {
+            updateInviteAuthHelp(this.value);
+        });
+
+        function updateInviteAuthHelp(method) {
+            const helpEl = document.getElementById('invite-auth-help');
+            const helpText = {
+                'totp': 'User sets up an authenticator app on their phone',
+                'magic_link': 'User signs in by clicking a link sent to their email — no app needed',
+                'passkey': 'User sets up a passkey or security key for authentication'
+            };
+            helpEl.textContent = helpText[method] || '';
         }
 
         function closeInviteModal() {
@@ -948,6 +974,7 @@
             const username = document.getElementById('invite-username').value.trim();
             const email = document.getElementById('invite-email').value.trim();
             const canDownload = document.getElementById('invite-download').checked;
+            const authMethod = document.getElementById('invite-auth-method').value;
             const errorEl = document.getElementById('invite-error');
             const submitBtn = document.getElementById('invite-submit-btn');
 
@@ -976,25 +1003,41 @@
                 const data = await apiCall('/admin/users/invite', 'POST', {
                     username: username,
                     email: email,
-                    can_download: canDownload
+                    can_download: canDownload,
+                    auth_method: authMethod
                 });
 
                 if (data.success) {
                     closeInviteModal();
 
-                    // Show success modal with claim token
                     document.getElementById('invited-username').textContent = data.user.username;
-                    document.getElementById('invite-claim-token').textContent = data.claim_token;
 
-                    const claimUrl = window.location.origin + '/claim.html';
-                    document.getElementById('invite-claim-url').textContent = claimUrl;
+                    const claimTokenEl = document.getElementById('invite-claim-token');
+                    const claimUrlBox = claimTokenEl.closest('.credentials-box').parentElement;
+                    const claimUrlEl = document.getElementById('invite-claim-url');
+                    const copyBtn = document.getElementById('copy-invite-btn');
+
+                    if (authMethod === 'magic_link') {
+                        // Magic link — no claim token, different success message
+                        claimTokenEl.textContent = 'N/A (magic link)';
+                        claimUrlEl.textContent = 'Activation link sent via email';
+                        copyBtn.hidden = true;
+                    } else {
+                        // TOTP/passkey — show claim token as before
+                        claimTokenEl.textContent = data.claim_token;
+                        const claimUrl = window.location.origin + '/claim.html';
+                        claimUrlEl.textContent = claimUrl;
+                        copyBtn.hidden = false;
+                    }
 
                     const statusEl = document.getElementById('invite-email-status');
                     if (data.email_sent) {
                         statusEl.textContent = 'Invitation email sent to ' + email + '.';
                         statusEl.style.color = 'var(--color-success, #27ae60)';
                     } else {
-                        statusEl.textContent = 'Email could not be sent. Share the claim token manually.';
+                        statusEl.textContent = authMethod === 'magic_link'
+                            ? 'Email could not be sent. Admin can resend from user management.'
+                            : 'Email could not be sent. Share the claim token manually.';
                         statusEl.style.color = 'var(--color-danger, #c0392b)';
                     }
 

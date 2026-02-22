@@ -197,15 +197,17 @@ class AuthDatabase:
 
         created = not self.db_path.exists()
 
-        # Load schema SQL
+        if not created:
+            # Existing database: apply migrations BEFORE schema.sql
+            # (schema.sql inserts current version, which would mask pending migrations)
+            self._apply_migrations()
+
+        # Load and apply schema SQL (CREATE TABLE IF NOT EXISTS is safe for existing DBs)
         schema_path = Path(__file__).parent / "schema.sql"
         schema_sql = schema_path.read_text()
 
         with self.connection() as conn:
             conn.executescript(schema_sql)
-
-        # Apply any pending migrations (for existing DBs upgrading from older versions)
-        self._apply_migrations()
 
         return created
 
@@ -215,7 +217,8 @@ class AuthDatabase:
         if not migrations_dir.exists():
             return
 
-        with self.connection() as conn:
+        conn = self._create_connection()
+        try:
             cursor = conn.execute("SELECT MAX(version) FROM schema_version")
             current_version = cursor.fetchone()[0] or 0
 
@@ -223,9 +226,149 @@ class AuthDatabase:
                 # Extract version from filename (e.g., 004_xxx.sql -> 4)
                 version = int(migration_file.stem.split("_")[0])
                 if version > current_version:
-                    migration_sql = migration_file.read_text()
-                    conn.executescript(migration_sql)
+                    if version == 5:
+                        self._migrate_v4_to_v5(conn)
+                    else:
+                        migration_sql = migration_file.read_text()
+                        conn.executescript(migration_sql)
                     current_version = version
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def _migrate_v4_to_v5(self, conn) -> None:
+        """
+        Migrate schema from v4 to v5: magic_link auth, persistent sessions.
+
+        This migration:
+        1. Backs up auth.db before changes
+        2. Recreates users table with expanded CHECK (includes 'magic_link')
+        3. Adds is_persistent column to sessions
+        4. Adds preferred_auth_method to access_requests
+        5. Validates row counts match pre-migration
+        """
+        import shutil
+        import logging
+
+        logger = logging.getLogger("auth.migration")
+
+        # Pre-migration counts for validation
+        user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        session_count = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+
+        # Check if access_requests table exists
+        ar_exists = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='access_requests'"
+        ).fetchone()[0]
+        ar_count = 0
+        if ar_exists:
+            ar_count = conn.execute("SELECT COUNT(*) FROM access_requests").fetchone()[
+                0
+            ]
+
+        logger.info(
+            "v4→v5 migration: %d users, %d sessions, %d access_requests",
+            user_count,
+            session_count,
+            ar_count,
+        )
+
+        # Backup the database file before migration
+        backup_path = str(self.db_path) + ".pre-v5-backup"
+        if self.db_path.exists() and not Path(backup_path).exists():
+            shutil.copy2(str(self.db_path), backup_path)
+            logger.info("Backup saved to %s", backup_path)
+
+        # Step 1: Recreate users with expanded CHECK constraint
+        # Test if magic_link is already accepted
+        needs_users_recreate = True
+        try:
+            conn.execute(
+                "INSERT INTO users (username, auth_type, auth_credential) "
+                "VALUES ('__migration_test__', 'magic_link', X'00')"
+            )
+            conn.execute("DELETE FROM users WHERE username = '__migration_test__'")
+            needs_users_recreate = False
+            logger.info("users table already supports magic_link")
+        except Exception:
+            needs_users_recreate = True
+
+        if needs_users_recreate:
+            # Commit pending transaction so PRAGMA foreign_keys can be changed
+            conn.commit()
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.execute("""
+                CREATE TABLE users_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    auth_type TEXT NOT NULL CHECK (auth_type IN ('passkey', 'fido2', 'totp', 'magic_link')),
+                    auth_credential BLOB NOT NULL,
+                    can_download BOOLEAN DEFAULT FALSE,
+                    is_admin BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP,
+                    recovery_email TEXT,
+                    recovery_phone TEXT,
+                    recovery_enabled BOOLEAN DEFAULT FALSE,
+                    CHECK (length(username) >= 5 AND length(username) <= 16)
+                )
+            """)
+            conn.execute("INSERT INTO users_new SELECT * FROM users")
+            conn.execute("DROP TABLE users")
+            conn.execute("ALTER TABLE users_new RENAME TO users")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"
+            )
+            conn.commit()
+            conn.execute("PRAGMA foreign_keys = ON")
+            logger.info("Recreated users table with magic_link support")
+
+        # Step 2: Add is_persistent to sessions
+        session_cols = {
+            row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()
+        }
+        if "is_persistent" not in session_cols:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN is_persistent BOOLEAN DEFAULT 0"
+            )
+            logger.info("Added is_persistent to sessions")
+
+        # Step 3: Add preferred_auth_method to access_requests
+        if ar_exists:
+            ar_cols = {
+                row[1]
+                for row in conn.execute("PRAGMA table_info(access_requests)").fetchall()
+            }
+            if "preferred_auth_method" not in ar_cols:
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN preferred_auth_method TEXT DEFAULT 'totp'"
+                )
+                logger.info("Added preferred_auth_method to access_requests")
+
+        # Step 4: Update schema version
+        conn.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (5)")
+
+        # Step 5: Post-migration validation
+        post_user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        post_session_count = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+
+        if post_user_count != user_count:
+            raise RuntimeError(
+                f"Migration validation failed: users {user_count} → {post_user_count}"
+            )
+        if post_session_count != session_count:
+            raise RuntimeError(
+                f"Migration validation failed: sessions {session_count} → {post_session_count}"
+            )
+
+        logger.info(
+            "v4→v5 migration complete. Validated: %d users, %d sessions intact.",
+            post_user_count,
+            post_session_count,
+        )
 
     def verify(self) -> dict:
         """
