@@ -142,7 +142,7 @@ ssh -i ~/.ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERSION"
 
 3. **Ongoing**:
    - Run `/test` before every commit (pre-push hook)
-   - Keep VM snapshot up-to-date (`pristine-deps-2026-02-18`)
+   - Keep VM snapshot up-to-date (`pristine-os-deps-2026-02-22`)
 
 ---
 
