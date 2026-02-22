@@ -134,7 +134,7 @@
    ============================================ */
 @media (max-width: 768px) {
     .tutorial-tooltip {
-        max-width: calc(100vw - 2rem);
+        max-width: calc(100% - 2rem);
         left: 1rem !important;
         right: 1rem;
     }

@@ -286,8 +286,8 @@ body {
     }
 
     .modal-content {
+        max-height: 100vh;
         max-height: 100dvh;
-        max-height: 100vh; /* Fallback */
     }
 
     .modal-body {
@@ -366,8 +366,8 @@ body {
 
     /* Sidebar full-width at 320px */
     .collections-sidebar {
-        width: 100vw;
-        left: -100vw;
+        width: 100%;
+        left: -100%;
     }
 
     .collections-sidebar.open {
