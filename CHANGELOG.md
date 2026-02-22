@@ -20,10 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Systemd**: Added restart limits to proxy service for boot race recovery
+- **Systemd**: Added `RequiresMountsFor` data directory mount dependency to prevent boot race 502s
 - **CSS**: Improved header flex-wrap and refined marquee neon styling
 - **CSS**: Corrected viewport handling for layout consistency
 
 ### Fixed
+- **Security**: Fixed log injection vulnerability in utilities_crud.py (integer cast sanitization)
+- **Dependencies**: Added missing `audible-cli` to requirements.txt
+- **Tests**: Backoffice integration tests gracefully skip when Audible is unconfigured
 - **Systemd**: Corrected venv path in audiobook-api service file
 - **Scripts**: Separation check no longer falsely flags legitimate production symlinks
 
