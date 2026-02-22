@@ -9,8 +9,8 @@
 .github
 
 # Python virtual environments and caches
-__pycache__
-*.py[cod]
+**/__pycache__
+**/*.py[cod]
 *.so
 venv/
 .venv/

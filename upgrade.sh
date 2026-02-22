@@ -510,11 +510,11 @@ do_upgrade() {
         done
 
         # Install/update tmpfiles.d configuration for runtime directories
-        if [[ -f "${project}/systemd/audiobook-tmpfiles.conf" ]]; then
+        if [[ -f "${project}/systemd/audiobooks-tmpfiles.conf" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo "  [DRY-RUN] Would update tmpfiles.d configuration"
             else
-                sudo cp "${project}/systemd/audiobook-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+                sudo cp "${project}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
                 sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
                 # Ensure runtime directories exist
                 sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {

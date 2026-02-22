@@ -326,6 +326,7 @@ config.dev.env
 
 # Local tool configs
 .bandit
+.coveragerc
 pyproject.toml
 .ruff.toml
 .prettierrc
@@ -372,3 +373,4 @@ vm-ips.txt
 
 # Staged release breadcrumb (two-phase release workflow)
 .staged-release
+sandbox-*

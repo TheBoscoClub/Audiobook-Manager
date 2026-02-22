@@ -1,6 +1,6 @@
 {
   "name": "audiobooks",
-  "version": "5.0.1.1",
+  "version": "6.6.0",
   "description": "Audiobook library management with Audible sync, conversion, and web interface",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
@@ -127,8 +127,8 @@
     {
       "name": "audiobook-mover.service",
       "type": "system",
-      "expected_state": "inactive",
-      "description": "Staging mover (runs on-demand)"
+      "expected_state": "active",
+      "description": "Staging mover daemon"
     },
     {
       "name": "audiobook-shutdown-saver.service",
@@ -233,7 +233,7 @@
       "env_override": "AUDIOBOOKS_WEB_PORT"
     },
     {
-      "port": 8081,
+      "port": 8080,
       "protocol": "tcp",
       "service": "audiobook-redirect.service",
       "description": "HTTP redirect (default, configurable via AUDIOBOOKS_HTTP_REDIRECT_PORT)",

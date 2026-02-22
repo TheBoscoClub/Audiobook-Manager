@@ -113,8 +113,8 @@ journalctl -u 'audiobook-*' --since today | grep -E '(No such file|Read-only|Per
 
 ### Software
 
-- **Python**: 3.8 or higher
-- **ffmpeg**: 4.0 or higher (with ffprobe)
+- **Python**: 3.12 or higher (3.14 recommended)
+- **ffmpeg**: 7.0 or higher (with ffprobe)
 - **openssl**: For SSL certificate generation
 - **Web Browser**: Modern browser with HTML5 audio support
   - Chrome/Chromium 90+
@@ -132,7 +132,7 @@ Install the following using your system's package manager:
 
 | Package | Description |
 |---------|-------------|
-| `python3` | Python 3.8+ interpreter |
+| `python3` | Python 3.12+ interpreter (3.14 recommended) |
 | `python3-pip` | Python package manager |
 | `python3-venv` | Virtual environment support (some distros) |
 | `ffmpeg` | Audio/video processing (includes ffprobe) |

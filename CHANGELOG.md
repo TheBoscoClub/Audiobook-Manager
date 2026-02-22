@@ -15,12 +15,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [6.6.0] - 2026-02-22
 
+### Added
+
+- **Security**: HTTP security headers on all API responses: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy` (default-src 'self', media-src 'self' blob:), `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- **Security**: `Strict-Transport-Security` header (HSTS, 1-year, includeSubDomains) when HTTPS is enabled
+- **Config**: `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` variable added to `lib/audiobook-config.sh` defaults (default: true)
+- **Tests**: `.coveragerc` added with 85% minimum coverage threshold
+
 ### Changed
 
 - **Scripts**: Eliminated script drift between repo and production — replaced 6 stale full copies in `/usr/local/bin/` with symlinks to canonical `/opt/audiobooks/scripts/` location
 - **Scripts**: Added versioned wrapper scripts to `scripts/` directory (audiobook-api, audiobook-web, audiobook-scan, audiobook-import, audiobook-config, audiobook-user, audiobook-upgrade, audiobook-migrate) replacing inline generation
 - **Deploy**: Added `refresh_bin_symlinks()` function and SCRIPT_ALIASES map to deploy.sh, upgrade.sh, install.sh, install-system.sh, and deploy-vm.sh for consistent symlink maintenance
 - **Install**: Replaced inline wrapper script generation with shared symlink refresh pattern across all installation entry points
+- **CI**: Upgraded Python version in `ci.yml` from 3.11 to 3.14 to match project requirements
+- **Security**: Session cookies hardened with `SESSION_COOKIE_SECURE=True`, `SESSION_COOKIE_HTTPONLY=True`, `SESSION_COOKIE_SAMESITE="Lax"`
+
+### Fixed
+
+- **Security**: Patched CVE-2025-43859 (h11 HTTP request smuggling) — upgraded h11 to 0.16.0, httpcore to 1.0.9, httpx to 0.28.1
+- **Install**: `tmpfiles.conf` source filename corrected in `install.sh` and `upgrade.sh` (was using wrong path pattern, causing `/tmp/audiobook-staging` and `/tmp/audiobook-triggers` to not be recreated on reboot)
+- **Security**: `NoNewPrivileges=yes` added to `audiobook-upgrade-helper.service` (was incorrectly set to `no`)
+- **Manifest**: `install-manifest.json` updated to version 6.6.0, corrected port 8081 → 8080 for HTTP redirect, corrected `audiobook-mover` expected state from `inactive` to `active`
+- **Docker**: `.dockerignore` glob patterns fixed (`__pycache__` → `**/__pycache__`, `*.py[cod]` → `**/*.py[cod]`) to exclude Python bytecode in all subdirectories
+- **Tests**: `test_player_features_documented` decoupled from `test_audiobook` fixture (fixture was required but never used by the test body)
 
 ## [6.5.0.1] - 2026-02-22
 

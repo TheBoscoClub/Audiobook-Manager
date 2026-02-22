@@ -40,3 +40,27 @@ def add_cors_headers(response: Response) -> Response:
     if CORS_ORIGIN != "*":
         response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
+
+
+def add_security_headers(response: Response) -> Response:
+    """Add security headers to all responses."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # HSTS only when serving over HTTPS
+    if os.environ.get("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() == "true":
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    return response
