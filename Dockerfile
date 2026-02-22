@@ -41,6 +41,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 WORKDIR /app
 
 # Upgrade pip to latest before installing dependencies
+# hadolint ignore=DL3013
 RUN pip install --no-cache-dir --upgrade pip
 
 # Copy Docker-specific requirements (excludes audible CLI — not needed in standalone container)
