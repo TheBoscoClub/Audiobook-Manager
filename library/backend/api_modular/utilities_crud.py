@@ -426,7 +426,7 @@ def init_crud_routes(db_path):
         except Exception:
             import logging
 
-            logging.exception("Error setting genres for audiobook %d", id)
+            logging.exception("Error setting genres for audiobook %d", int(id))
             conn.rollback()
             conn.close()
             return (

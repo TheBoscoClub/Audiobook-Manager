@@ -361,7 +361,7 @@ class LibrivoxDownloader:
             if match:
                 return int(match.group(1))
         except (ValueError, TypeError):
-            pass  # Non-critical: return None for unparseable years
+            pass  # Non-critical: return None for unparsable years
         return None
 
     def _sanitize_filename(self, name: str) -> str:
