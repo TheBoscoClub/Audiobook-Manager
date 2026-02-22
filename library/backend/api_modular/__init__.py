@@ -37,7 +37,7 @@ from .collections import (
     init_collections_routes,
     multi_genre_query,
 )
-from .core import add_cors_headers
+from .core import add_cors_headers, add_security_headers
 from .core import get_db as _get_db_with_path
 from .duplicates import duplicates_bp, init_duplicates_routes
 from .editions import (
@@ -104,6 +104,11 @@ def create_app(
 
     flask_app = Flask(__name__)
 
+    # Session cookie security hardening
+    flask_app.config["SESSION_COOKIE_SECURE"] = True
+    flask_app.config["SESSION_COOKIE_HTTPONLY"] = True
+    flask_app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
     # Store configuration
     flask_app.config["DATABASE_PATH"] = database_path
     flask_app.config["PROJECT_DIR"] = project_dir
@@ -121,10 +126,14 @@ def create_app(
     else:
         flask_app.config["AUTH_ENABLED"] = False
 
-    # Register CORS handler
+    # Register CORS and security headers
     @flask_app.after_request
     def apply_cors(response: Response) -> Response:
         return add_cors_headers(response)
+
+    @flask_app.after_request
+    def apply_security_headers(response: Response) -> Response:
+        return add_security_headers(response)
 
     # Handle OPTIONS preflight requests
     @flask_app.route("/", defaults={"path": ""}, methods=["OPTIONS"])

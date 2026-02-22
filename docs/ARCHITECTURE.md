@@ -266,6 +266,19 @@ for header, value in response.headers.items():
 **Why This Matters:**
 HTTP/1.1 defines hop-by-hop headers as connection-specific; they must be consumed by the first proxy and not forwarded. WSGI servers (Waitress, Gunicorn) reject responses containing these headers, causing the proxy to appear to "hang" or "fail silently."
 
+**Security Response Headers** (v6.6+): All API responses include browser security headers applied via an `after_request` hook in `core.py`:
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `X-Content-Type-Options` | `nosniff` | Prevent MIME-type sniffing |
+| `X-Frame-Options` | `DENY` | Block clickjacking via iframes |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline'; ...` | Restrict resource loading origins |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limit referrer information leakage |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Disable unused browser APIs |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Enforce HTTPS for 1 year (when HTTPS enabled) |
+
+Session cookies are hardened with `Secure`, `HttpOnly`, and `SameSite=Lax` flags.
+
 ### Service User Permissions
 
 The `audiobooks` service user must have write access to all data directories:
@@ -797,7 +810,7 @@ All systemd units are located in `systemd/` and installed to `/etc/systemd/syste
 |------|------|---------|
 | `audiobook-api.service` | Service | Flask REST API (Waitress server on port 5001) |
 | `audiobook-proxy.service` | Service | HTTPS reverse proxy (port 8443 → 5001) |
-| `audiobook-redirect.service` | Service | HTTP→HTTPS redirect (port 8081 → 8443) |
+| `audiobook-redirect.service` | Service | HTTP→HTTPS redirect (port 8080 → 8443) |
 | `audiobook-converter.service` | Service | AAXC to Opus conversion daemon |
 | `audiobook-mover.service` | Service | Staging to Library file mover |
 | `audiobook-downloader.service` | Service | Audible download daemon |
@@ -906,7 +919,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
         ┌───────────────────┐           ┌───────────────────┐
         │   Check Ports     │           │  Check sudo       │
         │   5001, 8443,     │           │  access           │
-        │   8081            │           │                   │
+        │   8080            │           │                   │
         └─────────┬─────────┘           └─────────┬─────────┘
                   │                               │
                   └───────────────┬───────────────┘

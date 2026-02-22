@@ -116,10 +116,10 @@ Web-based audiobook library browser with:
 - **Multi-user authentication** with TOTP, Passkey, and FIDO2 support (v5.0+)
 - **Admin approval flow** for new user registration with secure claim tokens
 - **Per-user playback positions** with encrypted auth database (SQLCipher)
-- **My Library tab** with progress bars, listening history, and download tracking (v7.0+)
-- **New books marquee** highlighting recently added audiobooks (v7.0+)
-- **Admin activity audit** with filterable log and usage statistics (v7.0+)
-- **Genre management** with bulk add/remove in Back Office (v7.0+)
+- **My Library tab** with progress bars, listening history, and download tracking (v6.3+)
+- **New books marquee** highlighting recently added audiobooks (v6.3+)
+- **Admin activity audit** with filterable log and usage statistics (v6.3+)
+- **Genre management** with bulk add/remove in Back Office (v6.3+)
 
 ## Quick Start
 
@@ -131,7 +131,7 @@ cd library
 ./launch-v3.sh
 
 # Opens https://localhost:8443 in your browser
-# HTTP requests to port 8081 are automatically redirected to HTTPS
+# HTTP requests to port 8080 are automatically redirected to HTTPS
 # Uses Waitress WSGI server for production-ready performance
 
 # Or use legacy launcher (development mode)
@@ -542,7 +542,7 @@ Configuration is loaded from multiple sources in priority order:
 | `AUDIOBOOKS_API_PORT` | API server port (default: 5001) |
 | `AUDIOBOOKS_WEB_PORT` | HTTPS web server port (default: 8443) |
 | `AUDIOBOOKS_BIND_ADDRESS` | Server bind address (default: 0.0.0.0) |
-| `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8081) |
+| `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8080) |
 | `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
 | `AUDIOBOOKS_HTTPS_ENABLED` | Enable HTTPS for web server (default: true) |
 | `AUDIOBOOKS_USE_WAITRESS` | Use Waitress WSGI server for production (default: true) |
@@ -608,8 +608,8 @@ Audiobooks/
 │   │   │   ├── utilities_crud.py    # Database CRUD + genre management
 │   │   │   ├── utilities_db.py      # Database maintenance
 │   │   │   ├── utilities_conversion.py # Conversion operations
-│   │   │   ├── user_state.py        # Per-user history, downloads, library (v7.0+)
-│   │   │   └── admin_activity.py    # Activity audit log and stats (v7.0+)
+│   │   │   ├── user_state.py        # Per-user history, downloads, library (v6.3+)
+│   │   │   └── admin_activity.py    # Activity audit log and stats (v6.3+)
 │   │   ├── import_to_db.py      # Database importer
 │   │   ├── schema.sql           # Database schema
 │   │   └── operation_status.py  # Operation tracking
@@ -1023,7 +1023,7 @@ The library exposes a REST API on port 5001:
 | `/api/position/<id>` | PUT | Update local playback position |
 | `/api/position/history/<id>` | GET | Get position history for audiobook |
 
-### Per-User State (v7.0+)
+### Per-User State (v6.3+)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -1036,7 +1036,7 @@ The library exposes a REST API on port 5001:
 
 > **Note**: All `/api/user/*` endpoints require authentication.
 
-### Genre Management (v7.0+)
+### Genre Management (v6.3+)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -1044,7 +1044,7 @@ The library exposes a REST API on port 5001:
 | `/api/audiobooks/<id>/genres` | PUT | Set genres for a single audiobook (replace mode) |
 | `/api/audiobooks/bulk-genres` | POST | Add or remove genres across multiple audiobooks |
 
-### Admin Activity Audit (v7.0+)
+### Admin Activity Audit (v6.3+)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -1487,7 +1487,19 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
-### v7.0 (Unreleased)
+### v6.6.0
+
+- **Security**: HTTP security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) on all API responses
+- **Security**: Session cookies hardened (Secure, HttpOnly, SameSite=Lax)
+- **Security**: `NoNewPrivileges=yes` enforced in upgrade-helper service
+- **Fix**: tmpfiles.conf source path corrected in install.sh and upgrade.sh (fixes /tmp directories not recreated on reboot)
+- **Fix**: .dockerignore glob patterns fixed to exclude Python bytecode in all subdirectories
+- **Fix**: install-manifest.json updated to v6.6.0 with correct port and service state
+- **CI**: Python upgraded from 3.11 to 3.14 in ci.yml
+- **Config**: AUDIOBOOKS_HTTP_REDIRECT_ENABLED added to config defaults
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.3.0
 
 - **Per-User State**: Listening history, download tracking, and user preferences with encrypted storage
 - **UI**: My Library tab, new-books marquee, About page, activity audit in Back Office, genre management in Bulk Ops
@@ -1844,7 +1856,7 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - ~~**Audit Logging**~~: ✅ Contact log, access request tracking, session audit trail
 - ~~**Input Validation**~~: ✅ Username validation, token sanitization, auth-gated endpoints
 
-**Per-User Experience (v7.0)**
+**Per-User Experience (v6.3)**
 
 - ~~**My Library**~~: ✅ Personalized library tab with progress bars and listening history
 - ~~**Activity Tracking**~~: ✅ Per-user listening history and download tracking
@@ -1852,6 +1864,11 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - ~~**Admin Audit**~~: ✅ Activity audit log with filtering, stats, and top content
 - ~~**Genre Management**~~: ✅ Bulk genre add/remove in Back Office
 - ~~**About Page**~~: ✅ Credits, attributions, and version display
+
+**Security Hardening (v6.6)**
+
+- ~~**HTTP Security Headers**~~: ✅ CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- ~~**Session Cookie Hardening**~~: ✅ Secure, HttpOnly, SameSite=Lax flags enforced
 
 **Back Office (v3.0–v6.0)**
 
@@ -1866,7 +1883,7 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 
 - Certificate Authority Integration (Let's Encrypt / trusted CAs)
 - Container Hardening (read-only filesystems, non-root execution)
-- Rate limiting, CSP headers
+- Rate limiting
 
 **Enhanced Player**
 

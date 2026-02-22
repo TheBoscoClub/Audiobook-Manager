@@ -1405,9 +1405,9 @@ EOF
         fi
 
         # Install tmpfiles.d configuration for runtime directories
-        if [[ -f "${SCRIPT_DIR}/systemd/audiobook-tmpfiles.conf" ]]; then
+        if [[ -f "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" ]]; then
             echo -e "${BLUE}Installing tmpfiles.d configuration...${NC}"
-            sudo cp "${SCRIPT_DIR}/systemd/audiobook-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+            sudo cp "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
             sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
             # Create the runtime directories immediately
             sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {

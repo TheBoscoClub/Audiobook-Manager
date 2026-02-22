@@ -26,7 +26,7 @@ ExecStopPost=/bin/rm -f /var/lib/audiobooks/.control/upgrade-request
 # Security: limit what this service can access
 ProtectHome=yes
 PrivateTmp=yes
-NoNewPrivileges=no
+NoNewPrivileges=yes
 
 [Install]
 WantedBy=multi-user.target
