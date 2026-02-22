@@ -13,6 +13,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.4.0] - 2026-02-22
+
+### Added
+- **Guest Access**: Unauthenticated visitors can browse the library, search, and view book details without an account
+- **Guest Gate**: Play/download buttons show a styled tooltip directing guests to sign in or request access
+- **Magic Link Auth**: Email-based authentication as an alternative to TOTP — admin can invite users with magic link auth type
+- **Magic Link Login**: Users with magic_link auth type receive sign-in links via email instead of entering TOTP codes
+- **Auth Method Preference**: Users can switch between TOTP, passkey, and magic link authentication in their profile
+- **Persistent Login**: Multi-layer session persistence (cookie + localStorage + IndexedDB) with "Stay logged in" option
+- **Session Restore**: `POST /auth/session/restore` endpoint recovers sessions from client-side storage
+- **Auth Status**: `GET /auth/status` public endpoint returns auth state for frontend guest/user detection
+- **Upgrade Safety**: Pre-upgrade auth database backup and post-upgrade validation in `upgrade.sh`
+- **Schema Migration v4→v5**: Adds `magic_link` auth type, `is_persistent` session flag, `preferred_auth_method` on access requests
+- **Purge Script**: `scripts/purge-users.sh` — reusable script to delete users not in a keep list
+- **Docker Tests**: 19 comprehensive Docker container tests (build, lifecycle, API, volumes, env, security)
+- **Upgrade Safety Tests**: Migration integrity tests verifying tokens, sessions, and credentials survive schema upgrades
+
+### Changed
+- **Docker**: Upgraded base image from `python:3.11-slim` to `python:3.14-slim` (Debian Trixie, Python 3.14.3)
+- **Docker**: Added `apt-get upgrade -y` and `pip install --upgrade pip` for security patching
+- **Docker**: Created `requirements-docker.txt` excluding `audible` package (not needed in standalone container)
+- **Auth Endpoints**: Read-only API endpoints (`/api/audiobooks`, `/api/collections`, etc.) now use `@guest_allowed` instead of `@auth_if_enabled`
+- **Login UI**: Magic link users see email-based login flow instead of TOTP/passkey forms
+- **Admin Invite**: Invite modal includes auth method selector (TOTP, Magic Link, Passkey)
+
+### Fixed
+- **Test**: Fixed `test_generate_backup_code_format` — `isupper()` returns `False` for all-digit strings, changed to `part == part.upper()`
+- **Docker**: Increased health check timeout for slower build environments
+- **Docker**: Fixed entrypoint bind address for container networking
+
 ## [6.3.0] - 2026-02-21
 
 ### Added
