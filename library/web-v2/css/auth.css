@@ -496,7 +496,7 @@
 .user-dropdown {
     position: absolute;
     top: 100%;
-    right: 0;
+    left: 0;
     min-width: 180px;
     background: var(--deco-charcoal);
     border: 1px solid var(--gold-dark);
