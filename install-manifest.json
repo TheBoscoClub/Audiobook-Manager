@@ -21,6 +21,11 @@
       "description": "Upgrade from GitHub releases or local project"
     },
     {
+      "name": "uninstall.sh",
+      "install_path": "/opt/audiobooks/uninstall.sh",
+      "description": "Comprehensive uninstall with dynamic discovery (also invoked by install.sh --uninstall)"
+    },
+    {
       "name": "migrate-api.sh",
       "install_path": "/opt/audiobooks/scripts/migrate-api.sh",
       "wrapper": "audiobook-migrate",

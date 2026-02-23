@@ -288,11 +288,11 @@ show_sudo_error() {
 # Detect storage tier for a given path
 # Returns: "nvme", "ssd", "hdd", "tmpfs", or "unknown"
 detect_storage_tier() {
-    local path="$1"
+    local target_path="$1"
 
     # Resolve to real path (follow symlinks)
     local real_path
-    real_path=$(realpath -m "$path" 2>/dev/null) || real_path="$path"
+    real_path=$(realpath -m "$target_path" 2>/dev/null) || real_path="$target_path"
 
     # Find mount point and device
     local mount_info device dev_name
@@ -453,10 +453,10 @@ show_storage_recommendations() {
 # Warn if a path is on suboptimal storage for its purpose
 # Arguments: path, component_type (database|index|covers|library|sources)
 warn_storage_tier() {
-    local path="$1"
+    local target_path="$1"
     local component="$2"
     local tier
-    tier=$(detect_storage_tier "$path")
+    tier=$(detect_storage_tier "$target_path")
     local tier_name
     tier_name=$(storage_tier_name "$tier")
 
@@ -485,7 +485,7 @@ warn_storage_tier() {
     if [[ -n "$warning" ]]; then
         echo ""
         echo -e "${YELLOW}⚠ Storage Warning:${NC}"
-        echo -e "  Path: $path"
+        echo -e "  Path: $target_path"
         echo -e "  Detected: ${tier_name}"
         echo -e "  Recommended: ${recommended}"
         echo -e "  ${DIM}${warning}${NC}"
@@ -508,9 +508,9 @@ show_detected_storage() {
     echo ""
 
     local app_tier data_tier db_tier
-    app_tier=$(detect_storage_tier "$app_dir")
-    data_tier=$(detect_storage_tier "$data_dir")
-    db_tier=$(detect_storage_tier "$db_dir")
+    app_tier=$(detect_storage_tier "$app_dir") || app_tier="unknown"
+    data_tier=$(detect_storage_tier "$data_dir") || data_tier="unknown"
+    db_tier=$(detect_storage_tier "$db_dir") || db_tier="unknown"
 
     local app_color data_color db_color
     app_color=$(storage_tier_color "$app_tier")
@@ -1465,12 +1465,12 @@ EOF
         echo -e "${BLUE}Service status:${NC}"
         local all_ok=true
         for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
-            local status
-            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
-            if [[ "$status" == "active" ]]; then
-                echo -e "  $svc: ${GREEN}$status${NC}"
+            local svc_state
+            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            if [[ "$svc_state" == "active" ]]; then
+                echo -e "  $svc: ${GREEN}$svc_state${NC}"
             else
-                echo -e "  $svc: ${YELLOW}$status${NC}"
+                echo -e "  $svc: ${YELLOW}$svc_state${NC}"
                 all_ok=false
             fi
         done
@@ -1531,82 +1531,15 @@ EOF
 }
 
 do_system_uninstall() {
-    local BIN_DIR="/usr/local/bin"
-    local LIB_DIR="/usr/local/lib/audiobooks"
-    local CONFIG_DIR="/etc/audiobooks"
-    local SYSTEMD_DIR="/etc/systemd/system"
-
-    echo -e "${YELLOW}=== Uninstalling System Installation ===${NC}"
-
-    # Stop and disable services
-    echo -e "${BLUE}Stopping services...${NC}"
-    sudo systemctl stop audiobook.target 2>/dev/null || true
-    sudo systemctl stop audiobook-api.service audiobook-web.service 2>/dev/null || true
-    sudo systemctl stop audiobook-converter.service audiobook-mover.service 2>/dev/null || true
-    sudo systemctl stop audiobook-downloader.timer audiobook-downloader.service 2>/dev/null || true
-    sudo systemctl stop audiobook-shutdown-saver.service 2>/dev/null || true
-    sudo systemctl disable audiobook.target 2>/dev/null || true
-    sudo systemctl disable audiobook-api.service audiobook-web.service 2>/dev/null || true
-    sudo systemctl disable audiobook-converter.service audiobook-mover.service 2>/dev/null || true
-    sudo systemctl disable audiobook-downloader.timer audiobook-shutdown-saver.service 2>/dev/null || true
-
-    # Remove application files
-    echo -e "${BLUE}Removing application files...${NC}"
-    # Core wrappers
-    sudo rm -f "${BIN_DIR}/audiobook-api"
-    sudo rm -f "${BIN_DIR}/audiobook-web"
-    sudo rm -f "${BIN_DIR}/audiobook-scan"
-    sudo rm -f "${BIN_DIR}/audiobook-import"
-    sudo rm -f "${BIN_DIR}/audiobook-config"
-    # Management scripts
-    sudo rm -f "${BIN_DIR}/audiobook-convert"
-    sudo rm -f "${BIN_DIR}/audiobook-move-staged"
-    sudo rm -f "${BIN_DIR}/audiobook-download"
-    sudo rm -f "${BIN_DIR}/audiobook-save-staging"
-    sudo rm -f "${BIN_DIR}/audiobook-save-staging-auto"
-    sudo rm -f "${BIN_DIR}/audiobook-status"
-    sudo rm -f "${BIN_DIR}/audiobook-start"
-    sudo rm -f "${BIN_DIR}/audiobook-stop"
-    sudo rm -f "${BIN_DIR}/audiobook-enable"
-    sudo rm -f "${BIN_DIR}/audiobook-disable"
-    sudo rm -f "${BIN_DIR}/audiobook-help"
-    sudo rm -f "${BIN_DIR}/audiobook-monitor"
-    sudo rm -f "${BIN_DIR}/audiobook-copy-metadata"
-    sudo rm -f "${BIN_DIR}/audiobook-download-monitor"
-    sudo rm -f "${BIN_DIR}/audiobook-embed-cover"
-    # Library
-    sudo rm -rf "${LIB_DIR}"
-    # Systemd services
-    sudo rm -f "${SYSTEMD_DIR}/audiobook-api.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobook-web.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobook-converter.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobook-mover.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobook-downloader.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobook-downloader.timer"
-    sudo rm -f "${SYSTEMD_DIR}/audiobook-shutdown-saver.service"
-    sudo rm -f "${SYSTEMD_DIR}/audiobook.target"
-    sudo rm -f /etc/profile.d/audiobooks.sh
-
-    # Remove database and logs
-    sudo rm -rf /var/lib/audiobooks
-    sudo rm -rf /var/log/audiobooks
-
-    # Reload systemd
-    sudo systemctl daemon-reload
-
-    echo -e "${GREEN}Application files removed.${NC}"
-
-    # Prompt about data directories
-    if [[ -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
-        prompt_delete_data "${CONFIG_DIR}/audiobooks.conf" "sudo"
+    # Delegate to comprehensive uninstall.sh (dynamic discovery, full cleanup)
+    local uninstall_script="${SCRIPT_DIR}/uninstall.sh"
+    if [[ -f "$uninstall_script" ]]; then
+        exec "$uninstall_script" --system "$@"
     else
-        echo ""
-        echo "Note: No configuration file found at ${CONFIG_DIR}/audiobooks.conf"
-        echo "Data directories were not modified."
+        echo -e "${RED}Error: uninstall.sh not found at ${uninstall_script}${NC}"
+        echo "Download it from: https://github.com/TheBoscoClub/Audiobook-Manager"
+        return 1
     fi
-
-    echo ""
-    echo -e "${GREEN}System uninstallation complete.${NC}"
 }
 
 # -----------------------------------------------------------------------------
@@ -2072,81 +2005,15 @@ EOF
 }
 
 do_user_uninstall() {
-    local BIN_DIR="$HOME/.local/bin"
-    local LIB_DIR="$HOME/.local/lib/audiobooks"
-    local CONFIG_DIR="$HOME/.config/audiobooks"
-    local SYSTEMD_DIR="$HOME/.config/systemd/user"
-    local STATE_DIR="$HOME/.local/var/lib/audiobooks"
-    local LOG_DIR="$HOME/.local/var/log/audiobooks"
-
-    echo -e "${YELLOW}=== Uninstalling User Installation ===${NC}"
-
-    # Stop and disable services
-    echo -e "${BLUE}Stopping services...${NC}"
-    systemctl --user stop audiobook.target 2>/dev/null || true
-    systemctl --user stop audiobook-api.service audiobook-web.service 2>/dev/null || true
-    systemctl --user stop audiobook-converter.service audiobook-mover.service 2>/dev/null || true
-    systemctl --user stop audiobook-downloader.timer audiobook-downloader.service 2>/dev/null || true
-    systemctl --user disable audiobook.target 2>/dev/null || true
-    systemctl --user disable audiobook-api.service audiobook-web.service 2>/dev/null || true
-    systemctl --user disable audiobook-converter.service audiobook-mover.service 2>/dev/null || true
-    systemctl --user disable audiobook-downloader.timer 2>/dev/null || true
-
-    # Remove application files
-    echo -e "${BLUE}Removing application files...${NC}"
-    # Core wrappers
-    rm -f "${BIN_DIR}/audiobook-api"
-    rm -f "${BIN_DIR}/audiobook-web"
-    rm -f "${BIN_DIR}/audiobook-scan"
-    rm -f "${BIN_DIR}/audiobook-import"
-    rm -f "${BIN_DIR}/audiobook-config"
-    # Management scripts
-    rm -f "${BIN_DIR}/audiobook-convert"
-    rm -f "${BIN_DIR}/audiobook-move-staged"
-    rm -f "${BIN_DIR}/audiobook-download"
-    rm -f "${BIN_DIR}/audiobook-save-staging"
-    rm -f "${BIN_DIR}/audiobook-save-staging-auto"
-    rm -f "${BIN_DIR}/audiobook-status"
-    rm -f "${BIN_DIR}/audiobook-start"
-    rm -f "${BIN_DIR}/audiobook-stop"
-    rm -f "${BIN_DIR}/audiobook-enable"
-    rm -f "${BIN_DIR}/audiobook-disable"
-    rm -f "${BIN_DIR}/audiobook-help"
-    rm -f "${BIN_DIR}/audiobook-monitor"
-    rm -f "${BIN_DIR}/audiobook-copy-metadata"
-    rm -f "${BIN_DIR}/audiobook-download-monitor"
-    rm -f "${BIN_DIR}/audiobook-embed-cover"
-    # Library
-    rm -rf "${LIB_DIR}"
-    # Systemd services
-    rm -f "${SYSTEMD_DIR}/audiobook-api.service"
-    rm -f "${SYSTEMD_DIR}/audiobook-web.service"
-    rm -f "${SYSTEMD_DIR}/audiobook-converter.service"
-    rm -f "${SYSTEMD_DIR}/audiobook-mover.service"
-    rm -f "${SYSTEMD_DIR}/audiobook-downloader.service"
-    rm -f "${SYSTEMD_DIR}/audiobook-downloader.timer"
-    rm -f "${SYSTEMD_DIR}/audiobook.target"
-
-    # Remove database and logs
-    rm -rf "${STATE_DIR}"
-    rm -rf "${LOG_DIR}"
-
-    # Reload systemd
-    systemctl --user daemon-reload 2>/dev/null || true
-
-    echo -e "${GREEN}Application files removed.${NC}"
-
-    # Prompt about data directories
-    if [[ -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
-        prompt_delete_data "${CONFIG_DIR}/audiobooks.conf" ""
+    # Delegate to comprehensive uninstall.sh (dynamic discovery, full cleanup)
+    local uninstall_script="${SCRIPT_DIR}/uninstall.sh"
+    if [[ -f "$uninstall_script" ]]; then
+        exec "$uninstall_script" --user "$@"
     else
-        echo ""
-        echo "Note: No configuration file found at ${CONFIG_DIR}/audiobooks.conf"
-        echo "Data directories were not modified."
+        echo -e "${RED}Error: uninstall.sh not found at ${uninstall_script}${NC}"
+        echo "Download it from: https://github.com/TheBoscoClub/Audiobook-Manager"
+        return 1
     fi
-
-    echo ""
-    echo -e "${GREEN}User uninstallation complete.${NC}"
 }
 
 # -----------------------------------------------------------------------------

@@ -196,12 +196,12 @@ show_status() {
     print_header
 
     local target="${TARGET_DIR:-$SCRIPT_DIR}"
-    local status=$(detect_installation "$target")
+    local install_status=$(detect_installation "$target")
 
     echo -e "${BOLD}Installation:${NC} $target"
     echo ""
 
-    case "$status" in
+    case "$install_status" in
     modular)
         echo -e "${BOLD}Current Architecture:${NC} ${BLUE}Modular${NC} (api_modular/)"
         echo ""
@@ -520,13 +520,13 @@ stop_services() {
     sleep 1
     local still_running=false
     for svc in audiobook-api audiobook-proxy; do
-        local status
+        local svc_state
         if $is_system; then
-            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
         else
-            status=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
         fi
-        if [[ "$status" == "active" ]]; then
+        if [[ "$svc_state" == "active" ]]; then
             still_running=true
             echo -e "${YELLOW}Warning: $svc still running${NC}"
         fi
@@ -575,13 +575,13 @@ start_services() {
     echo ""
     echo -e "${BLUE}Service status:${NC}"
     for svc in audiobook-api audiobook-proxy; do
-        local status
+        local svc_state
         if $is_system; then
-            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
         else
-            status=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
         fi
-        if [[ "$status" == "active" ]]; then
+        if [[ "$svc_state" == "active" ]]; then
             echo -e "  $svc: ${GREEN}$status${NC}"
         else
             echo -e "  $svc: ${YELLOW}$status${NC}"
