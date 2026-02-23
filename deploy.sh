@@ -289,11 +289,31 @@ deploy_to_system() {
         sudo cp "${SCRIPT_DIR}/systemd/"* "$target/systemd/" 2>/dev/null || true
     fi
 
-    # Create fresh venv if it doesn't exist
-    if [[ ! -d "$target/library/venv" ]] && [[ "$DRY_RUN" == "false" ]]; then
-        echo -e "${BLUE}Creating Python virtual environment...${NC}"
-        sudo python3 -m venv "$target/library/venv"
-        sudo "$target/library/venv/bin/pip" install --quiet flask mutagen
+    # Create fresh venv if it doesn't exist or if python symlinks are broken
+    if [[ "$DRY_RUN" == "false" ]]; then
+        local needs_venv=false
+        if [[ ! -d "$target/library/venv" ]]; then
+            needs_venv=true
+        elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
+            echo -e "${YELLOW}Existing venv has broken Python symlinks — recreating${NC}"
+            sudo rm -rf "$target/library/venv"
+            needs_venv=true
+        elif readlink -f "$target/library/venv/bin/python" | grep -q "^/home/"; then
+            echo -e "${YELLOW}Existing venv points to /home/ (breaks ProtectHome=yes) — recreating${NC}"
+            sudo rm -rf "$target/library/venv"
+            needs_venv=true
+        fi
+        if [[ "$needs_venv" == "true" ]]; then
+            echo -e "${BLUE}Creating Python virtual environment (system Python)...${NC}"
+            # Use system Python explicitly — pyenv shims create symlinks into /home/
+            # which are inaccessible under systemd ProtectHome=yes
+            local sys_python="/usr/bin/python3"
+            [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+            sudo "$sys_python" -m venv "$target/library/venv"
+            sudo chown -R audiobooks:audiobooks "$target/library/venv"
+            sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet -r "$target/library/requirements.txt" 2>/dev/null \
+                || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
+        fi
     fi
 
     # Set permissions
@@ -367,11 +387,23 @@ deploy_to_user() {
             "${SCRIPT_DIR}/converter/" "$target/converter/"
     fi
 
-    # Create fresh venv if it doesn't exist
-    if [[ ! -d "$target/library/venv" ]] && [[ "$DRY_RUN" == "false" ]]; then
-        echo -e "${BLUE}Creating Python virtual environment...${NC}"
-        python3 -m venv "$target/library/venv"
-        "$target/library/venv/bin/pip" install --quiet flask mutagen
+    # Create fresh venv if it doesn't exist or if python symlinks are broken
+    if [[ "$DRY_RUN" == "false" ]]; then
+        local needs_venv=false
+        if [[ ! -d "$target/library/venv" ]]; then
+            needs_venv=true
+        elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
+            echo -e "${YELLOW}Existing venv has broken Python symlinks — recreating${NC}"
+            rm -rf "$target/library/venv"
+            needs_venv=true
+        fi
+        if [[ "$needs_venv" == "true" ]]; then
+            echo -e "${BLUE}Creating Python virtual environment (system Python)...${NC}"
+            local sys_python="/usr/bin/python3"
+            [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+            "$sys_python" -m venv "$target/library/venv"
+            "$target/library/venv/bin/pip" install --quiet flask mutagen
+        fi
     fi
 
     echo ""
