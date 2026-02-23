@@ -10,6 +10,7 @@ Provides endpoints for:
 All authentication data is stored in the encrypted auth.db (SQLCipher).
 """
 
+import json
 import os
 import smtplib
 import sys
