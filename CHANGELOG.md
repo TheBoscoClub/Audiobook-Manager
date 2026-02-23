@@ -13,6 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.2] - 2026-02-22
+
+### Added
+
+- **Auth**: Magic link UX overhaul for non-technical users — admin invite defaults to magic link, auto-fill claim page from email URL params with auto-submit, inline "Send me a new link" form on expired verify page, improved login magic link sent state
+- **UI**: Mobile responsive utilities — horizontal scroll tabs, iOS auto-zoom prevention, small phone (≤480px) and landscape orientation breakpoints
+
+### Changed
+
+- **UI**: Removed Audible Sync tab, section, and all related JS/CSS (replaced by per-user position tracking)
+- **UI**: Utilities tabs reduced from 7 to 6 (Database, Conversion, Duplicates, Bulk Ops, Activity, System)
+- **Dependencies**: Removed `audible` and `audible-cli` packages from requirements (Audible Sync removed)
+
+### Fixed
+
+- **Auth**: Edit Profile passkey switching — added `novalidate` on form, explicit button types to prevent browser validation errors
+- **Auth**: Missing `import json` in auth.py WebAuthn registration handler (F821)
+- **Auth**: Claim email URLs now include username and token params for auto-fill
+- **UI**: Marquee "NEW" badge showing with no titles — fixed guard to check `data.books.length` instead of `data.count`
+- **UI**: Marquee click-anywhere-to-dismiss removed (only dismiss button works now)
+- **UI**: Edit Profile modal off-screen on small viewports — added `modal-small` class
+- **CI**: Fixed `audible` vs `httpx` version conflict that broke CI tests and pip-audit
+
 ## [6.6.1.1] - 2026-02-22
 
 ### Added
