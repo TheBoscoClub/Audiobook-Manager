@@ -255,6 +255,98 @@
 }
 
 /* ============================================
+   Collection Tree Structure
+   ============================================ */
+.collection-tree-node {
+    margin-bottom: 0.2rem;
+}
+
+.collection-tree-parent {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+}
+
+.collection-tree-parent .collection-btn {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Expand/collapse toggle arrow */
+.collection-tree-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    background: var(--deco-charcoal);
+    border: 2px solid transparent;
+    border-left: 1px solid rgba(255, 215, 0, 0.15);
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.collection-tree-toggle:hover {
+    background: var(--deco-slate);
+    border-color: var(--gold);
+    color: var(--gold-bright);
+}
+
+.collection-tree-toggle .toggle-arrow {
+    font-size: 0.6rem;
+    transition: transform 0.2s ease;
+    display: block;
+}
+
+.collection-tree-toggle.expanded .toggle-arrow {
+    transform: rotate(90deg);
+}
+
+/* Subgenre children container */
+.collection-tree-children {
+    display: none;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding-left: 1.2rem;
+    margin-top: 0.15rem;
+    border-left: 2px solid var(--gold-dark);
+    margin-left: 0.75rem;
+}
+
+.collection-tree-children.expanded {
+    display: flex;
+}
+
+/* Child (subgenre) buttons — smaller, indented */
+.collection-btn.collection-child {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
+    border-left-width: 3px;
+    border-left-color: rgba(255, 215, 0, 0.3);
+}
+
+.collection-btn.collection-child .icon {
+    display: none;
+}
+
+.collection-btn.collection-child .count {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.35rem;
+    min-width: 1.5rem;
+}
+
+.collection-btn.collection-child:hover {
+    border-left-color: var(--gold);
+    transform: translateX(3px);
+}
+
+.collection-btn.collection-child.active {
+    border-left-color: var(--gold-bright);
+}
+
+/* ============================================
    Sidebar Toggle Button
    ============================================ */
 .sidebar-toggle {

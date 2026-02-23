@@ -399,26 +399,30 @@ body {
 }
 
 /* ============================================
-   G. Desktop Resize Awareness (Fluid Scaling)
+   G. Fluid Scaling (supplements clamp() in layout.css)
    ============================================ */
-.library-title {
-    font-size: clamp(1.2rem, 2vw + 1rem, 3rem);
-}
 
-.books-grid {
-    gap: clamp(var(--spacing-md), 2vw, var(--spacing-xl));
-}
-
-.search-section,
-.results-info,
-.books-grid,
-.pagination-section {
-    padding-left: clamp(var(--spacing-md), 3vw, var(--spacing-xl));
-    padding-right: clamp(var(--spacing-md), 3vw, var(--spacing-xl));
-}
-
+/* Sidebar fluid width */
 .collections-sidebar {
     width: min(320px, 85vw);
+}
+
+/* Fluid nav link sizing */
+.nav-link:not([hidden]),
+.utilities-link:not([hidden]) {
+    font-size: clamp(0.8rem, 0.3vw + 0.7rem, 0.9rem);
+    padding: clamp(0.3rem, 0.5vw, var(--spacing-sm)) clamp(0.5rem, 1vw, var(--spacing-md));
+}
+
+/* Fluid tab sizing */
+.tab-btn {
+    font-size: clamp(0.8rem, 0.3vw + 0.7rem, 1rem);
+    padding: clamp(0.5rem, 1vw, 0.75rem) clamp(0.75rem, 1.5vw, 1.5rem);
+}
+
+/* Fluid results text */
+#showing-count {
+    font-size: clamp(0.85rem, 0.3vw + 0.7rem, 1rem);
 }
 
 /* ============================================

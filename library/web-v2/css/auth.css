@@ -13,7 +13,7 @@
     background-image:
         radial-gradient(ellipse at top, var(--deco-charcoal) 0%, transparent 50%),
         radial-gradient(ellipse at bottom, var(--emerald) 0%, transparent 30%);
-    padding: 2rem;
+    padding: clamp(1rem, 3vw, 2rem);
 }
 
 /* Main container */
@@ -23,7 +23,7 @@
     background: var(--deco-charcoal);
     border: 1px solid var(--gold-dark);
     box-shadow: var(--shadow-elevation-4), var(--shadow-gold-glow);
-    padding: 2.5rem;
+    padding: clamp(1.5rem, 4vw, 2.5rem);
 }
 
 /* Header section */
@@ -34,7 +34,7 @@
 
 .auth-title {
     font-family: Georgia, 'Times New Roman', serif;
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 1vw + 1.2rem, 2rem);
     font-weight: normal;
     letter-spacing: 0.15em;
     color: var(--gold);
@@ -397,7 +397,7 @@
 
 .error-code {
     font-family: Georgia, serif;
-    font-size: 5rem;
+    font-size: clamp(3.5rem, 3vw + 2rem, 5rem);
     font-weight: normal;
     color: var(--gold);
     line-height: 1;
@@ -407,7 +407,7 @@
 
 .error-title {
     font-family: Georgia, serif;
-    font-size: 1.5rem;
+    font-size: clamp(1.25rem, 0.5vw + 1rem, 1.5rem);
     color: var(--cream);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -427,18 +427,6 @@
    ============================================ */
 
 @media (max-width: 480px) {
-    .auth-page {
-        padding: 1rem;
-    }
-
-    .auth-container {
-        padding: 1.5rem;
-    }
-
-    .auth-title {
-        font-size: 1.5rem;
-    }
-
     .form-group input {
         padding: 0.75rem;
     }
@@ -587,14 +575,6 @@
 }
 
 @media (max-width: 480px) {
-    .error-code {
-        font-size: 3.5rem;
-    }
-
-    .error-title {
-        font-size: 1.25rem;
-    }
-
     .qr-container img {
         max-width: 160px;
     }

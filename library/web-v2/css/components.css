@@ -204,7 +204,7 @@
 .narrator-autocomplete {
     position: relative;
     flex: 1;
-    min-width: 280px;
+    min-width: min(280px, 100%);
 }
 
 .author-controls,
