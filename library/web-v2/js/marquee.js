@@ -24,7 +24,7 @@ function initMarquee() {
         return response.json();
     })
     .then(function(data) {
-        if (!data || !data.books || data.count === 0) {
+        if (!data || !data.books || data.books.length === 0) {
             return;
         }
 
@@ -112,11 +112,6 @@ function buildMarquee(container, books) {
         dismissMarquee(container);
     });
     container.appendChild(dismissBtn);
-
-    // Clicking the marquee itself also dismisses
-    container.addEventListener('click', function() {
-        dismissMarquee(container);
-    });
 
     // Show the marquee
     container.classList.remove('hidden');

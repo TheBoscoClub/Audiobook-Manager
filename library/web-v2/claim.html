@@ -614,6 +614,19 @@
             recoveryEmail: null
         };
 
+        // Auto-fill from URL parameters (e.g., from invitation email link)
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const urlUsername = params.get('username');
+            const urlToken = params.get('token');
+            if (urlUsername) document.getElementById('username').value = urlUsername;
+            if (urlToken) document.getElementById('claim-token').value = urlToken;
+            // Auto-submit if both present — takes user directly to auth method selection
+            if (urlUsername && urlToken) {
+                document.getElementById('claim-form').requestSubmit();
+            }
+        })();
+
         // Check WebAuthn support on page load
         (async function() {
             if (!WebAuthn.isSupported()) {
