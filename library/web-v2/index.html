@@ -339,6 +339,7 @@
         </div>
     </div>
 
+    <script src="js/webauthn.js"></script>
     <script src="js/marquee.js"></script>
     <script src="js/session-persistence.js"></script>
     <script src="js/library.js"></script>
@@ -432,6 +433,79 @@
             newCancelBtn.addEventListener('click', closeModal);
             newCloseBtn.addEventListener('click', closeModal);
 
+            // Helper: build TOTP setup UI using safe DOM methods
+            function buildTotpSetupUI(setupDiv, totpSecret, totpUri, onConfirm) {
+                setupDiv.textContent = '';
+
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'margin-top: 1rem;';
+
+                const scanLabel = document.createElement('p');
+                scanLabel.style.cssText = 'color: var(--cream); margin-bottom: 0.75rem;';
+                const scanBold = document.createElement('strong');
+                scanBold.textContent = 'Scan this QR code';
+                scanLabel.appendChild(scanBold);
+                scanLabel.append(' with your authenticator app:');
+                wrapper.appendChild(scanLabel);
+
+                const qrWrap = document.createElement('div');
+                qrWrap.style.cssText = 'text-align: center; margin-bottom: 0.75rem;';
+                const qrImg = document.createElement('img');
+                qrImg.alt = 'QR Code';
+                qrImg.style.cssText = 'max-width: 200px; border-radius: 8px;';
+                qrImg.src = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=' + encodeURIComponent(totpUri);
+                qrImg.onerror = () => { qrImg.style.display = 'none'; };
+                qrWrap.appendChild(qrImg);
+                wrapper.appendChild(qrWrap);
+
+                const manualLabel = document.createElement('p');
+                manualLabel.style.cssText = 'font-size: 0.85rem; color: var(--cream); opacity: 0.8; margin-bottom: 0.5rem;';
+                manualLabel.textContent = 'Or enter this secret manually:';
+                wrapper.appendChild(manualLabel);
+
+                const secretBox = document.createElement('div');
+                secretBox.style.cssText = 'font-family: monospace; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 4px; text-align: center; color: var(--gold); letter-spacing: 0.15em; margin-bottom: 1rem;';
+                secretBox.textContent = totpSecret;
+                wrapper.appendChild(secretBox);
+
+                const confirmLabel = document.createElement('p');
+                confirmLabel.style.cssText = 'color: var(--cream); margin-bottom: 0.5rem;';
+                confirmLabel.textContent = 'Enter the 6-digit code from your app to confirm:';
+                wrapper.appendChild(confirmLabel);
+
+                const inputRow = document.createElement('div');
+                inputRow.style.cssText = 'display: flex; gap: 0.5rem; align-items: center;';
+
+                const codeInput = document.createElement('input');
+                codeInput.type = 'text';
+                codeInput.inputMode = 'numeric';
+                codeInput.pattern = '[0-9]{6}';
+                codeInput.maxLength = 6;
+                codeInput.placeholder = '000000';
+                codeInput.style.cssText = 'flex: 1; padding: 0.5rem; font-size: 1.1rem; text-align: center; letter-spacing: 0.3em; border-radius: 4px; border: 1px solid var(--gold);';
+                codeInput.addEventListener('input', () => {
+                    codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+                });
+                inputRow.appendChild(codeInput);
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.type = 'button';
+                confirmBtn.className = 'auth-button';
+                confirmBtn.style.cssText = 'padding: 0.5rem 1rem;';
+                confirmBtn.title = 'Confirm TOTP code';
+                confirmBtn.textContent = 'Confirm';
+                inputRow.appendChild(confirmBtn);
+                wrapper.appendChild(inputRow);
+
+                const confirmErr = document.createElement('div');
+                confirmErr.style.cssText = 'color: #ff6b6b; margin-top: 0.5rem; display: none;';
+                wrapper.appendChild(confirmErr);
+
+                setupDiv.appendChild(wrapper);
+
+                confirmBtn.addEventListener('click', () => onConfirm(codeInput, confirmErr));
+            }
+
             newSaveBtn.addEventListener('click', async () => {
                 const newUsername = usernameEl.value.trim();
                 const newEmail = emailEl.value.trim();
@@ -490,25 +564,169 @@
                     // Check if auth method changed
                     const selectedMethod = document.querySelector('input[name="auth-method"]:checked');
                     if (selectedMethod && selectedMethod.value !== currentAuthType) {
-                        const methodRes = await fetch('/auth/me/auth-method', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({ auth_method: selectedMethod.value })
-                        });
-                        if (!methodRes.ok) {
-                            const methodData = await methodRes.json();
-                            errorEl.textContent = methodData.error || 'Failed to update auth method';
-                            errorEl.style.display = 'block';
-                            return;
-                        }
-                        // Update local state
-                        if (window.library && window.library.user) {
-                            window.library.user.auth_type = selectedMethod.value;
-                        }
-                    }
+                        const newMethod = selectedMethod.value;
+                        const setupDiv = document.getElementById('auth-method-setup');
 
-                    closeModal();
+                        if (newMethod === 'magic_link') {
+                            // Magic link requires email
+                            if (!newEmail) {
+                                errorEl.textContent = 'Email address is required for email link sign-in. Add your email above first.';
+                                errorEl.style.display = 'block';
+                                return;
+                            }
+                            const methodRes = await fetch('/auth/me/auth-method', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ auth_method: 'magic_link' })
+                            });
+                            if (!methodRes.ok) {
+                                const methodData = await methodRes.json();
+                                errorEl.textContent = methodData.error || 'Failed to switch to email link';
+                                errorEl.style.display = 'block';
+                                return;
+                            }
+                            currentAuthType = 'magic_link';
+                            if (window.library && window.library.user) {
+                                window.library.user.auth_type = 'magic_link';
+                            }
+                            closeModal();
+
+                        } else if (newMethod === 'totp') {
+                            // TOTP requires two-phase: setup (get QR) then confirm (enter code)
+                            setupDiv.hidden = false;
+                            setupDiv.textContent = 'Setting up authenticator app...';
+                            newSaveBtn.disabled = true;
+
+                            const setupRes = await fetch('/auth/me/auth-method', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ auth_method: 'totp', phase: 'setup' })
+                            });
+                            const setupData = await setupRes.json();
+
+                            if (!setupRes.ok || !setupData.success) {
+                                errorEl.textContent = setupData.error || 'Failed to start TOTP setup';
+                                errorEl.style.display = 'block';
+                                setupDiv.hidden = true;
+                                newSaveBtn.disabled = false;
+                                return;
+                            }
+
+                            // Build TOTP setup UI with QR code and code entry
+                            buildTotpSetupUI(setupDiv, setupData.totp_secret, setupData.totp_uri,
+                                async (codeInput, confirmErr) => {
+                                    const code = codeInput.value.trim();
+                                    confirmErr.style.display = 'none';
+
+                                    if (!code || code.length !== 6) {
+                                        confirmErr.textContent = 'Enter the 6-digit code from your authenticator app';
+                                        confirmErr.style.display = 'block';
+                                        return;
+                                    }
+
+                                    const confirmRes = await fetch('/auth/me/auth-method', {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        credentials: 'include',
+                                        body: JSON.stringify({ auth_method: 'totp', phase: 'confirm', code: code })
+                                    });
+                                    const confirmData = await confirmRes.json();
+
+                                    if (confirmRes.ok && confirmData.success) {
+                                        currentAuthType = 'totp';
+                                        if (window.library && window.library.user) {
+                                            window.library.user.auth_type = 'totp';
+                                        }
+                                        setupDiv.hidden = true;
+                                        setupDiv.textContent = '';
+                                        closeModal();
+                                    } else {
+                                        confirmErr.textContent = confirmData.error || 'Invalid code. Try again.';
+                                        confirmErr.style.display = 'block';
+                                    }
+                                }
+                            );
+
+                            return; // Don't close modal — wait for TOTP confirmation
+
+                        } else if (newMethod === 'passkey') {
+                            // Passkey requires WebAuthn browser flow
+                            if (!WebAuthn.isSupported()) {
+                                errorEl.textContent = 'Your browser does not support passkeys/security keys';
+                                errorEl.style.display = 'block';
+                                return;
+                            }
+
+                            setupDiv.hidden = false;
+                            setupDiv.textContent = 'Starting passkey registration...';
+                            newSaveBtn.disabled = true;
+
+                            try {
+                                // Begin WebAuthn registration (authenticated user flow)
+                                const beginRes = await fetch('/auth/me/webauthn/begin', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({ auth_type: 'passkey' })
+                                });
+                                const beginData = await beginRes.json();
+
+                                if (!beginRes.ok) {
+                                    throw new Error(beginData.error || 'Failed to start passkey registration');
+                                }
+
+                                setupDiv.textContent = "Follow your browser's prompt to create a passkey...";
+
+                                // Create credential via browser
+                                const options = WebAuthn.parseRegistrationOptions(beginData.options);
+                                const credential = await navigator.credentials.create({ publicKey: options });
+
+                                if (!credential) {
+                                    throw new Error('No credential created');
+                                }
+
+                                // Complete registration
+                                const encoded = WebAuthn.encodeRegistrationCredential(credential);
+                                const completeRes = await fetch('/auth/me/webauthn/complete', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({
+                                        credential: encoded,
+                                        challenge: beginData.challenge,
+                                        auth_type: 'passkey'
+                                    })
+                                });
+                                const completeData = await completeRes.json();
+
+                                if (!completeRes.ok || !completeData.success) {
+                                    throw new Error(completeData.error || 'Passkey registration failed');
+                                }
+
+                                currentAuthType = 'passkey';
+                                if (window.library && window.library.user) {
+                                    window.library.user.auth_type = 'passkey';
+                                }
+                                setupDiv.hidden = true;
+                                setupDiv.textContent = '';
+                                closeModal();
+                            } catch (passkeyErr) {
+                                const msg = passkeyErr.name === 'NotAllowedError'
+                                    ? 'Passkey registration was cancelled or timed out'
+                                    : (passkeyErr.message || 'Passkey registration failed');
+                                errorEl.textContent = msg;
+                                errorEl.style.display = 'block';
+                                setupDiv.hidden = true;
+                                setupDiv.textContent = '';
+                                newSaveBtn.disabled = false;
+                                return;
+                            }
+                        }
+                    } else {
+                        closeModal();
+                    }
                 } catch (error) {
                     errorEl.textContent = 'Connection error';
                     errorEl.style.display = 'block';

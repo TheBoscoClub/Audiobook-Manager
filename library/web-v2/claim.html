@@ -181,12 +181,35 @@
                         </span>
                     </button>
                 </div>
+
+                <div class="auth-method-card" id="method-magic-link">
+                    <div class="method-header">
+                        <span class="method-badge">Email Link</span>
+                        <button type="button" class="help-icon" aria-label="Learn more" data-help="magic-link-method-help">?</button>
+                    </div>
+                    <h3 class="method-title">Sign In via Email</h3>
+                    <p class="method-description plain-language">
+                        Each time you sign in, we send a link to your email. Click the link and you're in — no codes or apps needed.
+                    </p>
+                    <ul class="method-pros">
+                        <li><strong>Nothing to install</strong> — just check your email</li>
+                        <li>Works on any device with email access</li>
+                        <li>No codes to type or apps to set up</li>
+                    </ul>
+                    <button type="button" class="auth-button method-select" data-method="magic_link" id="magic-link-button" title="Set up email link sign-in">
+                        <span class="button-text">Use Email Link</span>
+                        <span class="button-loading" hidden>
+                            <span class="spinner"></span>
+                            Setting up...
+                        </span>
+                    </button>
+                </div>
             </div>
 
             <div id="method-error" class="error-message" hidden></div>
 
             <div class="callout-important" style="text-align: center; font-weight: normal;">
-                <strong>Not sure which to pick?</strong> If you have a modern phone or computer, <span class="action-highlight">Use Your Face, Fingerprint, or PIN</span> is the easiest choice. If you prefer using a phone app, choose <span class="action-highlight">Use a Free Phone App</span>.
+                <strong>Not sure which to pick?</strong> If you have a modern phone or computer, <span class="action-highlight">Use Your Face, Fingerprint, or PIN</span> is the easiest choice. If you just want an email link each time, choose <span class="action-highlight">Sign In via Email</span>.
                 <button type="button" class="help-icon" aria-label="Detailed comparison" data-help="auth-method-help" style="margin-left: 0.25rem;">?</button>
             </div>
 
@@ -197,10 +220,11 @@
                         <li><strong>Face / Fingerprint / PIN:</strong> Easiest daily use. Sign in the way you unlock your phone. Best for most people.</li>
                         <li><strong>Physical Key:</strong> A small device you plug in or tap. Best if you already own one (like a YubiKey).</li>
                         <li><strong>Free Phone App:</strong> Type a 6-digit number from your phone each time. Works everywhere.</li>
+                        <li><strong>Email Link:</strong> We email you a sign-in link each time. Simplest option — nothing to install or remember.</li>
                     </ul>
 
                     <strong>Can I change my mind later?</strong>
-                    <p>Yes — contact the person who invited you to switch methods.</p>
+                    <p>Yes — you can change your sign-in method anytime in your profile settings.</p>
                 </div>
             </div>
 
@@ -279,6 +303,31 @@
                 </div>
             </div>
 
+            <div id="magic-link-method-help" class="help-tooltip" hidden>
+                <div class="help-content">
+                    <strong>How does this work?</strong>
+                    <p>When you want to sign in, you enter your username and we send a link to your email. Click the link and you're logged in — no codes, no apps, no passwords.</p>
+
+                    <strong>What happens:</strong>
+                    <ol>
+                        <li>Enter your username on the login page</li>
+                        <li>Check your email for a sign-in link</li>
+                        <li>Click the link — you're in!</li>
+                    </ol>
+
+                    <strong>Good to know:</strong>
+                    <ul>
+                        <li>You need access to your email each time you sign in</li>
+                        <li>Links expire after 15 minutes for security</li>
+                        <li>Nothing to install or remember</li>
+                    </ul>
+
+                    <div class="help-recommend">
+                        <strong>Best for:</strong> People who want the simplest possible sign-in and always have email access.
+                    </div>
+                </div>
+            </div>
+
             <div class="auth-options">
                 <a href="#" id="back-to-token" class="auth-link">&larr; Use different token</a>
             </div>
@@ -286,8 +335,8 @@
 
         <!-- Step 3: Recovery Email (optional) -->
         <div id="step-recovery" class="registration-step" hidden>
-            <h2 class="step-title">Add a Safety Net Email</h2>
-            <p class="step-description plain-language">
+            <h2 class="step-title" id="recovery-heading">Add a Safety Net Email</h2>
+            <p class="step-description plain-language" id="recovery-description">
                 If you ever get locked out, we can email you a special link to get back in.
             </p>
 
@@ -506,6 +555,48 @@
             </a>
         </div>
 
+        <!-- Step 6: Magic Link Success -->
+        <div id="step-magic-link-success" class="registration-step" hidden>
+            <div class="success-header">
+                <div class="deco-ornament">&#10003;</div>
+                <h2 class="step-title">You're All Set!</h2>
+                <p class="step-description plain-language">
+                    Welcome, <strong id="magic-link-username"></strong>! Your account is ready.
+                    To sign in, just click <strong>"Sign in with email link"</strong> on the login page and we'll send a link to <strong id="magic-link-email-display"></strong>.
+                </p>
+            </div>
+
+            <div class="setup-instructions backup-codes-section">
+                <h3>
+                    Save Your Emergency Backup Codes
+                    <button type="button" class="help-icon" aria-label="Help" data-help="magic-link-backup-help">?</button>
+                </h3>
+                <div id="magic-link-backup-help" class="help-tooltip" hidden>
+                    <div class="help-content">
+                        <strong>What are these?</strong>
+                        <p>Emergency codes that let you sign in if you ever can't access your email. Think of them as spare keys.</p>
+                        <strong>How should I save them?</strong>
+                        <ul>
+                            <li><strong>Write them down on paper</strong> and keep it with your important documents</li>
+                            <li><strong>Take a photo</strong> with another device</li>
+                            <li><strong>Print this page</strong> if you can</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="callout-write-down">
+                    <div class="callout-heading">Write These Down!</div>
+                    <p style="font-weight: normal; margin-bottom: 0.75rem;">These are your emergency codes. If you ever can't access your email, type one of these codes to get back in.</p>
+                    <p><strong>Write these codes down on paper and keep them somewhere safe.</strong> Each code works only once — cross it off after you use it.</p>
+                </div>
+                <div class="backup-codes-list" id="magic-link-backup-codes"></div>
+                <p class="print-hint">Tip: Print this page, or take a photo with another device.</p>
+            </div>
+
+            <a href="login.html" class="auth-button" style="display: block; text-align: center; text-decoration: none; margin-top: 1.5rem;">
+                <span class="button-text">Go to Login</span>
+            </a>
+        </div>
+
         <!-- Footer -->
         <div class="auth-footer">
             <div class="deco-ornament small">&#9830;</div>
@@ -572,7 +663,8 @@
             authMethod: document.getElementById('step-auth-method'),
             recovery: document.getElementById('step-recovery'),
             totp: document.getElementById('step-totp'),
-            webauthnSuccess: document.getElementById('step-webauthn-success')
+            webauthnSuccess: document.getElementById('step-webauthn-success'),
+            magicLinkSuccess: document.getElementById('step-magic-link-success')
         };
 
         function showStep(stepName) {
@@ -672,12 +764,27 @@
                 claimState.selectedMethod = method;
                 clearError('method-error');
 
-                if (method === 'passkey' || method === 'fido2') {
-                    // For WebAuthn methods, show recovery step first
+                if (method === 'magic_link') {
+                    // Magic link requires email — show recovery step with email required
+                    document.getElementById('skip-recovery').hidden = true;
+                    document.getElementById('recovery-heading').textContent = 'Enter Your Email';
+                    document.getElementById('recovery-description').textContent =
+                        'Your email is how we\'ll send you sign-in links. This is required for email link authentication.';
+                    document.getElementById('recovery-email').required = true;
                     showStep('recovery');
-                } else if (method === 'totp') {
-                    // For TOTP, show recovery step first
-                    showStep('recovery');
+                } else {
+                    // Reset recovery step to optional for other methods
+                    document.getElementById('skip-recovery').hidden = false;
+                    document.getElementById('recovery-heading').textContent = 'Recovery Email (Optional)';
+                    document.getElementById('recovery-description').textContent =
+                        'Add a recovery email in case you lose access to your authenticator.';
+                    document.getElementById('recovery-email').required = false;
+
+                    if (method === 'passkey' || method === 'fido2') {
+                        showStep('recovery');
+                    } else if (method === 'totp') {
+                        showStep('recovery');
+                    }
                 }
             });
         });
@@ -701,7 +808,9 @@
             setLoading(continueBtn, true);
 
             try {
-                if (claimState.selectedMethod === 'totp') {
+                if (claimState.selectedMethod === 'magic_link') {
+                    await setupMagicLink();
+                } else if (claimState.selectedMethod === 'totp') {
                     await setupTOTP();
                 } else {
                     await setupWebAuthn(claimState.selectedMethod);
@@ -711,6 +820,41 @@
                 showError('method-error', e.message || 'Setup failed. Please try again.');
             } finally {
                 setLoading(continueBtn, false);
+            }
+        }
+
+        // Magic link setup
+        async function setupMagicLink() {
+            const response = await fetch(`${API_BASE}/auth/register/claim`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: claimState.username,
+                    claim_token: claimState.claimToken,
+                    auth_method: 'magic_link',
+                    recovery_email: claimState.recoveryEmail
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Display backup codes
+                const codesList = document.getElementById('magic-link-backup-codes');
+                while (codesList.firstChild) {
+                    codesList.removeChild(codesList.firstChild);
+                }
+                data.backup_codes.forEach(code => {
+                    const span = document.createElement('span');
+                    span.textContent = code;
+                    codesList.appendChild(span);
+                });
+
+                document.getElementById('magic-link-username').textContent = data.username;
+                document.getElementById('magic-link-email-display').textContent = claimState.recoveryEmail;
+                showStep('magicLinkSuccess');
+            } else {
+                throw new Error(data.error || 'Magic link setup failed');
             }
         }
 
