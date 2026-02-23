@@ -940,8 +940,8 @@ class AudiobookLibraryV2 {
         const input = document.getElementById('author-search');
         const clearBtn = document.getElementById('author-clear');
 
-        this.currentFilters.author = author;
-        input.value = author;
+        this.currentFilters.author = author || '';
+        input.value = author || '';
 
         // Show/hide clear button
         if (clearBtn) {
@@ -1191,8 +1191,8 @@ class AudiobookLibraryV2 {
         const container = document.getElementById('narrator-autocomplete');
         const input = document.getElementById('narrator-search');
 
-        this.currentFilters.narrator = narrator;
-        input.value = narrator;
+        this.currentFilters.narrator = narrator || '';
+        input.value = narrator || '';
 
         if (narrator) {
             container.classList.add('has-value');
@@ -1215,6 +1215,7 @@ class AudiobookLibraryV2 {
     }
 
     escapeHtml(text) {
+        if (text == null) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;

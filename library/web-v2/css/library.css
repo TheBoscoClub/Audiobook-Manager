@@ -7,13 +7,13 @@
    ============================================ */
 
 /* Import modular CSS files */
-@import url('theme-art-deco.css');
-@import url('layout.css');
-@import url('components.css');
-@import url('sidebar.css');
-@import url('player.css');
-@import url('modals.css');
-@import url('responsive.css');
+@import url('theme-art-deco.css?v=6.6.2.2');
+@import url('layout.css?v=6.6.2.2');
+@import url('components.css?v=6.6.2.2');
+@import url('sidebar.css?v=6.6.2.2');
+@import url('player.css?v=6.6.2.2');
+@import url('modals.css?v=6.6.2.2');
+@import url('responsive.css?v=6.6.2.2');
 
 /* ============================================
    Book Cards - Art Deco Geometric Design
