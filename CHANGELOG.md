@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.2.5] - 2026-02-23
+
+### Fixed
+
+- **Collections**: Fixed historical-fiction collection returning 0 results — was using `genre_query('Fiction')` (non-existent genre) instead of `genre_query("Historical Fiction")` (now returns 102 books)
+- **Collections**: Fixed action-adventure collection only catching 13 books via text search — switched to `multi_genre_query(["Action & Adventure", "Adventure", "Sea Adventures"])` (now returns 190 books)
+- **Collections**: Removed dead `text_search_query()` helper function (no longer used by any collection)
+- **Tests**: Updated schema version assertions from 5 to 6 and table count from 16 to 17 in test_auth.py, test_auth_api.py, and test_upgrade_safety.py (reflect migration 006 adding webauthn_credentials table)
+
 ## [6.6.2.4] - 2026-02-23
 
 ### Fixed
