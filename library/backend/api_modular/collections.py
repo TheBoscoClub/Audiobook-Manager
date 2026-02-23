@@ -1,5 +1,9 @@
 """
 Collection definitions and helpers for predefined audiobook groups.
+
+Collections are organized as a tree: top-level genres contain subgenre children.
+The API returns the tree structure; the audiobooks endpoint uses the flat COLLECTIONS
+lookup for filtering by any collection ID (parent or child).
 """
 
 from flask import Blueprint, Response, jsonify
@@ -29,165 +33,426 @@ def multi_genre_query(genre_patterns: list[str]) -> str:
     )"""
 
 
-# Predefined collection definitions
-COLLECTIONS = {
+# ─── Tree-structured collection definitions ──────────────────────────────────
+# Each top-level entry may have "children" (subgenres displayed as branches).
+# Genre names MUST match actual database values exactly.
+# All IDs must be unique across both parents and children.
+
+COLLECTION_TREE = [
     # === SPECIAL COLLECTIONS ===
-    "great-courses": {
+    {
+        "id": "great-courses",
         "name": "The Great Courses",
         "description": "Educational lecture series from The Teaching Company",
         "query": "author LIKE '%The Great Courses%'",
         "icon": "🎓",
         "category": "special",
     },
-    # === MAIN GENRES ===
-    "fiction": {
+    # === FICTION GENRES ===
+    {
+        "id": "fiction",
         "name": "Fiction",
         "description": "Literary fiction, genre fiction, and novels",
-        "query": multi_genre_query(
-            [
-                "Literature & Fiction",
-                "Literary Fiction",
-                "Genre Fiction",
-                "Contemporary Fiction",
-                "Historical Fiction",
-                "Women''s Fiction",  # SQL escape apostrophe
-            ]
-        ),
+        "query": multi_genre_query([
+            "Literature & Fiction",
+            "Literary Fiction",
+            "Genre Fiction",
+            "Contemporary Fiction",
+            "Historical Fiction",
+            "Women''s Fiction",
+        ]),
         "icon": "📖",
         "category": "main",
+        "children": [
+            {
+                "id": "literary-fiction",
+                "name": "Literary Fiction",
+                "query": genre_query("Literary Fiction"),
+            },
+            {
+                "id": "genre-fiction",
+                "name": "Genre Fiction",
+                "query": genre_query("Genre Fiction"),
+            },
+            {
+                "id": "contemporary-fiction",
+                "name": "Contemporary Fiction",
+                "query": genre_query("Contemporary Fiction"),
+            },
+            {
+                "id": "historical-fiction",
+                "name": "Historical Fiction",
+                "query": genre_query("Historical Fiction"),
+            },
+            {
+                "id": "womens-fiction",
+                "name": "Women's Fiction",
+                "query": genre_query("Women''s Fiction"),
+            },
+            {
+                "id": "world-literature",
+                "name": "World Literature",
+                "query": genre_query("World Literature"),
+            },
+        ],
     },
-    "mystery-thriller": {
+    {
+        "id": "mystery-thriller",
         "name": "Mystery & Thriller",
         "description": "Mystery, suspense, and thriller novels",
-        "query": multi_genre_query(
-            [
-                "Mystery",
-                "Mystery & Suspense",
-                "Thriller & Suspense",
-                "Thrillers & Suspense",
-                "Crime Thrillers",
-                "Domestic Thrillers",
-                "Technothrillers",
-                "International Mystery & Crime",
-            ]
-        ),
+        "query": multi_genre_query([
+            "Mystery",
+            "Thriller & Suspense",
+            "Suspense",
+            "Crime Fiction",
+            "Crime Thrillers",
+            "Technothrillers",
+            "International Mystery & Crime",
+        ]),
         "icon": "🔍",
         "category": "main",
+        "children": [
+            {
+                "id": "mystery",
+                "name": "Mystery",
+                "query": genre_query("Mystery"),
+            },
+            {
+                "id": "thriller-suspense",
+                "name": "Thriller & Suspense",
+                "query": genre_query("Thriller & Suspense"),
+            },
+            {
+                "id": "suspense",
+                "name": "Suspense",
+                "query": genre_query("Suspense"),
+            },
+            {
+                "id": "crime-fiction",
+                "name": "Crime Fiction",
+                "query": genre_query("Crime Fiction"),
+            },
+            {
+                "id": "police-procedurals",
+                "name": "Police Procedurals",
+                "query": genre_query("Police Procedurals"),
+            },
+            {
+                "id": "espionage",
+                "name": "Espionage",
+                "query": genre_query("Espionage"),
+            },
+            {
+                "id": "hard-boiled",
+                "name": "Hard-Boiled",
+                "query": genre_query("Hard-Boiled"),
+            },
+            {
+                "id": "noir",
+                "name": "Noir",
+                "query": genre_query("Noir"),
+            },
+        ],
     },
-    "scifi-fantasy": {
+    {
+        "id": "scifi-fantasy",
         "name": "Sci-Fi & Fantasy",
         "description": "Science fiction and fantasy",
-        "query": multi_genre_query(
-            [
-                "Science Fiction & Fantasy",
-                "Science Fiction",
-                "Fantasy",
-                "Hard Science Fiction",
-                "Fantasy & Magic",
-            ]
-        ),
+        "query": multi_genre_query([
+            "Science Fiction & Fantasy",
+            "Science Fiction",
+            "Fantasy",
+            "Hard Science Fiction",
+        ]),
         "icon": "🚀",
         "category": "main",
+        "children": [
+            {
+                "id": "science-fiction",
+                "name": "Science Fiction",
+                "query": genre_query("Science Fiction"),
+            },
+            {
+                "id": "fantasy",
+                "name": "Fantasy",
+                "query": genre_query("Fantasy"),
+            },
+            {
+                "id": "hard-scifi",
+                "name": "Hard Science Fiction",
+                "query": genre_query("Hard Science Fiction"),
+            },
+            {
+                "id": "epic-fantasy",
+                "name": "Epic",
+                "query": genre_query("Epic"),
+            },
+            {
+                "id": "dystopian",
+                "name": "Dystopian",
+                "query": genre_query("Dystopian"),
+            },
+            {
+                "id": "space-opera",
+                "name": "Space Opera",
+                "query": genre_query("Space Opera"),
+            },
+            {
+                "id": "post-apocalyptic",
+                "name": "Post-Apocalyptic",
+                "query": genre_query("Post-Apocalyptic"),
+            },
+        ],
     },
-    "horror": {
+    {
+        "id": "horror",
         "name": "Horror",
         "description": "Horror and supernatural fiction",
-        "query": multi_genre_query(
-            ["Horror", "Ghosts", "Paranormal & Urban", "Occult"]
-        ),
+        "query": multi_genre_query([
+            "Horror",
+            "Paranormal & Urban",
+            "Supernatural",
+            "Ghosts",
+            "Occult",
+        ]),
         "icon": "👻",
         "category": "main",
+        "children": [
+            {
+                "id": "paranormal-urban",
+                "name": "Paranormal & Urban",
+                "query": genre_query("Paranormal & Urban"),
+            },
+            {
+                "id": "supernatural",
+                "name": "Supernatural",
+                "query": genre_query("Supernatural"),
+            },
+            {
+                "id": "ghosts",
+                "name": "Ghosts",
+                "query": genre_query("Ghosts"),
+            },
+            {
+                "id": "occult",
+                "name": "Occult",
+                "query": genre_query("Occult"),
+            },
+        ],
     },
-    "classics": {
+    {
+        "id": "action-adventure",
+        "name": "Action & Adventure",
+        "description": "Action-packed and adventure stories",
+        "query": multi_genre_query([
+            "Action & Adventure",
+            "Adventure",
+            "Sea Adventures",
+            "Military",
+        ]),
+        "icon": "⚔️",
+        "category": "main",
+        "children": [
+            {
+                "id": "adventure",
+                "name": "Adventure",
+                "query": genre_query("Adventure"),
+            },
+            {
+                "id": "military",
+                "name": "Military",
+                "query": genre_query("Military"),
+            },
+            {
+                "id": "sea-adventures",
+                "name": "Sea Adventures",
+                "query": genre_query("Sea Adventures"),
+            },
+            {
+                "id": "westerns",
+                "name": "Westerns",
+                "query": genre_query("Westerns"),
+            },
+        ],
+    },
+    {
+        "id": "classics",
         "name": "Classics",
         "description": "Classic literature and timeless stories",
         "query": genre_query("Classics"),
         "icon": "📜",
         "category": "main",
     },
-    "comedy": {
+    {
+        "id": "comedy",
         "name": "Comedy & Humor",
         "description": "Funny books and comedy",
-        "query": genre_query("Comedy & Humor"),
+        "query": multi_genre_query(["Comedy & Humor", "Satire", "Humorous"]),
         "icon": "😂",
+        "category": "main",
+        "children": [
+            {
+                "id": "satire",
+                "name": "Satire",
+                "query": genre_query("Satire"),
+            },
+        ],
+    },
+    {
+        "id": "romance",
+        "name": "Romance",
+        "description": "Romance and love stories",
+        "query": genre_query("Romance"),
+        "icon": "💕",
         "category": "main",
     },
     # === NONFICTION ===
-    "biography-memoir": {
+    {
+        "id": "biography-memoir",
         "name": "Biography & Memoir",
         "description": "Biographies, autobiographies, and memoirs",
-        "query": multi_genre_query(["Biographies & Memoirs", "Memoirs"]),
+        "query": genre_query("Biographies & Memoirs"),
         "icon": "👤",
         "category": "nonfiction",
     },
-    "history": {
+    {
+        "id": "history",
         "name": "History",
         "description": "Historical nonfiction and world history",
-        "query": genre_query("History"),  # Matches actual DB genre name
+        "query": multi_genre_query(["History", "Historical"]),
         "icon": "🏛️",
         "category": "nonfiction",
+        "children": [
+            {
+                "id": "military-history",
+                "name": "War & Military",
+                "query": genre_query("War & Military"),
+            },
+            {
+                "id": "american-history",
+                "name": "Americas",
+                "query": genre_query("Americas"),
+            },
+            {
+                "id": "british-history",
+                "name": "Great Britain",
+                "query": genre_query("Great Britain"),
+            },
+        ],
     },
-    "science": {
+    {
+        "id": "science",
         "name": "Science & Technology",
         "description": "Science, technology, and nature",
         "query": multi_genre_query(["Science", "Science & Engineering"]),
         "icon": "🔬",
         "category": "nonfiction",
     },
-    "health-wellness": {
-        "name": "Health & Wellness",
-        "description": "Health, psychology, and self-improvement",
-        "query": genre_query("Health & Wellness"),  # Matches actual DB genre name
-        "icon": "🧘",
+    {
+        "id": "politics",
+        "name": "Politics & Social Sciences",
+        "description": "Political science, social issues, and government",
+        "query": multi_genre_query([
+            "Politics & Social Sciences",
+            "Social Sciences",
+            "Politics & Government",
+        ]),
+        "icon": "🏛️",
         "category": "nonfiction",
     },
-    "business": {
+    {
+        "id": "health-wellness",
+        "name": "Health & Wellness",
+        "description": "Health, psychology, and self-improvement",
+        "query": multi_genre_query([
+            "Health & Wellness",
+            "Psychology & Mental Health",
+            "Parenting & Personal Development",
+        ]),
+        "icon": "🧘",
+        "category": "nonfiction",
+        "children": [
+            {
+                "id": "psychology",
+                "name": "Psychology",
+                "query": genre_query("Psychology"),
+            },
+            {
+                "id": "personal-development",
+                "name": "Personal Development",
+                "query": genre_query("Personal Development"),
+            },
+        ],
+    },
+    {
+        "id": "business",
         "name": "Business",
         "description": "Business, finance, and economics",
         "query": genre_query("Business & Careers"),
         "icon": "💼",
         "category": "nonfiction",
     },
-    # === SUBGENRES ===
-    "short-stories": {
+    {
+        "id": "religion-spirituality",
+        "name": "Religion & Spirituality",
+        "description": "Religion, faith, and spiritual topics",
+        "query": genre_query("Religion & Spirituality"),
+        "icon": "🕊️",
+        "category": "nonfiction",
+    },
+    # === MORE GENRES ===
+    {
+        "id": "short-stories",
         "name": "Short Stories & Anthologies",
         "description": "Short story collections, anthologies, and compiled works",
-        "query": (
-            # Editor-curated anthologies (editor in author field)
-            "author LIKE '%editor%' OR "
-            # Title patterns for collections
-            "title LIKE '%short stor%' OR "
-            "title LIKE '%antholog%' OR "
-            "title LIKE '%folktale%' OR "
-            "title LIKE '%folk tale%' OR "
-            # "X: Stories" or "and Other Stories" pattern (common collection format)
-            "title LIKE '%: Stories%' OR "
-            "title LIKE '%Other Stories%' OR "
-            "title LIKE '%Ghost Stories%' OR "
-            # Complete/Collected works (stories, tales, fiction)
-            "(title LIKE '%complete%' AND (title LIKE '%stories%' OR title LIKE '%tales%' OR title LIKE '%fiction%' OR title LIKE '%ghost%')) OR "
-            "(title LIKE '%collected%' AND (title LIKE '%stories%' OR title LIKE '%tales%' OR title LIKE '%works%'))"
-        ),
+        "query": multi_genre_query([
+            "Anthologies & Short Stories",
+            "Anthologies",
+            "Short Stories",
+        ]),
         "icon": "📑",
         "category": "subgenre",
     },
-    "action-adventure": {
-        "name": "Action & Adventure",
-        "description": "Action-packed and adventure stories",
-        "query": multi_genre_query(
-            ["Action & Adventure", "Adventure", "Sea Adventures"]
-        ),
-        "icon": "⚔️",
+    {
+        "id": "young-adult",
+        "name": "Children & Young Adult",
+        "description": "Books for younger audiences",
+        "query": multi_genre_query([
+            "Children''s Audiobooks",
+            "Teen & Young Adult",
+            "Coming of Age",
+        ]),
+        "icon": "📚",
         "category": "subgenre",
     },
-    "historical-fiction": {
-        "name": "Historical Fiction",
-        "description": "Fiction set in historical periods",
-        "query": genre_query("Historical Fiction"),
-        "icon": "🏰",
-        "category": "subgenre",
-    },
-}
+]
+
+
+def _build_flat_lookup() -> dict:
+    """Build flat COLLECTIONS dict from COLLECTION_TREE for audiobooks endpoint."""
+    flat = {}
+    for node in COLLECTION_TREE:
+        node_id = node["id"]
+        flat[node_id] = {
+            "name": node["name"],
+            "description": node.get("description", ""),
+            "query": node["query"],
+            "icon": node.get("icon", "📁"),
+            "category": node.get("category", "main"),
+        }
+        for child in node.get("children", []):
+            flat[child["id"]] = {
+                "name": child["name"],
+                "description": child.get("description", ""),
+                "query": child["query"],
+                "icon": node.get("icon", "📁"),
+                "category": node.get("category", "main"),
+            }
+    return flat
+
+
+# Flat lookup used by audiobooks.py for collection filtering
+COLLECTIONS = _build_flat_lookup()
 
 
 def init_collections_routes(db_path):
@@ -196,39 +461,51 @@ def init_collections_routes(db_path):
     @collections_bp.route("/api/collections", methods=["GET"])
     @guest_allowed
     def get_collections() -> Response:
-        """Get available collections with counts, grouped by category"""
+        """Get collections as a tree with counts at every level."""
         conn = get_db(db_path)
         cursor = conn.cursor()
+
+        def get_count(query: str) -> int:
+            cursor.execute(
+                f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}"
+            )
+            return cursor.fetchone()["count"]
 
         category_order = ["special", "main", "nonfiction", "subgenre"]
         category_labels = {
             "special": "Special Collections",
-            "main": "Main Genres",
+            "main": "Fiction Genres",
             "nonfiction": "Nonfiction",
-            "subgenre": "Subgenres",
+            "subgenre": "More Genres",
         }
 
         result = []
-        for collection_id, collection in COLLECTIONS.items():
-            cursor.execute(
-                f"SELECT COUNT(*) as count FROM audiobooks WHERE {collection['query']}"
-            )
-            count = cursor.fetchone()["count"]
+        for node in COLLECTION_TREE:
+            children = []
+            for child in node.get("children", []):
+                child_count = get_count(child["query"])
+                if child_count > 0:
+                    children.append({
+                        "id": child["id"],
+                        "name": child["name"],
+                        "count": child_count,
+                    })
 
-            result.append(
-                {
-                    "id": collection_id,
-                    "name": collection["name"],
-                    "description": collection["description"],
-                    "icon": collection["icon"],
-                    "count": count,
-                    "category": collection.get("category", "main"),
-                    "category_label": category_labels.get(
-                        collection.get("category", "main"), "Other"
-                    ),
-                }
-            )
+            entry = {
+                "id": node["id"],
+                "name": node["name"],
+                "description": node.get("description", ""),
+                "icon": node.get("icon", "📁"),
+                "count": get_count(node["query"]),
+                "category": node.get("category", "main"),
+                "category_label": category_labels.get(
+                    node.get("category", "main"), "Other"
+                ),
+                "children": children,
+            }
+            result.append(entry)
 
+        # Sort by category order, then alphabetically within category
         def sort_key(item):
             cat_idx = (
                 category_order.index(item["category"])

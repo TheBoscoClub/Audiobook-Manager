@@ -13,7 +13,7 @@
     z-index: 2000;
     justify-content: center;
     align-items: center;
-    padding: 2rem;
+    padding: clamp(1rem, 3vw, 2rem);
 }
 
 .modal.show,
@@ -336,7 +336,7 @@
 }
 
 .stat-box-value {
-    font-size: 1.8rem;
+    font-size: clamp(1.3rem, 0.8vw + 0.9rem, 1.8rem);
     font-weight: bold;
     color: var(--gold-bright);
 }

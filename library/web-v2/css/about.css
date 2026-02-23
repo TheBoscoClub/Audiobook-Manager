@@ -53,7 +53,7 @@
 /* Links grid */
 .about-links-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
     gap: 1rem;
     margin: 1.5rem 0;
 }
@@ -97,10 +97,6 @@
    Responsive
    ============================================ */
 @media (max-width: 480px) {
-    .about-links-grid {
-        grid-template-columns: 1fr;
-    }
-
     .about-attribution-item {
         padding: 0.75rem 1rem;
     }

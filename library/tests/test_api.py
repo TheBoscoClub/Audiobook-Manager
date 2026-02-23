@@ -434,14 +434,16 @@ class TestCollectionsEndpointDetails:
     """Test collections endpoint in more detail."""
 
     def test_collections_structure(self, app_client):
-        """Test that collections returns proper structure."""
+        """Test that collections returns tree structure with children."""
         response = app_client.get("/api/collections")
         data = json.loads(response.data)
         assert isinstance(data, list)
         for item in data:
-            # Each collection should be a dict with at least name
             if isinstance(item, dict):
-                assert "name" in item or "slug" in item or "category" in item
+                assert "name" in item
+                assert "id" in item
+                assert "children" in item
+                assert isinstance(item["children"], list)
 
 
 class TestFiltersEndpointDetails:

@@ -7,13 +7,13 @@
    ============================================ */
 
 /* Import modular CSS files */
-@import url('theme-art-deco.css?v=6.6.2.3');
-@import url('layout.css?v=6.6.2.3');
-@import url('components.css?v=6.6.2.3');
-@import url('sidebar.css?v=6.6.2.3');
-@import url('player.css?v=6.6.2.3');
-@import url('modals.css?v=6.6.2.3');
-@import url('responsive.css?v=6.6.2.3');
+@import url('theme-art-deco.css?v=6.6.2.6');
+@import url('layout.css?v=6.6.2.6');
+@import url('components.css?v=6.6.2.6');
+@import url('sidebar.css?v=6.6.2.6');
+@import url('player.css?v=6.6.2.6');
+@import url('modals.css?v=6.6.2.6');
+@import url('responsive.css?v=6.6.2.6');
 
 /* ============================================
    Book Cards - Art Deco Geometric Design
@@ -21,7 +21,7 @@
 .book-card {
     background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
     border: 3px solid var(--gold);
-    padding: 1.5rem;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
     box-shadow:
         var(--shadow-elevation-2),
         var(--shadow-gold-glow),
@@ -67,7 +67,7 @@
    ============================================ */
 .book-cover {
     width: 100%;
-    height: 200px;
+    height: clamp(160px, 25vw, 200px);
     background: var(--deco-black);
     position: relative;
     margin-bottom: 1rem;
@@ -86,7 +86,7 @@
 }
 
 .book-cover-placeholder {
-    font-size: 3rem;
+    font-size: clamp(2rem, 4vw, 3rem);
     color: var(--gold);
     opacity: 0.5;
 }
@@ -95,7 +95,7 @@
    Book Info
    ============================================ */
 .book-title {
-    font-size: 1.1rem;
+    font-size: clamp(0.95rem, 0.3vw + 0.85rem, 1.1rem);
     font-weight: bold;
     color: var(--gold-bright);
     margin-bottom: 0.5rem;
@@ -443,18 +443,6 @@
    Responsive - Book Cards
    ============================================ */
 @media (max-width: 768px) {
-    .book-card {
-        padding: 1rem;
-    }
-
-    .book-cover {
-        height: 180px;
-    }
-
-    .book-title {
-        font-size: 1rem;
-    }
-
     .edition-item {
         flex-direction: column;
         gap: 10px;

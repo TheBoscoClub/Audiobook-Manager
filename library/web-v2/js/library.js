@@ -640,8 +640,13 @@ class AudiobookLibraryV2 {
             grouped[cat].push(c);
         });
 
-        // Render grouped buttons for sidebar
-        let html = '';
+        // Initialize expand state tracker
+        if (!this._expandedCollections) {
+            this._expandedCollections = new Set();
+        }
+
+        // Build tree-structured sidebar using DOM methods
+        container.textContent = '';
         const categoryOrder = ['special', 'main', 'nonfiction', 'subgenre'];
         const categoryLabels = {
             special: 'Special Collections',
@@ -653,33 +658,115 @@ class AudiobookLibraryV2 {
         categoryOrder.forEach(cat => {
             if (!grouped[cat] || grouped[cat].length === 0) return;
 
-            html += `<div class="collection-category">`;
-            html += `<span class="collection-category-label">${categoryLabels[cat]}</span>`;
-            html += `<div class="collection-category-items">`;
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'collection-category';
+
+            const label = document.createElement('span');
+            label.className = 'collection-category-label';
+            label.textContent = categoryLabels[cat];
+            categoryDiv.appendChild(label);
+
+            const itemsDiv = document.createElement('div');
+            itemsDiv.className = 'collection-category-items';
 
             grouped[cat].forEach(collection => {
-                html += `
-                    <button class="collection-btn ${this.currentCollection === collection.id ? 'active' : ''}"
-                            data-collection="${collection.id}"
-                            title="${collection.description}">
-                        <span class="icon">${collection.icon}</span>
-                        <span class="name">${collection.name}</span>
-                        <span class="count">${collection.count}</span>
-                    </button>
-                `;
+                const hasChildren = collection.children && collection.children.length > 0;
+                const isParentActive = this.currentCollection === collection.id;
+                const isChildActive = hasChildren && collection.children.some(
+                    ch => ch.id === this.currentCollection
+                );
+                const isExpanded = isParentActive || isChildActive ||
+                    this._expandedCollections.has(collection.id);
+
+                const treeNode = document.createElement('div');
+                treeNode.className = 'collection-tree-node';
+
+                // Parent row: button + optional toggle
+                const parentRow = document.createElement('div');
+                parentRow.className = 'collection-tree-parent';
+
+                const btn = document.createElement('button');
+                btn.className = `collection-btn${isParentActive ? ' active' : ''}`;
+                btn.dataset.collection = collection.id;
+                btn.title = collection.description;
+
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'icon';
+                iconSpan.textContent = collection.icon;
+                btn.appendChild(iconSpan);
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'name';
+                nameSpan.textContent = collection.name;
+                btn.appendChild(nameSpan);
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'count';
+                countSpan.textContent = collection.count;
+                btn.appendChild(countSpan);
+
+                btn.addEventListener('click', () => this.toggleCollection(collection.id));
+                parentRow.appendChild(btn);
+
+                if (hasChildren) {
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.className = `collection-tree-toggle${isExpanded ? ' expanded' : ''}`;
+                    toggleBtn.title = 'Show subgenres';
+                    const arrow = document.createElement('span');
+                    arrow.className = 'toggle-arrow';
+                    arrow.textContent = '\u25B6'; // right-pointing triangle
+                    toggleBtn.appendChild(arrow);
+                    toggleBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const childrenEl = treeNode.querySelector('.collection-tree-children');
+                        if (childrenEl) {
+                            const nowExpanded = childrenEl.classList.toggle('expanded');
+                            toggleBtn.classList.toggle('expanded', nowExpanded);
+                            if (nowExpanded) {
+                                this._expandedCollections.add(collection.id);
+                            } else {
+                                this._expandedCollections.delete(collection.id);
+                            }
+                        }
+                    });
+                    parentRow.appendChild(toggleBtn);
+                }
+
+                treeNode.appendChild(parentRow);
+
+                // Children (subgenres)
+                if (hasChildren) {
+                    const childrenDiv = document.createElement('div');
+                    childrenDiv.className = `collection-tree-children${isExpanded ? ' expanded' : ''}`;
+
+                    collection.children.forEach(child => {
+                        const childBtn = document.createElement('button');
+                        childBtn.className = `collection-btn collection-child${this.currentCollection === child.id ? ' active' : ''}`;
+                        childBtn.dataset.collection = child.id;
+                        childBtn.title = child.name;
+
+                        const childName = document.createElement('span');
+                        childName.className = 'name';
+                        childName.textContent = child.name;
+                        childBtn.appendChild(childName);
+
+                        const childCount = document.createElement('span');
+                        childCount.className = 'count';
+                        childCount.textContent = child.count;
+                        childBtn.appendChild(childCount);
+
+                        childBtn.addEventListener('click', () => this.toggleCollection(child.id));
+                        childrenDiv.appendChild(childBtn);
+                    });
+
+                    treeNode.appendChild(childrenDiv);
+                }
+
+                itemsDiv.appendChild(treeNode);
             });
 
-            html += `</div></div>`;
-        });
-
-        container.innerHTML = html;
-
-        // Add click handlers
-        container.querySelectorAll('.collection-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const collectionId = btn.dataset.collection;
-                this.toggleCollection(collectionId);
-            });
+            categoryDiv.appendChild(itemsDiv);
+            container.appendChild(categoryDiv);
         });
 
         // Update active filter badge

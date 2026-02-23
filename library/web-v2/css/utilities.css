@@ -68,7 +68,7 @@ body.back-office {
     box-shadow:
         0 4px 20px rgba(0, 0, 0, 0.5),
         inset 0 -2px 0 var(--gold-dark);
-    padding: 1.5rem 2rem;
+    padding: clamp(1rem, 2vw, 1.5rem) clamp(1rem, 3vw, 2rem);
     position: relative;
 }
 
@@ -131,7 +131,7 @@ body.back-office {
 }
 
 .office-title {
-    font-size: 2.5rem;
+    font-size: clamp(1.2rem, 2vw + 0.8rem, 2.5rem);
     color: var(--gold-bright);
     text-shadow:
         2px 2px 0 var(--gold-dark),
@@ -146,7 +146,7 @@ body.back-office {
 .office-subtitle {
     color: var(--cream-light);
     font-style: normal;
-    font-size: 0.95rem;
+    font-size: clamp(0.75rem, 0.3vw + 0.65rem, 0.95rem);
     letter-spacing: 2px;
     text-transform: uppercase;
     opacity: 1;
@@ -179,7 +179,7 @@ body.back-office {
 }
 
 .remaining-count {
-    font-size: 2.5rem;
+    font-size: clamp(1.5rem, 1.5vw + 1rem, 2.5rem);
     font-weight: bold;
     color: var(--brass-light);
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
@@ -208,7 +208,7 @@ body.back-office {
 .office-main {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: clamp(1rem, 3vw, 2rem);
 }
 
 /* ============================================
@@ -237,7 +237,7 @@ body.back-office {
     flex-direction: column;
     align-items: center;
     gap: 0.3rem;
-    padding: 1rem 1.5rem;
+    padding: clamp(0.5rem, 1.5vw, 1rem) clamp(0.6rem, 2vw, 1.5rem);
     background: var(--deco-charcoal);
     border: 2px solid transparent;
     cursor: pointer;
@@ -299,7 +299,7 @@ body.back-office {
 }
 
 .tab-icon {
-    font-size: 1.6rem;
+    font-size: clamp(1rem, 0.5vw + 0.8rem, 1.6rem);
     transition: transform 0.2s;
 }
 
@@ -308,7 +308,7 @@ body.back-office {
 }
 
 .tab-label {
-    font-size: 0.8rem;
+    font-size: clamp(0.6rem, 0.3vw + 0.5rem, 0.8rem);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -326,7 +326,7 @@ body.back-office {
 
 .drawer-content {
     display: none;
-    padding: 2rem;
+    padding: clamp(0.75rem, 3vw, 2rem);
 }
 
 .drawer-content.active {
@@ -354,7 +354,7 @@ body.back-office {
 
 .section-header h2 {
     color: var(--brass-light);
-    font-size: 1.8rem;
+    font-size: clamp(1.2rem, 1vw + 0.8rem, 1.8rem);
     font-weight: normal;
     margin-bottom: 0.25rem;
 }
@@ -369,7 +369,7 @@ body.back-office {
    ============================================ */
 .card-catalog {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(350px, 100%), 1fr));
     gap: 1.5rem;
     align-items: stretch;
 }
@@ -1278,25 +1278,11 @@ body.back-office {
     .cabinet-tab {
         flex: 0 0 auto;
         min-width: 5rem;
-        padding: 0.6rem 0.75rem;
-    }
-
-    .cabinet-tab .tab-icon {
-        font-size: 1.2rem;
-    }
-
-    .tab-label {
-        font-size: 0.65rem;
-        letter-spacing: 1px;
     }
 
     /* Hide chevron on mobile — overlaps when scrolling */
     .cabinet-tab.active::after {
         display: none;
-    }
-
-    .card-catalog {
-        grid-template-columns: 1fr;
     }
 
     .form-row.two-col,
@@ -1329,15 +1315,6 @@ body.back-office {
     /* Active Conversions - Mobile */
     .active-conversions-card {
         max-height: 50vh;
-    }
-
-    /* Office header — mobile */
-    .office-title {
-        font-size: 1.2rem;
-    }
-
-    .office-content {
-        padding: 1rem;
     }
 
     /* Inputs — prevent iOS auto-zoom */
@@ -2013,7 +1990,7 @@ body.back-office {
 /* Services Grid */
 .services-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
     gap: 1rem;
 }
 
@@ -2342,10 +2319,6 @@ body.back-office {
 
 /* Responsive - System Section */
 @media (max-width: 768px) {
-    .services-grid {
-        grid-template-columns: 1fr;
-    }
-
     .service-item {
         flex-direction: column;
         align-items: flex-start;
@@ -2661,7 +2634,7 @@ body.back-office {
 /* Stats Cards */
 .audit-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
     gap: 1rem;
 }
 
@@ -2683,7 +2656,7 @@ body.back-office {
 }
 
 .audit-stat-value {
-    font-size: 2rem;
+    font-size: clamp(1.3rem, 1vw + 0.8rem, 2rem);
     font-weight: 700;
     color: var(--brass-light);
     line-height: 1.2;
@@ -2888,10 +2861,6 @@ body.back-office {
 
 /* Responsive - Audit Section */
 @media (max-width: 768px) {
-    .audit-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
     .audit-filters {
         flex-direction: column;
         align-items: stretch;
@@ -2923,20 +2892,6 @@ body.back-office {
 @media (max-width: 480px) {
     .cabinet-tab {
         min-width: 4.2rem;
-        padding: 0.5rem 0.6rem;
-    }
-
-    .cabinet-tab .tab-icon {
-        font-size: 1rem;
-    }
-
-    .tab-label {
-        font-size: 0.6rem;
-        letter-spacing: 0.5px;
-    }
-
-    .office-content {
-        padding: 0.75rem;
     }
 
     /* Cards — full bleed */
@@ -2946,12 +2901,6 @@ body.back-office {
 
     .card-drawer .section-title {
         font-size: 1rem;
-    }
-
-    /* Stats grids — single column */
-    .stats-grid,
-    .audit-stats {
-        grid-template-columns: 1fr;
     }
 
     /* Tables — horizontal scroll */
@@ -2998,23 +2947,5 @@ body.back-office {
         flex: 0 0 auto;
         flex-direction: row;
         gap: 0.4rem;
-        padding: 0.4rem 0.75rem;
-    }
-
-    .cabinet-tab .tab-icon {
-        font-size: 1rem;
-    }
-
-    .tab-label {
-        font-size: 0.65rem;
-    }
-
-    /* Reduce vertical padding in landscape */
-    .office-content {
-        padding: 0.75rem;
-    }
-
-    .card-drawer {
-        padding: 0.75rem;
     }
 }
