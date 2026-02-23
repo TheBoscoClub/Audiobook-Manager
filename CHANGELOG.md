@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.2.4] - 2026-02-23
+
+### Fixed
+
+- **Auth**: Added `safeJsonParse()` to all 8 auth HTML pages — gracefully handles HTML error responses (500s, WAF blocks) instead of crashing with `Unexpected token '<'`
+- **Auth**: Added missing `webauthn_credentials` table to schema.sql and migration 006 — passkey/security key registration was failing with `no such table` error
+- **Auth**: Reordered WebAuthn response handling to check `response.ok` before parsing JSON, preventing parse errors on error responses
+
 ## [6.6.2.3] - 2026-02-23
 
 ### Fixed
