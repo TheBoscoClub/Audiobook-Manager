@@ -70,15 +70,14 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 
 ```bash
 # Deploy to system installation (/opt/audiobooks) — standard production deploy
-./deploy.sh --system
+./upgrade.sh --from-project . --target /opt/audiobooks --yes
 
 # Dry run to see what would happen
-./deploy.sh --system --dry-run
-```
+./upgrade.sh --from-project . --target /opt/audiobooks --dry-run
 
-### Upgrade
+# Deploy to remote VM (full lifecycle: stop, backup, sync, venv, restart)
+./upgrade.sh --from-project . --remote 192.168.122.104 --yes
 
-```bash
 # Check for available updates
 ./upgrade.sh --check --target /opt/audiobooks
 

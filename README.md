@@ -587,9 +587,7 @@ Audiobooks/
 ├── install-system.sh            # System installation (standalone)
 ├── install-services.sh          # Legacy service installer
 ├── uninstall.sh                 # Comprehensive uninstaller (dynamic discovery)
-├── upgrade.sh                   # Upgrade from GitHub releases or local
-├── deploy.sh                    # Deploy to system installation
-├── deploy-vm.sh                 # Deploy to test VM
+├── upgrade.sh                   # Upgrade from GitHub/local/remote VM (--remote, --yes)
 ├── migrate-api.sh               # Switch API architecture
 ├── launch.sh                    # Quick launcher
 ├── converter/                   # AAXtoMP3 conversion tools

@@ -17,6 +17,9 @@
 #   --check               Check for available updates without upgrading
 #   --backup              Create backup before upgrading
 #   --target PATH         Target installation to upgrade
+#   --remote HOST         Deploy to remote host via SSH (requires --from-project)
+#   --user USER           SSH username for remote deploy (default: claude)
+#   --yes, -y             Non-interactive mode (skip all confirmation prompts)
 #   --switch-to-modular   Switch to modular Flask Blueprint architecture
 #   --switch-to-monolithic  Switch to single-file architecture
 #   --force               Force upgrade even if versions are identical
@@ -33,6 +36,12 @@
 #
 #   # From local project directory:
 #   ./upgrade.sh --from-project /path/to/Audiobook-Manager --target /opt/audiobooks
+#
+#   # Deploy to remote VM (full lifecycle: stop, backup, sync, venv, restart):
+#   ./upgrade.sh --from-project . --remote 192.168.122.104 --yes
+#
+#   # Non-interactive local upgrade:
+#   ./upgrade.sh --from-project . --target /opt/audiobooks --yes
 # =============================================================================
 
 set -e
@@ -62,13 +71,16 @@ FORCE=false
 SWITCH_ARCHITECTURE=""  # modular or monolithic
 UPGRADE_SOURCE="project"  # "project" or "github"
 REQUESTED_VERSION=""  # Specific version to install, or empty for latest
+REMOTE_HOST=""        # Remote host for SSH-based deployment
+REMOTE_USER="claude"  # SSH username for remote deployment
+AUTO_YES=false        # Skip confirmation prompts (--yes/-y)
 
 # GitHub configuration (loaded from .release-info or defaults)
 GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
 GITHUB_API="https://api.github.com/repos/TheBoscoClub/Audiobook-Manager"
 
 # -----------------------------------------------------------------------------
-# Script-to-CLI Name Aliases (shared with deploy.sh)
+# Script-to-CLI Name Aliases
 # -----------------------------------------------------------------------------
 # Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
 # Scripts already named audiobook-* don't need an alias — they're auto-linked.
@@ -129,6 +141,104 @@ refresh_bin_symlinks() {
             fi
         fi
     done
+}
+
+do_remote_upgrade() {
+    # Deploy to a remote host via SSH, running the full upgrade lifecycle remotely.
+    # Requires --from-project to specify the local project directory.
+    local project_dir="${PROJECT_DIR:-$SCRIPT_DIR}"
+    local remote_tmp="/tmp/audiobook-upgrade-$$"
+    local ssh_key="${HOME}/.claude/ssh/id_ed25519"
+
+    # Build SSH options
+    local ssh_opts=(-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new)
+    [[ -f "$ssh_key" ]] && ssh_opts+=(-i "$ssh_key")
+    local ssh_target="${REMOTE_USER}@${REMOTE_HOST}"
+
+    echo -e "${BLUE}=== Remote Upgrade Mode ===${NC}"
+    echo "  Host:    $ssh_target"
+    echo "  Project: $project_dir"
+    echo "  Target:  ${TARGET_DIR:-/opt/audiobooks}"
+    echo ""
+
+    # Test SSH connectivity
+    echo -e "${BLUE}Testing SSH connectivity...${NC}"
+    if ! ssh "${ssh_opts[@]}" "$ssh_target" "echo 'SSH OK'" &>/dev/null; then
+        echo -e "${RED}Error: Cannot connect to $ssh_target via SSH${NC}"
+        echo "  Ensure SSH key exists: $ssh_key"
+        echo "  Ensure VM is running and accessible"
+        return 1
+    fi
+    echo -e "${GREEN}  SSH connection OK${NC}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo ""
+        echo -e "${YELLOW}=== DRY RUN MODE ===${NC}"
+        echo "  Would rsync project to $ssh_target:$remote_tmp"
+        echo "  Would run: sudo $remote_tmp/upgrade.sh --from-project $remote_tmp --target ${TARGET_DIR:-/opt/audiobooks} --yes"
+        echo "  Would cleanup $remote_tmp"
+        return 0
+    fi
+
+    # rsync project to remote temp directory
+    echo -e "${BLUE}Syncing project to remote...${NC}"
+    ssh "${ssh_opts[@]}" "$ssh_target" "mkdir -p '$remote_tmp'"
+    rsync -az --delete \
+        --exclude='venv' \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        --exclude='.pytest_cache' \
+        --exclude='.git' \
+        --exclude='*.db' \
+        --exclude='testdata' \
+        --exclude='.claude' \
+        --exclude='SESSION_RECORD*' \
+        -e "ssh ${ssh_opts[*]}" \
+        "$project_dir/" "$ssh_target:$remote_tmp/"
+    echo -e "${GREEN}  Project synced${NC}"
+
+    # Run upgrade.sh remotely with full lifecycle
+    local remote_target="${TARGET_DIR:-/opt/audiobooks}"
+    echo -e "${BLUE}Running remote upgrade (full lifecycle)...${NC}"
+    echo ""
+    ssh "${ssh_opts[@]}" "$ssh_target" \
+        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' --yes" \
+        || {
+            local rc=$?
+            echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"
+            # Cleanup on failure
+            ssh "${ssh_opts[@]}" "$ssh_target" "rm -rf '$remote_tmp'" 2>/dev/null || true
+            return $rc
+        }
+
+    # Cleanup remote temp directory
+    echo ""
+    echo -e "${BLUE}Cleaning up remote temp files...${NC}"
+    ssh "${ssh_opts[@]}" "$ssh_target" "rm -rf '$remote_tmp'"
+    echo -e "${GREEN}  Cleanup complete${NC}"
+
+    # Health check — wait for API
+    echo ""
+    echo -e "${BLUE}Waiting for API health check...${NC}"
+    local api_port="${API_PORT:-5001}"
+    local max_wait=15
+    local waited=0
+    while [[ $waited -lt $max_wait ]]; do
+        local resp
+        resp=$(curl -s --connect-timeout 3 "http://${REMOTE_HOST}:${api_port}/api/system/version" 2>/dev/null) && {
+            echo -e "${GREEN}  API responding: $resp${NC}"
+            break
+        }
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    if [[ $waited -ge $max_wait ]]; then
+        echo -e "${YELLOW}  API not responding after ${max_wait}s — check remote services${NC}"
+    fi
+
+    echo ""
+    echo -e "${GREEN}=== Remote Upgrade Complete ===${NC}"
 }
 
 print_header() {
@@ -1129,11 +1239,13 @@ do_github_upgrade() {
 
     if [[ $cmp_result -eq 1 ]]; then
         echo -e "${YELLOW}Warning: Target version ($install_version) is older than current ($current_version)${NC}"
-        echo -n "Continue with downgrade? [y/N]: "
-        read -r confirm
-        if [[ "${(L)confirm}" != "y" ]]; then
-            echo "Cancelled."
-            return 0
+        if [[ "$AUTO_YES" != "true" ]]; then
+            echo -n "Continue with downgrade? [y/N]: "
+            read -r confirm
+            if [[ "${(L)confirm}" != "y" ]]; then
+                echo "Cancelled."
+                return 0
+            fi
         fi
     fi
 
@@ -1169,7 +1281,7 @@ do_github_upgrade() {
     [[ "$DRY_RUN" == "true" ]] && echo -e "${YELLOW}=== DRY RUN MODE ===${NC}" && echo ""
 
     # Confirm upgrade
-    if [[ "$DRY_RUN" == "false" ]]; then
+    if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
         read -r "confirm?Upgrade from $current_version to $install_version? [y/N]: "
         if [[ "${(L)confirm}" != "y" ]] && [[ "${(L)confirm}" != "yes" ]]; then
             echo "Upgrade cancelled."
@@ -1250,6 +1362,18 @@ while [[ $# -gt 0 ]]; do
             SWITCH_ARCHITECTURE="monolithic"
             shift
             ;;
+        --remote)
+            REMOTE_HOST="$2"
+            shift 2
+            ;;
+        --user)
+            REMOTE_USER="$2"
+            shift 2
+            ;;
+        --yes|-y)
+            AUTO_YES=true
+            shift
+            ;;
         --force)
             FORCE=true
             shift
@@ -1275,6 +1399,18 @@ done
 # -----------------------------------------------------------------------------
 
 print_header
+
+# Remote upgrade mode — deploy to remote host via SSH
+if [[ -n "$REMOTE_HOST" ]]; then
+    if [[ -z "$PROJECT_DIR" ]]; then
+        PROJECT_DIR=$(find_project_dir) || {
+            echo -e "${RED}Error: --remote requires --from-project PATH${NC}"
+            exit 1
+        }
+    fi
+    do_remote_upgrade
+    exit $?
+fi
 
 # GitHub upgrade mode - different flow
 if [[ "$UPGRADE_SOURCE" == "github" ]]; then
@@ -1352,7 +1488,7 @@ echo ""
 [[ "$DRY_RUN" == "true" ]] && echo -e "${YELLOW}=== DRY RUN MODE ===${NC}" && echo ""
 
 # Confirm upgrade
-if [[ "$DRY_RUN" == "false" ]]; then
+if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
     read -r "confirm?Proceed with upgrade? [y/N]: "
     if [[ "${(L)confirm}" != "y" ]] && [[ "${(L)confirm}" != "yes" ]]; then
         echo "Upgrade cancelled."

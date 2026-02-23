@@ -92,8 +92,8 @@
     },
 
     "deploy": {
-      "script": "deploy-vm.sh",
-      "command": "./deploy-vm.sh --host 192.168.122.104 --full --restart",
+      "script": "upgrade.sh",
+      "command": "./upgrade.sh --from-project . --remote 192.168.122.104 --yes",
       "requires_install_first": true,
       "verify": [
         "ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 'cat /opt/audiobooks/VERSION'",
@@ -113,7 +113,7 @@
       "pytest tests/ --vm",
       "install-system.sh",
       "install-services.sh",
-      "deploy.sh"
+      "upgrade.sh --remote"
     ]
   },
 

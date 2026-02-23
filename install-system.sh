@@ -45,7 +45,7 @@ SCRIPT_DIR="${0:A:h}"
 INSTALL_SERVICES=true
 UNINSTALL=false
 
-# Script-to-CLI Name Aliases (shared with install.sh, deploy.sh, upgrade.sh)
+# Script-to-CLI Name Aliases (shared with install.sh, upgrade.sh)
 typeset -A SCRIPT_ALIASES=(
     ["convert-audiobooks-opus-parallel"]="audiobook-convert"
     ["build-conversion-queue"]="audiobook-build-queue"

@@ -7,7 +7,7 @@
 - **Dev machine**: Unit tests, linting, static analysis, code editing
 - **VM (test-audiobook-cachyos)**: Integration tests, API tests, UI/Playwright tests, auth tests, E2E tests
 - **Before testing on pristine VM**: Run `./install.sh --system` first (creates audiobooks user/group, dirs, venv, DB, services), then deploy
-- **Before testing on installed VM**: Deploy latest code with `./deploy-vm.sh --host 192.168.122.104 --full --restart`
+- **Before testing on installed VM**: Deploy latest code with `./upgrade.sh --from-project . --remote 192.168.122.104 --yes`
 - **`/test` handles this automatically**: Phase VM-lifecycle detects pristine state and auto-installs before tests run
 
 ### VM Connection Details
@@ -92,7 +92,7 @@ ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 \
 ### Deploy Updates (after initial install)
 
 ```bash
-./deploy-vm.sh --host 192.168.122.104 --full --restart
+./upgrade.sh --from-project . --remote 192.168.122.104 --yes
 # Verify:
 ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERSION"
 curl -s http://192.168.122.104:5001/api/system/version
@@ -100,7 +100,7 @@ curl -s http://192.168.122.104:5001/api/system/version
 
 ## After Syncing Project to Production
 
-After running `upgrade.sh` or `deploy.sh`:
+After running `upgrade.sh`:
 1. Verify all wrapper scripts execute: `for cmd in /usr/local/bin/audiobooks-*; do $cmd --help 2>&1 | head -1 || echo "BROKEN: $cmd"; done`
 2. Verify API responds: `curl -s http://localhost:5001/api/system/version`
 3. Verify web UI loads and buttons work
@@ -112,4 +112,4 @@ When running `/test`:
 2. **DO NOT** create symlinks from application to project
 3. **DO** use test data in `./library/testdata/`
 4. **DO** verify application works independently if project is deleted
-5. **DO** use `./deploy.sh` to update the application, never manual symlinks
+5. **DO** use `./upgrade.sh` to update the application, never manual symlinks
