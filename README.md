@@ -8,7 +8,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![2](https://img.shields.io/badge/2-green)![6](https://img.shields.io/badge/6-yellow) | Latest tweak | [v6.6.2.6](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.6) |
+| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![3](https://img.shields.io/badge/3-green) | Latest patch | [v6.6.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.3) |
+| ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![6](https://img.shields.io/badge/6-orange) | Prior tweak | [v6.6.2.6](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.6) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![5](https://img.shields.io/badge/5-orange) | Prior tweak | [v6.6.2.5](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.5) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![4](https://img.shields.io/badge/4-orange) | Prior tweak | [v6.6.2.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.4) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![3](https://img.shields.io/badge/3-orange) | Prior tweak | [v6.6.2.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.3) |
@@ -1500,6 +1501,13 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.6.3
+
+- **Collections**: Restructured from flat list to hierarchical tree with 18 top-level genres and 35 collapsible subgenres
+- **UI**: Fluid responsive scaling with CSS `clamp()` across all CSS files — eliminates layout jumps between breakpoints
+- **Deploy**: Consolidated deploy.sh + deploy-vm.sh into upgrade.sh with `--remote`, `--user`, `--yes` flags
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.6.2.6
 

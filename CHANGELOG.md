@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.3] - 2026-02-23
+
+### Added
+
+- **Collections**: Restructured from flat list to hierarchical tree with 18 top-level genres and 35 subgenre children (53 navigable items). Categories: special, main, nonfiction, subgenre
+- **Collections**: Collapsible sidebar navigation — parent genres have toggle arrows for expand/collapse of subgenre branches
+- **Collections**: New genres: Romance, Politics & Social Sciences, Religion & Spirituality, Young Adult, plus subgenres (Police Procedurals, Espionage, Hard-Boiled, Noir, Space Opera, Dystopian, Post-Apocalyptic, etc.)
+
+### Changed
+
+- **UI**: Replaced fixed font-size/padding/gap values with CSS `clamp()` across all 9 CSS files for smooth fluid scaling at any viewport size
+- **UI**: Removed redundant breakpoint overrides — breakpoints now only handle structural layout changes (flex-direction, grid columns, element hiding)
+- **UI**: Wrapped grid `minmax()` with `min()` to prevent horizontal overflow on narrow screens
+
+### Fixed
+
+- **UI**: Eliminated jarring layout jumps between breakpoints on mobile and tablet viewports
+- **Deploy**: Consolidated `deploy.sh` and `deploy-vm.sh` into `upgrade.sh` with `--remote`, `--user`, and `--yes` flags
+
 ## [6.6.2.6] - 2026-02-23
 
 ### Fixed
