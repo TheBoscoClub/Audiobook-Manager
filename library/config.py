@@ -163,6 +163,9 @@ AUDIOBOOKS_CERTS = Path(
     get_config("AUDIOBOOKS_CERTS", str(AUDIOBOOKS_HOME / "library" / "certs"))
 )
 AUDIOBOOKS_LOGS = Path(get_config("AUDIOBOOKS_LOGS", str(AUDIOBOOKS_DATA / "logs")))
+AUDIOBOOKS_WEBM_CACHE = Path(
+    get_config("AUDIOBOOKS_WEBM_CACHE", str(AUDIOBOOKS_DATA / ".webm-cache"))
+)
 AUDIOBOOKS_STAGING = Path(get_config("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"))
 AUDIOBOOKS_VENV = Path(
     get_config("AUDIOBOOKS_VENV", str(AUDIOBOOKS_HOME / "library" / "venv"))
