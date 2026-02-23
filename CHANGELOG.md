@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.2.3] - 2026-02-23
+
+### Fixed
+
+- **Web UI**: Added cache-busting version params (`?v=X.Y.Z`) to all `<script>`, `<link>`, and CSS `@import` references across all 12 HTML files — prevents browsers from serving stale JS/CSS after deploys
+- **Web UI**: Fixed user dropdown menu extending beyond left browser edge — changed `right: 0` to `left: 0` in `.user-dropdown` CSS
+- **Web UI**: Added null guards to `escapeHtml()`, `selectAuthor()`, and `selectNarrator()` in library.js to prevent "null" text in filter/search inputs
+
 ## [6.6.2.2] - 2026-02-22
 
 ### Added
