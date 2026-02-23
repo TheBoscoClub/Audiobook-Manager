@@ -344,7 +344,7 @@ class TestUpgradeSafety:
             version = conn.execute(
                 "SELECT MAX(version) FROM schema_version"
             ).fetchone()[0]
-            assert version == 5
+            assert version == 6
 
     def test_magic_link_auth_type_works_after_migration(self, v4_db_path, key_path):
         """After migration, magic_link auth type must be insertable."""
@@ -392,7 +392,7 @@ class TestUpgradeSafety:
             version = conn.execute(
                 "SELECT MAX(version) FROM schema_version"
             ).fetchone()[0]
-            assert version == 5
+            assert version == 6
 
     def test_persistent_sessions_after_migration(self, v4_db_path, key_path):
         """New persistent sessions must work after migration."""
