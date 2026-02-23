@@ -757,12 +757,12 @@ start_services() {
         echo ""
         echo -e "${BLUE}Service status:${NC}"
         for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
-            local status
-            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
-            if [[ "$status" == "active" ]]; then
-                echo -e "  $svc: ${GREEN}$status${NC}"
+            local svc_state
+            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            if [[ "$svc_state" == "active" ]]; then
+                echo -e "  $svc: ${GREEN}$svc_state${NC}"
             else
-                echo -e "  $svc: ${YELLOW}$status${NC}"
+                echo -e "  $svc: ${YELLOW}$svc_state${NC}"
             fi
         done
     elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then

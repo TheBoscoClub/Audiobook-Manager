@@ -31,16 +31,27 @@
 
 **This is the authoritative snapshot.** Before any test run that installs audiobook-manager, revert to this snapshot. After testing, revert again to restore pristine state.
 
-**Revert procedure** (external snapshots):
+**Revert procedure** (external snapshots — DISCARD changes, restore pristine):
 ```bash
 sudo virsh destroy test-audiobook-cachyos   # stop VM if running
 # Delete snapshot metadata
 sudo virsh snapshot-delete test-audiobook-cachyos pristine-os-deps-2026-02-22 --metadata
-# Commit overlay into base, then repoint VM to base
-sudo qemu-img commit /var/lib/libvirt/images/test-audiobook-cachyos.pristine-os-deps-2026-02-22
+# IMPORTANT: Do NOT commit the overlay — that bakes changes into the base!
+# Just repoint VM directly to the base image (discarding overlay changes)
 sudo virt-xml test-audiobook-cachyos --edit target=vda --disk path=/var/lib/libvirt/images/test-audiobook-cachyos.qcow2
-# Remove overlay file
+# Remove overlay file (discards all changes since snapshot)
 sudo rm /var/lib/libvirt/images/test-audiobook-cachyos.pristine-os-deps-2026-02-22
+# Fix potential circular backingStore in XML (virt-xml sometimes leaves stale refs)
+sudo virsh dumpxml test-audiobook-cachyos > /tmp/vm-fix.xml
+python3 -c "
+import xml.etree.ElementTree as ET
+tree = ET.parse('/tmp/vm-fix.xml')
+for disk in tree.getroot().iter('disk'):
+    for bs in disk.findall('backingStore'):
+        disk.remove(bs)
+tree.write('/tmp/vm-fix.xml', xml_declaration=True)
+"
+sudo virsh define /tmp/vm-fix.xml
 sudo virsh start test-audiobook-cachyos
 # Re-create snapshot after done:
 sudo virsh snapshot-create-as test-audiobook-cachyos pristine-os-deps-2026-02-22 \
