@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.2.6] - 2026-02-23
+
+### Fixed
+
+- **Deploy**: Fixed all deployment scripts (`deploy.sh`, `install.sh`, `upgrade.sh`) using pyenv shim for venv creation — symlinks into `/home/` are inaccessible under systemd `ProtectHome=yes`, causing API crash-loops. Now explicitly uses system Python (`/usr/bin/python3.14`) with broken-venv and `/home/`-path detection
+- **Deploy**: Added `--exclude='venv'` to `deploy-vm.sh` rsync to prevent overwriting production venvs with dev pyenv-based venvs
+- **Upgrade**: Added post-upgrade venv health check to `upgrade.sh` — detects broken symlinks and pyenv paths, recreates with system Python and reinstalls dependencies
+
 ## [6.6.2.5] - 2026-02-23
 
 ### Fixed
