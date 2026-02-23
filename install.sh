@@ -57,7 +57,7 @@ UNINSTALL=false
 API_ARCHITECTURE="monolithic"  # monolithic (api.py) or modular (api_modular/)
 
 # -----------------------------------------------------------------------------
-# Script-to-CLI Name Aliases (shared with deploy.sh, upgrade.sh)
+# Script-to-CLI Name Aliases (shared with upgrade.sh)
 # -----------------------------------------------------------------------------
 # Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
 # Scripts already named audiobook-* don't need an alias — they're auto-linked.

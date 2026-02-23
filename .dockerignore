@@ -86,7 +86,6 @@ certs/
 .claude/
 SESSION_RECORD*
 AUDIT_REPORT*
-deploy-vm.sh
 upgrade.sh
 
 # Test suite (not needed in production image)

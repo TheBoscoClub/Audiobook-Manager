@@ -145,46 +145,35 @@ def ensure_vm_running():
 
 @pytest.fixture(scope="session")
 def deploy_to_vm(ensure_vm_running):
-    """Deploy latest code to test-audiobook-cachyos before integration tests.
+    """Deploy latest code to test-audiobook-cachyos via upgrade.sh --remote.
 
-    Runs ./deploy-vm.sh --full --restart and waits for the API health check.
+    Runs the full upgrade lifecycle (stop, backup, sync, venv, restart, validate).
     Skip with SKIP_VM_DEPLOY=1 for rapid iteration when code is already deployed.
     Depends on ensure_vm_running to guarantee VM is up first.
     """
     if os.environ.get("SKIP_VM_DEPLOY", "").strip() == "1":
         return
 
-    deploy_script = PROJECT_ROOT / "deploy-vm.sh"
-    if not deploy_script.exists():
-        pytest.skip("deploy-vm.sh not found at project root")
+    upgrade_script = PROJECT_ROOT / "upgrade.sh"
+    if not upgrade_script.exists():
+        pytest.skip("upgrade.sh not found at project root")
 
     result = subprocess.run(
-        [str(deploy_script), "--full", "--restart"],
+        [
+            str(upgrade_script),
+            "--from-project",
+            str(PROJECT_ROOT),
+            "--remote",
+            VM_HOST,
+            "--yes",
+        ],
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=300,
         cwd=str(PROJECT_ROOT),
     )
     if result.returncode != 0:
-        pytest.fail(f"deploy-vm.sh failed:\n{result.stderr}\n{result.stdout}")
-
-    # Wait for API to become healthy
-    import requests
-
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        try:
-            resp = requests.get(
-                f"http://{VM_HOST}:{VM_API_PORT}/api/system/version", timeout=3
-            )
-            if resp.status_code in (200, 401, 403):
-                # 401/403 means auth is required but API is up
-                return
-        except requests.exceptions.ConnectionError:
-            pass
-        time.sleep(2)
-
-    pytest.fail("API did not become healthy within 30s after deploy")
+        pytest.fail(f"upgrade.sh --remote failed:\n{result.stderr}\n{result.stdout}")
 
 
 def init_test_database(db_path: Path) -> None:

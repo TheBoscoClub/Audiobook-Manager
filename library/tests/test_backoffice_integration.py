@@ -5,7 +5,7 @@ Tests all Back Office (utilities) endpoints against the VM API
 with REAL DATA OUTPUT verification.
 
 These tests run against test-audiobook-cachyos (192.168.122.104).
-Deploy latest code first: ./deploy-vm.sh --full --restart
+Deploy latest code first: ./upgrade.sh --from-project . --remote 192.168.122.104 --yes
 
 Run with: pytest library/tests/test_backoffice_integration.py -v
 
