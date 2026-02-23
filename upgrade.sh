@@ -578,6 +578,41 @@ do_upgrade() {
         fi
     fi
 
+    # Verify venv health — recreate if broken or pointing to /home/ (pyenv)
+    # systemd ProtectHome=yes blocks access to /home/, breaking pyenv-created venvs
+    if [[ "$DRY_RUN" == "false" ]] && [[ -d "$target/library" ]]; then
+        local venv_ok=true
+        if [[ ! -d "$target/library/venv" ]]; then
+            venv_ok=false
+        elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
+            echo -e "${YELLOW}Venv has broken Python symlinks — recreating${NC}"
+            venv_ok=false
+        elif readlink -f "$target/library/venv/bin/python" | grep -q "^/home/"; then
+            echo -e "${YELLOW}Venv points to /home/ (breaks ProtectHome=yes) — recreating${NC}"
+            venv_ok=false
+        fi
+        if [[ "$venv_ok" == "false" ]]; then
+            echo -e "${BLUE}Recreating Python virtual environment (system Python)...${NC}"
+            local sys_python="/usr/bin/python3"
+            [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+            if [[ -n "$use_sudo" ]]; then
+                sudo rm -rf "$target/library/venv"
+                sudo "$sys_python" -m venv "$target/library/venv"
+                sudo chown -R audiobooks:audiobooks "$target/library/venv"
+                sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
+                    -r "$target/library/requirements.txt" 2>/dev/null \
+                    || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
+            else
+                rm -rf "$target/library/venv"
+                "$sys_python" -m venv "$target/library/venv"
+                "$target/library/venv/bin/pip" install --quiet \
+                    -r "$target/library/requirements.txt" 2>/dev/null \
+                    || "$target/library/venv/bin/pip" install --quiet flask mutagen
+            fi
+            echo -e "${GREEN}  Venv recreated with system Python${NC}"
+        fi
+    fi
+
     # Refresh /usr/local/bin symlinks to point to canonical scripts
     if [[ "$target" == "/opt/audiobooks" || "$target" == "/usr/local/lib/audiobooks" ]]; then
         refresh_bin_symlinks "$target" "${use_sudo}"

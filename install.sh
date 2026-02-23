@@ -1324,10 +1324,16 @@ EOF
     sudo chmod 644 "/opt/audiobooks/.release-info"
 
     # Setup Python virtual environment if needed
-    if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
-        echo -e "${BLUE}Setting up Python virtual environment...${NC}"
-        sudo python3 -m venv "${LIB_DIR}/library/venv"
-        sudo "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
+    # CRITICAL: Use system Python explicitly — pyenv shims create symlinks into
+    # /home/ which are inaccessible under systemd ProtectHome=yes
+    if [[ ! -d "${LIB_DIR}/library/venv" ]] || ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
+        echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
+        [[ -d "${LIB_DIR}/library/venv" ]] && sudo rm -rf "${LIB_DIR}/library/venv"
+        local sys_python="/usr/bin/python3"
+        [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+        sudo "$sys_python" -m venv "${LIB_DIR}/library/venv"
+        sudo chown -R audiobooks:audiobooks "${LIB_DIR}/library/venv"
+        sudo -u audiobooks "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 
     # Generate SSL certificate if needed
@@ -1840,9 +1846,13 @@ EOF
     echo "  Installed: audiobook-migrate"
 
     # Setup Python virtual environment if needed
-    if [[ ! -d "${LIB_DIR}/library/venv" ]]; then
-        echo -e "${BLUE}Setting up Python virtual environment...${NC}"
-        python3 -m venv "${LIB_DIR}/library/venv"
+    # Use system Python explicitly — pyenv shims create symlinks into /home/
+    if [[ ! -d "${LIB_DIR}/library/venv" ]] || ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
+        echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
+        [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR}/library/venv"
+        local sys_python="/usr/bin/python3"
+        [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+        "$sys_python" -m venv "${LIB_DIR}/library/venv"
         "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 

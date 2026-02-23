@@ -265,6 +265,7 @@ deploy_full() {
     )
 
     local RSYNC_EXCLUDES=(
+        --exclude='venv'
         --exclude='__pycache__'
         --exclude='*.pyc'
         --exclude='.pytest_cache'
