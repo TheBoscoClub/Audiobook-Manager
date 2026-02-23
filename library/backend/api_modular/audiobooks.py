@@ -5,6 +5,8 @@ Note: All queries filter by content_type to exclude non-audiobook content
 (podcasts, newspapers, etc.) from the main library.
 """
 
+import logging
+import subprocess
 import sys
 from pathlib import Path
 
@@ -12,12 +14,14 @@ from flask import Blueprint, Response, jsonify, request, send_file, send_from_di
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import COVER_DIR
+from config import COVER_DIR, AUDIOBOOKS_WEBM_CACHE
 
 from .collections import COLLECTIONS
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
 from .auth import auth_if_enabled, guest_allowed, download_permission_required
+
+logger = logging.getLogger(__name__)
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
 
@@ -514,7 +518,13 @@ def init_audiobooks_routes(db_path, project_root, database_path):
     @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
     @auth_if_enabled
     def stream_audiobook(audiobook_id: int) -> FlaskResponse:
-        """Stream audiobook file"""
+        """Stream audiobook file.
+
+        Supports ?format=webm for Safari/iOS compatibility. Opus files are
+        natively in Ogg containers (audio/ogg) which Safari cannot play.
+        When format=webm is requested, the file is remuxed to WebM container
+        (same Opus codec, no re-encoding) and cached for subsequent requests.
+        """
         conn = get_db(db_path)
         cursor = conn.cursor()
 
@@ -531,23 +541,70 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         if not file_path.exists():
             return jsonify({"error": "File not found on disk"}), 404
 
-        # Map file formats to MIME types
+        file_format = row["format"] or file_path.suffix.lower().lstrip(".")
+        requested_format = request.args.get("format", "")
+
+        # Safari/iOS: remux Opus from Ogg to WebM container (codec copy, no quality loss)
+        if requested_format == "webm" and file_format == "opus":
+            webm_path = AUDIOBOOKS_WEBM_CACHE / f"{audiobook_id}.webm"
+
+            if (
+                not webm_path.exists()
+                or webm_path.stat().st_mtime < file_path.stat().st_mtime
+            ):
+                AUDIOBOOKS_WEBM_CACHE.mkdir(parents=True, exist_ok=True)
+                tmp_path = webm_path.with_suffix(".webm.tmp")
+                try:
+                    result = subprocess.run(  # nosec B603
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            str(file_path),
+                            "-c:a",
+                            "copy",
+                            "-f",
+                            "webm",
+                            str(tmp_path),
+                        ],
+                        capture_output=True,
+                        timeout=300,
+                    )
+                    if result.returncode != 0:
+                        logger.error(
+                            "WebM remux failed for %d: %s",
+                            audiobook_id,
+                            result.stderr[:500],
+                        )
+                        tmp_path.unlink(missing_ok=True)
+                        return jsonify({"error": "Format conversion failed"}), 500
+                    tmp_path.rename(webm_path)
+                except (subprocess.TimeoutExpired, OSError) as e:
+                    logger.error("WebM remux error for %d: %s", audiobook_id, e)
+                    tmp_path.unlink(missing_ok=True)
+                    return jsonify({"error": "Format conversion failed"}), 500
+
+            return send_file(
+                webm_path,
+                mimetype="audio/webm",
+                as_attachment=False,
+                conditional=True,
+            )
+
+        # Default: serve the original file
         mime_types = {
             "opus": "audio/ogg",
             "m4b": "audio/mp4",
             "m4a": "audio/mp4",
             "mp3": "audio/mpeg",
         }
-
-        file_format = row["format"] or file_path.suffix.lower().lstrip(".")
         mimetype = mime_types.get(file_format, "application/octet-stream")
 
-        # Use send_file directly for better handling of special characters in paths
         return send_file(
             file_path,
             mimetype=mimetype,
             as_attachment=False,
-            conditional=True,  # Enable range requests for seeking
+            conditional=True,
         )
 
     @audiobooks_bp.route("/api/download/<int:audiobook_id>")

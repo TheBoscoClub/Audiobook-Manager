@@ -2165,8 +2165,9 @@ class AudioPlayer {
             coverImg.alt = '';
         }
 
-        // Load audio file
-        this.audio.src = `${API_BASE}/stream/` + book.id;
+        // Load audio file — use WebM container for Safari/iOS (no Ogg support)
+        const needsWebm = !this.audio.canPlayType('audio/ogg; codecs=opus');
+        this.audio.src = `${API_BASE}/stream/${book.id}${needsWebm ? '?format=webm' : ''}`;
 
         // Load saved playback speed
         if (playbackManager) {
@@ -2213,7 +2214,14 @@ class AudioPlayer {
             this.startAudibleSyncTimer();
         } catch (error) {
             console.error('Failed to play audio:', error);
-            alert('Failed to load audio file. Please check the console for details.');
+            const mediaErr = this.audio.error;
+            if (mediaErr && mediaErr.code === 4) {
+                alert('This audio format is not supported by your browser. Try a different browser or device.');
+            } else if (mediaErr && mediaErr.code === 2) {
+                alert('Network error loading audio. Please check your connection and try again.');
+            } else {
+                alert('Failed to load audio file. Please check the console for details.');
+            }
         }
     }
 

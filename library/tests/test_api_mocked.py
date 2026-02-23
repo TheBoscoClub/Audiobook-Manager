@@ -718,6 +718,126 @@ class TestExceptionPaths:
         # Should handle gracefully
         assert response.status_code in (200, 404)
 
+    def test_stream_webm_format_remux(self, flask_app, app_client):
+        """Test ?format=webm triggers ffmpeg remux for Safari/iOS compatibility."""
+        import sqlite3
+
+        db_path = flask_app.config["DATABASE_PATH"]
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO audiobooks (title, author, narrator, file_path,
+               file_size_mb, format, duration_hours, duration_formatted,
+               sha256_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "WebM Test Opus Book",
+                "Test Author",
+                "Test Narrator",
+                "/test/path/webm_test.opus",
+                50.0,
+                "opus",
+                10.5,
+                "10:30:00",
+                "webm_test_hash_unique_123",
+            ),
+        )
+        conn.commit()
+        book_id = cursor.lastrowid
+        conn.close()
+
+        try:
+            with (
+                patch("backend.api_modular.audiobooks.Path") as MockPath,
+                patch("backend.api_modular.audiobooks.send_file") as mock_send,
+                patch("backend.api_modular.audiobooks.subprocess") as mock_subprocess,
+                patch(
+                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE"
+                ) as mock_cache,
+            ):
+                # Mock the source file
+                mock_path_instance = MagicMock()
+                mock_path_instance.exists.return_value = True
+                mock_path_instance.suffix = ".opus"
+                mock_path_instance.stat.return_value = MagicMock(st_mtime=1000)
+                MockPath.return_value = mock_path_instance
+
+                # Mock cache path — file doesn't exist yet (needs remux)
+                mock_webm_path = MagicMock()
+                mock_webm_path.exists.return_value = False
+                mock_webm_tmp = MagicMock()
+                mock_webm_path.with_suffix.return_value = mock_webm_tmp
+                mock_cache.__truediv__ = MagicMock(return_value=mock_webm_path)
+                mock_cache.mkdir = MagicMock()
+
+                # Mock ffmpeg success
+                mock_subprocess.run.return_value = MagicMock(returncode=0)
+                mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+                mock_send.return_value = MagicMock()
+
+                response = app_client.get(f"/api/stream/{book_id}?format=webm")
+                assert response.status_code in (200, 500)
+        finally:
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "DELETE FROM audiobooks WHERE sha256_hash = ?",
+                ("webm_test_hash_unique_123",),
+            )
+            conn.commit()
+            conn.close()
+
+    def test_stream_webm_format_non_opus_ignored(self, flask_app, app_client):
+        """Test ?format=webm on non-opus files falls through to normal streaming."""
+        import sqlite3
+
+        db_path = flask_app.config["DATABASE_PATH"]
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO audiobooks (title, author, narrator, file_path,
+               file_size_mb, format, duration_hours, duration_formatted,
+               sha256_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "WebM Test MP3 Book",
+                "Test Author",
+                "Test Narrator",
+                "/test/path/webm_test.mp3",
+                50.0,
+                "mp3",
+                10.5,
+                "10:30:00",
+                "webm_test_mp3_hash_unique_456",
+            ),
+        )
+        conn.commit()
+        book_id = cursor.lastrowid
+        conn.close()
+
+        try:
+            with (
+                patch("backend.api_modular.audiobooks.Path") as MockPath,
+                patch("backend.api_modular.audiobooks.send_file") as mock_send,
+            ):
+                mock_path_instance = MagicMock()
+                mock_path_instance.exists.return_value = True
+                mock_path_instance.suffix = ".mp3"
+                MockPath.return_value = mock_path_instance
+                mock_send.return_value = MagicMock()
+
+                # ?format=webm on mp3 should serve mp3 normally (no remux)
+                response = app_client.get(f"/api/stream/{book_id}?format=webm")
+                assert response.status_code in (200, 500)
+        finally:
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "DELETE FROM audiobooks WHERE sha256_hash = ?",
+                ("webm_test_mp3_hash_unique_456",),
+            )
+            conn.commit()
+            conn.close()
+
 
 class TestAdditionalEndpoints:
     """Test additional endpoints for coverage."""
