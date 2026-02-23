@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.2.1] - 2026-02-22
+
+### Added
+
+- **Upgrade**: `--force` flag for `upgrade.sh` to allow same-version reinstall
+
+### Fixed
+
+- **Docs**: Updated `paths-and-separation.md` to reflect actual production layout (`/opt/audiobooks`)
+
 ## [6.6.2] - 2026-02-22
 
 ### Added
