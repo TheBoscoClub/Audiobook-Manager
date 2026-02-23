@@ -29,22 +29,6 @@ def multi_genre_query(genre_patterns: list[str]) -> str:
     )"""
 
 
-def text_search_query(patterns: list[str], fields: list[str] | None = None) -> str:
-    """Create a query searching title and/or description for patterns.
-
-    Args:
-        patterns: List of LIKE patterns to match (e.g., '%short stor%')
-        fields: Fields to search. Defaults to ['title', 'description']
-    """
-    if fields is None:
-        fields = ["title", "description"]
-    conditions = []
-    for pattern in patterns:
-        field_conditions = [f"{field} LIKE '{pattern}'" for field in fields]
-        conditions.append(f"({' OR '.join(field_conditions)})")
-    return " OR ".join(conditions)
-
-
 # Predefined collection definitions
 COLLECTIONS = {
     # === SPECIAL COLLECTIONS ===
@@ -164,7 +148,7 @@ COLLECTIONS = {
         "icon": "💼",
         "category": "nonfiction",
     },
-    # === SUBGENRES (text-search based) ===
+    # === SUBGENRES ===
     "short-stories": {
         "name": "Short Stories & Anthologies",
         "description": "Short story collections, anthologies, and compiled works",
@@ -190,8 +174,8 @@ COLLECTIONS = {
     "action-adventure": {
         "name": "Action & Adventure",
         "description": "Action-packed and adventure stories",
-        "query": text_search_query(
-            ["%action%", "%adventure%", "%quest%", "%expedition%"]
+        "query": multi_genre_query(
+            ["Action & Adventure", "Adventure", "Sea Adventures"]
         ),
         "icon": "⚔️",
         "category": "subgenre",
@@ -199,7 +183,7 @@ COLLECTIONS = {
     "historical-fiction": {
         "name": "Historical Fiction",
         "description": "Fiction set in historical periods",
-        "query": f"({genre_query('Fiction')}) AND ({text_search_query(['%historical%', '%century%', '%war%', '%medieval%', '%ancient%', '%Victorian%', '%Renaissance%'])})",
+        "query": genre_query("Historical Fiction"),
         "icon": "🏰",
         "category": "subgenre",
     },
