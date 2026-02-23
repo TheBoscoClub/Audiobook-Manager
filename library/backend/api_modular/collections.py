@@ -53,14 +53,16 @@ COLLECTION_TREE = [
         "id": "fiction",
         "name": "Fiction",
         "description": "Literary fiction, genre fiction, and novels",
-        "query": multi_genre_query([
-            "Literature & Fiction",
-            "Literary Fiction",
-            "Genre Fiction",
-            "Contemporary Fiction",
-            "Historical Fiction",
-            "Women''s Fiction",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Literature & Fiction",
+                "Literary Fiction",
+                "Genre Fiction",
+                "Contemporary Fiction",
+                "Historical Fiction",
+                "Women''s Fiction",
+            ]
+        ),
         "icon": "📖",
         "category": "main",
         "children": [
@@ -100,15 +102,17 @@ COLLECTION_TREE = [
         "id": "mystery-thriller",
         "name": "Mystery & Thriller",
         "description": "Mystery, suspense, and thriller novels",
-        "query": multi_genre_query([
-            "Mystery",
-            "Thriller & Suspense",
-            "Suspense",
-            "Crime Fiction",
-            "Crime Thrillers",
-            "Technothrillers",
-            "International Mystery & Crime",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Mystery",
+                "Thriller & Suspense",
+                "Suspense",
+                "Crime Fiction",
+                "Crime Thrillers",
+                "Technothrillers",
+                "International Mystery & Crime",
+            ]
+        ),
         "icon": "🔍",
         "category": "main",
         "children": [
@@ -158,12 +162,14 @@ COLLECTION_TREE = [
         "id": "scifi-fantasy",
         "name": "Sci-Fi & Fantasy",
         "description": "Science fiction and fantasy",
-        "query": multi_genre_query([
-            "Science Fiction & Fantasy",
-            "Science Fiction",
-            "Fantasy",
-            "Hard Science Fiction",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Science Fiction & Fantasy",
+                "Science Fiction",
+                "Fantasy",
+                "Hard Science Fiction",
+            ]
+        ),
         "icon": "🚀",
         "category": "main",
         "children": [
@@ -208,13 +214,15 @@ COLLECTION_TREE = [
         "id": "horror",
         "name": "Horror",
         "description": "Horror and supernatural fiction",
-        "query": multi_genre_query([
-            "Horror",
-            "Paranormal & Urban",
-            "Supernatural",
-            "Ghosts",
-            "Occult",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Horror",
+                "Paranormal & Urban",
+                "Supernatural",
+                "Ghosts",
+                "Occult",
+            ]
+        ),
         "icon": "👻",
         "category": "main",
         "children": [
@@ -244,12 +252,14 @@ COLLECTION_TREE = [
         "id": "action-adventure",
         "name": "Action & Adventure",
         "description": "Action-packed and adventure stories",
-        "query": multi_genre_query([
-            "Action & Adventure",
-            "Adventure",
-            "Sea Adventures",
-            "Military",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Action & Adventure",
+                "Adventure",
+                "Sea Adventures",
+                "Military",
+            ]
+        ),
         "icon": "⚔️",
         "category": "main",
         "children": [
@@ -352,11 +362,13 @@ COLLECTION_TREE = [
         "id": "politics",
         "name": "Politics & Social Sciences",
         "description": "Political science, social issues, and government",
-        "query": multi_genre_query([
-            "Politics & Social Sciences",
-            "Social Sciences",
-            "Politics & Government",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Politics & Social Sciences",
+                "Social Sciences",
+                "Politics & Government",
+            ]
+        ),
         "icon": "🏛️",
         "category": "nonfiction",
     },
@@ -364,11 +376,13 @@ COLLECTION_TREE = [
         "id": "health-wellness",
         "name": "Health & Wellness",
         "description": "Health, psychology, and self-improvement",
-        "query": multi_genre_query([
-            "Health & Wellness",
-            "Psychology & Mental Health",
-            "Parenting & Personal Development",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Health & Wellness",
+                "Psychology & Mental Health",
+                "Parenting & Personal Development",
+            ]
+        ),
         "icon": "🧘",
         "category": "nonfiction",
         "children": [
@@ -405,11 +419,13 @@ COLLECTION_TREE = [
         "id": "short-stories",
         "name": "Short Stories & Anthologies",
         "description": "Short story collections, anthologies, and compiled works",
-        "query": multi_genre_query([
-            "Anthologies & Short Stories",
-            "Anthologies",
-            "Short Stories",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Anthologies & Short Stories",
+                "Anthologies",
+                "Short Stories",
+            ]
+        ),
         "icon": "📑",
         "category": "subgenre",
     },
@@ -417,11 +433,13 @@ COLLECTION_TREE = [
         "id": "young-adult",
         "name": "Children & Young Adult",
         "description": "Books for younger audiences",
-        "query": multi_genre_query([
-            "Children''s Audiobooks",
-            "Teen & Young Adult",
-            "Coming of Age",
-        ]),
+        "query": multi_genre_query(
+            [
+                "Children''s Audiobooks",
+                "Teen & Young Adult",
+                "Coming of Age",
+            ]
+        ),
         "icon": "📚",
         "category": "subgenre",
     },
@@ -466,9 +484,7 @@ def init_collections_routes(db_path):
         cursor = conn.cursor()
 
         def get_count(query: str) -> int:
-            cursor.execute(
-                f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}"
-            )
+            cursor.execute(f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}")
             return cursor.fetchone()["count"]
 
         category_order = ["special", "main", "nonfiction", "subgenre"]
@@ -485,11 +501,13 @@ def init_collections_routes(db_path):
             for child in node.get("children", []):
                 child_count = get_count(child["query"])
                 if child_count > 0:
-                    children.append({
-                        "id": child["id"],
-                        "name": child["name"],
-                        "count": child_count,
-                    })
+                    children.append(
+                        {
+                            "id": child["id"],
+                            "name": child["name"],
+                            "count": child_count,
+                        }
+                    )
 
             entry = {
                 "id": node["id"],
