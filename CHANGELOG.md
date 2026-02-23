@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.1.1] - 2026-02-22
+
+### Added
+
+- **Auth**: Magic link authentication as selectable auth method in claim flow — users choose TOTP, passkey, or magic link during account setup
+- **Auth**: Profile auth method switching — users can switch between TOTP, passkey, and magic link from their profile settings
+- **UI**: Auth method selector added to utilities.html invite modal (TOTP, Magic Link, Passkey) with contextual hints, defaulting to magic link
+
+### Fixed
+
+- **Build**: `test-report.md` and `audit-*.log` added to `.gitignore` (were being tracked)
+
 ## [6.6.1] - 2026-02-22
 
 ### Added
