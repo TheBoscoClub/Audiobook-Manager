@@ -586,6 +586,11 @@ Audiobooks/
 ├── install-user.sh              # User installation (standalone)
 ├── install-system.sh            # System installation (standalone)
 ├── install-services.sh          # Legacy service installer
+├── uninstall.sh                 # Comprehensive uninstaller (dynamic discovery)
+├── upgrade.sh                   # Upgrade from GitHub releases or local
+├── deploy.sh                    # Deploy to system installation
+├── deploy-vm.sh                 # Deploy to test VM
+├── migrate-api.sh               # Switch API architecture
 ├── launch.sh                    # Quick launcher
 ├── converter/                   # AAXtoMP3 conversion tools
 │   ├── AAXtoMP3                 # Main conversion script
@@ -599,7 +604,9 @@ Audiobooks/
 │   │   ├── totp.py              # TOTP (authenticator app) support
 │   │   ├── backup_codes.py      # Single-use recovery codes
 │   │   ├── cli.py               # Admin CLI tool (audiobook-user)
-│   │   └── schema.sql           # Auth database schema (14 tables)
+│   │   ├── inbox_cli.py         # Admin inbox management CLI
+│   │   ├── notify_cli.py        # Notification management CLI
+│   │   └── schema.sql           # Auth database schema (16 tables, v6)
 │   ├── backend/
 │   │   ├── api_server.py        # Flask server launcher
 │   │   ├── api_modular/         # Modular Flask Blueprints
@@ -1495,6 +1502,49 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.6.2.6
+
+- **Deploy**: Fixed venv creation using pyenv shim — symlinks into `/home/` inaccessible under systemd `ProtectHome=yes`; now uses system Python (`/usr/bin/python3.14`)
+- **Deploy**: Added `--exclude='venv'` to `deploy-vm.sh` rsync to prevent overwriting production venvs
+- **Upgrade**: Added post-upgrade venv health check to `upgrade.sh` — detects broken symlinks, recreates with system Python
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.6.2.5
+
+- **Collections**: Fixed historical-fiction and action-adventure collections returning wrong book counts
+- **Tests**: Updated schema version assertions to reflect migration 006 (webauthn_credentials table)
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.6.2.4
+
+- **Auth**: Added `safeJsonParse()` to all 8 auth HTML pages — handles HTML error responses gracefully
+- **Auth**: Added missing `webauthn_credentials` table to schema.sql and migration 006
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.6.2.3
+
+- **Web UI**: Added cache-busting version params to all `<script>`, `<link>`, and CSS `@import` across all 12 HTML files
+- **Web UI**: Fixed user dropdown menu extending beyond left browser edge
+- **Web UI**: Added null guards to `escapeHtml()`, `selectAuthor()`, `selectNarrator()` in library.js
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.6.2.2
+
+- **Uninstall**: Comprehensive `uninstall.sh` with dynamic discovery of all installation artifacts
+- **Install**: zsh reserved variable bugs fixed — `local path=` corrupts `$PATH`, `local status=` fails (read-only)
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.6.2.1
+
+- **Upgrade**: `--force` flag for `upgrade.sh` to allow same-version reinstall
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v6.6.2
+
+- **Auth**: Magic link UX overhaul — admin invite defaults to magic link, auto-fill claim page from URL params
+- **UI**: Mobile responsive utilities — horizontal scroll tabs, iOS auto-zoom prevention
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.6.1
 

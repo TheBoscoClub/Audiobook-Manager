@@ -62,22 +62,27 @@
     {
       "name": "audiobook-convert",
       "paths": ["/usr/local/bin/audiobook-convert"],
-      "description": "Convert AAXC to Opus"
+      "description": "Convert AAXC to Opus (alias: convert-audiobooks-opus-parallel)"
     },
     {
       "name": "audiobook-download",
       "paths": ["/usr/local/bin/audiobook-download"],
-      "description": "Download from Audible"
+      "description": "Download from Audible (alias: download-new-audiobooks)"
     },
     {
       "name": "audiobook-move-staged",
       "paths": ["/usr/local/bin/audiobook-move-staged"],
-      "description": "Move staged files to permanent storage"
+      "description": "Move staged files to permanent storage (alias: move-staged-audiobooks)"
     },
     {
       "name": "audiobook-save-staging",
       "paths": ["/usr/local/bin/audiobook-save-staging"],
       "description": "Save staging area before shutdown"
+    },
+    {
+      "name": "audiobook-save-staging-auto",
+      "paths": ["/usr/local/bin/audiobook-save-staging-auto"],
+      "description": "Automatic staging save (called by shutdown service)"
     },
     {
       "name": "audiobook-upgrade",
@@ -88,6 +93,81 @@
       "name": "audiobook-migrate",
       "paths": ["/usr/local/bin/audiobook-migrate"],
       "description": "Switch API architecture"
+    },
+    {
+      "name": "audiobook-status",
+      "paths": ["/usr/local/bin/audiobook-status"],
+      "description": "Show service and timer status"
+    },
+    {
+      "name": "audiobook-start",
+      "paths": ["/usr/local/bin/audiobook-start"],
+      "description": "Start all audiobook services"
+    },
+    {
+      "name": "audiobook-stop",
+      "paths": ["/usr/local/bin/audiobook-stop"],
+      "description": "Stop all audiobook services"
+    },
+    {
+      "name": "audiobook-enable",
+      "paths": ["/usr/local/bin/audiobook-enable"],
+      "description": "Enable services for auto-start at boot"
+    },
+    {
+      "name": "audiobook-disable",
+      "paths": ["/usr/local/bin/audiobook-disable"],
+      "description": "Disable services from auto-start at boot"
+    },
+    {
+      "name": "audiobook-help",
+      "paths": ["/usr/local/bin/audiobook-help"],
+      "description": "Display help and usage information"
+    },
+    {
+      "name": "audiobook-user",
+      "paths": ["/usr/local/bin/audiobook-user"],
+      "description": "Admin CLI for user management"
+    },
+    {
+      "name": "audiobook-download-monitor",
+      "paths": ["/usr/local/bin/audiobook-download-monitor"],
+      "description": "Monitor Audible download progress"
+    },
+    {
+      "name": "audiobook-monitor",
+      "paths": ["/usr/local/bin/audiobook-monitor"],
+      "description": "Live conversion monitor (alias: monitor-audiobook-conversion)"
+    },
+    {
+      "name": "audiobook-build-queue",
+      "paths": ["/usr/local/bin/audiobook-build-queue"],
+      "description": "Build conversion queue (alias: build-conversion-queue)"
+    },
+    {
+      "name": "audiobook-copy-metadata",
+      "paths": ["/usr/local/bin/audiobook-copy-metadata"],
+      "description": "Copy metadata between audiobooks (alias: copy-audiobook-metadata)"
+    },
+    {
+      "name": "audiobook-cleanup-indexes",
+      "paths": ["/usr/local/bin/audiobook-cleanup-indexes"],
+      "description": "Remove stale database indexes (alias: cleanup-stale-indexes)"
+    },
+    {
+      "name": "audiobook-find-duplicates",
+      "paths": ["/usr/local/bin/audiobook-find-duplicates"],
+      "description": "Find duplicate source files (alias: find-duplicate-sources)"
+    },
+    {
+      "name": "audiobook-fix-chapters",
+      "paths": ["/usr/local/bin/audiobook-fix-chapters"],
+      "description": "Fix malformed chapters JSON (alias: fix-wrong-chapters-json)"
+    },
+    {
+      "name": "audiobook-embed-covers",
+      "paths": ["/usr/local/bin/audiobook-embed-covers"],
+      "description": "Embed cover art into Opus files (alias: embed-cover-art.py)"
     }
   ],
 
@@ -97,7 +177,7 @@
       "type": "system",
       "expected_state": "active",
       "description": "API server (Waitress)",
-      "health_endpoint": "http://localhost:${AUDIOBOOKS_API_PORT:-5001}/api/health"
+      "health_endpoint": "http://localhost:${AUDIOBOOKS_API_PORT:-5001}/health"
     },
     {
       "name": "audiobook-proxy.service",
@@ -140,6 +220,18 @@
       "type": "system",
       "expected_state": "inactive",
       "description": "Shutdown hook to save staging"
+    },
+    {
+      "name": "audiobook-upgrade-helper.path",
+      "type": "system",
+      "expected_state": "active",
+      "description": "Watches for upgrade triggers"
+    },
+    {
+      "name": "audiobook-upgrade-helper.service",
+      "type": "system",
+      "expected_state": "inactive",
+      "description": "Runs upgrade when triggered by path unit (oneshot, normally inactive)"
     },
     {
       "name": "audiobook.target",

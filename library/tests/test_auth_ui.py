@@ -253,20 +253,18 @@ class TestAuthCSS:
         login_content = (WEB_DIR / "login.html").read_text()
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert 'css/auth.css' in login_content, "Login should include auth.css"
-        assert 'css/auth.css' in register_content, (
-            "Register should include auth.css"
-        )
+        assert "css/auth.css" in login_content, "Login should include auth.css"
+        assert "css/auth.css" in register_content, "Register should include auth.css"
 
     def test_help_tooltips_css_links_in_html_pages(self):
         """Verify HTML pages include help-tooltips.css."""
         login_content = (WEB_DIR / "login.html").read_text()
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert 'css/help-tooltips.css' in login_content, (
+        assert "css/help-tooltips.css" in login_content, (
             "Login should include help-tooltips.css"
         )
-        assert 'css/help-tooltips.css' in register_content, (
+        assert "css/help-tooltips.css" in register_content, (
             "Register should include help-tooltips.css"
         )
 
@@ -360,7 +358,7 @@ class TestIndexPageAuthIntegration:
         """Verify index.html includes auth.css for user menu."""
         index_content = (WEB_DIR / "index.html").read_text()
 
-        assert 'css/auth.css' in index_content, "Index should include auth.css"
+        assert "css/auth.css" in index_content, "Index should include auth.css"
 
     def test_index_page_has_user_menu(self):
         """Verify index.html has user menu container."""
@@ -462,7 +460,7 @@ class TestVerifyPage:
         """Verify page includes auth.css."""
         verify_content = (WEB_DIR / "verify.html").read_text()
 
-        assert 'css/auth.css' in verify_content, "Should include auth.css"
+        assert "css/auth.css" in verify_content, "Should include auth.css"
 
     def test_verify_page_has_art_deco_styling(self):
         """Verify page uses Art Deco styling classes."""
