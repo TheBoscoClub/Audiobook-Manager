@@ -604,6 +604,19 @@
     </div>
 
     <script>
+        // Safe JSON response parser — handles Cloudflare HTML error pages
+        async function safeJsonParse(response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
+                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                }
+                throw new Error('Unexpected server response');
+            }
+        }
+
         const API_BASE = '';
 
         // State management
@@ -736,7 +749,7 @@
                     body: JSON.stringify({ username, claim_token: claimToken })
                 });
 
-                const data = await response.json();
+                const data = await safeJsonParse(response);
 
                 if (response.ok && data.valid) {
                     // Store state
@@ -849,7 +862,7 @@
                 })
             });
 
-            const data = await response.json();
+            const data = await safeJsonParse(response);
 
             if (response.ok && data.success) {
                 // Display backup codes
@@ -883,7 +896,7 @@
                 })
             });
 
-            const data = await response.json();
+            const data = await safeJsonParse(response);
 
             if (response.ok && data.success) {
                 // Display TOTP setup
@@ -921,11 +934,11 @@
                 })
             });
 
-            const beginData = await beginResponse.json();
-
             if (!beginResponse.ok) {
-                throw new Error(beginData.error || 'Failed to start registration');
+                const errData = await safeJsonParse(beginResponse);
+                throw new Error(errData.error || 'Failed to start registration');
             }
+            const beginData = await safeJsonParse(beginResponse);
 
             // Step 2: Create credential using browser
             const options = WebAuthn.parseRegistrationOptions(beginData.options);
@@ -962,9 +975,13 @@
                 })
             });
 
-            const completeData = await completeResponse.json();
+            if (!completeResponse.ok) {
+                const errData = await safeJsonParse(completeResponse);
+                throw new Error(errData.error || 'Registration verification failed');
+            }
+            const completeData = await safeJsonParse(completeResponse);
 
-            if (!completeResponse.ok || !completeData.success) {
+            if (!completeData.success) {
                 throw new Error(completeData.error || 'Registration verification failed');
             }
 
@@ -1016,7 +1033,7 @@
                     })
                 });
 
-                const data = await response.json();
+                const data = await safeJsonParse(response);
 
                 if (response.ok && data.success) {
                     window.location.href = 'index.html';

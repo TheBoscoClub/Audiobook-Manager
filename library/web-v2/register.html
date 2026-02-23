@@ -422,6 +422,19 @@
 
     <script src="/js/webauthn.js?v=6.6.2.3"></script>
     <script>
+        // Safe JSON response parser — handles Cloudflare HTML error pages
+        async function safeJsonParse(response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
+                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                }
+                throw new Error('Unexpected server response');
+            }
+        }
+
         const API_BASE = '';
 
         // Check WebAuthn support on page load
@@ -546,7 +559,7 @@
                     body: JSON.stringify(requestBody)
                 });
 
-                const data = await response.json();
+                const data = await safeJsonParse(response);
 
                 if (response.ok) {
                     // First user bootstrap: get TOTP setup directly
@@ -750,7 +763,7 @@
                             })
                         });
 
-                        const data = await response.json();
+                        const data = await safeJsonParse(response);
 
                         if (response.ok) {
                             // Show QR code section (ensure visible for TOTP)

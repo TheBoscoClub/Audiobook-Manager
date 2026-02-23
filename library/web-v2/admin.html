@@ -569,6 +569,19 @@
     </div>
 
     <script>
+        // Safe JSON response parser — handles Cloudflare HTML error pages
+        async function safeJsonParse(response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
+                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                }
+                throw new Error('Unexpected server response');
+            }
+        }
+
         // State
         let currentUserId = null;
         let pendingDenyId = null;
@@ -584,7 +597,7 @@
                 options.body = JSON.stringify(body);
             }
             const response = await fetch(`/auth${endpoint}`, options);
-            return response.json();
+            return safeJsonParse(response);
         }
 
         // Escape HTML to prevent XSS - returns sanitized text for display

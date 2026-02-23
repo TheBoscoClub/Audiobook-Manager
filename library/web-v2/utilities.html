@@ -1132,6 +1132,19 @@
 
     <!-- Admin authentication check - must be before utilities.js -->
     <script>
+        // Safe JSON response parser — handles Cloudflare HTML error pages
+        async function safeJsonParse(response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
+                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                }
+                throw new Error('Unexpected server response');
+            }
+        }
+
         // Check if user is authenticated admin before loading page
         // This is a security gate - deny access unless we CONFIRM admin status
         (async function checkAdminAuth() {
@@ -1147,7 +1160,7 @@
                 }
 
                 if (response.ok) {
-                    const data = await response.json();
+                    const data = await safeJsonParse(response);
                     if (!data.user || !data.user.is_admin) {
                         // Logged in but not admin - redirect to main page
                         window.location.href = 'index.html';
