@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.2.2] - 2026-02-22
+
+### Added
+
+- **Uninstall**: Comprehensive `uninstall.sh` with dynamic discovery — finds and removes all traces (27 symlinks, 12 systemd units, configs, certs, runtime files, user/group) with `--keep-data`/`--delete-data`/`--dry-run`/`--force` options
+- **Uninstall**: Group membership cleanup before `groupdel` to prevent PAM/SSH failures for other users
+
+### Fixed
+
+- **Install**: zsh reserved variable bugs — `local path=` corrupts `$PATH` (tied variable), `local status=` fails (read-only); renamed to `target_path`/`svc_state` across install.sh, upgrade.sh, migrate-api.sh
+- **Install**: `show_detected_storage()` silent abort when directories don't exist yet — added fallback defaults
+- **Docs**: Corrected VM snapshot revert procedure (discard overlay, don't commit into base)
+
 ## [6.6.2.1] - 2026-02-22
 
 ### Added
