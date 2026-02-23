@@ -275,6 +275,19 @@
     </div>
 
     <script>
+        // Safe JSON response parser — handles Cloudflare HTML error pages
+        async function safeJsonParse(response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
+                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                }
+                throw new Error('Unexpected server response');
+            }
+        }
+
         // API base URL - adjust for your setup
         const API_BASE = '';
 
@@ -531,7 +544,7 @@
                         body: JSON.stringify({ username, code, remember_me })
                     });
 
-                    const data = await response.json();
+                    const data = await safeJsonParse(response);
 
                     if (response.ok) {
                         // Store session token for persistent login recovery
@@ -570,7 +583,7 @@
                     body: JSON.stringify({ username, backup_code: backupCode })
                 });
 
-                const data = await response.json();
+                const data = await safeJsonParse(response);
 
                 if (response.ok) {
                     if (data.remaining_codes !== undefined && data.remaining_codes <= 2) {
@@ -665,7 +678,7 @@
                     body: JSON.stringify({ username })
                 });
 
-                const data = await response.json();
+                const data = await safeJsonParse(response);
 
                 if (response.ok) {
                     magicLinkSuccess.textContent = data.message || 'Check your email! We sent you a sign-in link. Click it to sign in. (Check your spam folder if you don\'t see it in a few minutes.)';
@@ -693,7 +706,7 @@
                     body: JSON.stringify({ identifier: username })
                 });
 
-                const data = await response.json();
+                const data = await safeJsonParse(response);
 
                 if (response.ok) {
                     magicLinkSentGroup.hidden = false;

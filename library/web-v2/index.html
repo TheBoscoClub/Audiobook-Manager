@@ -345,6 +345,20 @@
     <script src="js/library.js?v=6.6.2.3"></script>
     <script src="js/tutorial.js?v=6.6.2.3"></script>
     <script>
+        // Safe JSON response parser — handles Cloudflare HTML error pages
+        async function safeJsonParse(response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                // Response is not JSON (e.g., Cloudflare WAF block page)
+                if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
+                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                }
+                throw new Error('Unexpected server response');
+            }
+        }
+
         // User menu dropdown handling
         document.addEventListener('DOMContentLoaded', () => {
             const menuButton = document.getElementById('user-menu-button');
@@ -402,7 +416,7 @@
             try {
                 const meRes = await fetch('/auth/me', { credentials: 'include' });
                 if (meRes.ok) {
-                    const meData = await meRes.json();
+                    const meData = await safeJsonParse(meRes);
                     usernameEl.value = meData.user.username || '';
                     emailEl.value = meData.user.email || '';
                     currentAuthType = meData.user.auth_type || 'totp';
@@ -549,7 +563,7 @@
                     });
 
                     if (!res.ok) {
-                        const data = await res.json();
+                        const data = await safeJsonParse(res);
                         errorEl.textContent = data.error || 'Failed to update profile';
                         errorEl.style.display = 'block';
                         return;
@@ -581,7 +595,7 @@
                                 body: JSON.stringify({ auth_method: 'magic_link' })
                             });
                             if (!methodRes.ok) {
-                                const methodData = await methodRes.json();
+                                const methodData = await safeJsonParse(methodRes);
                                 errorEl.textContent = methodData.error || 'Failed to switch to email link';
                                 errorEl.style.display = 'block';
                                 return;
@@ -604,9 +618,17 @@
                                 credentials: 'include',
                                 body: JSON.stringify({ auth_method: 'totp', phase: 'setup' })
                             });
-                            const setupData = await setupRes.json();
+                            if (!setupRes.ok) {
+                                const errData = await safeJsonParse(setupRes);
+                                errorEl.textContent = errData.error || 'Failed to start TOTP setup';
+                                errorEl.style.display = 'block';
+                                setupDiv.hidden = true;
+                                newSaveBtn.disabled = false;
+                                return;
+                            }
+                            const setupData = await safeJsonParse(setupRes);
 
-                            if (!setupRes.ok || !setupData.success) {
+                            if (!setupData.success) {
                                 errorEl.textContent = setupData.error || 'Failed to start TOTP setup';
                                 errorEl.style.display = 'block';
                                 setupDiv.hidden = true;
@@ -632,7 +654,7 @@
                                         credentials: 'include',
                                         body: JSON.stringify({ auth_method: 'totp', phase: 'confirm', code: code })
                                     });
-                                    const confirmData = await confirmRes.json();
+                                    const confirmData = await safeJsonParse(confirmRes);
 
                                     if (confirmRes.ok && confirmData.success) {
                                         currentAuthType = 'totp';
@@ -671,11 +693,11 @@
                                     credentials: 'include',
                                     body: JSON.stringify({ auth_type: 'passkey' })
                                 });
-                                const beginData = await beginRes.json();
-
                                 if (!beginRes.ok) {
-                                    throw new Error(beginData.error || 'Failed to start passkey registration');
+                                    const errData = await safeJsonParse(beginRes);
+                                    throw new Error(errData.error || 'Failed to start passkey registration');
                                 }
+                                const beginData = await safeJsonParse(beginRes);
 
                                 setupDiv.textContent = "Follow your browser's prompt to create a passkey...";
 
@@ -699,9 +721,13 @@
                                         auth_type: 'passkey'
                                     })
                                 });
-                                const completeData = await completeRes.json();
+                                if (!completeRes.ok) {
+                                    const errData = await safeJsonParse(completeRes);
+                                    throw new Error(errData.error || 'Passkey registration failed');
+                                }
+                                const completeData = await safeJsonParse(completeRes);
 
-                                if (!completeRes.ok || !completeData.success) {
+                                if (!completeData.success) {
                                     throw new Error(completeData.error || 'Passkey registration failed');
                                 }
 
