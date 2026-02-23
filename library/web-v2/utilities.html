@@ -1259,7 +1259,7 @@
                 <button class="modal-close" id="invite-user-close" title="Close dialog">&times;</button>
             </div>
             <div class="modal-body">
-                <p class="modal-description">Create a new pre-approved user and send them an invitation email with their claim token.</p>
+                <p class="modal-description">Create a new pre-approved user and send them an invitation email.</p>
                 <form id="invite-user-form">
                     <div class="form-group">
                         <label for="invite-username">Username</label>
@@ -1275,6 +1275,15 @@
                                placeholder="user@example.com"
                                required>
                         <span class="field-hint">Invitation will be sent to this address</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="invite-auth-method">Authentication Method</label>
+                        <select id="invite-auth-method" name="auth_method" class="office-select" title="Choose how this user will sign in">
+                            <option value="magic_link">Email Link (easiest)</option>
+                            <option value="totp">Authenticator App (TOTP)</option>
+                            <option value="passkey">Passkey / Security Key</option>
+                        </select>
+                        <span class="field-hint" id="invite-auth-hint">User clicks a link in their email to sign in — no codes or apps needed</span>
                     </div>
                     <div class="form-group checkbox-group">
                         <label class="checkbox-label">

@@ -75,6 +75,9 @@ _session_cookie_samesite = "Lax"
 # In-memory storage for pending TOTP setup secrets during auth method switch
 _pending_totp_secrets: dict[int, str] = {}
 
+# In-memory storage for pending WebAuthn challenges during auth method switch
+_pending_webauthn_challenges: dict[int, str] = {}
+
 
 def init_auth_routes(
     auth_db_path: Path,
@@ -757,13 +760,14 @@ def update_auth_method():
             if not totp.verify(code, valid_window=1):
                 return jsonify({"error": "Invalid code. Try again."}), 400
 
-            # Encrypt and store the new credential
-            encrypted = db.encrypt_credential(pending_secret.encode())
+            # Store the new TOTP secret as raw bytes
+            from auth.totp import base32_to_secret
 
+            raw_secret = base32_to_secret(pending_secret)
             with db.connection() as conn:
                 conn.execute(
                     "UPDATE users SET auth_type = ?, auth_credential = ? WHERE id = ?",
-                    ("totp", encrypted, user.id),
+                    ("totp", raw_secret, user.id),
                 )
 
             # Clear pending secret
@@ -784,6 +788,130 @@ def update_auth_method():
         )
 
     return jsonify({"error": "Unsupported auth method"}), 400
+
+
+@auth_bp.route("/me/webauthn/begin", methods=["POST"])
+@login_required
+def begin_webauthn_switch():
+    """
+    Start WebAuthn registration for an authenticated user switching auth method.
+
+    JSON body:
+        auth_type: "passkey" | "fido2"
+
+    Returns:
+        200: {"options": {...}, "challenge": "..."}
+        400: {"error": "..."}
+    """
+    from webauthn.helpers import bytes_to_base64url
+
+    user = get_current_user()
+    data = request.get_json() or {}
+    auth_type = data.get("auth_type", "passkey").strip().lower()
+
+    if auth_type not in ("passkey", "fido2"):
+        return jsonify({"error": "Invalid auth type. Use 'passkey' or 'fido2'."}), 400
+
+    rp_id, rp_name, _ = get_webauthn_config()
+    authenticator_type = "platform" if auth_type == "passkey" else "cross-platform"
+
+    options_json, challenge = webauthn_registration_options(
+        username=user.username,
+        rp_id=rp_id,
+        rp_name=rp_name,
+        authenticator_type=authenticator_type,
+    )
+
+    challenge_b64 = bytes_to_base64url(challenge)
+    _pending_webauthn_challenges[user.id] = challenge_b64
+
+    return jsonify({"options": options_json, "challenge": challenge_b64})
+
+
+@auth_bp.route("/me/webauthn/complete", methods=["POST"])
+@login_required
+def complete_webauthn_switch():
+    """
+    Complete WebAuthn registration for an authenticated user switching auth method.
+
+    JSON body:
+        credential: {...}  (encoded WebAuthn credential)
+        challenge: "..."   (base64url challenge from begin)
+        auth_type: "passkey" | "fido2"
+
+    Returns:
+        200: {"success": true, "auth_type": "..."}
+        400: {"error": "..."}
+    """
+    from webauthn.helpers import base64url_to_bytes
+
+    user = get_current_user()
+    data = request.get_json() or {}
+
+    credential_data = data.get("credential")
+    challenge_b64 = data.get("challenge", "")
+    auth_type = data.get("auth_type", "passkey").strip().lower()
+
+    if not credential_data or not challenge_b64:
+        return jsonify({"error": "Credential and challenge required"}), 400
+
+    if auth_type not in ("passkey", "fido2"):
+        return jsonify({"error": "Invalid auth type"}), 400
+
+    # Verify challenge matches
+    pending_challenge = _pending_webauthn_challenges.get(user.id)
+    if not pending_challenge or pending_challenge != challenge_b64:
+        return jsonify({"error": "Invalid or expired challenge. Start over."}), 400
+
+    rp_id, _, expected_origin = get_webauthn_config()
+    challenge_bytes = base64url_to_bytes(challenge_b64)
+
+    # Convert credential to JSON string if it's a dict
+    credential_json = (
+        json.dumps(credential_data)
+        if isinstance(credential_data, dict)
+        else credential_data
+    )
+
+    webauthn_cred = webauthn_verify_registration(
+        credential_json=credential_json,
+        expected_challenge=challenge_bytes,
+        expected_origin=expected_origin,
+        expected_rp_id=rp_id,
+    )
+
+    if webauthn_cred is None:
+        _pending_webauthn_challenges.pop(user.id, None)
+        return jsonify({"error": "WebAuthn verification failed"}), 400
+
+    # Store credential and switch auth type
+    db = get_auth_db()
+
+    with db.connection() as conn:
+        conn.execute(
+            "UPDATE users SET auth_type = ?, auth_credential = ? WHERE id = ?",
+            (auth_type, webauthn_cred.to_json().encode("utf-8"), user.id),
+        )
+
+        # Store WebAuthn credential details
+        from webauthn.helpers import bytes_to_base64url as b2b64
+
+        conn.execute(
+            """INSERT OR REPLACE INTO webauthn_credentials
+               (user_id, credential_id, public_key, sign_count, transports, created_at)
+               VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+            (
+                user.id,
+                b2b64(webauthn_cred.credential_id),
+                b2b64(webauthn_cred.public_key),
+                webauthn_cred.sign_count,
+                ",".join(credential_data.get("transports", [])),
+            ),
+        )
+
+    _pending_webauthn_challenges.pop(user.id, None)
+
+    return jsonify({"success": True, "auth_type": auth_type})
 
 
 @auth_bp.route("/check", methods=["GET"])
@@ -1031,16 +1159,17 @@ def validate_claim_token():
 @auth_bp.route("/register/claim", methods=["POST"])
 def claim_credentials():
     """
-    Claim credentials using TOTP authentication method.
+    Claim credentials using TOTP or magic link authentication method.
 
-    Creates the user account with TOTP as the auth method.
+    Creates the user account with the chosen auth method.
     For passkey/FIDO2, use the /register/claim/webauthn endpoints.
 
     Request body:
         {
             "username": "string",
             "claim_token": "XXXX-XXXX-XXXX-XXXX",
-            "recovery_email": "optional",
+            "auth_method": "totp" | "magic_link" (default: "totp"),
+            "recovery_email": "optional (required for magic_link)",
             "recovery_phone": "optional"
         }
 
@@ -1064,12 +1193,21 @@ def claim_credentials():
 
     username = data.get("username", "").strip()
     claim_token = data.get("claim_token", "").strip()
+    auth_method = data.get("auth_method", "totp").strip()
     recovery_email = (data.get("recovery_email") or "").strip() or None
     recovery_phone = (data.get("recovery_phone") or "").strip() or None
     recovery_enabled = bool(recovery_email or recovery_phone)
 
     if not username or not claim_token:
         return jsonify({"error": "Username and claim_token are required"}), 400
+
+    if auth_method not in ("totp", "magic_link"):
+        return jsonify({"error": "Invalid auth_method. Use 'totp' or 'magic_link'"}), 400
+
+    if auth_method == "magic_link" and not recovery_email:
+        return jsonify(
+            {"error": "Email address is required for magic link authentication"}
+        ), 400
 
     # Remove dashes from token if formatted
     clean_token = claim_token.replace("-", "")
@@ -1123,6 +1261,45 @@ def claim_credentials():
         except (json_module.JSONDecodeError, TypeError):
             pass
 
+    if auth_method == "magic_link":
+        # Magic link: create user with no credential, email is required
+        new_user = User(
+            username=username,
+            auth_type=AuthType.MAGIC_LINK,
+            auth_credential=b"",
+            can_download=can_download,
+            is_admin=False,
+            recovery_email=recovery_email,
+            recovery_phone=recovery_phone,
+            recovery_enabled=True,
+        )
+        new_user.save(db)
+
+        # Generate backup codes
+        backup_repo = BackupCodeRepository(db)
+        backup_codes = backup_repo.create_codes_for_user(new_user.id)
+
+        # Mark as claimed
+        request_repo.mark_credentials_claimed(access_req.id)
+
+        return jsonify(
+            {
+                "success": True,
+                "auth_method": "magic_link",
+                "username": username,
+                "backup_codes": backup_codes,
+                "message": (
+                    "Your account is ready! To sign in, click 'Sign in with email link' "
+                    "on the login page. We'll send a one-click link to your email."
+                ),
+                "warning": (
+                    "IMPORTANT: Save your backup codes in a safe place! These are your ONLY way to "
+                    "recover your account if you lose access to your email."
+                ),
+            }
+        )
+
+    # Default: TOTP flow
     # Create TOTP credentials and user account
     totp_secret, totp_base32, totp_uri = setup_totp(username)
 

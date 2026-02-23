@@ -2763,14 +2763,29 @@ function showInviteUserModal() {
     const usernameEl = document.getElementById('invite-username');
     const emailEl = document.getElementById('invite-email');
     const canDownloadEl = document.getElementById('invite-can-download');
+    const authMethodEl = document.getElementById('invite-auth-method');
+    const authHintEl = document.getElementById('invite-auth-hint');
     const sendBtn = document.getElementById('invite-user-send');
     const cancelBtn = document.getElementById('invite-user-cancel');
     const closeBtn = document.getElementById('invite-user-close');
+
+    const authHints = {
+        magic_link: 'User clicks a link in their email to sign in \u2014 no codes or apps needed',
+        totp: 'User sets up an authenticator app (Google Authenticator, Authy, etc.) on their phone',
+        passkey: 'User registers a passkey or physical security key in their browser'
+    };
 
     // Reset form
     usernameEl.value = '';
     emailEl.value = '';
     canDownloadEl.checked = true;
+    authMethodEl.value = 'magic_link';
+    authHintEl.textContent = authHints.magic_link;
+
+    // Update hint when auth method changes
+    authMethodEl.onchange = () => {
+        authHintEl.textContent = authHints[authMethodEl.value] || '';
+    };
 
     modal.classList.add('active');
 
@@ -2791,6 +2806,7 @@ function showInviteUserModal() {
         const username = usernameEl.value.trim();
         const email = emailEl.value.trim();
         const canDownload = canDownloadEl.checked;
+        const authMethod = authMethodEl.value;
 
         // Validate
         if (!username || username.length < 5) {
@@ -2826,7 +2842,8 @@ function showInviteUserModal() {
                 body: JSON.stringify({
                     username: username,
                     email: email,
-                    can_download: canDownload
+                    can_download: canDownload,
+                    auth_method: authMethod
                 })
             });
 
@@ -2834,11 +2851,18 @@ function showInviteUserModal() {
 
             if (res.ok) {
                 closeModal();
-                if (data.email_sent) {
-                    showToast(`Invitation sent to ${email}`, 'success');
+                if (authMethod === 'magic_link') {
+                    if (data.email_sent) {
+                        showToast(`Magic link invitation sent to ${email}`, 'success');
+                    } else {
+                        showToast(`User created but email failed. Admin can resend from user management.`, 'warning');
+                    }
                 } else {
-                    // Email failed - show claim token
-                    showToast(`User created. Email failed - claim token: ${data.claim_token}`, 'warning');
+                    if (data.email_sent) {
+                        showToast(`Invitation sent to ${email}`, 'success');
+                    } else {
+                        showToast(`User created. Email failed \u2014 claim token: ${data.claim_token}`, 'warning');
+                    }
                 }
                 loadUsers();
             } else {
