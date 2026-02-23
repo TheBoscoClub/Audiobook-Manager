@@ -19,6 +19,7 @@
 #   --target PATH         Target installation to upgrade
 #   --switch-to-modular   Switch to modular Flask Blueprint architecture
 #   --switch-to-monolithic  Switch to single-file architecture
+#   --force               Force upgrade even if versions are identical
 #   --dry-run             Show what would be done without making changes
 #   --help                Show this help message
 #
@@ -57,6 +58,7 @@ TARGET_DIR=""
 DRY_RUN=false
 CHECK_ONLY=false
 CREATE_BACKUP=false
+FORCE=false
 SWITCH_ARCHITECTURE=""  # modular or monolithic
 UPGRADE_SOURCE="project"  # "project" or "github"
 REQUESTED_VERSION=""  # Specific version to install, or empty for latest
@@ -338,6 +340,10 @@ check_for_updates() {
 
     case $result in
         0)
+            if [[ "$FORCE" == "true" ]]; then
+                echo -e "${YELLOW}Versions are identical, but --force specified. Proceeding.${NC}"
+                return 0
+            fi
             echo -e "${GREEN}Versions are identical. No upgrade needed.${NC}"
             return 1
             ;;
@@ -1071,9 +1077,13 @@ do_github_upgrade() {
 
     # Check if upgrade needed
     if [[ "$current_version" == "$install_version" ]]; then
-        echo ""
-        echo -e "${GREEN}Already at version $install_version - no upgrade needed.${NC}"
-        return 0
+        if [[ "$FORCE" == "true" ]]; then
+            echo -e "${YELLOW}Already at version $install_version, but --force specified. Proceeding.${NC}"
+        else
+            echo ""
+            echo -e "${GREEN}Already at version $install_version - no upgrade needed.${NC}"
+            return 0
+        fi
     fi
 
     # Version comparison
@@ -1203,6 +1213,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --switch-to-monolithic)
             SWITCH_ARCHITECTURE="monolithic"
+            shift
+            ;;
+        --force)
+            FORCE=true
             shift
             ;;
         --dry-run)
