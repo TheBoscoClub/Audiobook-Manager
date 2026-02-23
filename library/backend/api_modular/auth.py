@@ -1204,7 +1204,9 @@ def claim_credentials():
         return jsonify({"error": "Username and claim_token are required"}), 400
 
     if auth_method not in ("totp", "magic_link"):
-        return jsonify({"error": "Invalid auth_method. Use 'totp' or 'magic_link'"}), 400
+        return jsonify(
+            {"error": "Invalid auth_method. Use 'totp' or 'magic_link'"}
+        ), 400
 
     if auth_method == "magic_link" and not recovery_email:
         return jsonify(

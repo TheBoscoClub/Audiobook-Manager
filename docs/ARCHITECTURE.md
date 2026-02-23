@@ -95,9 +95,9 @@ Audiobook-Manager consists of seven logical component groups:
 ```text
 /usr/local/bin/                          /opt/audiobooks/scripts/
 ┌──────────────────────┐                 ┌──────────────────────────────────┐
-│ audiobook-convert ───┼────symlink────▶ │ audiobook-convert │
+│ audiobook-convert ───┼────symlink────▶ │ convert-audiobooks-opus-parallel │
 │ audiobook-download ──┼────symlink────▶ │ download-new-audiobooks          │
-│ audiobook-move ──────┼────symlink────▶ │ move-staged-audiobooks           │
+│ audiobook-move-staged┼────symlink────▶ │ move-staged-audiobooks           │
 │ audiobook-upgrade ───┼────symlink────▶ │ upgrade.sh                       │
 │ audiobook-migrate ───┼────symlink────▶ │ migrate-api.sh                   │
 └──────────────────────┘                 └──────────────────────────────────┘
@@ -324,7 +324,7 @@ library/auth/
 ├── cli.py            # Admin CLI tool (audiobook-user)
 ├── inbox_cli.py      # Admin inbox management CLI
 ├── notify_cli.py     # Notification management CLI
-└── schema.sql        # Auth database schema (14 tables, v3)
+└── schema.sql        # Auth database schema (16 tables, v6)
 ```
 
 ### Authentication Flow
@@ -407,6 +407,7 @@ library/auth/
 | `notification_dismissals` | User dismissals | notification_id + user_id composite PK |
 | `inbox` | User→admin messages | from_user_id, message, status, reply_via |
 | `contact_log` | Audit trail | user_id, sent_at (no content stored) |
+| `webauthn_credentials` | Passkey/FIDO2 credentials | user_id, credential_id, public_key, name, created_at |
 | `schema_version` | Migration tracking | version, applied_at |
 
 ### Session Management
@@ -892,7 +893,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
 - `audiobook-convert` → `convert-audiobooks-opus-parallel`
 - `audiobook-download` → `download-new-audiobooks`
-- `audiobook-move` → `move-staged-audiobooks`
+- `audiobook-move-staged` → `move-staged-audiobooks`
 - `audiobook-upgrade` → `upgrade.sh`
 - `audiobook-migrate` → `migrate-api.sh`
 - `audiobook-status` → `audiobook-status`
@@ -1016,8 +1017,8 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                     │   • WorkingDirectory set      │
                     │   • EnvironmentFile set       │
                     │   • audiobook-api.service     │
-                    │   • audiobooks-web.service    │
-                    │   • audiobooks.target         │
+                    │   • audiobook-proxy.service   │
+                    │   • audiobook.target          │
                     └───────────────────────────────┘
                                   │
                                   ▼
@@ -1845,7 +1846,9 @@ export AUDIOBOOKS_BIND_ADDRESS=0.0.0.0
 # Installation
 ./install.sh --system              # System install
 ./install.sh --user                # User install
-./install.sh --uninstall           # Remove installation
+./install.sh --uninstall           # Remove via install.sh (delegates to uninstall.sh)
+./uninstall.sh --system --keep-data --force  # Comprehensive uninstall (keep data)
+./uninstall.sh --system --delete-data --force  # Full removal including data
 
 # Upgrade
 audiobook-upgrade                 # From GitHub

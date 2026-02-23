@@ -503,7 +503,9 @@ class TestPlayerSummary:
         for feature, note in features:
             print(f"    - {feature} ({note})")
 
-        assert len(features) == 6, "All 6 player persistence features should be documented"
+        assert len(features) == 6, (
+            "All 6 player persistence features should be documented"
+        )
         print("  ✓ Player test infrastructure documented")
 
 
