@@ -289,13 +289,13 @@
 
     <!-- Edit Profile Modal -->
     <div class="modal" id="edit-profile-modal">
-        <div class="modal-content">
+        <div class="modal-content modal-small">
             <div class="modal-header">
                 <h2>Edit Profile</h2>
                 <button class="modal-close" id="edit-profile-close" title="Close dialog">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="edit-profile-form">
+                <form id="edit-profile-form" novalidate>
                     <div class="form-group">
                         <label for="edit-profile-username">Username</label>
                         <input type="text" id="edit-profile-username" name="username"
@@ -333,8 +333,8 @@
                 <div id="edit-profile-error" class="error-message" style="display: none;"></div>
             </div>
             <div class="modal-footer">
-                <button class="auth-button secondary" id="edit-profile-cancel" title="Cancel changes">Cancel</button>
-                <button class="auth-button" id="edit-profile-save" title="Save changes">Save</button>
+                <button type="button" class="auth-button secondary" id="edit-profile-cancel" title="Cancel changes">Cancel</button>
+                <button type="button" class="auth-button" id="edit-profile-save" title="Save changes">Save</button>
             </div>
         </div>
     </div>

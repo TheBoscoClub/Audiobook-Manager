@@ -46,12 +46,22 @@
                 This can happen if the link is more than 15 minutes old, you already used this link, or the link was copied incorrectly.
             </p>
             <p class="state-message plain-language" style="margin-top: 1rem;">
-                <strong>What to do:</strong> Go back to the sign-in page and request a new link.
+                <strong>No problem!</strong> Enter your username below and we'll send you a fresh link.
             </p>
-            <div class="auth-options" style="margin-top: 1.5rem;">
-                <a href="login.html" class="auth-button" style="display: inline-block; text-align: center; text-decoration: none; padding: 0.75rem 2rem;">
-                    <span class="button-text">Go to Sign In</span>
-                </a>
+            <form id="resend-form" class="auth-form" style="margin-top: 1rem; text-align: left;">
+                <div class="form-group">
+                    <input type="text" id="resend-username" placeholder="Your username" required
+                           autocomplete="username" autocapitalize="none" spellcheck="false">
+                </div>
+                <button type="submit" class="auth-button" id="resend-btn" style="width: 100%;">
+                    <span class="button-text">Send Me a New Link</span>
+                    <span class="button-loading" hidden><span class="spinner"></span> Sending...</span>
+                </button>
+                <div id="resend-success" class="success-message-box" hidden style="margin-top: 0.75rem; text-align: center;"></div>
+                <div id="resend-error" class="error-message" hidden style="margin-top: 0.75rem;"></div>
+            </form>
+            <div class="auth-options" style="margin-top: 1rem;">
+                <a href="login.html" class="auth-link">Go to Sign In &rarr;</a>
             </div>
         </div>
 
@@ -201,6 +211,57 @@
             showState('manual');
         }
 
+        // Resend magic link from error state
+        document.getElementById('resend-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('resend-username').value.trim();
+            const successEl = document.getElementById('resend-success');
+            const errorEl = document.getElementById('resend-error');
+            const button = document.getElementById('resend-btn');
+            const buttonText = button.querySelector('.button-text');
+            const buttonLoading = button.querySelector('.button-loading');
+
+            successEl.hidden = true;
+            errorEl.hidden = true;
+
+            if (!username) {
+                errorEl.textContent = 'Please enter your username';
+                errorEl.hidden = false;
+                return;
+            }
+
+            buttonText.hidden = true;
+            buttonLoading.hidden = false;
+            button.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/magic-link/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier: username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successEl.textContent = 'Check your email! We sent you a new sign-in link. Click it to sign in.';
+                    successEl.hidden = false;
+                    button.disabled = true;
+                } else {
+                    errorEl.textContent = data.error || 'Unable to send a new link. Try signing in from the login page.';
+                    errorEl.hidden = false;
+                    button.disabled = false;
+                }
+            } catch (err) {
+                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.hidden = false;
+                button.disabled = false;
+            } finally {
+                buttonText.hidden = false;
+                buttonLoading.hidden = true;
+            }
+        });
+
         // Manual form submission
         document.getElementById('manual-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -288,6 +349,15 @@
             line-height: 1.7;
             text-align: center;
             margin-bottom: 1.5rem;
+        }
+
+        .success-message-box {
+            background: rgba(40, 167, 69, 0.15);
+            border: 1px solid var(--emerald-light, #28a745);
+            color: var(--emerald-light, #28a745);
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
         }
     </style>
 </body>

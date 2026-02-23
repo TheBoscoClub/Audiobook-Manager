@@ -86,9 +86,11 @@
 
             <!-- Magic link confirmation - shown for magic_link users -->
             <div class="form-group" id="magic-link-sent-group" hidden>
-                <div id="magic-link-sent-message" class="success-message-box" style="text-align: center; padding: 1rem;">
-                    <p style="margin: 0 0 0.5rem 0; font-weight: bold;">Check your email</p>
-                    <p style="margin: 0; font-size: 0.9em;">We sent a sign-in link to your email address. Click the link to sign in.</p>
+                <div id="magic-link-sent-message" class="success-message-box" style="text-align: center; padding: 1.25rem;">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">&#9993;</div>
+                    <p style="margin: 0 0 0.75rem 0; font-weight: bold; font-size: 1.1em;">Check Your Email!</p>
+                    <p style="margin: 0; font-size: 0.95em; line-height: 1.6;">We just sent a sign-in link to your email address. Open the email and click the link to sign in.</p>
+                    <p style="margin: 0.75rem 0 0 0; font-size: 0.85em; opacity: 0.8;">Don't see it? Check your spam folder. The link expires in 15 minutes.</p>
                 </div>
             </div>
 
@@ -127,8 +129,8 @@
             </button>
         </form>
 
-        <!-- Alternative options -->
-        <div class="auth-options">
+        <!-- Alternative options (recovery fallbacks - hidden until auth type detected) -->
+        <div class="auth-options" id="auth-options-fallback" hidden>
             <a href="#" id="use-backup-code" class="auth-link" title="Use one of the emergency codes you saved when you first signed up">
                 Use backup code
                 <button type="button" class="help-icon small" aria-label="Help" data-help="backup-option-help">?</button>
@@ -425,6 +427,7 @@
                 continueButton.hidden = true;
                 usernameInput.readOnly = true;
                 updateEditButtonVisibility();
+                document.getElementById('auth-options-fallback').hidden = false;
 
                 if (currentAuthType === 'magic_link') {
                     // Magic link flow — auto-submit to send login link
@@ -466,6 +469,7 @@
                 changeUsernameLink.hidden = false;
                 usernameInput.readOnly = true;
                 updateEditButtonVisibility();
+                document.getElementById('auth-options-fallback').hidden = false;
                 document.getElementById('code').required = true;
                 document.getElementById('code').focus();
             } finally {
@@ -609,6 +613,7 @@
             webauthnGroup.hidden = true;
             changeUsernameLink.hidden = true;
             document.getElementById('magic-link-sent-group').hidden = true;
+            document.getElementById('auth-options-fallback').hidden = true;
             continueButton.hidden = false;
             loginButton.hidden = true;
             loginButton.querySelector('.button-text').textContent = 'Enter the Library';
@@ -708,5 +713,6 @@
 
         checkSession();
     </script>
+
 </body>
 </html>

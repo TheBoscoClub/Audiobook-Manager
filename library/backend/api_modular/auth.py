@@ -13,6 +13,7 @@ All authentication data is stored in the encrypted auth.db (SQLCipher).
 import os
 import smtplib
 import sys
+import urllib.parse
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -2812,7 +2813,7 @@ def _send_approval_email(to_email: str, username: str) -> bool:
     smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
     base_url = _get_base_url()
 
-    claim_url = f"{base_url}/claim.html"
+    claim_url = f"{base_url}/claim.html?username={urllib.parse.quote(username)}"
 
     subject = "You're Approved! Here's How to Get Started"
 
@@ -4006,7 +4007,11 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
     smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
     base_url = _get_base_url()
 
-    claim_url = f"{base_url}/claim.html"
+    claim_url = (
+        f"{base_url}/claim.html"
+        f"?username={urllib.parse.quote(username)}"
+        f"&token={urllib.parse.quote(claim_token)}"
+    )
 
     subject = "You're Invited to The Library!"
 
