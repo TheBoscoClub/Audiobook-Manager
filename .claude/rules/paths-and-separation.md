@@ -46,10 +46,9 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 
 | Location | Purpose |
 |----------|---------|
-| `/hddRaid1/Audiobooks/` | Production data (Library, Sources, logs) |
-| `/hddRaid1/Audiobooks/scripts/` | Installed user scripts |
-| `/hddRaid1/Audiobooks/lib/` | Installed user library |
 | `/opt/audiobooks/` | System application code |
+| `/opt/audiobooks/scripts/` | Installed scripts (symlinked from `/usr/local/bin/`) |
+| `/hddRaid1/Audiobooks/` | Production data (Library, Sources, logs) |
 | `/usr/local/lib/audiobooks/` | Shared configuration library |
 | `/etc/audiobooks/` | System configuration |
 | `/etc/systemd/system/audiobooks*.service` | Systemd services |
@@ -59,8 +58,7 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 - Project code must NEVER reference `/hddRaid1/Audiobooks/` or `/opt/audiobooks/`
 - Application must NEVER reference `/hddRaid1/ClaudeCodeProjects/`
 - Symlinks must point to APPLICATION, not PROJECT
-- User scripts in `~/.local/bin/` -> `/hddRaid1/Audiobooks/scripts/`
-- System scripts in `/usr/local/bin/` -> `/hddRaid1/Audiobooks/scripts/`
+- System scripts in `/usr/local/bin/` -> `/opt/audiobooks/scripts/`
 
 ### Development Mode
 
@@ -71,22 +69,19 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 ### Deployment Workflow
 
 ```bash
-# Deploy to custom location (e.g., /hddRaid1/Audiobooks)
-./deploy.sh --custom /hddRaid1/Audiobooks
-
-# Deploy to system installation (/opt/audiobooks)
+# Deploy to system installation (/opt/audiobooks) — standard production deploy
 ./deploy.sh --system
 
 # Dry run to see what would happen
-./deploy.sh --custom /hddRaid1/Audiobooks --dry-run
+./deploy.sh --system --dry-run
 ```
 
 ### Upgrade
 
 ```bash
 # Check for available updates
-./upgrade.sh --check --target /hddRaid1/Audiobooks
+./upgrade.sh --check --target /opt/audiobooks
 
 # Upgrade with backup
-./upgrade.sh --backup --target /hddRaid1/Audiobooks
+./upgrade.sh --backup --target /opt/audiobooks
 ```
