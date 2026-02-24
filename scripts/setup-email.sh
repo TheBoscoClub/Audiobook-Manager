@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Setup script for magic link email functionality
 # Uses Protonmail Bridge for SMTP access to thebosco.club
 

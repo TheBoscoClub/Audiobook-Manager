@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # =============================================================================
 # Audiobook Library - Comprehensive Uninstall Script
 # =============================================================================
@@ -89,7 +89,7 @@ _sudo() {
 
 # Remove a file or symlink (with sudo support)
 remove_file() {
-    local target="$1"  # NOT "path" — zsh ties lowercase path to $PATH
+    local target="$1"
     local use_sudo="$2"
 
     if [[ -e "$target" || -L "$target" ]]; then
@@ -110,7 +110,7 @@ remove_file() {
 
 # Remove a directory recursively (with sudo support)
 remove_dir() {
-    local target="$1"  # NOT "path" — zsh ties lowercase path to $PATH
+    local target="$1"
     local use_sudo="$2"
 
     if [[ -d "$target" ]]; then

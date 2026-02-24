@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library Setup Script
 
 SCRIPT_DIR="${0:A:h}"

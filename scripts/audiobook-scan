@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library Scanner
 # Wrapper script — sources config and launches the metadata scanner
 source "${0:A:h}/../lib/audiobook-config.sh"

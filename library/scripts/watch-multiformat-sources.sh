@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Multi-Format Audiobook Source Watcher
 # Watches drop folders for new audiobooks from various sources
 # Processes ZIP files and MP3 directories into OPUS format

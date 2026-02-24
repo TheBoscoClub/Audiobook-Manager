@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library Launcher
 # Starts the Flask API and web server
 

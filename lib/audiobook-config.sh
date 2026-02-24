@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # =============================================================================
 # Audiobook Library - Shell Configuration Loader
 # =============================================================================
@@ -48,11 +48,11 @@ _load_config_file() {
 # -----------------------------------------------------------------------------
 if [[ -z "${AUDIOBOOKS_HOME:-}" ]]; then
     # Try to detect from this script's location
-    # Use BASH_SOURCE if available (bash), fall back to $0 with zsh modifiers
+    # Use BASH_SOURCE to find this script's directory
     if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
         _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     elif [[ -n "${0:-}" ]]; then
-        _script_dir="${0:A:h}"
+        _script_dir="$(cd "$(dirname "$0")" && pwd)"
     fi
     if [[ -n "${_script_dir:-}" ]]; then
         # If we're in lib/, go up one level
@@ -215,10 +215,8 @@ audiobooks_python() {
 }
 
 # Run if executed directly (for testing), not when sourced
-# Bash: sourced when BASH_SOURCE[0] != $0; Zsh: sourced when ZSH_EVAL_CONTEXT contains :file
 _sourced=false
-[[ -n "${BASH_VERSION:-}" ]] && [[ "${BASH_SOURCE[0]:-}" != "$0" ]] && _sourced=true
-[[ -n "${ZSH_VERSION:-}" ]] && [[ "${ZSH_EVAL_CONTEXT:-}" =~ :file ]] && _sourced=true
+[[ "${BASH_SOURCE[0]:-}" != "$0" ]] && _sourced=true
 if [[ "$_sourced" == false ]]; then
     audiobooks_print_config
 fi

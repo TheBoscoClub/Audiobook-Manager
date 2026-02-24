@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Safely Remove Corrupted Duplicate M4B Files
 # These are failed conversions - valid versions exist in other locations/formats
 # NOTE: After 2024-11 directory reorganization, M4B conversions are deprecated

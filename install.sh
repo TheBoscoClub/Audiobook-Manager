@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # =============================================================================
 # Audiobook Library - Unified Installation Script
 # =============================================================================
@@ -1738,7 +1738,7 @@ EOF
 
     # API server wrapper
     cat > "${BIN_DIR}/audiobook-api" << EOF
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
@@ -1747,7 +1747,7 @@ EOF
 
     # Web server wrapper
     cat > "${BIN_DIR}/audiobook-web" << EOF
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library Web Server (HTTPS)
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec python3 "\${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "\$@"
@@ -1756,7 +1756,7 @@ EOF
 
     # Scanner wrapper
     cat > "${BIN_DIR}/audiobook-scan" << EOF
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library Scanner
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
@@ -1765,7 +1765,7 @@ EOF
 
     # Database import wrapper
     cat > "${BIN_DIR}/audiobook-import" << EOF
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library Database Import
 source "${LIB_DIR}/lib/audiobook-config.sh"
 exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
@@ -1774,7 +1774,7 @@ EOF
 
     # Config viewer
     cat > "${BIN_DIR}/audiobook-config" << EOF
-#!/usr/bin/env zsh
+#!/bin/bash
 # Show audiobook library configuration
 source "${LIB_DIR}/lib/audiobook-config.sh"
 audiobooks_print_config
@@ -1880,7 +1880,7 @@ EOF
 
     # Create upgrade wrapper
     cat > "${BIN_DIR}/audiobook-upgrade" << EOF
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Toolkit Upgrade Script
 # Fetches and applies updates from GitHub releases
 exec "${LIB_DIR}/scripts/upgrade.sh" --target "${LIB_DIR}" "\$@"
@@ -1890,7 +1890,7 @@ EOF
 
     # Create migrate wrapper
     cat > "${BIN_DIR}/audiobook-migrate" << EOF
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Toolkit API Migration Script
 # Switch between monolithic and modular API architectures
 exec "${LIB_DIR}/scripts/migrate-api.sh" --target "${LIB_DIR}" "\$@"

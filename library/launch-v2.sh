@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library V2 - Database-backed version
 # Launches Flask API server and opens web interface
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Quick launcher for Audiobook Library
 
 set -e # Exit on error

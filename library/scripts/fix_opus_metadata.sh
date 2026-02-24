@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # OPUS Metadata Fixer - Extract ALL metadata from AAXC and apply to OPUS files
 # Fixes: Author, Narrator, Publisher, Title, Cover Art, Date, Genre, Comment
 #
