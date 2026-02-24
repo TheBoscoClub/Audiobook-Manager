@@ -39,7 +39,7 @@ DIM='\033[2m'
 NC='\033[0m'
 
 # Script directory
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Options
 ACTION=""

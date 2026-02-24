@@ -39,14 +39,14 @@ SYSTEMD_DIR="/etc/systemd/system"
 DATA_DIR="/srv/audiobooks"
 
 # Script directory (source)
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Options
 INSTALL_SERVICES=true
 UNINSTALL=false
 
 # Script-to-CLI Name Aliases (shared with install.sh, upgrade.sh)
-typeset -A SCRIPT_ALIASES=(
+declare -A SCRIPT_ALIASES=(
     ["convert-audiobooks-opus-parallel"]="audiobook-convert"
     ["build-conversion-queue"]="audiobook-build-queue"
     ["download-new-audiobooks"]="audiobook-download"
@@ -76,7 +76,8 @@ refresh_bin_symlinks() {
         echo "  Linked: ${name}"
     done
 
-    for script_name target_name in "${(@kv)SCRIPT_ALIASES}"; do
+    for script_name in "${!SCRIPT_ALIASES[@]}"; do
+        local target_name="${SCRIPT_ALIASES[$script_name]}"
         local source_path="${scripts_dir}/${script_name}"
         local link_path="${bin_dir}/${target_name}"
         if [[ -f "$source_path" ]]; then
