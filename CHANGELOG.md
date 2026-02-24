@@ -13,6 +13,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.4] - 2026-02-24
+
+### Added
+
+- **Collections**: "Podcasts & Shows" collection with `bypasses_filter=True` for non-audiobook content types (Podcast, Show, Episode, Radio/TV)
+- **Scripts**: `populate_content_types.py` — queries Audible API library + catalog to tag content types
+
+### Changed
+
+- **Converter**: Only processes DRM-encrypted formats (AAXC/AAX/AA); playable formats (MP3, M4A, etc.) are skipped with a message instead of silently ignored
+
+### Fixed
+
+- **Config**: Bash/zsh compatibility in `audiobook-config.sh` — detects `BASH_SOURCE[0]` before falling back to zsh `${0:A:h}`, preventing unbound variable errors in bash scripts with `set -u`
+- **Service**: Removed vestigial `/opt/audiobooks/library/data` from `ReadWritePaths` that caused 230+ namespace failures when directory didn't exist under `ProtectSystem=strict`
+- **Service**: Added `StartLimitBurst=5`/`StartLimitIntervalSec=60` to prevent rapid restart loops
+- **Service**: Changed proxy `Requires` to `PartOf` so proxy restarts with API service
+- **Converter**: Fixed queue builder prefix title matching — added word-boundary enforcement so "trial" no longer false-matches "trials of koli"
+- **Install**: `ReadWritePaths` patching in `install.sh` and `upgrade.sh` when `AUDIOBOOKS_DATA` differs from `/srv/audiobooks`
+- **Cover Art**: Warning when ffmpeg succeeds but cover file not created (ProtectSystem=strict silently blocks writes)
+
 ## [6.6.3] - 2026-02-23
 
 ### Added

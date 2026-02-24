@@ -249,7 +249,7 @@ def populate_content_types(dry_run: bool = True) -> None:
         conn.commit()
         print("Done.")
     elif dry_run:
-        print(f"\nDRY RUN — no changes made. Run with --execute to apply.")
+        print("\nDRY RUN — no changes made. Run with --execute to apply.")
 
     conn.close()
 
