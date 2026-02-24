@@ -8,7 +8,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![3](https://img.shields.io/badge/3-green) | Latest patch | [v6.6.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.3) |
+| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![4](https://img.shields.io/badge/4-green) | Latest patch | [v6.6.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.4) |
+| ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![3](https://img.shields.io/badge/3-red) | Prior patch | [v6.6.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.3) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![6](https://img.shields.io/badge/6-orange) | Prior tweak | [v6.6.2.6](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.6) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![5](https://img.shields.io/badge/5-orange) | Prior tweak | [v6.6.2.5](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.5) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![4](https://img.shields.io/badge/4-orange) | Prior tweak | [v6.6.2.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.4) |
@@ -1501,6 +1502,15 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.6.4
+
+- **Fix**: Bash/zsh compatibility for config loader — scripts with `set -u` no longer fail on `${0:A:h}`
+- **Fix**: Service stability — removed vestigial ReadWritePaths causing 230+ namespace failures; added restart rate limiting
+- **Fix**: Queue builder prefix matching — "trial" no longer false-matches "trials of koli"
+- **Converter**: Only processes DRM-encrypted formats (AAXC/AAX/AA); playable formats skipped
+- **Podcasts & Shows**: New collection with `bypasses_filter` for non-audiobook content types
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.6.3
 
