@@ -289,18 +289,18 @@ class TestInputValidation:
         """Test username length validation."""
         UserRepository(temp_db)
 
-        # Too short (less than 5 chars per schema)
+        # Too short (less than 3 chars per schema)
         short_user = User(
-            username="abc",
+            username="ab",
             auth_type=AuthType.TOTP,
             auth_credential=b"secret",
         )
         with pytest.raises(Exception):
             short_user.save(temp_db)
 
-        # Too long (more than 16 chars per schema)
+        # Too long (more than 24 chars per schema)
         long_user = User(
-            username="a" * 20,
+            username="a" * 25,
             auth_type=AuthType.TOTP,
             auth_credential=b"secret",
         )

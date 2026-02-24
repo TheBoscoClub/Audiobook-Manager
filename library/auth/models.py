@@ -59,7 +59,7 @@ class User:
 
     Attributes:
         id: Database primary key
-        username: Unique username (5-16 chars)
+        username: Unique username (3-24 chars)
         auth_type: Authentication method
         auth_credential: Encrypted credential data (WebAuthn or TOTP secret)
         can_download: Permission to download audio files
@@ -1512,7 +1512,7 @@ class AccessRequestRepository:
                     backup_codes_json TEXT,
                     credentials_claimed BOOLEAN DEFAULT FALSE,
                     claim_expires_at TIMESTAMP,
-                    CHECK (length(username) >= 5 AND length(username) <= 16)
+                    CHECK (length(username) >= 3 AND length(username) <= 24)
                 )
             """)
 

@@ -43,10 +43,10 @@ def get_db(args) -> AuthDatabase:
 
 def validate_username(username: str) -> tuple[bool, str]:
     """Validate username requirements."""
-    if len(username) < 5:
-        return False, "Username must be at least 5 characters"
-    if len(username) > 16:
-        return False, "Username must be at most 16 characters"
+    if len(username) < 3:
+        return False, "Username must be at least 3 characters"
+    if len(username) > 24:
+        return False, "Username must be at most 24 characters"
     if not all(32 <= ord(c) <= 126 for c in username):
         return False, "Username must contain only printable ASCII characters"
     return True, ""
@@ -464,7 +464,7 @@ def main():
 
     # add command
     add_parser = subparsers.add_parser("add", help="Add a new user")
-    add_parser.add_argument("username", help="Username (5-16 printable chars)")
+    add_parser.add_argument("username", help="Username (3-24 printable chars)")
     auth_group = add_parser.add_mutually_exclusive_group()
     auth_group.add_argument(
         "--totp", action="store_true", default=True, help="Use TOTP auth (default)"

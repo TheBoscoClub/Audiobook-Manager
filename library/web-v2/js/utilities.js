@@ -2519,12 +2519,12 @@ function showInviteUserModal() {
         const authMethod = authMethodEl.value;
 
         // Validate
-        if (!username || username.length < 5) {
-            showToast('Username must be at least 5 characters', 'error');
+        if (!username || username.length < 3) {
+            showToast('Username must be at least 3 characters', 'error');
             return;
         }
-        if (username.length > 16) {
-            showToast('Username must be at most 16 characters', 'error');
+        if (username.length > 24) {
+            showToast('Username must be at most 24 characters', 'error');
             return;
         }
         if (/[<>\\]/.test(username)) {

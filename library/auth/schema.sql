@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     recovery_phone TEXT,           -- Optional, stored encrypted in SQLCipher
     recovery_enabled BOOLEAN DEFAULT FALSE,
 
-    CHECK (length(username) >= 5 AND length(username) <= 16)
+    CHECK (length(username) >= 3 AND length(username) <= 24)
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS access_requests (
     preferred_auth_method TEXT DEFAULT 'totp',  -- totp, passkey, magic_link
     claim_expires_at TIMESTAMP,  -- Expiry for invitation claim tokens
 
-    CHECK (length(username) >= 5 AND length(username) <= 16)
+    CHECK (length(username) >= 3 AND length(username) <= 24)
 );
 
 CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status);
