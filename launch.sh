@@ -2,7 +2,7 @@
 # Audiobook Library Launcher
 # Starts the Flask API and web server
 
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
 source "$SCRIPT_DIR/lib/audiobook-config.sh"

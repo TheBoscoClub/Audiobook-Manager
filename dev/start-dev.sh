@@ -21,7 +21,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # Get project root (parent of dev/)
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Source config

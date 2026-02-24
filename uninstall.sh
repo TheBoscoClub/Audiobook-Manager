@@ -22,6 +22,7 @@
 # =============================================================================
 
 set -e
+shopt -s nullglob  # Empty arrays when globs match nothing (replaces zsh )
 
 # Ensure essential commands are in PATH (sudo may strip PATH)
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
@@ -37,7 +38,7 @@ DIM='\033[2m'
 NC='\033[0m'
 
 # Script directory
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Defaults
 INSTALL_MODE=""
@@ -160,14 +161,14 @@ detect_install_type() {
 
     # Also check for leftover systemd units or symlinks even if dirs are gone
     if [[ "$has_system" == "false" ]]; then
-        local sys_units=(/etc/systemd/system/audiobook*(N))
-        local sys_bins=(/usr/local/bin/audiobook-*(N))
+        local sys_units=(/etc/systemd/system/audiobook*)
+        local sys_bins=(/usr/local/bin/audiobook-*)
         [[ ${#sys_units} -gt 0 || ${#sys_bins} -gt 0 ]] && has_system=true
     fi
 
     if [[ "$has_user" == "false" ]]; then
-        local user_units=("$HOME"/.config/systemd/user/audiobook*(N))
-        local user_bins=("$HOME"/.local/bin/audiobook-*(N))
+        local user_units=("$HOME"/.config/systemd/user/audiobook*)
+        local user_bins=("$HOME"/.local/bin/audiobook-*)
         [[ ${#user_units} -gt 0 || ${#user_bins} -gt 0 ]] && has_user=true
     fi
 
@@ -234,7 +235,7 @@ confirm_uninstall() {
     echo ""
     while true; do
         read -r "answer?Type 'yes' to proceed with uninstall: "
-        case "${(L)answer}" in
+        case "${answer,,}" in
             yes)
                 return 0
                 ;;
@@ -278,27 +279,25 @@ remove_systemd_units() {
         local unit_files=($(systemctl list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}'))
         units+=("${unit_files[@]}")
         # Deduplicate
-        units=(${(u)units})
+        readarray -t units < <(printf '%s\n' "${units[@]}" | sort -u)
         # Also discover from filesystem (catches units systemd doesn't know about)
-        for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}(N); do
-            local unit_name="${f:t}"
+        for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
+            local unit_name="${f##*/}"
             # Add if not already in list
             if [[ ! " ${units[*]} " =~ " ${unit_name} " ]]; then
                 units+=("$unit_name")
             fi
         done
-        units=(${(u)units})
     else
         units=($(systemctl --user list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}'))
         local unit_files=($(systemctl --user list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}'))
         units+=("${unit_files[@]}")
-        for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}(N); do
-            local unit_name="${f:t}"
+        for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
+            local unit_name="${f##*/}"
             if [[ ! " ${units[*]} " =~ " ${unit_name} " ]]; then
                 units+=("$unit_name")
             fi
         done
-        units=(${(u)units})
     fi
 
     if [[ ${#units} -eq 0 ]]; then
@@ -337,7 +336,7 @@ remove_systemd_units() {
 
     # Step 3: Remove unit files from disk (glob-based, catches everything)
     log_info "Removing unit files from ${systemd_dir}..."
-    for f in "${systemd_dir}"/audiobook*(N); do
+    for f in "${systemd_dir}"/audiobook*; do
         if [[ -f "$f" || -L "$f" ]]; then
             remove_file "$f" "$use_sudo"
         elif [[ -d "$f" ]]; then
@@ -347,13 +346,13 @@ remove_systemd_units() {
     done
 
     # Also remove .wants directory symlinks (created by systemctl enable)
-    for wants_dir in "${systemd_dir}"/audiobook*.wants(N); do
+    for wants_dir in "${systemd_dir}"/audiobook*.wants; do
         remove_dir "$wants_dir" "$use_sudo"
     done
     # Clean symlinks inside other .wants dirs that point to audiobook units
-    for wants_dir in "${systemd_dir}"/*.wants(N); do
+    for wants_dir in "${systemd_dir}"/*.wants; do
         [[ -d "$wants_dir" ]] || continue
-        for link in "${wants_dir}"/audiobook*(N); do
+        for link in "${wants_dir}"/audiobook*; do
             remove_file "$link" "$use_sudo"
         done
     done
@@ -383,7 +382,7 @@ remove_bin_symlinks() {
     echo -e "${BOLD}=== Binary Symlinks ===${NC}"
 
     local count=0
-    for link in "${bin_dir}"/audiobook-*(N); do
+    for link in "${bin_dir}"/audiobook-*; do
         if [[ -L "$link" || -f "$link" ]]; then
             remove_file "$link" "$use_sudo"
             ((count++)) || true
@@ -406,10 +405,10 @@ remove_system_configs() {
     echo -e "${BOLD}=== System Configuration Files ===${NC}"
 
     # tmpfiles.d (glob catches both audiobooks.conf and audiobooks-tmpfiles.conf)
-    for f in /etc/tmpfiles.d/audiobook*(N); do
+    for f in /etc/tmpfiles.d/audiobook*; do
         remove_file "$f" "$use_sudo"
     done
-    for f in /usr/lib/tmpfiles.d/audiobook*(N); do
+    for f in /usr/lib/tmpfiles.d/audiobook*; do
         remove_file "$f" "$use_sudo"
     done
 
@@ -494,7 +493,7 @@ remove_runtime_files() {
     done
 
     # Catch-all: any remaining /tmp/audiobook* artifacts (FIFOs, temp files, etc.)
-    for f in /tmp/audiobook*(N); do
+    for f in /tmp/audiobook*; do
         # Skip already-handled paths
         local already_handled=false
         for known in "${known_paths[@]}"; do
@@ -626,7 +625,7 @@ _prompt_delete() {
     local prompt_text="$1"
     while true; do
         read -r "answer?${prompt_text} [y/N]: "
-        case "${(L)answer}" in
+        case "${answer,,}" in
             y|yes) return 0 ;;
             n|no|"") return 1 ;;
             *) echo "  Please answer y(es) or n(o)" ;;
@@ -747,7 +746,7 @@ scan_for_orphans() {
     fi
 
     for pattern in "${patterns[@]}"; do
-        for f in ${~pattern}(N); do
+        for f in $pattern; do
             if [[ -e "$f" || -L "$f" ]]; then
                 echo -e "  ${YELLOW}Remaining:${NC} $f"
                 remaining=$((remaining + 1))
@@ -938,7 +937,7 @@ if [[ -z "$INSTALL_MODE" ]]; then
             echo -e "${YELLOW}Both system and user installations detected.${NC}"
             while true; do
                 read -r "answer?Uninstall [s]ystem, [u]ser, or [b]oth? "
-                case "${(L)answer}" in
+                case "${answer,,}" in
                     s|system)
                         INSTALL_MODE="system"
                         break

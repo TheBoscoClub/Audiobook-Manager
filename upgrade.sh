@@ -59,7 +59,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Script location - could be in project OR installed app
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Options
 PROJECT_DIR=""
@@ -84,7 +84,7 @@ GITHUB_API="https://api.github.com/repos/TheBoscoClub/Audiobook-Manager"
 # -----------------------------------------------------------------------------
 # Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
 # Scripts already named audiobook-* don't need an alias — they're auto-linked.
-typeset -A SCRIPT_ALIASES=(
+declare -A SCRIPT_ALIASES=(
     ["convert-audiobooks-opus-parallel"]="audiobook-convert"
     ["build-conversion-queue"]="audiobook-build-queue"
     ["download-new-audiobooks"]="audiobook-download"
@@ -128,7 +128,8 @@ refresh_bin_symlinks() {
     done
 
     # 2. Create alias symlinks for scripts with non-audiobook-* names
-    for script_name target_name in "${(@kv)SCRIPT_ALIASES}"; do
+    for script_name in "${!SCRIPT_ALIASES[@]}"; do
+        local target_name="${SCRIPT_ALIASES[$script_name]}"
         local source_path="${scripts_dir}/${script_name}"
         local link_path="${bin_dir}/${target_name}"
         if [[ -f "$source_path" ]]; then
@@ -1269,7 +1270,7 @@ do_github_upgrade() {
         if [[ "$AUTO_YES" != "true" ]]; then
             echo -n "Continue with downgrade? [y/N]: "
             read -r confirm
-            if [[ "${(L)confirm}" != "y" ]]; then
+            if [[ "${confirm,,}" != "y" ]]; then
                 echo "Cancelled."
                 return 0
             fi
@@ -1310,7 +1311,7 @@ do_github_upgrade() {
     # Confirm upgrade
     if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
         read -r "confirm?Upgrade from $current_version to $install_version? [y/N]: "
-        if [[ "${(L)confirm}" != "y" ]] && [[ "${(L)confirm}" != "yes" ]]; then
+        if [[ "${confirm,,}" != "y" ]] && [[ "${confirm,,}" != "yes" ]]; then
             echo "Upgrade cancelled."
             return 0
         fi
@@ -1517,7 +1518,7 @@ echo ""
 # Confirm upgrade
 if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
     read -r "confirm?Proceed with upgrade? [y/N]: "
-    if [[ "${(L)confirm}" != "y" ]] && [[ "${(L)confirm}" != "yes" ]]; then
+    if [[ "${confirm,,}" != "y" ]] && [[ "${confirm,,}" != "yes" ]]; then
         echo "Upgrade cancelled."
         exit 0
     fi

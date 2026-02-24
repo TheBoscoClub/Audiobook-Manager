@@ -47,7 +47,7 @@ DIM='\033[2m'
 NC='\033[0m'
 
 # Script directory (source)
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Default options
 INSTALL_MODE=""
@@ -61,7 +61,7 @@ API_ARCHITECTURE="monolithic"  # monolithic (api.py) or modular (api_modular/)
 # -----------------------------------------------------------------------------
 # Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
 # Scripts already named audiobook-* don't need an alias — they're auto-linked.
-typeset -A SCRIPT_ALIASES=(
+declare -A SCRIPT_ALIASES=(
     ["convert-audiobooks-opus-parallel"]="audiobook-convert"
     ["build-conversion-queue"]="audiobook-build-queue"
     ["download-new-audiobooks"]="audiobook-download"
@@ -99,7 +99,8 @@ refresh_bin_symlinks() {
     done
 
     # 2. Create alias symlinks for scripts with non-audiobook-* names
-    for script_name target_name in "${(@kv)SCRIPT_ALIASES}"; do
+    for script_name in "${!SCRIPT_ALIASES[@]}"; do
+        local target_name="${SCRIPT_ALIASES[$script_name]}"
         local source_path="${scripts_dir}/${script_name}"
         local link_path="${bin_dir}/${target_name}"
         if [[ -f "$source_path" ]]; then
@@ -596,7 +597,7 @@ prompt_delete_data() {
     if [[ -n "$library_dir" ]] && [[ -d "$library_dir" ]]; then
         while true; do
             read -r "answer?Delete converted audiobooks in $library_dir? [y/N]: "
-            case "${(L)answer}" in
+            case "${answer,,}" in
                 y|yes)
                     DELETE_LIBRARY=true
                     echo -e "  ${RED}→ Will delete converted audiobooks${NC}"
@@ -617,7 +618,7 @@ prompt_delete_data() {
     if [[ -n "$sources_dir" ]] && [[ -d "$sources_dir" ]]; then
         while true; do
             read -r "answer?Delete source files (AAX/AAXC) in $sources_dir? [y/N]: "
-            case "${(L)answer}" in
+            case "${answer,,}" in
                 y|yes)
                     DELETE_SOURCES=true
                     echo -e "  ${RED}→ Will delete source files${NC}"
@@ -638,7 +639,7 @@ prompt_delete_data() {
     if [[ -n "$supplements_dir" ]] && [[ -d "$supplements_dir" ]]; then
         while true; do
             read -r "answer?Delete supplemental PDFs in $supplements_dir? [y/N]: "
-            case "${(L)answer}" in
+            case "${answer,,}" in
                 y|yes)
                     DELETE_SUPPLEMENTS=true
                     echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"
@@ -659,7 +660,7 @@ prompt_delete_data() {
     if [[ -f "$config_file" ]]; then
         while true; do
             read -r "answer?Delete configuration files? [y/N]: "
-            case "${(L)answer}" in
+            case "${answer,,}" in
                 y|yes)
                     DELETE_CONFIG=true
                     echo -e "  ${RED}→ Will delete configuration${NC}"
@@ -694,7 +695,7 @@ prompt_delete_data() {
 
         while true; do
             read -r "confirm?Are you sure you want to proceed? [y/N]: "
-            case "${(L)confirm}" in
+            case "${confirm,,}" in
                 y|yes)
                     echo ""
                     echo -e "${YELLOW}Proceeding with deletion...${NC}"
@@ -1128,7 +1129,7 @@ do_system_install() {
         echo -e "${YELLOW}to place the database on NVMe/SSD after installation.${NC}"
         echo ""
         read -r "continue_choice?Continue with current storage configuration? [Y/n]: "
-        if [[ "${(L)continue_choice}" == "n" ]]; then
+        if [[ "${continue_choice,,}" == "n" ]]; then
             echo -e "${YELLOW}Installation cancelled. Adjust paths and try again.${NC}"
             return 1
         fi
@@ -1634,7 +1635,7 @@ do_user_install() {
         echo -e "${YELLOW}to place the database on NVMe/SSD after installation.${NC}"
         echo ""
         read -r "continue_choice?Continue with current storage configuration? [Y/n]: "
-        if [[ "${(L)continue_choice}" == "n" ]]; then
+        if [[ "${continue_choice,,}" == "n" ]]; then
             echo -e "${YELLOW}Installation cancelled. Adjust paths and try again.${NC}"
             return 1
         fi

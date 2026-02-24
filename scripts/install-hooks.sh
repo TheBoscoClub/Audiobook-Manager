@@ -9,7 +9,7 @@
 
 set -e
 
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 HOOKS_SOURCE="$SCRIPT_DIR/hooks"
 HOOKS_DEST="$PROJECT_ROOT/.git/hooks"

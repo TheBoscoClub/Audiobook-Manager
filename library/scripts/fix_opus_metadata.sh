@@ -8,7 +8,7 @@
 # - Full logging to /tmp/opus_metadata_fix.log
 # - Progress tracking every 50 files
 
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Load configuration

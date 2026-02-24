@@ -29,7 +29,7 @@
 set -euo pipefail
 
 # Load configuration
-SCRIPT_DIR="${0:A:h}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
     source /usr/local/lib/audiobooks/audiobook-config.sh
 elif [[ -f "$SCRIPT_DIR/../../lib/audiobook-config.sh" ]]; then
