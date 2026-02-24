@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shell**: Removed zsh-specific workarounds (reserved variable comments, echo JSON corruption notes, `${0:A:h}` syntax)
 - **Shell**: Simplified `audiobook-config.sh` source guard from dual bash/zsh to bash-only
 - **Install**: Wrapper script templates in `install.sh` and `install-user.sh` now generate `#!/bin/bash` shebangs
+- **Shell**: Converted all zsh syntax to bash equivalents — `${(L)var}` → `${var,,}`, `typeset -A` → `declare -A`, `${(@kv)}` → `${!array[@]}`, `(N)` → `shopt -s nullglob`, `${0:A:h}` → `$(dirname "${BASH_SOURCE[0]}")`
+
+### Added
+
+- **CI**: ShellCheck linting in GitHub Actions — catches shell script errors at PR time
 
 ## [6.6.5.1] - 2026-02-24
 
