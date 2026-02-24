@@ -1412,6 +1412,8 @@ class AccessRequest:
     credentials_claimed: bool = False
     # Preferred auth method (totp, passkey, magic_link)
     preferred_auth_method: str = "totp"
+    # Expiry for claim token (invitations only)
+    claim_expires_at: Optional[datetime] = None
 
     @classmethod
     def from_row(cls, row: tuple) -> "AccessRequest":
@@ -1438,6 +1440,11 @@ class AccessRequest:
             # Handle preferred_auth_method (added in v5)
             if len(row) > 13:
                 ar.preferred_auth_method = row[13] or "totp"
+            # Handle claim_expires_at (added in v6.6.5)
+            if len(row) > 14:
+                ar.claim_expires_at = (
+                    datetime.fromisoformat(row[14]) if row[14] else None
+                )
             return ar
         else:
             # Old schema without claim fields
@@ -1467,7 +1474,16 @@ class AccessRequest:
             "deny_reason": self.deny_reason,
             "has_email": bool(self.contact_email),
             "credentials_claimed": self.credentials_claimed,
+            "claim_expires_at": self.claim_expires_at.isoformat()
+            if self.claim_expires_at
+            else None,
         }
+
+    def is_claim_expired(self) -> bool:
+        """Check if the claim token has expired."""
+        if self.claim_expires_at is None:
+            return False
+        return datetime.now() > self.claim_expires_at
 
 
 class AccessRequestRepository:
@@ -1495,6 +1511,7 @@ class AccessRequestRepository:
                     totp_uri TEXT,
                     backup_codes_json TEXT,
                     credentials_claimed BOOLEAN DEFAULT FALSE,
+                    claim_expires_at TIMESTAMP,
                     CHECK (length(username) >= 5 AND length(username) <= 16)
                 )
             """)
@@ -1522,6 +1539,10 @@ class AccessRequestRepository:
                 conn.execute(
                     "ALTER TABLE access_requests ADD COLUMN credentials_claimed BOOLEAN DEFAULT FALSE"
                 )
+            if "claim_expires_at" not in columns:
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN claim_expires_at TIMESTAMP"
+                )
 
             # Create indexes AFTER columns exist
             conn.execute(
@@ -1535,13 +1556,22 @@ class AccessRequestRepository:
             )
 
     def create(
-        self, username: str, claim_token_hash: str, contact_email: Optional[str] = None
+        self,
+        username: str,
+        claim_token_hash: str,
+        contact_email: Optional[str] = None,
+        claim_expires_at: Optional[datetime] = None,
     ) -> AccessRequest:
         """Create a new access request with claim token."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "INSERT INTO access_requests (username, claim_token_hash, contact_email) VALUES (?, ?, ?)",
-                (username, claim_token_hash, contact_email),
+                "INSERT INTO access_requests (username, claim_token_hash, contact_email, claim_expires_at) VALUES (?, ?, ?, ?)",
+                (
+                    username,
+                    claim_token_hash,
+                    contact_email,
+                    claim_expires_at.isoformat() if claim_expires_at else None,
+                ),
             )
             request_id = cursor.lastrowid
             cursor = conn.execute(
