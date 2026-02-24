@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
 ### Fixed
+
+- **Systemd**: Moved `StartLimitIntervalSec`/`StartLimitBurst` from `[Service]` to `[Unit]` section in `audiobook-api.service` — systemd was ignoring these directives with warnings when placed in `[Service]`
+- **Install**: `chown /var/log/audiobooks` for audiobooks user, source files get 644 and shell scripts get 755 permissions on deploy
+- **Install**: Fixed `lib/audiobook-config.sh` permissions from 711 to 755; fixed 21 source files from 600 to 644
+- **Manifest**: Fixed `install-manifest.json` DB path to `/var/lib/audiobooks/audiobooks.db`
+- **Converter**: Fixed critical `$AAXC_FILE` → `$SOURCE_FILE` variable in 3 locations — was causing stale queue entries and re-processing of already-converted files
+- **Converter**: Changed shebang to `#!/bin/bash` (required for `export -f` function exports)
+- **Services**: Added `RequiresMountsFor=/srv/audiobooks` to mover service to prevent race conditions at boot
+- **Proxy**: Removed duplicate CORS headers from proxy error responses
+- **Mover**: `move-staged-audiobooks` now uses venv Python for `import_single.py`
 
 ## [6.6.5.1] - 2026-02-24
 
