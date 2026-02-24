@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Parallel Audiobook AAXC to Opus Converter
 # =============================================================================
@@ -8,7 +8,11 @@
 # =============================================================================
 
 # Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    SCRIPT_DIR="${0:A:h}"
+fi
 if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
     source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
 elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
@@ -29,8 +33,8 @@ LOG_DIR="$AUDIOBOOKS_LOGS"
 OPUS_LEVEL="$AUDIOBOOKS_OPUS_LEVEL"
 DOWNLOADER_LOCK="$AUDIOBOOKS_DOWNLOADER_LOCK"
 PARALLEL_JOBS="$AUDIOBOOKS_PARALLEL_JOBS"
-SLEEP_INTERVAL="$AUDIOBOOKS_SCAN_INTERVAL"
-TMPFS_MAX_USAGE="$AUDIOBOOKS_TMPFS_THRESHOLD"
+SLEEP_INTERVAL="${AUDIOBOOKS_SCAN_INTERVAL:-300}"
+TMPFS_MAX_USAGE="${AUDIOBOOKS_TMPFS_THRESHOLD:-85}"
 
 mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
 
