@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [6.6.6] - 2026-02-24
+
+### Changed
+
+- **Auth**: Username limits changed from 5-16 to 3-24 characters — updated SQL schema, migrations, Python backend, CLI, JavaScript frontend, HTML forms, and tests
+
 ### Fixed
 
 - **Systemd**: Moved `StartLimitIntervalSec`/`StartLimitBurst` from `[Service]` to `[Unit]` section in `audiobook-api.service` — systemd was ignoring these directives with warnings when placed in `[Service]`
