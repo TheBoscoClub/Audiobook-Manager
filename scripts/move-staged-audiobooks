@@ -137,8 +137,10 @@ while true; do
                                 generate_library_checksum "$MOVED_FILE"
                             done < <(find "$DEST" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
 
-                            # Import to database immediately
-                            if python3 "${AUDIOBOOKS_HOME}/library/scanner/import_single.py" "$DEST" 2>&1 | while read -r line; do
+                            # Import to database immediately (use venv python for scanner deps)
+                            local VENV_PYTHON="${AUDIOBOOKS_HOME}/library/venv/bin/python"
+                            [[ ! -x "$VENV_PYTHON" ]] && VENV_PYTHON="python3"
+                            if "$VENV_PYTHON" "${AUDIOBOOKS_HOME}/library/scanner/import_single.py" "$DEST" 2>&1 | while read -r line; do
                                 log "  $line"
                             done; then
                                 log "${GREEN}✓ Imported:${NC} $DIR_NAME"

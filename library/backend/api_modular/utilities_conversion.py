@@ -178,6 +178,11 @@ def get_system_stats() -> dict:
 
 def init_conversion_routes(project_root: str | Path):
     """Initialize conversion monitoring routes with project root."""
+    # One-time path setup for config import
+    _root = str(project_root)
+    if _root not in sys.path:
+        sys.path.insert(0, _root)
+    from config import AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES, AUDIOBOOKS_STAGING
 
     @utilities_conversion_bp.route("/api/conversion/status", methods=["GET"])
     @auth_if_enabled
@@ -186,9 +191,6 @@ def init_conversion_routes(project_root: str | Path):
         Get current audiobook conversion status.
         Returns file counts, active processes, and statistics for the monitor.
         """
-        # Import config paths
-        sys.path.insert(0, str(project_root))
-        from config import AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES, AUDIOBOOKS_STAGING
 
         staging_dir = AUDIOBOOKS_STAGING
 
