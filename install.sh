@@ -1179,6 +1179,7 @@ do_system_install() {
     sudo mkdir -p "${data_dir}/Supplements"
     sudo mkdir -p "/var/lib/audiobooks"
     sudo mkdir -p "/var/log/audiobooks"
+    sudo chown audiobooks:audiobooks "/var/log/audiobooks"
 
     # Install library files
     echo -e "${BLUE}Installing library files...${NC}"
@@ -1200,6 +1201,9 @@ do_system_install() {
     # Fix ownership — sudo cp creates files as root:root, but the audiobooks
     # service user needs to read them (ProtectSystem=strict prevents world-read fallback)
     sudo chown -R audiobooks:audiobooks "${APP_DIR}"
+    # Ensure source files are readable (644) and shell scripts are executable (755)
+    sudo find "${APP_DIR}" -type f \( -name "*.py" -o -name "*.sql" -o -name "*.css" -o -name "*.html" -o -name "*.js" \) -exec chmod 644 {} +
+    sudo find "${APP_DIR}" -type f -name "*.sh" -exec chmod 755 {} +
 
     # Update version in utilities.html
     local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
