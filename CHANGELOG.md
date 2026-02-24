@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.5.1] - 2026-02-24
+
+### Changed
+
+- **Auth**: Unified all invitation expiry to 48 hours — TOTP/passkey claim tokens now store `claim_expires_at` in `access_requests` table; magic link invitations changed from 24h to 48h
+- **Auth**: All invitation email templates updated with correct 48-hour expiry notice
+- **Auth**: Added `claim_expires_at` column to `access_requests` table with automatic migration
+
 ## [6.6.5] - 2026-02-24
 
 ### Added
