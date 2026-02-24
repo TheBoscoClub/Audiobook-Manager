@@ -44,7 +44,7 @@ COLLECTION_TREE = [
         "id": "podcasts",
         "name": "Podcasts & Shows",
         "description": "Podcasts, shows, and other non-audiobook Audible content",
-        "query": "content_type NOT IN ('Product', 'Lecture', 'Performance', 'Speech') AND content_type IS NOT NULL",
+        "query": "content_type NOT IN ('Product', 'Performance', 'Speech', 'Lecture') AND content_type IS NOT NULL",
         "icon": "🎙️",
         "category": "special",
         "bypasses_filter": True,  # Show non-audiobook content excluded by AUDIOBOOK_FILTER
@@ -56,6 +56,16 @@ COLLECTION_TREE = [
         "query": "author LIKE '%The Great Courses%'",
         "icon": "🎓",
         "category": "special",
+        "bypasses_filter": True,
+    },
+    {
+        "id": "lectures",
+        "name": "Lectures",
+        "description": "Educational lectures and academic content",
+        "query": "content_type = 'Lecture' AND author NOT LIKE '%The Great Courses%'",
+        "icon": "🎤",
+        "category": "special",
+        "bypasses_filter": True,
     },
     # === FICTION GENRES ===
     {
