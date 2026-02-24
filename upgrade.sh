@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # =============================================================================
 # Audiobook Library - Upgrade Script
 # =============================================================================
@@ -1088,8 +1088,7 @@ get_latest_release() {
     local http_code
     local temp_body=$(mktemp)
 
-    # Write response body to file to avoid zsh echo corrupting JSON
-    # (zsh's echo interprets backslash escapes in release notes)
+    # Write response body to file to keep JSON handling clean
     http_code=$(curl -sL --connect-timeout 10 -o "$temp_body" -w '%{http_code}' "$url") || {
         echo -e "${RED}Failed to connect to GitHub API${NC}" >&2
         echo -e "${RED}  URL: $url${NC}" >&2
@@ -1139,7 +1138,7 @@ get_release_tarball_url() {
     # Try with 'v' prefix first (v3.1.0), then without (3.1.0)
     for tag in "v${version}" "${version}"; do
         local url="${GITHUB_API}/releases/tags/${tag}"
-        # Write to file to avoid zsh echo corrupting JSON
+        # Write to file for clean JSON handling
         curl -sL --connect-timeout 10 -o "$temp_body" "$url" || continue
 
         local tarball_url

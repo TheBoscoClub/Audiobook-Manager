@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobooks Library - Systemd User Service Installer
 # Generates self-signed SSL certificate and installs user-level systemd services
 #

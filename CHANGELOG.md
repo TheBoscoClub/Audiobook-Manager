@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Services**: Added `RequiresMountsFor=/srv/audiobooks` to mover service to prevent race conditions at boot
 - **Proxy**: Removed duplicate CORS headers from proxy error responses
 - **Mover**: `move-staged-audiobooks` now uses venv Python for `import_single.py`
+- **Shell**: Reverted all 35 scripts from `#!/usr/bin/env zsh` back to `#!/bin/bash` — bash is the universal Linux standard, maximizes portability across distros
+- **Shell**: Removed zsh-specific workarounds (reserved variable comments, echo JSON corruption notes, `${0:A:h}` syntax)
+- **Shell**: Simplified `audiobook-config.sh` source guard from dual bash/zsh to bash-only
+- **Install**: Wrapper script templates in `install.sh` and `install-user.sh` now generate `#!/bin/bash` shebangs
 
 ## [6.6.5.1] - 2026-02-24
 
@@ -439,7 +443,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING**: All 27 shell scripts converted from `#!/bin/bash` to `#!/usr/bin/env zsh`
+- **BREAKING**: All 27 shell scripts converted from `#!/bin/bash` to `#!/usr/bin/env zsh` (reverted back to bash in 6.6.5.1)
 - **Security**: 9 admin endpoints in `utilities_system.py` now use `@admin_or_localhost` instead of `@localhost_only`
 - **API**: CORS origin defaults to `*` (permissive, safe for standalone) — configurable via `CORS_ORIGIN` env var for remote deployments
 - **API**: `BASE_URL` auto-detected from request headers — no hardcoded domain defaults

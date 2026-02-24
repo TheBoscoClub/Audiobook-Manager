@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Scan Progress Monitor
 
 SCRIPT_DIR="${0:A:h}"

@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Re-download Corrupted Audiobooks
 # Reads the priority list and forces re-download of corrupted files
 

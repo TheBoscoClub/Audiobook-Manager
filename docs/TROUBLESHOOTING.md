@@ -330,7 +330,7 @@ sudo chmod 775 /tmp/audiobook-staging /tmp/audiobook-triggers
 Quick diagnostic script to check system health:
 
 ```bash
-#!/usr/bin/env zsh
+#!/bin/bash
 echo "=== Audiobook-Manager Health Check ==="
 
 # API responding

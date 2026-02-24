@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library V3 - Production-ready HTTPS server
 # Features:
 # - Waitress WSGI server for API

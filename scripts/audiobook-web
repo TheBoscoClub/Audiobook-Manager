@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # Audiobook Library Web Server (HTTPS)
 # Wrapper script — sources config and launches the HTTPS proxy
 source "${0:A:h}/../lib/audiobook-config.sh"

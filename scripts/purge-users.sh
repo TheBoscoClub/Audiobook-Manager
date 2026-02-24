@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # purge-users.sh — Delete all users and access requests NOT in keep list
 # Idempotent: safe to re-run after upgrades
 #
