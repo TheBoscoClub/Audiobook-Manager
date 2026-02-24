@@ -214,7 +214,12 @@ audiobooks_python() {
     fi
 }
 
-# Run if executed directly (for testing)
-if [[ ! "${ZSH_EVAL_CONTEXT:-}" =~ :file ]]; then
+# Run if executed directly (for testing), not when sourced
+# Bash: sourced when BASH_SOURCE[0] != $0; Zsh: sourced when ZSH_EVAL_CONTEXT contains :file
+_sourced=false
+[[ -n "${BASH_VERSION:-}" ]] && [[ "${BASH_SOURCE[0]:-}" != "$0" ]] && _sourced=true
+[[ -n "${ZSH_VERSION:-}" ]] && [[ "${ZSH_EVAL_CONTEXT:-}" =~ :file ]] && _sourced=true
+if [[ "$_sourced" == false ]]; then
     audiobooks_print_config
 fi
+unset _sourced
