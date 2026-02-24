@@ -1427,6 +1427,22 @@ EOF
                     echo "  Installed: ${service_name}"
                 fi
             done
+
+            # Patch ReadWritePaths if data dir differs from default /srv/audiobooks.
+            # ProtectSystem=strict makes the filesystem read-only except for listed paths.
+            # Without this, cover art extraction and other data writes silently fail.
+            if [[ "$data_dir" != "/srv/audiobooks" ]]; then
+                local api_service="${SYSTEMD_DIR}/audiobook-api.service"
+                if sudo grep -q "ReadWritePaths=" "$api_service" 2>/dev/null; then
+                    sudo sed -i "s|ReadWritePaths=\(.*\)|ReadWritePaths=\1 ${data_dir}|" "$api_service"
+                    echo "  Patched: audiobook-api.service ReadWritePaths += ${data_dir}"
+                fi
+                # Also update RequiresMountsFor so systemd waits for the mount
+                if sudo grep -q "RequiresMountsFor=" "$api_service" 2>/dev/null; then
+                    sudo sed -i "s|RequiresMountsFor=\(.*\)|RequiresMountsFor=\1 ${data_dir}|" "$api_service"
+                    echo "  Patched: audiobook-api.service RequiresMountsFor += ${data_dir}"
+                fi
+            fi
         fi
 
         # Install tmpfiles.d configuration for runtime directories

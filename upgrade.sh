@@ -629,6 +629,30 @@ do_upgrade() {
             fi
         done
 
+        # Patch ReadWritePaths if data dir differs from default /srv/audiobooks.
+        # ProtectSystem=strict makes the filesystem read-only except for listed paths.
+        # Without this, cover art extraction and other data writes silently fail.
+        local conf_data_dir=""
+        if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
+            conf_data_dir=$(grep -oP '^AUDIOBOOKS_DATA=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
+        fi
+        if [[ -n "$conf_data_dir" && "$conf_data_dir" != "/srv/audiobooks" ]]; then
+            local api_svc="/etc/systemd/system/audiobook-api.service"
+            if [[ -f "$api_svc" ]] && sudo grep -q "ReadWritePaths=" "$api_svc" 2>/dev/null; then
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo "  [DRY-RUN] Would patch ReadWritePaths += ${conf_data_dir}"
+                else
+                    sudo sed -i "s|ReadWritePaths=\(.*\)|ReadWritePaths=\1 ${conf_data_dir}|" "$api_svc"
+                    echo "  Patched: audiobook-api.service ReadWritePaths += ${conf_data_dir}"
+                    # Also update RequiresMountsFor so systemd waits for the mount
+                    if sudo grep -q "RequiresMountsFor=" "$api_svc" 2>/dev/null; then
+                        sudo sed -i "s|RequiresMountsFor=\(.*\)|RequiresMountsFor=\1 ${conf_data_dir}|" "$api_svc"
+                        echo "  Patched: audiobook-api.service RequiresMountsFor += ${conf_data_dir}"
+                    fi
+                fi
+            fi
+        fi
+
         # Install/update tmpfiles.d configuration for runtime directories
         if [[ -f "${project}/systemd/audiobooks-tmpfiles.conf" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then

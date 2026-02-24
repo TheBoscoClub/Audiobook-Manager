@@ -366,6 +366,14 @@ def extract_cover_art(
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)
         if result.returncode == 0 and cover_path.exists():
             return cover_path.name
+        if result.returncode == 0 and not cover_path.exists():
+            # ffmpeg succeeded but file not created — likely a read-only filesystem
+            # (e.g. ProtectSystem=strict without the data dir in ReadWritePaths)
+            print(
+                f"Warning: ffmpeg succeeded but cover not created at {cover_path} "
+                f"— check filesystem permissions or systemd ReadWritePaths",
+                file=sys.stderr,
+            )
         return None
 
     except subprocess.TimeoutExpired:
