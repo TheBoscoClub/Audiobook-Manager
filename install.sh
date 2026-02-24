@@ -891,7 +891,7 @@ verify_installation_permissions() {
 # Default ports
 DEFAULT_API_PORT=5001
 DEFAULT_WEB_PORT=8090
-DEFAULT_HTTP_REDIRECT_PORT=8081
+DEFAULT_HTTP_REDIRECT_PORT=8080
 
 # Current port settings (can be modified by user)
 API_PORT="${API_PORT:-$DEFAULT_API_PORT}"
@@ -1197,6 +1197,10 @@ do_system_install() {
     # The venv will be recreated below with system Python
     [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR}/library/venv"
 
+    # Fix ownership — sudo cp creates files as root:root, but the audiobooks
+    # service user needs to read them (ProtectSystem=strict prevents world-read fallback)
+    sudo chown -R audiobooks:audiobooks "${APP_DIR}"
+
     # Update version in utilities.html
     local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
     if [[ -n "$new_version" ]] && [[ -f "${APP_DIR}/library/web-v2/utilities.html" ]]; then
@@ -1340,23 +1344,23 @@ EOF
     # Always recreate: project venv was removed above, and fresh venv ensures
     # correct symlinks for this machine's Python installation
     echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
-    [[ -d "${LIB_DIR}/library/venv" ]] && sudo rm -rf "${LIB_DIR}/library/venv"
+    [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR}/library/venv"
     local sys_python="/usr/bin/python3"
     [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
-    sudo "$sys_python" -m venv "${LIB_DIR}/library/venv"
-    sudo chown -R audiobooks:audiobooks "${LIB_DIR}/library/venv"
+    sudo "$sys_python" -m venv "${APP_DIR}/library/venv"
+    sudo chown -R audiobooks:audiobooks "${APP_DIR}/library/venv"
     # Install all dependencies from requirements.txt
-    if [[ -f "${LIB_DIR}/library/requirements.txt" ]]; then
+    if [[ -f "${APP_DIR}/library/requirements.txt" ]]; then
         echo -e "${BLUE}Installing Python dependencies from requirements.txt...${NC}"
-        sudo -u audiobooks "${LIB_DIR}/library/venv/bin/pip" install --quiet \
-            -r "${LIB_DIR}/library/requirements.txt"
+        sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" install --quiet \
+            -r "${APP_DIR}/library/requirements.txt"
     else
         echo -e "${YELLOW}Warning: requirements.txt not found, installing Flask only${NC}"
-        sudo -u audiobooks "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
+        sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 
     # Generate SSL certificate if needed
-    local CERT_DIR="${LIB_DIR}/library/certs"
+    local CERT_DIR="${APP_DIR}/library/certs"
     if [[ ! -f "${CERT_DIR}/server.crt" ]]; then
         echo -e "${BLUE}Generating SSL certificate (3-year validity)...${NC}"
         sudo mkdir -p "${CERT_DIR}"

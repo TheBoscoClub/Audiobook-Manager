@@ -573,16 +573,24 @@ def init_audiobooks_routes(db_path, project_root, database_path):
                         timeout=300,
                     )
                     if result.returncode != 0:
+                        # Sanitize subprocess output (CWE-117)
+                        stderr = result.stderr or ""
+                        safe_err = stderr[:500].replace("\n", " ")
                         logger.error(
                             "WebM remux failed for %d: %s",
                             audiobook_id,
-                            result.stderr[:500],
+                            safe_err,
                         )
                         tmp_path.unlink(missing_ok=True)
                         return jsonify({"error": "Format conversion failed"}), 500
                     tmp_path.rename(webm_path)
                 except (subprocess.TimeoutExpired, OSError) as e:
-                    logger.error("WebM remux error for %d: %s", audiobook_id, e)
+                    safe_msg = str(e).replace("\n", " ")
+                    logger.error(
+                        "WebM remux error for %d: %s",
+                        audiobook_id,
+                        safe_msg,
+                    )
                     tmp_path.unlink(missing_ok=True)
                     return jsonify({"error": "Format conversion failed"}), 500
 
