@@ -178,6 +178,7 @@ CREATE TABLE IF NOT EXISTS access_requests (
     reviewed_by TEXT,  -- Admin username who reviewed
     deny_reason TEXT,  -- Optional reason for denial
     preferred_auth_method TEXT DEFAULT 'totp',  -- totp, passkey, magic_link
+    claim_expires_at TIMESTAMP,  -- Expiry for invitation claim tokens
 
     CHECK (length(username) >= 5 AND length(username) <= 16)
 );

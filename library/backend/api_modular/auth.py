@@ -15,7 +15,7 @@ import os
 import smtplib
 import sys
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
@@ -73,6 +73,9 @@ _session_cookie_name = "audiobooks_session"
 _session_cookie_secure = True  # Always use secure cookies
 _session_cookie_httponly = True
 _session_cookie_samesite = "Lax"
+
+# Invitation claim tokens expire after this many hours
+INVITATION_EXPIRY_HOURS = 48
 
 # In-memory storage for pending TOTP setup secrets during auth method switch
 _pending_totp_secrets: dict[int, str] = {}
@@ -1253,6 +1256,15 @@ def claim_credentials():
             }
         ), 400
 
+    # Check if invitation has expired
+    if access_req.is_claim_expired():
+        return jsonify(
+            {
+                "error": "This invitation has expired. Please ask the admin to send a new one.",
+                "status": "expired",
+            }
+        ), 400
+
     # Check for invite metadata (admin-set permissions)
     import json as json_module
 
@@ -1411,6 +1423,11 @@ def claim_webauthn_begin():
     if access_req.credentials_claimed or user_repo.username_exists(username):
         return jsonify({"error": "Credentials already claimed"}), 400
 
+    if access_req.is_claim_expired():
+        return jsonify(
+            {"error": "This invitation has expired. Please ask the admin to send a new one."}
+        ), 400
+
     # Get WebAuthn configuration
     rp_id, rp_name, _ = get_webauthn_config()
 
@@ -1503,6 +1520,11 @@ def claim_webauthn_complete():
 
     if access_req.credentials_claimed or user_repo.username_exists(username):
         return jsonify({"error": "Credentials already claimed"}), 400
+
+    if access_req.is_claim_expired():
+        return jsonify(
+            {"error": "This invitation has expired. Please ask the admin to send a new one."}
+        ), 400
 
     # Get WebAuthn configuration
     rp_id, _, origin = get_webauthn_config()
@@ -3909,8 +3931,11 @@ def invite_user():
     formatted_token = "-".join(truncated_token[i : i + 4] for i in range(0, 16, 4))
     claim_token_hash = hash_token(truncated_token)
 
-    # Create access request with claim token hash
-    access_request = request_repo.create(username, claim_token_hash, email)
+    # Create access request with claim token hash (expires in 48h)
+    claim_expires_at = datetime.now() + timedelta(hours=INVITATION_EXPIRY_HOURS)
+    access_request = request_repo.create(
+        username, claim_token_hash, email, claim_expires_at
+    )
 
     # Store invite metadata (can_download) for use when user claims
     request_repo.store_invite_metadata(access_request.id, can_download)
@@ -3964,11 +3989,11 @@ def _invite_magic_link_user(db, user_repo, username, email, can_download):
     )
     user.save(db)
 
-    # Generate activation token (24h expiry for invitations)
+    # Generate activation token (48h expiry for invitations)
     recovery, raw_token = PendingRecovery.create(
         db,
         user.id,
-        expiry_minutes=60 * 24,  # 24 hours
+        expiry_minutes=60 * INVITATION_EXPIRY_HOURS,
     )
 
     # Send activation email
@@ -4052,6 +4077,7 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
         <div style="background-color: #4a2a2a; padding: 15px; margin: 0 0 25px 0; border: 2px solid #ff9999;">
             <p style="color: #ff9999; font-weight: bold; margin: 0; font-size: 1.05em;">
                 WRITE THIS TOKEN DOWN or save this email! You'll need it to finish setting up your account.
+                This invitation expires in 48 hours.
             </p>
         </div>
 
@@ -4140,6 +4166,7 @@ You've been invited to The Library - a private audiobook collection!
 ============================================
 
 Save this token! You'll need it to finish setting up your account.
+This invitation expires in 48 hours.
 
 (You might want to print this email or write these steps down.)
 
@@ -4242,7 +4269,7 @@ def _send_activation_email(to_email: str, username: str, activation_token: str) 
         </div>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            This link works for 24 hours. After that, ask the admin to resend your invitation.
+            This link works for 48 hours. After that, ask the admin to resend your invitation.
         </p>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
@@ -4271,7 +4298,7 @@ Click the link below to activate your account and start listening:
 
 {activation_url}
 
-This link works for 24 hours. After that, ask the admin to resend your invitation.
+This link works for 48 hours. After that, ask the admin to resend your invitation.
 
 How it works: Each time you want to sign in, you'll enter your username
 and we'll email you a sign-in link. No passwords or apps needed!
