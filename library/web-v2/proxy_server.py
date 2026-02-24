@@ -177,10 +177,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:
-            # API server not reachable
+            # API server not reachable (no CORS here — Flask handles it on success)
             self.send_response(503)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
             self.end_headers()
             error_body = json.dumps(
                 {
@@ -192,10 +191,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(error_body)
 
         except Exception as e:
-            # Unexpected error
+            # Unexpected error (no CORS here — Flask handles it on success)
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
             self.end_headers()
             error_body = json.dumps(
                 {"error": "Internal Server Error", "code": 500, "message": str(e)}

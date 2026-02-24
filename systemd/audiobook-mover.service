@@ -1,6 +1,7 @@
 [Unit]
 Description=Audiobook Staging Mover (tmpfs to permanent storage)
 After=network.target
+RequiresMountsFor=/srv/audiobooks
 PartOf=audiobook.target
 
 [Service]

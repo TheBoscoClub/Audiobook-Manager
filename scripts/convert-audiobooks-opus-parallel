@@ -1,6 +1,7 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 # =============================================================================
 # Parallel Audiobook AAXC to Opus Converter
+# NOTE: This script requires bash (not zsh) for `export -f` used by GNU Parallel
 # =============================================================================
 # Runs continuously, watching for new audiobooks to convert
 # Waits if downloads are in progress
@@ -162,10 +163,10 @@ convert_file() {
                 rm -f "$OUTPUT_FILE"
 
                 # Also check if source AAXC is corrupted
-                local SOURCE_SIZE=$(stat -c%s "$AAXC_FILE" 2>/dev/null || echo "0")
+                local SOURCE_SIZE=$(stat -c%s "$SOURCE_FILE" 2>/dev/null || echo "0")
                 if [ "$SOURCE_SIZE" -lt 102400 ]; then
                     echo -e "${RED}  Source file also corrupted (${SOURCE_SIZE} bytes)${NC}"
-                    echo "[$(date '+%Y-%m-%d %H:%M:%S')] CORRUPTED SOURCE: $AAXC_FILE (${SOURCE_SIZE} bytes)" >>"$LOG_DIR/corrupted_sources.log"
+                    echo "[$(date '+%Y-%m-%d %H:%M:%S')] CORRUPTED SOURCE: $SOURCE_FILE (${SOURCE_SIZE} bytes)" >>"$LOG_DIR/corrupted_sources.log"
                 fi
                 return 1
             fi
@@ -175,7 +176,7 @@ convert_file() {
 
             # Update indexes immediately (real-time tracking)
             if [[ -n "$QUEUE_BUILDER" ]] && [[ -x "$QUEUE_BUILDER" ]]; then
-                "$QUEUE_BUILDER" --quick-update "$AAXC_FILE" "$OUTPUT_FILE" 2>/dev/null || true
+                "$QUEUE_BUILDER" --quick-update "$SOURCE_FILE" "$OUTPUT_FILE" 2>/dev/null || true
             fi
         else
             echo -e "${RED}✗ FAIL${NC}: $BASENAME (output file not found)"

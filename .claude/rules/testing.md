@@ -38,9 +38,9 @@ sudo virsh destroy test-audiobook-cachyos   # stop VM if running
 sudo virsh snapshot-delete test-audiobook-cachyos pristine-os-deps-2026-02-22 --metadata
 # IMPORTANT: Do NOT commit the overlay — that bakes changes into the base!
 # Just repoint VM directly to the base image (discarding overlay changes)
-sudo virt-xml test-audiobook-cachyos --edit target=vda --disk path=/var/lib/libvirt/images/test-audiobook-cachyos.qcow2
+sudo virt-xml test-audiobook-cachyos --edit target=vda --disk path=/hddRaid1/VirtualMachines/test-audiobook-cachyos.qcow2
 # Remove overlay file (discards all changes since snapshot)
-sudo rm /var/lib/libvirt/images/test-audiobook-cachyos.pristine-os-deps-2026-02-22
+sudo rm /hddRaid1/VirtualMachines/test-audiobook-cachyos.pristine-os-deps-2026-02-22
 # Fix potential circular backingStore in XML (virt-xml sometimes leaves stale refs)
 sudo virsh dumpxml test-audiobook-cachyos > /tmp/vm-fix.xml
 python3 -c "
