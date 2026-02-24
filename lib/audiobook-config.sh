@@ -100,7 +100,7 @@ if [[ -n "${AUDIOBOOKS_HOME:-}" ]]; then
     : "${AUDIOBOOKS_VENV:=${AUDIOBOOKS_HOME}/library/venv}"
     : "${AUDIOBOOKS_CONVERTER:=${AUDIOBOOKS_HOME}/converter/AAXtoMP3}"
 else
-    : "${AUDIOBOOKS_DATABASE:=/var/lib/audiobooks/audiobooks.db}"
+    : "${AUDIOBOOKS_DATABASE:=/var/lib/audiobooks/db/audiobooks.db}"
     : "${AUDIOBOOKS_COVERS:=/var/lib/audiobooks/covers}"
     : "${AUDIOBOOKS_CERTS:=/etc/audiobooks/certs}"
     : "${AUDIOBOOKS_VENV:=/opt/audiobooks/venv}"
