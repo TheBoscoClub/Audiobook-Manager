@@ -214,4 +214,4 @@ WHERE asin IS NOT NULL AND asin != '';
 -- Used by AUDIOBOOK_FILTER in api_modular/audiobooks.py
 CREATE VIEW IF NOT EXISTS library_audiobooks AS
 SELECT * FROM audiobooks
-WHERE content_type IN ('Product', 'Lecture', 'Performance', 'Speech') OR content_type IS NULL;
+WHERE content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL;
