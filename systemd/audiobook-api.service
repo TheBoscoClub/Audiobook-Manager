@@ -27,6 +27,9 @@ ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
 RestartSec=5
+# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
+StartLimitIntervalSec=60
+StartLimitBurst=5
 # Use journal logging for better log management (query with: journalctl -u audiobook-api)
 StandardOutput=journal
 StandardError=journal
@@ -38,7 +41,7 @@ ProtectSystem=strict
 # Writable paths - database state + data directory + /tmp for temp files
 # NOTE: Systemd doesn't expand env vars in ReadWritePaths. If your data directory
 # differs from the default /srv/audiobooks, add it here explicitly.
-ReadWritePaths=/var/lib/audiobooks /srv/audiobooks /tmp /opt/audiobooks/library/data
+ReadWritePaths=/var/lib/audiobooks /srv/audiobooks /tmp
 ProtectHome=yes
 # PrivateTmp=no - API needs access to /tmp/audiobook-staging (shared with converter)
 PrivateTmp=no
