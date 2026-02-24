@@ -7,6 +7,7 @@ incremental adders to extract and categorize audiobook metadata.
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -374,6 +375,22 @@ def extract_cover_art(
                 f"— check filesystem permissions or systemd ReadWritePaths",
                 file=sys.stderr,
             )
+
+        # Fallback: look for standalone cover files in the audio file's directory.
+        # AAXtoMP3 extracts covers as {title}.jpg alongside the opus file, but
+        # can't embed them into Opus containers without mutagen. Rather than lose
+        # the cover, copy the standalone file into the centralized covers dir.
+        standalone = _find_standalone_cover(filepath)
+        if standalone:
+            try:
+                shutil.copy2(standalone, cover_path)
+                return cover_path.name
+            except OSError as copy_err:
+                print(
+                    f"Warning: found cover {standalone} but copy failed: {copy_err}",
+                    file=sys.stderr,
+                )
+
         return None
 
     except subprocess.TimeoutExpired:
@@ -381,6 +398,24 @@ def extract_cover_art(
     except Exception as e:
         print(f"Error extracting cover from {filepath}: {e}", file=sys.stderr)
         return None
+
+
+def _find_standalone_cover(filepath: Path) -> Path | None:
+    """Find a standalone cover image file next to the audio file.
+
+    Search order: {stem}.jpg, {stem}.png, cover.jpg, cover.png
+    """
+    parent = filepath.parent
+    stem = filepath.stem
+    for candidate in (
+        parent / f"{stem}.jpg",
+        parent / f"{stem}.png",
+        parent / "cover.jpg",
+        parent / "cover.png",
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def enrich_metadata(metadata: dict) -> dict:
