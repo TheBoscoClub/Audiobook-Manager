@@ -1,6 +1,6 @@
 {
   "name": "audiobooks",
-  "version": "6.6.4",
+  "version": "6.6.5",
   "description": "Audiobook library management with Audible sync, conversion, and web interface",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",

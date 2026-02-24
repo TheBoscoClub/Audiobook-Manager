@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.5] - 2026-02-24
+
+### Added
+
+- **Collections**: "Lectures" collection (Feynman Physics x4, Carol Ann Lloyd x1) with `bypasses_filter=True`
+
+### Changed
+
+- **Library**: Lectures and Great Courses content hidden from main library — only visible through dedicated collections
+- **Collections**: Great Courses collection updated with `bypasses_filter=True`
+- **Collections**: "Podcasts & Shows" query updated to also exclude Lecture content type
+
+### Fixed
+
+- **Cover Art**: Standalone cover recovery — scanner now finds standalone `.jpg`/`.png` files (extracted by converter) and copies them to `.covers/` cache when no embedded cover art exists in Opus files. Recovers 645 of 646 previously missing covers
+- **Converter**: Added `VENV_PYTHON` variable for cover art embedding — `embed_ogg_cover()` now uses the venv Python (which has mutagen) instead of bare `python3`
+
 ## [6.6.4] - 2026-02-24
 
 ### Added

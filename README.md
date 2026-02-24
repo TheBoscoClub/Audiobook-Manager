@@ -8,7 +8,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![4](https://img.shields.io/badge/4-green) | Latest patch | [v6.6.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.4) |
+| ![6](https://img.shields.io/badge/6-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![5](https://img.shields.io/badge/5-green) | Latest patch | [v6.6.5](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.5) |
+| ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![4](https://img.shields.io/badge/4-red) | Prior patch | [v6.6.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.4) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![3](https://img.shields.io/badge/3-red) | Prior patch | [v6.6.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.3) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![6](https://img.shields.io/badge/6-orange) | Prior tweak | [v6.6.2.6](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.6) |
 | ![6](https://img.shields.io/badge/6-brightred)![6](https://img.shields.io/badge/6-darkred)![2](https://img.shields.io/badge/2-red)![5](https://img.shields.io/badge/5-orange) | Prior tweak | [v6.6.2.5](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.6.2.5) |
@@ -1502,6 +1503,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v6.6.5
+
+- **Cover Art**: Standalone cover recovery — recovers 645 missing covers from standalone `.jpg` files extracted during conversion
+- **Converter**: `embed_ogg_cover()` now uses venv Python (with mutagen) instead of bare `python3`
+- **Library**: Lectures and Great Courses hidden from main library, visible only through dedicated collections
+- **Collections**: New "Lectures" collection; Great Courses and Podcasts & Shows collections updated
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v6.6.4
 
