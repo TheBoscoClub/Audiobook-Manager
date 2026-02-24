@@ -1186,6 +1186,17 @@ do_system_install() {
     sudo cp -r "${SCRIPT_DIR}/lib" "${APP_DIR}/"
     [[ -d "${SCRIPT_DIR}/converter" ]] && sudo cp -r "${SCRIPT_DIR}/converter" "${APP_DIR}/"
 
+    # Install VERSION file
+    if [[ -f "${SCRIPT_DIR}/VERSION" ]]; then
+        sudo cp "${SCRIPT_DIR}/VERSION" "${APP_DIR}/"
+        sudo chmod 644 "${APP_DIR}/VERSION"
+        echo "  Installed: ${APP_DIR}/VERSION ($(cat "${SCRIPT_DIR}/VERSION"))"
+    fi
+
+    # Remove copied project venv — it contains dev-machine symlinks
+    # The venv will be recreated below with system Python
+    [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR}/library/venv"
+
     # Update version in utilities.html
     local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
     if [[ -n "$new_version" ]] && [[ -f "${APP_DIR}/library/web-v2/utilities.html" ]]; then
@@ -1323,16 +1334,24 @@ EOF
     fi
     sudo chmod 644 "/opt/audiobooks/.release-info"
 
-    # Setup Python virtual environment if needed
+    # Setup Python virtual environment
     # CRITICAL: Use system Python explicitly — pyenv shims create symlinks into
     # /home/ which are inaccessible under systemd ProtectHome=yes
-    if [[ ! -d "${LIB_DIR}/library/venv" ]] || ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
-        echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
-        [[ -d "${LIB_DIR}/library/venv" ]] && sudo rm -rf "${LIB_DIR}/library/venv"
-        local sys_python="/usr/bin/python3"
-        [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
-        sudo "$sys_python" -m venv "${LIB_DIR}/library/venv"
-        sudo chown -R audiobooks:audiobooks "${LIB_DIR}/library/venv"
+    # Always recreate: project venv was removed above, and fresh venv ensures
+    # correct symlinks for this machine's Python installation
+    echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
+    [[ -d "${LIB_DIR}/library/venv" ]] && sudo rm -rf "${LIB_DIR}/library/venv"
+    local sys_python="/usr/bin/python3"
+    [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+    sudo "$sys_python" -m venv "${LIB_DIR}/library/venv"
+    sudo chown -R audiobooks:audiobooks "${LIB_DIR}/library/venv"
+    # Install all dependencies from requirements.txt
+    if [[ -f "${LIB_DIR}/library/requirements.txt" ]]; then
+        echo -e "${BLUE}Installing Python dependencies from requirements.txt...${NC}"
+        sudo -u audiobooks "${LIB_DIR}/library/venv/bin/pip" install --quiet \
+            -r "${LIB_DIR}/library/requirements.txt"
+    else
+        echo -e "${YELLOW}Warning: requirements.txt not found, installing Flask only${NC}"
         sudo -u audiobooks "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 
@@ -1627,6 +1646,16 @@ do_user_install() {
     [[ -d "${SCRIPT_DIR}/converter" ]] && cp -r "${SCRIPT_DIR}/converter" "${LIB_DIR}/"
     cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
 
+    # Install VERSION file
+    if [[ -f "${SCRIPT_DIR}/VERSION" ]]; then
+        cp "${SCRIPT_DIR}/VERSION" "${LIB_DIR}/"
+        chmod 644 "${LIB_DIR}/VERSION"
+        echo "  Installed: ${LIB_DIR}/VERSION ($(cat "${SCRIPT_DIR}/VERSION"))"
+    fi
+
+    # Remove copied project venv — it contains dev-machine symlinks
+    [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR}/library/venv"
+
     # Update version in utilities.html
     local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
     if [[ -n "$new_version" ]] && [[ -f "${LIB_DIR}/library/web-v2/utilities.html" ]]; then
@@ -1845,14 +1874,22 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-migrate"
     echo "  Installed: audiobook-migrate"
 
-    # Setup Python virtual environment if needed
+    # Setup Python virtual environment
     # Use system Python explicitly — pyenv shims create symlinks into /home/
-    if [[ ! -d "${LIB_DIR}/library/venv" ]] || ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
-        echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
-        [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR}/library/venv"
-        local sys_python="/usr/bin/python3"
-        [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
-        "$sys_python" -m venv "${LIB_DIR}/library/venv"
+    # Always recreate: project venv was removed above, and fresh venv ensures
+    # correct symlinks for this machine's Python installation
+    echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
+    [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR}/library/venv"
+    local sys_python="/usr/bin/python3"
+    [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+    "$sys_python" -m venv "${LIB_DIR}/library/venv"
+    # Install all dependencies from requirements.txt
+    if [[ -f "${LIB_DIR}/library/requirements.txt" ]]; then
+        echo -e "${BLUE}Installing Python dependencies from requirements.txt...${NC}"
+        "${LIB_DIR}/library/venv/bin/pip" install --quiet \
+            -r "${LIB_DIR}/library/requirements.txt"
+    else
+        echo -e "${YELLOW}Warning: requirements.txt not found, installing Flask only${NC}"
         "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 
