@@ -202,14 +202,14 @@ class TestRegistration:
     def test_registration_username_validation(self, client):
         """Test username validation during registration."""
         # Too short
-        r = client.post("/auth/register/start", json={"username": "abc"})
+        r = client.post("/auth/register/start", json={"username": "ab"})
         assert r.status_code == 400
-        assert "at least 5" in r.get_json()["error"]
+        assert "at least 3" in r.get_json()["error"]
 
         # Too long
-        r = client.post("/auth/register/start", json={"username": "a" * 20})
+        r = client.post("/auth/register/start", json={"username": "a" * 25})
         assert r.status_code == 400
-        assert "at most 16" in r.get_json()["error"]
+        assert "at most 24" in r.get_json()["error"]
 
     def test_registration_duplicate_username(self, client):
         """Test registration fails for existing username."""

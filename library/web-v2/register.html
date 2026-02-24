@@ -35,14 +35,14 @@
                     <input type="text"
                            id="username"
                            name="username"
-                           minlength="5"
-                           maxlength="16"
+                           minlength="3"
+                           maxlength="24"
                            autocomplete="username"
                            autocapitalize="none"
                            spellcheck="false"
                            pattern="[\x20-\x7E]+"
                            required>
-                    <span class="field-hint">5-16 characters, letters and numbers</span>
+                    <span class="field-hint">3-24 characters, letters and numbers</span>
                     <div id="username-help" class="help-tooltip" hidden>
                         <div class="help-content">
                             <strong>What is a username?</strong>
@@ -51,7 +51,7 @@
                             <ul>
                                 <li>Use something you'll remember easily</li>
                                 <li>It can be your name, a nickname, or anything you like</li>
-                                <li>It must be 5-16 letters or numbers</li>
+                                <li>It must be 3-24 letters or numbers</li>
                                 <li>Spaces are not allowed</li>
                             </ul>
                             <strong>Examples</strong>
@@ -542,8 +542,8 @@
             const username = document.getElementById('username').value.trim();
             const contactEmail = document.getElementById('contact-email').value.trim();
 
-            if (username.length < 5) {
-                showError('request-error', 'Username must be at least 5 characters');
+            if (username.length < 3) {
+                showError('request-error', 'Username must be at least 3 characters');
                 return;
             }
 

@@ -313,7 +313,7 @@ class AuthDatabase:
                     recovery_email TEXT,
                     recovery_phone TEXT,
                     recovery_enabled BOOLEAN DEFAULT FALSE,
-                    CHECK (length(username) >= 5 AND length(username) <= 16)
+                    CHECK (length(username) >= 3 AND length(username) <= 24)
                 )
             """)
             conn.execute("INSERT INTO users_new SELECT * FROM users")

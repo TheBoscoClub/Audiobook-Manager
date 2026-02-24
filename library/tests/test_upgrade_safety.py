@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS users (
     recovery_email TEXT,
     recovery_phone TEXT,
     recovery_enabled BOOLEAN DEFAULT FALSE,
-    CHECK (length(username) >= 5 AND length(username) <= 16)
+    CHECK (length(username) >= 3 AND length(username) <= 24)
 );
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS access_requests (
     reviewed_at TIMESTAMP,
     reviewed_by TEXT,
     deny_reason TEXT,
-    CHECK (length(username) >= 5 AND length(username) <= 16)
+    CHECK (length(username) >= 3 AND length(username) <= 24)
 );
 CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status);
 CREATE INDEX IF NOT EXISTS idx_access_requests_username ON access_requests(username);
