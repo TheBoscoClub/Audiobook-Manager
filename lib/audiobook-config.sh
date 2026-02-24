@@ -48,8 +48,13 @@ _load_config_file() {
 # -----------------------------------------------------------------------------
 if [[ -z "${AUDIOBOOKS_HOME:-}" ]]; then
     # Try to detect from this script's location
-    if [[ -n "${0:-}" ]]; then
+    # Use BASH_SOURCE if available (bash), fall back to $0 with zsh modifiers
+    if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+        _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    elif [[ -n "${0:-}" ]]; then
         _script_dir="${0:A:h}"
+    fi
+    if [[ -n "${_script_dir:-}" ]]; then
         # If we're in lib/, go up one level
         if [[ "$(basename "$_script_dir")" == "lib" ]]; then
             AUDIOBOOKS_HOME="$(dirname "$_script_dir")"

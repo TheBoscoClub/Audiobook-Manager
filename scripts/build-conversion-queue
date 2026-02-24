@@ -399,8 +399,9 @@ find_matching_converted() {
 
     # Prefix match: source is longer than converted (source has subtitle)
     # e.g., source "catching fire the hunger games book 2" matches "catching fire"
+    # Require word boundary (space after prefix) to avoid "trial" matching "trials"
     while IFS= read -r conv_title; do
-        if [[ "$source_title" == "$conv_title"* ]]; then
+        if [[ "$source_title" == "$conv_title "* ]]; then
             echo "$conv_title"
             return
         fi
@@ -408,7 +409,7 @@ find_matching_converted() {
 
     # Prefix match: converted is longer than source (rare but possible)
     while IFS= read -r conv_title; do
-        if [[ "$conv_title" == "$source_title"* ]]; then
+        if [[ "$conv_title" == "$source_title "* ]]; then
             echo "$conv_title"
             return
         fi
@@ -536,7 +537,7 @@ build_queue() {
             elif grep -q "^${normalized%% *}" "$converted_title_idx" 2>/dev/null; then
                 local found=false
                 while IFS= read -r conv_title; do
-                    if [[ "$normalized" == "$conv_title"* ]]; then
+                    if [[ "$normalized" == "$conv_title "* ]]; then
                         matched_title=$((matched_title + 1))
                         log "  Prefix match (no ASIN, source longer): $normalized"
                         found=true
@@ -614,9 +615,10 @@ build_queue() {
                     log "  Title match (ASIN fallback): $normalized"
                 fi
                 # Prefix match: source is prefix of converted (source shorter)
+                # Require word boundary (space after prefix) to avoid "trial" matching "trials"
                 if ! $title_matched; then
                     while IFS= read -r conv_title; do
-                        if [[ "$conv_title" == "$normalized"* ]]; then
+                        if [[ "$conv_title" == "$normalized "* ]]; then
                             title_matched=true
                             log "  Prefix match (ASIN fallback): $normalized matches $conv_title"
                             break
@@ -626,7 +628,7 @@ build_queue() {
                 # Prefix match: converted is prefix of source (source longer)
                 if ! $title_matched; then
                     while IFS= read -r conv_title; do
-                        if [[ "$normalized" == "$conv_title"* ]]; then
+                        if [[ "$normalized" == "$conv_title "* ]]; then
                             title_matched=true
                             log "  Prefix match (ASIN fallback): $conv_title matches $normalized"
                             break

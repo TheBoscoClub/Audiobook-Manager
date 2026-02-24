@@ -89,20 +89,23 @@ echo "Scan interval: ${SLEEP_INTERVAL}s when idle"
 echo ""
 
 # Function to convert a single file
-# Note: Queue file is authoritative - it already does normalized title matching
-# We only need to check for downloads in progress here
+# Only processes DRM-encrypted formats (AAXC/AAX) that need decryption.
+# Playable formats (MP3, M4A, OGG, etc.) are already excluded by the queue builder
+# and should NOT be converted — the player handles them natively.
 convert_file() {
     local SOURCE_FILE="$1"
-    local IS_MP3=0
     local BASENAME
 
-    # Determine file type and basename
-    if [[ "$SOURCE_FILE" == *.mp3 ]]; then
-        IS_MP3=1
-        BASENAME=$(basename "$SOURCE_FILE" .mp3)
-    else
-        BASENAME=$(basename "$SOURCE_FILE" .aaxc)
-    fi
+    # Only convert DRM-encrypted formats — skip anything playable as-is
+    case "$SOURCE_FILE" in
+        *.aaxc) BASENAME=$(basename "$SOURCE_FILE" .aaxc) ;;
+        *.aax)  BASENAME=$(basename "$SOURCE_FILE" .aax) ;;
+        *.aa)   BASENAME=$(basename "$SOURCE_FILE" .aa) ;;
+        *)
+            echo -e "${YELLOW}⊘ SKIP${NC}: $(basename "$SOURCE_FILE") (playable format, no conversion needed)"
+            return 0
+            ;;
+    esac
     local LOG_FILE="$LOG_DIR/conversion_${BASENAME}.log"
 
     # Check if source file still exists (queue might be stale)
@@ -134,32 +137,8 @@ convert_file() {
     # Get converter directory
     local CONVERTER_DIR=$(dirname "$CONVERTER_PATH")
 
-    # MP3 files (podcasts): simple ffmpeg conversion, no DRM
-    # AAXC files (audiobooks): use AAXtoMP3 with audible-cli data for DRM decryption
-    if [[ $IS_MP3 -eq 1 ]]; then
-        # Extract ASIN from filename for output directory structure
-        local ASIN=""
-        if [[ "$BASENAME" =~ ^([A-Z0-9]{10})_ ]]; then
-            ASIN="${BASH_REMATCH[1]}"
-        fi
-
-        # Create output directory: OUTPUT_DIR/Podcasts/ASIN or title
-        local PODCAST_DIR="$OUTPUT_DIR/Podcasts/${ASIN:-$BASENAME}"
-        mkdir -p "$PODCAST_DIR"
-
-        # Simple ffmpeg conversion: MP3 → Opus (no DRM, just transcode)
-        local OUTPUT_FILE="$PODCAST_DIR/${BASENAME}.opus"
-        if ionice -c2 -n0 ffmpeg -y -loglevel error -stats \
-            -i "$SOURCE_FILE" \
-            -vn -codec:a libopus -b:a 48k -vbr on -compression_level "$OPUS_LEVEL" \
-            "$OUTPUT_FILE" >"$LOG_FILE" 2>&1; then
-            # Success - handled in the common success path below
-            :
-        else
-            echo -e "${RED}✗ FAIL${NC}: $BASENAME (ffmpeg error - see log)"
-            return 1
-        fi
-    elif cd "$CONVERTER_DIR" &&
+    # AAXC/AAX files: use AAXtoMP3 with audible-cli data for DRM decryption
+    if cd "$CONVERTER_DIR" &&
         ionice -c2 -n0 bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
             --use-audible-cli-data \
             --target_dir "$OUTPUT_DIR" \
