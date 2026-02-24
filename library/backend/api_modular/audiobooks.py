@@ -184,10 +184,12 @@ def init_audiobooks_routes(db_path, project_root, database_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        # Build query - always filter to audiobooks only
-        where_clauses = [
-            AUDIOBOOK_FILTER
-        ]  # Audiobooks only (excludes podcasts, news, etc.)
+        # Build query - filter to audiobooks only unless collection bypasses it
+        # Collections like "Podcasts" set bypasses_filter=True to show non-audiobook content
+        collection_data = COLLECTIONS.get(collection) if collection else None
+        bypasses = collection_data and collection_data.get("bypasses_filter", False)
+
+        where_clauses = [] if bypasses else [AUDIOBOOK_FILTER]
         params = []
 
         if search:
@@ -226,8 +228,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
             params.append(f"%{genre}%")
 
         # Collection filter (predefined query from COLLECTIONS)
-        if collection and collection in COLLECTIONS:
-            where_clauses.append(f"({COLLECTIONS[collection]['query']})")
+        if collection_data:
+            where_clauses.append(f"({collection_data['query']})")
 
         where_sql = ""
         if where_clauses:

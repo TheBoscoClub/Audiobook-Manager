@@ -41,6 +41,15 @@ def multi_genre_query(genre_patterns: list[str]) -> str:
 COLLECTION_TREE = [
     # === SPECIAL COLLECTIONS ===
     {
+        "id": "podcasts",
+        "name": "Podcasts & Shows",
+        "description": "Podcasts, shows, and other non-audiobook Audible content",
+        "query": "content_type NOT IN ('Product', 'Lecture', 'Performance', 'Speech') AND content_type IS NOT NULL",
+        "icon": "🎙️",
+        "category": "special",
+        "bypasses_filter": True,  # Show non-audiobook content excluded by AUDIOBOOK_FILTER
+    },
+    {
         "id": "great-courses",
         "name": "The Great Courses",
         "description": "Educational lecture series from The Teaching Company",
@@ -457,6 +466,7 @@ def _build_flat_lookup() -> dict:
             "query": node["query"],
             "icon": node.get("icon", "📁"),
             "category": node.get("category", "main"),
+            "bypasses_filter": node.get("bypasses_filter", False),
         }
         for child in node.get("children", []):
             flat[child["id"]] = {
@@ -465,6 +475,7 @@ def _build_flat_lookup() -> dict:
                 "query": child["query"],
                 "icon": node.get("icon", "📁"),
                 "category": node.get("category", "main"),
+                "bypasses_filter": node.get("bypasses_filter", False),
             }
     return flat
 
