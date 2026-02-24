@@ -188,11 +188,15 @@ do_remote_upgrade() {
         --exclude='__pycache__' \
         --exclude='*.pyc' \
         --exclude='.pytest_cache' \
+        --exclude='.ruff_cache' \
         --exclude='.git' \
+        --exclude='.snapshots' \
         --exclude='*.db' \
         --exclude='testdata' \
         --exclude='.claude' \
         --exclude='SESSION_RECORD*' \
+        --exclude='.staged-release' \
+        --exclude='test-results.json' \
         -e "ssh ${ssh_opts[*]}" \
         "$project_dir/" "$ssh_target:$remote_tmp/"
     echo -e "${GREEN}  Project synced${NC}"
