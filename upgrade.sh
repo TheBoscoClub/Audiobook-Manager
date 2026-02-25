@@ -616,8 +616,8 @@ do_upgrade() {
     if [[ -n "$use_sudo" ]] && [[ -d "/etc/systemd/system" ]]; then
         echo -e "${BLUE}Updating systemd service files...${NC}"
 
-        # Copy new/updated service and path units
-        for unit_file in "${project}/systemd/"*.service "${project}/systemd/"*.path "${project}/systemd/"*.timer; do
+        # Copy new/updated service, target, path, and timer units
+        for unit_file in "${project}/systemd/"*.service "${project}/systemd/"*.target "${project}/systemd/"*.path "${project}/systemd/"*.timer; do
             if [[ -f "$unit_file" ]]; then
                 local unit_name=$(basename "$unit_file")
                 if [[ "$DRY_RUN" == "true" ]]; then
@@ -874,7 +874,7 @@ stop_services() {
     fi
 
     # Check if systemd services exist
-    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # System-level services
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl stop audiobook.target 2>/dev/null || true
@@ -884,7 +884,7 @@ stop_services() {
             done
         fi
         echo -e "${GREEN}  Services stopped${NC}"
-    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # User-level services
         systemctl --user stop audiobook.target 2>/dev/null || true
         for svc in audiobook-api audiobook-proxy audiobook-redirect; do
@@ -915,7 +915,7 @@ start_services() {
     fi
 
     # Check if systemd services exist
-    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # System-level services
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl start audiobook.target 2>/dev/null || {
@@ -939,7 +939,7 @@ start_services() {
                 echo -e "  $svc: ${YELLOW}$svc_state${NC}"
             fi
         done
-    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobooks"; then
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # User-level services
         systemctl --user start audiobook.target 2>/dev/null || {
             for svc in audiobook-api audiobook-proxy audiobook-redirect; do
