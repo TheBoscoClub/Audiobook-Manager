@@ -297,9 +297,12 @@ echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
 echo ""
 
 # Handle shutdown gracefully
-PIDS="$API_PID $PROXY_PID"
-[ -n "$REDIRECT_PID" ] && PIDS="$PIDS $REDIRECT_PID"
-trap "echo 'Shutting down...'; kill $PIDS 2>/dev/null; exit 0" SIGTERM SIGINT
+cleanup() {
+    echo 'Shutting down...'
+    kill $API_PID $PROXY_PID ${REDIRECT_PID:-} 2>/dev/null
+    exit 0
+}
+trap cleanup SIGTERM SIGINT
 
 # Keep container running and wait for processes
 wait
