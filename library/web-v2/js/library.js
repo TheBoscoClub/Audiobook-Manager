@@ -1406,9 +1406,9 @@ class AudiobookLibraryV2 {
         const hasSupplement = book.supplement_count > 0;
         const hasEditions = book.edition_count && book.edition_count > 1;
 
-        // Check for saved playback position
-        const savedPosition = playbackManager ? playbackManager.getPosition(book.id) : null;
-        const percentComplete = savedPosition ? playbackManager.getPercentComplete(book.id) : 0;
+        // Check for saved playback position (lightweight localStorage read)
+        const savedPosition = getLocalPosition(book.id);
+        const percentComplete = getLocalPercentComplete(book.id);
         const hasContinue = percentComplete > 0;
 
         return `
@@ -1438,8 +1438,8 @@ class AudiobookLibraryV2 {
                 </div>
                 ` : ''}
                 <div class="book-actions">
-                    <button class="btn-play" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, false)">▶ Play</button>
-                    <button class="btn-resume" ${!hasContinue ? 'disabled' : ''} onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(book).replace(/"/g, '&quot;')}, true)" title="${hasContinue ? 'Resume from ' + playbackManager.formatTime(savedPosition.position) : 'No saved position'}">
+                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, '&quot;')}, false)">▶ Play</button>
+                    <button class="btn-resume" ${!hasContinue ? 'disabled' : ''} onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, '&quot;')}, true)" title="${hasContinue ? 'Resume from ' + formatPlaybackTime(savedPosition.position) : 'No saved position'}">
                         ${hasContinue ? '⏯ Resume' : '⏯ Resume'}
                     </button>
                     <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download for offline listening (requires .opus compatible player)">
@@ -1495,8 +1495,8 @@ class AudiobookLibraryV2 {
     renderEditionItem(edition) {
         const formatQuality = edition.format ? edition.format.toUpperCase() : 'M4B';
         const quality = edition.quality ? ` ${edition.quality}` : '';
-        const savedPosition = playbackManager ? playbackManager.getPosition(edition.id) : null;
-        const percentComplete = savedPosition ? playbackManager.getPercentComplete(edition.id) : 0;
+        const savedPosition = getLocalPosition(edition.id);
+        const percentComplete = getLocalPercentComplete(edition.id);
         const hasContinue = percentComplete > 0;
 
         return `
@@ -1511,8 +1511,8 @@ class AudiobookLibraryV2 {
                     </div>
                 </div>
                 <div class="edition-actions">
-                    <button class="btn-play-edition" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(edition).replace(/"/g, '&quot;')}, false)">▶ Play</button>
-                    ${hasContinue ? `<button class="btn-resume-edition" onclick="event.stopPropagation(); audioPlayer.playAudiobook(${JSON.stringify(edition).replace(/"/g, '&quot;')}, true)">⏯ Resume</button>` : ''}
+                    <button class="btn-play-edition" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(edition).replace(/"/g, '&quot;')}, false)">▶ Play</button>
+                    ${hasContinue ? `<button class="btn-resume-edition" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(edition).replace(/"/g, '&quot;')}, true)">⏯ Resume</button>` : ''}
                 </div>
             </div>
         `;
@@ -1892,7 +1892,7 @@ class AudiobookLibraryV2 {
         playBtn.textContent = '\u25B6 Play';
         playBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            audioPlayer.playAudiobook(bookData, false);
+            shellPlay(bookData, false);
         });
         actionsDiv.appendChild(playBtn);
 
@@ -1903,7 +1903,7 @@ class AudiobookLibraryV2 {
         resumeBtn.title = percent > 0 ? `Resume from ${positionHuman}` : 'No saved position';
         resumeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            audioPlayer.playAudiobook(bookData, true);
+            shellPlay(bookData, true);
         });
         actionsDiv.appendChild(resumeBtn);
 
@@ -2024,387 +2024,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.library = library;
 });
 
-// Audio Player Class
-class AudioPlayer {
-    constructor() {
-        this.player = document.getElementById('audio-player');
-        this.audio = document.getElementById('audio-element');
-        this.currentBook = null;
-        this.playbackRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
-        this.currentRateIndex = 2; // Start at 1.0x
-        this.saveTimeout = null; // For debouncing position saves
-
-        // Set CORS mode for cross-origin streaming
-        this.audio.crossOrigin = 'anonymous';
-
-        // Initialize Media Session API for lockscreen/notification controls
-        this.setupMediaSession();
-
-        // Add error handler for debugging
-        this.audio.addEventListener('error', (e) => {
-            const error = this.audio.error;
-            let message = 'Unknown error';
-            if (error) {
-                switch (error.code) {
-                    case 1: message = 'MEDIA_ERR_ABORTED - Fetching aborted'; break;
-                    case 2: message = 'MEDIA_ERR_NETWORK - Network error'; break;
-                    case 3: message = 'MEDIA_ERR_DECODE - Decoding error'; break;
-                    case 4: message = 'MEDIA_ERR_SRC_NOT_SUPPORTED - Format not supported'; break;
-                }
-            }
-            console.error('Audio error:', message, error);
-        });
-
-        this.setupEventListeners();
-    }
-
-    setupEventListeners() {
-        // Close button
-        document.getElementById('close-player').addEventListener('click', () => {
-            this.close();
-        });
-
-        // Play/Pause
-        document.getElementById('play-pause').addEventListener('click', () => {
-            this.togglePlayPause();
-        });
-
-        // Rewind/Forward
-        document.getElementById('rewind').addEventListener('click', () => {
-            this.audio.currentTime = Math.max(0, this.audio.currentTime - 30);
-        });
-
-        document.getElementById('forward').addEventListener('click', () => {
-            this.audio.currentTime = Math.min(this.audio.duration, this.audio.currentTime + 30);
-        });
-
-        // Speed control
-        document.getElementById('speed-btn').addEventListener('click', () => {
-            this.cyclePlaybackSpeed();
-        });
-
-        // Volume
-        document.getElementById('volume').addEventListener('input', (e) => {
-            this.audio.volume = e.target.value / 100;
-        });
-
-        // Progress bar
-        document.getElementById('progress-bar').addEventListener('input', (e) => {
-            const time = (e.target.value / 100) * this.audio.duration;
-            this.audio.currentTime = time;
-        });
-
-        // Audio events
-        this.audio.addEventListener('timeupdate', () => {
-            this.updateProgress();
-        });
-
-        this.audio.addEventListener('loadedmetadata', () => {
-            this.updateTotalTime();
-        });
-
-        this.audio.addEventListener('ended', () => {
-            document.getElementById('play-pause').textContent = '▶';
-            // Clear saved position when audiobook finishes
-            if (this.currentBook && playbackManager) {
-                playbackManager.clearPosition(this.currentBook.id);
-            }
-        });
-
-        this.audio.addEventListener('play', () => {
-            document.getElementById('play-pause').textContent = '⏸';
-        });
-
-        this.audio.addEventListener('pause', () => {
-            document.getElementById('play-pause').textContent = '▶';
-        });
-    }
-
-    /**
-     * Setup Media Session API for lockscreen/notification controls.
-     * Provides OS-level play/pause/seek controls and displays track info.
-     */
-    setupMediaSession() {
-        if (!('mediaSession' in navigator)) {
-            console.log('Media Session API not supported');
-            return;
-        }
-
-        // Play/Pause handlers
-        navigator.mediaSession.setActionHandler('play', () => {
-            this.audio.play();
-        });
-
-        navigator.mediaSession.setActionHandler('pause', () => {
-            this.audio.pause();
-        });
-
-        // Seek backward 30 seconds
-        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-            const skipTime = details.seekOffset || 30;
-            this.audio.currentTime = Math.max(0, this.audio.currentTime - skipTime);
-            this.updateMediaPositionState();
-        });
-
-        // Seek forward 30 seconds
-        navigator.mediaSession.setActionHandler('seekforward', (details) => {
-            const skipTime = details.seekOffset || 30;
-            this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + skipTime);
-            this.updateMediaPositionState();
-        });
-
-        // Seek to specific position (for scrubbing on lockscreen)
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-            if (details.seekTime !== undefined && this.audio.duration) {
-                this.audio.currentTime = Math.min(details.seekTime, this.audio.duration);
-                this.updateMediaPositionState();
-            }
-        });
-
-        // Stop handler
-        navigator.mediaSession.setActionHandler('stop', () => {
-            this.close();
-        });
-
-        console.log('Media Session API initialized');
-    }
-
-    /**
-     * Update Media Session metadata with current book info.
-     * Called when a new audiobook starts playing.
-     */
-    updateMediaMetadata() {
-        if (!('mediaSession' in navigator) || !this.currentBook) return;
-
-        const book = this.currentBook;
-        const artwork = [];
-
-        // Add cover art if available
-        if (book.cover_path) {
-            const coverUrl = `${window.location.origin}/covers/${book.cover_path}`;
-            artwork.push(
-                { src: coverUrl, sizes: '96x96', type: 'image/jpeg' },
-                { src: coverUrl, sizes: '128x128', type: 'image/jpeg' },
-                { src: coverUrl, sizes: '192x192', type: 'image/jpeg' },
-                { src: coverUrl, sizes: '256x256', type: 'image/jpeg' },
-                { src: coverUrl, sizes: '384x384', type: 'image/jpeg' },
-                { src: coverUrl, sizes: '512x512', type: 'image/jpeg' }
-            );
-        }
-
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: book.title || 'Unknown Title',
-            artist: book.author || 'Unknown Author',
-            album: book.narrator ? `Narrated by ${book.narrator}` : (book.series || ''),
-            artwork: artwork
-        });
-
-        console.log('Media Session metadata updated:', book.title);
-    }
-
-    /**
-     * Update Media Session position state for accurate progress display.
-     * Called during playback and after seeking.
-     */
-    updateMediaPositionState() {
-        if (!('mediaSession' in navigator) || !this.audio.duration) return;
-
-        try {
-            navigator.mediaSession.setPositionState({
-                duration: this.audio.duration,
-                playbackRate: this.audio.playbackRate,
-                position: this.audio.currentTime
-            });
-        } catch (e) {
-            // Some browsers may not fully support setPositionState
-            console.debug('Could not update position state:', e.message);
-        }
-    }
-
-    async playAudiobook(book, resume = false, event = null) {
-        // Guest gate: block playback for unauthenticated visitors
-        if (window.library && window.library.guestMode) {
-            const target = event ? event.target : document.querySelector('.btn-play');
-            if (target) window.library.showGuestGate(target);
-            return;
-        }
-
-        this.currentBook = book;
-
-        // Update player UI
-        document.getElementById('player-title').textContent = book.title;
-        document.getElementById('player-author').textContent = book.author || 'Unknown Author';
-
-        // Update file info (ID and path)
-        document.getElementById('player-id').textContent = `ID: ${book.id}`;
-        const pathEl = document.getElementById('player-path');
-        pathEl.textContent = book.file_path || 'Unknown path';
-        pathEl.title = book.file_path || '';
-
-        const coverImg = document.getElementById('player-cover');
-        if (book.cover_path) {
-            coverImg.src = '/covers/' + book.cover_path;
-            coverImg.alt = book.title;
-        } else {
-            coverImg.src = '';
-            coverImg.alt = '';
-        }
-
-        // Load audio file — use WebM container for Safari/iOS (no Ogg support)
-        const needsWebm = !this.audio.canPlayType('audio/ogg; codecs=opus');
-        this.audio.src = `${API_BASE}/stream/${book.id}${needsWebm ? '?format=webm' : ''}`;
-
-        // Load saved playback speed
-        if (playbackManager) {
-            const savedSpeed = playbackManager.getSpeed();
-            const speedIndex = this.playbackRates.indexOf(savedSpeed);
-            if (speedIndex !== -1) {
-                this.currentRateIndex = speedIndex;
-            }
-        }
-        this.audio.playbackRate = this.playbackRates[this.currentRateIndex];
-        document.getElementById('playback-speed').textContent = this.playbackRates[this.currentRateIndex] + 'x';
-
-        // Show player
-        this.player.style.display = 'block';
-
-        // Handle resume - check both localStorage and API for best position
-        if (resume && playbackManager) {
-            // Use async getBestPosition to check both local and API (furthest ahead wins)
-            playbackManager.getBestPosition(book.id).then(savedPosition => {
-                if (savedPosition && savedPosition.position > 30) {
-                    // Wait for metadata to load, then seek
-                    const seekHandler = () => {
-                        this.audio.currentTime = savedPosition.position;
-                        console.log(`Resumed at ${savedPosition.position}s from ${savedPosition.source || 'local'}`);
-                    };
-
-                    if (this.audio.readyState >= 1) {
-                        // Metadata already loaded
-                        seekHandler();
-                    } else {
-                        this.audio.addEventListener('loadedmetadata', seekHandler, { once: true });
-                    }
-                }
-            });
-        }
-
-        // Update Media Session metadata for lockscreen/notification controls
-        this.updateMediaMetadata();
-
-        // Try to play
-        try {
-            await this.audio.play();
-        } catch (error) {
-            console.error('Failed to play audio:', error);
-            const mediaErr = this.audio.error;
-            if (mediaErr && mediaErr.code === 4) {
-                alert('This audio format is not supported by your browser. Try a different browser or device.');
-            } else if (mediaErr && mediaErr.code === 2) {
-                alert('Network error loading audio. Please check your connection and try again.');
-            } else {
-                alert('Failed to load audio file. Please check the console for details.');
-            }
-        }
-    }
-
-    togglePlayPause() {
-        if (this.audio.paused) {
-            this.audio.play();
-        } else {
-            this.audio.pause();
-        }
-    }
-
-    cyclePlaybackSpeed() {
-        this.currentRateIndex = (this.currentRateIndex + 1) % this.playbackRates.length;
-        const newRate = this.playbackRates[this.currentRateIndex];
-        this.audio.playbackRate = newRate;
-        document.getElementById('playback-speed').textContent = newRate + 'x';
-
-        // Save speed preference
-        if (playbackManager) {
-            playbackManager.saveSpeed(newRate);
-        }
-    }
-
-    updateProgress() {
-        if (!this.audio.duration) return;
-
-        const progress = (this.audio.currentTime / this.audio.duration) * 100;
-        document.getElementById('progress-bar').value = progress;
-
-        // Update current time
-        const minutes = Math.floor(this.audio.currentTime / 60);
-        const seconds = Math.floor(this.audio.currentTime % 60);
-        document.getElementById('current-time').textContent =
-            minutes + ':' + seconds.toString().padStart(2, '0');
-
-        // Update Media Session position state (throttled - only on whole seconds)
-        if (Math.floor(this.audio.currentTime) !== this._lastMediaSessionSecond) {
-            this._lastMediaSessionSecond = Math.floor(this.audio.currentTime);
-            this.updateMediaPositionState();
-        }
-
-        // Auto-save position (debounced to every 5 seconds)
-        if (this.currentBook && playbackManager && this.audio.currentTime > 0) {
-            if (this.saveTimeout) {
-                clearTimeout(this.saveTimeout);
-            }
-            this.saveTimeout = setTimeout(() => {
-                playbackManager.savePosition(
-                    this.currentBook.id,
-                    this.audio.currentTime,
-                    this.audio.duration
-                );
-            }, 5000);
-        }
-    }
-
-    updateTotalTime() {
-        const hours = Math.floor(this.audio.duration / 3600);
-        const minutes = Math.floor((this.audio.duration % 3600) / 60);
-        const seconds = Math.floor(this.audio.duration % 60);
-
-        let timeStr;
-        if (hours > 0) {
-            timeStr = hours + ':' + minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
-        } else {
-            timeStr = minutes + ':' + seconds.toString().padStart(2, '0');
-        }
-
-        document.getElementById('total-time').textContent = timeStr;
-    }
-
-    close() {
-        // Save position before closing (both localStorage and API)
-        if (this.currentBook && playbackManager && this.audio.currentTime > 0 && this.audio.duration) {
-            playbackManager.savePosition(
-                this.currentBook.id,
-                this.audio.currentTime,
-                this.audio.duration
-            );
-            // Flush to API immediately on close (don't wait for debounce)
-            playbackManager.flushToAPI(this.currentBook.id, this.audio.currentTime);
-        }
-
-        this.audio.pause();
-        this.player.style.display = 'none';
-        this.currentBook = null;
-
-        // Clear Media Session
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = null;
-        }
-    }
-}
-
-// Initialize player when DOM is loaded
-let audioPlayer;
-document.addEventListener('DOMContentLoaded', () => {
-    audioPlayer = new AudioPlayer();
-});
-
+// AudioPlayer class removed — now in shell.js (ShellPlayer)
+// PlaybackManager class removed — now in shell.js (ShellPlayer)
+// Content pages delegate play/pause/seek to the shell via postMessage bridge (see bottom of file)
 
 // ============================================
 // DUPLICATE MANAGER
@@ -2855,165 +2477,116 @@ class DuplicateManager {
     }
 }
 
-// Playback Manager - handles playback position persistence
-// Dual-layer storage: localStorage (fast cache) + API (persistent/syncable)
-class PlaybackManager {
-    constructor() {
-        this.storagePrefix = 'audiobook_';
-        this.saveInterval = null;
-        this.apiSaveTimeout = null;  // Separate debounce for API saves
-        this.apiSaveDelay = 15000;   // Save to API every 15 seconds (less frequent than localStorage)
+// Initialize managers
+let duplicateManager;
+document.addEventListener('DOMContentLoaded', () => {
+    duplicateManager = new DuplicateManager();
+});
+
+
+// ============================================
+// LIGHTWEIGHT POSITION HELPERS
+// ============================================
+// Read-only localStorage helpers for book cards (progress bars, "Continue" badges).
+// Full position persistence (save, API sync) is handled by ShellPlayer in shell.js.
+
+/**
+ * Read saved position from localStorage (lightweight, no API call).
+ * Used by book cards to show progress bars and "Continue" badges.
+ */
+function getLocalPosition(fileId) {
+    try {
+        const key = `audiobook_position_${fileId}`;
+        const saved = localStorage.getItem(key);
+        if (!saved) return null;
+        const parsed = JSON.parse(saved);
+        // Return null if position is near end (>95%) or very beginning (<30s)
+        const pct = (parsed.position / parsed.duration) * 100;
+        if (pct > 95 || parsed.position < 30) return null;
+        return parsed;
+    } catch { return null; }
+}
+
+function getLocalPercentComplete(fileId) {
+    const data = getLocalPosition(fileId);
+    if (!data || !data.duration) return 0;
+    return Math.round((data.position / data.duration) * 100);
+}
+
+function formatPlaybackTime(seconds) {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    seconds = Math.floor(seconds);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
 
-    // Save to localStorage (instant, local cache)
-    savePosition(fileId, position, duration) {
-        const data = {
-            position: position,
-            duration: duration,
-            timestamp: Date.now()
-        };
-        localStorage.setItem(`${this.storagePrefix}position_${fileId}`, JSON.stringify(data));
 
-        // Also queue API save (debounced)
-        this.queueAPISave(fileId, position);
-    }
+// ============================================
+// IFRAME BRIDGE — Shell Communication
+// ============================================
+// When running inside shell.html's iframe, delegate play/pause/seek
+// to the shell's ShellPlayer via postMessage.
 
-    // Queue position save to backend API (debounced)
-    queueAPISave(fileId, positionSeconds) {
-        if (this.apiSaveTimeout) {
-            clearTimeout(this.apiSaveTimeout);
-        }
-        this.apiSaveTimeout = setTimeout(() => {
-            this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
-        }, this.apiSaveDelay);
-    }
+const inIframe = window.self !== window.top;
 
-    // Save position to backend API
-    async savePositionToAPI(fileId, positionMs) {
-        try {
-            const response = await fetch(`${API_BASE}/position/${fileId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ position_ms: positionMs }),
-                credentials: 'include'
-            });
-            if (!response.ok) {
-                console.warn(`Failed to save position to API: ${response.status}`);
-            }
-        } catch (error) {
-            console.warn('Error saving position to API:', error);
-        }
-    }
-
-    // Fetch position from backend API
-    async getPositionFromAPI(fileId) {
-        try {
-            const response = await fetch(`${API_BASE}/position/${fileId}`, {
-                credentials: 'include'
-            });
-            if (response.ok) {
-                const data = await response.json();
-                if (data.local_position_ms > 0) {
-                    return {
-                        position: data.local_position_ms / 1000,  // Convert to seconds
-                        duration: data.duration_ms ? data.duration_ms / 1000 : 0,
-                        timestamp: data.local_position_updated ? new Date(data.local_position_updated).getTime() : 0,
-                        source: 'api'
-                    };
-                }
-            }
-        } catch (error) {
-            console.warn('Error fetching position from API:', error);
-        }
-        return null;
-    }
-
-    // Get best position from both localStorage and API (furthest ahead wins)
-    async getBestPosition(fileId) {
-        const localPosition = this.getPosition(fileId);
-        const apiPosition = await this.getPositionFromAPI(fileId);
-
-        // If neither has data, return null
-        if (!localPosition && !apiPosition) return null;
-
-        // If only one has data, use that
-        if (!localPosition) return apiPosition;
-        if (!apiPosition) return localPosition;
-
-        // Both have data - use furthest ahead
-        if (apiPosition.position > localPosition.position) {
-            console.log(`Using API position (${apiPosition.position}s) over local (${localPosition.position}s)`);
-            return apiPosition;
-        } else {
-            console.log(`Using local position (${localPosition.position}s) over API (${apiPosition.position}s)`);
-            return localPosition;
-        }
-    }
-
-    // Force immediate API save (for player close)
-    async flushToAPI(fileId, positionSeconds) {
-        if (this.apiSaveTimeout) {
-            clearTimeout(this.apiSaveTimeout);
-            this.apiSaveTimeout = null;
-        }
-        await this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
-    }
-
-    getPosition(fileId) {
-        const data = localStorage.getItem(`${this.storagePrefix}position_${fileId}`);
-        if (!data) return null;
-
-        try {
-            const parsed = JSON.parse(data);
-            // Return null if position is near end (>95%) or very beginning (<30s)
-            const percentComplete = (parsed.position / parsed.duration) * 100;
-            if (percentComplete > 95 || parsed.position < 30) {
-                return null;
-            }
-            return parsed;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    saveSpeed(speed) {
-        localStorage.setItem(`${this.storagePrefix}speed`, speed.toString());
-    }
-
-    getSpeed() {
-        const speed = localStorage.getItem(`${this.storagePrefix}speed`);
-        return speed ? parseFloat(speed) : 1.0;
-    }
-
-    clearPosition(fileId) {
-        localStorage.removeItem(`${this.storagePrefix}position_${fileId}`);
-        // Also clear from API
-        this.savePositionToAPI(fileId, 0);
-    }
-
-    // Format time for display
-    formatTime(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-
-        if (hours > 0) {
-            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-        return `${minutes}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    getPercentComplete(fileId) {
-        const data = this.getPosition(fileId);
-        if (!data || !data.duration) return 0;
-        return Math.round((data.position / data.duration) * 100);
+/**
+ * Send a play command to the shell.
+ * @param {Object} book - Book object with id, title, author, audio_path, cover_path, format
+ * @param {boolean} resume - If true, resume from saved position
+ */
+function shellPlay(book, resume) {
+    if (inIframe) {
+        window.parent.postMessage({
+            type: 'play',
+            book: book,
+            resume: resume
+        }, window.location.origin);
     }
 }
 
-// Initialize managers
-let duplicateManager;
-let playbackManager;
-document.addEventListener('DOMContentLoaded', () => {
-    duplicateManager = new DuplicateManager();
-    playbackManager = new PlaybackManager();
+function shellPause() {
+    if (inIframe) {
+        window.parent.postMessage({ type: 'pause' }, window.location.origin);
+    }
+}
+
+function shellResume() {
+    if (inIframe) {
+        window.parent.postMessage({ type: 'resume' }, window.location.origin);
+    }
+}
+
+function shellSeek(seconds) {
+    if (inIframe) {
+        window.parent.postMessage({ type: 'seek', position: seconds }, window.location.origin);
+    }
+}
+
+// Listen for playerState messages from the shell
+window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (!data || !data.type) return;
+
+    if (data.type === 'playerState') {
+        // Update "Now Playing" indicators on book cards
+        document.querySelectorAll('.book-card').forEach(card => {
+            card.classList.remove('now-playing');
+        });
+        if (data.bookId) {
+            const playingCard = document.querySelector(`.book-card[data-id="${data.bookId}"]`);
+            if (playingCard) {
+                playingCard.classList.add('now-playing');
+            }
+        }
+    } else if (data.type === 'playerClosed') {
+        document.querySelectorAll('.book-card.now-playing').forEach(card => {
+            card.classList.remove('now-playing');
+        });
+    }
 });
