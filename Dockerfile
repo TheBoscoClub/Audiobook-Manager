@@ -1,7 +1,8 @@
 # Audiobooks - Standalone audiobook library browser
 # A fully self-contained, portable product for cross-platform deployment.
 # Includes all databases, dependencies, and runtime — no external services needed.
-# Supports: Linux, macOS, Windows (via Docker Desktop), any architecture with Docker
+# Supports: Linux, macOS, Windows (via Docker Desktop)
+# Platforms: linux/amd64, linux/arm64, linux/arm/v7
 #
 # Build: docker build -t audiobooks .
 # Run:   docker-compose up -d

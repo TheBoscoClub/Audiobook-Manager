@@ -1174,7 +1174,7 @@ The Docker container is a **fully self-contained, standalone product** designed 
 **Why Docker?**
 
 - **Cross-platform**: Run on macOS, Windows, or any Linux distribution without compatibility concerns
-- **Cross-architecture**: Supports amd64 and arm64 (Apple Silicon, Raspberry Pi, etc.)
+- **Cross-architecture**: Supports amd64, arm64, and arm/v7 (Apple Silicon, Raspberry Pi, and other ARM devices)
 - **Zero setup**: All dependencies (Python, ffmpeg, SQLCipher, TLS) are bundled inside the container
 - **Isolation**: The container runs as a non-root user with no access to the host system beyond mounted volumes
 - **Portable**: Move your library to any machine by copying your audiobooks and the Docker volume

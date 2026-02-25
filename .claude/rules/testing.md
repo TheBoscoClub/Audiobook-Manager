@@ -105,6 +105,48 @@ After running `upgrade.sh`:
 2. Verify API responds: `curl -s http://localhost:5001/api/system/version`
 3. Verify web UI loads and buttons work
 
+## CRITICAL: Test/QA Data Isolation
+
+**No test VM, QA VM, or test/QA Docker container may have LIVE ACCESS (mounts) to production storage.**
+
+Copying production data *into* a test/QA environment is fine — once data is on the VM's own disk, it's fully isolated. The prohibition is against live filesystem links that let test environments read or write production storage directly.
+
+### What's allowed vs forbidden
+
+| Action | Allowed? | Why |
+|--------|----------|-----|
+| VM creates own fresh DB via `install.sh` | **Yes** | Fully isolated on VM disk |
+| `scp`/`rsync` production DB into VM | **Yes** | It's a copy — isolated on VM disk |
+| Copy production library into VM disk | **Yes** | Isolated copy, up to ~275GB is fine |
+| Mount host production paths via NFS/CIFS/virtiofs | **NEVER** | Live access to production filesystem |
+| Docker `-v` mount to host production paths | **NEVER** | Live access to production filesystem |
+
+### What each environment gets
+
+| Environment | Databases | Audiobook Library | Configuration |
+|-------------|-----------|-------------------|---------------|
+| **Production** (host) | `/var/lib/audiobooks/db/*.db` | `/hddRaid1/Audiobooks/Library/` (full) | `/etc/audiobooks/` |
+| **Test VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
+| **QA VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
+| **Docker test** | Ephemeral in-container DB | Sample data via volume or none | Container env vars only |
+
+### Prohibited actions
+
+- **NEVER** mount `/hddRaid1/Audiobooks/` into a test/QA VM via NFS, CIFS, virtiofs, or virtio-9p
+- **NEVER** mount production database paths into a VM or Docker container as a live filesystem
+- **NEVER** configure Docker `-v` to bind-mount host production paths at runtime
+- **NEVER** give test/QA environments write access to production storage through any mechanism
+
+### Release leak prevention (COPYRIGHT/LICENSE CRITICAL)
+
+Production audiobook files are personally owned and licensed content. Accidentally including them in a release (GitHub, Docker registry, tarball) would expose private data and create copyright/trademark liability.
+
+**Mandatory safeguards:**
+- **Docker test containers**: Any production data copied into a test container MUST be cleaned up (container removed) during Phase D cleanup or Phase C, BEFORE `/test` formally ends
+- **Docker test images**: NEVER build a Docker image with production data baked in via `COPY`. Use runtime `-v` mounts or `docker cp` for test data — these don't persist in the image
+- **Project working tree**: NEVER copy production data (audiobooks, databases, configs) into the project directory. If this happens accidentally, remove it BEFORE any commit or release operation
+- **Pre-release guard**: `/git-release` checks for production paths in release artifacts (see separation check in git-release skill). This is the last line of defense.
+
 ## Testing & Validation Notes
 
 When running `/test`:
