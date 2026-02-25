@@ -116,13 +116,15 @@ def _save_user_position(user_id: int, audiobook_id: int, position_ms: int) -> bo
 
 
 def _update_listening_history(
-    user_id: int, audiobook_id: int, position_ms: int
+    user_id: int, audiobook_id: int, position_ms: int, title: str | None = None
 ) -> None:
     """
     Create or update a listening history entry for the user and audiobook.
 
     If an open session exists (ended_at IS NULL), update it with the new position.
     Otherwise, create a new session starting at the current position.
+    The title is denormalized into the auth DB so activity logs remain readable
+    even if the library DB is reimported with different autoincrement IDs.
     """
     if not POSITION_REPO_AVAILABLE:
         return
@@ -149,6 +151,7 @@ def _update_listening_history(
             entry = UserListeningHistory(
                 user_id=user_id,
                 audiobook_id=audiobook_id_str,
+                title=title,
                 started_at=now,
                 position_start_ms=position_ms,
             )
@@ -247,10 +250,14 @@ def update_position(audiobook_id: int):
     try:
         cursor = conn.cursor()
 
-        # Verify audiobook exists
-        cursor.execute("SELECT id FROM audiobooks WHERE id = ?", (audiobook_id,))
-        if not cursor.fetchone():
+        # Verify audiobook exists and get title for denormalized storage
+        cursor.execute(
+            "SELECT id, title FROM audiobooks WHERE id = ?", (audiobook_id,)
+        )
+        book_row = cursor.fetchone()
+        if not book_row:
             return jsonify({"error": "Audiobook not found"}), 404
+        book_title = book_row[1]
 
         now = datetime.now().isoformat()
 
@@ -261,7 +268,9 @@ def update_position(audiobook_id: int):
                 if not _save_user_position(user.id, audiobook_id, position_ms):
                     return jsonify({"error": "Failed to save position"}), 500
                 # Create/update listening history entry
-                _update_listening_history(user.id, audiobook_id, position_ms)
+                _update_listening_history(
+                    user.id, audiobook_id, position_ms, title=book_title
+                )
             else:
                 return jsonify({"error": "User not found"}), 401
         else:
