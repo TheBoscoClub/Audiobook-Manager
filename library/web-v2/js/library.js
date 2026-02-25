@@ -2033,8 +2033,6 @@ class AudioPlayer {
         this.playbackRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
         this.currentRateIndex = 2; // Start at 1.0x
         this.saveTimeout = null; // For debouncing position saves
-        this.audibleSyncInterval = null; // For periodic Audible sync
-        this.audibleSyncDelayMs = 5 * 60 * 1000; // Sync every 5 minutes
 
         // Set CORS mode for cross-origin streaming
         this.audio.crossOrigin = 'anonymous';
@@ -2297,8 +2295,6 @@ class AudioPlayer {
         // Try to play
         try {
             await this.audio.play();
-            // Start periodic Audible sync if book has an ASIN
-            this.startAudibleSyncTimer();
         } catch (error) {
             console.error('Failed to play audio:', error);
             const mediaErr = this.audio.error;
@@ -2309,40 +2305,6 @@ class AudioPlayer {
             } else {
                 alert('Failed to load audio file. Please check the console for details.');
             }
-        }
-    }
-
-    /**
-     * Start periodic Audible position sync during playback.
-     * Syncs every 5 minutes if the current book has an ASIN.
-     */
-    startAudibleSyncTimer() {
-        // Clear any existing timer
-        this.stopAudibleSyncTimer();
-
-        // Only sync if book has an ASIN (required for Audible sync)
-        if (!this.currentBook?.asin) {
-            console.log('No ASIN for current book, Audible sync disabled');
-            return;
-        }
-
-        console.log(`Starting Audible sync timer (every ${this.audibleSyncDelayMs / 60000} min) for ASIN: ${this.currentBook.asin}`);
-
-        this.audibleSyncInterval = setInterval(async () => {
-            if (this.currentBook && !this.audio.paused && playbackManager) {
-                console.log('Periodic Audible sync triggered');
-                await playbackManager.syncWithAudible(this.currentBook.id);
-            }
-        }, this.audibleSyncDelayMs);
-    }
-
-    /**
-     * Stop the periodic Audible sync timer.
-     */
-    stopAudibleSyncTimer() {
-        if (this.audibleSyncInterval) {
-            clearInterval(this.audibleSyncInterval);
-            this.audibleSyncInterval = null;
         }
     }
 
@@ -2415,9 +2377,6 @@ class AudioPlayer {
     }
 
     close() {
-        // Stop Audible sync timer
-        this.stopAudibleSyncTimer();
-
         // Save position before closing (both localStorage and API)
         if (this.currentBook && playbackManager && this.audio.currentTime > 0 && this.audio.duration) {
             playbackManager.savePosition(
@@ -2427,10 +2386,6 @@ class AudioPlayer {
             );
             // Flush to API immediately on close (don't wait for debounce)
             playbackManager.flushToAPI(this.currentBook.id, this.audio.currentTime);
-            // Final Audible sync on close
-            if (this.currentBook.asin) {
-                playbackManager.syncWithAudible(this.currentBook.id);
-            }
         }
 
         this.audio.pause();
@@ -2982,7 +2937,7 @@ class PlaybackManager {
         if (!localPosition) return apiPosition;
         if (!apiPosition) return localPosition;
 
-        // Both have data - use furthest ahead (same logic as Audible sync)
+        // Both have data - use furthest ahead
         if (apiPosition.position > localPosition.position) {
             console.log(`Using API position (${apiPosition.position}s) over local (${localPosition.position}s)`);
             return apiPosition;
@@ -2999,41 +2954,6 @@ class PlaybackManager {
             this.apiSaveTimeout = null;
         }
         await this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
-    }
-
-    /**
-     * Sync position with Audible for a specific audiobook.
-     * Uses "furthest ahead wins" logic - if local is ahead, pushes to Audible.
-     * @param {number} fileId - The audiobook ID
-     * @returns {Promise<object|null>} Sync result or null on error
-     */
-    async syncWithAudible(fileId) {
-        try {
-            const response = await fetch(`${API_BASE}/position/sync/${fileId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                console.log(`Audible sync for ${fileId}:`, data.action || 'completed');
-                return data;
-            } else if (response.status === 400) {
-                // Book has no ASIN - this is expected for non-Audible content
-                console.debug(`Book ${fileId} has no ASIN, skipping Audible sync`);
-                return null;
-            } else if (response.status === 503) {
-                // Audible not available/configured
-                console.debug('Audible service unavailable, skipping sync');
-                return null;
-            } else {
-                console.warn(`Audible sync failed for ${fileId}: ${response.status}`);
-                return null;
-            }
-        } catch (error) {
-            console.warn('Error syncing with Audible:', error);
-            return null;
-        }
     }
 
     getPosition(fileId) {
