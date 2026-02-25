@@ -247,46 +247,6 @@
         <p>Loading audiobooks...</p>
     </div>
 
-    <!-- Audio Player -->
-    <div class="audio-player" id="audio-player" style="display: none;">
-        <button class="player-close" id="close-player">×</button>
-
-        <div class="player-info">
-            <img id="player-cover" src="" alt="" class="player-cover">
-            <div class="player-meta">
-                <div class="player-title" id="player-title">-</div>
-                <div class="player-author" id="player-author">-</div>
-                <div class="player-file-info" id="player-file-info">
-                    <span class="player-id" id="player-id">ID: -</span>
-                    <span class="player-path" id="player-path" title="">-</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="player-controls">
-            <button class="control-btn" id="play-pause">▶</button>
-            <div class="time-info">
-                <span id="current-time">0:00</span>
-                <span> / </span>
-                <span id="total-time">0:00</span>
-            </div>
-        </div>
-
-        <div class="progress-container">
-            <input type="range" id="progress-bar" class="progress-bar" min="0" max="100" value="0">
-        </div>
-
-        <div class="player-extras">
-            <button class="control-btn small-btn" id="rewind">-30s</button>
-            <button class="control-btn small-btn" id="forward">+30s</button>
-            <input type="range" id="volume" class="volume-slider" min="0" max="100" value="100">
-            <span id="playback-speed">1x</span>
-            <button class="control-btn small-btn" id="speed-btn">Speed</button>
-        </div>
-
-        <audio id="audio-element"></audio>
-    </div>
-
     <!-- Edit Profile Modal -->
     <div class="modal" id="edit-profile-modal">
         <div class="modal-content modal-small">
