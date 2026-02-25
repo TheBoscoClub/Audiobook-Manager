@@ -1155,7 +1155,7 @@
 
                 if (response.status === 401) {
                     // Not logged in - redirect to login
-                    window.location.href = 'login.html?redirect=utilities.html';
+                    window.top.location.href = 'login.html?redirect=utilities.html';
                     return;
                 }
 

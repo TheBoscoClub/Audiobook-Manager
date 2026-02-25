@@ -173,7 +173,7 @@
             try {
                 const response = await fetch('/auth/check', { credentials: 'include' });
                 if (response.status === 401) {
-                    window.location.href = 'login.html';
+                    window.top.location.href = 'login.html';
                     return false;
                 }
                 return response.ok;
