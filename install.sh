@@ -1494,7 +1494,7 @@ EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobook-web.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
+Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
 
 [Install]
 WantedBy=multi-user.target

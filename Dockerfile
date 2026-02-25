@@ -81,7 +81,7 @@ SHELL ["/bin/sh", "-c"]
 RUN mkdir -p /app/data /app/covers /app/supplements
 
 # Set environment variables
-ENV FLASK_APP=backend/api.py
+ENV FLASK_APP=backend.api_modular:create_app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONPATH=/app
