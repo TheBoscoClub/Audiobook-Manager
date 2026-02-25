@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.6.1] - 2026-02-25
+
+### Fixed
+
+- **Upgrade**: Service detection grep pattern `audiobooks` → `audiobook-` to match actual unit names — stop/start were silently skipping all service management during upgrades
+- **Upgrade**: Added `*.target` to systemd unit file deployment glob — `audiobook.target` was not being copied to `/etc/systemd/system/`
+- **Scripts**: Converted 28 remaining zsh `read -r "var?prompt"` instances to bash `read -r -p "prompt" var` across install.sh (13), uninstall.sh (3), upgrade.sh (2), install-user.sh (4), migrate-api.sh (1), install-services.sh (4) — interactive prompts were silently broken since bash conversion
+- **CI**: Removed stale "Install zsh" step from release.yml (all scripts use bash since v6.6.5)
+
 ## [6.6.6] - 2026-02-24
 
 ### Changed
