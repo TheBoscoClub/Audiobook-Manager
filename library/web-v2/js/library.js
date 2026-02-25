@@ -2894,7 +2894,8 @@ class PlaybackManager {
             const response = await fetch(`${API_BASE}/position/${fileId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ position_ms: positionMs })
+                body: JSON.stringify({ position_ms: positionMs }),
+                credentials: 'include'
             });
             if (!response.ok) {
                 console.warn(`Failed to save position to API: ${response.status}`);
@@ -2907,7 +2908,9 @@ class PlaybackManager {
     // Fetch position from backend API
     async getPositionFromAPI(fileId) {
         try {
-            const response = await fetch(`${API_BASE}/position/${fileId}`);
+            const response = await fetch(`${API_BASE}/position/${fileId}`, {
+                credentials: 'include'
+            });
             if (response.ok) {
                 const data = await response.json();
                 if (data.local_position_ms > 0) {
