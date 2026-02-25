@@ -1310,7 +1310,7 @@ do_github_upgrade() {
 
     # Confirm upgrade
     if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
-        read -r "confirm?Upgrade from $current_version to $install_version? [y/N]: "
+        read -r -p "Upgrade from $current_version to $install_version? [y/N]: " confirm
         if [[ "${confirm,,}" != "y" ]] && [[ "${confirm,,}" != "yes" ]]; then
             echo "Upgrade cancelled."
             return 0
@@ -1517,7 +1517,7 @@ echo ""
 
 # Confirm upgrade
 if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
-    read -r "confirm?Proceed with upgrade? [y/N]: "
+    read -r -p "Proceed with upgrade? [y/N]: " confirm
     if [[ "${confirm,,}" != "y" ]] && [[ "${confirm,,}" != "yes" ]]; then
         echo "Upgrade cancelled."
         exit 0

@@ -727,7 +727,7 @@ explain)
     echo -e "  ${GREEN}4)${NC} Migrate to monolithic architecture"
     echo -e "  ${GREEN}5)${NC} Exit"
     echo ""
-    read -r "choice?Enter your choice [1-5]: "
+    read -r -p "Enter your choice [1-5]: " choice
 
     case "$choice" in
     1) show_status ;;
