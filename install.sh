@@ -791,7 +791,7 @@ verify_installation_permissions() {
         if [[ "$bad_dirs" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
             sudo find "$APP_DIR" -type d -perm 700 -exec chmod 755 {} \;
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK${NC}"
         fi
@@ -802,7 +802,7 @@ verify_installation_permissions() {
         if [[ "$bad_py" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_py files${NC}"
             sudo find "$APP_DIR" -name "*.py" \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK${NC}"
         fi
@@ -813,7 +813,7 @@ verify_installation_permissions() {
         if [[ "$bad_web" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_web files${NC}"
             sudo find "$APP_DIR" \( -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 \) -exec chmod 644 {} \;
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK${NC}"
         fi
@@ -827,13 +827,13 @@ verify_installation_permissions() {
                 local current_group=$(stat -c "%G" "$dir" 2>/dev/null)
                 if [[ "$current_group" != "$SERVICE_GROUP" && "$current_group" != "root" ]]; then
                     sudo chgrp "$SERVICE_GROUP" "$dir" 2>/dev/null
-                    ((group_issues++))
+                    ((group_issues++)) || true
                 fi
             fi
         done
         if [[ "$group_issues" -gt 0 ]]; then
             echo -e "${YELLOW}fixed $group_issues directories${NC}"
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK${NC}"
         fi
@@ -846,7 +846,7 @@ verify_installation_permissions() {
         if [[ "$project_links" -gt 0 ]]; then
             echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
             echo -e "         Production should be independent of source repo."
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK (independent)${NC}"
         fi
@@ -860,7 +860,7 @@ verify_installation_permissions() {
         if [[ "$bad_dirs" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
             find "$APP_DIR" -type d -perm 700 -exec chmod 755 {} \;
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK${NC}"
         fi
@@ -870,7 +870,7 @@ verify_installation_permissions() {
         if [[ "$bad_files" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_files files${NC}"
             find "$APP_DIR" -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) -perm 600 -exec chmod 644 {} \;
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK${NC}"
         fi
@@ -1179,8 +1179,16 @@ do_system_install() {
     sudo mkdir -p "${data_dir}/Sources"
     sudo mkdir -p "${data_dir}/Supplements"
     sudo mkdir -p "/var/lib/audiobooks"
+    sudo mkdir -p "/var/lib/audiobooks/data"
     sudo mkdir -p "/var/log/audiobooks"
+    sudo mkdir -p "${data_dir}/.index"
+    sudo chown -R audiobooks:audiobooks "/var/lib/audiobooks"
     sudo chown audiobooks:audiobooks "/var/log/audiobooks"
+    sudo chown audiobooks:audiobooks "${data_dir}"
+    sudo chown audiobooks:audiobooks "${data_dir}/Library"
+    sudo chown audiobooks:audiobooks "${data_dir}/Sources"
+    sudo chown audiobooks:audiobooks "${data_dir}/Supplements"
+    sudo chown audiobooks:audiobooks "${data_dir}/.index"
 
     # Install library files
     echo -e "${BLUE}Installing library files...${NC}"
@@ -1238,6 +1246,9 @@ AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
 AUDIOBOOKS_CERTS="\${AUDIOBOOKS_HOME}/library/certs"
 AUDIOBOOKS_LOGS="/var/log/audiobooks"
 AUDIOBOOKS_VENV="\${AUDIOBOOKS_HOME}/library/venv"
+
+# Internal data directory for scan results and intermediate files
+DATA_DIR="/var/lib/audiobooks/data"
 
 # Server settings
 AUDIOBOOKS_API_PORT="${API_PORT}"
@@ -1834,7 +1845,16 @@ EOF
                         target_name="audiobook-download-monitor"
                         ;;
                     embed-cover-art.py)
-                        target_name="audiobook-embed-cover"
+                        # Python script needs venv wrapper — create bash wrapper instead of raw copy
+                        cat > "${BIN_DIR}/audiobook-embed-cover" << PYEOF
+#!/bin/bash
+# Audiobook Library Cover Art Embedder
+# Wrapper — uses venv Python for mutagen dependency
+exec "${LIB_DIR}/library/venv/bin/python" "${LIB_DIR}/scripts/embed-cover-art.py" "\$@"
+PYEOF
+                        chmod 755 "${BIN_DIR}/audiobook-embed-cover"
+                        echo "  Installed: audiobook-embed-cover (venv wrapper)"
+                        continue
                         ;;
                     *)
                         target_name="audiobook-${script_name}"

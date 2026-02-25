@@ -879,7 +879,7 @@ stop_services() {
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl stop audiobooks.target 2>/dev/null || true
             # Also stop individual services in case target doesn't exist
-            for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover; do
+            for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
                 sudo systemctl stop "$svc" 2>/dev/null || true
             done
         fi
@@ -920,7 +920,7 @@ start_services() {
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl start audiobooks.target 2>/dev/null || {
                 # Fallback: start individual services
-                for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover; do
+                for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
                     sudo systemctl start "$svc" 2>/dev/null || true
                 done
             }
@@ -930,7 +930,7 @@ start_services() {
         # Show service status summary
         echo ""
         echo -e "${BLUE}Service status:${NC}"
-        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
+        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer; do
             local svc_state
             svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
             if [[ "$svc_state" == "active" ]]; then

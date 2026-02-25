@@ -119,7 +119,7 @@ while true; do
     get_system_stats
     calculate_rate
 
-    local PERCENT=0
+    PERCENT=0
     [[ $AAXC_COUNT -gt 0 ]] && PERCENT=$((TOTAL_CONVERTED * 100 / AAXC_COUNT))
 
     echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"

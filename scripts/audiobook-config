@@ -1,5 +1,6 @@
 #!/bin/bash
 # Audiobook Library Configuration Viewer
 # Wrapper script — sources config and prints current settings
-source "${0:A:h}/../lib/audiobook-config.sh"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
 audiobooks_print_config "$@"

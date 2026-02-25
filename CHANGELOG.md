@@ -21,20 +21,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Systemd**: Moved `StartLimitIntervalSec`/`StartLimitBurst` from `[Service]` to `[Unit]` section in `audiobook-api.service` — systemd was ignoring these directives with warnings when placed in `[Service]`
+- **Scripts**: Replaced all zsh `${0:A:h}` syntax with bash `$(dirname "$(readlink -f "$0")")` in 9 wrapper scripts — broke all CLI commands when called via symlinks
+- **Scripts**: Removed `local` keyword outside function scope (SC2168) in `move-staged-audiobooks` and `monitor-audiobook-conversion` — `local` only works inside functions in bash
+- **Scripts**: Fixed `find-duplicate-sources` crash on empty Sources directory — empty associative array triggered `set -u` unbound variable error
+- **Scripts**: `audiobook-help` now sources config to display resolved paths instead of literal `$VARIABLE` names
+- **Install**: Fixed `((issues_found++))` → `((issues_found++)) || true` in `install.sh` (8 locations) and `migrate-api.sh` (3 locations) — bash arithmetic `((0++))` returns exit code 1, killing scripts under `set -e`
 - **Install**: `chown /var/log/audiobooks` for audiobooks user, source files get 644 and shell scripts get 755 permissions on deploy
 - **Install**: Fixed `lib/audiobook-config.sh` permissions from 711 to 755; fixed 21 source files from 600 to 644
+- **Install**: Added `chown audiobooks:audiobooks` for data subdirectories (`Library/`, `Sources/`, `Supplements/`) — were created as root-owned, blocking service writes
+- **Install**: `embed-cover-art.py` wrapper now uses venv Python for mutagen dependency instead of system Python
+- **Install**: Added `DATA_DIR="/var/lib/audiobooks/data"` to generated `audiobooks.conf` and create `.index` directory with proper ownership
+- **Install**: Wrapper script templates in `install.sh` and `install-user.sh` now generate `#!/bin/bash` shebangs
 - **Manifest**: Fixed `install-manifest.json` DB path to `/var/lib/audiobooks/audiobooks.db`
 - **Converter**: Fixed critical `$AAXC_FILE` → `$SOURCE_FILE` variable in 3 locations — was causing stale queue entries and re-processing of already-converted files
 - **Converter**: Changed shebang to `#!/bin/bash` (required for `export -f` function exports)
 - **Services**: Added `RequiresMountsFor=/srv/audiobooks` to mover service to prevent race conditions at boot
+- **Systemd**: Moved `StartLimitIntervalSec`/`StartLimitBurst` from `[Service]` to `[Unit]` section in `audiobook-api.service` — systemd was ignoring these directives with warnings when placed in `[Service]`
+- **Systemd**: `audiobook-proxy.service` uses venv Python (`/opt/audiobooks/library/venv/bin/python`) instead of system Python
 - **Proxy**: Removed duplicate CORS headers from proxy error responses
 - **Mover**: `move-staged-audiobooks` now uses venv Python for `import_single.py`
 - **Shell**: Reverted all 35 scripts from `#!/usr/bin/env zsh` back to `#!/bin/bash` — bash is the universal Linux standard, maximizes portability across distros
-- **Shell**: Removed zsh-specific workarounds (reserved variable comments, echo JSON corruption notes, `${0:A:h}` syntax)
+- **Shell**: Removed all zsh-specific workarounds (reserved variable comments, echo JSON corruption notes, `${0:A:h}` syntax)
 - **Shell**: Simplified `audiobook-config.sh` source guard from dual bash/zsh to bash-only
-- **Install**: Wrapper script templates in `install.sh` and `install-user.sh` now generate `#!/bin/bash` shebangs
-- **Shell**: Converted all zsh syntax to bash equivalents — `${(L)var}` → `${var,,}`, `typeset -A` → `declare -A`, `${(@kv)}` → `${!array[@]}`, `(N)` → `shopt -s nullglob`, `${0:A:h}` → `$(dirname "${BASH_SOURCE[0]}")`
+- **Shell**: Converted all zsh syntax to bash equivalents — `${(L)var}` → `${var,,}`, `typeset -A` → `declare -A`, `${(@kv)}` → `${!array[@]}`, `(N)` → `shopt -s nullglob`
+- **Upgrade**: Added `audiobook-downloader.timer` and `audiobook-shutdown-saver` to upgrade.sh service stop/start lists
+- **Uninstall**: Replaced `arr=($(cmd))` with `mapfile -t arr < <(cmd)` to fix ShellCheck SC2207 word splitting
+- **CI**: Added `libsqlcipher-dev` system dependency for Python tests
 
 ### Added
 

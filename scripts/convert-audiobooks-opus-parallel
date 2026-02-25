@@ -9,11 +9,7 @@
 # =============================================================================
 
 # Load configuration
-if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-else
-    SCRIPT_DIR="${0:A:h}"
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
     source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
 elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then

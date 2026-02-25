@@ -22,7 +22,7 @@ Environment=PYTHONUNBUFFERED=1
 
 # Only start if port is not already in use
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_WEB_PORT} "'
-ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/proxy_server.py
+ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2/proxy_server.py
 
 Restart=on-failure
 RestartSec=3
