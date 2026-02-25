@@ -31,7 +31,7 @@ export WEB_PORT="${WEB_PORT:-8443}"
 export API_PORT="${API_PORT:-5001}"
 export HTTP_REDIRECT_PORT="${HTTP_REDIRECT_PORT:-8080}"
 export AUDIOBOOKS_USE_WAITRESS="${AUDIOBOOKS_USE_WAITRESS:-true}"
-export AUDIOBOOKS_BIND_ADDRESS="${AUDIOBOOKS_BIND_ADDRESS:-127.0.0.1}"
+export AUDIOBOOKS_BIND_ADDRESS="${AUDIOBOOKS_BIND_ADDRESS:-0.0.0.0}"
 
 # Function to check if audiobooks are mounted
 check_audiobooks_mounted() {
@@ -175,11 +175,24 @@ print(count)
     fi
     echo ""
 elif [ "$NEEDS_INIT" = true ]; then
-    echo -e "${YELLOW}Skipping auto-initialization: No audiobooks mounted${NC}"
+    echo -e "${YELLOW}No audiobooks mounted — creating empty database${NC}"
     echo "Mount your audiobooks and restart the container, or run manually:"
     echo "  docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py"
     echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
     echo ""
+fi
+
+# Ensure database exists with schema (API requires it to start)
+if [ ! -f "$DATABASE_PATH" ]; then
+    mkdir -p "$(dirname "$DATABASE_PATH")"
+    python3 -c "
+import sqlite3
+conn = sqlite3.connect('$DATABASE_PATH')
+with open('/app/backend/schema.sql') as f:
+    conn.executescript(f.read())
+conn.close()
+" 2>/dev/null
+    echo -e "  Database: ${GREEN}Initialized (empty)${NC}"
 fi
 
 # ============================================================================

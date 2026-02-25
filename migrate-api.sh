@@ -582,9 +582,9 @@ start_services() {
             svc_state=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
         fi
         if [[ "$svc_state" == "active" ]]; then
-            echo -e "  $svc: ${GREEN}$status${NC}"
+            echo -e "  $svc: ${GREEN}$svc_state${NC}"
         else
-            echo -e "  $svc: ${YELLOW}$status${NC}"
+            echo -e "  $svc: ${YELLOW}$svc_state${NC}"
         fi
     done
 }
