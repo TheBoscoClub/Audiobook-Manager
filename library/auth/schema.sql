@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS user_listening_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     audiobook_id TEXT NOT NULL,
+    title TEXT,
     started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ended_at DATETIME,
     position_start_ms INTEGER NOT NULL DEFAULT 0,
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS user_downloads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     audiobook_id TEXT NOT NULL,
+    title TEXT,
     downloaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     file_format TEXT
 );
@@ -208,4 +210,4 @@ CREATE TABLE IF NOT EXISTS schema_version (
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (6);
+INSERT OR IGNORE INTO schema_version (version) VALUES (7);

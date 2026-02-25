@@ -170,13 +170,17 @@ def record_download_complete(audiobook_id: int):
     """
     user = get_current_user()
 
-    # Verify the audiobook exists in the library DB
+    # Verify the audiobook exists and get title for denormalized storage
     conn = _get_library_db()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM audiobooks WHERE id = ?", (audiobook_id,))
-        if not cursor.fetchone():
+        cursor.execute(
+            "SELECT id, title FROM audiobooks WHERE id = ?", (audiobook_id,)
+        )
+        book_row = cursor.fetchone()
+        if not book_row:
             return jsonify({"error": "Audiobook not found"}), 404
+        book_title = book_row[1]
     finally:
         conn.close()
 
@@ -188,6 +192,7 @@ def record_download_complete(audiobook_id: int):
     download = UserDownload(
         user_id=user.id,
         audiobook_id=str(audiobook_id),
+        title=book_title,
         file_format=file_format,
     )
     download.save(auth_db)

@@ -156,7 +156,7 @@ def get_activity():
         listen_where = (" AND " + " AND ".join(listen_wheres)) if listen_wheres else ""
         subqueries.append(
             "SELECT 'listen' AS type, h.id, h.user_id, u.username, "
-            "h.audiobook_id, h.started_at AS timestamp, "
+            "h.audiobook_id, h.title AS stored_title, h.started_at AS timestamp, "
             "h.duration_listened_ms, NULL AS file_format "
             "FROM user_listening_history h "
             "JOIN users u ON h.user_id = u.id "
@@ -170,7 +170,7 @@ def get_activity():
         )
         subqueries.append(
             "SELECT 'download' AS type, d.id, d.user_id, u.username, "
-            "d.audiobook_id, d.downloaded_at AS timestamp, "
+            "d.audiobook_id, d.title AS stored_title, d.downloaded_at AS timestamp, "
             "NULL AS duration_listened_ms, d.file_format "
             "FROM user_downloads d "
             "JOIN users u ON d.user_id = u.id "
@@ -194,15 +194,24 @@ def get_activity():
         rows = _rows_to_dicts(conn.execute(data_sql, data_params))
         total = conn.execute(count_sql, count_params).fetchone()[0]
 
+    # Look up titles from library DB for all audiobook IDs in this page
+    book_ids = {str(row["audiobook_id"]) for row in rows}
+    titles = _get_book_titles(book_ids)
+
     # Build response items using named column access
     activity = []
     for row in rows:
+        aid = str(row["audiobook_id"])
+        # Prefer library DB title (current), fall back to denormalized title
+        # stored at event-creation time (survives library reimports)
+        title = titles.get(aid) or row.get("stored_title")
         item = {
             "type": row["type"],
             "id": row["id"],
             "user_id": row["user_id"],
             "username": row["username"],
-            "audiobook_id": str(row["audiobook_id"]),
+            "audiobook_id": aid,
+            "title": title,
             "timestamp": row["timestamp"] or "",
         }
         if row["type"] == "listen":
@@ -261,10 +270,11 @@ def get_activity_stats():
             ")"
         ).fetchone()[0]
 
-        # Top 10 most-listened audiobooks (use helper for named access)
+        # Top 10 most-listened audiobooks
+        # MAX(title) picks a stored title from any row in the group
         top_listened_rows = _rows_to_dicts(
             conn.execute(
-                "SELECT audiobook_id, COUNT(*) AS cnt "
+                "SELECT audiobook_id, MAX(title) AS stored_title, COUNT(*) AS cnt "
                 "FROM user_listening_history "
                 "GROUP BY audiobook_id "
                 "ORDER BY cnt DESC "
@@ -275,7 +285,7 @@ def get_activity_stats():
         # Top 10 most-downloaded audiobooks
         top_downloaded_rows = _rows_to_dicts(
             conn.execute(
-                "SELECT audiobook_id, COUNT(*) AS cnt "
+                "SELECT audiobook_id, MAX(title) AS stored_title, COUNT(*) AS cnt "
                 "FROM user_downloads "
                 "GROUP BY audiobook_id "
                 "ORDER BY cnt DESC "
@@ -290,13 +300,13 @@ def get_activity_stats():
     for row in top_downloaded_rows:
         all_book_ids.add(row["audiobook_id"])
 
-    # Look up titles from library DB
+    # Look up titles from library DB (current), fall back to stored title
     titles = _get_book_titles(all_book_ids)
 
     top_listened = [
         {
             "audiobook_id": str(row["audiobook_id"]),
-            "title": titles.get(str(row["audiobook_id"])),
+            "title": titles.get(str(row["audiobook_id"])) or row.get("stored_title"),
             "count": row["cnt"],
         }
         for row in top_listened_rows
@@ -305,7 +315,7 @@ def get_activity_stats():
     top_downloaded = [
         {
             "audiobook_id": str(row["audiobook_id"]),
-            "title": titles.get(str(row["audiobook_id"])),
+            "title": titles.get(str(row["audiobook_id"])) or row.get("stored_title"),
             "count": row["cnt"],
         }
         for row in top_downloaded_rows
@@ -345,7 +355,11 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
     if not int_ids:
         return {}
 
-    conn = _get_library_db()
+    try:
+        conn = _get_library_db()
+    except (RuntimeError, OSError):
+        return {}
+
     try:
         placeholders = ",".join("?" * len(int_ids))
         cursor = conn.execute(
@@ -353,5 +367,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
             int_ids,
         )
         return {str(row["id"]): row["title"] for row in cursor.fetchall()}
+    except sqlite3.Error:
+        return {}
     finally:
         conn.close()

@@ -167,7 +167,7 @@ class TestActivityLog:
         assert data["total"] >= len(data["activity"])
 
     def test_activity_item_fields(self, client, activity_seeded):
-        """Each activity item has the required fields."""
+        """Each activity item has the required fields including title."""
         _login_admin(client, activity_seeded)
         resp = client.get("/api/admin/activity")
         data = resp.get_json()
@@ -177,7 +177,17 @@ class TestActivityLog:
         assert "user_id" in item
         assert "username" in item
         assert "audiobook_id" in item
+        assert "title" in item
         assert "timestamp" in item
+
+    def test_activity_title_resolved(self, client, activity_seeded):
+        """Activity items resolve audiobook titles from the library DB."""
+        _login_admin(client, activity_seeded)
+        resp = client.get("/api/admin/activity")
+        data = resp.get_json()
+        # At least some items should have non-null titles (test DB has books 1-3)
+        titles = [item["title"] for item in data["activity"] if item["title"]]
+        assert len(titles) > 0, "Expected at least one resolved title"
 
     def test_listen_type_has_duration(self, client, activity_seeded):
         """Listen-type items include duration_listened_ms."""

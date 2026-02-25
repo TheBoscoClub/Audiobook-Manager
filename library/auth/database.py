@@ -228,6 +228,8 @@ class AuthDatabase:
                 if version > current_version:
                     if version == 5:
                         self._migrate_v4_to_v5(conn)
+                    elif version == 7:
+                        self._migrate_v6_to_v7(conn)
                     else:
                         migration_sql = migration_file.read_text()
                         conn.executescript(migration_sql)
@@ -369,6 +371,41 @@ class AuthDatabase:
             post_user_count,
             post_session_count,
         )
+
+    def _migrate_v6_to_v7(self, conn) -> None:
+        """
+        Migrate schema from v6 to v7: add denormalized title to activity tables.
+
+        Adds a title TEXT column to user_listening_history and user_downloads
+        if those tables exist. Tables may not exist if upgrading from a schema
+        that predates migration 004 (per-user state).
+        """
+        import logging
+
+        logger = logging.getLogger("auth.migration")
+
+        for table in ("user_listening_history", "user_downloads"):
+            # Check if table exists
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table,),
+            )
+            if not cursor.fetchone():
+                logger.info("v6→v7: table %s does not exist, skipping", table)
+                continue
+
+            # Check if column already exists
+            cols = {
+                row[1] for row in conn.execute(f"PRAGMA table_info({table})")
+            }
+            if "title" not in cols:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN title TEXT")
+                logger.info("v6→v7: added title column to %s", table)
+            else:
+                logger.info("v6→v7: %s already has title column", table)
+
+        conn.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (7)")
+        logger.info("v6→v7 migration complete")
 
     def verify(self) -> dict:
         """

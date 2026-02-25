@@ -557,9 +557,17 @@ class UserListeningHistory:
     and the playback positions during the session.
     """
 
+    # Column list for SELECT queries (avoids SELECT * column-order issues
+    # between fresh schema and ALTER TABLE migrations)
+    _COLUMNS = (
+        "id, user_id, audiobook_id, title, started_at, ended_at, "
+        "position_start_ms, position_end_ms, duration_listened_ms"
+    )
+
     id: Optional[int] = None
     user_id: int = 0
     audiobook_id: str = ""
+    title: Optional[str] = None
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     position_start_ms: int = 0
@@ -568,16 +576,17 @@ class UserListeningHistory:
 
     @classmethod
     def from_row(cls, row: tuple) -> "UserListeningHistory":
-        """Create UserListeningHistory from database row."""
+        """Create UserListeningHistory from database row (matches _COLUMNS order)."""
         return cls(
             id=row[0],
             user_id=row[1],
             audiobook_id=row[2],
-            started_at=datetime.fromisoformat(row[3]) if row[3] else None,
-            ended_at=datetime.fromisoformat(row[4]) if row[4] else None,
-            position_start_ms=row[5],
-            position_end_ms=row[6],
-            duration_listened_ms=row[7],
+            title=row[3],
+            started_at=datetime.fromisoformat(row[4]) if row[4] else None,
+            ended_at=datetime.fromisoformat(row[5]) if row[5] else None,
+            position_start_ms=row[6],
+            position_end_ms=row[7],
+            duration_listened_ms=row[8],
         )
 
     def save(self, db: AuthDatabase) -> "UserListeningHistory":
@@ -594,13 +603,14 @@ class UserListeningHistory:
                 cursor = conn.execute(
                     """
                     INSERT INTO user_listening_history
-                        (user_id, audiobook_id, started_at, ended_at,
+                        (user_id, audiobook_id, title, started_at, ended_at,
                          position_start_ms, position_end_ms, duration_listened_ms)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         self.user_id,
                         self.audiobook_id,
+                        self.title,
                         self.started_at.isoformat() if self.started_at else None,
                         self.ended_at.isoformat() if self.ended_at else None,
                         self.position_start_ms,
@@ -641,11 +651,12 @@ class ListeningHistoryRepository:
         min_duration_ms: Optional[int] = None,
     ) -> List[UserListeningHistory]:
         """Get listening history for a user, ordered by most recent first."""
+        cols = UserListeningHistory._COLUMNS
         with self.db.connection() as conn:
             if min_duration_ms is not None:
                 cursor = conn.execute(
-                    """
-                    SELECT * FROM user_listening_history
+                    f"""
+                    SELECT {cols} FROM user_listening_history
                     WHERE user_id = ?
                       AND duration_listened_ms IS NOT NULL
                       AND duration_listened_ms >= ?
@@ -656,8 +667,8 @@ class ListeningHistoryRepository:
                 )
             else:
                 cursor = conn.execute(
-                    """
-                    SELECT * FROM user_listening_history
+                    f"""
+                    SELECT {cols} FROM user_listening_history
                     WHERE user_id = ?
                     ORDER BY started_at DESC
                     LIMIT ? OFFSET ?
@@ -682,10 +693,11 @@ class ListeningHistoryRepository:
         self, user_id: int, audiobook_id: str
     ) -> Optional[UserListeningHistory]:
         """Get the current open (not yet ended) listening session, if any."""
+        cols = UserListeningHistory._COLUMNS
         with self.db.connection() as conn:
             cursor = conn.execute(
-                """
-                SELECT * FROM user_listening_history
+                f"""
+                SELECT {cols} FROM user_listening_history
                 WHERE user_id = ? AND audiobook_id = ? AND ended_at IS NULL
                 ORDER BY started_at DESC
                 LIMIT 1
@@ -704,21 +716,25 @@ class UserDownload:
     Downloads are immutable records — once recorded, they are not updated.
     """
 
+    _COLUMNS = "id, user_id, audiobook_id, title, downloaded_at, file_format"
+
     id: Optional[int] = None
     user_id: int = 0
     audiobook_id: str = ""
+    title: Optional[str] = None
     downloaded_at: Optional[datetime] = None
     file_format: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: tuple) -> "UserDownload":
-        """Create UserDownload from database row."""
+        """Create UserDownload from database row (matches _COLUMNS order)."""
         return cls(
             id=row[0],
             user_id=row[1],
             audiobook_id=row[2],
-            downloaded_at=datetime.fromisoformat(row[3]) if row[3] else None,
-            file_format=row[4],
+            title=row[3],
+            downloaded_at=datetime.fromisoformat(row[4]) if row[4] else None,
+            file_format=row[5],
         )
 
     def save(self, db: AuthDatabase) -> "UserDownload":
@@ -729,12 +745,13 @@ class UserDownload:
             cursor = conn.execute(
                 """
                 INSERT INTO user_downloads
-                    (user_id, audiobook_id, downloaded_at, file_format)
-                VALUES (?, ?, ?, ?)
+                    (user_id, audiobook_id, title, downloaded_at, file_format)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     self.user_id,
                     self.audiobook_id,
+                    self.title,
                     self.downloaded_at.isoformat(),
                     self.file_format,
                 ),
@@ -753,10 +770,11 @@ class DownloadRepository:
         self, user_id: int, limit: int = 50, offset: int = 0
     ) -> List[UserDownload]:
         """Get download history for a user, ordered by most recent first."""
+        cols = UserDownload._COLUMNS
         with self.db.connection() as conn:
             cursor = conn.execute(
-                """
-                SELECT * FROM user_downloads
+                f"""
+                SELECT {cols} FROM user_downloads
                 WHERE user_id = ?
                 ORDER BY downloaded_at DESC
                 LIMIT ? OFFSET ?
