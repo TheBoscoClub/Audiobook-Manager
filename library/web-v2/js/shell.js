@@ -1,0 +1,459 @@
+// Shell Player — persistent audio player for the shell+iframe architecture.
+// Combines AudioPlayer (UI/controls) and PlaybackManager (position persistence).
+// Communicates with iframe content pages via postMessage.
+
+const API_BASE = '/api';
+
+class ShellPlayer {
+    constructor() {
+        this.audio = document.getElementById('audio-element');
+        this.playerBar = document.getElementById('shell-player');
+        this.iframe = document.getElementById('content-frame');
+        this.currentBook = null;
+        this.playbackRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
+        this.currentRateIndex = 2; // 1.0x
+        this.saveTimeout = null;
+        this._lastMediaSessionSecond = -1;
+
+        // Position persistence
+        this.storagePrefix = 'audiobook_';
+        this.apiSaveTimeout = null;
+        this.apiSaveDelay = 15000; // API save every 15s
+
+        // Set CORS mode for cross-origin streaming
+        this.audio.crossOrigin = 'anonymous';
+
+        this.setupControls();
+        this.setupAudioEvents();
+        this.setupMediaSession();
+        this.setupMessageListener();
+    }
+
+    // ═══════════════════════════════════════════
+    // CONTROLS
+    // ═══════════════════════════════════════════
+
+    setupControls() {
+        document.getElementById('sp-play-pause').addEventListener('click', () => this.togglePlayPause());
+        document.getElementById('sp-rewind').addEventListener('click', () => {
+            this.audio.currentTime = Math.max(0, this.audio.currentTime - 30);
+        });
+        document.getElementById('sp-forward').addEventListener('click', () => {
+            this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + 30);
+        });
+        document.getElementById('sp-speed').addEventListener('click', () => this.cycleSpeed());
+        document.getElementById('sp-volume').addEventListener('input', (e) => {
+            this.audio.volume = e.target.value / 100;
+        });
+        document.getElementById('sp-progress').addEventListener('input', (e) => {
+            if (this.audio.duration) {
+                this.audio.currentTime = (e.target.value / 1000) * this.audio.duration;
+            }
+        });
+        document.getElementById('sp-close').addEventListener('click', () => this.close());
+    }
+
+    // ═══════════════════════════════════════════
+    // AUDIO EVENTS
+    // ═══════════════════════════════════════════
+
+    setupAudioEvents() {
+        this.audio.addEventListener('error', () => {
+            const error = this.audio.error;
+            let message = 'Unknown error';
+            if (error) {
+                switch (error.code) {
+                    case 1: message = 'MEDIA_ERR_ABORTED'; break;
+                    case 2: message = 'MEDIA_ERR_NETWORK'; break;
+                    case 3: message = 'MEDIA_ERR_DECODE'; break;
+                    case 4: message = 'MEDIA_ERR_SRC_NOT_SUPPORTED'; break;
+                }
+            }
+            console.error('Audio error:', message, error);
+        });
+
+        this.audio.addEventListener('timeupdate', () => this.onTimeUpdate());
+        this.audio.addEventListener('loadedmetadata', () => this.onMetadataLoaded());
+
+        this.audio.addEventListener('ended', () => {
+            this.setPlayPauseIcon(false);
+            if (this.currentBook) this.clearPosition(this.currentBook.id);
+        });
+
+        this.audio.addEventListener('play', () => {
+            this.setPlayPauseIcon(true);
+        });
+
+        this.audio.addEventListener('pause', () => {
+            this.setPlayPauseIcon(false);
+        });
+    }
+
+    setPlayPauseIcon(isPlaying) {
+        // Use textContent with Unicode characters (safe, no innerHTML needed)
+        const btn = document.getElementById('sp-play-pause');
+        btn.textContent = isPlaying ? '\u23F8' : '\u25B6';
+    }
+
+    onTimeUpdate() {
+        if (!this.audio.duration) return;
+
+        // Update progress bar (range 0-1000 for smooth scrubbing)
+        const progress = (this.audio.currentTime / this.audio.duration) * 1000;
+        document.getElementById('sp-progress').value = progress;
+
+        // Update time display
+        document.getElementById('sp-current-time').textContent = this.formatTime(this.audio.currentTime);
+
+        // Media Session position (throttled to whole seconds)
+        if (Math.floor(this.audio.currentTime) !== this._lastMediaSessionSecond) {
+            this._lastMediaSessionSecond = Math.floor(this.audio.currentTime);
+            this.updateMediaPositionState();
+        }
+
+        // Auto-save position (debounced 5s)
+        if (this.currentBook && this.audio.currentTime > 0) {
+            if (this.saveTimeout) clearTimeout(this.saveTimeout);
+            this.saveTimeout = setTimeout(() => {
+                this.savePosition(this.currentBook.id, this.audio.currentTime, this.audio.duration);
+            }, 5000);
+        }
+
+        // Send state to iframe
+        this.sendPlayerState();
+    }
+
+    onMetadataLoaded() {
+        document.getElementById('sp-total-time').textContent = this.formatTime(this.audio.duration);
+    }
+
+    // ═══════════════════════════════════════════
+    // PLAYBACK
+    // ═══════════════════════════════════════════
+
+    async playBook(book) {
+        this.currentBook = book;
+
+        // Update player bar UI
+        document.getElementById('sp-title').textContent = book.title || 'Unknown Title';
+        document.getElementById('sp-author').textContent = book.author || 'Unknown Author';
+
+        const cover = document.getElementById('sp-cover');
+        if (book.coverUrl) {
+            cover.src = book.coverUrl;
+            cover.alt = book.title;
+        } else {
+            cover.src = '';
+            cover.alt = '';
+        }
+
+        // Load audio — WebM fallback for Safari
+        const needsWebm = !this.audio.canPlayType('audio/ogg; codecs=opus');
+        this.audio.src = `${API_BASE}/stream/${book.bookId}${needsWebm ? '?format=webm' : ''}`;
+
+        // Load saved speed
+        const savedSpeed = this.getSpeed();
+        const speedIdx = this.playbackRates.indexOf(savedSpeed);
+        if (speedIdx !== -1) this.currentRateIndex = speedIdx;
+        this.audio.playbackRate = this.playbackRates[this.currentRateIndex];
+        document.getElementById('sp-speed-display').textContent = this.playbackRates[this.currentRateIndex] + 'x';
+
+        // Show player bar
+        this.playerBar.hidden = false;
+        document.body.classList.add('player-active');
+
+        // Resume position (furthest ahead wins)
+        const savedPosition = await this.getBestPosition(book.bookId);
+        if (savedPosition && savedPosition.position > 30) {
+            const seekHandler = () => {
+                this.audio.currentTime = savedPosition.position;
+                console.log(`Resumed at ${savedPosition.position}s from ${savedPosition.source || 'local'}`);
+            };
+            if (this.audio.readyState >= 1) {
+                seekHandler();
+            } else {
+                this.audio.addEventListener('loadedmetadata', seekHandler, { once: true });
+            }
+        }
+
+        // Media Session metadata
+        this.updateMediaMetadata();
+
+        // Play
+        try {
+            await this.audio.play();
+        } catch (error) {
+            console.error('Failed to play audio:', error);
+        }
+    }
+
+    togglePlayPause() {
+        if (this.audio.paused) {
+            this.audio.play();
+        } else {
+            this.audio.pause();
+        }
+    }
+
+    cycleSpeed() {
+        this.currentRateIndex = (this.currentRateIndex + 1) % this.playbackRates.length;
+        const rate = this.playbackRates[this.currentRateIndex];
+        this.audio.playbackRate = rate;
+        document.getElementById('sp-speed-display').textContent = rate + 'x';
+        this.saveSpeed(rate);
+    }
+
+    close() {
+        // Save position before closing
+        if (this.currentBook && this.audio.currentTime > 0 && this.audio.duration) {
+            this.savePosition(this.currentBook.id, this.audio.currentTime, this.audio.duration);
+            this.flushToAPI(this.currentBook.id, this.audio.currentTime);
+        }
+
+        this.audio.pause();
+        this.audio.src = '';
+        this.playerBar.hidden = true;
+        document.body.classList.remove('player-active');
+        this.currentBook = null;
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = null;
+        }
+
+        // Notify iframe
+        this.sendToIframe({ type: 'playerClosed' });
+    }
+
+    // ═══════════════════════════════════════════
+    // POSITION PERSISTENCE (from PlaybackManager)
+    // ═══════════════════════════════════════════
+
+    savePosition(fileId, position, duration) {
+        const data = { position, duration, timestamp: Date.now() };
+        localStorage.setItem(`${this.storagePrefix}position_${fileId}`, JSON.stringify(data));
+        this.queueAPISave(fileId, position);
+    }
+
+    queueAPISave(fileId, positionSeconds) {
+        if (this.apiSaveTimeout) clearTimeout(this.apiSaveTimeout);
+        this.apiSaveTimeout = setTimeout(() => {
+            this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
+        }, this.apiSaveDelay);
+    }
+
+    async savePositionToAPI(fileId, positionMs) {
+        try {
+            const response = await fetch(`${API_BASE}/position/${fileId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ position_ms: positionMs }),
+                credentials: 'include'
+            });
+            if (!response.ok) console.warn(`Failed to save position: ${response.status}`);
+        } catch (error) {
+            console.warn('Error saving position to API:', error);
+        }
+    }
+
+    async getPositionFromAPI(fileId) {
+        try {
+            const response = await fetch(`${API_BASE}/position/${fileId}`, {
+                credentials: 'include'
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.local_position_ms > 0) {
+                    return {
+                        position: data.local_position_ms / 1000,
+                        duration: data.duration_ms ? data.duration_ms / 1000 : 0,
+                        timestamp: data.local_position_updated ? new Date(data.local_position_updated).getTime() : 0,
+                        source: 'api'
+                    };
+                }
+            }
+        } catch (error) {
+            console.warn('Error fetching position from API:', error);
+        }
+        return null;
+    }
+
+    async getBestPosition(fileId) {
+        const localPos = this.getPosition(fileId);
+        const apiPos = await this.getPositionFromAPI(fileId);
+
+        if (!localPos && !apiPos) return null;
+        if (!localPos) return apiPos;
+        if (!apiPos) return localPos;
+
+        // Furthest ahead wins
+        if (apiPos.position > localPos.position) {
+            console.log(`Using API position (${apiPos.position}s) over local (${localPos.position}s)`);
+            return apiPos;
+        }
+        console.log(`Using local position (${localPos.position}s) over API (${apiPos.position}s)`);
+        return localPos;
+    }
+
+    async flushToAPI(fileId, positionSeconds) {
+        if (this.apiSaveTimeout) {
+            clearTimeout(this.apiSaveTimeout);
+            this.apiSaveTimeout = null;
+        }
+        await this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
+    }
+
+    getPosition(fileId) {
+        const data = localStorage.getItem(`${this.storagePrefix}position_${fileId}`);
+        if (!data) return null;
+        try {
+            const parsed = JSON.parse(data);
+            const pct = (parsed.position / parsed.duration) * 100;
+            if (pct > 95 || parsed.position < 30) return null;
+            return parsed;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    clearPosition(fileId) {
+        localStorage.removeItem(`${this.storagePrefix}position_${fileId}`);
+        this.savePositionToAPI(fileId, 0);
+    }
+
+    saveSpeed(speed) {
+        localStorage.setItem(`${this.storagePrefix}speed`, speed.toString());
+    }
+
+    getSpeed() {
+        const speed = localStorage.getItem(`${this.storagePrefix}speed`);
+        return speed ? parseFloat(speed) : 1.0;
+    }
+
+    // ═══════════════════════════════════════════
+    // MEDIA SESSION API
+    // ═══════════════════════════════════════════
+
+    setupMediaSession() {
+        if (!('mediaSession' in navigator)) return;
+
+        navigator.mediaSession.setActionHandler('play', () => this.audio.play());
+        navigator.mediaSession.setActionHandler('pause', () => this.audio.pause());
+        navigator.mediaSession.setActionHandler('seekbackward', (d) => {
+            this.audio.currentTime = Math.max(0, this.audio.currentTime - (d.seekOffset || 30));
+            this.updateMediaPositionState();
+        });
+        navigator.mediaSession.setActionHandler('seekforward', (d) => {
+            this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (d.seekOffset || 30));
+            this.updateMediaPositionState();
+        });
+        navigator.mediaSession.setActionHandler('seekto', (d) => {
+            if (d.seekTime !== undefined && this.audio.duration) {
+                this.audio.currentTime = Math.min(d.seekTime, this.audio.duration);
+                this.updateMediaPositionState();
+            }
+        });
+        navigator.mediaSession.setActionHandler('stop', () => this.close());
+    }
+
+    updateMediaMetadata() {
+        if (!('mediaSession' in navigator) || !this.currentBook) return;
+        const book = this.currentBook;
+        const artwork = [];
+        if (book.coverUrl) {
+            const sizes = ['96x96', '128x128', '192x192', '256x256', '384x384', '512x512'];
+            sizes.forEach(s => artwork.push({ src: book.coverUrl, sizes: s, type: 'image/jpeg' }));
+        }
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: book.title || 'Unknown Title',
+            artist: book.author || 'Unknown Author',
+            album: book.narrator ? `Narrated by ${book.narrator}` : (book.series || ''),
+            artwork
+        });
+    }
+
+    updateMediaPositionState() {
+        if (!('mediaSession' in navigator) || !this.audio.duration) return;
+        try {
+            navigator.mediaSession.setPositionState({
+                duration: this.audio.duration,
+                playbackRate: this.audio.playbackRate,
+                position: this.audio.currentTime
+            });
+        } catch (e) {
+            console.debug('Could not update position state:', e.message);
+        }
+    }
+
+    // ═══════════════════════════════════════════
+    // postMessage BRIDGE
+    // ═══════════════════════════════════════════
+
+    setupMessageListener() {
+        window.addEventListener('message', (event) => {
+            // Validate origin — only accept same-origin messages
+            if (event.origin !== window.location.origin) return;
+
+            const msg = event.data;
+            if (!msg || !msg.type) return;
+
+            switch (msg.type) {
+                case 'play':
+                    this.playBook(msg);
+                    break;
+                case 'pause':
+                    this.audio.pause();
+                    break;
+                case 'resume':
+                    this.audio.play();
+                    break;
+                case 'seek':
+                    if (msg.positionSeconds !== undefined) {
+                        this.audio.currentTime = msg.positionSeconds;
+                    }
+                    break;
+                case 'getPlayerState':
+                    this.sendPlayerState();
+                    break;
+            }
+        });
+    }
+
+    sendPlayerState() {
+        this.sendToIframe({
+            type: 'playerState',
+            playing: !this.audio.paused,
+            bookId: this.currentBook?.bookId || null,
+            title: this.currentBook?.title || null,
+            author: this.currentBook?.author || null,
+            position: this.audio.currentTime,
+            duration: this.audio.duration || 0
+        });
+    }
+
+    sendToIframe(msg) {
+        if (this.iframe && this.iframe.contentWindow) {
+            this.iframe.contentWindow.postMessage(msg, window.location.origin);
+        }
+    }
+
+    // ═══════════════════════════════════════════
+    // UTILITIES
+    // ═══════════════════════════════════════════
+
+    formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) {
+            return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+}
+
+// Initialize when DOM is ready
+let shellPlayer;
+document.addEventListener('DOMContentLoaded', () => {
+    shellPlayer = new ShellPlayer();
+});
