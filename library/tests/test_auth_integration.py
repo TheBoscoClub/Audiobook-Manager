@@ -46,13 +46,13 @@ API_BASE = f"http://{VM_HOST}:{VM_API_PORT}"
 # testadmin TOTP secret (reset via audiobook-user totp-reset on VM)
 ADMIN_USERNAME = "testadmin"
 ADMIN_TOTP_SECRET = os.environ.get(
-    "ADMIN_TOTP_SECRET", "W2GGPH7KH2WL2PN22SGW62WQMJOABGZS"
+    "ADMIN_TOTP_SECRET", "5DJSOED2NSA22QGXIF6VHTUV6VQHIQH4"
 )
 
 # WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config
-# Use port 8443 for VM tests (production), 9090 for local dev
+# Use port 8090 for VM tests (test-audiobook-cachyos), 9090 for local dev
 _default_origin = (
-    "https://localhost:8443" if os.environ.get("VM_TESTS") else "https://localhost:9090"
+    "https://localhost:8090" if os.environ.get("VM_TESTS") else "https://localhost:9090"
 )
 WEBAUTHN_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", _default_origin)
 
@@ -164,7 +164,7 @@ with db.connection() as conn:
                 "-o",
                 "StrictHostKeyChecking=no",
                 f"{SSH_USER}@{VM_HOST}",
-                "sudo /opt/audiobooks/venv/bin/python3",
+                "sudo /opt/audiobooks/library/venv/bin/python3",
             ],
             input=script,
             capture_output=True,

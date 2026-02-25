@@ -1385,7 +1385,8 @@ EOF
             -subj "/CN=localhost/O=Audiobooks/C=US" \
             -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
             2>/dev/null
-        sudo chmod 600 "${CERT_DIR}/server.key"
+        sudo chown audiobooks:audiobooks "${CERT_DIR}/server.key" "${CERT_DIR}/server.crt"
+        sudo chmod 640 "${CERT_DIR}/server.key"
         sudo chmod 644 "${CERT_DIR}/server.crt"
     fi
 
