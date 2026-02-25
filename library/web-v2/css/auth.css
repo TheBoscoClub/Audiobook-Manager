@@ -274,6 +274,12 @@
     gap: 0.5rem;
 }
 
+/* Hidden attribute override — inline-flex above beats the UA stylesheet's
+   hidden { display: none }, so we need an explicit rule to restore it. */
+.button-loading[hidden] {
+    display: none;
+}
+
 .spinner {
     width: 16px;
     height: 16px;
