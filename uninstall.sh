@@ -234,7 +234,7 @@ confirm_uninstall() {
 
     echo ""
     while true; do
-        read -r "answer?Type 'yes' to proceed with uninstall: "
+        read -r -p "Type 'yes' to proceed with uninstall: " answer
         case "${answer,,}" in
             yes)
                 return 0
@@ -626,7 +626,7 @@ handle_data_directories() {
 _prompt_delete() {
     local prompt_text="$1"
     while true; do
-        read -r "answer?${prompt_text} [y/N]: "
+        read -r -p "${prompt_text} [y/N]: " answer
         case "${answer,,}" in
             y|yes) return 0 ;;
             n|no|"") return 1 ;;
@@ -938,7 +938,7 @@ if [[ -z "$INSTALL_MODE" ]]; then
         both)
             echo -e "${YELLOW}Both system and user installations detected.${NC}"
             while true; do
-                read -r "answer?Uninstall [s]ystem, [u]ser, or [b]oth? "
+                read -r -p "Uninstall [s]ystem, [u]ser, or [b]oth? " answer
                 case "${answer,,}" in
                     s|system)
                         INSTALL_MODE="system"

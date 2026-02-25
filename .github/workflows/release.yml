@@ -31,9 +31,6 @@ jobs:
           fi
           echo "Version $TAG_VERSION validated"
 
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
-
       - name: Build release tarball
         run: |
           chmod +x create-release.sh

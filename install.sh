@@ -168,7 +168,7 @@ prompt_architecture_choice() {
     echo ""
 
     while true; do
-        read -r "arch_choice?Choose architecture [1-2, default=1]: "
+        read -r -p "Choose architecture [1-2, default=1]: " arch_choice
         arch_choice="${arch_choice:-1}"
 
         case "$arch_choice" in
@@ -596,7 +596,7 @@ prompt_delete_data() {
     # Prompt for each category
     if [[ -n "$library_dir" ]] && [[ -d "$library_dir" ]]; then
         while true; do
-            read -r "answer?Delete converted audiobooks in $library_dir? [y/N]: "
+            read -r -p "Delete converted audiobooks in $library_dir? [y/N]: " answer
             case "${answer,,}" in
                 y|yes)
                     DELETE_LIBRARY=true
@@ -617,7 +617,7 @@ prompt_delete_data() {
 
     if [[ -n "$sources_dir" ]] && [[ -d "$sources_dir" ]]; then
         while true; do
-            read -r "answer?Delete source files (AAX/AAXC) in $sources_dir? [y/N]: "
+            read -r -p "Delete source files (AAX/AAXC) in $sources_dir? [y/N]: " answer
             case "${answer,,}" in
                 y|yes)
                     DELETE_SOURCES=true
@@ -638,7 +638,7 @@ prompt_delete_data() {
 
     if [[ -n "$supplements_dir" ]] && [[ -d "$supplements_dir" ]]; then
         while true; do
-            read -r "answer?Delete supplemental PDFs in $supplements_dir? [y/N]: "
+            read -r -p "Delete supplemental PDFs in $supplements_dir? [y/N]: " answer
             case "${answer,,}" in
                 y|yes)
                     DELETE_SUPPLEMENTS=true
@@ -659,7 +659,7 @@ prompt_delete_data() {
 
     if [[ -f "$config_file" ]]; then
         while true; do
-            read -r "answer?Delete configuration files? [y/N]: "
+            read -r -p "Delete configuration files? [y/N]: " answer
             case "${answer,,}" in
                 y|yes)
                     DELETE_CONFIG=true
@@ -694,7 +694,7 @@ prompt_delete_data() {
         echo ""
 
         while true; do
-            read -r "confirm?Are you sure you want to proceed? [y/N]: "
+            read -r -p "Are you sure you want to proceed? [y/N]: " confirm
             case "${confirm,,}" in
                 y|yes)
                     echo ""
@@ -956,7 +956,7 @@ prompt_alternate_port() {
 
     echo ""
     while true; do
-        read -r "new_port?Enter alternate port for ${port_name} [${default_alt}]: "
+        read -r -p "Enter alternate port for ${port_name} [${default_alt}]: " new_port
         new_port="${new_port:-$default_alt}"
 
         # Validate it's a number
@@ -1045,7 +1045,7 @@ check_all_ports() {
     echo ""
 
     while true; do
-        read -r "choice?Enter your choice [1-3]: "
+        read -r -p "Enter your choice [1-3]: " choice
         case "$choice" in
             1)
                 # Prompt for alternate ports for each conflict
@@ -1128,7 +1128,7 @@ do_system_install() {
         echo -e "${YELLOW}or configure AUDIOBOOKS_DATABASE in /etc/audiobooks/audiobooks.conf${NC}"
         echo -e "${YELLOW}to place the database on NVMe/SSD after installation.${NC}"
         echo ""
-        read -r "continue_choice?Continue with current storage configuration? [Y/n]: "
+        read -r -p "Continue with current storage configuration? [Y/n]: " continue_choice
         if [[ "${continue_choice,,}" == "n" ]]; then
             echo -e "${YELLOW}Installation cancelled. Adjust paths and try again.${NC}"
             return 1
@@ -1645,7 +1645,7 @@ do_user_install() {
         echo -e "${YELLOW}or configure AUDIOBOOKS_DATABASE in ~/.config/audiobooks/audiobooks.conf${NC}"
         echo -e "${YELLOW}to place the database on NVMe/SSD after installation.${NC}"
         echo ""
-        read -r "continue_choice?Continue with current storage configuration? [Y/n]: "
+        read -r -p "Continue with current storage configuration? [Y/n]: " continue_choice
         if [[ "${continue_choice,,}" == "n" ]]; then
             echo -e "${YELLOW}Installation cancelled. Adjust paths and try again.${NC}"
             return 1
@@ -2201,7 +2201,7 @@ while true; do
     print_header
     print_menu
 
-    read -r "choice?Enter your choice [1-3]: "
+    read -r -p "Enter your choice [1-3]: " choice
     echo ""
 
     case "$choice" in
@@ -2225,7 +2225,7 @@ while true; do
             # Prompt for data directory if not set
             if [[ -z "$DATA_DIR" ]]; then
                 echo ""
-                read -r "input_dir?Audiobook data directory [/srv/audiobooks]: "
+                read -r -p "Audiobook data directory [/srv/audiobooks]: " input_dir
                 DATA_DIR="${input_dir:-/srv/audiobooks}"
             fi
 
@@ -2249,7 +2249,7 @@ while true; do
             # Prompt for data directory if not set
             if [[ -z "$DATA_DIR" ]]; then
                 echo ""
-                read -r "input_dir?Audiobook data directory [$HOME/Audiobooks]: "
+                read -r -p "Audiobook data directory [$HOME/Audiobooks]: " input_dir
                 DATA_DIR="${input_dir:-$HOME/Audiobooks}"
             fi
 
