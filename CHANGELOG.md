@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.6.7] - 2026-02-25
+
+### Fixed
+
+- **Admin UI**: Resolved audiobook titles in admin activity log — denormalized title into auth DB at event time instead of relying on cross-DB ID lookups that break after library reimport
+
 ## [6.6.6.1] - 2026-02-25
 
 ### Fixed
