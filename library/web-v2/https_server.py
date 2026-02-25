@@ -37,6 +37,11 @@ class APIProxyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self._is_api_request():
             self._proxy_to_api()
+        elif self.path == "/":
+            # Redirect root to shell.html (persistent player entry point)
+            self.send_response(302)
+            self.send_header("Location", "/shell.html")
+            self.end_headers()
         else:
             super().do_GET()
 

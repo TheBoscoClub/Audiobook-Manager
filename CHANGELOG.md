@@ -13,6 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.0] - 2026-02-25
+
+### Added
+
+- **Persistent Player**: New shell+iframe architecture — audio playback persists across page navigation. `shell.html` wraps content in an iframe while keeping `<audio>` element and player controls in the parent frame
+- **Shell Player**: Full-featured player bar with play/pause, rewind/forward 30s, speed cycling (0.5-2.5x), volume, progress scrubbing, close button
+- **Media Session API**: Lockscreen/notification controls for audio playback
+- **postMessage Bridge**: Bidirectional communication between shell and iframe content pages for play/pause/seek/playerState
+- **iframe Link Safety**: Auth page links from content pages use `target="_top"` to navigate out of iframe; JS redirects use `window.top.location.href`
+
+### Changed
+
+- **Security Headers**: X-Frame-Options changed from `DENY` to `SAMEORIGIN`; CSP updated with `frame-ancestors 'self'` and `frame-src 'self'` to allow same-origin iframe embedding
+- **Login Flow**: Auth pages (login, claim, verify) now redirect to `shell.html` instead of `index.html`
+
+### Fixed
+
+- **My Library**: Added `credentials: 'include'` to `savePositionToAPI()` and `getPositionFromAPI()` — session cookies were not sent, server saw unauthenticated requests, and My Library appeared empty for all users
+- **Button Spinners**: Fixed `.button-loading` spinners visible before user interaction on login/claim pages — `display: inline-flex` was overriding HTML `hidden` attribute
+
+### Removed
+
+- **Audible Sync**: Removed dead frontend Audible sync code (~80 lines) — `syncWithAudible()`, timer management, and all call sites. Backend was already cleaned up
+- **AudioPlayer/PlaybackManager**: Removed from `library.js` (moved to `shell.js` as `ShellPlayer`); removed `<audio>` element and player overlay from `index.html`
+
 ## [6.6.7] - 2026-02-25
 
 ### Fixed

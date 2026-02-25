@@ -1,6 +1,5 @@
 """Verify login redirects to shell.html and navigation works within iframe."""
 
-import re
 from pathlib import Path
 
 WEB_DIR = Path(__file__).parent.parent / "web-v2"
