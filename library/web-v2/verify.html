@@ -34,7 +34,7 @@
                 Taking you to The Library now...
             </p>
             <p class="state-message" id="redirect-message" style="opacity: 0.7;">
-                (If nothing happens, <a href="index.html" style="color: var(--gold);">click here</a>.)
+                (If nothing happens, <a href="shell.html" style="color: var(--gold);">click here</a>.)
             </p>
         </div>
 
@@ -197,7 +197,7 @@
                     showState('success');
                     // Redirect to library after brief delay
                     setTimeout(() => {
-                        window.location.href = 'index.html';
+                        window.location.href = 'shell.html';
                     }, 1500);
                 } else {
                     document.getElementById('error-message').textContent =
