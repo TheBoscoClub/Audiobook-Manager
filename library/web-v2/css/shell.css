@@ -1,0 +1,165 @@
+/* Shell layout: iframe content + persistent player bar */
+
+:root {
+    --deep-burgundy: #1a0a0a;
+    --gold: #c9a84c;
+    --parchment: #f0e6d3;
+    --leather: #3a1c1c;
+    --dark-wood: #2a1515;
+    --player-height: 80px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--deep-burgundy);
+    font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+/* Content iframe — full viewport, shrinks when player visible */
+#content-frame {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    transition: height 0.3s ease;
+}
+
+body.player-active #content-frame {
+    height: calc(100% - var(--player-height));
+}
+
+/* Player bar — fixed at bottom, hidden by default via hidden attr */
+#shell-player {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: var(--player-height);
+    background: linear-gradient(to top, var(--deep-burgundy), var(--dark-wood));
+    border-top: 1px solid var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    color: var(--parchment);
+    z-index: 9999;
+}
+
+/* Respect hidden attribute (same pattern as auth.css .button-loading) */
+#shell-player[hidden] {
+    display: none;
+}
+
+/* Cover art thumbnail */
+.sp-cover {
+    width: 56px;
+    height: 56px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: var(--leather);
+}
+
+.player-cover-wrap { flex-shrink: 0; }
+
+/* Title / Author */
+.player-info-bar {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.sp-title {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: var(--gold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sp-author {
+    font-size: 0.8rem;
+    color: var(--parchment);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Controls */
+.player-controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.sp-btn {
+    background: none;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+}
+
+.sp-btn:hover { background: rgba(201, 168, 76, 0.15); }
+.sp-play { font-size: 1.2rem; padding: 4px 14px; }
+.sp-btn-sm { padding: 2px 8px; font-size: 0.75rem; }
+.sp-close { border-color: #888; color: #888; }
+.sp-close:hover { border-color: #f44; color: #f44; }
+
+/* Progress */
+.player-progress-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--parchment);
+    opacity: 0.9;
+}
+
+.sp-progress {
+    width: 120px;
+    accent-color: var(--gold);
+}
+
+/* Volume and speed */
+.player-extras-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--parchment);
+}
+
+.sp-volume {
+    width: 70px;
+    accent-color: var(--gold);
+}
+
+#sp-speed-display { min-width: 2em; text-align: center; }
+
+/* Mobile: stack vertically */
+@media (max-width: 768px) {
+    :root { --player-height: 120px; }
+
+    #shell-player {
+        flex-wrap: wrap;
+        padding: 8px 12px;
+        gap: 6px;
+    }
+
+    .player-info-bar { flex-basis: calc(100% - 70px); }
+    .player-progress-bar { flex-basis: 100%; order: 10; }
+    .sp-progress { flex: 1; }
+}
