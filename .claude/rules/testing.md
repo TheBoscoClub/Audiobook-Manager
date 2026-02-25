@@ -27,20 +27,29 @@
 
 | Snapshot | Description | Revert To |
 |----------|-------------|-----------|
-| `pristine-os-deps-2026-02-22` | **Authoritative** pristine CachyOS (kernel 6.19.3-2), all app deps (Python 3.14.3, ffmpeg 8.0.1, sqlite3 3.51.2, openssl 3.6.1, sqlcipher), tmpfs /tmp=4G, NO audiobook-manager installed | Fresh install testing, pre-test-run reset |
+| `pristine-275g-2026-02-25` | **Authoritative** pristine CachyOS (kernel 6.19.3-2), 275GB disk (273GB btrfs, 255GB free), Python 3.14.3, ffmpeg 8.0.1, sqlite3 3.51.2, Docker 29.2.1, tmpfs /tmp=4G, NO audiobook-manager installed | Fresh install testing, pre-test-run reset |
 
-**This is the authoritative snapshot.** Before any test run that installs audiobook-manager, revert to this snapshot. After testing, revert again to restore pristine state.
+**This is the authoritative snapshot.** The VM should always be shut down and pristine between test runs. Phase C cleanup reverts to this snapshot and shuts down the VM. If a test startup finds the VM running (interrupted previous test), it force-reverts to pristine before proceeding.
 
-**Revert procedure** (external snapshots — DISCARD changes, restore pristine):
+### Post-Revert Database Initialization
+
+After every revert to pristine, the test VM has NO databases. Both the native app and Docker container databases must be initialized as part of the test setup:
+
+1. **Native app DB**: Created automatically by `install.sh --system` (initializes from `schema.sql`)
+2. **Docker container DB**: Must be initialized separately — either via `docker exec` to run scan/import, or by copying an existing DB into the Docker data volume
+
+The `/test` framework handles this automatically via Phase VM-lifecycle (detects pristine state, runs install, deploys, initializes databases).
+
+**Manual revert procedure** (external snapshots — DISCARD changes, restore pristine, leave shut down):
 ```bash
 sudo virsh destroy test-audiobook-cachyos   # stop VM if running
 # Delete snapshot metadata
-sudo virsh snapshot-delete test-audiobook-cachyos pristine-os-deps-2026-02-22 --metadata
+sudo virsh snapshot-delete test-audiobook-cachyos pristine-275g-2026-02-25 --metadata
 # IMPORTANT: Do NOT commit the overlay — that bakes changes into the base!
 # Just repoint VM directly to the base image (discarding overlay changes)
 sudo virt-xml test-audiobook-cachyos --edit target=vda --disk path=/hddRaid1/VirtualMachines/test-audiobook-cachyos.qcow2
 # Remove overlay file (discards all changes since snapshot)
-sudo rm /hddRaid1/VirtualMachines/test-audiobook-cachyos.pristine-os-deps-2026-02-22
+sudo rm /hddRaid1/VirtualMachines/test-audiobook-cachyos.pristine-275g-2026-02-25
 # Fix potential circular backingStore in XML (virt-xml sometimes leaves stale refs)
 sudo virsh dumpxml test-audiobook-cachyos > /tmp/vm-fix.xml
 python3 -c "
@@ -52,10 +61,10 @@ for disk in tree.getroot().iter('disk'):
 tree.write('/tmp/vm-fix.xml', xml_declaration=True)
 "
 sudo virsh define /tmp/vm-fix.xml
-sudo virsh start test-audiobook-cachyos
-# Re-create snapshot after done:
-sudo virsh snapshot-create-as test-audiobook-cachyos pristine-os-deps-2026-02-22 \
-  "Pristine CachyOS with all audiobook-manager dependencies. No app installed." --disk-only
+# Re-create pristine snapshot (VM stays shut down)
+sudo virsh snapshot-create-as test-audiobook-cachyos pristine-275g-2026-02-25 \
+  "Pristine CachyOS 275GB disk, all deps, Docker. No audiobook-manager installed." --disk-only
+# VM is now shut down + pristine — leave it this way for next /test run
 ```
 
 ### SPICE Display for UI Testing
