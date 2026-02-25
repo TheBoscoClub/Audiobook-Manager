@@ -45,7 +45,7 @@ def add_cors_headers(response: Response) -> Response:
 def add_security_headers(response: Response) -> Response:
     """Add security headers to all responses."""
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
@@ -54,7 +54,8 @@ def add_security_headers(response: Response) -> Response:
         "media-src 'self' blob:; "
         "connect-src 'self'; "
         "font-src 'self'; "
-        "frame-ancestors 'none'"
+        "frame-ancestors 'self'; "
+        "frame-src 'self'"
     )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
