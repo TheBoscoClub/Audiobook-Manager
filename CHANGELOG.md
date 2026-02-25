@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.0.1] - 2026-02-25
+
+### Added
+
+- **Docker ARM/v7 support**: Docker images now build for linux/amd64, linux/arm64, and linux/arm/v7 (covers Raspberry Pi and other 32-bit ARM devices)
+
+### Changed
+
+- **Production data isolation rules**: Clarified test/QA isolation boundary — no live mounts to production storage (copies are fine); added release leak prevention safeguards for licensed content
+
 ## [6.7.0] - 2026-02-25
 
 ### Added
