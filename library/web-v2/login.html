@@ -385,7 +385,7 @@
                     credentials: 'include'
                 });
                 if (response.ok) {
-                    window.location.href = 'index.html';
+                    window.location.href = 'shell.html';
                 }
             } catch (e) {
                 // Not logged in, stay on login page
@@ -518,7 +518,7 @@
                     const result = await WebAuthn.authenticate(username);
 
                     if (result.success) {
-                        window.location.href = 'index.html';
+                        window.location.href = 'shell.html';
                     } else {
                         showError(errorMessage, result.error || 'Authentication failed');
                     }
@@ -551,7 +551,7 @@
                         if (data.session_token && typeof SessionPersistence !== 'undefined') {
                             await SessionPersistence.store(data.session_token);
                         }
-                        window.location.href = 'index.html';
+                        window.location.href = 'shell.html';
                     } else {
                         showError(errorMessage, data.error || 'Login failed');
                     }
@@ -589,7 +589,7 @@
                     if (data.remaining_codes !== undefined && data.remaining_codes <= 2) {
                         alert(`Warning: You have ${data.remaining_codes} backup code(s) remaining. Consider generating new ones.`);
                     }
-                    window.location.href = 'index.html';
+                    window.location.href = 'shell.html';
                 } else {
                     showError(backupErrorMessage, data.error || 'Invalid backup code');
                 }
