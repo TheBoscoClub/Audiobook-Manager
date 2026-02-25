@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>The Library - Audiobook Collection</title>
+    <link rel="stylesheet" href="css/shell.css">
+</head>
+<body>
+    <!-- Content iframe: loads all authenticated pages -->
+    <iframe id="content-frame" src="index.html" title="Library content"></iframe>
+
+    <!-- Persistent player bar (hidden until a book is played) -->
+    <div id="shell-player" hidden>
+        <div class="player-cover-wrap">
+            <img id="sp-cover" src="" alt="" class="sp-cover">
+        </div>
+        <div class="player-info-bar">
+            <div class="sp-title" id="sp-title">-</div>
+            <div class="sp-author" id="sp-author">-</div>
+        </div>
+        <div class="player-controls-bar">
+            <button class="sp-btn" id="sp-rewind" title="Back 30 seconds">-30s</button>
+            <button class="sp-btn sp-play" id="sp-play-pause" title="Play / Pause">&#9654;</button>
+            <button class="sp-btn" id="sp-forward" title="Forward 30 seconds">+30s</button>
+        </div>
+        <div class="player-progress-bar">
+            <span id="sp-current-time">0:00</span>
+            <input type="range" id="sp-progress" class="sp-progress" min="0" max="1000" value="0">
+            <span id="sp-total-time">0:00</span>
+        </div>
+        <div class="player-extras-bar">
+            <input type="range" id="sp-volume" class="sp-volume" min="0" max="100" value="100" title="Volume">
+            <span id="sp-speed-display">1x</span>
+            <button class="sp-btn sp-btn-sm" id="sp-speed" title="Cycle playback speed">Speed</button>
+            <button class="sp-btn sp-btn-sm sp-close" id="sp-close" title="Close player">&times;</button>
+        </div>
+        <audio id="audio-element"></audio>
+    </div>
+
+    <script src="js/session-persistence.js"></script>
+    <script src="js/shell.js"></script>
+</body>
+</html>
