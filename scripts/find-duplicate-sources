@@ -82,7 +82,8 @@ done < <(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null)
 
 echo "=== Summary ==="
 echo "Total source files: $(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null | wc -l)"
-echo "Unique titles: ${#title_files[@]}"
+# Guard against empty associative array under set -u (bash treats empty declared assoc arrays as unbound)
+echo "Unique titles: $(set +u; echo "${#title_files[@]}")"
 echo "Duplicates found: ${#duplicates_to_remove[@]}"
 echo ""
 

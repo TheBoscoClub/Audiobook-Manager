@@ -614,7 +614,7 @@ verify_installation_permissions() {
         if [[ "$wrong_owner" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $wrong_owner files/dirs${NC}"
             sudo chown -R audiobooks:audiobooks "$target_dir"
-            ((issues_found++))
+            ((issues_found++)) || true
         else
             echo -e "${GREEN}OK${NC}"
         fi
@@ -630,7 +630,7 @@ verify_installation_permissions() {
         else
             find "$target_dir" -type d -perm 700 -exec chmod 755 {} \;
         fi
-        ((issues_found++))
+        ((issues_found++)) || true
     else
         echo -e "${GREEN}OK${NC}"
     fi
@@ -645,7 +645,7 @@ verify_installation_permissions() {
         else
             find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
         fi
-        ((issues_found++))
+        ((issues_found++)) || true
     else
         echo -e "${GREEN}OK${NC}"
     fi

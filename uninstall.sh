@@ -274,9 +274,10 @@ remove_systemd_units() {
         # In dry-run mode, try without sudo first (may have read access)
         # Filter out systemctl's ● marker for failed/inactive units
         # systemctl list-* doesn't need sudo (read-only), run without privilege escalation
-        units=($(systemctl list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}'))
+        mapfile -t units < <(systemctl list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
         # Also check unit files that might not be loaded
-        local unit_files=($(systemctl list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}'))
+        local unit_files
+        mapfile -t unit_files < <(systemctl list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
         units+=("${unit_files[@]}")
         # Deduplicate
         readarray -t units < <(printf '%s\n' "${units[@]}" | sort -u)
@@ -289,8 +290,9 @@ remove_systemd_units() {
             fi
         done
     else
-        units=($(systemctl --user list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}'))
-        local unit_files=($(systemctl --user list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}'))
+        mapfile -t units < <(systemctl --user list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        local unit_files
+        mapfile -t unit_files < <(systemctl --user list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
         units+=("${unit_files[@]}")
         for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
             local unit_name="${f##*/}"
