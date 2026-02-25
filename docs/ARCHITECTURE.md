@@ -1933,5 +1933,5 @@ systemctl status audiobook.target --no-pager
 
 ---
 
-*Document Version: 6.6.7*
+*Document Version: 6.7.0*
 *Last Updated: 2026-02-25*
