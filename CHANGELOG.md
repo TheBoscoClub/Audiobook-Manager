@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.1.1] - 2026-02-27
+
+### Changed
+
+- **Drop ARM/v7 platform support**: Removed `linux/arm/v7` from Docker multi-arch builds — `sqlcipher3` package's Conan build system does not support the armv7l architecture, causing CI build failures on v6.7.0.2 and v6.7.1
+- **Docker platforms**: Now builds for `linux/amd64` and `linux/arm64` only (x86-64 and 64-bit ARM including Apple Silicon, Raspberry Pi 3/4/5)
+
+### Fixed
+
+- **Docker CI build failure**: Resolved `sqlcipher3` arm/v7 build error that blocked Docker image publishing for v6.7.0.2 and v6.7.1
+
 ## [6.7.1] - 2026-02-27
 
 ### Fixed
