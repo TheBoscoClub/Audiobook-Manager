@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.1] - 2026-02-27
+
+### Fixed
+
+- **Cloudflare 524 timeout**: Resolved origin server timeout when navigating from audio player back to library — Waitress thread starvation caused by audio streaming holding worker threads during playback
+- **SQLite WAL mode**: Enabled Write-Ahead Logging on all API database connections so position sync writes no longer block library page reads
+- **SQLite performance**: Added `synchronous=NORMAL`, `cache_size=8MB`, and `busy_timeout=5s` pragmas across all API connection factories
+- **N+1 query elimination**: Replaced per-book query loop in `GET /api/audiobooks` (300 queries per page) with 6 batch queries using `WHERE IN` for genres, eras, topics, supplements, and edition detection
+- **Thread capacity**: Increased Waitress worker threads from 4 to 16 to handle concurrent audio streams alongside API requests
+
 ## [6.7.0.3] - 2026-02-27
 
 ### Fixed
