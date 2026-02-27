@@ -263,80 +263,103 @@ def init_audiobooks_routes(db_path, project_root, database_path):
 
         # Convert to list of dicts
         audiobooks = []
+        book_ids = []
         for row in rows:
             book = dict(row)
-
-            # Get genres, eras, topics
-            cursor.execute(
-                """
-                SELECT g.name FROM genres g
-                JOIN audiobook_genres ag ON g.id = ag.genre_id
-                WHERE ag.audiobook_id = ?
-            """,
-                (book["id"],),
-            )
-            book["genres"] = [r["name"] for r in cursor.fetchall()]
-
-            cursor.execute(
-                """
-                SELECT e.name FROM eras e
-                JOIN audiobook_eras ae ON e.id = ae.era_id
-                WHERE ae.audiobook_id = ?
-            """,
-                (book["id"],),
-            )
-            book["eras"] = [r["name"] for r in cursor.fetchall()]
-
-            cursor.execute(
-                """
-                SELECT t.name FROM topics t
-                JOIN audiobook_topics at ON t.id = at.topic_id
-                WHERE at.audiobook_id = ?
-            """,
-                (book["id"],),
-            )
-            book["topics"] = [r["name"] for r in cursor.fetchall()]
-
-            # Get supplement count for this audiobook
-            cursor.execute(
-                """
-                SELECT COUNT(*) as count FROM supplements
-                WHERE audiobook_id = ?
-            """,
-                (book["id"],),
-            )
-            result = cursor.fetchone()
-            book["supplement_count"] = result["count"] if result else 0
-
-            # Get edition count (only count if book has edition markers)
-            base_title = normalize_base_title(book["title"])
-
-            # Find books with same author
-            cursor.execute(
-                """
-                SELECT title
-                FROM audiobooks
-                WHERE author = ?
-            """,
-                (book["author"],),
-            )
-
-            related_books = cursor.fetchall()
-            matching_editions = []
-
-            for related in related_books:
-                related_base = normalize_base_title(related["title"])
-                if related_base == base_title:
-                    matching_editions.append(related["title"])
-
-            # Only set edition_count > 1 if there are multiple matches AND at least one has markers
-            has_markers = any(has_edition_marker(title) for title in matching_editions)
-            if len(matching_editions) > 1 and has_markers:
-                book["edition_count"] = len(matching_editions)
-            else:
-                book["edition_count"] = 1
-
             audiobooks.append(book)
+            book_ids.append(book["id"])
+
+        if book_ids:
+            placeholders = ",".join("?" * len(book_ids))
+
+            # Batch: genres for all books in one query
+            cursor.execute(
+                f"""
+                SELECT ag.audiobook_id, g.name FROM genres g
+                JOIN audiobook_genres ag ON g.id = ag.genre_id
+                WHERE ag.audiobook_id IN ({placeholders})
+                """,
+                book_ids,
+            )
+            genres_map: dict[int, list[str]] = {}
+            for r in cursor.fetchall():
+                genres_map.setdefault(r["audiobook_id"], []).append(r["name"])
+
+            # Batch: eras for all books in one query
+            cursor.execute(
+                f"""
+                SELECT ae.audiobook_id, e.name FROM eras e
+                JOIN audiobook_eras ae ON e.id = ae.era_id
+                WHERE ae.audiobook_id IN ({placeholders})
+                """,
+                book_ids,
+            )
+            eras_map: dict[int, list[str]] = {}
+            for r in cursor.fetchall():
+                eras_map.setdefault(r["audiobook_id"], []).append(r["name"])
+
+            # Batch: topics for all books in one query
+            cursor.execute(
+                f"""
+                SELECT at.audiobook_id, t.name FROM topics t
+                JOIN audiobook_topics at ON t.id = at.topic_id
+                WHERE at.audiobook_id IN ({placeholders})
+                """,
+                book_ids,
+            )
+            topics_map: dict[int, list[str]] = {}
+            for r in cursor.fetchall():
+                topics_map.setdefault(r["audiobook_id"], []).append(r["name"])
+
+            # Batch: supplement counts in one query
+            cursor.execute(
+                f"""
+                SELECT audiobook_id, COUNT(*) as count FROM supplements
+                WHERE audiobook_id IN ({placeholders})
+                GROUP BY audiobook_id
+                """,
+                book_ids,
+            )
+            supplements_map = {r["audiobook_id"]: r["count"] for r in cursor.fetchall()}
+
+            # Batch: edition detection — get all titles by the same authors
+            authors = list({book["author"] for book in audiobooks if book["author"]})
+            edition_titles_by_author: dict[str, list[str]] = {}
+            if authors:
+                author_placeholders = ",".join("?" * len(authors))
+                cursor.execute(
+                    f"""
+                    SELECT author, title FROM audiobooks
+                    WHERE author IN ({author_placeholders})
+                    """,
+                    authors,
+                )
+                for r in cursor.fetchall():
+                    edition_titles_by_author.setdefault(r["author"], []).append(
+                        r["title"]
+                    )
+
+            # Assign batch results to each book
+            for book in audiobooks:
+                bid = book["id"]
+                book["genres"] = genres_map.get(bid, [])
+                book["eras"] = eras_map.get(bid, [])
+                book["topics"] = topics_map.get(bid, [])
+                book["supplement_count"] = supplements_map.get(bid, 0)
+
+                # Edition count from pre-fetched author titles
+                base_title = normalize_base_title(book["title"])
+                related_titles = edition_titles_by_author.get(book["author"], [])
+                matching_editions = [
+                    t for t in related_titles if normalize_base_title(t) == base_title
+                ]
+                has_markers = any(
+                    has_edition_marker(title) for title in matching_editions
+                )
+                if len(matching_editions) > 1 and has_markers:
+                    book["edition_count"] = len(matching_editions)
+                else:
+                    book["edition_count"] = 1
 
         conn.close()
 
