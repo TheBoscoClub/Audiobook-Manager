@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.0.3] - 2026-02-27
+
+### Fixed
+
+- **Play button regression**: Resolved play button failures in shell+iframe architecture — buttons (play, pause, resume, download) stopped working between v6.6.6.1 and v6.7.0.2
+- **postMessage bridge**: Replaced cross-frame postMessage with direct `window.parent.shellPlayer` access (Cloudflare proxy chain blocked postMessage)
+- **Shell player scope**: Changed `let shellPlayer` to `var shellPlayer` so it's accessible as a `window` property from the iframe (root cause of two-click play bug)
+- **Book property normalization**: Normalized API property names (`id`/`cover_path` vs `bookId`/`coverUrl`) in shell player
+- **User gesture window**: Reordered `playBook()` to call `audio.play()` before async `getBestPosition()` to preserve browser autoplay gesture activation
+- **Button text scaling**: Added CSS container queries with `clamp()` font-size to prevent button text truncation on narrow cards
+- **Audio CORS**: Removed unnecessary `crossOrigin='anonymous'` attribute on audio element (same-origin streaming)
+- **Cache-busting**: Bumped query params to `?v=6.7.0.5` across shell.html and index.html to bypass Cloudflare edge cache
+
 ## [6.7.0.2] - 2026-02-26
 
 ### Added
