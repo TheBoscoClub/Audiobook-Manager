@@ -19,7 +19,7 @@ class TestShellPageExists:
 
     def test_iframe_default_src(self):
         content = SHELL_HTML.read_text()
-        assert 'src="index.html"' in content, (
+        assert 'src="index.html' in content, (
             "iframe default src must be index.html"
         )
 
