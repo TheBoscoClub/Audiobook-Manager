@@ -2,7 +2,7 @@
 # A fully self-contained, portable product for cross-platform deployment.
 # Includes all databases, dependencies, and runtime — no external services needed.
 # Supports: Linux, macOS, Windows (via Docker Desktop)
-# Platforms: linux/amd64, linux/arm64, linux/arm/v7
+# Platforms: linux/amd64, linux/arm64
 #
 # Build: docker build -t audiobooks .
 # Run:   docker-compose up -d
@@ -10,7 +10,7 @@
 FROM python:3.14-slim
 
 # Read version from VERSION file during build
-ARG APP_VERSION=6.7.1
+ARG APP_VERSION=6.7.1.1
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Standalone audiobook library — fully self-contained with all databases and dependencies"
