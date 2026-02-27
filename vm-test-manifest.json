@@ -121,5 +121,46 @@
     "user": "claude",
     "key": "~/.ssh/id_ed25519",
     "password": "REDACTED_VM_PASSWORD"
+  },
+
+  "qa_vm": {
+    "enabled": true,
+    "vm_name": "qa-audiobooks-cachyos",
+    "static_ip": "192.168.122.63",
+    "snapshot": "return-to-base-2026-02-23",
+    "ports": {
+      "native_api": 5001,
+      "native_web": 8090,
+      "docker_web_https": 8443,
+      "docker_web_http": 8080
+    },
+    "docker": {
+      "container_name": "audiobooks-docker",
+      "image_prefix": "audiobook-manager",
+      "daemon_preset": "disabled",
+      "db_path": "/var/lib/audiobooks/docker-data/audiobooks.db",
+      "library_mount": "/srv/audiobooks/Library:/audiobooks:ro",
+      "supplements_mount": "/srv/audiobooks/Supplements:/supplements:ro",
+      "data_volume": "/var/lib/audiobooks/docker-data:/app/data"
+    },
+    "native": {
+      "app_path": "/opt/audiobooks",
+      "db_path": "/var/lib/audiobooks/db/audiobooks.db",
+      "version_file": "/opt/audiobooks/VERSION",
+      "service_target": "audiobook.target"
+    },
+    "production_db": {
+      "source_path": "/var/lib/audiobooks/db/audiobooks.db",
+      "schema_version_query": "SELECT MAX(version) FROM schema_version",
+      "integrity_check": "PRAGMA integrity_check"
+    },
+    "expected": {
+      "library_count_approx": 801,
+      "author_count_approx": 492
+    },
+    "upgrade": {
+      "native_command": "./upgrade.sh --from-project . --remote 192.168.122.63 --yes",
+      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
+    }
   }
 }
