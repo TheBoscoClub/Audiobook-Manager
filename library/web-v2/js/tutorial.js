@@ -59,6 +59,12 @@ class LibraryTutorial {
                 optional: true,
             },
             {
+                target: '.btn-download',
+                title: 'Download for Offline',
+                description: 'The Library streams from its own server storage and cannot access files on your device. Use the Download button to save a book for offline listening in a local player like VLC or Smart AudioBook Player. See the Help page for app recommendations.',
+                optional: true,
+            },
+            {
                 target: '#audio-player',
                 title: 'Audio Player',
                 description: 'The player appears here when you play a book. Use play/pause, the progress bar, skip buttons, speed control, and volume.',

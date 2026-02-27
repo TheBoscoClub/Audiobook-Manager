@@ -1442,7 +1442,7 @@ class AudiobookLibraryV2 {
                     <button class="btn-resume" ${!hasContinue ? 'disabled' : ''} onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, '&quot;')}, true)" title="${hasContinue ? 'Resume from ' + formatPlaybackTime(savedPosition.position) : 'No saved position'}">
                         ${hasContinue ? '⏯ Resume' : '⏯ Resume'}
                     </button>
-                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download for offline listening (requires .opus compatible player)">
+                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download this audiobook for offline listening in a local player. The Library streams from its own server storage and cannot access files on your device.">
                         ⬇ Download
                     </button>
                 </div>
@@ -1910,7 +1910,7 @@ class AudiobookLibraryV2 {
         const downloadBtn = document.createElement('button');
         downloadBtn.className = 'btn-download download-button';
         downloadBtn.style.display = 'none';
-        downloadBtn.title = 'Download for offline listening (requires .opus compatible player)';
+        downloadBtn.title = 'Download this audiobook for offline listening in a local player. The Library streams from its own server storage and cannot access files on your device.';
         downloadBtn.textContent = '\u2B07 Download';
         downloadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
