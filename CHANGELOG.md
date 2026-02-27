@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.0.2] - 2026-02-26
+
+### Added
+
+- **Streaming-only note**: Help page Audio Player section now explains that The Library streams from server storage and cannot access user-side files, with link to Downloads section
+- **Offline player recommendations**: Help page Downloads section recommends audiobook players per platform (VLC, foobar2000, IINA, Celluloid, BookMobile, Smart AudioBook Player) for Windows, Mac, Linux, iOS, and Android
+- **Download tutorial step**: Interactive tutorial now includes an optional step for the Download button explaining the streaming-only design
+
+### Changed
+
+- **Download button tooltip**: Updated to explain streaming-only design and recommend local players for offline listening
+
 ## [6.7.0.1] - 2026-02-25
 
 ### Added
