@@ -239,7 +239,7 @@ def run_server(
             print("Running in production mode (waitress)")
             print(f"Listening on: http://{bind_address}:{port}")
             print()
-            serve(flask_app, host=bind_address, port=port, threads=4)
+            serve(flask_app, host=bind_address, port=port, threads=16)
         except ImportError:
             print("Error: waitress not installed. Install with: pip install waitress")
             print("Falling back to Flask development server...")

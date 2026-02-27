@@ -19,9 +19,17 @@ CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
 
 
 def get_db(db_path: Path) -> sqlite3.Connection:
-    """Get database connection with Row factory."""
+    """Get database connection with Row factory and WAL mode.
+
+    WAL (Write-Ahead Logging) allows concurrent readers and writers —
+    position sync writes no longer block library page reads.
+    """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA cache_size=-8000")  # 8MB cache (negative = KiB)
+    conn.execute("PRAGMA busy_timeout=5000")  # Wait 5s on lock instead of failing
     return conn
 
 
