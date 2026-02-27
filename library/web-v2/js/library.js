@@ -2540,30 +2540,30 @@ const inIframe = window.self !== window.top;
  * @param {boolean} resume - If true, resume from saved position
  */
 function shellPlay(book, resume) {
-    if (inIframe) {
-        window.parent.postMessage({
-            type: 'play',
-            book: book,
-            resume: resume
-        }, window.location.origin);
+    if (inIframe && window.parent.shellPlayer) {
+        // Same-origin: call shell player directly (no postMessage needed)
+        window.parent.shellPlayer.playBook(book);
+    } else if (!inIframe) {
+        // Direct index.html access — redirect to shell
+        window.location.href = 'shell.html';
     }
 }
 
 function shellPause() {
-    if (inIframe) {
-        window.parent.postMessage({ type: 'pause' }, window.location.origin);
+    if (inIframe && window.parent.shellPlayer) {
+        window.parent.shellPlayer.audio.pause();
     }
 }
 
 function shellResume() {
-    if (inIframe) {
-        window.parent.postMessage({ type: 'resume' }, window.location.origin);
+    if (inIframe && window.parent.shellPlayer) {
+        window.parent.shellPlayer.audio.play();
     }
 }
 
 function shellSeek(seconds) {
-    if (inIframe) {
-        window.parent.postMessage({ type: 'seek', position: seconds }, window.location.origin);
+    if (inIframe && window.parent.shellPlayer) {
+        window.parent.shellPlayer.audio.currentTime = seconds;
     }
 }
 

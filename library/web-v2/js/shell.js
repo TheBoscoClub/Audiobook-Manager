@@ -20,8 +20,7 @@ class ShellPlayer {
         this.apiSaveTimeout = null;
         this.apiSaveDelay = 15000; // API save every 15s
 
-        // Set CORS mode for cross-origin streaming
-        this.audio.crossOrigin = 'anonymous';
+        // No crossOrigin needed — streaming is same-origin
 
         this.setupControls();
         this.setupAudioEvents();
@@ -132,15 +131,19 @@ class ShellPlayer {
     // ═══════════════════════════════════════════
 
     async playBook(book) {
-        this.currentBook = book;
+        // Normalize property names — API returns id/cover_path, not bookId/coverUrl
+        const bookId = book.bookId || book.id;
+        const coverUrl = book.coverUrl || (book.cover_path ? '/covers/' + book.cover_path : null);
+
+        this.currentBook = { ...book, bookId, coverUrl };
 
         // Update player bar UI
         document.getElementById('sp-title').textContent = book.title || 'Unknown Title';
         document.getElementById('sp-author').textContent = book.author || 'Unknown Author';
 
         const cover = document.getElementById('sp-cover');
-        if (book.coverUrl) {
-            cover.src = book.coverUrl;
+        if (coverUrl) {
+            cover.src = coverUrl;
             cover.alt = book.title;
         } else {
             cover.src = '';
@@ -149,7 +152,7 @@ class ShellPlayer {
 
         // Load audio — WebM fallback for Safari
         const needsWebm = !this.audio.canPlayType('audio/ogg; codecs=opus');
-        this.audio.src = `${API_BASE}/stream/${book.bookId}${needsWebm ? '?format=webm' : ''}`;
+        this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? '?format=webm' : ''}`;
 
         // Load saved speed
         const savedSpeed = this.getSpeed();
@@ -162,28 +165,28 @@ class ShellPlayer {
         this.playerBar.hidden = false;
         document.body.classList.add('player-active');
 
-        // Resume position (furthest ahead wins)
-        const savedPosition = await this.getBestPosition(book.bookId);
-        if (savedPosition && savedPosition.position > 30) {
-            const seekHandler = () => {
-                this.audio.currentTime = savedPosition.position;
-                console.log(`Resumed at ${savedPosition.position}s from ${savedPosition.source || 'local'}`);
-            };
-            if (this.audio.readyState >= 1) {
-                seekHandler();
-            } else {
-                this.audio.addEventListener('loadedmetadata', seekHandler, { once: true });
-            }
-        }
-
         // Media Session metadata
         this.updateMediaMetadata();
 
-        // Play
+        // Start playback IMMEDIATELY — must happen within user gesture window.
+        // Cross-frame calls (iframe → parent) lose gesture activation if async
+        // operations (like API fetch) run first.
         try {
             await this.audio.play();
         } catch (error) {
             console.error('Failed to play audio:', error);
+        }
+
+        // Resume position AFTER playback starts (seek during playback is fine)
+        const savedPosition = await this.getBestPosition(bookId);
+        if (savedPosition && savedPosition.position > 30) {
+            if (this.audio.readyState >= 1) {
+                this.audio.currentTime = savedPosition.position;
+            } else {
+                this.audio.addEventListener('loadedmetadata', () => {
+                    this.audio.currentTime = savedPosition.position;
+                }, { once: true });
+            }
         }
     }
 
@@ -398,7 +401,7 @@ class ShellPlayer {
 
             switch (msg.type) {
                 case 'play':
-                    this.playBook(msg);
+                    this.playBook(msg.book || msg);
                     break;
                 case 'pause':
                     this.audio.pause();
@@ -407,8 +410,8 @@ class ShellPlayer {
                     this.audio.play();
                     break;
                 case 'seek':
-                    if (msg.positionSeconds !== undefined) {
-                        this.audio.currentTime = msg.positionSeconds;
+                    if (msg.position !== undefined) {
+                        this.audio.currentTime = msg.position;
                     }
                     break;
                 case 'getPlayerState':
@@ -452,8 +455,10 @@ class ShellPlayer {
     }
 }
 
-// Initialize when DOM is ready
-let shellPlayer;
+// Initialize when DOM is ready.
+// MUST use var (not let/const) so shellPlayer is a window property,
+// accessible from the iframe via window.parent.shellPlayer.
+var shellPlayer;
 document.addEventListener('DOMContentLoaded', () => {
     shellPlayer = new ShellPlayer();
 });

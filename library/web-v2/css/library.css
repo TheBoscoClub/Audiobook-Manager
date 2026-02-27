@@ -140,22 +140,23 @@
    ============================================ */
 .book-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     padding: 8px;
     margin-top: 8px;
+    container-type: inline-size;
 }
 
 .btn-play,
 .btn-resume,
 .btn-download {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
-    padding: 8px 6px;
+    padding: 6px 4px;
     border: 2px solid var(--gold);
     background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
     color: var(--cream);
     font-family: var(--font-serif);
-    font-size: 0.9rem;
+    font-size: clamp(0.6rem, 3.8cqw, 0.9rem);
     cursor: pointer;
     transition: all 0.2s ease;
     font-weight: bold;
