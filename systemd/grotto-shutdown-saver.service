@@ -1,5 +1,5 @@
 [Unit]
-Description=Audiobook Staging Saver (save tmpfs before shutdown)
+Description=Vox Grotto Staging Saver (save tmpfs before shutdown)
 DefaultDependencies=no
 Before=shutdown.target reboot.target halt.target
 
@@ -16,7 +16,7 @@ StandardOutput=journal
 StandardError=journal
 
 # Save staging files before shutdown
-ExecStart=/usr/local/bin/audiobook-save-staging
+ExecStart=/usr/local/bin/grotto-save-staging
 
 # Run only at shutdown
 RemainAfterExit=yes

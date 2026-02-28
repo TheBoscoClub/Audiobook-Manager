@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Automated Audible Audiobook Downloader
+# Automated Audible Vox Grotto Downloader
 # =============================================================================
 # Checks for new audiobooks and downloads them with KDE notifications
 # Rate-limited to avoid API issues
@@ -8,14 +8,14 @@
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
-elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobook-config.sh"
-elif [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
-    source "/usr/local/lib/audiobooks/audiobook-config.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/grotto-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/grotto-config.sh"
+elif [[ -f "/opt/audiobooks/lib/grotto-config.sh" ]]; then
+    source "/opt/audiobooks/lib/grotto-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/grotto-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/grotto-config.sh"
 else
-    echo "ERROR: Cannot find audiobook-config.sh" >&2
+    echo "ERROR: Cannot find grotto-config.sh" >&2
     exit 1
 fi
 
@@ -80,7 +80,7 @@ check_tmpfs_space() {
 
     if [ "$USAGE" -ge "$TMPFS_MAX_USAGE" ]; then
         log "tmpfs usage at ${USAGE}% (threshold: ${TMPFS_MAX_USAGE}%) - pausing downloads..."
-        notify "Audiobook Downloader" "Paused - tmpfs at ${USAGE}%" "dialog-warning"
+        notify "Vox Grotto Downloader" "Paused - tmpfs at ${USAGE}%" "dialog-warning"
 
         while [ "$USAGE" -ge "$TMPFS_MAX_USAGE" ]; do
             sleep 30
@@ -88,7 +88,7 @@ check_tmpfs_space() {
         done
 
         log "tmpfs usage now at ${USAGE}% - resuming downloads"
-        notify "Audiobook Downloader" "Resumed - tmpfs at ${USAGE}%" "emblem-default"
+        notify "Vox Grotto Downloader" "Resumed - tmpfs at ${USAGE}%" "emblem-default"
         return 0
     fi
 
@@ -103,7 +103,7 @@ if ! flock -n 200; then
 fi
 
 log "=========================================="
-log "Audiobook Downloader Started"
+log "Vox Grotto Downloader Started"
 log "=========================================="
 
 # Get list of all ASINs in library with titles
@@ -113,7 +113,7 @@ log "Fetching library from Audible..."
 if [ ! -s "$TEMP_DIR/library.tsv" ]; then
     log "ERROR: Failed to fetch library"
     echo -e "${RED}ERROR: Failed to fetch library${NC}"
-    notify "Audiobook Downloader" "Failed to fetch library from Audible" "dialog-error"
+    notify "Vox Grotto Downloader" "Failed to fetch library from Audible" "dialog-error"
     exit 1
 fi
 
@@ -163,7 +163,7 @@ done < <(find "$LIBRARY_DIR" -name "*.m4b" -type f 2>/dev/null)
 
 if [ "$CORRUPTED_COUNT" -gt 0 ]; then
     log "Removed $CORRUPTED_COUNT corrupted files"
-    notify "Audiobook Downloader" "Removed $CORRUPTED_COUNT corrupted files" "emblem-important"
+    notify "Vox Grotto Downloader" "Removed $CORRUPTED_COUNT corrupted files" "emblem-important"
 fi
 
 # Get list of already downloaded ASINs
@@ -206,12 +206,12 @@ NEW_COUNT=$(wc -l <"$TEMP_DIR/new_asins.txt")
 
 if [ "$NEW_COUNT" -eq 0 ]; then
     log "No new audiobooks to download"
-    notify "Audiobook Downloader" "Library is up to date ($AUDIOBOOK_COUNT audiobooks)" "emblem-default"
+    notify "Vox Grotto Downloader" "Library is up to date ($AUDIOBOOK_COUNT audiobooks)" "emblem-default"
     exit 0
 fi
 
 log "Found $NEW_COUNT new audiobooks to download"
-notify "Audiobook Downloader" "Downloading $NEW_COUNT new audiobooks..." "emblem-downloads"
+notify "Vox Grotto Downloader" "Downloading $NEW_COUNT new audiobooks..." "emblem-downloads"
 
 # Download new audiobooks with progress
 CURRENT=0
@@ -291,9 +291,9 @@ log "Download complete: $SUCCESS succeeded, $FAILED failed"
 log "=========================================="
 
 if [ $FAILED -eq 0 ]; then
-    notify "Audiobook Downloader" "Downloaded $SUCCESS new audiobooks successfully!" "emblem-default"
+    notify "Vox Grotto Downloader" "Downloaded $SUCCESS new audiobooks successfully!" "emblem-default"
 else
-    notify "Audiobook Downloader" "Downloaded $SUCCESS audiobooks, $FAILED failed" "dialog-warning"
+    notify "Vox Grotto Downloader" "Downloaded $SUCCESS audiobooks, $FAILED failed" "dialog-warning"
 fi
 
 # Cleanup

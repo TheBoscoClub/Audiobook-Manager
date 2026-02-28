@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Staging Mover
+# Vox Grotto Staging Mover
 # =============================================================================
 # Background process to move completed audiobooks from tmpfs staging to final storage
 # Runs every 30 seconds to keep tmpfs from filling up
@@ -9,14 +9,14 @@
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
-elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobook-config.sh"
-elif [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
-    source "/usr/local/lib/audiobooks/audiobook-config.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/grotto-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/grotto-config.sh"
+elif [[ -f "/opt/audiobooks/lib/grotto-config.sh" ]]; then
+    source "/opt/audiobooks/lib/grotto-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/grotto-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/grotto-config.sh"
 else
-    echo "ERROR: Cannot find audiobook-config.sh" >&2
+    echo "ERROR: Cannot find grotto-config.sh" >&2
     exit 1
 fi
 
@@ -65,7 +65,7 @@ generate_library_checksum() {
 }
 
 log "=========================================="
-log "Audiobook Staging Mover Started"
+log "Vox Grotto Staging Mover Started"
 log "Staging: $STAGING_DIR (tmpfs)"
 log "Destination: $LIBRARY_DIR"
 log "=========================================="

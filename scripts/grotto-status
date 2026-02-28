@@ -1,18 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Conversion System Status
+# Vox Grotto Conversion System Status
 # =============================================================================
-# Shows the current state of all audiobook services and statistics
+# Shows the current state of all Vox Grotto services and statistics
 # =============================================================================
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
-elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobook-config.sh"
-elif [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
-    source "/usr/local/lib/audiobooks/audiobook-config.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/grotto-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/grotto-config.sh"
+elif [[ -f "/opt/audiobooks/lib/grotto-config.sh" ]]; then
+    source "/opt/audiobooks/lib/grotto-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/grotto-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/grotto-config.sh"
 fi
 
 # Configuration
@@ -27,7 +27,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}   AUDIOBOOK CONVERSION STATUS${NC}"
+echo -e "${CYAN}   VOX GROTTO CONVERSION STATUS${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 
@@ -35,7 +35,7 @@ echo ""
 echo "Services:"
 
 # Check long-running services
-for SERVICE in audiobook-converter audiobook-mover audiobook-api; do
+for SERVICE in grotto-converter grotto-mover grotto-api; do
     if systemctl is-active "$SERVICE.service" &>/dev/null; then
         STATUS=$(systemctl is-active "$SERVICE.service")
     else
@@ -62,7 +62,7 @@ echo ""
 echo "Timers:"
 
 # Check scheduled timers
-for TIMER in audiobook-downloader; do
+for TIMER in grotto-downloader; do
     if systemctl is-active "$TIMER.timer" &>/dev/null; then
         STATUS=$(systemctl is-active "$TIMER.timer")
     else

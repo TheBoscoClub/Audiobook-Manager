@@ -1,5 +1,5 @@
 [Unit]
-Description=Watch for Audiobooks Upgrade Requests
+Description=Watch for Vox Grotto Upgrade Requests
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 
 [Path]
@@ -8,7 +8,7 @@ Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 PathExists=/var/lib/audiobooks/.control/upgrade-request
 # Also trigger on modification (in case file already exists)
 PathModified=/var/lib/audiobooks/.control/upgrade-request
-Unit=audiobook-upgrade-helper.service
+Unit=grotto-upgrade-helper.service
 
 [Install]
 WantedBy=multi-user.target

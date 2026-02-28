@@ -1,6 +1,6 @@
 #!/bin/bash
-# Audiobook Library Scanner
+# Vox Grotto Library Scanner
 # Wrapper script — sources config and launches the metadata scanner
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
+source "${SCRIPT_DIR}/../lib/grotto-config.sh"
 exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"

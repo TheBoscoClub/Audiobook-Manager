@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Parallel Audiobook AAXC to Opus Converter
+# Parallel Vox Grotto AAXC to Opus Converter
 # NOTE: This script requires bash (not zsh) for `export -f` used by GNU Parallel
 # =============================================================================
 # Runs continuously, watching for new audiobooks to convert
@@ -10,14 +10,14 @@
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
-elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobook-config.sh"
-elif [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
-    source "/usr/local/lib/audiobooks/audiobook-config.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/grotto-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/grotto-config.sh"
+elif [[ -f "/opt/audiobooks/lib/grotto-config.sh" ]]; then
+    source "/opt/audiobooks/lib/grotto-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/grotto-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/grotto-config.sh"
 else
-    echo "ERROR: Cannot find audiobook-config.sh" >&2
+    echo "ERROR: Cannot find grotto-config.sh" >&2
     exit 1
 fi
 

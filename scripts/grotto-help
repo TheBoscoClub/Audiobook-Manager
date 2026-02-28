@@ -1,37 +1,37 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Conversion System - Quick Reference Guide
+# Vox Grotto Conversion System - Quick Reference Guide
 # =============================================================================
 
 # Source config to resolve path variables (optional — falls back to defaults)
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobook-config.sh" 2>/dev/null
-elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobook-config.sh" 2>/dev/null
+if [[ -f "${SCRIPT_DIR}/../lib/grotto-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/grotto-config.sh" 2>/dev/null
+elif [[ -f "/opt/audiobooks/lib/grotto-config.sh" ]]; then
+    source "/opt/audiobooks/lib/grotto-config.sh" 2>/dev/null
 fi
 
 cat <<EOF
 ╔════════════════════════════════════════════════════════════╗
-║         AUDIOBOOK CONVERSION SYSTEM - QUICK GUIDE          ║
+║         VOX GROTTO CONVERSION SYSTEM - QUICK GUIDE          ║
 ╚════════════════════════════════════════════════════════════╝
 
 📊 MONITORING & STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  audiobook-status              Full system status
-  monitor-audiobook-conversion  Live progress monitor (auto-refresh)
+  grotto-status              Full system status
+  monitor-grotto-conversion  Live progress monitor (auto-refresh)
 
 🎮 CONTROL COMMANDS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  audiobook-start               Start conversion manually
-  audiobook-stop                Stop conversion
-  audiobook-enable              Enable auto-start on boot
-  audiobook-disable             Disable auto-start
+  grotto-start               Start conversion manually
+  grotto-stop                Stop conversion
+  grotto-enable              Enable auto-start on boot
+  grotto-disable             Disable auto-start
 
 💾 DATA MANAGEMENT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  audiobook-save-staging        Save staged files before reboot
-  audiobooks-download           Download new audiobooks from Audible
+  grotto-save-staging        Save staged files before reboot
+  grotto-download           Download new audiobooks from Audible
 
 📁 DIRECTORIES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -41,10 +41,10 @@ cat <<EOF
 
 ⚙️ SERVICES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  audiobooks-converter    Converts AAXC to Opus (8 parallel jobs)
-  audiobooks-mover        Moves completed files to library
-  audiobooks-downloader   Downloads new audiobooks periodically
-  audiobooks-api          Web API for library browsing
+  grotto-converter    Converts AAXC to Opus (8 parallel jobs)
+  grotto-mover        Moves completed files to library
+  grotto-downloader   Downloads new audiobooks periodically
+  grotto-api          Web API for library browsing
 
 📖 MORE INFORMATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,10 +1,10 @@
 [Unit]
-Description=Audiobooks Library HTTPS Reverse Proxy
+Description=Vox Grotto HTTPS Reverse Proxy
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-After=network-online.target audiobook-api.service
-Wants=network-online.target audiobook-api.service
+After=network-online.target grotto-api.service
+Wants=network-online.target grotto-api.service
 # PartOf ensures proxy restarts when API restarts (Requires only stops it)
-PartOf=audiobook-api.service
+PartOf=grotto-api.service
 # Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
 RequiresMountsFor=/opt/audiobooks
 StartLimitIntervalSec=60
@@ -26,10 +26,10 @@ ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2
 
 Restart=on-failure
 RestartSec=3
-# Use journal logging (query with: journalctl -u audiobook-proxy)
+# Use journal logging (query with: journalctl -u grotto-proxy)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobook-proxy
+SyslogIdentifier=grotto-proxy
 
 # Security hardening
 NoNewPrivileges=yes
@@ -41,4 +41,4 @@ ProtectHome=yes
 PrivateTmp=yes
 
 [Install]
-WantedBy=audiobook.target multi-user.target
+WantedBy=grotto.target multi-user.target

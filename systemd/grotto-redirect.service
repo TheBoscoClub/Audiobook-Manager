@@ -1,8 +1,8 @@
 [Unit]
-Description=Audiobooks Library HTTP to HTTPS Redirect
+Description=Vox Grotto HTTP to HTTPS Redirect
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-After=network-online.target audiobook-proxy.service
-Wants=audiobook-proxy.service network-online.target
+After=network-online.target grotto-proxy.service
+Wants=grotto-proxy.service network-online.target
 # Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
 RequiresMountsFor=/opt/audiobooks
 # Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
@@ -25,10 +25,10 @@ ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2
 
 Restart=on-failure
 RestartSec=5
-# Use journal logging (query with: journalctl -u audiobook-redirect)
+# Use journal logging (query with: journalctl -u grotto-redirect)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobook-redirect
+SyslogIdentifier=grotto-redirect
 
 # Security hardening
 NoNewPrivileges=yes
@@ -40,4 +40,4 @@ ProtectHome=yes
 PrivateTmp=yes
 
 [Install]
-WantedBy=audiobook.target multi-user.target
+WantedBy=grotto.target multi-user.target

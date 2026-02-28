@@ -1,5 +1,5 @@
 [Unit]
-Description=Audiobooks Library API Server (Waitress)
+Description=Vox Grotto API Server (Waitress)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target
 Wants=network-online.target
@@ -30,10 +30,10 @@ ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
 RestartSec=5
-# Use journal logging for better log management (query with: journalctl -u audiobook-api)
+# Use journal logging for better log management (query with: journalctl -u grotto-api)
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=audiobook-api
+SyslogIdentifier=grotto-api
 
 # Security hardening
 NoNewPrivileges=yes
@@ -47,4 +47,4 @@ ProtectHome=yes
 PrivateTmp=no
 
 [Install]
-WantedBy=audiobook.target multi-user.target
+WantedBy=grotto.target multi-user.target

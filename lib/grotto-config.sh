@@ -1,10 +1,10 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Library - Shell Configuration Loader
+# Vox Grotto - Shell Configuration Loader
 # =============================================================================
 # Source this file in shell scripts to load configuration:
-#   source /usr/local/lib/audiobooks/audiobook-config.sh
-#   source "${AUDIOBOOKS_HOME}/lib/audiobook-config.sh"
+#   source /usr/local/lib/audiobooks/grotto-config.sh
+#   source "${AUDIOBOOKS_HOME}/lib/grotto-config.sh"
 #
 # Configuration priority (later overrides earlier):
 #   1. Built-in defaults
@@ -14,8 +14,8 @@
 # =============================================================================
 
 # Prevent multiple sourcing
-[[ -n "${_AUDIOBOOKS_CONFIG_LOADED:-}" ]] && return 0
-_AUDIOBOOKS_CONFIG_LOADED=1
+[[ -n "${_GROTTO_CONFIG_LOADED:-}" ]] && return 0
+_GROTTO_CONFIG_LOADED=1
 
 # -----------------------------------------------------------------------------
 # Helper: Load config file if it exists
@@ -161,8 +161,8 @@ export WEB_PORT="${AUDIOBOOKS_WEB_PORT:-}"
 # -----------------------------------------------------------------------------
 
 # Print current configuration
-audiobooks_print_config() {
-    echo "Audiobook Library Configuration"
+grotto_print_config() {
+    echo "Vox Grotto Configuration"
     echo "================================"
     echo "AUDIOBOOKS_HOME:        ${AUDIOBOOKS_HOME:-<not set>}"
     echo "AUDIOBOOKS_DATA:        ${AUDIOBOOKS_DATA}"
@@ -185,7 +185,7 @@ audiobooks_print_config() {
 }
 
 # Verify required directories exist
-audiobooks_check_dirs() {
+grotto_check_dirs() {
     local missing=0
     local dirs=(
         "$AUDIOBOOKS_LIBRARY"
@@ -204,7 +204,7 @@ audiobooks_check_dirs() {
 }
 
 # Get Python interpreter from venv
-audiobooks_python() {
+grotto_python() {
     if [[ -x "${AUDIOBOOKS_VENV}/bin/python" ]]; then
         echo "${AUDIOBOOKS_VENV}/bin/python"
     elif [[ -x "${AUDIOBOOKS_VENV}/bin/python3" ]]; then
@@ -218,6 +218,6 @@ audiobooks_python() {
 _sourced=false
 [[ "${BASH_SOURCE[0]:-}" != "$0" ]] && _sourced=true
 if [[ "$_sourced" == false ]]; then
-    audiobooks_print_config
+    grotto_print_config
 fi
 unset _sourced
