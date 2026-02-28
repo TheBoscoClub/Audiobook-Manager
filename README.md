@@ -465,19 +465,14 @@ grotto-config   # Show configuration
 
 ## Upgrading
 
-> ⚠️ **IMPORTANT: v3.5.x End of Life**
+> ⚠️ **IMPORTANT: v6.x and earlier End of Life**
 >
-> **v3.5.x has reached end-of-life** and is no longer supported. All users must upgrade to v3.7.0 or later.
+> **v6.x and earlier have reached end-of-life** and are no longer supported. All users must upgrade to v7.0.0 (Vox Grotto) or later.
 >
-> - **v3.5.x**: ⛔ **END OF LIFE** - No security patches or updates
-> - **v3.6.x**: Modular Flask Blueprint architecture required
-> - **v3.7.0+**: Current supported release
+> - **v6.x and earlier**: ⛔ **END OF LIFE** - No security patches or updates
+> - **v7.0.0+**: Current supported release (Vox Grotto)
 >
-> If upgrading from v3.5.x with the legacy monolithic API, migrate first:
->
-> ```bash
-> ./migrate-api.sh --to-modular --target /opt/audiobooks
-> ```
+> If upgrading from v6.x, service names will be automatically migrated from `audiobook-*` to `grotto-*` by the upgrade script.
 
 ### Docker
 
@@ -494,7 +489,7 @@ docker stop vox-grotto && docker rm vox-grotto
 docker run -d --name vox-grotto ... ghcr.io/theboscoclub/vox-grotto:latest
 
 # Check running version
-docker exec audiobooks cat /app/VERSION
+docker exec vox-grotto cat /app/VERSION
 ```
 
 Your data persists in mounted volumes (`/audiobooks`, `/app/data`).
@@ -508,7 +503,7 @@ Upgrade your installation directly from GitHub releases:
 grotto-upgrade
 
 # Upgrade to specific version
-grotto-upgrade --version 3.2.0
+grotto-upgrade --version 7.0.0
 
 # Check for updates without installing
 grotto-upgrade --check
@@ -1200,12 +1195,12 @@ The container automatically initializes the database on first run — just mount
 ```bash
 # Pull and run with a single command
 docker run -d \
-  --name audiobooks \
+  --name vox-grotto \
   -p 8443:8443 \
   -p 8080:8080 \
   -v /path/to/your/audiobooks:/audiobooks:ro \
-  -v audiobooks_data:/app/data \
-  -v audiobooks_covers:/app/covers \
+  -v vox_grotto_data:/app/data \
+  -v vox_grotto_covers:/app/covers \
   ghcr.io/theboscoclub/vox-grotto:latest
 
 # Access the web interface
@@ -1239,17 +1234,17 @@ open https://localhost:8443
 
 ```bash
 # Build the image
-docker build -t audiobooks .
+docker build -t vox-grotto .
 
 # Run with your audiobook directory
 docker run -d \
-  --name audiobooks \
+  --name vox-grotto \
   -p 8443:8443 \
   -p 8080:8080 \
   -v /path/to/audiobooks:/audiobooks:ro \
-  -v audiobooks_data:/app/data \
-  -v audiobooks_covers:/app/covers \
-  audiobooks
+  -v vox_grotto_data:/app/data \
+  -v vox_grotto_covers:/app/covers \
+  vox-grotto
 ```
 
 ### Docker Environment Variables
@@ -1276,13 +1271,13 @@ If you need to manually rescan or update your library:
 
 ```bash
 # Rescan audiobook directory
-docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py
+docker exec -it vox-grotto python3 /app/scanner/scan_audiobooks.py
 
 # Re-import to database
-docker exec -it audiobooks python3 /app/backend/import_to_db.py
+docker exec -it vox-grotto python3 /app/backend/import_to_db.py
 
 # View README inside container
-docker exec -it audiobooks cat /app/README.md
+docker exec -it vox-grotto cat /app/README.md
 ```
 
 ### Docker Health Check
@@ -1291,23 +1286,23 @@ The container includes a health check that verifies the API is responding:
 
 ```bash
 # Check container health
-docker inspect --format='{{.State.Health.Status}}' audiobooks
+docker inspect --format='{{.State.Health.Status}}' vox-grotto
 ```
 
 ### Troubleshooting Docker
 
 ```bash
 # View container logs
-docker logs audiobooks
+docker logs vox-grotto
 
 # Check running processes
-docker exec -it audiobooks ps aux
+docker exec -it vox-grotto ps aux
 
 # Access container shell
-docker exec -it audiobooks /bin/bash
+docker exec -it vox-grotto /bin/bash
 
 # Restart container (re-runs initialization)
-docker restart audiobooks
+docker restart vox-grotto
 ```
 
 ## Requirements (native install)
