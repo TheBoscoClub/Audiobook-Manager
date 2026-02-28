@@ -48,6 +48,26 @@
           "web": 8443,
           "spice": 5900
         }
+      },
+      {
+        "name": "rnd-voxgrotto-cachyos",
+        "type": "existing",
+        "vm_name": "rnd-voxgrotto-cachyos",
+        "description": "RND VM for Vox Grotto rebrand development and Branch 2 path migration. Cloned from QA VM with 1841 audiobooks pre-installed.",
+        "requirements": {
+          "python": "3.14",
+          "ffmpeg": true,
+          "ffprobe": true,
+          "systemd": true
+        },
+        "static_ip": "192.168.122.67",
+        "ports": {
+          "native_api": 5001,
+          "native_web": 8090,
+          "docker_web_https": 8443,
+          "docker_web_http": 8080
+        },
+        "purpose": "rnd-only"
       }
     ],
 
