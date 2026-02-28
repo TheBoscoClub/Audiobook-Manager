@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.1.2] - 2026-02-27
+
+### Fixed
+
+- **Shell script permissions**: `upgrade.sh` now ensures all `.sh` files are world-readable (755) after upgrade — fixes `/etc/profile.d` scripts failing to `source` shared libraries like `audiobook-config.sh` when permissions were 711
+
+### Changed
+
+- **ARMv7 homage**: Added a tribute to 32-bit ARM users in README
+
 ## [6.7.1.1] - 2026-02-27
 
 ### Changed
