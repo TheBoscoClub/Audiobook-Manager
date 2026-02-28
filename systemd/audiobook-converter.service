@@ -2,6 +2,9 @@
 Description=Audiobook Continuous Converter (AAXC to Opus)
 After=network.target audiobook-mover.service
 PartOf=audiobook.target
+# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple

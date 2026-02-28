@@ -271,7 +271,7 @@ HTTP/1.1 defines hop-by-hop headers as connection-specific; they must be consume
 | Header | Value | Purpose |
 |--------|-------|---------|
 | `X-Content-Type-Options` | `nosniff` | Prevent MIME-type sniffing |
-| `X-Frame-Options` | `DENY` | Block clickjacking via iframes |
+| `X-Frame-Options` | `SAMEORIGIN` | Allow same-origin iframe embedding; block cross-origin clickjacking |
 | `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline'; ...` | Restrict resource loading origins |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Limit referrer information leakage |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Disable unused browser APIs |

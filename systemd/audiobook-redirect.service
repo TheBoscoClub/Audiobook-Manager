@@ -5,6 +5,9 @@ After=network-online.target audiobook-proxy.service
 Wants=audiobook-proxy.service network-online.target
 # Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
 RequiresMountsFor=/opt/audiobooks
+# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -18,7 +21,7 @@ Environment=PYTHONUNBUFFERED=1
 
 # Only start if port is not already in use
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_HTTP_REDIRECT_PORT} "'
-ExecStart=/usr/bin/python3 /opt/audiobooks/library/web-v2/redirect_server.py
+ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2/redirect_server.py
 
 Restart=on-failure
 RestartSec=5
