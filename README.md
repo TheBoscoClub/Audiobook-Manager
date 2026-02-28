@@ -4,6 +4,14 @@
 
 A comprehensive audiobook management toolkit for converting Audible files and browsing your audiobook collection.
 
+> **A moment of silence for our ARMv7 friends.** To the brave souls still running 32-bit ARM stacks
+> on your Raspberry Pi 2s, your ancient NAS boxes, and that one BeagleBone you swore you'd retire
+> five years ago — I tried. I really did. I brought strong beer and sick weed to the altar of the
+> Architecture Gods and offered them freely in exchange for `sqlcipher3` on armv7l. They took the
+> offerings, laughed, and returned only `Conan build system does not support armv7l`. Your 32-bit
+> spirits live on in our hearts, if not in our Docker manifests. Gone from `--platform`, never from
+> memory. Pour one out. `linux/arm64` carries your legacy now.
+
 ## Version History
 
 | Version | Status | Release |
