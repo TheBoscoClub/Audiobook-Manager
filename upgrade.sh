@@ -1184,7 +1184,7 @@ get_release_tarball_url() {
             tarball_url=$(jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' "$temp_body" 2>/dev/null | head -1)
         else
             # Fallback: construct URL from expected pattern
-            tarball_url="https://github.com/${GITHUB_REPO}/releases/download/${tag}/audiobook-manager-${version}.tar.gz"
+            tarball_url="https://github.com/${GITHUB_REPO}/releases/download/${tag}/vox-grotto-${version}.tar.gz"
         fi
 
         if [[ -n "$tarball_url" ]]; then
@@ -1233,7 +1233,7 @@ download_and_extract_release() {
     # Find the extracted directory (flexible pattern for self-healing upgrades)
     # Try multiple patterns to handle naming changes without bootstrap problems
     local extract_dir=""
-    for pattern in "audiobook-manager-*" "audiobook-*" "Audiobook-Manager-*"; do
+    for pattern in "vox-grotto-*" "audiobook-manager-*" "audiobook-*" "Audiobook-Manager-*"; do
         extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "$pattern" 2>/dev/null | head -1)
         [[ -n "$extract_dir" ]] && break
     done

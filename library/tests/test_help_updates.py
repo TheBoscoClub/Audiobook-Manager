@@ -14,8 +14,8 @@ class TestHelpNewSections:
         with open(path) as f:
             return f.read()
 
-    def test_my_library_section(self, help_html):
-        assert "My Library" in help_html
+    def test_my_grotto_section(self, help_html):
+        assert "My Grotto" in help_html
 
     def test_progress_tracking_section(self, help_html):
         assert "progress" in help_html.lower()
@@ -38,5 +38,5 @@ class TestTutorialNewSteps:
         with open(path) as f:
             return f.read()
 
-    def test_my_library_step(self, tutorial_js):
-        assert "my-library" in tutorial_js.lower() or "My Library" in tutorial_js
+    def test_my_grotto_step(self, tutorial_js):
+        assert "my-library" in tutorial_js.lower() or "My Grotto" in tutorial_js

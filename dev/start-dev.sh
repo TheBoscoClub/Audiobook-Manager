@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook-Manager Development Server
+# Vox Grotto Development Server
 # =============================================================================
 # Starts Caddy + Flask API in development mode.
 # Uses ports 9443 (HTTPS) and 6001 (API) to avoid conflict with production.
@@ -47,7 +47,7 @@ WEB_PORT=${AUDIOBOOKS_WEB_PORT:-9443}
 HTTP_PORT=${AUDIOBOOKS_HTTP_REDIRECT_PORT:-9081}
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}   Audiobook-Manager Development Mode${NC}"
+echo -e "${BLUE}   Vox Grotto Development Mode${NC}"
 echo -e "${BLUE}   Branch: $(git branch --show-current 2>/dev/null || echo 'unknown')${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""

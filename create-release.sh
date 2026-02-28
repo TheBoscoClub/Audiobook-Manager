@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# create-release.sh - Build release tarballs for Audiobook-Manager
+# create-release.sh - Build release tarballs for Vox Grotto
 # =============================================================================
 # Creates a distributable tarball containing all files needed for installation.
 # The tarball can be uploaded to GitHub releases for standalone installation.
@@ -69,7 +69,9 @@ EOF
 build_release() {
     local version
     version=$(get_version)
-    local release_name="audiobook-manager-${version}"
+    local tarball_prefix
+    tarball_prefix=$(cat "${SCRIPT_DIR}/.tarball-name" 2>/dev/null | tr -d '[:space:]' || echo "vox-grotto")
+    local release_name="${tarball_prefix}-${version}"
     local staging_dir="${BUILD_DIR}/${release_name}"
     local tarball="${BUILD_DIR}/${release_name}.tar.gz"
 
@@ -238,7 +240,7 @@ show_help() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Build release tarballs for Audiobook-Manager.
+Build release tarballs for Vox Grotto.
 
 Options:
   --dry-run    Show what would be included without building

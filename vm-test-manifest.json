@@ -136,7 +136,7 @@
     },
     "docker": {
       "container_name": "audiobooks-docker",
-      "image_prefix": "audiobook-manager",
+      "image_prefix": "vox-grotto",
       "daemon_preset": "disabled",
       "db_path": "/var/lib/audiobooks/docker-data/audiobooks.db",
       "library_mount": "/srv/audiobooks/Library:/audiobooks:ro",
@@ -160,7 +160,7 @@
     },
     "upgrade": {
       "native_command": "./upgrade.sh --from-project . --remote 192.168.122.63 --yes",
-      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
+      "docker_save_pattern": "docker save vox-grotto:{version} | ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
     }
   }
 }
