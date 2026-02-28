@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Quick reference for diagnosing and resolving common Audiobook-Manager issues.
+Quick reference for diagnosing and resolving common Vox Grotto issues.
 
 **Related docs**: [AUTH_FAILURE_MODES.md](AUTH_FAILURE_MODES.md) (auth-specific), [AUTH_RUNBOOK.md](AUTH_RUNBOOK.md) (admin procedures), [ARCHITECTURE.md](ARCHITECTURE.md) (system design)
 
@@ -24,14 +24,14 @@ Quick reference for diagnosing and resolving common Audiobook-Manager issues.
 
 ## 1. Service Startup Failures
 
-**Symptoms**: Services fail at boot, `systemctl status audiobook-api` shows errors
+**Symptoms**: Services fail at boot, `systemctl status grotto-api` shows errors
 
 ```bash
 # Check service status
-sudo systemctl status audiobook-api
+sudo systemctl status grotto-api
 
 # View recent logs
-journalctl -u audiobook-api -n 50
+journalctl -u grotto-api -n 50
 
 # View all audiobook services
 sudo systemctl status 'audiobook*'
@@ -52,8 +52,8 @@ sudo systemctl status 'audiobook*'
 
 | Port | Service | Purpose |
 |------|---------|---------|
-| 5001 | audiobook-api | REST API |
-| 8443 | audiobook-proxy | HTTPS web UI |
+| 5001 | grotto-api | REST API |
+| 8443 | grotto-proxy | HTTPS web UI |
 | 8080 | redirect server | HTTP → HTTPS redirect |
 
 ```bash
@@ -64,7 +64,7 @@ ss -tlnp | grep -E "5001|8443|8080"
 sudo fuser -k 5001/tcp
 
 # Restart
-sudo systemctl restart audiobook-api
+sudo systemctl restart grotto-api
 ```
 
 ---
@@ -128,14 +128,14 @@ When all admins are locked out:
 
 ```bash
 # Stop the API
-sudo systemctl stop audiobook-api
+sudo systemctl stop grotto-api
 
 # Create emergency admin via CLI
 /opt/audiobooks/library/venv/bin/python \
   /opt/audiobooks/library/auth/cli.py create-admin emergency_admin
 
 # Restart API
-sudo systemctl start audiobook-api
+sudo systemctl start grotto-api
 
 # Log in as emergency_admin, fix accounts, then delete the emergency user
 ```
@@ -195,7 +195,7 @@ sudo -u audiobooks bash -c '
   python3 -m venv /opt/audiobooks/library/venv
   /opt/audiobooks/library/venv/bin/pip install -r /opt/audiobooks/library/requirements.txt
 '
-sudo systemctl restart audiobook-api
+sudo systemctl restart grotto-api
 ```
 
 ---
@@ -206,8 +206,8 @@ sudo systemctl restart audiobook-api
 
 ```bash
 # Check converter status
-sudo systemctl status audiobook-converter
-journalctl -u audiobook-converter -n 50
+sudo systemctl status grotto-converter
+journalctl -u grotto-converter -n 50
 
 # Check disk space (conversions need /tmp space)
 df -h /tmp /srv/audiobooks
@@ -219,7 +219,7 @@ ls -la /tmp/audiobook-staging
 cat /srv/audiobooks/.index/queue.txt 2>/dev/null | wc -l
 
 # Restart converter
-sudo systemctl restart audiobook-converter
+sudo systemctl restart grotto-converter
 ```
 
 **If disk full**: Clear stale staging files:
@@ -247,7 +247,7 @@ Failed at step NAMESPACE spawning /bin/sh: No such file or directory
 **Fix**: Tell systemd to wait for the mount:
 
 ```bash
-sudo systemctl edit --full audiobook-api.service
+sudo systemctl edit --full grotto-api.service
 ```
 
 Add to `[Unit]` section:
@@ -265,7 +265,7 @@ Then reload:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl restart audiobook-api
+sudo systemctl restart grotto-api
 ```
 
 ---
@@ -295,7 +295,7 @@ openssl req -x509 -newkey rsa:4096 -nodes \
   -out /etc/audiobooks/certs/server.crt \
   -days 365 -subj "/CN=localhost"
 sudo chown audiobooks:audiobooks /etc/audiobooks/certs/*
-sudo systemctl restart audiobook-proxy
+sudo systemctl restart grotto-proxy
 ```
 
 ---
@@ -331,7 +331,7 @@ Quick diagnostic script to check system health:
 
 ```bash
 #!/bin/bash
-echo "=== Audiobook-Manager Health Check ==="
+echo "=== Vox Grotto Health Check ==="
 
 # API responding
 if curl -sf http://localhost:5001/api/system/health > /dev/null 2>&1; then
@@ -341,7 +341,7 @@ else
 fi
 
 # Services running
-for svc in audiobook-api audiobook-proxy; do
+for svc in grotto-api grotto-proxy; do
   if systemctl is-active --quiet $svc; then
     echo "[OK] $svc running"
   else
@@ -394,5 +394,5 @@ echo "=== Done ==="
 | Post-reboot failures | `ls /tmp/audiobook-staging` | `sudo systemd-tmpfiles --create` |
 | Import errors | `venv/bin/python --version` | Rebuild venv |
 | Conversion stuck | `df -h /tmp` | Free disk space, restart converter |
-| HDD mount timing | `journalctl -u audiobook-api` | Add `RequiresMountsFor` to service |
+| HDD mount timing | `journalctl -u grotto-api` | Add `RequiresMountsFor` to service |
 | Clock skew | `timedatectl` | `sudo timedatectl set-ntp true` |

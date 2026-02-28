@@ -1,6 +1,6 @@
-# Audiobook-Manager Architecture Guide
+# Vox Grotto Architecture Guide
 
-This document describes the system architecture, installation workflows, storage layout, and recommendations for optimal deployment of Audiobook-Manager.
+This document describes the system architecture, installation workflows, storage layout, and recommendations for optimal deployment of Vox Grotto.
 
 ## Table of Contents
 
@@ -26,11 +26,11 @@ This document describes the system architecture, installation workflows, storage
 
 ## System Overview
 
-Audiobook-Manager consists of seven logical component groups:
+Vox Grotto consists of seven logical component groups:
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         AUDIOBOOK-MANAGER SYSTEM                            │
+│                         VOX GROTTO SYSTEM                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
@@ -95,11 +95,11 @@ Audiobook-Manager consists of seven logical component groups:
 ```text
 /usr/local/bin/                          /opt/audiobooks/scripts/
 ┌──────────────────────┐                 ┌──────────────────────────────────┐
-│ audiobook-convert ───┼────symlink────▶ │ convert-audiobooks-opus-parallel │
-│ audiobook-download ──┼────symlink────▶ │ download-new-audiobooks          │
-│ audiobook-move-staged┼────symlink────▶ │ move-staged-audiobooks           │
-│ audiobook-upgrade ───┼────symlink────▶ │ upgrade.sh                       │
-│ audiobook-migrate ───┼────symlink────▶ │ migrate-api.sh                   │
+│ grotto-convert ───┼────symlink────▶ │ convert-audiobooks-opus-parallel │
+│ grotto-download ──┼────symlink────▶ │ download-new-audiobooks          │
+│ grotto-move-staged┼────symlink────▶ │ move-staged-audiobooks           │
+│ grotto-upgrade ───┼────symlink────▶ │ upgrade.sh                       │
+│ grotto-migrate ───┼────symlink────▶ │ migrate-api.sh                   │
 └──────────────────────┘                 └──────────────────────────────────┘
          │                                              │
          │                                              │
@@ -139,7 +139,7 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
      │                           │      helper service       │
      │                           │                           │
      │                           │                           │  systemctl stop
-     │                           │                           │  audiobook-mover
+     │                           │                           │  grotto-mover
      │                           │                           │
      │                           │  Write status JSON to     │
      │                           │  .control/upgrade-status  │
@@ -158,8 +158,8 @@ The API service runs with systemd security hardening (`NoNewPrivileges=yes`, `Pr
 
 | Unit | Purpose |
 |------|---------|
-| `audiobook-upgrade-helper.path` | Watches `/var/lib/audiobooks/.control/upgrade-request` |
-| `audiobook-upgrade-helper.service` | Runs as root, processes privileged operations |
+| `grotto-upgrade-helper.path` | Watches `/var/lib/audiobooks/.control/upgrade-request` |
+| `grotto-upgrade-helper.service` | Runs as root, processes privileged operations |
 | `/var/lib/audiobooks/.control/` | IPC directory (owned by audiobooks user) |
 
 **Supported Operations:**
@@ -321,7 +321,7 @@ library/auth/
 ├── passkey.py        # WebAuthn/FIDO2 registration & authentication ceremonies
 ├── totp.py           # TOTP (RFC 6238) with QR code generation
 ├── backup_codes.py   # Single-use recovery codes (8 per user)
-├── cli.py            # Admin CLI tool (audiobook-user)
+├── cli.py            # Admin CLI tool (grotto-user)
 ├── inbox_cli.py      # Admin inbox management CLI
 ├── notify_cli.py     # Notification management CLI
 └── schema.sql        # Auth database schema (16 tables, v6)
@@ -602,7 +602,7 @@ library/backend/api_modular/utilities_ops/
 
 ## Position Tracking Architecture
 
-Audiobook-Manager provides local-only per-user playback position tracking. When authentication is enabled, each user has independent positions stored in the encrypted auth database. When auth is disabled, positions are stored globally in the library database.
+Vox Grotto provides local-only per-user playback position tracking. When authentication is enabled, each user has independent positions stored in the encrypted auth database. When auth is disabled, positions are stored globally in the library database.
 
 ### Position Tracking Overview
 
@@ -612,7 +612,7 @@ Audiobook-Manager provides local-only per-user playback position tracking. When 
 └─────────────────────────────────────────────────────────────────────────────┘
 
   ┌──────────────────┐         ┌───────────────────┐
-  │   Web Browser    │         │  Audiobook-Manager │
+  │   Web Browser    │         │  Vox Grotto │
   │   (Player)       │         │       API          │
   ├──────────────────┤         ├───────────────────┤
   │                  │  Every  │                   │
@@ -792,7 +792,7 @@ This view ensures the main library displays full-length audiobooks only.
 
 | Page/Section | Description |
 |-------------|-------------|
-| **My Library** tab | Personal library showing books user has listened to, downloaded, or has positions for |
+| **My Grotto** tab | Personal library showing books user has listened to, downloaded, or has positions for |
 | **New Books** marquee | Scrolling banner showing recently added books since user's last visit |
 | **About** page | Library statistics, system info, and version details |
 | **Admin Audit** section | Back Office section showing unified activity log and statistics |
@@ -809,32 +809,32 @@ All systemd units are located in `systemd/` and installed to `/etc/systemd/syste
 
 | Unit | Type | Purpose |
 |------|------|---------|
-| `audiobook-api.service` | Service | Flask REST API (Waitress server on port 5001) |
-| `audiobook-proxy.service` | Service | HTTPS reverse proxy (port 8443 → 5001) |
-| `audiobook-redirect.service` | Service | HTTP→HTTPS redirect (port 8080 → 8443) |
-| `audiobook-converter.service` | Service | AAXC to Opus conversion daemon |
-| `audiobook-mover.service` | Service | Staging to Library file mover |
-| `audiobook-downloader.service` | Service | Audible download daemon |
-| `audiobook-upgrade-helper.service` | Service | Privileged operations helper (runs as root) |
-| `audiobook-shutdown-saver.service` | Service | Saves staging to disk on system shutdown |
+| `grotto-api.service` | Service | Flask REST API (Waitress server on port 5001) |
+| `grotto-proxy.service` | Service | HTTPS reverse proxy (port 8443 → 5001) |
+| `grotto-redirect.service` | Service | HTTP→HTTPS redirect (port 8080 → 8443) |
+| `grotto-converter.service` | Service | AAXC to Opus conversion daemon |
+| `grotto-mover.service` | Service | Staging to Library file mover |
+| `grotto-downloader.service` | Service | Audible download daemon |
+| `grotto-upgrade-helper.service` | Service | Privileged operations helper (runs as root) |
+| `grotto-shutdown-saver.service` | Service | Saves staging to disk on system shutdown |
 
 ### Timer Units
 
 | Unit | Schedule | Purpose |
 |------|----------|---------|
-| `audiobook-downloader.timer` | Configurable | Triggers download checks |
+| `grotto-downloader.timer` | Configurable | Triggers download checks |
 
 ### Path Units
 
 | Unit | Watches | Purpose |
 |------|---------|---------|
-| `audiobook-upgrade-helper.path` | `/var/lib/audiobooks/.control/upgrade-request` | Triggers helper on upgrade request |
+| `grotto-upgrade-helper.path` | `/var/lib/audiobooks/.control/upgrade-request` | Triggers helper on upgrade request |
 
 ### Target Unit
 
 | Unit | Purpose |
 |------|---------|
-| `audiobook.target` | Groups all audiobook services for unified start/stop |
+| `grotto.target` | Groups all Vox Grotto services for unified start/stop |
 
 ### tmpfiles.d Configuration
 
@@ -852,34 +852,34 @@ All scripts are located in `scripts/` and installed to `/opt/audiobooks/scripts/
 
 | Script | Purpose | Service |
 |--------|---------|---------|
-| `download-new-audiobooks` | Downloads new purchases from Audible | audiobook-downloader |
-| `convert-audiobooks-opus-parallel` | Parallel AAXC→Opus conversion | audiobook-converter |
-| `move-staged-audiobooks` | Moves completed conversions to Library | audiobook-mover |
+| `download-new-audiobooks` | Downloads new purchases from Audible | grotto-downloader |
+| `convert-audiobooks-opus-parallel` | Parallel AAXC→Opus conversion | grotto-converter |
+| `move-staged-audiobooks` | Moves completed conversions to Library | grotto-mover |
 
 ### Service Control Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `audiobook-start` | Start all audiobook services |
-| `audiobook-stop` | Stop all audiobook services |
-| `audiobook-status` | Show service and timer status |
-| `audiobook-enable` | Enable services for auto-start |
-| `audiobook-disable` | Disable services from auto-start |
+| `grotto-start` | Start all Vox Grotto services |
+| `grotto-stop` | Stop all Vox Grotto services |
+| `grotto-status` | Show service and timer status |
+| `grotto-enable` | Enable services for auto-start |
+| `grotto-disable` | Disable services from auto-start |
 
 ### Utility Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `audiobook-help` | Display help and usage information |
+| `grotto-help` | Display help and usage information |
 | `build-conversion-queue` | Build/rebuild conversion priority queue |
 | `cleanup-stale-indexes` | Remove orphaned index entries |
 | `copy-audiobook-metadata` | Copy metadata between audiobook files |
 | `embed-cover-art.py` | Embed cover images into audio files |
 | `fix-wrong-chapters-json` | Repair malformed chapter metadata |
 | `monitor-audiobook-conversion` | Watch conversion progress in real-time |
-| `audiobook-download-monitor` | Watch download progress |
-| `audiobook-save-staging` | Manually save staging to persistent storage |
-| `audiobook-save-staging-auto` | Auto-save staging (called by shutdown service) |
+| `grotto-download-monitor` | Watch download progress |
+| `grotto-save-staging` | Manually save staging to persistent storage |
+| `grotto-save-staging-auto` | Auto-save staging (called by shutdown service) |
 
 ### Symlink Architecture
 
@@ -891,13 +891,13 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
 **Key wrappers:**
 
-- `audiobook-convert` → `convert-audiobooks-opus-parallel`
-- `audiobook-download` → `download-new-audiobooks`
-- `audiobook-move-staged` → `move-staged-audiobooks`
-- `audiobook-upgrade` → `upgrade.sh`
-- `audiobook-migrate` → `migrate-api.sh`
-- `audiobook-status` → `audiobook-status`
-- `audiobook-help` → `audiobook-help`
+- `grotto-convert` → `convert-audiobooks-opus-parallel`
+- `grotto-download` → `download-new-audiobooks`
+- `grotto-move-staged` → `move-staged-audiobooks`
+- `grotto-upgrade` → `upgrade.sh`
+- `grotto-migrate` → `migrate-api.sh`
+- `grotto-status` → `grotto-status`
+- `grotto-help` → `grotto-help`
 
 ---
 
@@ -986,11 +986,11 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                                   ▼
                     ┌───────────────────────────────┐
                     │   Create wrapper scripts      │
-                    │   • audiobook-api             │
-                    │   • audiobook-web             │
-                    │   • audiobook-scan            │
-                    │   • audiobook-import          │
-                    │   • audiobook-config          │
+                    │   • grotto-api             │
+                    │   • grotto-web             │
+                    │   • grotto-scan            │
+                    │   • grotto-import          │
+                    │   • grotto-config          │
                     └───────────────────────────────┘
                                   │
                                   ▼
@@ -1016,9 +1016,9 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                     │   • Group=audiobooks          │
                     │   • WorkingDirectory set      │
                     │   • EnvironmentFile set       │
-                    │   • audiobook-api.service     │
-                    │   • audiobook-proxy.service   │
-                    │   • audiobook.target          │
+                    │   • grotto-api.service     │
+                    │   • grotto-proxy.service   │
+                    │   • grotto.target          │
                     └───────────────────────────────┘
                                   │
                                   ▼
@@ -1034,7 +1034,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                          └───────────────┘
 ```
 
-**Note:** Wrapper scripts in `/usr/local/bin/` source configuration from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path). The backward-compat symlink at `/usr/local/lib/audiobooks` ensures older scripts continue to work.
+**Note:** Wrapper scripts in `/usr/local/bin/` source configuration from `/opt/audiobooks/lib/grotto-config.sh` (canonical path). The backward-compat symlink at `/usr/local/lib/audiobooks` ensures older scripts continue to work.
 
 ### User Installation Flow
 
@@ -1092,7 +1092,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 └─────────────────────────────────────────────────────────────────────────────┘
 
                     ┌───────────────────────────────┐
-                    │   audiobook-upgrade          │
+                    │   grotto-upgrade          │
                     │        OR                     │
                     │   upgrade.sh --from-project   │
                     │   upgrade.sh --from-github    │
@@ -1177,7 +1177,7 @@ The migration workflow switches between API architectures (monolithic ↔ modula
 └─────────────────────────────────────────────────────────────────────────────┘
 
                     ┌───────────────────────────────┐
-                    │   audiobook-migrate           │
+                    │   grotto-migrate           │
                     │        --to modular           │
                     │        --to monolithic        │
                     │        --check                │
@@ -1583,7 +1583,7 @@ Tuning:
 
 ### tmpfs and RAM-based Filesystem Considerations
 
-If your `/tmp` or `/var` directories (or subdirectories) are mounted as **tmpfs** (RAM-based filesystems), additional configuration is required. tmpfs partitions are cleared on every reboot, but Audiobook-Manager expects certain directories to exist for inter-service communication.
+If your `/tmp` or `/var` directories (or subdirectories) are mounted as **tmpfs** (RAM-based filesystems), additional configuration is required. tmpfs partitions are cleared on every reboot, but Vox Grotto expects certain directories to exist for inter-service communication.
 
 #### tmpfs Overview
 
@@ -1599,7 +1599,7 @@ Benefits:
   • Near-instant file operations
   • Ideal for truly temporary data
 
-Risks for Audiobook-Manager:
+Risks for Vox Grotto:
   • Inter-service directories disappear on reboot
   • Services fail to start if directories don't exist
   • Trigger files and FIFOs are lost
@@ -1607,7 +1607,7 @@ Risks for Audiobook-Manager:
 
 #### Required Directories
 
-Audiobook-Manager uses these directories for runtime operations:
+Vox Grotto uses these directories for runtime operations:
 
 | Directory | Purpose | Filesystem Type |
 |-----------|---------|-----------------|
@@ -1666,7 +1666,7 @@ mount | grep '/var'
 findmnt --target /var/lib/audiobooks
 
 # Look for symptoms in journal
-journalctl -u 'audiobook-*' --since today | \
+journalctl -u 'grotto-*' --since today | \
     grep -E '(No such file|Read-only|Permission denied|ENOENT)'
 ```
 
@@ -1714,7 +1714,7 @@ Despite the configuration overhead, keeping `/tmp` as tmpfs is often beneficial:
 
 ### Supported Kernel Versions
 
-Audiobook-Manager is tested and supported on:
+Vox Grotto is tested and supported on:
 
 | Distribution Type | Kernel Range | Status |
 |------------------|--------------|--------|
@@ -1851,19 +1851,19 @@ export AUDIOBOOKS_BIND_ADDRESS=0.0.0.0
 ./uninstall.sh --system --delete-data --force  # Full removal including data
 
 # Upgrade
-audiobook-upgrade                 # From GitHub
-audiobook-upgrade --check         # Check for updates
+grotto-upgrade                 # From GitHub
+grotto-upgrade --check         # Check for updates
 upgrade.sh --from-project /path    # From local project
 
 # Migration
-audiobook-migrate --check         # Show current architecture
-audiobook-migrate --to modular    # Switch to modular
-audiobook-migrate --to monolithic # Switch to monolithic
+grotto-migrate --check         # Show current architecture
+grotto-migrate --to modular    # Switch to modular
+grotto-migrate --to monolithic # Switch to monolithic
 
 # Services
-sudo systemctl start audiobook.target
-sudo systemctl status audiobook-api
-sudo systemctl restart audiobook-proxy
+sudo systemctl start grotto.target
+sudo systemctl status grotto-api
+sudo systemctl restart grotto-proxy
 ```
 
 ### Health Checks
@@ -1882,7 +1882,7 @@ curl -sk https://localhost:8443/ -o /dev/null -w '%{http_code}\n'
 sqlite3 /var/lib/audiobooks/db/audiobooks.db 'SELECT COUNT(*) FROM audiobooks;'
 
 # Service status
-systemctl status audiobook.target --no-pager
+systemctl status grotto.target --no-pager
 ```
 
 ---

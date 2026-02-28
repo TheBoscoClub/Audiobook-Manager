@@ -392,8 +392,8 @@ echo -e "${BLUE}Creating environment profile...${NC}"
 cat >/etc/profile.d/audiobooks.sh <<'EOF'
 # Audiobook Library Environment
 # Source the config loader to get all variables
-if [[ -f /usr/local/lib/audiobooks/lib/audiobook-config.sh ]]; then
-    source /usr/local/lib/audiobooks/lib/audiobook-config.sh
+if [[ -f /usr/local/lib/audiobooks/lib/grotto-config.sh ]]; then
+    source /usr/local/lib/audiobooks/lib/grotto-config.sh
 fi
 EOF
 chmod 644 /etc/profile.d/audiobooks.sh
@@ -409,7 +409,7 @@ echo "  audiobook-api      - Start API server"
 echo "  audiobook-web      - Start web server"
 echo "  audiobook-scan     - Scan audiobook library"
 echo "  audiobook-import   - Import to database"
-echo "  audiobook-config   - Show configuration"
+echo "  grotto-config   - Show configuration"
 echo ""
 echo "Access the library at: https://localhost:8090"
 echo ""

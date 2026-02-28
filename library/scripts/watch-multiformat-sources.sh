@@ -30,10 +30,10 @@ set -euo pipefail
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
-    source /usr/local/lib/audiobooks/audiobook-config.sh
-elif [[ -f "$SCRIPT_DIR/../../lib/audiobook-config.sh" ]]; then
-    source "$SCRIPT_DIR/../../lib/audiobook-config.sh"
+if [[ -f "/usr/local/lib/audiobooks/grotto-config.sh" ]]; then
+    source /usr/local/lib/audiobooks/grotto-config.sh
+elif [[ -f "$SCRIPT_DIR/../../lib/grotto-config.sh" ]]; then
+    source "$SCRIPT_DIR/../../lib/grotto-config.sh"
 fi
 
 # Configuration - use environment or defaults

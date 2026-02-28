@@ -13,11 +13,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.0.0] - 2026-02-28
+
+### Changed
+
+- **BREAKING: Rebrand to Vox Grotto** — Project identity changed from "Audiobook-Manager" to "Vox Grotto"
+- **Service renames**: All systemd services renamed from `audiobook-*` to `grotto-*` (e.g., `audiobook-api.service` is now `grotto-api.service`, `audiobook.target` is now `grotto.target`)
+- **CLI command renames**: All wrapper scripts renamed from `audiobook-*` to `grotto-*` (e.g., `audiobook-api` is now `grotto-api`, `audiobook-scan` is now `grotto-scan`)
+- **Config library renamed**: `lib/audiobook-config.sh` is now `lib/grotto-config.sh`
+- **UI rebrand**: Web interface updated with Vox Grotto branding throughout (header, footer, About page, login/register pages, help page)
+- **"My Library" renamed to "My Grotto"**: Personalized library tab uses new branding
+- **WebAuthn RP name**: Changed from "The Library" to "Vox Grotto"
+- **Migration support**: `install.sh` and `upgrade.sh` automatically detect and migrate old `audiobook-*` service names, symlinks, and config files to the new `grotto-*` names
+- **Documentation**: All docs updated with new branding, service names, and command names
+
+### Migration Notes
+
+- Existing installations upgrading from v6.x will have old `audiobook-*` services and commands automatically migrated to `grotto-*` equivalents
+- Filesystem paths (`/opt/audiobooks`, `/etc/audiobooks`, `/var/lib/audiobooks`) are **unchanged**
+- Configuration variable names (`AUDIOBOOKS_DATA`, `AUDIOBOOKS_LIBRARY`, etc.) are **unchanged**
+- User/group (`audiobooks:audiobooks`) is **unchanged**
+- GitHub repository URL is **unchanged**
+
 ## [6.7.1.2] - 2026-02-27
 
 ### Fixed
 
-- **Shell script permissions**: `upgrade.sh` now ensures all `.sh` files are world-readable (755) after upgrade — fixes `/etc/profile.d` scripts failing to `source` shared libraries like `audiobook-config.sh` when permissions were 711
+- **Shell script permissions**: `upgrade.sh` now ensures all `.sh` files are world-readable (755) after upgrade — fixes `/etc/profile.d` scripts failing to `source` shared libraries like `grotto-config.sh` when permissions were 711
 
 ### Changed
 
@@ -133,7 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scripts**: `audiobook-help` now sources config to display resolved paths instead of literal `$VARIABLE` names
 - **Install**: Fixed `((issues_found++))` → `((issues_found++)) || true` in `install.sh` (8 locations) and `migrate-api.sh` (3 locations) — bash arithmetic `((0++))` returns exit code 1, killing scripts under `set -e`
 - **Install**: `chown /var/log/audiobooks` for audiobooks user, source files get 644 and shell scripts get 755 permissions on deploy
-- **Install**: Fixed `lib/audiobook-config.sh` permissions from 711 to 755; fixed 21 source files from 600 to 644
+- **Install**: Fixed `lib/grotto-config.sh` permissions from 711 to 755; fixed 21 source files from 600 to 644
 - **Install**: Added `chown audiobooks:audiobooks` for data subdirectories (`Library/`, `Sources/`, `Supplements/`) — were created as root-owned, blocking service writes
 - **Install**: `embed-cover-art.py` wrapper now uses venv Python for mutagen dependency instead of system Python
 - **Install**: Added `DATA_DIR="/var/lib/audiobooks/data"` to generated `audiobooks.conf` and create `.index` directory with proper ownership
@@ -148,7 +170,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mover**: `move-staged-audiobooks` now uses venv Python for `import_single.py`
 - **Shell**: Reverted all 35 scripts from `#!/usr/bin/env zsh` back to `#!/bin/bash` — bash is the universal Linux standard, maximizes portability across distros
 - **Shell**: Removed all zsh-specific workarounds (reserved variable comments, echo JSON corruption notes, `${0:A:h}` syntax)
-- **Shell**: Simplified `audiobook-config.sh` source guard from dual bash/zsh to bash-only
+- **Shell**: Simplified `grotto-config.sh` source guard from dual bash/zsh to bash-only
 - **Shell**: Converted all zsh syntax to bash equivalents — `${(L)var}` → `${var,,}`, `typeset -A` → `declare -A`, `${(@kv)}` → `${!array[@]}`, `(N)` → `shopt -s nullglob`
 - **Upgrade**: Added `audiobook-downloader.timer` and `audiobook-shutdown-saver` to upgrade.sh service stop/start lists
 - **Uninstall**: Replaced `arr=($(cmd))` with `mapfile -t arr < <(cmd)` to fix ShellCheck SC2207 word splitting
@@ -196,7 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Config**: Bash/zsh compatibility in `audiobook-config.sh` — detects `BASH_SOURCE[0]` before falling back to zsh `${0:A:h}`, preventing unbound variable errors in bash scripts with `set -u`
+- **Config**: Bash/zsh compatibility in `grotto-config.sh` — detects `BASH_SOURCE[0]` before falling back to zsh `${0:A:h}`, preventing unbound variable errors in bash scripts with `set -u`
 - **Service**: Removed vestigial `/opt/audiobooks/library/data` from `ReadWritePaths` that caused 230+ namespace failures when directory didn't exist under `ProtectSystem=strict`
 - **Service**: Added `StartLimitBurst=5`/`StartLimitIntervalSec=60` to prevent rapid restart loops
 - **Service**: Changed proxy `Requires` to `PartOf` so proxy restarts with API service
@@ -320,7 +342,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Security**: HTTP security headers on all API responses: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy` (default-src 'self', media-src 'self' blob:), `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 - **Security**: `Strict-Transport-Security` header (HSTS, 1-year, includeSubDomains) when HTTPS is enabled
-- **Config**: `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` variable added to `lib/audiobook-config.sh` defaults (default: true)
+- **Config**: `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` variable added to `lib/grotto-config.sh` defaults (default: true)
 - **Tests**: `.coveragerc` added with 85% minimum coverage threshold
 
 ### Changed
@@ -478,7 +500,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security**: Added hop-by-hop header filtering in proxy responses
 - **Infrastructure**: systemd service ExecStart wrapper names aligned with installed scripts
 - **Infrastructure**: Dockerfile HEALTHCHECK uses `/api/system/health` instead of data endpoint
-- **Infrastructure**: HTTP redirect port corrected (8081 → 8080 to match audiobook-config.sh)
+- **Infrastructure**: HTTP redirect port corrected (8081 → 8080 to match grotto-config.sh)
 - **Quality**: Shell formatting (shfmt) applied to 45 scripts
 - **Quality**: Python formatting (ruff format) applied to all backend code
 - **Quality**: YAML lint fixes in CI workflows
@@ -921,7 +943,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING: Naming Convention Standardization**: All service names, CLI commands, and config files
   now use singular "audiobook-" prefix instead of plural "audiobooks-" to align with project name
   "audiobook-manager"
-  - Renamed `lib/audiobooks-config.sh` → `lib/audiobook-config.sh`
+  - Renamed `lib/audiobooks-config.sh` → `lib/grotto-config.sh`
   - Renamed all systemd units: `audiobooks-*` → `audiobook-*`
   - Updated all script references to new config file name
 - **Status Script Enhancement**: `audiobook-status` now displays services and timers in separate sections
@@ -1587,7 +1609,7 @@ sudo /opt/audiobooks/upgrade.sh
 ### Changed
 
 - `install.sh` now uses `/opt/audiobooks` as canonical install location instead of `/usr/local/lib/audiobooks`
-- Wrapper scripts now source from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path)
+- Wrapper scripts now source from `/opt/audiobooks/lib/grotto-config.sh` (canonical path)
 - Added backward-compatibility symlink `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
 - `install.sh` now automatically enables and starts services after installation (no manual step needed)
 - `migrate-api.sh` now stops services before migration and starts them after (proper lifecycle management)
@@ -1671,7 +1693,7 @@ sudo /opt/audiobooks/upgrade.sh
 ### Changed
 
 - Increased default parallel conversion jobs from 8 to 12
-- Removed redundant config fallbacks from scripts (single source of truth in audiobook-config.sh)
+- Removed redundant config fallbacks from scripts (single source of truth in grotto-config.sh)
 
 ### Fixed
 

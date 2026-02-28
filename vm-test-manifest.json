@@ -1,5 +1,5 @@
 {
-  "project": "Audiobook-Manager",
+  "project": "Vox Grotto",
   "description": "Audiobooks Library — Flask API, systemd services, system-wide installation",
 
   "vm_testing": {

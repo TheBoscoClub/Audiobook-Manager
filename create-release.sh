@@ -109,7 +109,7 @@ build_release() {
     # Lib (shell config)
     log_info "Copying lib..."
     mkdir -p "${staging_dir}/lib"
-    cp "${SCRIPT_DIR}/lib/audiobook-config.sh" "${staging_dir}/lib/"
+    cp "${SCRIPT_DIR}/lib/grotto-config.sh" "${staging_dir}/lib/"
 
     # Scripts (management scripts)
     log_info "Copying scripts..."

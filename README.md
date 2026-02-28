@@ -1,4 +1,4 @@
-# Audiobook-Manager
+# Vox Grotto
 
 [![CI](https://github.com/TheBoscoClub/Audiobook-Manager/actions/workflows/ci.yml/badge.svg)](https://github.com/TheBoscoClub/Audiobook-Manager/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/TheBoscoClub/Audiobook-Manager/graph/badge.svg)](https://codecov.io/gh/TheBoscoClub/Audiobook-Manager) [![CodeFactor](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager/badge)](https://www.codefactor.io/repository/github/theboscoclub/audiobook-manager)
 
@@ -147,7 +147,7 @@ Web-based audiobook library browser with:
 - **Multi-user authentication** with TOTP, Passkey, and FIDO2 support (v5.0+)
 - **Admin approval flow** for new user registration with secure claim tokens
 - **Per-user playback positions** with encrypted auth database (SQLCipher)
-- **My Library tab** with progress bars, listening history, and download tracking (v6.3+)
+- **My Grotto tab** with progress bars, listening history, and download tracking (v6.3+)
 - **New books marquee** highlighting recently added audiobooks (v6.3+)
 - **Admin activity audit** with filterable log and usage statistics (v6.3+)
 - **Genre management** with bulk add/remove in Back Office (v6.3+)
@@ -282,7 +282,7 @@ The script matches books by ASIN, exact title, or fuzzy title matching (85% thre
 > - Cover art extraction is unreliable for many formats
 > - Multi-reader audiobooks (e.g., Librivox) may not be handled correctly
 >
-> The `audiobooks-multiformat` service and related scripts are disabled. To enable at your own risk, uncomment the watch directories in `watch-multiformat-sources.sh`.
+> The `grotto-multiformat` service and related scripts are disabled. To enable at your own risk, uncomment the watch directories in `watch-multiformat-sources.sh`.
 >
 > PRs welcome if you want to improve multi-source support.
 > See: [Roadmap Discussion](https://github.com/TheBoscoClub/Audiobook-Manager/discussions/2)
@@ -456,11 +456,11 @@ Both installation modes:
 After installation, use these commands:
 
 ```bash
-audiobook-api      # Start API server
-audiobook-web      # Start web server (HTTPS)
-audiobook-scan     # Scan audiobook library
-audiobook-import   # Import to database
-audiobook-config   # Show configuration
+grotto-api      # Start API server
+grotto-web      # Start web server (HTTPS)
+grotto-scan     # Scan audiobook library
+grotto-import   # Import to database
+grotto-config   # Show configuration
 ```
 
 ## Upgrading
@@ -505,13 +505,13 @@ Upgrade your installation directly from GitHub releases:
 
 ```bash
 # Upgrade to latest version
-audiobook-upgrade
+grotto-upgrade
 
 # Upgrade to specific version
-audiobook-upgrade --version 3.2.0
+grotto-upgrade --version 3.2.0
 
 # Check for updates without installing
-audiobook-upgrade --check
+grotto-upgrade --check
 ```
 
 ### From Local Project
@@ -593,7 +593,7 @@ AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks ./launch.sh
 ### View Current Configuration
 
 ```bash
-audiobook-config
+grotto-config
 ```
 
 ## Directory Structure
@@ -603,7 +603,7 @@ Audiobooks/
 ├── etc/
 │   └── audiobooks.conf.example  # Config template
 ├── lib/
-│   └── audiobook-config.sh     # Config loader (shell)
+│   └── grotto-config.sh     # Config loader (shell)
 ├── install.sh                   # Unified installer (interactive)
 ├── install-user.sh              # User installation (standalone)
 ├── install-system.sh            # System installation (standalone)
@@ -623,7 +623,7 @@ Audiobooks/
 │   │   ├── passkey.py           # WebAuthn/FIDO2 registration & auth
 │   │   ├── totp.py              # TOTP (authenticator app) support
 │   │   ├── backup_codes.py      # Single-use recovery codes
-│   │   ├── cli.py               # Admin CLI tool (audiobook-user)
+│   │   ├── cli.py               # Admin CLI tool (grotto-user)
 │   │   ├── inbox_cli.py         # Admin inbox management CLI
 │   │   ├── notify_cli.py        # Notification management CLI
 │   │   └── schema.sql           # Auth database schema (16 tables, v6)
@@ -683,7 +683,7 @@ After system installation, files are organized as follows:
 ```text
 /opt/audiobooks/                    # Application installation (AUDIOBOOKS_HOME)
 ├── scripts/                        # Canonical script location
-│   ├── audiobook-convert
+│   ├── grotto-convert
 │   ├── download-new-audiobooks
 │   ├── move-staged-audiobooks
 │   ├── cleanup-stale-indexes       # Remove deleted files from indexes
@@ -699,10 +699,10 @@ After system installation, files are organized as follows:
 └── VERSION
 
 /usr/local/bin/                     # Symlinks for PATH accessibility
-├── audiobook-api                  # Wrapper script
-├── audiobook-convert -> /opt/audiobooks/scripts/audiobook-convert
-├── audiobook-download -> /opt/audiobooks/scripts/download-new-audiobooks
-├── audiobook-move-staged -> /opt/audiobooks/scripts/move-staged-audiobooks
+├── grotto-api                  # Wrapper script
+├── grotto-convert -> /opt/audiobooks/scripts/grotto-convert
+├── grotto-download -> /opt/audiobooks/scripts/download-new-audiobooks
+├── grotto-move-staged -> /opt/audiobooks/scripts/move-staged-audiobooks
 └── ...
 
 ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks)
@@ -740,7 +740,7 @@ ${AUDIOBOOKS_DATA}/                 # User data directory (e.g., /srv/audiobooks
 
 - Scripts are installed to `/opt/audiobooks/scripts/` (canonical location)
 - Symlinks in `/usr/local/bin/` point to canonical scripts, so upgrades automatically update commands
-- Wrapper scripts source from `/opt/audiobooks/lib/audiobook-config.sh` (canonical path)
+- Wrapper scripts source from `/opt/audiobooks/lib/grotto-config.sh` (canonical path)
 - Backward-compat symlink: `/usr/local/lib/audiobooks` → `/opt/audiobooks/lib/`
 - User data (`${AUDIOBOOKS_DATA}`) is separate from application code (`/opt/audiobooks/`)
 - Database is placed in `/var/lib/` for fast storage (NVMe/SSD recommended)
@@ -790,7 +790,7 @@ Four detection methods available in the Back Office Duplicates tab:
 3. **Source File Checksums**: Fast MD5 partial checksums to find duplicate .aaxc files in Sources folder
 4. **Library File Checksums**: Fast MD5 partial checksums to find duplicate .opus files in Library folder
 
-### My Library Tab
+### My Grotto Tab
 
 Personalized view of your audiobook activity (requires authentication):
 
@@ -845,7 +845,7 @@ For detailed documentation, see [docs/POSITION_SYNC.md](docs/POSITION_SYNC.md).
 
 ## Authentication (v5.0+)
 
-Audiobook-Manager supports multi-user authentication with three methods:
+Vox Grotto supports multi-user authentication with three methods:
 
 | Method | How It Works | Best For |
 |--------|-------------|----------|
@@ -906,7 +906,7 @@ WebAuthn (Passkey/FIDO2) auto-configures from your deployment settings:
 |---------|--------|---------|
 | RP ID | `AUDIOBOOKS_HOSTNAME` | `localhost` |
 | Origin | Derived from hostname + port + HTTPS | `https://localhost:8443` |
-| RP Name | `WEBAUTHN_RP_NAME` | `The Library` |
+| RP Name | `WEBAUTHN_RP_NAME` | `Vox Grotto` |
 
 For custom deployments, override via environment or config:
 
@@ -1351,41 +1351,41 @@ python3 import_to_db.py
 
 ## Systemd Services
 
-All services use the `audiobook-*` naming convention for easy management.
+All services use the `grotto-*` naming convention for easy management.
 
 ### Core Services
 
 | Service | Description | Type |
 |---------|-------------|------|
-| `audiobook-api` | Flask REST API (Waitress) on localhost:5001 | always running |
-| `audiobook-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
-| `audiobook-redirect` | HTTP to HTTPS redirect on 0.0.0.0:8080 | always running |
-| `audiobook-converter` | AAXC → OPUS conversion | always running |
-| `audiobook-mover` | Move converted files from tmpfs to storage | always running |
-| `audiobook-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
-| `audiobook-shutdown-saver` | Save staging files before shutdown | on shutdown |
-| `audiobook-upgrade-helper.path` | Watch for upgrade trigger files | path watcher |
+| `grotto-api` | Flask REST API (Waitress) on localhost:5001 | always running |
+| `grotto-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
+| `grotto-redirect` | HTTP to HTTPS redirect on 0.0.0.0:8080 | always running |
+| `grotto-converter` | AAXC → OPUS conversion | always running |
+| `grotto-mover` | Move converted files from tmpfs to storage | always running |
+| `grotto-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
+| `grotto-shutdown-saver` | Save staging files before shutdown | on shutdown |
+| `grotto-upgrade-helper.path` | Watch for upgrade trigger files | path watcher |
 
 ### System Services (Recommended)
 
 System services run at boot without requiring login. The installer automatically enables all services.
 
-#### The `audiobook.target` Unit
+#### The `grotto.target` Unit
 
-All audiobook services are grouped under `audiobook.target`, allowing you to control them all with a single command:
+All Vox Grotto services are grouped under `grotto.target`, allowing you to control them all with a single command:
 
 ```bash
-# Start ALL audiobook services at once
-sudo systemctl start audiobook.target
+# Start ALL Vox Grotto services at once
+sudo systemctl start grotto.target
 
-# Stop ALL audiobook services at once
-sudo systemctl stop audiobook.target
+# Stop ALL Vox Grotto services at once
+sudo systemctl stop grotto.target
 
-# Restart ALL audiobook services at once
-sudo systemctl restart audiobook.target
+# Restart ALL Vox Grotto services at once
+sudo systemctl restart grotto.target
 
 # Check status of the target (shows all member services)
-sudo systemctl status audiobook.target
+sudo systemctl status grotto.target
 ```
 
 #### Individual Service Management
@@ -1393,29 +1393,29 @@ sudo systemctl status audiobook.target
 You can also manage individual services when needed:
 
 ```bash
-# Check all audiobook services
-sudo systemctl status 'audiobook-*'
+# Check all Vox Grotto services
+sudo systemctl status 'grotto-*'
 
 # Restart just the API server
-sudo systemctl restart audiobook-api
+sudo systemctl restart grotto-api
 
 # View logs for a specific service
-journalctl -u audiobook-api -f
+journalctl -u grotto-api -f
 
-# View all audiobook service logs since today
-journalctl -u 'audiobook-*' --since today
+# View all Vox Grotto service logs since today
+journalctl -u 'grotto-*' --since today
 ```
 
-#### Services Included in `audiobook.target`
+#### Services Included in `grotto.target`
 
 | Service | Purpose |
 |---------|---------|
-| `audiobook-api` | REST API backend (port 5001) |
-| `audiobook-proxy` | HTTPS reverse proxy (port 8443) |
-| `audiobook-redirect` | HTTP to HTTPS redirect (port 8080) |
-| `audiobook-converter` | Continuous AAXC → Opus conversion |
-| `audiobook-mover` | Moves converted files to library |
-| `audiobook-downloader.timer` | Scheduled Audible downloads |
+| `grotto-api` | REST API backend (port 5001) |
+| `grotto-proxy` | HTTPS reverse proxy (port 8443) |
+| `grotto-redirect` | HTTP to HTTPS redirect (port 8080) |
+| `grotto-converter` | Continuous AAXC → Opus conversion |
+| `grotto-mover` | Moves converted files to library |
+| `grotto-downloader.timer` | Scheduled Audible downloads |
 
 ### Conversion Priority
 
@@ -1434,7 +1434,7 @@ If your audiobook library is stored on HDDs, NAS, or network mounts that may not
 
 ```text
 Failed at step NAMESPACE spawning /bin/sh: No such file or directory
-audiobook-api.service: Failed with result 'exit-code'.
+grotto-api.service: Failed with result 'exit-code'.
 ```
 
 The service typically recovers after a few restart attempts (once the mount is ready), but this can be fixed properly.
@@ -1443,7 +1443,7 @@ The service typically recovers after a few restart attempts (once the mount is r
 
 ```bash
 # Edit the API service
-sudo systemctl edit --full audiobook-api.service
+sudo systemctl edit --full grotto-api.service
 ```
 
 In the `[Unit]` section, add your data path to `RequiresMountsFor`:
@@ -1477,10 +1477,10 @@ After editing, reload and restart:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl restart audiobook-api.service
+sudo systemctl restart grotto-api.service
 ```
 
-**Why this happens:** The `audiobook-api` service uses `ProtectSystem=strict` for security hardening, which requires all paths in `ReadWritePaths` to be available when setting up the service's filesystem namespace. If your data path uses `nofail` mount options (common for non-critical mounts), systemd won't wait for it by default.
+**Why this happens:** The `grotto-api` service uses `ProtectSystem=strict` for security hardening, which requires all paths in `ReadWritePaths` to be available when setting up the service's filesystem namespace. If your data path uses `nofail` mount options (common for non-critical mounts), systemd won't wait for it by default.
 
 ## Acknowledgments
 
@@ -1616,7 +1616,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 ### v6.3.0
 
 - **Per-User State**: Listening history, download tracking, and user preferences with encrypted storage
-- **UI**: My Library tab, new-books marquee, About page, activity audit in Back Office, genre management in Bulk Ops
+- **UI**: My Grotto tab, new-books marquee, About page, activity audit in Back Office, genre management in Bulk Ops
 - **API**: 11 new endpoints for user state, genre management, and admin activity audit
 - **Position Sync**: Replaced Audible cloud dependency with self-contained per-user local tracking
 - See [CHANGELOG.md](CHANGELOG.md) for full details
@@ -1876,7 +1876,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 ### v3.2.0
 
 - **GitHub Releases**: Standalone installation via `bootstrap-install.sh`
-- **Upgrade System**: GitHub-based upgrades with `audiobook-upgrade --from-github`
+- **Upgrade System**: GitHub-based upgrades with `grotto-upgrade --from-github`
 - **Release Automation**: CI/CD workflow and release tarball builder
 - **Repository Renamed**: `audiobook-toolkit` → `Audiobook-Manager`
 - **Removed Flask-CORS**: CORS now handled natively by the application
@@ -1972,7 +1972,7 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 
 **Per-User Experience (v6.3)**
 
-- ~~**My Library**~~: ✅ Personalized library tab with progress bars and listening history
+- ~~**My Grotto**~~: ✅ Personalized library tab with progress bars and listening history
 - ~~**Activity Tracking**~~: ✅ Per-user listening history and download tracking
 - ~~**New Books**~~: ✅ Art Deco marquee for newly added audiobooks
 - ~~**Admin Audit**~~: ✅ Activity audit log with filtering, stats, and top content

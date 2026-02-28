@@ -40,7 +40,7 @@
 
 ### 1.1 Purpose
 
-Enable secure remote access to the Audiobook-Manager library for a small group of trusted users (friends and family) while maintaining strict security, privacy, and isolation guarantees.
+Enable secure remote access to the Vox Grotto library for a small group of trusted users (friends and family) while maintaining strict security, privacy, and isolation guarantees.
 
 ### 1.2 Key Design Principles
 
@@ -171,9 +171,9 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 │  │                         EXISTING SERVICES (Unchanged)                            │  │
 │  │                         Admin-only, localhost access                             │  │
 │  │                                                                                  │  │
-│  │   • audiobook-converter.service                                                  │  │
-│  │   • audiobook-mover.service                                                      │  │
-│  │   • audiobook-downloader.timer                                                   │  │
+│  │   • grotto-converter.service                                                  │  │
+│  │   • grotto-mover.service                                                      │  │
+│  │   • grotto-downloader.timer                                                   │  │
 │  │   • Back Office (utilities.html)                                                 │  │
 │  └─────────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                         │
@@ -1086,7 +1086,7 @@ $ audiobook-backup restore 2026-01-18
 
 | Command | Purpose |
 |---------|---------|
-| `audiobook-user` | User management (create, list, modify, delete) |
+| `grotto-user` | User management (create, list, modify, delete) |
 | `audiobook-session` | Session management (list, revoke) |
 | `audiobook-notify` | Notification management |
 | `audiobook-inbox` | Read and reply to user messages |
@@ -1120,7 +1120,7 @@ $ audiobook-backup restore 2026-01-18
 - [x] auth.db schema
 - [x] User model implementation
 - [x] Session model implementation
-- [x] CLI: `audiobook-user`
+- [x] CLI: `grotto-user`
 - [x] Unit tests
 
 **Deliverable:** CLI user management

@@ -42,7 +42,7 @@ Position tracking allows you to pause an audiobook and resume at the exact same 
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────┐         ┌───────────────────┐
-│   Web Browser    │         │  Audiobook-Manager │
+│   Web Browser    │         │  Vox Grotto │
 │   (Player)       │         │       API          │
 ├──────────────────┤         ├───────────────────┤
 │                  │  Every  │                   │
@@ -442,7 +442,7 @@ Position tracking has evolved through several versions:
 | v5.0--v6.2 | Supported optional Audible position sync (bidirectional) |
 | v6.3.0 | Removed Audible position sync; local-only per-user system |
 
-Previously, Audiobook-Manager supported bidirectional position synchronization with Audible's cloud service, allowing seamless switching between the web player and Audible's official apps. This feature was removed in v6.3.0 in favor of a simpler, local-only per-user architecture. The Audible sync endpoints (`/api/position/sync/<id>`, `/api/position/sync-all`, `/api/position/syncable`) have been removed.
+Previously, Vox Grotto supported bidirectional position synchronization with Audible's cloud service, allowing seamless switching between the web player and Audible's official apps. This feature was removed in v6.3.0 in favor of a simpler, local-only per-user architecture. The Audible sync endpoints (`/api/position/sync/<id>`, `/api/position/sync-all`, `/api/position/syncable`) have been removed.
 
 ---
 

@@ -33,7 +33,7 @@ This document tracked the requirements and gaps for integrating the security/aut
 
 **Current state**:
 
-- CLI tool `audiobook-user add --admin` exists
+- CLI tool `grotto-user add --admin` exists
 - Web registration creates "pending" users awaiting approval
 - No admin exists to approve anyone
 
@@ -76,9 +76,9 @@ This document tracked the requirements and gaps for integrating the security/aut
 **Required**:
 
 ```bash
-audiobook-user approve <username>    # Approve pending registration
-audiobook-user deny <username>       # Deny and delete pending registration
-audiobook-user pending               # List pending registrations
+grotto-user approve <username>    # Approve pending registration
+grotto-user deny <username>       # Deny and delete pending registration
+grotto-user pending               # List pending registrations
 ```
 
 ---
@@ -105,7 +105,7 @@ fi
 # Create audiobooks user if not exists
 if ! getent passwd audiobooks >/dev/null; then
     sudo useradd --system --gid audiobooks --shell /usr/sbin/nologin \
-        --home-dir /var/lib/audiobooks --comment "Audiobook Library Service" audiobooks
+        --home-dir /var/lib/audiobooks --comment "Vox Grotto Service" audiobooks
 fi
 
 # Add installer to audiobooks group
