@@ -1442,7 +1442,7 @@ class AudiobookLibraryV2 {
                     <button class="btn-resume" ${!hasContinue ? 'disabled' : ''} onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, '&quot;')}, true)" title="${hasContinue ? 'Resume from ' + formatPlaybackTime(savedPosition.position) : 'No saved position'}">
                         ${hasContinue ? '⏯ Resume' : '⏯ Resume'}
                     </button>
-                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download this audiobook for offline listening in a local player. The Library streams from its own server storage and cannot access files on your device.">
+                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download this audiobook for offline listening in a local player. Vox Grotto streams from its own server storage and cannot access files on your device.">
                         ⬇ Download
                     </button>
                 </div>
@@ -1612,7 +1612,7 @@ class AudiobookLibraryV2 {
     }
 
     // ============================================
-    // Tab Management (Browse All / My Library)
+    // Tab Management (Browse All / My Grotto)
     // ============================================
 
     /**
@@ -1651,7 +1651,7 @@ class AudiobookLibraryV2 {
             btn.classList.toggle('active', btn.dataset.tab === tabName);
         });
 
-        // Toggle search/filter visibility (hide for My Library)
+        // Toggle search/filter visibility (hide for My Grotto)
         const searchSection = document.querySelector('.search-section');
         const resultsInfo = document.querySelector('.results-info');
         const paginationSection = document.querySelector('.pagination-section');
@@ -1730,7 +1730,7 @@ class AudiobookLibraryV2 {
             // Update download button visibility
             this.updateDownloadButtons();
         } catch (error) {
-            console.error('Error loading My Library:', error);
+            console.error('Error loading My Grotto:', error);
             const errMsg = document.createElement('p');
             errMsg.style.cssText = 'color: var(--parchment); text-align: center; grid-column: 1/-1;';
             errMsg.textContent = 'Error loading your library. Please try again.';
@@ -1774,7 +1774,7 @@ class AudiobookLibraryV2 {
     }
 
     /**
-     * Build a My Library card DOM element with progress bar and listening info.
+     * Build a My Grotto card DOM element with progress bar and listening info.
      * Uses safe DOM construction (createElement/textContent) — no innerHTML.
      * @param {Object} book - Book object with positionData
      * @returns {HTMLElement} Card element
@@ -1854,7 +1854,7 @@ class AudiobookLibraryV2 {
         progressDiv.appendChild(progressSpan);
         card.appendChild(progressDiv);
 
-        // My Library metadata (timestamps for last listened / downloaded)
+        // My Grotto metadata (timestamps for last listened / downloaded)
         if (book.last_listened_at || book.downloaded_at) {
             const metaDiv = document.createElement('div');
             metaDiv.className = 'my-library-meta';
@@ -1910,7 +1910,7 @@ class AudiobookLibraryV2 {
         const downloadBtn = document.createElement('button');
         downloadBtn.className = 'btn-download download-button';
         downloadBtn.style.display = 'none';
-        downloadBtn.title = 'Download this audiobook for offline listening in a local player. The Library streams from its own server storage and cannot access files on your device.';
+        downloadBtn.title = 'Download this audiobook for offline listening in a local player. Vox Grotto streams from its own server storage and cannot access files on your device.';
         downloadBtn.textContent = '\u2B07 Download';
         downloadBtn.addEventListener('click', (e) => {
             e.stopPropagation();

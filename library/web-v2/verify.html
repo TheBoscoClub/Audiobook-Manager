@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Verify Access - The Library</title>
+    <title>Verify Access - Vox Grotto</title>
     <link rel="stylesheet" href="css/theme-art-deco.css?v=6.7.1.2">
     <link rel="stylesheet" href="css/auth.css?v=6.7.1.2">
     <link rel="stylesheet" href="css/help-tooltips.css?v=6.7.1.2">
@@ -15,7 +15,7 @@
         <!-- Decorative header -->
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
-            <h1 class="auth-title">The Library</h1>
+            <h1 class="auth-title">Vox Grotto</h1>
             <p class="auth-subtitle">Checking Your Link</p>
             <div class="deco-line"></div>
         </div>
@@ -31,7 +31,7 @@
             <div class="success-icon">&#10003;</div>
             <h2 class="state-title">You're In!</h2>
             <p class="state-message plain-language">
-                Taking you to The Library now...
+                Taking you to Vox Grotto now...
             </p>
             <p class="state-message" id="redirect-message" style="opacity: 0.7;">
                 (If nothing happens, <a href="shell.html" style="color: var(--gold);">click here</a>.)
@@ -86,7 +86,7 @@
                     <div id="manual-token-help" class="help-tooltip" hidden>
                         <div class="help-content">
                             <strong>Where is my code?</strong>
-                            <p>Check your email for a message from The Library. Copy the code from that email and paste it here.</p>
+                            <p>Check your email for a message from Vox Grotto. Copy the code from that email and paste it here.</p>
                             <strong>I don't see the email</strong>
                             <ul>
                                 <li>Check your spam or junk folder</li>
@@ -192,7 +192,7 @@
                     if (data.activation) {
                         document.querySelector('#state-success .state-title').textContent = 'Welcome!';
                         document.querySelector('#state-success .state-message').textContent =
-                            'Your account is activated. Taking you to The Library now...';
+                            'Your account is activated. Taking you to Vox Grotto now...';
                     }
                     showState('success');
                     // Redirect to library after brief delay

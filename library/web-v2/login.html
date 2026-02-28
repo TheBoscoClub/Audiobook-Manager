@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Sign In - The Library</title>
+    <title>Sign In - Vox Grotto</title>
     <link rel="stylesheet" href="css/theme-art-deco.css?v=6.7.1.2">
     <link rel="stylesheet" href="css/auth.css?v=6.7.1.2">
     <link rel="stylesheet" href="css/help-tooltips.css?v=6.7.1.2">
@@ -16,7 +16,7 @@
         <!-- Decorative header -->
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
-            <h1 class="auth-title">The Library</h1>
+            <h1 class="auth-title">Vox Grotto</h1>
             <p class="auth-subtitle">Sign In</p>
             <div class="deco-line"></div>
         </div>
@@ -62,13 +62,13 @@
                        maxlength="6"
                        autocomplete="one-time-code"
                        placeholder="000000">
-                <span class="field-hint">Open the app on your phone, find The Library, and type the 6-digit number you see</span>
+                <span class="field-hint">Open the app on your phone, find Vox Grotto, and type the 6-digit number you see</span>
                 <div id="code-help" class="help-tooltip" hidden>
                     <div class="help-content">
                         <strong>Where do I find this code?</strong>
                         <ol>
                             <li>Open the authenticator app on your phone (the app you set up when you created your account)</li>
-                            <li>Find <strong>The Library</strong> in the list</li>
+                            <li>Find <strong>Vox Grotto</strong> in the list</li>
                             <li>You'll see a 6-digit number — type it here</li>
                         </ol>
                         <strong>The number changed while I was typing!</strong>
@@ -121,7 +121,7 @@
 
             <!-- Login button - shown after auth type detected -->
             <button type="submit" class="auth-button" id="login-button" hidden>
-                <span class="button-text">Enter the Library</span>
+                <span class="button-text">Enter the Grotto</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
                     Authenticating...
@@ -632,7 +632,7 @@
             document.getElementById('auth-options-fallback').hidden = true;
             continueButton.hidden = false;
             loginButton.hidden = true;
-            loginButton.querySelector('.button-text').textContent = 'Enter the Library';
+            loginButton.querySelector('.button-text').textContent = 'Enter the Grotto';
             clearError(errorMessage);
             usernameInput.focus();
         }
