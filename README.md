@@ -1350,20 +1350,12 @@ All services use the `audiobook-*` naming convention for easy management.
 |---------|-------------|------|
 | `audiobook-api` | Flask REST API (Waitress) on localhost:5001 | always running |
 | `audiobook-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
+| `audiobook-redirect` | HTTP to HTTPS redirect on 0.0.0.0:8080 | always running |
 | `audiobook-converter` | AAXC → OPUS conversion | always running |
 | `audiobook-mover` | Move converted files from tmpfs to storage | always running |
 | `audiobook-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
-| `audiobooks-library-update.timer` | Update database with new audiobooks | timer |
 | `audiobook-shutdown-saver` | Save staging files before shutdown | on shutdown |
-| `audiobooks-conversion-trigger.path` | Watch for new downloads | path watcher |
-| `audiobooks-database-trigger.path` | Watch for completed conversions | path watcher |
-
-### Experimental Services (Disabled by Default)
-
-| Service | Description |
-|---------|-------------|
-| `audiobooks-multiformat` | Non-AAXC format conversion (Google Play, Chirp, Librivox) |
-| `audiobooks-librivox.timer` | Download from Librivox wishlist |
+| `audiobook-upgrade-helper.path` | Watch for upgrade trigger files | path watcher |
 
 ### System Services (Recommended)
 
@@ -1411,6 +1403,7 @@ journalctl -u 'audiobook-*' --since today
 |---------|---------|
 | `audiobook-api` | REST API backend (port 5001) |
 | `audiobook-proxy` | HTTPS reverse proxy (port 8443) |
+| `audiobook-redirect` | HTTP to HTTPS redirect (port 8080) |
 | `audiobook-converter` | Continuous AAXC → Opus conversion |
 | `audiobook-mover` | Moves converted files to library |
 | `audiobook-downloader.timer` | Scheduled Audible downloads |

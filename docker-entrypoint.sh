@@ -233,7 +233,7 @@ fi
 # Wait for API health check
 echo -n "Waiting for API to be ready"
 for i in {1..10}; do
-    if curl -s http://localhost:${API_PORT}/api/stats >/dev/null 2>&1; then
+    if curl -s http://localhost:${API_PORT}/api/system/health >/dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
         break
     fi
@@ -300,7 +300,7 @@ echo ""
 echo "API Endpoints (via HTTPS proxy):"
 echo "  GET /api/audiobooks       - List all audiobooks"
 echo "  GET /api/audiobooks/:id   - Get audiobook details"
-echo "  GET /api/search?q=query   - Search audiobooks"
+echo "  GET /api/audiobooks?search=query - Search audiobooks"
 echo "  GET /api/stats            - Library statistics"
 echo "  GET /api/narrator-counts  - Narrator statistics"
 echo ""
