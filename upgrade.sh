@@ -1010,15 +1010,16 @@ verify_installation_permissions() {
         echo -e "${GREEN}OK${NC}"
     fi
 
-    # Check executable permissions for shell scripts
+    # Check shell script permissions (must be 755 — readable and executable by all)
+    # Without world-readable, /etc/profile.d scripts can't source shared libs like audiobook-config.sh
     echo -n "  Checking executable permissions (.sh)... "
-    local non_exec_scripts=$(find "$target_dir" -name "*.sh" ! -perm -u+x 2>/dev/null | wc -l)
-    if [[ "$non_exec_scripts" -gt 0 ]]; then
-        echo -e "${YELLOW}fixing $non_exec_scripts scripts${NC}"
+    local bad_scripts=$(find "$target_dir" -name "*.sh" \( ! -perm -u+x -o ! -perm -a+r \) 2>/dev/null | wc -l)
+    if [[ "$bad_scripts" -gt 0 ]]; then
+        echo -e "${YELLOW}fixing $bad_scripts scripts${NC}"
         if [[ "$is_system" == "true" ]]; then
-            sudo find "$target_dir" -name "*.sh" ! -perm -u+x -exec chmod +x {} \;
+            sudo find "$target_dir" -name "*.sh" \( ! -perm -u+x -o ! -perm -a+r \) -exec chmod 755 {} \;
         else
-            find "$target_dir" -name "*.sh" ! -perm -u+x -exec chmod +x {} \;
+            find "$target_dir" -name "*.sh" \( ! -perm -u+x -o ! -perm -a+r \) -exec chmod 755 {} \;
         fi
         issues_found=$((issues_found + 1))
     else
