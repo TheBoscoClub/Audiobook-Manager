@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Library - Upgrade Script
+# Vox Grotto - Upgrade Script
 # =============================================================================
 # Upgrades an installed application from a source project or GitHub release.
 #
@@ -28,11 +28,11 @@
 #
 # Examples:
 #   # Upgrade from GitHub (recommended for standalone installations):
-#   audiobook-upgrade
+#   grotto-upgrade
 #   ./upgrade.sh --from-github --target /opt/audiobooks
 #
 #   # Upgrade to specific version:
-#   audiobook-upgrade --version 3.2.0
+#   grotto-upgrade --version 3.2.0
 #
 #   # From local project directory:
 #   ./upgrade.sh --from-project /path/to/Audiobook-Manager --target /opt/audiobooks
@@ -83,19 +83,54 @@ GITHUB_API="https://api.github.com/repos/TheBoscoClub/Audiobook-Manager"
 # Script-to-CLI Name Aliases
 # -----------------------------------------------------------------------------
 # Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
-# Scripts already named audiobook-* don't need an alias — they're auto-linked.
+# Scripts already named grotto-* don't need an alias — they're auto-linked.
 declare -A SCRIPT_ALIASES=(
-    ["convert-audiobooks-opus-parallel"]="audiobook-convert"
-    ["build-conversion-queue"]="audiobook-build-queue"
-    ["download-new-audiobooks"]="audiobook-download"
-    ["monitor-audiobook-conversion"]="audiobook-monitor"
-    ["move-staged-audiobooks"]="audiobook-move-staged"
-    ["copy-audiobook-metadata"]="audiobook-copy-metadata"
-    ["cleanup-stale-indexes"]="audiobook-cleanup-indexes"
-    ["find-duplicate-sources"]="audiobook-find-duplicates"
-    ["fix-wrong-chapters-json"]="audiobook-fix-chapters"
-    ["embed-cover-art.py"]="audiobook-embed-covers"
+    ["convert-audiobooks-opus-parallel"]="grotto-convert"
+    ["build-conversion-queue"]="grotto-build-queue"
+    ["download-new-audiobooks"]="grotto-download"
+    ["monitor-audiobook-conversion"]="grotto-monitor"
+    ["move-staged-audiobooks"]="grotto-move-staged"
+    ["copy-audiobook-metadata"]="grotto-copy-metadata"
+    ["cleanup-stale-indexes"]="grotto-cleanup-indexes"
+    ["find-duplicate-sources"]="grotto-find-duplicates"
+    ["fix-wrong-chapters-json"]="grotto-fix-chapters"
+    ["embed-cover-art.py"]="grotto-embed-covers"
 )
+
+# -----------------------------------------------------------------------------
+# Migration: Clean up old audiobook-* symlinks
+# -----------------------------------------------------------------------------
+
+cleanup_old_symlinks() {
+    # Remove old audiobook-* symlinks from /usr/local/bin that will be replaced
+    # by grotto-* symlinks during this upgrade. This is a simple cleanup, not a
+    # full migration — it only handles symlinks that this script manages.
+    local bin_dir="/usr/local/bin"
+    local use_sudo="${1:-}"
+    local cleaned=0
+
+    [[ -d "$bin_dir" ]] || return 0
+
+    for link in "$bin_dir"/audiobook-*; do
+        [[ -L "$link" ]] || continue
+        local target_path
+        target_path=$(readlink "$link" 2>/dev/null) || continue
+        # Only remove symlinks that point to our application directories
+        if [[ "$target_path" == /opt/audiobooks/* ]] || [[ "$target_path" == /usr/local/lib/audiobooks/* ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would remove old symlink: $link -> $target_path"
+            else
+                ${use_sudo} rm -f "$link"
+                echo "  Removed old symlink: $(basename "$link")"
+            fi
+            cleaned=$((cleaned + 1))
+        fi
+    done
+
+    if [[ $cleaned -gt 0 ]]; then
+        echo -e "${BLUE}Cleaned up $cleaned old audiobook-* symlinks (replaced by grotto-*)${NC}"
+    fi
+}
 
 # -----------------------------------------------------------------------------
 # Helper Functions
@@ -114,8 +149,8 @@ refresh_bin_symlinks() {
 
     echo -e "${BLUE}Refreshing ${bin_dir} symlinks...${NC}"
 
-    # 1. Auto-link all audiobook-* scripts (same name, no alias needed)
-    for script in "$scripts_dir"/audiobook-*; do
+    # 1. Auto-link all grotto-* scripts (same name, no alias needed)
+    for script in "$scripts_dir"/grotto-*; do
         [[ -f "$script" ]] || continue
         local name=$(basename "$script")
         if [[ "$DRY_RUN" == "true" ]]; then
@@ -127,7 +162,7 @@ refresh_bin_symlinks() {
         fi
     done
 
-    # 2. Create alias symlinks for scripts with non-audiobook-* names
+    # 2. Create alias symlinks for scripts with non-grotto-* names
     for script_name in "${!SCRIPT_ALIASES[@]}"; do
         local target_name="${SCRIPT_ALIASES[$script_name]}"
         local source_path="${scripts_dir}/${script_name}"
@@ -148,7 +183,7 @@ do_remote_upgrade() {
     # Deploy to a remote host via SSH, running the full upgrade lifecycle remotely.
     # Requires --from-project to specify the local project directory.
     local project_dir="${PROJECT_DIR:-$SCRIPT_DIR}"
-    local remote_tmp="/tmp/audiobook-upgrade-$$"
+    local remote_tmp="/tmp/grotto-upgrade-$$"
     local ssh_key="${HOME}/.claude/ssh/id_ed25519"
 
     # Build SSH options
@@ -249,7 +284,7 @@ do_remote_upgrade() {
 print_header() {
     echo -e "${CYAN}"
     echo "╔═══════════════════════════════════════════════════════════════════╗"
-    echo "║             Audiobook Library Upgrade Script                      ║"
+    echo "║               Vox Grotto Upgrade Script                          ║"
     echo "╚═══════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
@@ -343,7 +378,7 @@ detect_architecture() {
 
     # Check wrapper script for api_server.py (modular) vs api.py (monolithic)
     local wrapper=""
-    for w in "$target/bin/audiobook-api" "/usr/local/bin/audiobook-api" "$HOME/.local/bin/audiobook-api"; do
+    for w in "$target/bin/grotto-api" "/usr/local/bin/grotto-api" "$HOME/.local/bin/grotto-api"; do
         if [[ -f "$w" ]]; then
             wrapper="$w"
             break
@@ -390,11 +425,11 @@ switch_architecture() {
     fi
 
     # Find and update wrapper scripts
-    local wrappers=("$target/bin/audiobook-api")
+    local wrappers=("$target/bin/grotto-api")
     if [[ "$use_sudo" == "true" ]]; then
-        wrappers+=("/usr/local/bin/audiobook-api")
+        wrappers+=("/usr/local/bin/grotto-api")
     else
-        wrappers+=("$HOME/.local/bin/audiobook-api")
+        wrappers+=("$HOME/.local/bin/grotto-api")
     fi
 
     for wrapper in "${wrappers[@]}"; do
@@ -539,14 +574,14 @@ do_upgrade() {
     if [[ -d "$target/lib" ]]; then
         echo -e "${BLUE}Upgrading configuration library...${NC}"
         if [[ "$DRY_RUN" == "true" ]]; then
-            echo "  [DRY-RUN] Would update: audiobook-config.sh"
+            echo "  [DRY-RUN] Would update: grotto-config.sh"
         else
             if [[ -n "$use_sudo" ]]; then
-                sudo cp "${project}/lib/audiobook-config.sh" "$target/lib/"
+                sudo cp "${project}/lib/grotto-config.sh" "$target/lib/"
             else
-                cp "${project}/lib/audiobook-config.sh" "$target/lib/"
+                cp "${project}/lib/grotto-config.sh" "$target/lib/"
             fi
-            echo "  Updated: audiobook-config.sh"
+            echo "  Updated: grotto-config.sh"
         fi
     fi
 
@@ -638,28 +673,28 @@ do_upgrade() {
             conf_data_dir=$(grep -oP '^AUDIOBOOKS_DATA=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
         fi
         if [[ -n "$conf_data_dir" && "$conf_data_dir" != "/srv/audiobooks" ]]; then
-            local api_svc="/etc/systemd/system/audiobook-api.service"
+            local api_svc="/etc/systemd/system/grotto-api.service"
             if [[ -f "$api_svc" ]] && sudo grep -q "ReadWritePaths=" "$api_svc" 2>/dev/null; then
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would patch ReadWritePaths += ${conf_data_dir}"
                 else
                     sudo sed -i "s|ReadWritePaths=\(.*\)|ReadWritePaths=\1 ${conf_data_dir}|" "$api_svc"
-                    echo "  Patched: audiobook-api.service ReadWritePaths += ${conf_data_dir}"
+                    echo "  Patched: grotto-api.service ReadWritePaths += ${conf_data_dir}"
                     # Also update RequiresMountsFor so systemd waits for the mount
                     if sudo grep -q "RequiresMountsFor=" "$api_svc" 2>/dev/null; then
                         sudo sed -i "s|RequiresMountsFor=\(.*\)|RequiresMountsFor=\1 ${conf_data_dir}|" "$api_svc"
-                        echo "  Patched: audiobook-api.service RequiresMountsFor += ${conf_data_dir}"
+                        echo "  Patched: grotto-api.service RequiresMountsFor += ${conf_data_dir}"
                     fi
                 fi
             fi
         fi
 
         # Install/update tmpfiles.d configuration for runtime directories
-        if [[ -f "${project}/systemd/audiobooks-tmpfiles.conf" ]]; then
+        if [[ -f "${project}/systemd/grotto-tmpfiles.conf" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo "  [DRY-RUN] Would update tmpfiles.d configuration"
             else
-                sudo cp "${project}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+                sudo cp "${project}/systemd/grotto-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
                 sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
                 # Ensure runtime directories exist
                 sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
@@ -671,7 +706,7 @@ do_upgrade() {
                     sudo chmod 755 "${var_dir}/.control"
                     sudo chmod 775 "${var_dir}/.run" "$staging"
                 }
-                echo "  Updated: tmpfiles.d/audiobooks.conf"
+                echo "  Updated: tmpfiles.d configuration"
             fi
         fi
 
@@ -680,9 +715,9 @@ do_upgrade() {
             sudo systemctl daemon-reload
 
             # Enable and start the privileged helper path unit if not already running
-            if [[ -f "/etc/systemd/system/audiobook-upgrade-helper.path" ]]; then
-                sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
-                sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
+            if [[ -f "/etc/systemd/system/grotto-upgrade-helper.path" ]]; then
+                sudo systemctl enable grotto-upgrade-helper.path 2>/dev/null || true
+                sudo systemctl start grotto-upgrade-helper.path 2>/dev/null || true
             fi
         fi
     fi
@@ -752,8 +787,9 @@ do_upgrade() {
         fi
     fi
 
-    # Refresh /usr/local/bin symlinks to point to canonical scripts
+    # Clean up old audiobook-* symlinks before creating new grotto-* ones
     if [[ "$target" == "/opt/audiobooks" || "$target" == "/usr/local/lib/audiobooks" ]]; then
+        cleanup_old_symlinks "${use_sudo}"
         refresh_bin_symlinks "$target" "${use_sudo}"
     fi
 
@@ -863,47 +899,47 @@ validate_auth_post_upgrade() {
 # -----------------------------------------------------------------------------
 
 stop_services() {
-    # Stop audiobook services before upgrade
+    # Stop Vox Grotto services before upgrade
     local use_sudo="$1"
 
-    echo -e "${BLUE}Stopping audiobook services...${NC}"
+    echo -e "${BLUE}Stopping Vox Grotto services...${NC}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        echo "  [DRY-RUN] Would stop audiobooks services"
+        echo "  [DRY-RUN] Would stop Vox Grotto services"
         return 0
     fi
 
     # Check if systemd services exist
-    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "grotto-"; then
         # System-level services
         if [[ -n "$use_sudo" ]]; then
-            sudo systemctl stop audiobook.target 2>/dev/null || true
+            sudo systemctl stop grotto.target 2>/dev/null || true
             # Also stop individual services in case target doesn't exist
-            for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+            for svc in grotto-api grotto-proxy grotto-redirect grotto-converter grotto-mover grotto-downloader.timer grotto-shutdown-saver; do
                 sudo systemctl stop "$svc" 2>/dev/null || true
             done
         fi
         echo -e "${GREEN}  Services stopped${NC}"
-    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "grotto-"; then
         # User-level services
-        systemctl --user stop audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-redirect; do
+        systemctl --user stop grotto.target 2>/dev/null || true
+        for svc in grotto-api grotto-proxy grotto-redirect; do
             systemctl --user stop "$svc" 2>/dev/null || true
         done
         echo -e "${GREEN}  User services stopped${NC}"
     else
-        echo "  No active audiobook services found"
+        echo "  No active Vox Grotto services found"
     fi
 }
 
 start_services() {
-    # Start audiobook services after upgrade
+    # Start Vox Grotto services after upgrade
     local use_sudo="$1"
 
-    echo -e "${BLUE}Starting audiobook services...${NC}"
+    echo -e "${BLUE}Starting Vox Grotto services...${NC}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        echo "  [DRY-RUN] Would start audiobooks services"
+        echo "  [DRY-RUN] Would start Vox Grotto services"
         return 0
     fi
 
@@ -915,12 +951,12 @@ start_services() {
     fi
 
     # Check if systemd services exist
-    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "grotto-"; then
         # System-level services
         if [[ -n "$use_sudo" ]]; then
-            sudo systemctl start audiobook.target 2>/dev/null || {
+            sudo systemctl start grotto.target 2>/dev/null || {
                 # Fallback: start individual services
-                for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+                for svc in grotto-api grotto-proxy grotto-redirect grotto-converter grotto-mover grotto-downloader.timer grotto-shutdown-saver; do
                     sudo systemctl start "$svc" 2>/dev/null || true
                 done
             }
@@ -930,7 +966,7 @@ start_services() {
         # Show service status summary
         echo ""
         echo -e "${BLUE}Service status:${NC}"
-        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer; do
+        for svc in grotto-api grotto-proxy grotto-converter grotto-mover grotto-downloader.timer; do
             local svc_state
             svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
             if [[ "$svc_state" == "active" ]]; then
@@ -939,16 +975,16 @@ start_services() {
                 echo -e "  $svc: ${YELLOW}$svc_state${NC}"
             fi
         done
-    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "grotto-"; then
         # User-level services
-        systemctl --user start audiobook.target 2>/dev/null || {
-            for svc in audiobook-api audiobook-proxy audiobook-redirect; do
+        systemctl --user start grotto.target 2>/dev/null || {
+            for svc in grotto-api grotto-proxy grotto-redirect; do
                 systemctl --user start "$svc" 2>/dev/null || true
             done
         }
         echo -e "${GREEN}  User services started${NC}"
     else
-        echo "  No audiobook services to start"
+        echo "  No Vox Grotto services to start"
     fi
 }
 
@@ -1011,7 +1047,7 @@ verify_installation_permissions() {
     fi
 
     # Check shell script permissions (must be 755 — readable and executable by all)
-    # Without world-readable, /etc/profile.d scripts can't source shared libs like audiobook-config.sh
+    # Without world-readable, /etc/profile.d scripts can't source shared libs like grotto-config.sh
     echo -n "  Checking executable permissions (.sh)... "
     local bad_scripts=$(find "$target_dir" -name "*.sh" \( ! -perm -u+x -o ! -perm -a+r \) 2>/dev/null | wc -l)
     if [[ "$bad_scripts" -gt 0 ]]; then
@@ -1030,7 +1066,7 @@ verify_installation_permissions() {
     # The check must look for ClaudeCodeProjects paths specifically, NOT $SCRIPT_DIR,
     # because when run from /opt/audiobooks, $SCRIPT_DIR matches legitimate production links
     echo -n "  Checking for project source dependencies... "
-    local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
+    local project_links=$(find /usr/local/bin -name "grotto-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
     if [[ "$project_links" -gt 0 ]]; then
         echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
         issues_found=$((issues_found + 1))

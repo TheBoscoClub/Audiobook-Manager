@@ -1,9 +1,11 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Library - Comprehensive Uninstall Script
+# Vox Grotto - Comprehensive Uninstall Script
 # =============================================================================
-# Removes every trace of the Audiobook Manager installation using dynamic
+# Removes every trace of the Vox Grotto installation using dynamic
 # discovery (glob patterns, systemctl queries) instead of hardcoded lists.
+# Handles both current (grotto-*) and legacy (audiobook-*) service/symlink
+# names for clean migration support.
 #
 # Usage:
 #   ./uninstall.sh [OPTIONS]
@@ -131,7 +133,7 @@ remove_dir() {
 }
 
 show_help() {
-    echo "Audiobook Manager - Uninstall Script"
+    echo "Vox Grotto - Uninstall Script"
     echo ""
     echo "Usage: ./uninstall.sh [OPTIONS]"
     echo ""
@@ -160,16 +162,21 @@ detect_install_type() {
     [[ -d "$HOME/.local/lib/audiobooks" ]] && has_user=true
 
     # Also check for leftover systemd units or symlinks even if dirs are gone
+    # Check both current (grotto-*) and legacy (audiobook-*) names
     if [[ "$has_system" == "false" ]]; then
-        local sys_units=(/etc/systemd/system/audiobook*)
-        local sys_bins=(/usr/local/bin/audiobook-*)
-        [[ ${#sys_units} -gt 0 || ${#sys_bins} -gt 0 ]] && has_system=true
+        local sys_units_new=(/etc/systemd/system/grotto*)
+        local sys_units_old=(/etc/systemd/system/audiobook*)
+        local sys_bins_new=(/usr/local/bin/grotto-*)
+        local sys_bins_old=(/usr/local/bin/audiobook-*)
+        [[ ${#sys_units_new} -gt 0 || ${#sys_units_old} -gt 0 || ${#sys_bins_new} -gt 0 || ${#sys_bins_old} -gt 0 ]] && has_system=true
     fi
 
     if [[ "$has_user" == "false" ]]; then
-        local user_units=("$HOME"/.config/systemd/user/audiobook*)
-        local user_bins=("$HOME"/.local/bin/audiobook-*)
-        [[ ${#user_units} -gt 0 || ${#user_bins} -gt 0 ]] && has_user=true
+        local user_units_new=("$HOME"/.config/systemd/user/grotto*)
+        local user_units_old=("$HOME"/.config/systemd/user/audiobook*)
+        local user_bins_new=("$HOME"/.local/bin/grotto-*)
+        local user_bins_old=("$HOME"/.local/bin/audiobook-*)
+        [[ ${#user_units_new} -gt 0 || ${#user_units_old} -gt 0 || ${#user_bins_new} -gt 0 || ${#user_bins_old} -gt 0 ]] && has_user=true
     fi
 
     if [[ "$has_system" == "true" && "$has_user" == "true" ]]; then
@@ -199,12 +206,13 @@ confirm_uninstall() {
     echo -e "${RED}║                    UNINSTALL CONFIRMATION                         ║${NC}"
     echo -e "${RED}╚═══════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo "This will remove the Audiobook Manager ${BOLD}${mode}${NC} installation:"
+    echo "This will remove the Vox Grotto ${BOLD}${mode}${NC} installation:"
     echo ""
 
     if [[ "$mode" == "system" ]]; then
-        echo "  - All audiobook-* systemd services, timers, paths, and targets"
-        echo "  - All audiobook-* symlinks in /usr/local/bin/"
+        echo "  - All grotto-* systemd services, timers, paths, and targets"
+        echo "  - All grotto-* symlinks in /usr/local/bin/"
+        echo "  - Legacy audiobook-* services and symlinks (if present)"
         echo "  - Application directory: /opt/audiobooks/"
         echo "  - Configuration: /etc/audiobooks/"
         echo "  - State/database: /var/lib/audiobooks/"
@@ -214,8 +222,9 @@ confirm_uninstall() {
         echo "  - Runtime/temp files in /tmp/"
         echo "  - System user and group: audiobooks"
     else
-        echo "  - All audiobook-* user systemd services"
-        echo "  - All audiobook-* scripts in ~/.local/bin/"
+        echo "  - All grotto-* user systemd services"
+        echo "  - All grotto-* scripts in ~/.local/bin/"
+        echo "  - Legacy audiobook-* services and scripts (if present)"
         echo "  - Application: ~/.local/lib/audiobooks/"
         echo "  - Configuration: ~/.config/audiobooks/"
         echo "  - State/database: ~/.local/var/lib/audiobooks/"
@@ -267,22 +276,25 @@ remove_systemd_units() {
     echo ""
     echo -e "${BOLD}=== Systemd Units ===${NC}"
 
-    # Step 1: Find all audiobook* units (dynamic discovery)
+    # Step 1: Find all grotto* and legacy audiobook* units (dynamic discovery)
     local units=()
     if [[ "$use_sudo" == "sudo" ]]; then
-        # Query systemd for all audiobook* units of any type
-        # In dry-run mode, try without sudo first (may have read access)
-        # Filter out systemctl's ● marker for failed/inactive units
+        # Query systemd for all grotto* and audiobook* units of any type
         # systemctl list-* doesn't need sudo (read-only), run without privilege escalation
-        mapfile -t units < <(systemctl list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        # Filter out systemctl's marker for failed/inactive units
+        local grotto_units audiobook_units
+        mapfile -t grotto_units < <(systemctl list-units --type=service,timer,path,target,socket --all 'grotto*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^grotto/) {print $i; break}}')
+        mapfile -t audiobook_units < <(systemctl list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        units+=("${grotto_units[@]}" "${audiobook_units[@]}")
         # Also check unit files that might not be loaded
-        local unit_files
-        mapfile -t unit_files < <(systemctl list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
-        units+=("${unit_files[@]}")
+        local grotto_unit_files audiobook_unit_files
+        mapfile -t grotto_unit_files < <(systemctl list-unit-files 'grotto*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^grotto/) {print $i; break}}')
+        mapfile -t audiobook_unit_files < <(systemctl list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        units+=("${grotto_unit_files[@]}" "${audiobook_unit_files[@]}")
         # Deduplicate
         readarray -t units < <(printf '%s\n' "${units[@]}" | sort -u)
         # Also discover from filesystem (catches units systemd doesn't know about)
-        for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
+        for f in "${systemd_dir}"/grotto*.{service,timer,path,target,socket} "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
             local unit_name="${f##*/}"
             # Add if not already in list
             if [[ ! " ${units[*]} " =~ " ${unit_name} " ]]; then
@@ -290,11 +302,15 @@ remove_systemd_units() {
             fi
         done
     else
-        mapfile -t units < <(systemctl --user list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
-        local unit_files
-        mapfile -t unit_files < <(systemctl --user list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
-        units+=("${unit_files[@]}")
-        for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
+        local grotto_units audiobook_units
+        mapfile -t grotto_units < <(systemctl --user list-units --type=service,timer,path,target,socket --all 'grotto*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^grotto/) {print $i; break}}')
+        mapfile -t audiobook_units < <(systemctl --user list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        units+=("${grotto_units[@]}" "${audiobook_units[@]}")
+        local grotto_unit_files audiobook_unit_files
+        mapfile -t grotto_unit_files < <(systemctl --user list-unit-files 'grotto*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^grotto/) {print $i; break}}')
+        mapfile -t audiobook_unit_files < <(systemctl --user list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        units+=("${grotto_unit_files[@]}" "${audiobook_unit_files[@]}")
+        for f in "${systemd_dir}"/grotto*.{service,timer,path,target,socket} "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
             local unit_name="${f##*/}"
             if [[ ! " ${units[*]} " =~ " ${unit_name} " ]]; then
                 units+=("$unit_name")
@@ -303,7 +319,7 @@ remove_systemd_units() {
     fi
 
     if [[ ${#units} -eq 0 ]]; then
-        log_info "No audiobook systemd units found"
+        log_info "No grotto/audiobook systemd units found"
     else
         # Step 1: Stop all units
         log_info "Stopping ${#units} systemd unit(s)..."
@@ -337,24 +353,25 @@ remove_systemd_units() {
     fi
 
     # Step 3: Remove unit files from disk (glob-based, catches everything)
+    # Remove both current (grotto*) and legacy (audiobook*) unit files
     log_info "Removing unit files from ${systemd_dir}..."
-    for f in "${systemd_dir}"/audiobook*; do
+    for f in "${systemd_dir}"/grotto* "${systemd_dir}"/audiobook*; do
         if [[ -f "$f" || -L "$f" ]]; then
             remove_file "$f" "$use_sudo"
         elif [[ -d "$f" ]]; then
-            # Drop-in override directories (e.g., audiobook-api.service.d/)
+            # Drop-in override directories (e.g., grotto-api.service.d/)
             remove_dir "$f" "$use_sudo"
         fi
     done
 
     # Also remove .wants directory symlinks (created by systemctl enable)
-    for wants_dir in "${systemd_dir}"/audiobook*.wants; do
+    for wants_dir in "${systemd_dir}"/grotto*.wants "${systemd_dir}"/audiobook*.wants; do
         remove_dir "$wants_dir" "$use_sudo"
     done
-    # Clean symlinks inside other .wants dirs that point to audiobook units
+    # Clean symlinks inside other .wants dirs that point to grotto or audiobook units
     for wants_dir in "${systemd_dir}"/*.wants; do
         [[ -d "$wants_dir" ]] || continue
-        for link in "${wants_dir}"/audiobook*; do
+        for link in "${wants_dir}"/grotto* "${wants_dir}"/audiobook*; do
             remove_file "$link" "$use_sudo"
         done
     done
@@ -383,8 +400,9 @@ remove_bin_symlinks() {
     echo ""
     echo -e "${BOLD}=== Binary Symlinks ===${NC}"
 
+    # Remove both current (grotto-*) and legacy (audiobook-*) symlinks
     local count=0
-    for link in "${bin_dir}"/audiobook-*; do
+    for link in "${bin_dir}"/grotto-* "${bin_dir}"/audiobook-*; do
         if [[ -L "$link" || -f "$link" ]]; then
             remove_file "$link" "$use_sudo"
             ((count++)) || true
@@ -392,7 +410,7 @@ remove_bin_symlinks() {
     done
 
     if [[ $count -eq 0 ]]; then
-        log_info "No audiobook-* files found in ${bin_dir}"
+        log_info "No grotto-* or audiobook-* files found in ${bin_dir}"
     fi
 }
 
@@ -406,11 +424,11 @@ remove_system_configs() {
     echo ""
     echo -e "${BOLD}=== System Configuration Files ===${NC}"
 
-    # tmpfiles.d (glob catches both audiobooks.conf and audiobooks-tmpfiles.conf)
-    for f in /etc/tmpfiles.d/audiobook*; do
+    # tmpfiles.d — remove both current (grotto-*) and legacy (audiobook*) configs
+    for f in /etc/tmpfiles.d/grotto* /etc/tmpfiles.d/audiobook*; do
         remove_file "$f" "$use_sudo"
     done
-    for f in /usr/lib/tmpfiles.d/audiobook*; do
+    for f in /usr/lib/tmpfiles.d/grotto* /usr/lib/tmpfiles.d/audiobook*; do
         remove_file "$f" "$use_sudo"
     done
 
@@ -477,8 +495,11 @@ remove_runtime_files() {
     echo ""
     echo -e "${BOLD}=== Runtime & Temporary Files ===${NC}"
 
-    # Known runtime locations
+    # Known runtime locations (current and legacy names)
     local known_paths=(
+        "/tmp/grotto-staging"
+        "/tmp/grotto-triggers"
+        "/tmp/grotto-downloader.lock"
         "/tmp/audiobook-staging"
         "/tmp/audiobook-triggers"
         "/tmp/audiobook-downloader.lock"
@@ -494,8 +515,8 @@ remove_runtime_files() {
         fi
     done
 
-    # Catch-all: any remaining /tmp/audiobook* artifacts (FIFOs, temp files, etc.)
-    for f in /tmp/audiobook*; do
+    # Catch-all: any remaining /tmp/grotto* or /tmp/audiobook* artifacts (FIFOs, temp files, etc.)
+    for f in /tmp/grotto* /tmp/audiobook*; do
         # Skip already-handled paths
         local already_handled=false
         for known in "${known_paths[@]}"; do
@@ -520,7 +541,7 @@ handle_data_directories() {
     local config_dir="$2"
 
     echo ""
-    echo -e "${BOLD}=== Audiobook Data ===${NC}"
+    echo -e "${BOLD}=== Vox Grotto Data ===${NC}"
 
     # Read data paths from config before it was deleted (we sourced it earlier)
     local data_dir="${_UNINSTALL_DATA_DIR:-/srv/audiobooks}"
@@ -723,22 +744,29 @@ scan_for_orphans() {
     local remaining=0
     local patterns
 
+    # Scan for both current (grotto-*) and legacy (audiobook-*) artifacts
     if [[ "$use_sudo" == "sudo" ]]; then
         patterns=(
+            "/usr/local/bin/grotto*"
             "/usr/local/bin/audiobook*"
+            "/etc/systemd/system/grotto*"
             "/etc/systemd/system/audiobook*"
             "/etc/audiobooks"
             "/opt/audiobooks"
             "/var/lib/audiobooks"
             "/var/log/audiobooks"
+            "/etc/tmpfiles.d/grotto*"
             "/etc/tmpfiles.d/audiobook*"
             "/etc/profile.d/audiobook*"
             "/usr/local/lib/audiobooks"
+            "/tmp/grotto*"
             "/tmp/audiobook*"
         )
     else
         patterns=(
+            "$HOME/.local/bin/grotto*"
             "$HOME/.local/bin/audiobook*"
+            "$HOME/.config/systemd/user/grotto*"
             "$HOME/.config/systemd/user/audiobook*"
             "$HOME/.config/audiobooks"
             "$HOME/.local/lib/audiobooks"
@@ -757,7 +785,7 @@ scan_for_orphans() {
     done
 
     if [[ $remaining -eq 0 ]]; then
-        echo -e "  ${GREEN}Clean — no audiobook artifacts found${NC}"
+        echo -e "  ${GREEN}Clean — no Vox Grotto artifacts found${NC}"
     else
         echo ""
         log_warn "$remaining artifact(s) remaining — review and remove manually if needed"
@@ -774,17 +802,17 @@ check_shell_rc_files() {
 
     local found=false
     for rc in ~/.bashrc ~/.zshrc ~/.profile ~/.bash_profile ~/.zprofile; do
-        if [[ -f "$rc" ]] && grep -qi 'audiobook' "$rc" 2>/dev/null; then
+        if [[ -f "$rc" ]] && grep -qiE 'audiobook|grotto' "$rc" 2>/dev/null; then
             found=true
-            log_note "$rc contains audiobook references — review manually:"
-            grep -n -i 'audiobook' "$rc" 2>/dev/null | head -5 | while read -r line; do
+            log_note "$rc contains Vox Grotto/audiobook references — review manually:"
+            grep -n -iE 'audiobook|grotto' "$rc" 2>/dev/null | head -5 | while read -r line; do
                 echo "    $line"
             done
         fi
     done
 
     if [[ "$found" == "false" ]]; then
-        log_info "No audiobook references found in shell RC files"
+        log_info "No Vox Grotto or audiobook references found in shell RC files"
     fi
 }
 
@@ -959,11 +987,13 @@ if [[ -z "$INSTALL_MODE" ]]; then
             done
             ;;
         none)
-            echo -e "${GREEN}No Audiobook Manager installation detected.${NC}"
+            echo -e "${GREEN}No Vox Grotto installation detected.${NC}"
             echo ""
             echo "Checked:"
-            echo "  System: /opt/audiobooks, /usr/local/bin/audiobook-*, /etc/systemd/system/audiobook*"
-            echo "  User:   ~/.local/lib/audiobooks, ~/.local/bin/audiobook-*, ~/.config/systemd/user/audiobook*"
+            echo "  System: /opt/audiobooks, /usr/local/bin/grotto-*, /usr/local/bin/audiobook-*,"
+            echo "          /etc/systemd/system/grotto*, /etc/systemd/system/audiobook*"
+            echo "  User:   ~/.local/lib/audiobooks, ~/.local/bin/grotto-*, ~/.local/bin/audiobook-*,"
+            echo "          ~/.config/systemd/user/grotto*, ~/.config/systemd/user/audiobook*"
             exit 0
             ;;
     esac

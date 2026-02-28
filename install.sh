@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Library - Unified Installation Script
+# Vox Grotto - Unified Installation Script
 # =============================================================================
 # Interactive installer that supports both system-wide and user installations.
 #
@@ -60,18 +60,18 @@ API_ARCHITECTURE="monolithic"  # monolithic (api.py) or modular (api_modular/)
 # Script-to-CLI Name Aliases (shared with upgrade.sh)
 # -----------------------------------------------------------------------------
 # Maps repo script names (in scripts/) to user-facing CLI names (in /usr/local/bin/).
-# Scripts already named audiobook-* don't need an alias — they're auto-linked.
+# Scripts already named grotto-* don't need an alias — they're auto-linked.
 declare -A SCRIPT_ALIASES=(
-    ["convert-audiobooks-opus-parallel"]="audiobook-convert"
-    ["build-conversion-queue"]="audiobook-build-queue"
-    ["download-new-audiobooks"]="audiobook-download"
-    ["monitor-audiobook-conversion"]="audiobook-monitor"
-    ["move-staged-audiobooks"]="audiobook-move-staged"
-    ["copy-audiobook-metadata"]="audiobook-copy-metadata"
-    ["cleanup-stale-indexes"]="audiobook-cleanup-indexes"
-    ["find-duplicate-sources"]="audiobook-find-duplicates"
-    ["fix-wrong-chapters-json"]="audiobook-fix-chapters"
-    ["embed-cover-art.py"]="audiobook-embed-covers"
+    ["convert-audiobooks-opus-parallel"]="grotto-convert"
+    ["build-conversion-queue"]="grotto-build-queue"
+    ["download-new-audiobooks"]="grotto-download"
+    ["monitor-audiobook-conversion"]="grotto-monitor"
+    ["move-staged-audiobooks"]="grotto-move-staged"
+    ["copy-audiobook-metadata"]="grotto-copy-metadata"
+    ["cleanup-stale-indexes"]="grotto-cleanup-indexes"
+    ["find-duplicate-sources"]="grotto-find-duplicates"
+    ["fix-wrong-chapters-json"]="grotto-fix-chapters"
+    ["embed-cover-art.py"]="grotto-embed-covers"
 )
 
 # -----------------------------------------------------------------------------
@@ -89,8 +89,8 @@ refresh_bin_symlinks() {
 
     echo -e "${BLUE}Creating symlinks in ${bin_dir}...${NC}"
 
-    # 1. Auto-link all audiobook-* scripts (same name, no alias needed)
-    for script in "$scripts_dir"/audiobook-*; do
+    # 1. Auto-link all grotto-* scripts (same name, no alias needed)
+    for script in "$scripts_dir"/grotto-*; do
         [[ -f "$script" ]] || continue
         local name=$(basename "$script")
         ${use_sudo} rm -f "${bin_dir}/${name}"
@@ -98,7 +98,7 @@ refresh_bin_symlinks() {
         echo "  Linked: ${name}"
     done
 
-    # 2. Create alias symlinks for scripts with non-audiobook-* names
+    # 2. Create alias symlinks for scripts with non-grotto-* names
     for script_name in "${!SCRIPT_ALIASES[@]}"; do
         local target_name="${SCRIPT_ALIASES[$script_name]}"
         local source_path="${scripts_dir}/${script_name}"
@@ -116,7 +116,7 @@ print_header() {
     echo -e "${CYAN}"
     echo "╔═══════════════════════════════════════════════════════════════════╗"
     echo "║                                                                   ║"
-    echo "║              Audiobook Library Installation                       ║"
+    echo "║              Vox Grotto Installation                              ║"
     echo "║                                                                   ║"
     echo "╚═══════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -842,7 +842,7 @@ verify_installation_permissions() {
         # Must check for ClaudeCodeProjects specifically, not $SCRIPT_DIR,
         # because when run from /opt/audiobooks, $SCRIPT_DIR matches legitimate production links
         echo -n "  Checking for project source dependencies... "
-        local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
+        local project_links=$(find /usr/local/bin -name "grotto-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
         if [[ "$project_links" -gt 0 ]]; then
             echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
             echo -e "         Production should be independent of source repo."
@@ -1158,7 +1158,7 @@ do_system_install() {
     if ! getent passwd audiobooks >/dev/null 2>&1; then
         echo "  Creating 'audiobooks' service user..."
         sudo useradd --system --gid audiobooks --shell /usr/sbin/nologin \
-            --home-dir /var/lib/audiobooks --comment "Audiobook Library Service" audiobooks
+            --home-dir /var/lib/audiobooks --comment "Vox Grotto Service" audiobooks
     else
         echo "  User 'audiobooks' already exists"
     fi
@@ -1230,7 +1230,7 @@ do_system_install() {
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
         echo -e "${BLUE}Creating configuration file...${NC}"
         sudo tee "${CONFIG_DIR}/audiobooks.conf" > /dev/null << EOF
-# Audiobook Library Configuration
+# Vox Grotto Configuration
 # Generated by install.sh on $(date +%Y-%m-%d)
 
 # Data directories
@@ -1306,7 +1306,7 @@ EOF
     echo ""
 
     # Install ALL scripts to /opt/audiobooks/scripts/ (canonical location)
-    # This includes management scripts AND wrapper scripts (audiobook-api, etc.)
+    # This includes management scripts AND wrapper scripts (grotto-api, etc.)
     # All /usr/local/bin/ entries will be symlinks to this canonical location.
     echo -e "${BLUE}Installing scripts to canonical location...${NC}"
     local APP_SCRIPTS_DIR="/opt/audiobooks/scripts"
@@ -1382,7 +1382,7 @@ EOF
         sudo mkdir -p "${CERT_DIR}"
         sudo openssl req -x509 -newkey rsa:4096 -sha256 -days 1095 \
             -nodes -keyout "${CERT_DIR}/server.key" -out "${CERT_DIR}/server.crt" \
-            -subj "/CN=localhost/O=Audiobooks/C=US" \
+            -subj "/CN=localhost/O=Vox Grotto/C=US" \
             -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
             2>/dev/null
         sudo chown audiobooks:audiobooks "${CERT_DIR}/server.key" "${CERT_DIR}/server.crt"
@@ -1395,9 +1395,9 @@ EOF
         echo -e "${BLUE}Installing systemd services...${NC}"
 
         # API service
-        sudo tee "${SYSTEMD_DIR}/audiobook-api.service" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/grotto-api.service" > /dev/null << EOF
 [Unit]
-Description=Audiobooks Library API Server
+Description=Vox Grotto API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network.target
 
@@ -1405,7 +1405,7 @@ After=network.target
 Type=simple
 EnvironmentFile=${CONFIG_DIR}/audiobooks.conf
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:\${AUDIOBOOKS_API_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobook-api
+ExecStart=${BIN_DIR}/grotto-api
 Restart=on-failure
 RestartSec=5
 
@@ -1414,18 +1414,18 @@ WantedBy=multi-user.target
 EOF
 
         # Web service
-        sudo tee "${SYSTEMD_DIR}/audiobook-web.service" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/grotto-web.service" > /dev/null << EOF
 [Unit]
-Description=Audiobooks Library Web Server (HTTPS)
+Description=Vox Grotto Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-After=audiobook-api.service
-Wants=audiobook-api.service
+After=grotto-api.service
+Wants=grotto-api.service
 
 [Service]
 Type=simple
 EnvironmentFile=${CONFIG_DIR}/audiobooks.conf
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:\${AUDIOBOOKS_WEB_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobook-web
+ExecStart=${BIN_DIR}/grotto-web
 Restart=on-failure
 RestartSec=5
 
@@ -1440,7 +1440,7 @@ EOF
                 if [[ -f "$service_file" ]]; then
                     local service_name=$(basename "$service_file")
                     # Skip the target file - we handle that specially
-                    if [[ "$service_name" == "audiobook.target" ]]; then
+                    if [[ "$service_name" == "grotto.target" ]]; then
                         continue
                     fi
                     sudo cp "$service_file" "${SYSTEMD_DIR}/${service_name}"
@@ -1453,23 +1453,23 @@ EOF
             # ProtectSystem=strict makes the filesystem read-only except for listed paths.
             # Without this, cover art extraction and other data writes silently fail.
             if [[ "$data_dir" != "/srv/audiobooks" ]]; then
-                local api_service="${SYSTEMD_DIR}/audiobook-api.service"
+                local api_service="${SYSTEMD_DIR}/grotto-api.service"
                 if sudo grep -q "ReadWritePaths=" "$api_service" 2>/dev/null; then
                     sudo sed -i "s|ReadWritePaths=\(.*\)|ReadWritePaths=\1 ${data_dir}|" "$api_service"
-                    echo "  Patched: audiobook-api.service ReadWritePaths += ${data_dir}"
+                    echo "  Patched: grotto-api.service ReadWritePaths += ${data_dir}"
                 fi
                 # Also update RequiresMountsFor so systemd waits for the mount
                 if sudo grep -q "RequiresMountsFor=" "$api_service" 2>/dev/null; then
                     sudo sed -i "s|RequiresMountsFor=\(.*\)|RequiresMountsFor=\1 ${data_dir}|" "$api_service"
-                    echo "  Patched: audiobook-api.service RequiresMountsFor += ${data_dir}"
+                    echo "  Patched: grotto-api.service RequiresMountsFor += ${data_dir}"
                 fi
             fi
         fi
 
         # Install tmpfiles.d configuration for runtime directories
-        if [[ -f "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" ]]; then
+        if [[ -f "${SCRIPT_DIR}/systemd/grotto-tmpfiles.conf" ]]; then
             echo -e "${BLUE}Installing tmpfiles.d configuration...${NC}"
-            sudo cp "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
+            sudo cp "${SCRIPT_DIR}/systemd/grotto-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
             sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
             # Create the runtime directories immediately
             sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
@@ -1483,19 +1483,19 @@ EOF
         fi
 
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
-        if [[ -f "${SYSTEMD_DIR}/audiobook-upgrade-helper.path" ]]; then
+        if [[ -f "${SYSTEMD_DIR}/grotto-upgrade-helper.path" ]]; then
             echo -e "${BLUE}Enabling privileged operations helper...${NC}"
-            sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
-            sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
-            echo "  Enabled: audiobook-upgrade-helper.path"
+            sudo systemctl enable grotto-upgrade-helper.path 2>/dev/null || true
+            sudo systemctl start grotto-upgrade-helper.path 2>/dev/null || true
+            echo "  Enabled: grotto-upgrade-helper.path"
         fi
 
         # Target (includes all services)
-        sudo tee "${SYSTEMD_DIR}/audiobook.target" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/grotto.target" > /dev/null << EOF
 [Unit]
-Description=Audiobooks Library Services
+Description=Vox Grotto Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
+Wants=grotto-api.service grotto-proxy.service grotto-redirect.service grotto-converter.service grotto-mover.service grotto-downloader.timer
 
 [Install]
 WantedBy=multi-user.target
@@ -1508,16 +1508,16 @@ EOF
         echo -e "${BLUE}Enabling services for automatic start at boot...${NC}"
 
         # Enable the target and all individual services
-        sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer; do
+        sudo systemctl enable grotto.target 2>/dev/null || true
+        for svc in grotto-api grotto-proxy grotto-converter grotto-mover grotto-downloader.timer; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
 
         echo -e "${BLUE}Starting services...${NC}"
         # Start the target (which starts all wanted services)
-        sudo systemctl start audiobook.target 2>/dev/null || {
+        sudo systemctl start grotto.target 2>/dev/null || {
             # Fallback: start individual services
-            for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
+            for svc in grotto-api grotto-proxy grotto-converter grotto-mover; do
                 sudo systemctl start "$svc" 2>/dev/null || true
             done
         }
@@ -1526,7 +1526,7 @@ EOF
         echo ""
         echo -e "${BLUE}Service status:${NC}"
         local all_ok=true
-        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
+        for svc in grotto-api grotto-proxy grotto-converter grotto-mover; do
             local svc_state
             svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
             if [[ "$svc_state" == "active" ]]; then
@@ -1545,19 +1545,19 @@ EOF
 
         echo ""
         echo -e "${DIM}Available services:${NC}"
-        echo "  audiobook-api          - API server"
-        echo "  audiobook-proxy        - HTTPS proxy server"
-        echo "  audiobook-converter    - Continuous audiobook converter"
-        echo "  audiobook-mover        - Moves staged files to library"
-        echo "  audiobook-downloader   - Downloads new audiobooks (timer-triggered)"
+        echo "  grotto-api          - API server"
+        echo "  grotto-proxy        - HTTPS proxy server"
+        echo "  grotto-converter    - Continuous audiobook converter"
+        echo "  grotto-mover        - Moves staged files to library"
+        echo "  grotto-downloader   - Downloads new audiobooks (timer-triggered)"
     fi
 
     # Create /etc/profile.d script
     echo -e "${BLUE}Creating environment profile...${NC}"
     sudo tee /etc/profile.d/audiobooks.sh > /dev/null << 'EOF'
-# Audiobook Library Environment
-if [[ -f /opt/audiobooks/lib/audiobook-config.sh ]]; then
-    source /opt/audiobooks/lib/audiobook-config.sh
+# Vox Grotto Environment
+if [[ -f /opt/audiobooks/lib/grotto-config.sh ]]; then
+    source /opt/audiobooks/lib/grotto-config.sh
 fi
 EOF
     sudo chmod 644 /etc/profile.d/audiobooks.sh
@@ -1569,22 +1569,22 @@ EOF
     echo "Data directory: ${data_dir}"
     echo ""
     echo "Commands available:"
-    echo "  audiobook-api             - Start API server"
-    echo "  audiobook-web             - Start web server"
-    echo "  audiobook-scan            - Scan audiobook library"
-    echo "  audiobook-import          - Import to database"
-    echo "  audiobook-config          - Show configuration"
+    echo "  grotto-api             - Start API server"
+    echo "  grotto-web             - Start web server"
+    echo "  grotto-scan            - Scan audiobook library"
+    echo "  grotto-import          - Import to database"
+    echo "  grotto-config          - Show configuration"
     echo ""
     echo "Conversion and management:"
-    echo "  audiobook-convert         - Convert AAX/AAXC to Opus"
-    echo "  audiobook-download        - Download from Audible"
-    echo "  audiobook-move-staged     - Move staged files to library"
-    echo "  audiobook-save-staging    - Save tmpfs staging before reboot"
-    echo "  audiobook-status          - Show service status"
-    echo "  audiobook-start/stop      - Start/stop services"
-    echo "  audiobook-enable/disable  - Enable/disable at boot"
-    echo "  audiobook-monitor         - Live conversion monitor"
-    echo "  audiobook-help            - Quick reference guide"
+    echo "  grotto-convert         - Convert AAX/AAXC to Opus"
+    echo "  grotto-download        - Download from Audible"
+    echo "  grotto-move-staged     - Move staged files to library"
+    echo "  grotto-save-staging    - Save tmpfs staging before reboot"
+    echo "  grotto-status          - Show service status"
+    echo "  grotto-start/stop      - Start/stop services"
+    echo "  grotto-enable/disable  - Enable/disable at boot"
+    echo "  grotto-monitor         - Live conversion monitor"
+    echo "  grotto-help            - Quick reference guide"
     echo ""
     echo "Access the library at: https://localhost:${WEB_PORT}"
 
@@ -1704,7 +1704,7 @@ do_user_install() {
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
         echo -e "${BLUE}Creating configuration file...${NC}"
         cat > "${CONFIG_DIR}/audiobooks.conf" << EOF
-# Audiobook Library Configuration
+# Vox Grotto Configuration
 # Generated by install.sh on $(date +%Y-%m-%d)
 
 # Data directories
@@ -1750,115 +1750,115 @@ EOF
     echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
 
     # API server wrapper
-    cat > "${BIN_DIR}/audiobook-api" << EOF
+    cat > "${BIN_DIR}/grotto-api" << EOF
 #!/bin/bash
-# Audiobook Library API Server
-source "${LIB_DIR}/lib/audiobook-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
+# Vox Grotto API Server
+source "${LIB_DIR}/lib/grotto-config.sh"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/backend/${api_entry}" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobook-api"
+    chmod 755 "${BIN_DIR}/grotto-api"
 
     # Web server wrapper
-    cat > "${BIN_DIR}/audiobook-web" << EOF
+    cat > "${BIN_DIR}/grotto-web" << EOF
 #!/bin/bash
-# Audiobook Library Web Server (HTTPS)
-source "${LIB_DIR}/lib/audiobook-config.sh"
+# Vox Grotto Web Server (HTTPS)
+source "${LIB_DIR}/lib/grotto-config.sh"
 exec python3 "\${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobook-web"
+    chmod 755 "${BIN_DIR}/grotto-web"
 
     # Scanner wrapper
-    cat > "${BIN_DIR}/audiobook-scan" << EOF
+    cat > "${BIN_DIR}/grotto-scan" << EOF
 #!/bin/bash
-# Audiobook Library Scanner
-source "${LIB_DIR}/lib/audiobook-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
+# Vox Grotto Scanner
+source "${LIB_DIR}/lib/grotto-config.sh"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobook-scan"
+    chmod 755 "${BIN_DIR}/grotto-scan"
 
     # Database import wrapper
-    cat > "${BIN_DIR}/audiobook-import" << EOF
+    cat > "${BIN_DIR}/grotto-import" << EOF
 #!/bin/bash
-# Audiobook Library Database Import
-source "${LIB_DIR}/lib/audiobook-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
+# Vox Grotto Database Import
+source "${LIB_DIR}/lib/grotto-config.sh"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobook-import"
+    chmod 755 "${BIN_DIR}/grotto-import"
 
     # Config viewer
-    cat > "${BIN_DIR}/audiobook-config" << EOF
+    cat > "${BIN_DIR}/grotto-config" << EOF
 #!/bin/bash
-# Show audiobook library configuration
-source "${LIB_DIR}/lib/audiobook-config.sh"
-audiobooks_print_config
+# Show Vox Grotto configuration
+source "${LIB_DIR}/lib/grotto-config.sh"
+grotto_print_config
 EOF
-    chmod 755 "${BIN_DIR}/audiobook-config"
+    chmod 755 "${BIN_DIR}/grotto-config"
 
     # Install conversion and management scripts from scripts/ directory
-    echo -e "${BLUE}Installing audiobook management scripts...${NC}"
+    echo -e "${BLUE}Installing management scripts...${NC}"
     if [[ -d "${SCRIPT_DIR}/scripts" ]]; then
         for script in "${SCRIPT_DIR}/scripts/"*; do
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
-                # Map script names to consistent audiobook- prefix
+                # Map script names to consistent grotto- prefix
                 local target_name
                 case "$script_name" in
                     convert-audiobooks-opus-parallel)
-                        target_name="audiobook-convert"
+                        target_name="grotto-convert"
                         ;;
                     move-staged-audiobooks)
-                        target_name="audiobook-move-staged"
+                        target_name="grotto-move-staged"
                         ;;
                     download-new-audiobooks)
-                        target_name="audiobook-download"
+                        target_name="grotto-download"
                         ;;
-                    audiobook-save-staging)
-                        target_name="audiobook-save-staging"
+                    grotto-save-staging)
+                        target_name="grotto-save-staging"
                         ;;
-                    audiobook-save-staging-auto)
-                        target_name="audiobook-save-staging-auto"
+                    grotto-save-staging-auto)
+                        target_name="grotto-save-staging-auto"
                         ;;
-                    audiobook-status)
-                        target_name="audiobook-status"
+                    grotto-status)
+                        target_name="grotto-status"
                         ;;
-                    audiobook-start)
-                        target_name="audiobook-start"
+                    grotto-start)
+                        target_name="grotto-start"
                         ;;
-                    audiobook-stop)
-                        target_name="audiobook-stop"
+                    grotto-stop)
+                        target_name="grotto-stop"
                         ;;
-                    audiobook-enable)
-                        target_name="audiobook-enable"
+                    grotto-enable)
+                        target_name="grotto-enable"
                         ;;
-                    audiobook-disable)
-                        target_name="audiobook-disable"
+                    grotto-disable)
+                        target_name="grotto-disable"
                         ;;
-                    audiobook-help)
-                        target_name="audiobook-help"
+                    grotto-help)
+                        target_name="grotto-help"
                         ;;
                     monitor-audiobook-conversion)
-                        target_name="audiobook-monitor"
+                        target_name="grotto-monitor"
                         ;;
                     copy-audiobook-metadata)
-                        target_name="audiobook-copy-metadata"
+                        target_name="grotto-copy-metadata"
                         ;;
-                    audiobook-download-monitor)
-                        target_name="audiobook-download-monitor"
+                    grotto-download-monitor)
+                        target_name="grotto-download-monitor"
                         ;;
                     embed-cover-art.py)
                         # Python script needs venv wrapper — create bash wrapper instead of raw copy
-                        cat > "${BIN_DIR}/audiobook-embed-cover" << PYEOF
+                        cat > "${BIN_DIR}/grotto-embed-cover" << PYEOF
 #!/bin/bash
-# Audiobook Library Cover Art Embedder
+# Vox Grotto Cover Art Embedder
 # Wrapper — uses venv Python for mutagen dependency
 exec "${LIB_DIR}/library/venv/bin/python" "${LIB_DIR}/scripts/embed-cover-art.py" "\$@"
 PYEOF
-                        chmod 755 "${BIN_DIR}/audiobook-embed-cover"
-                        echo "  Installed: audiobook-embed-cover (venv wrapper)"
+                        chmod 755 "${BIN_DIR}/grotto-embed-cover"
+                        echo "  Installed: grotto-embed-cover (venv wrapper)"
                         continue
                         ;;
                     *)
-                        target_name="audiobook-${script_name}"
+                        target_name="grotto-${script_name}"
                         ;;
                 esac
                 cp "$script" "${BIN_DIR}/${target_name}"
@@ -1901,24 +1901,24 @@ EOF
     chmod 644 "${LIB_DIR}/.release-info"
 
     # Create upgrade wrapper
-    cat > "${BIN_DIR}/audiobook-upgrade" << EOF
+    cat > "${BIN_DIR}/grotto-upgrade" << EOF
 #!/bin/bash
-# Audiobook Toolkit Upgrade Script
+# Vox Grotto Upgrade Script
 # Fetches and applies updates from GitHub releases
 exec "${LIB_DIR}/scripts/upgrade.sh" --target "${LIB_DIR}" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobook-upgrade"
-    echo "  Installed: audiobook-upgrade"
+    chmod 755 "${BIN_DIR}/grotto-upgrade"
+    echo "  Installed: grotto-upgrade"
 
     # Create migrate wrapper
-    cat > "${BIN_DIR}/audiobook-migrate" << EOF
+    cat > "${BIN_DIR}/grotto-migrate" << EOF
 #!/bin/bash
-# Audiobook Toolkit API Migration Script
+# Vox Grotto API Migration Script
 # Switch between monolithic and modular API architectures
 exec "${LIB_DIR}/scripts/migrate-api.sh" --target "${LIB_DIR}" "\$@"
 EOF
-    chmod 755 "${BIN_DIR}/audiobook-migrate"
-    echo "  Installed: audiobook-migrate"
+    chmod 755 "${BIN_DIR}/grotto-migrate"
+    echo "  Installed: grotto-migrate"
 
     # Setup Python virtual environment
     # Use system Python explicitly — pyenv shims create symlinks into /home/
@@ -1946,7 +1946,7 @@ EOF
         mkdir -p "${CERT_DIR}"
         openssl req -x509 -newkey rsa:4096 -sha256 -days 1095 \
             -nodes -keyout "${CERT_DIR}/server.key" -out "${CERT_DIR}/server.crt" \
-            -subj "/CN=localhost/O=Audiobooks/C=US" \
+            -subj "/CN=localhost/O=Vox Grotto/C=US" \
             -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
             2>/dev/null
         chmod 600 "${CERT_DIR}/server.key"
@@ -1960,9 +1960,9 @@ EOF
         echo -e "${BLUE}Installing systemd user services...${NC}"
 
         # API service
-        cat > "${SYSTEMD_DIR}/audiobook-api.service" << EOF
+        cat > "${SYSTEMD_DIR}/grotto-api.service" << EOF
 [Unit]
-Description=Audiobooks Library API Server
+Description=Vox Grotto API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=default.target
 
@@ -1983,7 +1983,7 @@ Environment=AUDIOBOOKS_WEB_PORT=${WEB_PORT}
 Environment=AUDIOBOOKS_HTTP_REDIRECT_PORT=${HTTP_REDIRECT_PORT}
 
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${API_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobook-api
+ExecStart=${BIN_DIR}/grotto-api
 Restart=on-failure
 RestartSec=5
 
@@ -1992,12 +1992,12 @@ WantedBy=default.target
 EOF
 
         # Web service
-        cat > "${SYSTEMD_DIR}/audiobook-web.service" << EOF
+        cat > "${SYSTEMD_DIR}/grotto-web.service" << EOF
 [Unit]
-Description=Audiobooks Library Web Server (HTTPS)
+Description=Vox Grotto Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-After=audiobook-api.service
-Wants=audiobook-api.service
+After=grotto-api.service
+Wants=grotto-api.service
 
 [Service]
 Type=simple
@@ -2008,7 +2008,7 @@ Environment=AUDIOBOOKS_HTTP_REDIRECT_PORT=${HTTP_REDIRECT_PORT}
 Environment=AUDIOBOOKS_CERTS=${CONFIG_DIR}/certs
 
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${WEB_PORT} >/dev/null 2>&1'
-ExecStart=${BIN_DIR}/audiobook-web
+ExecStart=${BIN_DIR}/grotto-web
 Restart=on-failure
 RestartSec=5
 
@@ -2017,11 +2017,11 @@ WantedBy=default.target
 EOF
 
         # Target
-        cat > "${SYSTEMD_DIR}/audiobook.target" << EOF
+        cat > "${SYSTEMD_DIR}/grotto.target" << EOF
 [Unit]
-Description=Audiobooks Library Services
+Description=Vox Grotto Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobook-web.service
+Wants=grotto-api.service grotto-web.service
 
 [Install]
 WantedBy=default.target
@@ -2032,14 +2032,14 @@ EOF
 
         # Enable and start services by default
         echo -e "${BLUE}Enabling and starting user services...${NC}"
-        systemctl --user enable audiobook.target 2>/dev/null || true
-        systemctl --user enable audiobook-api.service audiobook-web.service 2>/dev/null || true
+        systemctl --user enable grotto.target 2>/dev/null || true
+        systemctl --user enable grotto-api.service grotto-web.service 2>/dev/null || true
 
         # Start services
-        systemctl --user start audiobook.target 2>/dev/null || {
+        systemctl --user start grotto.target 2>/dev/null || {
             # Fallback: start individual services
-            systemctl --user start audiobook-api.service 2>/dev/null || true
-            systemctl --user start audiobook-web.service 2>/dev/null || true
+            systemctl --user start grotto-api.service 2>/dev/null || true
+            systemctl --user start grotto-web.service 2>/dev/null || true
         }
 
         echo ""
@@ -2066,27 +2066,27 @@ EOF
     echo "Logs: ${LOG_DIR}"
     echo ""
     echo "Commands available:"
-    echo "  audiobook-api             - Start API server"
-    echo "  audiobook-web             - Start web server"
-    echo "  audiobook-scan            - Scan audiobook library"
-    echo "  audiobook-import          - Import to database"
-    echo "  audiobook-config          - Show configuration"
+    echo "  grotto-api             - Start API server"
+    echo "  grotto-web             - Start web server"
+    echo "  grotto-scan            - Scan audiobook library"
+    echo "  grotto-import          - Import to database"
+    echo "  grotto-config          - Show configuration"
     echo ""
     echo "Conversion and management:"
-    echo "  audiobook-convert         - Convert AAX/AAXC to Opus"
-    echo "  audiobook-download        - Download from Audible"
-    echo "  audiobook-move-staged     - Move staged files to library"
-    echo "  audiobook-save-staging    - Save tmpfs staging before reboot"
-    echo "  audiobook-status          - Show service status"
-    echo "  audiobook-start/stop      - Start/stop services"
-    echo "  audiobook-enable/disable  - Enable/disable at boot"
-    echo "  audiobook-monitor         - Live conversion monitor"
-    echo "  audiobook-help            - Quick reference guide"
+    echo "  grotto-convert         - Convert AAX/AAXC to Opus"
+    echo "  grotto-download        - Download from Audible"
+    echo "  grotto-move-staged     - Move staged files to library"
+    echo "  grotto-save-staging    - Save tmpfs staging before reboot"
+    echo "  grotto-status          - Show service status"
+    echo "  grotto-start/stop      - Start/stop services"
+    echo "  grotto-enable/disable  - Enable/disable at boot"
+    echo "  grotto-monitor         - Live conversion monitor"
+    echo "  grotto-help            - Quick reference guide"
     echo ""
     echo "Service management:"
-    echo "  systemctl --user status audiobook.target"
-    echo "  systemctl --user restart audiobook.target"
-    echo "  journalctl --user -u audiobook-converter -f"
+    echo "  systemctl --user status grotto.target"
+    echo "  systemctl --user restart grotto.target"
+    echo "  journalctl --user -u grotto-converter -f"
     echo ""
     echo "Access the library at: https://localhost:${WEB_PORT}"
     echo ""
