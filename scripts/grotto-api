@@ -4,4 +4,4 @@
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "${SCRIPT_DIR}/../lib/grotto-config.sh"
 cd "${AUDIOBOOKS_HOME}/library/backend"
-exec "$(audiobooks_python)" api_server.py "$@"
+exec "$(grotto_python)" api_server.py "$@"

@@ -378,7 +378,7 @@ cat > "${BIN_DIR}/audiobook-api" << EOF
 #!/bin/bash
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/grotto-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/api_server.py" "\$@"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/backend/api_server.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-api"
 
@@ -396,7 +396,7 @@ cat > "${BIN_DIR}/audiobook-scan" << EOF
 #!/bin/bash
 # Audiobook Library Scanner
 source "${LIB_DIR}/lib/grotto-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-scan"
 
@@ -405,7 +405,7 @@ cat > "${BIN_DIR}/audiobook-import" << EOF
 #!/bin/bash
 # Audiobook Library Database Import
 source "${LIB_DIR}/lib/grotto-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-import"
 

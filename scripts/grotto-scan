@@ -3,4 +3,4 @@
 # Wrapper script — sources config and launches the metadata scanner
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "${SCRIPT_DIR}/../lib/grotto-config.sh"
-exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
+exec "$(grotto_python)" "${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "$@"
