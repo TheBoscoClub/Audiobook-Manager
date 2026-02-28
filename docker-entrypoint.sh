@@ -12,7 +12,7 @@ NC='\033[0m'
 APP_VERSION=$(cat /app/VERSION 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 
 echo -e "${CYAN}=========================================="
-echo "  Audiobook Library - Docker Container"
+echo "  Vox Grotto - Docker Container"
 echo "  Version: ${APP_VERSION}"
 echo -e "==========================================${NC}"
 echo ""
@@ -103,7 +103,7 @@ else
     echo -e "  Audiobooks: ${YELLOW}None mounted${NC}"
     echo ""
     echo -e "${YELLOW}Warning: No audiobooks directory mounted.${NC}"
-    echo "Mount your audiobook directory to use this container:"
+    echo "Mount your audiobook directory to use Vox Grotto:"
     echo "  docker run -v /path/to/audiobooks:/audiobooks:ro ..."
     echo ""
 fi
@@ -149,7 +149,7 @@ echo ""
 # ============================================================================
 if [ "$NEEDS_INIT" = true ] && check_audiobooks_mounted; then
     echo -e "${CYAN}=========================================="
-    echo "  First-time setup: Scanning library"
+    echo "  Vox Grotto: First-time setup — Scanning library"
     echo -e "==========================================${NC}"
     echo ""
 
@@ -177,8 +177,8 @@ print(count)
 elif [ "$NEEDS_INIT" = true ]; then
     echo -e "${YELLOW}No audiobooks mounted — creating empty database${NC}"
     echo "Mount your audiobooks and restart the container, or run manually:"
-    echo "  docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py"
-    echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
+    echo "  docker exec -it vox-grotto python3 /app/scanner/scan_audiobooks.py"
+    echo "  docker exec -it vox-grotto python3 /app/backend/import_to_db.py"
     echo ""
 fi
 
@@ -209,7 +209,7 @@ fi
 # Step 5: Start servers
 # ============================================================================
 echo -e "${CYAN}=========================================="
-echo "  Starting services"
+echo "  Vox Grotto: Starting services"
 echo -e "==========================================${NC}"
 echo ""
 
@@ -288,7 +288,7 @@ fi
 
 echo ""
 echo -e "${GREEN}=========================================="
-echo "  Audiobook Library is running!"
+echo "  Vox Grotto is running!"
 echo "=========================================="
 echo -e "  Web UI:  https://localhost:${WEB_PORT}"
 if [ -n "$REDIRECT_PID" ]; then
@@ -305,8 +305,8 @@ echo "  GET /api/stats            - Library statistics"
 echo "  GET /api/narrator-counts  - Narrator statistics"
 echo ""
 echo "Management Commands:"
-echo "  docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py"
-echo "  docker exec -it audiobooks python3 /app/backend/import_to_db.py"
+echo "  docker exec -it vox-grotto python3 /app/scanner/scan_audiobooks.py"
+echo "  docker exec -it vox-grotto python3 /app/backend/import_to_db.py"
 echo ""
 
 # Handle shutdown gracefully

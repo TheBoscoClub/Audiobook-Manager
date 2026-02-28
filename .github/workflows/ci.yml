@@ -55,7 +55,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: library/coverage.xml
           flags: unittests
-          name: audiobook-manager
+          name: vox-grotto
           fail_ci_if_error: true
 
   docker-build:
@@ -82,7 +82,7 @@ jobs:
 
       - name: Build Docker image (no push)
         run: |
-          docker buildx build --load -t audiobooks:test -f Dockerfile .
+          docker buildx build --load -t vox-grotto:test -f Dockerfile .
           echo "Docker image builds successfully"
 
   shellcheck:
