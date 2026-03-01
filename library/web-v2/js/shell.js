@@ -130,10 +130,20 @@ class ShellPlayer {
     // PLAYBACK
     // ═══════════════════════════════════════════
 
-    async playBook(book) {
+    async playBook(book, resume = true) {
         // Normalize property names — API returns id/cover_path, not bookId/coverUrl
         const bookId = book.bookId || book.id;
         const coverUrl = book.coverUrl || (book.cover_path ? '/covers/' + book.cover_path : null);
+
+        // If same book is already loaded and paused, just unpause
+        if (resume && this.currentBook?.bookId === bookId && this.audio.paused && this.audio.currentTime > 0) {
+            try {
+                await this.audio.play();
+            } catch (error) {
+                console.error('Failed to resume audio:', error);
+            }
+            return;
+        }
 
         this.currentBook = { ...book, bookId, coverUrl };
 
@@ -177,15 +187,17 @@ class ShellPlayer {
             console.error('Failed to play audio:', error);
         }
 
-        // Resume position AFTER playback starts (seek during playback is fine)
-        const savedPosition = await this.getBestPosition(bookId);
-        if (savedPosition && savedPosition.position > 30) {
-            if (this.audio.readyState >= 1) {
-                this.audio.currentTime = savedPosition.position;
-            } else {
-                this.audio.addEventListener('loadedmetadata', () => {
+        // Restore saved position only when resuming (not fresh play)
+        if (resume) {
+            const savedPosition = await this.getBestPosition(bookId);
+            if (savedPosition && savedPosition.position > 30) {
+                if (this.audio.readyState >= 1) {
                     this.audio.currentTime = savedPosition.position;
-                }, { once: true });
+                } else {
+                    this.audio.addEventListener('loadedmetadata', () => {
+                        this.audio.currentTime = savedPosition.position;
+                    }, { once: true });
+                }
             }
         }
     }
@@ -401,7 +413,7 @@ class ShellPlayer {
 
             switch (msg.type) {
                 case 'play':
-                    this.playBook(msg.book || msg);
+                    this.playBook(msg.book || msg, msg.resume !== false);
                     break;
                 case 'pause':
                     this.audio.pause();
