@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.1.4] - 2026-03-01
+
+### Fixed
+
+- **Mobile responsive overhaul**: Complete rework of phone viewport layouts — portrait shows 4-column dense grid with 40px icon covers, wrapping non-bold titles, and only title/author/play visible. Landscape (≤700px height) shows 10-column dense grid with same compact treatment. Small phones (≤360px) inherit compact rules cleanly. Desktop unchanged.
+- **CSS cascade priority**: Fixed responsive.css overrides being ignored on mobile — `@import` cascade order caused library.css base rules to win at equal specificity. All mobile overrides now use `!important` to compensate (documented in CSS comments).
+- **Dead CSS cleanup**: Removed conflicting card/cover/title rules in Section F (≤360px) that were overridden by Section E2's `!important` rules at ≤480px.
+
 ## [6.7.1.3] - 2026-02-28
 
 ### Fixed
