@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.1.5] - 2026-03-01
+
+### Fixed
+
+- **Audit fixes**: Version sync across Dockerfile, install-manifest, SECURITY.md; Docker env var bridging for `HTTP_REDIRECT_PORT`/`HTTP_REDIRECT_ENABLED`; shellcheck fixes (SC2076, SC2064, SC2120); auth.db backup retention (keep 5); `LimitNOFILE=65536` for API service; marshmallow minimum bumped to >=4.0.0
+- **Test coverage**: Fixed 2 skipped supplement scan tests — replaced stale mock targets with real filesystem operations, bringing test count from 1415 to 1417
+- **Code formatting**: 16 Python files reformatted with ruff
+
 ## [6.7.1.4] - 2026-03-01
 
 ### Fixed
