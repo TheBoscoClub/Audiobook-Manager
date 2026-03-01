@@ -12,7 +12,6 @@ AUTH_CSS = Path(__file__).parent.parent / "web-v2" / "css" / "auth.css"
 
 
 class TestSpinnerHidden:
-
     def test_button_loading_hidden_override_exists(self):
         """CSS must explicitly hide .button-loading[hidden]."""
         content = AUTH_CSS.read_text()
@@ -26,5 +25,5 @@ class TestSpinnerHidden:
         # Find the [hidden] rule and verify it sets display: none
         idx = content.find(".button-loading[hidden]")
         assert idx != -1
-        block = content[idx:content.find("}", idx) + 1]
+        block = content[idx : content.find("}", idx) + 1]
         assert "display: none" in block or "display:none" in block

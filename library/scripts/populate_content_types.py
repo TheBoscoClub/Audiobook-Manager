@@ -36,19 +36,28 @@ def fetch_audible_library() -> list[dict]:
 
     while True:
         cmd = [
-            "audible", "api", "1.0/library",
-            "-p", "response_groups=product_attrs",
-            "-p", f"num_results={PAGE_SIZE}",
-            "-p", f"page={page}",
+            "audible",
+            "api",
+            "1.0/library",
+            "-p",
+            "response_groups=product_attrs",
+            "-p",
+            f"num_results={PAGE_SIZE}",
+            "-p",
+            f"page={page}",
         ]
         result = subprocess.run(
-            cmd, capture_output=True, text=True,
+            cmd,
+            capture_output=True,
+            text=True,
             env={**os.environ, "PATH": "/usr/local/bin:/usr/bin:/bin"},
             timeout=60,
         )
         if result.returncode != 0:
-            print(f"Error querying Audible API (page {page}): {result.stderr}",
-                  file=sys.stderr)
+            print(
+                f"Error querying Audible API (page {page}): {result.stderr}",
+                file=sys.stderr,
+            )
             break
 
         data = json.loads(result.stdout)
@@ -72,12 +81,17 @@ def fetch_catalog_content_type(asin: str) -> dict | None:
     Used for items not in the library list (e.g., individual podcast episodes).
     """
     cmd = [
-        "audible", "api", f"1.0/catalog/products/{asin}",
-        "-p", "response_groups=product_attrs",
+        "audible",
+        "api",
+        f"1.0/catalog/products/{asin}",
+        "-p",
+        "response_groups=product_attrs",
     ]
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True,
+            cmd,
+            capture_output=True,
+            text=True,
             env={**os.environ, "PATH": "/usr/local/bin:/usr/bin:/bin"},
             timeout=15,
         )
@@ -121,6 +135,7 @@ def populate_content_types(dry_run: bool = True) -> None:
 
     # Content type distribution from API
     from collections import Counter
+
     ct_dist = Counter(v["content_type"] for v in audible_by_asin.values())
     print("Audible library content_type distribution:")
     for ct, count in ct_dist.most_common():
@@ -160,14 +175,16 @@ def populate_content_types(dry_run: bool = True) -> None:
         if current_ct == new_ct:
             already_correct += 1
         elif new_ct:
-            updates.append({
-                "id": book["id"],
-                "asin": book_asin,
-                "title": book["title"],
-                "old_ct": current_ct,
-                "new_ct": new_ct,
-                "delivery_type": api_data["content_delivery_type"],
-            })
+            updates.append(
+                {
+                    "id": book["id"],
+                    "asin": book_asin,
+                    "title": book["title"],
+                    "old_ct": current_ct,
+                    "new_ct": new_ct,
+                    "delivery_type": api_data["content_delivery_type"],
+                }
+            )
 
     # Report pass 1
     print("=" * 70)
@@ -185,7 +202,9 @@ def populate_content_types(dry_run: bool = True) -> None:
             print(f"  → {ct}: {count}")
         print("\nSample updates:")
         for u in updates[:10]:
-            print(f"  {u['title'][:55]:55s}  {u['old_ct']} → {u['new_ct']} ({u['delivery_type']})")
+            print(
+                f"  {u['title'][:55]:55s}  {u['old_ct']} → {u['new_ct']} ({u['delivery_type']})"
+            )
         if len(updates) > 10:
             print(f"  ... and {len(updates) - 10} more")
 
@@ -206,14 +225,16 @@ def populate_content_types(dry_run: bool = True) -> None:
             if data and data["content_type"]:
                 new_ct = data["content_type"]
                 if current_ct != new_ct:
-                    catalog_updates.append({
-                        "id": book["id"],
-                        "asin": book_asin,
-                        "title": book["title"],
-                        "old_ct": current_ct,
-                        "new_ct": new_ct,
-                        "delivery_type": data["content_delivery_type"],
-                    })
+                    catalog_updates.append(
+                        {
+                            "id": book["id"],
+                            "asin": book_asin,
+                            "title": book["title"],
+                            "old_ct": current_ct,
+                            "new_ct": new_ct,
+                            "delivery_type": data["content_delivery_type"],
+                        }
+                    )
                 else:
                     already_correct += 1
             else:
@@ -223,7 +244,9 @@ def populate_content_types(dry_run: bool = True) -> None:
                 print(f"  Progress: {i + 1}/{len(unmatched)}")
 
         cat_dist = Counter(u["new_ct"] for u in catalog_updates)
-        print(f"\nCatalog results: {len(catalog_updates)} updates, {catalog_failed} failed")
+        print(
+            f"\nCatalog results: {len(catalog_updates)} updates, {catalog_failed} failed"
+        )
         if catalog_updates:
             print("Updates by content_type:")
             for ct, count in cat_dist.most_common():
@@ -255,11 +278,10 @@ def populate_content_types(dry_run: bool = True) -> None:
 
 
 def main():
-    parser = ArgumentParser(
-        description="Populate content_type from Audible API"
-    )
+    parser = ArgumentParser(description="Populate content_type from Audible API")
     parser.add_argument(
-        "--execute", action="store_true",
+        "--execute",
+        action="store_true",
         help="Actually apply changes (default is dry run)",
     )
     args = parser.parse_args()

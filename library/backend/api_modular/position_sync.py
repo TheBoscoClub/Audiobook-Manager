@@ -254,9 +254,7 @@ def update_position(audiobook_id: int):
         cursor = conn.cursor()
 
         # Verify audiobook exists and get title for denormalized storage
-        cursor.execute(
-            "SELECT id, title FROM audiobooks WHERE id = ?", (audiobook_id,)
-        )
+        cursor.execute("SELECT id, title FROM audiobooks WHERE id = ?", (audiobook_id,))
         book_row = cursor.fetchone()
         if not book_row:
             return jsonify({"error": "Audiobook not found"}), 404

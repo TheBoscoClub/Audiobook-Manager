@@ -185,37 +185,32 @@ class TestSupplementDownloadWithMocks:
 class TestSupplementsScanWithMocks:
     """Test supplements scan endpoint with mocked file system."""
 
-    @pytest.mark.skip(
-        reason="Requires refactoring - supplements_dir is a closure variable in api_modular"
-    )
-    def test_scan_supplements_dir_exists(self, app_client):
-        """Test scanning supplements when directory exists."""
-        mock_file = MagicMock()
-        mock_file.is_file.return_value = True
-        mock_file.name = "test_supplement.pdf"
-        mock_file.suffix = ".pdf"
-        mock_stat = MagicMock()
-        mock_stat.st_size = 1024 * 1024  # 1 MB
-        mock_file.stat.return_value = mock_stat
+    def test_scan_supplements_dir_exists(self, app_client, flask_app):
+        """Test scanning supplements when directory exists with files."""
+        supp_dir = flask_app.config["SUPPLEMENTS_DIR"]
+        test_file = supp_dir / "scan_test_supplement.pdf"
+        test_file.write_bytes(b"%PDF-1.4 fake pdf content for testing")
 
-        with patch("backend.api.SUPPLEMENTS_DIR") as mock_dir:
-            mock_dir.exists.return_value = True
-            mock_dir.iterdir.return_value = [mock_file]
-            mock_dir.__truediv__ = lambda self, x: mock_file
-
+        try:
             response = app_client.post("/api/supplements/scan")
-            assert response.status_code in (200, 404, 500)
+            assert response.status_code == 200
+            data = json.loads(response.data)
+            assert "added" in data or "scanned" in data or isinstance(data, dict)
+        finally:
+            test_file.unlink(missing_ok=True)
 
-    @pytest.mark.skip(
-        reason="Requires refactoring - supplements_dir is a closure variable in api_modular"
-    )
-    def test_scan_supplements_dir_not_exists(self, app_client):
+    def test_scan_supplements_dir_not_exists(self, app_client, flask_app):
         """Test scanning when supplements directory doesn't exist."""
-        with patch("backend.api.SUPPLEMENTS_DIR") as mock_dir:
-            mock_dir.exists.return_value = False
+        supp_dir = flask_app.config["SUPPLEMENTS_DIR"]
+        renamed = supp_dir.with_name("supplements_hidden")
 
+        # Temporarily hide the supplements dir so the route sees it missing
+        supp_dir.rename(renamed)
+        try:
             response = app_client.post("/api/supplements/scan")
             assert response.status_code == 404
+        finally:
+            renamed.rename(supp_dir)
 
 
 class TestBulkOperationsWithMocks:

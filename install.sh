@@ -1593,6 +1593,7 @@ EOF
     verify_installation_permissions "system"
 }
 
+# shellcheck disable=SC2120
 do_system_uninstall() {
     # Delegate to comprehensive uninstall.sh (dynamic discovery, full cleanup)
     local uninstall_script="${SCRIPT_DIR}/uninstall.sh"
@@ -2098,6 +2099,7 @@ EOF
     verify_installation_permissions "user"
 }
 
+# shellcheck disable=SC2120
 do_user_uninstall() {
     # Delegate to comprehensive uninstall.sh (dynamic discovery, full cleanup)
     local uninstall_script="${SCRIPT_DIR}/uninstall.sh"

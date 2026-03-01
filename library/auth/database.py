@@ -395,9 +395,7 @@ class AuthDatabase:
                 continue
 
             # Check if column already exists
-            cols = {
-                row[1] for row in conn.execute(f"PRAGMA table_info({table})")
-            }
+            cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if "title" not in cols:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN title TEXT")
                 logger.info("v6→v7: added title column to %s", table)

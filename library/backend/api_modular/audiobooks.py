@@ -30,7 +30,9 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 # Exclude: Lecture, Podcast, Newspaper / Magazine, Show, Radio/TV Program, Episode
 # content_type IS NULL handles legacy entries before the field was added
 # nosec B608: This constant is safe for SQL - it's hardcoded, not user input
-AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
+AUDIOBOOK_FILTER = (
+    "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
+)
 
 
 def init_audiobooks_routes(db_path, project_root, database_path):

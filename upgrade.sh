@@ -819,10 +819,30 @@ backup_auth_db() {
     echo "  Backup: $backup"
     if [[ -n "$use_sudo" ]]; then
         sudo cp -p "$auth_db" "$backup"
+        sudo chmod 640 "$backup"
     else
         cp -p "$auth_db" "$backup"
+        chmod 640 "$backup"
     fi
     echo -e "${GREEN}  Auth database backed up${NC}"
+
+    # Retain only the 5 most recent backups
+    local backup_dir
+    backup_dir=$(dirname "$auth_db")
+    local backup_base
+    backup_base=$(basename "$auth_db")
+    local old_backups
+    mapfile -t old_backups < <(ls -1t "${backup_dir}/${backup_base}.pre-upgrade-"* 2>/dev/null | tail -n +6)
+    if [[ ${#old_backups[@]} -gt 0 ]]; then
+        echo "  Cleaning up ${#old_backups[@]} old backup(s)..."
+        for old in "${old_backups[@]}"; do
+            if [[ -n "$use_sudo" ]]; then
+                sudo rm -f "$old"
+            else
+                rm -f "$old"
+            fi
+        done
+    fi
 }
 
 validate_auth_post_upgrade() {
@@ -1314,7 +1334,7 @@ do_github_upgrade() {
     # Create temp directory
     local temp_dir
     temp_dir=$(mktemp -d)
-    trap "rm -rf '$temp_dir'; _cleanup_on_exit" EXIT
+    trap 'rm -rf '"'$temp_dir'"'; _cleanup_on_exit' EXIT
 
     # Download and extract
     local release_dir

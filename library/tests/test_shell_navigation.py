@@ -6,7 +6,6 @@ WEB_DIR = Path(__file__).parent.parent / "web-v2"
 
 
 class TestLoginRedirect:
-
     def test_login_redirects_to_shell(self):
         content = (WEB_DIR / "login.html").read_text()
         assert "shell.html" in content, (

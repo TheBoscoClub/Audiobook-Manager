@@ -285,7 +285,7 @@ remove_systemd_units() {
         for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
             local unit_name="${f##*/}"
             # Add if not already in list
-            if [[ ! " ${units[*]} " =~ " ${unit_name} " ]]; then
+            if [[ ! " ${units[*]} " =~ \ ${unit_name}\  ]]; then
                 units+=("$unit_name")
             fi
         done
@@ -296,7 +296,7 @@ remove_systemd_units() {
         units+=("${unit_files[@]}")
         for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
             local unit_name="${f##*/}"
-            if [[ ! " ${units[*]} " =~ " ${unit_name} " ]]; then
+            if [[ ! " ${units[*]} " =~ \ ${unit_name}\  ]]; then
                 units+=("$unit_name")
             fi
         done

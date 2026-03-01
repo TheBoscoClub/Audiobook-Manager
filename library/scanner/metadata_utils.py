@@ -25,9 +25,18 @@ from common import calculate_sha256
 # Content types are NOT genres — filter these out of genre classification.
 # "Audiobook" describes the format/medium, not the literary genre.
 CONTENT_TYPES = {
-    "audiobook", "podcast", "lecture", "speech", "performance",
-    "radio", "radio drama", "audio drama", "full cast",
-    "unabridged", "abridged", "original recording",
+    "audiobook",
+    "podcast",
+    "lecture",
+    "speech",
+    "performance",
+    "radio",
+    "radio drama",
+    "audio drama",
+    "full cast",
+    "unabridged",
+    "abridged",
+    "original recording",
 }
 
 # Genre taxonomy for categorization.
