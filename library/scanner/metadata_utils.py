@@ -22,7 +22,16 @@ from common import calculate_sha256
 # Genre and Topic Classification
 # =============================================================================
 
-# Genre taxonomy for categorization
+# Content types are NOT genres — filter these out of genre classification.
+# "Audiobook" describes the format/medium, not the literary genre.
+CONTENT_TYPES = {
+    "audiobook", "podcast", "lecture", "speech", "performance",
+    "radio", "radio drama", "audio drama", "full cast",
+    "unabridged", "abridged", "original recording",
+}
+
+# Genre taxonomy for categorization.
+# Keys are internal category names; values map subcategories to match keywords.
 GENRE_TAXONOMY = {
     "fiction": {
         "mystery & thriller": [
@@ -56,6 +65,24 @@ GENRE_TAXONOMY = {
     },
 }
 
+# Map internal taxonomy subcategory names → display names used by collections UI.
+# These must match the genre names queried in collections.py exactly.
+GENRE_DISPLAY_NAMES = {
+    "mystery & thriller": "Mystery",
+    "science fiction": "Science Fiction",
+    "fantasy": "Fantasy",
+    "literary fiction": "Literary Fiction",
+    "horror": "Horror",
+    "romance": "Romance",
+    "biography & memoir": "Biographies & Memoirs",
+    "history": "History",
+    "science": "Science",
+    "philosophy": "Philosophy",
+    "self-help": "Personal Development",
+    "business": "Business & Careers",
+    "true crime": "True Crime",
+}
+
 # Topic keywords for extraction
 TOPIC_KEYWORDS = {
     "war": ["war", "battle", "military", "conflict"],
@@ -68,14 +95,37 @@ TOPIC_KEYWORDS = {
 }
 
 
+def is_content_type(genre: str) -> bool:
+    """Return True if the value describes a content type, not a literary genre."""
+    return genre.lower().strip() in CONTENT_TYPES
+
+
 def categorize_genre(genre: str) -> dict:
-    """Categorize genre into main category, subcategory, and original."""
+    """Categorize genre into main category, subcategory, and original.
+
+    Content types like "Audiobook" are classified as uncategorized since
+    they describe the medium, not the literary genre.
+
+    Matches longer keywords first to avoid partial-match ambiguity
+    (e.g., "true crime" should not match "crime" → mystery).
+    """
+    if is_content_type(genre):
+        return {"main": "uncategorized", "sub": "general", "original": genre}
+
     genre_lower = genre.lower()
 
+    # Build flat list of (keyword, main_cat, subcat), sorted longest-first
+    # so "true crime" matches before "crime", "historical fiction" before "historical"
+    candidates = []
     for main_cat, subcats in GENRE_TAXONOMY.items():
         for subcat, keywords in subcats.items():
-            if any(keyword in genre_lower for keyword in keywords):
-                return {"main": main_cat, "sub": subcat, "original": genre}
+            for kw in keywords:
+                candidates.append((kw, main_cat, subcat))
+    candidates.sort(key=lambda x: -len(x[0]))
+
+    for kw, main_cat, subcat in candidates:
+        if kw in genre_lower:
+            return {"main": main_cat, "sub": subcat, "original": genre}
 
     return {"main": "uncategorized", "sub": "general", "original": genre}
 
@@ -418,6 +468,24 @@ def _find_standalone_cover(filepath: Path) -> Path | None:
     return None
 
 
+def build_genres_list(genre_cat: dict) -> list[str]:
+    """Build a genres list from categorized genre data.
+
+    Returns display-name genres suitable for the genres/audiobook_genres tables.
+    Returns empty list if the genre is uncategorized (e.g., content type "Audiobook").
+    """
+    if genre_cat["main"] == "uncategorized":
+        return []
+
+    subcat = genre_cat["sub"]
+    display_name = GENRE_DISPLAY_NAMES.get(subcat)
+    if display_name:
+        return [display_name]
+
+    # Subcategory not in display map — use title-cased subcategory as fallback
+    return [subcat.title()]
+
+
 def enrich_metadata(metadata: dict) -> dict:
     """
     Add derived fields to metadata (genre categories, era, topics).
@@ -429,6 +497,9 @@ def enrich_metadata(metadata: dict) -> dict:
     metadata["genre_category"] = genre_cat["main"]
     metadata["genre_subcategory"] = genre_cat["sub"]
     metadata["genre_original"] = genre_cat["original"]
+
+    # Build genres list for the importer (populates genres/audiobook_genres tables)
+    metadata["genres"] = build_genres_list(genre_cat)
 
     # Add literary era
     metadata["literary_era"] = determine_literary_era(metadata.get("year", ""))
