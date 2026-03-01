@@ -151,15 +151,18 @@ body.player-active #content-frame {
 
 /* Mobile: stack vertically */
 @media (max-width: 768px) {
-    :root { --player-height: 120px; }
+    :root { --player-height: 100px; }
 
     #shell-player {
         flex-wrap: wrap;
-        padding: 8px 12px;
-        gap: 6px;
+        padding: 6px 10px;
+        gap: 4px;
     }
 
-    .player-info-bar { flex-basis: calc(100% - 70px); }
+    .sp-cover { width: 44px; height: 44px; }
+    .player-info-bar { flex-basis: calc(100% - 58px); }
+    .sp-title { font-size: 0.85rem; }
+    .sp-author { font-size: 0.7rem; }
     .player-progress-bar { flex-basis: 100%; order: 10; }
     .sp-progress { flex: 1; }
 }

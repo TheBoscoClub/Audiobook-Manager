@@ -226,17 +226,19 @@ body {
 }
 
 /* ============================================
-   D. Landscape Mobile Layout
+   D. Landscape Mobile Layout (phones in landscape)
+   Same dense grid as portrait — icon covers, title+author+play only.
+   !important needed: @imported CSS loses to library.css cascade.
    ============================================ */
 @media (orientation: landscape) and (max-height: 500px) {
     /* Compact header: single row */
     .library-header {
-        padding: var(--spacing-sm) var(--spacing-md);
-        margin-bottom: var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-md) !important;
+        margin-bottom: var(--spacing-sm) !important;
     }
 
     .header-content {
-        margin-bottom: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs) !important;
     }
 
     .title-section {
@@ -249,7 +251,7 @@ body {
     }
 
     .library-subtitle {
-        display: none;
+        display: none !important;
     }
 
     .library-stats {
@@ -257,21 +259,80 @@ body {
     }
 
     .stat-value {
-        font-size: 1.2rem;
+        font-size: 1rem;
     }
 
     .stat-label {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
     }
 
-    /* Compact books grid */
+    /* Dense books grid — many columns in landscape */
     .books-grid {
-        grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-        gap: var(--spacing-md);
+        grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)) !important;
+        gap: 4px !important;
+        padding: 0 4px !important;
     }
 
+    /* Dense book cards */
+    .book-card {
+        padding: 4px !important;
+        border-width: 1px !important;
+        clip-path: none !important;
+    }
+
+    .book-card::before {
+        height: 1px !important;
+    }
+
+    /* Small icon-sized cover art */
     .book-cover {
-        height: 140px;
+        width: 40px !important;
+        height: 40px !important;
+        margin: 0 auto 4px !important;
+        border-width: 1px !important;
+    }
+
+    /* Full wrapping title — not bold, readable */
+    .book-title {
+        font-size: 0.6rem !important;
+        font-weight: normal !important;
+        margin-bottom: 2px !important;
+        line-height: 1.2 !important;
+        display: block !important;
+        overflow: visible !important;
+        -webkit-line-clamp: unset !important;
+    }
+
+    /* Compact author */
+    .book-author {
+        font-size: 0.55rem !important;
+        margin-bottom: 3px !important;
+        display: block !important;
+    }
+
+    /* Compact play button only */
+    .book-actions {
+        display: flex !important;
+        padding: 0 !important;
+        margin-top: 2px !important;
+        gap: 0 !important;
+    }
+
+    .btn-play {
+        font-size: 0.55rem !important;
+        padding: 2px 4px !important;
+        border-width: 1px !important;
+        flex: 1 !important;
+    }
+
+    /* Hide everything else on mobile */
+    .book-narrator,
+    .book-meta,
+    .book-editions,
+    .book-progress,
+    .btn-resume,
+    .btn-download {
+        display: none !important;
     }
 
     /* Compact autocomplete dropdowns */
@@ -296,29 +357,104 @@ body {
 
     /* Compact search section */
     .search-section {
-        margin-bottom: var(--spacing-md);
+        padding: 0 var(--spacing-sm) !important;
+        margin-bottom: var(--spacing-sm) !important;
+    }
+
+    .filters-container {
+        gap: var(--spacing-sm) !important;
     }
 }
 
 /* ============================================
-   D2. Broader Landscape (any landscape under tablet height)
+   D2. Broader Landscape (landscape under tablet height)
+   Same dense grid — icon covers, title+author+play only.
    ============================================ */
 @media (orientation: landscape) and (max-height: 700px) {
     .library-header {
-        padding: var(--spacing-md) var(--spacing-lg);
-        margin-bottom: var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-md) !important;
+        margin-bottom: var(--spacing-sm) !important;
     }
 
     .header-content {
-        margin-bottom: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm) !important;
     }
 
     .library-stats {
-        gap: var(--spacing-lg);
+        gap: var(--spacing-md);
     }
 
     .search-section {
-        margin-bottom: var(--spacing-md);
+        padding: 0 var(--spacing-sm) !important;
+        margin-bottom: var(--spacing-sm) !important;
+    }
+
+    /* Dense books grid */
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)) !important;
+        gap: 4px !important;
+        padding: 0 4px !important;
+    }
+
+    /* Dense book cards */
+    .book-card {
+        padding: 4px !important;
+        border-width: 1px !important;
+        clip-path: none !important;
+    }
+
+    .book-card::before {
+        height: 1px !important;
+    }
+
+    .book-cover {
+        width: 40px !important;
+        height: 40px !important;
+        margin: 0 auto 4px !important;
+        border-width: 1px !important;
+    }
+
+    .book-title {
+        font-size: 0.6rem !important;
+        font-weight: normal !important;
+        margin-bottom: 2px !important;
+        line-height: 1.2 !important;
+        display: block !important;
+        overflow: visible !important;
+        -webkit-line-clamp: unset !important;
+    }
+
+    .book-author {
+        font-size: 0.55rem !important;
+        margin-bottom: 3px !important;
+        display: block !important;
+    }
+
+    .book-actions {
+        display: flex !important;
+        padding: 0 !important;
+        margin-top: 2px !important;
+        gap: 0 !important;
+    }
+
+    .btn-play {
+        font-size: 0.55rem !important;
+        padding: 2px 4px !important;
+        border-width: 1px !important;
+        flex: 1 !important;
+    }
+
+    .book-narrator,
+    .book-meta,
+    .book-editions,
+    .book-progress,
+    .btn-resume,
+    .btn-download {
+        display: none !important;
+    }
+
+    .filters-container {
+        gap: var(--spacing-sm) !important;
     }
 }
 
@@ -336,7 +472,119 @@ body {
 }
 
 /* ============================================
+   E2. Phone Portrait — Dense Browsing Grid (max-width: 480px)
+   Shows: icon cover, full title, author, play button
+   Hides: narrator, format, duration, resume
+   ============================================ */
+@media (max-width: 480px) {
+    /* Compact header */
+    .library-header {
+        padding: var(--spacing-sm) var(--spacing-md);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .header-content {
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .library-stats {
+        gap: var(--spacing-md);
+    }
+
+    .stat-value {
+        font-size: 1rem;
+    }
+
+    .stat-label {
+        font-size: 0.65rem;
+    }
+
+    /* Show sign-in button text on mobile */
+    #login-link .utilities-text {
+        display: inline !important;
+        font-size: 0.7rem;
+    }
+
+    /* Dense book cards — !important needed: responsive.css is @imported by
+       library.css, so library.css's own rules come later in cascade order
+       and would otherwise win at equal specificity. */
+    .book-card {
+        padding: 4px !important;
+        border-width: 1px !important;
+        clip-path: none !important;
+    }
+
+    .book-card::before {
+        height: 1px !important;
+    }
+
+    /* Small icon-sized cover art */
+    .book-cover {
+        width: 40px !important;
+        height: 40px !important;
+        margin: 0 auto 4px !important;
+        border-width: 1px !important;
+    }
+
+    /* Full wrapping title — not bold, readable */
+    .book-title {
+        font-size: 0.6rem !important;
+        font-weight: normal !important;
+        margin-bottom: 2px !important;
+        line-height: 1.2 !important;
+        /* Allow full wrap — no truncation */
+        display: block !important;
+        overflow: visible !important;
+        -webkit-line-clamp: unset !important;
+    }
+
+    /* Compact author */
+    .book-author {
+        font-size: 0.55rem !important;
+        margin-bottom: 3px !important;
+        display: block !important;
+    }
+
+    /* Compact play button — single small button */
+    .book-actions {
+        display: flex !important;
+        padding: 0 !important;
+        margin-top: 2px !important;
+        gap: 0 !important;
+    }
+
+    .btn-play {
+        font-size: 0.55rem !important;
+        padding: 2px 4px !important;
+        border-width: 1px !important;
+        flex: 1 !important;
+    }
+
+    /* Hide everything else on mobile */
+    .book-narrator,
+    .book-meta,
+    .book-editions,
+    .book-progress,
+    .btn-resume,
+    .btn-download {
+        display: none !important;
+    }
+
+    /* Compact search/filter */
+    .search-section {
+        padding: 0 var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .filters-container {
+        gap: var(--spacing-sm);
+    }
+}
+
+/* ============================================
    F. Small Phones (max-width: 360px)
+   Card/cover/title overrides removed — E2 (≤480px) !important rules
+   already apply at 360px. Only non-card refinements here.
    ============================================ */
 @media (max-width: 360px) {
     .library-title {
@@ -372,19 +620,6 @@ body {
 
     .collections-sidebar.open {
         left: 0;
-    }
-
-    /* Compact book cards */
-    .book-card {
-        padding: 0.75rem;
-    }
-
-    .book-cover {
-        height: 160px;
-    }
-
-    .book-title {
-        font-size: 0.95rem;
     }
 
     /* Compact auth pages */

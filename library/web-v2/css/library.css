@@ -8,12 +8,12 @@
 
 /* Import modular CSS files */
 @import url('theme-art-deco.css?v=6.6.3');
-@import url('layout.css?v=6.6.3');
+@import url('layout.css?v=6.7.1.4');
 @import url('components.css?v=6.6.3');
 @import url('sidebar.css?v=6.6.3');
 @import url('player.css?v=6.6.3');
 @import url('modals.css?v=6.6.3');
-@import url('responsive.css?v=6.6.3');
+@import url('responsive.css?v=6.7.1.5');
 
 /* ============================================
    Book Cards - Art Deco Geometric Design
@@ -459,8 +459,10 @@
     .btn-download {
         flex: 1;
     }
+}
 
-    /* Stack book card actions vertically on mobile */
+/* Stack book card actions vertically only on very small phones */
+@media (max-width: 360px) {
     .book-actions {
         flex-direction: column;
     }
