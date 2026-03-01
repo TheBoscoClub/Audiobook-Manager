@@ -2554,7 +2554,7 @@ function whenShellReady(action) {
 
 function shellPlay(book, resume) {
     if (inIframe) {
-        whenShellReady(sp => sp.playBook(book));
+        whenShellReady(sp => sp.playBook(book, resume));
     } else {
         window.location.href = 'shell.html';
     }
