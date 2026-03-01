@@ -209,7 +209,7 @@ class AudiobookLibraryV2 {
 
         const signInLink = document.createElement('a');
         signInLink.href = 'login.html';
-        signInLink.textContent = 'Sign In';
+        signInLink.textContent = 'Existing User Sign In';
         links.appendChild(signInLink);
 
         const sep = document.createElement('span');
@@ -219,7 +219,7 @@ class AudiobookLibraryV2 {
 
         const requestLink = document.createElement('a');
         requestLink.href = 'register.html';
-        requestLink.textContent = 'Request Access';
+        requestLink.textContent = 'Request a User Account';
         links.appendChild(requestLink);
 
         tooltip.appendChild(links);
@@ -2535,35 +2535,46 @@ function formatPlaybackTime(seconds) {
 const inIframe = window.self !== window.top;
 
 /**
- * Send a play command to the shell.
- * @param {Object} book - Book object with id, title, author, audio_path, cover_path, format
- * @param {boolean} resume - If true, resume from saved position
+ * Wait for shellPlayer to initialize, then call the action.
+ * Handles the race where iframe loads before parent's DOMContentLoaded.
  */
+function whenShellReady(action) {
+    if (window.parent.shellPlayer) {
+        action(window.parent.shellPlayer);
+        return;
+    }
+    const poll = setInterval(() => {
+        if (window.parent.shellPlayer) {
+            clearInterval(poll);
+            action(window.parent.shellPlayer);
+        }
+    }, 50);
+    setTimeout(() => clearInterval(poll), 3000);
+}
+
 function shellPlay(book, resume) {
-    if (inIframe && window.parent.shellPlayer) {
-        // Same-origin: call shell player directly (no postMessage needed)
-        window.parent.shellPlayer.playBook(book);
-    } else if (!inIframe) {
-        // Direct index.html access — redirect to shell
+    if (inIframe) {
+        whenShellReady(sp => sp.playBook(book));
+    } else {
         window.location.href = 'shell.html';
     }
 }
 
 function shellPause() {
-    if (inIframe && window.parent.shellPlayer) {
-        window.parent.shellPlayer.audio.pause();
+    if (inIframe) {
+        whenShellReady(sp => sp.audio.pause());
     }
 }
 
 function shellResume() {
-    if (inIframe && window.parent.shellPlayer) {
-        window.parent.shellPlayer.audio.play();
+    if (inIframe) {
+        whenShellReady(sp => sp.audio.play());
     }
 }
 
 function shellSeek(seconds) {
-    if (inIframe && window.parent.shellPlayer) {
-        window.parent.shellPlayer.audio.currentTime = seconds;
+    if (inIframe) {
+        whenShellReady(sp => { sp.audio.currentTime = seconds; });
     }
 }
 
