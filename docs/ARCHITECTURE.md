@@ -1933,5 +1933,5 @@ systemctl status grotto.target --no-pager
 
 ---
 
-*Document Version: 6.7.1.2*
+*Document Version: 6.7.1.3*
 *Last Updated: 2026-02-26*

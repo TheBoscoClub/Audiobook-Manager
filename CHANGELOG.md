@@ -35,6 +35,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - User/group (`audiobooks:audiobooks`) is **unchanged**
 - GitHub repository URL is **unchanged**
 
+## [6.7.1.3] - 2026-02-28
+
+### Fixed
+
+- **Play/resume plumbing**: Fixed `shellPlay()` ignoring the `resume` parameter — both Play and Resume buttons previously did the same thing. Resume now correctly restores saved position; Play starts fresh. Same-book unpause short-circuits without reloading.
+- **upgrade.sh service restart safety**: Added EXIT trap with dirty-flag pattern so services always restart if the script dies mid-upgrade (previously `set -e` could kill the script between `stop_services` and `start_services`, leaving services dead — caused production 502)
+- **Genre scanner→importer disconnect**: Connected scanner genre output (`genre` field) to importer genre input (`genres` field) so scanned genre data actually populates the database
+- **NAMESPACE crash**: Prevented API service crash when `library/data` directory is missing on fresh installs
+
 ## [6.7.1.2] - 2026-02-27
 
 ### Fixed
