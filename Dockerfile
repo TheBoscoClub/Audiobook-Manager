@@ -49,8 +49,9 @@ RUN pip install --no-cache-dir --upgrade pip
 COPY library/requirements-docker.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy configuration module (shared by all Python scripts)
+# Copy configuration and utility modules (shared by all Python scripts)
 COPY library/config.py /app/config.py
+COPY library/common.py /app/common.py
 
 # Copy application components
 COPY library/auth /app/auth
