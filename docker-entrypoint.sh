@@ -109,7 +109,7 @@ else
 fi
 
 # Check supplements
-if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A $SUPPLEMENTS_DIR 2>/dev/null)" ]; then
+if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A "$SUPPLEMENTS_DIR" 2>/dev/null)" ]; then
     SUPPLEMENT_COUNT=$(find "$SUPPLEMENTS_DIR" -type f \( -name "*.pdf" -o -name "*.epub" \) 2>/dev/null | wc -l)
     echo -e "  Supplements: ${GREEN}$SUPPLEMENT_COUNT files found${NC}"
 else
@@ -198,7 +198,7 @@ fi
 # ============================================================================
 # Step 4: Scan supplements if available
 # ============================================================================
-if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A $SUPPLEMENTS_DIR 2>/dev/null)" ]; then
+if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A "$SUPPLEMENTS_DIR" 2>/dev/null)" ]; then
     echo -e "${CYAN}Scanning supplements...${NC}"
     cd /app/scripts && python3 scan_supplements.py --supplements-dir "$SUPPLEMENTS_DIR" --quiet 2>/dev/null || true
     echo -e "  ${GREEN}Supplements scanned${NC}"
@@ -233,11 +233,11 @@ fi
 # Wait for API health check
 echo -n "Waiting for API to be ready"
 for i in {1..10}; do
-    if curl -s http://localhost:${API_PORT}/api/system/health >/dev/null 2>&1; then
+    if curl -s "http://localhost:${API_PORT}/api/system/health" >/dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
         break
     fi
-    if [ $i -eq 10 ]; then
+    if [ "$i" -eq 10 ]; then
         echo -e " ${RED}✗${NC}"
         echo -e "${RED}Warning: API may not be fully ready${NC}"
     fi
@@ -312,7 +312,7 @@ echo ""
 # Handle shutdown gracefully
 cleanup() {
     echo 'Shutting down...'
-    kill $API_PID $PROXY_PID ${REDIRECT_PID:-} 2>/dev/null
+    kill "$API_PID" "$PROXY_PID" "${REDIRECT_PID:-}" 2>/dev/null
     exit 0
 }
 trap cleanup SIGTERM SIGINT

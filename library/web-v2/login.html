@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sign In - The Library</title>
-    <link rel="stylesheet" href="css/theme-art-deco.css?v=6.6.3">
-    <link rel="stylesheet" href="css/auth.css?v=6.6.3">
-    <link rel="stylesheet" href="css/help-tooltips.css?v=6.6.3">
-    <link rel="stylesheet" href="css/responsive.css?v=6.6.3">
-    <script src="js/webauthn.js?v=6.6.3"></script>
-    <script src="js/session-persistence.js?v=6.6.3"></script>
+    <link rel="stylesheet" href="css/theme-art-deco.css?v=6.7.1.2">
+    <link rel="stylesheet" href="css/auth.css?v=6.7.1.2">
+    <link rel="stylesheet" href="css/help-tooltips.css?v=6.7.1.2">
+    <link rel="stylesheet" href="css/responsive.css?v=6.7.1.2">
+    <script src="js/webauthn.js?v=6.7.1.2"></script>
+    <script src="js/session-persistence.js?v=6.7.1.2"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
@@ -104,7 +104,7 @@
             <!-- Stay logged in option -->
             <div class="form-group checkbox-group" id="remember-me-group" hidden>
                 <label class="checkbox-label">
-                    <input type="checkbox" id="remember-me" name="remember_me">
+                    <input type="checkbox" id="remember-me" name="remember_me" checked>
                     <span class="checkbox-text">Stay logged in</span>
                 </label>
                 <span class="field-hint">Your login will be remembered on this device so you won't need to sign in each time. This stores a secure session key in your browser. Only use this on a device you trust. To fully sign out later, use the Sign Out button.</span>
@@ -443,9 +443,10 @@
                 document.getElementById('auth-options-fallback').hidden = false;
 
                 if (currentAuthType === 'magic_link') {
-                    // Magic link flow — auto-submit to send login link
+                    // Magic link flow — show remember-me, then auto-submit
                     changeUsernameLink.hidden = false;
-                    await sendMagicLinkLogin(username);
+                    rememberMeGroup.hidden = false;
+                    await sendMagicLinkLogin(username, rememberMeCheckbox.checked);
                 } else if (currentAuthType === 'passkey' || currentAuthType === 'fido2') {
                     // WebAuthn flow
                     if (!WebAuthn.isSupported()) {
@@ -462,6 +463,7 @@
                     loginButton.hidden = false;
                     loginButton.querySelector('.button-text').textContent = `Use ${typeLabel === 'passkey' ? 'Passkey' : 'Security Key'}`;
                     changeUsernameLink.hidden = false;
+                    rememberMeGroup.hidden = false;
                 } else {
                     // TOTP flow
                     totpGroup.hidden = false;
@@ -515,7 +517,8 @@
             try {
                 if (currentAuthType === 'passkey' || currentAuthType === 'fido2') {
                     // WebAuthn authentication flow
-                    const result = await WebAuthn.authenticate(username);
+                    const remember_me = rememberMeCheckbox.checked;
+                    const result = await WebAuthn.authenticate(username, remember_me);
 
                     if (result.success) {
                         window.location.href = 'shell.html';
@@ -695,7 +698,7 @@
         });
 
         // Magic link login for magic_link auth type users
-        async function sendMagicLinkLogin(username) {
+        async function sendMagicLinkLogin(username, remember_me = true) {
             const magicLinkSentGroup = document.getElementById('magic-link-sent-group');
             clearError(errorMessage);
 
@@ -703,7 +706,7 @@
                 const response = await fetch(`${API_BASE}/auth/magic-link/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier: username })
+                    body: JSON.stringify({ identifier: username, remember_me })
                 });
 
                 const data = await safeJsonParse(response);

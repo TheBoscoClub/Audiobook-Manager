@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Verify Access - The Library</title>
-    <link rel="stylesheet" href="css/theme-art-deco.css?v=6.6.3">
-    <link rel="stylesheet" href="css/auth.css?v=6.6.3">
-    <link rel="stylesheet" href="css/help-tooltips.css?v=6.6.3">
-    <link rel="stylesheet" href="css/responsive.css?v=6.6.3">
-    <script src="js/session-persistence.js?v=6.6.3"></script>
+    <link rel="stylesheet" href="css/theme-art-deco.css?v=6.7.1.2">
+    <link rel="stylesheet" href="css/auth.css?v=6.7.1.2">
+    <link rel="stylesheet" href="css/help-tooltips.css?v=6.7.1.2">
+    <link rel="stylesheet" href="css/responsive.css?v=6.7.1.2">
+    <script src="js/session-persistence.js?v=6.7.1.2"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
@@ -169,9 +169,9 @@
             states[stateName].hidden = false;
         }
 
-        async function verifyToken(token, activate) {
+        async function verifyToken(token, activate, rememberMe = true) {
             try {
-                const body = { token };
+                const body = { token, remember_me: rememberMe };
                 if (activate) body.activate = true;
 
                 const response = await fetch(`${API_BASE}/auth/magic-link/verify`, {
@@ -215,10 +215,11 @@
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token');
         const activate = params.get('activate') === '1';
+        const rememberMe = params.get('r') !== '0';
 
         if (token) {
             // Auto-verify token from URL
-            verifyToken(token, activate);
+            verifyToken(token, activate, rememberMe);
         } else {
             // Show manual entry form
             showState('manual');

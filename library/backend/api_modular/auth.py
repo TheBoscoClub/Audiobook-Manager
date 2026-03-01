@@ -11,6 +11,7 @@ All authentication data is stored in the encrypted auth.db (SQLCipher).
 """
 
 import json
+import logging
 import os
 import smtplib
 import sys
@@ -112,7 +113,9 @@ def init_auth_routes(
 
     # Log WebAuthn configuration at startup
     rp_id, rp_name, origin = get_webauthn_config()
-    print(f"WebAuthn config: rp_id={rp_id}, origin={origin}, rp_name={rp_name}")
+    logging.getLogger(__name__).info(
+        "WebAuthn config: rp_id=%s, origin=%s, rp_name=%s", rp_id, origin, rp_name
+    )
 
 
 def get_auth_db() -> AuthDatabase:
@@ -1425,7 +1428,9 @@ def claim_webauthn_begin():
 
     if access_req.is_claim_expired():
         return jsonify(
-            {"error": "This invitation has expired. Please ask the admin to send a new one."}
+            {
+                "error": "This invitation has expired. Please ask the admin to send a new one."
+            }
         ), 400
 
     # Get WebAuthn configuration
@@ -1523,7 +1528,9 @@ def claim_webauthn_complete():
 
     if access_req.is_claim_expired():
         return jsonify(
-            {"error": "This invitation has expired. Please ask the admin to send a new one."}
+            {
+                "error": "This invitation has expired. Please ask the admin to send a new one."
+            }
         ), 400
 
     # Get WebAuthn configuration
@@ -2216,11 +2223,13 @@ def login_webauthn_complete():
     user.save(db)
 
     # Create session
+    remember_me = data.get("remember_me", True)
     session, token = Session.create_for_user(
         db,
         user.id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
+        remember_me=remember_me,
     )
 
     # Update last login
@@ -2239,7 +2248,7 @@ def login_webauthn_complete():
         }
     )
 
-    return set_session_cookie(response, token)
+    return set_session_cookie(response, token, remember_me=remember_me)
 
 
 @auth_bp.route("/login/auth-type", methods=["POST"])
@@ -2532,9 +2541,12 @@ def magic_link_login():
     recovery_repo = PendingRecoveryRepository(db)
     recovery_repo.delete_for_user(user.id)
 
+    remember_me = data.get("remember_me", True)
+
     recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
 
-    magic_link_url = f"/verify.html?token={raw_token}"
+    r_flag = "1" if remember_me else "0"
+    magic_link_url = f"/verify.html?token={raw_token}&r={r_flag}"
 
     _send_magic_link_email(
         to_email=email,
@@ -2678,8 +2690,9 @@ def verify_magic_link():
     user_agent = request.headers.get("User-Agent", "")
     ip_address = request.remote_addr or ""
 
+    remember_me = data.get("remember_me", True)
     session, raw_token = Session.create_for_user(
-        db, user.id, user_agent, ip_address, remember_me=True
+        db, user.id, user_agent, ip_address, remember_me=remember_me
     )
 
     # Update last login
@@ -2698,7 +2711,7 @@ def verify_magic_link():
         }
     )
 
-    return set_session_cookie(response, raw_token, remember_me=True)
+    return set_session_cookie(response, raw_token, remember_me=remember_me)
 
 
 def _get_base_url() -> str:

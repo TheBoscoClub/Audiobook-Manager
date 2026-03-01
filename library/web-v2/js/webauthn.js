@@ -293,7 +293,7 @@ const WebAuthn = {
      * @param {string} username
      * @returns {Promise<Object>} - Login result with user info
      */
-    async completeAuthentication(beginResult, username) {
+    async completeAuthentication(beginResult, username, remember_me = true) {
         // Parse options for the browser API
         const options = this.parseAuthenticationOptions(beginResult.options);
 
@@ -325,7 +325,8 @@ const WebAuthn = {
             body: JSON.stringify({
                 username: username,
                 credential: encodedCredential,
-                challenge: beginResult.challenge
+                challenge: beginResult.challenge,
+                remember_me: remember_me
             })
         });
 
@@ -342,12 +343,12 @@ const WebAuthn = {
      * @param {string} username
      * @returns {Promise<Object>} - Login result
      */
-    async authenticate(username) {
+    async authenticate(username, remember_me = true) {
         // Step 1: Start authentication
         const beginResult = await this.startAuthentication(username);
 
         // Step 2: Complete with browser authenticator
-        return await this.completeAuthentication(beginResult, username);
+        return await this.completeAuthentication(beginResult, username, remember_me);
     },
 
     /**
