@@ -1175,6 +1175,7 @@ do_system_install() {
     echo -e "${BLUE}Creating directories...${NC}"
     sudo mkdir -p "${CONFIG_DIR}"
     sudo mkdir -p "${APP_DIR}"
+    sudo mkdir -p "${APP_DIR}/library/data"
     sudo mkdir -p "${data_dir}/Library"
     sudo mkdir -p "${data_dir}/Sources"
     sudo mkdir -p "${data_dir}/Supplements"
