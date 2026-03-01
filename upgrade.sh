@@ -58,6 +58,23 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# Safety net: restart services if script dies after stopping them.
+# set -e can kill the script mid-upgrade, leaving services dead with no 502
+# recovery. This trap ensures services always come back up.
+_SERVICES_STOPPED=false
+_SERVICES_USE_SUDO=""
+_cleanup_on_exit() {
+    if [[ "$_SERVICES_STOPPED" == "true" ]]; then
+        echo ""
+        echo -e "${YELLOW}Script exited before services were restarted — restarting now...${NC}"
+        start_services "$_SERVICES_USE_SUDO" 2>/dev/null || {
+            echo -e "${RED}CRITICAL: Failed to restart services. Run manually:${NC}"
+            echo -e "${RED}  sudo systemctl start audiobook-api audiobook-proxy${NC}"
+        }
+    fi
+}
+trap _cleanup_on_exit EXIT
+
 # Script location - could be in project OR installed app
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -1333,7 +1350,7 @@ do_github_upgrade() {
     # Create temp directory
     local temp_dir
     temp_dir=$(mktemp -d)
-    trap "rm -rf '$temp_dir'" EXIT
+    trap "rm -rf '$temp_dir'; _cleanup_on_exit" EXIT
 
     # Download and extract
     local release_dir
@@ -1370,8 +1387,10 @@ do_github_upgrade() {
     # Backup auth database before any changes
     backup_auth_db "$target" "$use_sudo"
 
-    # Stop services before upgrade
+    # Stop services before upgrade (trap ensures restart on failure)
+    _SERVICES_USE_SUDO="$use_sudo"
     stop_services "$use_sudo"
+    _SERVICES_STOPPED=true
     echo ""
 
     # Use the existing do_upgrade function with the extracted release
@@ -1381,6 +1400,7 @@ do_github_upgrade() {
 
     # Start services after upgrade
     start_services "$use_sudo"
+    _SERVICES_STOPPED=false
 
     # Validate auth database post-upgrade
     validate_auth_post_upgrade "$target"
@@ -1577,8 +1597,10 @@ fi
 # Backup auth database before any changes
 backup_auth_db "$TARGET_DIR" "$use_sudo"
 
-# Stop services before upgrade
+# Stop services before upgrade (trap ensures restart on failure)
+_SERVICES_USE_SUDO="$use_sudo"
 stop_services "$use_sudo"
+_SERVICES_STOPPED=true
 echo ""
 
 # Perform upgrade
@@ -1587,6 +1609,7 @@ do_upgrade "$PROJECT_DIR" "$TARGET_DIR"
 # Start services after upgrade
 echo ""
 start_services "$use_sudo"
+_SERVICES_STOPPED=false
 
 # Validate auth database post-upgrade
 validate_auth_post_upgrade "$TARGET_DIR"
