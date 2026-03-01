@@ -6,7 +6,6 @@ SHELL_JS = Path(__file__).parent.parent / "web-v2" / "js" / "shell.js"
 
 
 class TestShellJS:
-
     def test_shell_js_exists(self):
         assert SHELL_JS.exists(), "shell.js must exist in web-v2/js/"
 
@@ -41,7 +40,8 @@ class TestShellJS:
         content = SHELL_JS.read_text()
         if "fetch(" in content:
             import re
-            fetches = len(re.findall(r'fetch\(', content))
+
+            fetches = len(re.findall(r"fetch\(", content))
             creds = len(re.findall(r"credentials\s*:\s*['\"]include['\"]", content))
             assert creds >= fetches, (
                 f"Found {fetches} fetch calls but only {creds} with credentials"

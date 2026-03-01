@@ -7,7 +7,6 @@ INDEX_HTML = Path(__file__).parent.parent / "web-v2" / "index.html"
 
 
 class TestIframeBridge:
-
     def test_library_js_has_postmessage_play(self):
         """library.js must send postMessage to parent when playing."""
         content = LIBRARY_JS.read_text()
@@ -18,7 +17,11 @@ class TestIframeBridge:
     def test_library_js_detects_iframe(self):
         """library.js must detect if it's running inside an iframe."""
         content = LIBRARY_JS.read_text()
-        assert "window.parent" in content or "self !== top" in content or "inIframe" in content
+        assert (
+            "window.parent" in content
+            or "self !== top" in content
+            or "inIframe" in content
+        )
 
     def test_audio_element_not_in_index(self):
         """<audio> element should not be in index.html (moved to shell.html)."""

@@ -32,6 +32,7 @@ ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
 RestartSec=5
+LimitNOFILE=65536
 # Use journal logging for better log management (query with: journalctl -u audiobook-api)
 StandardOutput=journal
 StandardError=journal

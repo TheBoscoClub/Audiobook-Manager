@@ -2,9 +2,7 @@
 
 from pathlib import Path
 
-CORE_PY = (
-    Path(__file__).parent.parent / "backend" / "api_modular" / "core.py"
-)
+CORE_PY = Path(__file__).parent.parent / "backend" / "api_modular" / "core.py"
 
 
 class TestSecurityHeadersForIframe:
@@ -20,9 +18,7 @@ class TestSecurityHeadersForIframe:
         lines = content.split("\n")
         for line in lines:
             if "X-Frame-Options" in line:
-                assert "DENY" not in line, (
-                    "X-Frame-Options must not be DENY"
-                )
+                assert "DENY" not in line, "X-Frame-Options must not be DENY"
 
     def test_csp_frame_ancestors_self(self):
         content = CORE_PY.read_text()

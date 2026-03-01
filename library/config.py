@@ -180,17 +180,27 @@ AUDIOBOOKS_WEB_PORT = int(
     get_config("AUDIOBOOKS_WEB_PORT", "8443")
 )  # Changed from 8090 to 8443 (HTTPS)
 AUDIOBOOKS_HTTP_REDIRECT_PORT = int(
-    get_config("AUDIOBOOKS_HTTP_REDIRECT_PORT", "8080")
+    os.environ.get(
+        "HTTP_REDIRECT_PORT",
+        str(get_config("AUDIOBOOKS_HTTP_REDIRECT_PORT", "8080")),
+    )
 )  # Default 8080 (matches audiobook-config.sh and .env.example)
+# Also checks Docker legacy env var HTTP_REDIRECT_PORT
 AUDIOBOOKS_BIND_ADDRESS = get_config("AUDIOBOOKS_BIND_ADDRESS", "0.0.0.0")
 AUDIOBOOKS_HTTPS_ENABLED = get_config("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() in (
     "true",
     "1",
     "yes",
 )
-AUDIOBOOKS_HTTP_REDIRECT_ENABLED = get_config(
-    "AUDIOBOOKS_HTTP_REDIRECT_ENABLED", "true"
-).lower() in ("true", "1", "yes")
+_http_redirect_enabled_raw = os.environ.get(
+    "HTTP_REDIRECT_ENABLED",
+    get_config("AUDIOBOOKS_HTTP_REDIRECT_ENABLED", "true"),
+)
+AUDIOBOOKS_HTTP_REDIRECT_ENABLED = _http_redirect_enabled_raw.lower() in (
+    "true",
+    "1",
+    "yes",
+)
 AUDIOBOOKS_USE_WAITRESS = get_config("AUDIOBOOKS_USE_WAITRESS", "true").lower() in (
     "true",
     "1",
@@ -220,6 +230,12 @@ OPUS_DIR = AUDIOBOOK_DIR  # Points to same as AUDIOBOOK_DIR
 CONVERTED_DIR = AUDIOBOOK_DIR  # Points to same as AUDIOBOOK_DIR
 WEB_PORT = int(os.environ.get("WEB_PORT", str(AUDIOBOOKS_WEB_PORT)))
 API_PORT = int(os.environ.get("API_PORT", str(AUDIOBOOKS_API_PORT)))
+HTTP_REDIRECT_PORT = int(
+    os.environ.get("HTTP_REDIRECT_PORT", str(AUDIOBOOKS_HTTP_REDIRECT_PORT))
+)
+HTTP_REDIRECT_ENABLED = os.environ.get(
+    "HTTP_REDIRECT_ENABLED", str(AUDIOBOOKS_HTTP_REDIRECT_ENABLED).lower()
+).lower() in ("true", "1", "yes")
 
 # =============================================================================
 # Utility Functions

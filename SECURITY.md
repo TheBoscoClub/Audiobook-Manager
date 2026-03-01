@@ -235,5 +235,5 @@ For security concerns, contact the maintainer through GitHub.
 
 ---
 
-**Last Updated:** 2026-02-26
-**Version:** 6.7.1.3
+**Last Updated:** 2026-03-01
+**Version:** 6.7.1.4

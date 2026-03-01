@@ -6,13 +6,19 @@ from pathlib import Path
 WEB_DIR = Path(__file__).parent.parent / "web-v2"
 
 # Pages that load inside the iframe
-CONTENT_PAGES = ["index.html", "utilities.html", "admin.html", "help.html", "about.html", "contact.html"]
+CONTENT_PAGES = [
+    "index.html",
+    "utilities.html",
+    "admin.html",
+    "help.html",
+    "about.html",
+    "contact.html",
+]
 # Pages that must break out of iframe
 AUTH_PAGES = ["login.html", "register.html", "claim.html", "verify.html"]
 
 
 class TestContentPageLinks:
-
     def test_auth_links_have_target_top(self):
         """Links to auth pages from content pages must use target='_top'."""
         for page_name in CONTENT_PAGES:

@@ -176,9 +176,7 @@ def record_download_complete(audiobook_id: int):
     conn = _get_library_db()
     try:
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, title FROM audiobooks WHERE id = ?", (audiobook_id,)
-        )
+        cursor.execute("SELECT id, title FROM audiobooks WHERE id = ?", (audiobook_id,))
         book_row = cursor.fetchone()
         if not book_row:
             return jsonify({"error": "Audiobook not found"}), 404

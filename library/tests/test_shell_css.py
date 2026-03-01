@@ -6,7 +6,6 @@ SHELL_CSS = Path(__file__).parent.parent / "web-v2" / "css" / "shell.css"
 
 
 class TestShellCSS:
-
     def test_shell_css_exists(self):
         assert SHELL_CSS.exists(), "shell.css must exist in web-v2/css/"
 

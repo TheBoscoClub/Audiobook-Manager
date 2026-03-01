@@ -12,7 +12,9 @@ LIBRARY_JS = Path(__file__).parent.parent / "web-v2" / "js" / "library.js"
 SHELL_JS = Path(__file__).parent.parent / "web-v2" / "js" / "shell.js"
 
 
-def _extract_fetch_block(content: str, method_name: str, source_name: str = "source") -> str:
+def _extract_fetch_block(
+    content: str, method_name: str, source_name: str = "source"
+) -> str:
     """Extract the body of a method from a JS file by name."""
     pattern = rf"(async\s+)?{method_name}\s*\([^)]*\)\s*\{{"
     match = re.search(pattern, content)
