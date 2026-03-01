@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
-source "$SCRIPT_DIR/lib/audiobook-config.sh"
+source "$SCRIPT_DIR/lib/grotto-config.sh"
 
 echo -e "${GREEN}=== Audiobooks Library User Service Installer ===${NC}"
 echo ""

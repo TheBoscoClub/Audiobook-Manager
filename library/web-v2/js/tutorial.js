@@ -38,8 +38,8 @@ class LibraryTutorial {
             },
             {
                 target: '.tab-btn[data-tab="my-library"]',
-                title: 'My Library',
-                description: 'Switch to My Library to see books you\'ve listened to, downloaded, or have in progress. Your personal collection is tracked per-user across devices.',
+                title: 'My Grotto',
+                description: 'Switch to My Grotto to see books you\'ve listened to, downloaded, or have in progress. Your personal collection is tracked per-user across devices.',
             },
             {
                 target: '#new-books-marquee',
@@ -61,7 +61,7 @@ class LibraryTutorial {
             {
                 target: '.btn-download',
                 title: 'Download for Offline',
-                description: 'The Library streams from its own server storage and cannot access files on your device. Use the Download button to save a book for offline listening in a local player like VLC or Smart AudioBook Player. See the Help page for app recommendations.',
+                description: 'Vox Grotto streams from its own server storage and cannot access files on your device. Use the Download button to save a book for offline listening in a local player like VLC or Smart AudioBook Player. See the Help page for app recommendations.',
                 optional: true,
             },
             {

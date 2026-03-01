@@ -1,10 +1,10 @@
-# Audiobooks - Standalone audiobook library browser
+# Vox Grotto - Standalone audiobook library browser
 # A fully self-contained, portable product for cross-platform deployment.
 # Includes all databases, dependencies, and runtime — no external services needed.
 # Supports: Linux, macOS, Windows (via Docker Desktop)
 # Platforms: linux/amd64, linux/arm64
 #
-# Build: docker build -t audiobooks .
+# Build: docker build -t vox-grotto .
 # Run:   docker-compose up -d
 
 FROM python:3.14-slim
@@ -12,13 +12,13 @@ FROM python:3.14-slim
 # Read version from VERSION file during build
 ARG APP_VERSION=6.7.1.2
 
-LABEL maintainer="Audiobooks Project"
-LABEL description="Standalone audiobook library — fully self-contained with all databases and dependencies"
+LABEL maintainer="Vox Grotto Project"
+LABEL description="Standalone Vox Grotto library — fully self-contained with all databases and dependencies"
 LABEL version="${APP_VERSION}"
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.source="https://github.com/TheBoscoClub/Audiobook-Manager"
-LABEL org.opencontainers.image.description="Standalone audiobook library browser — portable, cross-platform, self-contained"
+LABEL org.opencontainers.image.description="Standalone Vox Grotto library browser — portable, cross-platform, self-contained"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Install system dependencies (Debian Trixie packages)

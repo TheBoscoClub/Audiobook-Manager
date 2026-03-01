@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Claim Your Credentials - The Library</title>
+    <title>Claim Your Credentials - Vox Grotto</title>
     <link rel="stylesheet" href="css/theme-art-deco.css?v=6.6.3">
     <link rel="stylesheet" href="css/auth.css?v=6.6.3">
     <link rel="stylesheet" href="css/help-tooltips.css?v=6.6.3">
@@ -15,7 +15,7 @@
         <!-- Decorative header -->
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
-            <h1 class="auth-title">The Library</h1>
+            <h1 class="auth-title">Vox Grotto</h1>
             <p class="auth-subtitle">Claim Your Credentials</p>
             <div class="deco-line"></div>
         </div>
@@ -72,7 +72,7 @@
                                 <li>In a screenshot you took</li>
                             </ul>
                             <strong>Can't find it?</strong>
-                            <p>Check your email inbox (and spam folder) for a message from The Library. The token is in a gold box in that email. If you still can't find it, contact the person who invited you.</p>
+                            <p>Check your email inbox (and spam folder) for a message from Vox Grotto. The token is in a gold box in that email. If you still can't find it, contact the person who invited you.</p>
                         </div>
                     </div>
                 </div>
@@ -449,7 +449,7 @@
                             <li>Look for a <strong>+</strong> button or <strong>Add Account</strong></li>
                             <li>Choose <strong>Scan QR Code</strong> or <strong>Scan Barcode</strong></li>
                             <li>Point your phone's camera at the black-and-white square below</li>
-                            <li>The app will automatically add "The Library"</li>
+                            <li>The app will automatically add "Vox Grotto"</li>
                         </ol>
                     </div>
                 </div>
@@ -492,7 +492,7 @@
 
             <div class="final-step">
                 <h3><span class="step-number" style="background: var(--charcoal); color: var(--gold); border: 2px solid var(--gold);">4</span> Enter Your First Code</h3>
-                <p class="plain-language">Almost done! Open your authenticator app and find <strong>The Library</strong>. You'll see a 6-digit number that changes every 30 seconds. Type that number below.</p>
+                <p class="plain-language">Almost done! Open your authenticator app and find <strong>Vox Grotto</strong>. You'll see a 6-digit number that changes every 30 seconds. Type that number below.</p>
                 <p style="font-size: 0.9rem; color: var(--charcoal); opacity: 0.8; margin-bottom: 1rem;">Don't worry if the number changes while you're typing — just wait for the new one and type that instead.</p>
                 <form id="first-login-form" class="first-login-form">
                     <div class="form-group">
@@ -508,7 +508,7 @@
                     </div>
                     <div id="first-login-error" class="error-message" hidden></div>
                     <button type="submit" class="auth-button">
-                        <span class="button-text">Enter The Library</span>
+                        <span class="button-text">Enter the Grotto</span>
                     </button>
                 </form>
             </div>
@@ -551,7 +551,7 @@
             </div>
 
             <a href="shell.html" class="auth-button" style="display: block; text-align: center; text-decoration: none; margin-top: 1.5rem;">
-                <span class="button-text">Enter The Library</span>
+                <span class="button-text">Enter the Grotto</span>
             </a>
         </div>
 
@@ -1041,13 +1041,13 @@
                     errorEl.textContent = data.error || 'Invalid code. Check your authenticator app and try again.';
                     errorEl.hidden = false;
                     submitBtn.disabled = false;
-                    submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+                    submitBtn.querySelector('.button-text').textContent = 'Enter the Grotto';
                 }
             } catch (e) {
                 errorEl.textContent = 'Connection error. Please try again.';
                 errorEl.hidden = false;
                 submitBtn.disabled = false;
-                submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+                submitBtn.querySelector('.button-text').textContent = 'Enter the Grotto';
             }
         });
 

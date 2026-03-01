@@ -1,0 +1,39 @@
+[Unit]
+Description=Vox Grotto Continuous Converter (AAXC to Opus)
+After=network.target grotto-mover.service
+PartOf=grotto.target
+# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+
+# Load configuration
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+# HOME directory for audiobooks user
+Environment=HOME=/var/lib/audiobooks
+
+# Main script
+ExecStart=/usr/local/bin/grotto-convert
+
+# Restart on failure
+Restart=always
+RestartSec=30
+
+# Nice value for lower priority
+Nice=5
+
+# Allow time for in-progress conversions to finish
+TimeoutStopSec=60
+
+# Security hardening (ProtectSystem disabled - converter needs full file system access)
+# Data paths are configured via EnvironmentFile
+NoNewPrivileges=yes
+ProtectHome=read-only
+PrivateTmp=no
+
+[Install]
+WantedBy=grotto.target multi-user.target

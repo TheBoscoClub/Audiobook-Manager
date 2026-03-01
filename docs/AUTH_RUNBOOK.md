@@ -13,8 +13,8 @@ Practical guide for operating and maintaining the secure remote access authentic
 
 | Task | Command |
 |------|---------|
-| Check API status | `systemctl status audiobook-api` |
-| View recent logs | `journalctl -u audiobook-api -n 100` |
+| Check API status | `systemctl status grotto-api` |
+| View recent logs | `journalctl -u grotto-api -n 100` |
 | Check user count | `./library/tools/auth_admin.py --list-users` |
 | Create admin | `./library/tools/auth_admin.py --create-admin USERNAME` |
 | Reset user auth | `./library/tools/auth_admin.py --reset-auth USERNAME` |
@@ -90,13 +90,13 @@ Check for authentication issues:
 
 ```bash
 # Failed login attempts in last hour
-journalctl -u audiobook-api --since "1 hour ago" | grep -i "login failed\|invalid\|unauthorized"
+journalctl -u grotto-api --since "1 hour ago" | grep -i "login failed\|invalid\|unauthorized"
 
 # Successful logins
-journalctl -u audiobook-api --since "1 hour ago" | grep -i "login success\|authenticated"
+journalctl -u grotto-api --since "1 hour ago" | grep -i "login success\|authenticated"
 
 # Session events
-journalctl -u audiobook-api --since "1 hour ago" | grep -i "session"
+journalctl -u grotto-api --since "1 hour ago" | grep -i "session"
 ```
 
 ### 3. Inbox Check
@@ -228,14 +228,14 @@ BACKUP_DIR="/backups/audiobooks/$(date +%Y%m%d)"
 mkdir -p "$BACKUP_DIR"
 
 # Stop API briefly for consistent backup
-systemctl stop audiobook-api
+systemctl stop grotto-api
 
 # Copy database and key
 cp /var/lib/audiobooks/auth.db "$BACKUP_DIR/auth.db"
 cp /etc/audiobooks/auth.key "$BACKUP_DIR/auth.key"
 
 # Restart API
-systemctl start audiobook-api
+systemctl start grotto-api
 
 # Verify backup
 if sqlite3 "$BACKUP_DIR/auth.db" -cmd "PRAGMA key = \"x'$(cat $BACKUP_DIR/auth.key)'\"" "SELECT COUNT(*) FROM users;" > /dev/null 2>&1; then
@@ -274,7 +274,7 @@ if [ ! -f "$BACKUP_DIR/auth.db" ] || [ ! -f "$BACKUP_DIR/auth.key" ]; then
 fi
 
 # Stop API
-systemctl stop audiobook-api
+systemctl stop grotto-api
 
 # Backup current state
 mv /var/lib/audiobooks/auth.db /var/lib/audiobooks/auth.db.before-restore
@@ -289,7 +289,7 @@ chown audiobooks:audiobooks /var/lib/audiobooks/auth.*
 chmod 600 /var/lib/audiobooks/auth.*
 
 # Start API
-systemctl start audiobook-api
+systemctl start grotto-api
 
 echo "Restore complete. Verify by logging in."
 ```
@@ -326,8 +326,8 @@ echo "Restore complete. Verify by logging in."
 1. **Check service status:**
 
    ```bash
-   systemctl status audiobook-api
-   journalctl -u audiobook-api -n 50
+   systemctl status grotto-api
+   journalctl -u grotto-api -n 50
    ```
 
 2. **Check database accessibility:**
@@ -354,7 +354,7 @@ echo "Restore complete. Verify by logging in."
 1. **Check for runaway processes:**
 
    ```bash
-   top -p $(pgrep -f audiobook-api)
+   top -p $(pgrep -f grotto-api)
    ```
 
 2. **Check session count:**
@@ -407,14 +407,14 @@ echo "Restore complete. Verify by logging in."
 3. **Review recent activity:**
 
    ```bash
-   journalctl -u audiobook-api --since "24 hours ago" | grep -i "USERNAME"
+   journalctl -u grotto-api --since "24 hours ago" | grep -i "USERNAME"
    ```
 
 4. **Check for unusual patterns:**
 
    ```bash
    # Multiple failed logins
-   journalctl -u audiobook-api | grep "login failed" | tail -50
+   journalctl -u grotto-api | grep "login failed" | tail -50
 
    # Unusual IPs
    sqlite3 /var/lib/audiobooks/auth.db \
@@ -427,7 +427,7 @@ echo "Restore complete. Verify by logging in."
 
    ```bash
    cp /var/lib/audiobooks/auth.db /var/lib/audiobooks/auth.db.evidence
-   journalctl -u audiobook-api > /var/log/audiobooks/incident-$(date +%s).log
+   journalctl -u grotto-api > /var/log/audiobooks/incident-$(date +%s).log
    ```
 
 2. **Rotate encryption key (nuclear option):**
@@ -458,12 +458,12 @@ echo "Restore complete. Verify by logging in."
     --expires "2024-01-20 04:00"
 
 # 2. During maintenance window:
-systemctl stop audiobook-api
+systemctl stop grotto-api
 
 # 3. Perform maintenance tasks
 
 # 4. Start services
-systemctl start audiobook-api
+systemctl start grotto-api
 
 # 5. Verify
 curl -sf http://localhost:5001/api/health

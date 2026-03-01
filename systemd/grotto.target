@@ -1,0 +1,20 @@
+[Unit]
+Description=Vox Grotto Library Services
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+After=network-online.target
+Wants=network-online.target
+
+# Core services - these are the main services that must start
+Wants=grotto-api.service
+Wants=grotto-proxy.service
+Wants=grotto-redirect.service
+
+# Background workers - conversion and file moving
+Wants=grotto-converter.service
+Wants=grotto-mover.service
+
+# Scheduled tasks - timers trigger their corresponding .service units
+Wants=grotto-downloader.timer
+
+[Install]
+WantedBy=multi-user.target

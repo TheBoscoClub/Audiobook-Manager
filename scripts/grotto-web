@@ -1,0 +1,6 @@
+#!/bin/bash
+# Vox Grotto Library Web Server (HTTPS)
+# Wrapper script — sources config and launches the HTTPS proxy
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+source "${SCRIPT_DIR}/../lib/grotto-config.sh"
+exec "$(grotto_python)" "${AUDIOBOOKS_HOME}/library/web-v2/proxy_server.py" "$@"

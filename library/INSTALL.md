@@ -262,10 +262,10 @@ ffmpeg -version
 ffprobe -version
 
 # Check configuration (if installed via install scripts)
-audiobook-config
+grotto-config
 
 # Or source config manually
-source lib/audiobook-config.sh
+source lib/grotto-config.sh
 audiobooks_print_config
 ```
 
@@ -530,7 +530,7 @@ source ~/.zshrc
 cat ~/.config/audiobooks/audiobooks.conf
 
 # Verify config loads correctly
-source lib/audiobook-config.sh
+source lib/grotto-config.sh
 audiobooks_print_config
 ```
 
@@ -589,7 +589,7 @@ If you encounter issues not covered here:
    ffmpeg -version
 
    # Check configuration
-   audiobook-config
+   grotto-config
 
    # Check Python packages
    pip list | grep Flask

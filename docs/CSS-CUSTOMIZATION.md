@@ -1,6 +1,6 @@
 # CSS Customization Guide
 
-Customize the Audiobook Manager web interface to match your aesthetic preferences.
+Customize the Vox Grotto web interface to match your aesthetic preferences.
 
 ## CSS Architecture
 

@@ -1,0 +1,43 @@
+[Unit]
+Description=Vox Grotto HTTP to HTTPS Redirect
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+After=network-online.target grotto-proxy.service
+Wants=grotto-proxy.service network-online.target
+# Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
+RequiresMountsFor=/opt/audiobooks
+# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/audiobooks/library/web-v2
+
+# Load configuration from /etc/audiobooks/audiobooks.conf
+EnvironmentFile=/etc/audiobooks/audiobooks.conf
+Environment=PYTHONUNBUFFERED=1
+
+# Only start if port is not already in use
+ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_HTTP_REDIRECT_PORT} "'
+ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2/redirect_server.py
+
+Restart=on-failure
+RestartSec=5
+# Use journal logging (query with: journalctl -u grotto-redirect)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=grotto-redirect
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadOnlyPaths=/etc/audiobooks /opt/audiobooks
+# Data directory for audiobooks database and cache
+ReadWritePaths=/var/lib/audiobooks
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=grotto.target multi-user.target

@@ -1,5 +1,0 @@
-#!/bin/bash
-# Audiobook Toolkit Upgrade Script
-# Wrapper — delegates to the full upgrade.sh in the scripts directory
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-exec "${SCRIPT_DIR}/upgrade.sh" --target "$(dirname "${SCRIPT_DIR}")" "$@"

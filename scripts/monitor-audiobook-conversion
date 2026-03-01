@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook Conversion Progress Monitor
+# Vox Grotto Conversion Progress Monitor
 # =============================================================================
 # Shows live updates for parallel Opus conversions including:
 # - Progress bar and completion percentage
@@ -13,12 +13,12 @@
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
-    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
-elif [[ -f "/opt/audiobooks/lib/audiobook-config.sh" ]]; then
-    source "/opt/audiobooks/lib/audiobook-config.sh"
-elif [[ -f "/usr/local/lib/audiobooks/audiobook-config.sh" ]]; then
-    source "/usr/local/lib/audiobooks/audiobook-config.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/grotto-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/grotto-config.sh"
+elif [[ -f "/opt/audiobooks/lib/grotto-config.sh" ]]; then
+    source "/opt/audiobooks/lib/grotto-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/grotto-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/grotto-config.sh"
 fi
 
 # Configuration
@@ -123,7 +123,7 @@ while true; do
     [[ $AAXC_COUNT -gt 0 ]] && PERCENT=$((TOTAL_CONVERTED * 100 / AAXC_COUNT))
 
     echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}${CYAN}║         AUDIOBOOK CONVERSION MONITOR                         ║${NC}"
+    echo -e "${BOLD}${CYAN}║         VOX GROTTO CONVERSION MONITOR                        ║${NC}"
     echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 

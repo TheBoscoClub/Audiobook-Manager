@@ -268,7 +268,7 @@ if [[ "$UNINSTALL" == "true" ]]; then
     rm -f "${BIN_DIR}/audiobook-web"
     rm -f "${BIN_DIR}/audiobook-scan"
     rm -f "${BIN_DIR}/audiobook-import"
-    rm -f "${BIN_DIR}/audiobook-config"
+    rm -f "${BIN_DIR}/grotto-config"
     rm -rf "${LIB_DIR}"
     rm -f "${SYSTEMD_DIR}/audiobook-api.service"
     rm -f "${SYSTEMD_DIR}/audiobook-web.service"
@@ -377,8 +377,8 @@ echo -e "${BLUE}Creating executable wrappers...${NC}"
 cat > "${BIN_DIR}/audiobook-api" << EOF
 #!/bin/bash
 # Audiobook Library API Server
-source "${LIB_DIR}/lib/audiobook-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/api_server.py" "\$@"
+source "${LIB_DIR}/lib/grotto-config.sh"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/backend/api_server.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-api"
 
@@ -386,7 +386,7 @@ chmod 755 "${BIN_DIR}/audiobook-api"
 cat > "${BIN_DIR}/audiobook-web" << EOF
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
-source "${LIB_DIR}/lib/audiobook-config.sh"
+source "${LIB_DIR}/lib/grotto-config.sh"
 exec python3 "\${AUDIOBOOKS_HOME}/library/web-v2/https_server.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-web"
@@ -395,8 +395,8 @@ chmod 755 "${BIN_DIR}/audiobook-web"
 cat > "${BIN_DIR}/audiobook-scan" << EOF
 #!/bin/bash
 # Audiobook Library Scanner
-source "${LIB_DIR}/lib/audiobook-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
+source "${LIB_DIR}/lib/grotto-config.sh"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/scanner/scan_audiobooks.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-scan"
 
@@ -404,19 +404,19 @@ chmod 755 "${BIN_DIR}/audiobook-scan"
 cat > "${BIN_DIR}/audiobook-import" << EOF
 #!/bin/bash
 # Audiobook Library Database Import
-source "${LIB_DIR}/lib/audiobook-config.sh"
-exec "\$(audiobooks_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
+source "${LIB_DIR}/lib/grotto-config.sh"
+exec "\$(grotto_python)" "\${AUDIOBOOKS_HOME}/library/backend/import_to_db.py" "\$@"
 EOF
 chmod 755 "${BIN_DIR}/audiobook-import"
 
 # Config viewer
-cat > "${BIN_DIR}/audiobook-config" << EOF
+cat > "${BIN_DIR}/grotto-config" << EOF
 #!/bin/bash
 # Show audiobook library configuration
-source "${LIB_DIR}/lib/audiobook-config.sh"
+source "${LIB_DIR}/lib/grotto-config.sh"
 audiobooks_print_config
 EOF
-chmod 755 "${BIN_DIR}/audiobook-config"
+chmod 755 "${BIN_DIR}/grotto-config"
 
 # Setup Python virtual environment (recreate if broken or missing)
 if ! "${LIB_DIR}/library/venv/bin/python" --version &>/dev/null; then
@@ -567,7 +567,7 @@ echo "  audiobook-api      - Start API server"
 echo "  audiobook-web      - Start web server"
 echo "  audiobook-scan     - Scan audiobook library"
 echo "  audiobook-import   - Import to database"
-echo "  audiobook-config   - Show configuration"
+echo "  grotto-config   - Show configuration"
 echo ""
 echo "Service management:"
 echo "  systemctl --user status audiobook-api audiobook-web"

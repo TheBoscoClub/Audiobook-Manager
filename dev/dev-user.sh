@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Audiobook-Manager Development User Management
+# Vox Grotto Development User Management
 # =============================================================================
 # Wrapper for audiobook-user CLI in development mode.
 # Uses dev database and key paths automatically.

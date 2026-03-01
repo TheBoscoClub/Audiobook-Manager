@@ -1,5 +1,5 @@
 ---
-# Audiobooks - Docker Compose Configuration
+# Vox Grotto - Docker Compose Configuration
 #
 # Quick Start:
 #   export AUDIOBOOK_DIR=/path/to/your/audiobooks
@@ -10,19 +10,19 @@
 #           http://localhost:8080 (redirects to HTTPS)
 #
 # First-time setup (scan audiobooks):
-#   docker exec -it audiobooks python3 /app/scanner/scan_audiobooks.py
-#   docker exec -it audiobooks python3 /app/backend/import_to_db.py
+#   docker exec -it vox-grotto python3 /app/scanner/scan_audiobooks.py
+#   docker exec -it vox-grotto python3 /app/backend/import_to_db.py
 #
 # Note: Browser will show security warning (self-signed certificate)
 #       Click 'Advanced' -> 'Proceed to localhost' to continue
 
 services:
-  audiobooks:
+  vox-grotto:
     # Option 1: Pull from GHCR (recommended)
-    image: ghcr.io/theboscoclub/audiobook-manager:latest
+    image: ghcr.io/theboscoclub/vox-grotto:latest
     # Option 2: Build locally (uncomment below, comment out image above)
     # build: .
-    container_name: audiobooks
+    container_name: vox-grotto
     ports:
       - "${WEB_PORT:-8443}:8443"   # HTTPS web interface
       - "${HTTP_PORT:-8080}:8080"  # HTTP redirect to HTTPS
@@ -36,10 +36,10 @@ services:
       - ${SUPPLEMENTS_DIR:-/path/to/supplements}:/supplements:ro
 
       # Persist database across container restarts
-      - audiobooks_data:/app/data
+      - vox_grotto_data:/app/data
 
       # Persist cover art cache
-      - audiobooks_covers:/app/covers
+      - vox_grotto_covers:/app/covers
 
     environment:
       # Path to audiobooks inside container
@@ -75,14 +75,14 @@ services:
           memory: 256M
 
 volumes:
-  audiobooks_data:
-    name: audiobooks_data
+  vox_grotto_data:
+    name: vox_grotto_data
     driver: local
-  audiobooks_covers:
-    name: audiobooks_covers
+  vox_grotto_covers:
+    name: vox_grotto_covers
     driver: local
 
 # Network configuration (optional)
 networks:
   default:
-    name: audiobooks_network
+    name: vox_grotto_network

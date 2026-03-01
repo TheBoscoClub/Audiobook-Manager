@@ -59,7 +59,7 @@ def _load_config_file(filepath: Path) -> dict[str, str]:
 def _find_project_root() -> Optional[Path]:
     """Find project root by looking for marker files."""
     current = Path(__file__).parent
-    markers = ["config.env", "lib/audiobook-config.sh", "library/config.py"]
+    markers = ["config.env", "lib/grotto-config.sh", "library/config.py"]
 
     while current != current.parent:
         for marker in markers:
@@ -181,7 +181,7 @@ AUDIOBOOKS_WEB_PORT = int(
 )  # Changed from 8090 to 8443 (HTTPS)
 AUDIOBOOKS_HTTP_REDIRECT_PORT = int(
     get_config("AUDIOBOOKS_HTTP_REDIRECT_PORT", "8080")
-)  # Default 8080 (matches audiobook-config.sh and .env.example)
+)  # Default 8080 (matches grotto-config.sh and .env.example)
 AUDIOBOOKS_BIND_ADDRESS = get_config("AUDIOBOOKS_BIND_ADDRESS", "0.0.0.0")
 AUDIOBOOKS_HTTPS_ENABLED = get_config("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() in (
     "true",

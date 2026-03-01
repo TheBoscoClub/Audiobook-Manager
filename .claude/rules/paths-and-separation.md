@@ -6,11 +6,11 @@
 
 - **NEVER** write literal paths like `/run/audiobooks`, `/var/lib/audiobooks`, `/hddRaid1/Audiobooks`
 - **ALWAYS** use variables: `$AUDIOBOOKS_RUN_DIR`, `$AUDIOBOOKS_VAR_DIR`, `$AUDIOBOOKS_DATA`, etc.
-- If a needed path variable doesn't exist, **ADD IT** to `lib/audiobook-config.sh` first
+- If a needed path variable doesn't exist, **ADD IT** to `lib/grotto-config.sh` first
 
 **Why**: End users configure their own paths in `/etc/audiobooks/audiobooks.conf`. Hardcoded paths break user customization and cause silent failures.
 
-### Available Variables (from lib/audiobook-config.sh)
+### Available Variables (from lib/grotto-config.sh)
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -26,7 +26,7 @@
 
 A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 1. Replace the literal path with the appropriate variable
-2. If no variable exists, add one to `lib/audiobook-config.sh`
+2. If no variable exists, add one to `lib/grotto-config.sh`
 3. Re-run your commit
 
 ## Complete Separation of Project and Application
@@ -51,7 +51,7 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 | `/hddRaid1/Audiobooks/` | Production data (Library, Sources, logs) |
 | `/usr/local/lib/audiobooks/` | Shared configuration library |
 | `/etc/audiobooks/` | System configuration |
-| `/etc/systemd/system/audiobooks*.service` | Systemd services |
+| `/etc/systemd/system/grotto-*.service` | Systemd services |
 
 ### NO CROSS-REFERENCES ALLOWED
 

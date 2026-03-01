@@ -45,7 +45,7 @@ chown audiobooks:audiobooks /var/lib/audiobooks/auth.db
 chmod 600 /var/lib/audiobooks/auth.db
 
 # Restart API
-systemctl restart audiobook-api
+systemctl restart grotto-api
 ```
 
 ### 2. Encryption Key Missing/Wrong
@@ -76,7 +76,7 @@ ls -la /etc/audiobooks/auth.key
 # If key is lost permanently:
 # 1. Create new database (ALL USER DATA LOST)
 rm /var/lib/audiobooks/auth.db
-systemctl restart audiobook-api  # Creates fresh DB
+systemctl restart grotto-api  # Creates fresh DB
 
 # If restoring from backup, restore BOTH files:
 cp /backups/audiobooks/auth-backup.db /var/lib/audiobooks/auth.db
@@ -265,7 +265,7 @@ grep SMTP /etc/audiobooks/audiobooks.conf
 ./library/tools/test_email.py test@example.com
 
 # View email logs
-journalctl -u audiobook-api | grep -i "email\|smtp\|magic"
+journalctl -u grotto-api | grep -i "email\|smtp\|magic"
 
 # Workaround: admin generates magic link manually
 ./library/tools/auth_admin.py --generate-magic-link USERNAME
@@ -390,7 +390,7 @@ sudo ufw deny from ATTACKER_IP
 sqlite3 /var/lib/audiobooks/auth.db ".timeout 5000" "PRAGMA wal_checkpoint;"
 
 # If database is locked:
-systemctl restart audiobook-api
+systemctl restart grotto-api
 
 # For persistent issues, check WAL size:
 ls -la /var/lib/audiobooks/auth.db-wal
@@ -424,7 +424,7 @@ sqlite3 /var/lib/audiobooks/auth.db \
 
 | Component | Log Location |
 |-----------|--------------|
-| API | `journalctl -u audiobook-api` |
+| API | `journalctl -u grotto-api` |
 | Caddy | `journalctl -u caddy` |
 | Auth events | API logs with `[AUTH]` prefix |
 | Session cleanup | API logs with `[SESSION]` prefix |
@@ -460,13 +460,13 @@ If all administrators are locked out:
 
 ```bash
 # 1. Stop the API
-systemctl stop audiobook-api
+systemctl stop grotto-api
 
 # 2. Create emergency admin account
 ./library/tools/auth_admin.py --create-admin emergency_admin
 
 # 3. Start API
-systemctl start audiobook-api
+systemctl start grotto-api
 
 # 4. Log in as emergency_admin and fix the issue
 
@@ -480,7 +480,7 @@ systemctl start audiobook-api
 
 ```bash
 # 1. Stop services
-systemctl stop audiobook-api
+systemctl stop grotto-api
 
 # 2. Back up current state (for forensics)
 cp /var/lib/audiobooks/auth.db /var/lib/audiobooks/auth.db.bak
@@ -490,7 +490,7 @@ cp /etc/audiobooks/auth.key /etc/audiobooks/auth.key.bak
 rm /var/lib/audiobooks/auth.db /etc/audiobooks/auth.key
 
 # 4. Start API (creates fresh database)
-systemctl start audiobook-api
+systemctl start grotto-api
 
 # 5. Register new admin account through web UI
 ```

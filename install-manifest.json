@@ -1,7 +1,7 @@
 {
-  "name": "audiobooks",
+  "name": "vox-grotto",
   "version": "6.7.1.2",
-  "description": "Audiobook library management with Audible sync, conversion, and web interface",
+  "description": "Vox Grotto - audiobook library management with Audible sync, conversion, and web interface",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
   "service_user": "audiobooks",
@@ -17,7 +17,7 @@
     {
       "name": "upgrade.sh",
       "install_path": "/opt/audiobooks/scripts/upgrade.sh",
-      "wrapper": "audiobook-upgrade",
+      "wrapper": "grotto-upgrade",
       "description": "Upgrade from GitHub releases or local project"
     },
     {
@@ -28,216 +28,216 @@
     {
       "name": "migrate-api.sh",
       "install_path": "/opt/audiobooks/scripts/migrate-api.sh",
-      "wrapper": "audiobook-migrate",
+      "wrapper": "grotto-migrate",
       "description": "Switch between API architectures"
     }
   ],
 
   "binaries": [
     {
-      "name": "audiobook-api",
-      "paths": ["/usr/local/bin/audiobook-api"],
+      "name": "grotto-api",
+      "paths": ["/usr/local/bin/grotto-api"],
       "description": "Start the API server"
     },
     {
-      "name": "audiobook-web",
-      "paths": ["/usr/local/bin/audiobook-web"],
+      "name": "grotto-web",
+      "paths": ["/usr/local/bin/grotto-web"],
       "description": "Start the web interface"
     },
     {
-      "name": "audiobook-scan",
-      "paths": ["/usr/local/bin/audiobook-scan"],
+      "name": "grotto-scan",
+      "paths": ["/usr/local/bin/grotto-scan"],
       "description": "Scan library for new audiobooks"
     },
     {
-      "name": "audiobook-import",
-      "paths": ["/usr/local/bin/audiobook-import"],
+      "name": "grotto-import",
+      "paths": ["/usr/local/bin/grotto-import"],
       "description": "Import audiobooks from sources"
     },
     {
-      "name": "audiobook-config",
-      "paths": ["/usr/local/bin/audiobook-config"],
+      "name": "grotto-config",
+      "paths": ["/usr/local/bin/grotto-config"],
       "description": "Manage configuration"
     },
     {
-      "name": "audiobook-convert",
-      "paths": ["/usr/local/bin/audiobook-convert"],
+      "name": "grotto-convert",
+      "paths": ["/usr/local/bin/grotto-convert"],
       "description": "Convert AAXC to Opus (alias: convert-audiobooks-opus-parallel)"
     },
     {
-      "name": "audiobook-download",
-      "paths": ["/usr/local/bin/audiobook-download"],
+      "name": "grotto-download",
+      "paths": ["/usr/local/bin/grotto-download"],
       "description": "Download from Audible (alias: download-new-audiobooks)"
     },
     {
-      "name": "audiobook-move-staged",
-      "paths": ["/usr/local/bin/audiobook-move-staged"],
+      "name": "grotto-move-staged",
+      "paths": ["/usr/local/bin/grotto-move-staged"],
       "description": "Move staged files to permanent storage (alias: move-staged-audiobooks)"
     },
     {
-      "name": "audiobook-save-staging",
-      "paths": ["/usr/local/bin/audiobook-save-staging"],
+      "name": "grotto-save-staging",
+      "paths": ["/usr/local/bin/grotto-save-staging"],
       "description": "Save staging area before shutdown"
     },
     {
-      "name": "audiobook-save-staging-auto",
-      "paths": ["/usr/local/bin/audiobook-save-staging-auto"],
+      "name": "grotto-save-staging-auto",
+      "paths": ["/usr/local/bin/grotto-save-staging-auto"],
       "description": "Automatic staging save (called by shutdown service)"
     },
     {
-      "name": "audiobook-upgrade",
-      "paths": ["/usr/local/bin/audiobook-upgrade"],
+      "name": "grotto-upgrade",
+      "paths": ["/usr/local/bin/grotto-upgrade"],
       "description": "Upgrade from GitHub releases"
     },
     {
-      "name": "audiobook-migrate",
-      "paths": ["/usr/local/bin/audiobook-migrate"],
+      "name": "grotto-migrate",
+      "paths": ["/usr/local/bin/grotto-migrate"],
       "description": "Switch API architecture"
     },
     {
-      "name": "audiobook-status",
-      "paths": ["/usr/local/bin/audiobook-status"],
+      "name": "grotto-status",
+      "paths": ["/usr/local/bin/grotto-status"],
       "description": "Show service and timer status"
     },
     {
-      "name": "audiobook-start",
-      "paths": ["/usr/local/bin/audiobook-start"],
-      "description": "Start all audiobook services"
+      "name": "grotto-start",
+      "paths": ["/usr/local/bin/grotto-start"],
+      "description": "Start all Vox Grotto services"
     },
     {
-      "name": "audiobook-stop",
-      "paths": ["/usr/local/bin/audiobook-stop"],
-      "description": "Stop all audiobook services"
+      "name": "grotto-stop",
+      "paths": ["/usr/local/bin/grotto-stop"],
+      "description": "Stop all Vox Grotto services"
     },
     {
-      "name": "audiobook-enable",
-      "paths": ["/usr/local/bin/audiobook-enable"],
+      "name": "grotto-enable",
+      "paths": ["/usr/local/bin/grotto-enable"],
       "description": "Enable services for auto-start at boot"
     },
     {
-      "name": "audiobook-disable",
-      "paths": ["/usr/local/bin/audiobook-disable"],
+      "name": "grotto-disable",
+      "paths": ["/usr/local/bin/grotto-disable"],
       "description": "Disable services from auto-start at boot"
     },
     {
-      "name": "audiobook-help",
-      "paths": ["/usr/local/bin/audiobook-help"],
+      "name": "grotto-help",
+      "paths": ["/usr/local/bin/grotto-help"],
       "description": "Display help and usage information"
     },
     {
-      "name": "audiobook-user",
-      "paths": ["/usr/local/bin/audiobook-user"],
+      "name": "grotto-user",
+      "paths": ["/usr/local/bin/grotto-user"],
       "description": "Admin CLI for user management"
     },
     {
-      "name": "audiobook-download-monitor",
-      "paths": ["/usr/local/bin/audiobook-download-monitor"],
+      "name": "grotto-download-monitor",
+      "paths": ["/usr/local/bin/grotto-download-monitor"],
       "description": "Monitor Audible download progress"
     },
     {
-      "name": "audiobook-monitor",
-      "paths": ["/usr/local/bin/audiobook-monitor"],
+      "name": "grotto-monitor",
+      "paths": ["/usr/local/bin/grotto-monitor"],
       "description": "Live conversion monitor (alias: monitor-audiobook-conversion)"
     },
     {
-      "name": "audiobook-build-queue",
-      "paths": ["/usr/local/bin/audiobook-build-queue"],
+      "name": "grotto-build-queue",
+      "paths": ["/usr/local/bin/grotto-build-queue"],
       "description": "Build conversion queue (alias: build-conversion-queue)"
     },
     {
-      "name": "audiobook-copy-metadata",
-      "paths": ["/usr/local/bin/audiobook-copy-metadata"],
+      "name": "grotto-copy-metadata",
+      "paths": ["/usr/local/bin/grotto-copy-metadata"],
       "description": "Copy metadata between audiobooks (alias: copy-audiobook-metadata)"
     },
     {
-      "name": "audiobook-cleanup-indexes",
-      "paths": ["/usr/local/bin/audiobook-cleanup-indexes"],
+      "name": "grotto-cleanup-indexes",
+      "paths": ["/usr/local/bin/grotto-cleanup-indexes"],
       "description": "Remove stale database indexes (alias: cleanup-stale-indexes)"
     },
     {
-      "name": "audiobook-find-duplicates",
-      "paths": ["/usr/local/bin/audiobook-find-duplicates"],
+      "name": "grotto-find-duplicates",
+      "paths": ["/usr/local/bin/grotto-find-duplicates"],
       "description": "Find duplicate source files (alias: find-duplicate-sources)"
     },
     {
-      "name": "audiobook-fix-chapters",
-      "paths": ["/usr/local/bin/audiobook-fix-chapters"],
+      "name": "grotto-fix-chapters",
+      "paths": ["/usr/local/bin/grotto-fix-chapters"],
       "description": "Fix malformed chapters JSON (alias: fix-wrong-chapters-json)"
     },
     {
-      "name": "audiobook-embed-covers",
-      "paths": ["/usr/local/bin/audiobook-embed-covers"],
+      "name": "grotto-embed-covers",
+      "paths": ["/usr/local/bin/grotto-embed-covers"],
       "description": "Embed cover art into Opus files (alias: embed-cover-art.py)"
     }
   ],
 
   "services": [
     {
-      "name": "audiobook-api.service",
+      "name": "grotto-api.service",
       "type": "system",
       "expected_state": "active",
       "description": "API server (Waitress)",
       "health_endpoint": "http://localhost:${AUDIOBOOKS_API_PORT:-5001}/health"
     },
     {
-      "name": "audiobook-proxy.service",
+      "name": "grotto-proxy.service",
       "type": "system",
       "expected_state": "active",
       "description": "HTTPS reverse proxy for web interface"
     },
     {
-      "name": "audiobook-redirect.service",
+      "name": "grotto-redirect.service",
       "type": "system",
       "expected_state": "active",
       "description": "HTTP to HTTPS redirect"
     },
     {
-      "name": "audiobook-converter.service",
+      "name": "grotto-converter.service",
       "type": "system",
       "expected_state": "active",
       "description": "Continuous AAXC to Opus converter"
     },
     {
-      "name": "audiobook-downloader.service",
+      "name": "grotto-downloader.service",
       "type": "system",
       "expected_state": "inactive",
       "description": "Audible sync (triggered by timer)"
     },
     {
-      "name": "audiobook-downloader.timer",
+      "name": "grotto-downloader.timer",
       "type": "system",
       "expected_state": "active",
       "description": "Timer for Audible sync"
     },
     {
-      "name": "audiobook-mover.service",
+      "name": "grotto-mover.service",
       "type": "system",
       "expected_state": "active",
       "description": "Staging mover daemon"
     },
     {
-      "name": "audiobook-shutdown-saver.service",
+      "name": "grotto-shutdown-saver.service",
       "type": "system",
       "expected_state": "inactive",
       "description": "Shutdown hook to save staging"
     },
     {
-      "name": "audiobook-upgrade-helper.path",
+      "name": "grotto-upgrade-helper.path",
       "type": "system",
       "expected_state": "active",
       "description": "Watches for upgrade triggers"
     },
     {
-      "name": "audiobook-upgrade-helper.service",
+      "name": "grotto-upgrade-helper.service",
       "type": "system",
       "expected_state": "inactive",
       "description": "Runs upgrade when triggered by path unit (oneshot, normally inactive)"
     },
     {
-      "name": "audiobook.target",
+      "name": "grotto.target",
       "type": "system",
       "expected_state": "active",
-      "description": "Target grouping all audiobook services"
+      "description": "Target grouping all Vox Grotto services"
     }
   ],
 
@@ -318,21 +318,21 @@
     {
       "port": 5001,
       "protocol": "tcp",
-      "service": "audiobook-api.service",
+      "service": "grotto-api.service",
       "description": "REST API (default, configurable via AUDIOBOOKS_API_PORT)",
       "env_override": "AUDIOBOOKS_API_PORT"
     },
     {
       "port": 8443,
       "protocol": "tcp",
-      "service": "audiobook-proxy.service",
+      "service": "grotto-proxy.service",
       "description": "HTTPS web interface (default, configurable via AUDIOBOOKS_WEB_PORT)",
       "env_override": "AUDIOBOOKS_WEB_PORT"
     },
     {
       "port": 8080,
       "protocol": "tcp",
-      "service": "audiobook-redirect.service",
+      "service": "grotto-redirect.service",
       "description": "HTTP redirect (default, configurable via AUDIOBOOKS_HTTP_REDIRECT_PORT)",
       "env_override": "AUDIOBOOKS_HTTP_REDIRECT_PORT"
     }

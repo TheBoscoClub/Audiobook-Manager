@@ -1,0 +1,5 @@
+#!/bin/bash
+# Vox Grotto Toolkit API Migration Script
+# Wrapper — delegates to the full migrate-api.sh in the scripts directory
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+exec "${SCRIPT_DIR}/migrate-api.sh" --target "$(dirname "${SCRIPT_DIR}")" "$@"

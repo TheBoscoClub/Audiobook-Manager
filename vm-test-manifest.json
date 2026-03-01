@@ -1,5 +1,5 @@
 {
-  "project": "Audiobook-Manager",
+  "project": "Vox Grotto",
   "description": "Audiobooks Library — Flask API, systemd services, system-wide installation",
 
   "vm_testing": {
@@ -48,6 +48,26 @@
           "web": 8443,
           "spice": 5900
         }
+      },
+      {
+        "name": "rnd-voxgrotto-cachyos",
+        "type": "existing",
+        "vm_name": "rnd-voxgrotto-cachyos",
+        "description": "RND VM for Vox Grotto rebrand development and Branch 2 path migration. Cloned from QA VM with 1841 audiobooks pre-installed.",
+        "requirements": {
+          "python": "3.14",
+          "ffmpeg": true,
+          "ffprobe": true,
+          "systemd": true
+        },
+        "static_ip": "192.168.122.67",
+        "ports": {
+          "native_api": 5001,
+          "native_web": 8090,
+          "docker_web_https": 8443,
+          "docker_web_http": 8080
+        },
+        "purpose": "rnd-only"
       }
     ],
 
@@ -136,7 +156,7 @@
     },
     "docker": {
       "container_name": "audiobooks-docker",
-      "image_prefix": "audiobook-manager",
+      "image_prefix": "vox-grotto",
       "daemon_preset": "disabled",
       "db_path": "/var/lib/audiobooks/docker-data/audiobooks.db",
       "library_mount": "/srv/audiobooks/Library:/audiobooks:ro",
@@ -160,7 +180,7 @@
     },
     "upgrade": {
       "native_command": "./upgrade.sh --from-project . --remote 192.168.122.63 --yes",
-      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
+      "docker_save_pattern": "docker save vox-grotto:{version} | ssh -i ~/.claude/ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
     }
   }
 }

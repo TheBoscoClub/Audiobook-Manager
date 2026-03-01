@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Stop Audiobook-Manager Development Servers
+# Stop Vox Grotto Development Servers
 # =============================================================================
 
 set -e

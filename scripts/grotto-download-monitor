@@ -1,0 +1,64 @@
+#!/bin/bash
+# =============================================================================
+# Vox Grotto Download Progress Monitor
+# =============================================================================
+# Shows a live updating display with download progress
+# =============================================================================
+
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../lib/grotto-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/grotto-config.sh"
+elif [[ -f "/opt/audiobooks/lib/grotto-config.sh" ]]; then
+    source "/opt/audiobooks/lib/grotto-config.sh"
+elif [[ -f "/usr/local/lib/audiobooks/grotto-config.sh" ]]; then
+    source "/usr/local/lib/audiobooks/grotto-config.sh"
+fi
+
+# Ensure display environment for KDE
+export DISPLAY="${DISPLAY:-:0}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
+
+LOG_FILE="$AUDIOBOOKS_LOGS/audiobook_downloader.log"
+DBUS_REF=""
+
+cleanup() {
+    if [ -n "$DBUS_REF" ]; then
+        qdbus $DBUS_REF close 2>/dev/null
+    fi
+    exit 0
+}
+
+trap cleanup EXIT INT TERM
+
+# Color codes
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║         VOX GROTTO DOWNLOAD MONITOR                        ║${NC}"
+echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo "Watching log file: $LOG_FILE"
+echo "Press Ctrl+C to exit"
+echo ""
+
+if [ ! -f "$LOG_FILE" ]; then
+    echo -e "${YELLOW}Log file not found. Waiting for downloader to start...${NC}"
+fi
+
+# Follow the log file
+tail -f "$LOG_FILE" 2>/dev/null | while read line; do
+    # Colorize output
+    if echo "$line" | grep -q "✓"; then
+        echo -e "${GREEN}${line}${NC}"
+    elif echo "$line" | grep -q "✗"; then
+        echo -e "${YELLOW}${line}${NC}"
+    elif echo "$line" | grep -q "ERROR"; then
+        echo -e "${YELLOW}${line}${NC}"
+    else
+        echo "$line"
+    fi
+done

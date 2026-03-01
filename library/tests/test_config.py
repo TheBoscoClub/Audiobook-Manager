@@ -157,7 +157,7 @@ class TestNoHardcodedPaths:
     # Files/patterns that are allowed to have these paths (e.g., config defaults)
     ALLOWED_FILES = [
         "config.py",  # Config module defines defaults
-        "audiobook-config.sh",  # Shell config defines defaults
+        "grotto-config.sh",  # Shell config defines defaults
         "test_",  # Test files may use mock/fixture paths
         ".conf",  # Config files
         ".service",  # Systemd files MUST use literal paths (no shell expansion)
@@ -208,7 +208,7 @@ class TestNoHardcodedPaths:
                         ):
                             continue
                         # Skip config file sourcing bootstrap (needed before config is loaded)
-                        if "audiobook-config.sh" in line:
+                        if "grotto-config.sh" in line:
                             continue
                         violations.append((line_num, forbidden, line.strip()[:100]))
         except Exception:
@@ -295,7 +295,7 @@ class TestNoHardcodedPaths:
     def test_shell_scripts_no_hardcoded_paths(self):
         """Test that shell scripts use config variables, not hardcoded paths.
 
-        Shell scripts should source audiobook-config.sh and use variables like
+        Shell scripts should source grotto-config.sh and use variables like
         $AUDIOBOOKS_DATA, $AUDIOBOOKS_VAR_DIR, etc.
         """
         from pathlib import Path as P
@@ -321,7 +321,7 @@ class TestNoHardcodedPaths:
 
         assert not violations, (
             f"Found {len(violations)} hardcoded path(s) in shell scripts. "
-            f"Use config variables from audiobook-config.sh instead:\n"
+            f"Use config variables from grotto-config.sh instead:\n"
             + "\n".join(violations)
         )
 

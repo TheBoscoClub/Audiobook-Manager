@@ -1,0 +1,30 @@
+#!/bin/bash
+# =============================================================================
+# Start Vox Grotto Conversion Services
+# =============================================================================
+
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}Starting Vox Grotto conversion services...${NC}"
+echo ""
+
+# Start conversion
+systemctl start grotto-converter.service
+sleep 1
+
+# Start mover
+systemctl start grotto-mover.service
+sleep 1
+
+# Show status
+echo ""
+systemctl status grotto-converter.service --no-pager -l 2>&1 | head -5
+echo ""
+systemctl status grotto-mover.service --no-pager -l 2>&1 | head -5
+
+echo ""
+echo -e "${GREEN}✓ Services started${NC}"
+echo ""
+echo "Use 'grotto-status' to check progress"
