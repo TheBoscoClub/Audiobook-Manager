@@ -45,6 +45,9 @@ class AudiobookLibraryV2 {
         this.myLibraryBooks = [];
         this.browseBooks = [];
 
+        // Compact viewport: card tap opens detail modal
+        this.setupCompactCardTap();
+
         this.init();
     }
 
@@ -1709,6 +1712,27 @@ class AudiobookLibraryV2 {
 
         // Update download button visibility for current user permissions
         this.updateDownloadButtons();
+    }
+
+    setupCompactCardTap() {
+        const grid = document.getElementById('books-grid');
+        if (!grid) return;
+
+        grid.addEventListener('click', (e) => {
+            // Only active at compact viewports — desktop cards show all info inline
+            const isCompact = window.matchMedia(
+                '(max-width: 480px), ' +
+                '(orientation: landscape) and (max-height: 500px) and (max-width: 960px), ' +
+                '(orientation: landscape) and (max-height: 700px) and (max-width: 1024px)'
+            ).matches;
+            if (!isCompact) return;
+
+            const card = e.target.closest('.book-card');
+            if (!card) return;
+
+            const bookId = parseInt(card.dataset.id, 10);
+            if (bookId) this.showBookDetail(bookId);
+        });
     }
 
     escapeHtml(text) {
