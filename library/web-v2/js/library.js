@@ -1538,6 +1538,179 @@ class AudiobookLibraryV2 {
         }
     }
 
+    showBookDetail(bookId) {
+        // Find book in cached data (browse or my-library tab)
+        const book = this.browseBooks.find(b => b.id === bookId)
+            || this.myLibraryBooks.find(b => (b.bookId || b.id) === bookId);
+        if (!book) return;
+
+        const savedPosition = getLocalPosition(book.id);
+        const percentComplete = getLocalPercentComplete(book.id);
+        const hasContinue = percentComplete > 0;
+        const formatQuality = book.format ? book.format.toUpperCase() : 'M4B';
+        const quality = book.quality ? ` ${book.quality}` : '';
+        const hasSupplement = book.supplement_count > 0;
+
+        // Remove existing detail modal if any
+        document.getElementById('book-detail-modal')?.remove();
+
+        // Build modal via DOM API for XSS safety on user-supplied fields
+        const modal = document.createElement('div');
+        modal.id = 'book-detail-modal';
+        modal.className = 'modal book-detail-sheet show';
+
+        const content = document.createElement('div');
+        content.className = 'modal-content book-detail-content';
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        const h2 = document.createElement('h2');
+        h2.textContent = 'Book Details';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'modal-close';
+        closeBtn.title = 'Close dialog';
+        closeBtn.textContent = '\u00D7';
+        header.appendChild(h2);
+        header.appendChild(closeBtn);
+
+        // Body
+        const body = document.createElement('div');
+        body.className = 'modal-body book-detail-body';
+
+        // Cover
+        const coverDiv = document.createElement('div');
+        coverDiv.className = 'detail-cover';
+        if (book.cover_path) {
+            const img = document.createElement('img');
+            img.src = '/covers/' + book.cover_path;
+            img.alt = book.title || '';
+            coverDiv.appendChild(img);
+        } else {
+            const placeholder = document.createElement('span');
+            placeholder.className = 'book-cover-placeholder';
+            placeholder.style.fontSize = '3rem';
+            placeholder.textContent = '\u{1F4D6}';
+            coverDiv.appendChild(placeholder);
+        }
+
+        // Info section
+        const info = document.createElement('div');
+        info.className = 'detail-info';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'detail-title';
+        titleEl.textContent = book.title || 'Unknown Title';
+        info.appendChild(titleEl);
+
+        if (book.author) {
+            const authorEl = document.createElement('div');
+            authorEl.className = 'detail-author';
+            authorEl.textContent = 'by ' + book.author;
+            info.appendChild(authorEl);
+        }
+
+        if (book.narrator) {
+            const narratorEl = document.createElement('div');
+            narratorEl.className = 'detail-narrator';
+            narratorEl.textContent = 'Narrated by ' + book.narrator;
+            info.appendChild(narratorEl);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'detail-meta';
+        const fmtSpan = document.createElement('span');
+        fmtSpan.textContent = formatQuality + quality;
+        const durSpan = document.createElement('span');
+        durSpan.textContent = book.duration_formatted || (Math.round(book.duration_hours || 0) + 'h');
+        meta.appendChild(fmtSpan);
+        meta.appendChild(durSpan);
+        info.appendChild(meta);
+
+        if (hasContinue) {
+            const progressDiv = document.createElement('div');
+            progressDiv.className = 'detail-progress';
+            const barBg = document.createElement('div');
+            barBg.className = 'progress-bar-bg';
+            const barFill = document.createElement('div');
+            barFill.className = 'progress-bar-fill';
+            barFill.style.width = percentComplete + '%';
+            barBg.appendChild(barFill);
+            const pctText = document.createElement('span');
+            pctText.className = 'progress-text';
+            pctText.textContent = percentComplete + '% complete';
+            progressDiv.appendChild(barBg);
+            progressDiv.appendChild(pctText);
+            info.appendChild(progressDiv);
+        }
+
+        if (hasSupplement) {
+            const badge = document.createElement('div');
+            badge.className = 'detail-badge';
+            badge.textContent = 'PDF Supplement Available';
+            info.appendChild(badge);
+        }
+
+        // Actions
+        const actions = document.createElement('div');
+        actions.className = 'detail-actions';
+
+        const playBtn = document.createElement('button');
+        playBtn.className = 'btn-play';
+        playBtn.textContent = '\u25B6 Play';
+        playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            shellPlay(book, false);
+            modal.remove();
+        });
+
+        const resumeBtn = document.createElement('button');
+        resumeBtn.className = 'btn-resume';
+        resumeBtn.textContent = '\u23EF Resume';
+        resumeBtn.disabled = !hasContinue;
+        if (hasContinue && savedPosition) {
+            resumeBtn.title = 'Resume from ' + formatPlaybackTime(savedPosition.position);
+        }
+        resumeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            shellPlay(book, true);
+            modal.remove();
+        });
+
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'btn-download download-button';
+        downloadBtn.style.display = 'none';
+        downloadBtn.textContent = '\u2B07 Download';
+        downloadBtn.title = 'Download this audiobook';
+        downloadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            library.downloadAudiobook(book.id);
+        });
+
+        actions.appendChild(playBtn);
+        actions.appendChild(resumeBtn);
+        actions.appendChild(downloadBtn);
+
+        body.appendChild(coverDiv);
+        body.appendChild(info);
+        body.appendChild(actions);
+
+        content.appendChild(header);
+        content.appendChild(body);
+        modal.appendChild(content);
+
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        closeBtn.addEventListener('click', () => modal.remove());
+
+        document.body.appendChild(modal);
+
+        // Update download button visibility for current user permissions
+        this.updateDownloadButtons();
+    }
+
     escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
