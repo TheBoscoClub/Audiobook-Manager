@@ -2603,5 +2603,9 @@ window.addEventListener('message', (event) => {
         document.querySelectorAll('.book-card.now-playing').forEach(card => {
             card.classList.remove('now-playing');
         });
+    } else if (data.type === 'playerVisible') {
+        // Add/remove bottom padding so content isn't hidden behind overlay player bar
+        // 100px covers both desktop (80px) and mobile (100px) player heights
+        document.body.style.paddingBottom = data.visible ? '100px' : '0';
     }
 });

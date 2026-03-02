@@ -18,7 +18,9 @@ html, body {
     font-family: 'Georgia', 'Times New Roman', serif;
 }
 
-/* Content iframe — full viewport, shrinks when player visible */
+/* Content iframe — full viewport, always full height.
+   Player bar overlays on top (position: fixed, z-index: 9999).
+   No height change = no layout shift when player appears. */
 #content-frame {
     position: fixed;
     top: 0;
@@ -26,11 +28,6 @@ html, body {
     width: 100%;
     height: 100%;
     border: none;
-    transition: height 0.3s ease;
-}
-
-body.player-active #content-frame {
-    height: calc(100% - var(--player-height));
 }
 
 /* Player bar — fixed at bottom, hidden by default via hidden attr */
