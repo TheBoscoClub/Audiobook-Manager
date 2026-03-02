@@ -113,8 +113,10 @@ class ShellPlayer {
         // Auto-save position (debounced 5s)
         if (this.currentBook && this.audio.currentTime > 0) {
             if (this.saveTimeout) clearTimeout(this.saveTimeout);
+            const bookId = this.currentBook.id;
             this.saveTimeout = setTimeout(() => {
-                this.savePosition(this.currentBook.id, this.audio.currentTime, this.audio.duration);
+                if (!this.currentBook) return;
+                this.savePosition(bookId, this.audio.currentTime, this.audio.duration);
             }, 5000);
         }
 
