@@ -230,7 +230,7 @@ body {
    Same dense grid as portrait — icon covers, title+author+play only.
    !important needed: @imported CSS loses to library.css cascade.
    ============================================ */
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 960px) {
     /* Compact header: single row */
     .library-header {
         padding: var(--spacing-sm) var(--spacing-md) !important;
@@ -370,7 +370,7 @@ body {
    D2. Broader Landscape (landscape under tablet height)
    Same dense grid — icon covers, title+author+play only.
    ============================================ */
-@media (orientation: landscape) and (max-height: 700px) {
+@media (orientation: landscape) and (max-height: 700px) and (max-width: 1024px) {
     .library-header {
         padding: var(--spacing-sm) var(--spacing-md) !important;
         margin-bottom: var(--spacing-sm) !important;
