@@ -1744,11 +1744,14 @@ class AudiobookLibraryV2 {
     }
 
     updateResultsInfo(pagination) {
+        const el = document.getElementById('showing-count');
+        if (pagination.total_count === 0) {
+            el.textContent = 'No audiobooks found';
+            return;
+        }
         const start = (pagination.page - 1) * pagination.per_page + 1;
         const end = Math.min(pagination.page * pagination.per_page, pagination.total_count);
-
-        document.getElementById('showing-count').textContent =
-            `Showing ${start}-${end} of ${pagination.total_count.toLocaleString()} audiobooks`;
+        el.textContent = `Showing ${start}-${end} of ${pagination.total_count.toLocaleString()} audiobooks`;
     }
 
     renderPagination(pagination) {
@@ -2000,11 +2003,13 @@ class AudiobookLibraryV2 {
             img.src = `/covers/${book.cover_path}`;
             img.alt = book.title;
             img.onerror = function() {
-                this.parentElement.textContent = '';
+                const parent = this.parentElement;
+                if (!parent) return;
+                parent.textContent = '';
                 const placeholder = document.createElement('span');
                 placeholder.className = 'book-cover-placeholder';
                 placeholder.textContent = '\u{1F4D6}';
-                this.parentElement.appendChild(placeholder);
+                parent.appendChild(placeholder);
             };
             coverDiv.appendChild(img);
         } else {
