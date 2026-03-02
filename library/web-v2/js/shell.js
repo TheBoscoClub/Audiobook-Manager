@@ -175,6 +175,9 @@ class ShellPlayer {
         this.playerBar.hidden = false;
         document.body.classList.add('player-active');
 
+        // Notify iframe to add bottom padding (prevent content hiding behind player)
+        this.sendToIframe({ type: 'playerVisible', visible: true });
+
         // Media Session metadata
         this.updateMediaMetadata();
 
@@ -229,6 +232,10 @@ class ShellPlayer {
         this.audio.src = '';
         this.playerBar.hidden = true;
         document.body.classList.remove('player-active');
+
+        // Notify iframe to remove bottom padding
+        this.sendToIframe({ type: 'playerVisible', visible: false });
+
         this.currentBook = null;
 
         if ('mediaSession' in navigator) {
