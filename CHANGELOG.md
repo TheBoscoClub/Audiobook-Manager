@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.2] - 2026-03-02
+
+### Added
+
+- **Mobile book detail bottom-sheet**: Tapping compact book cards on mobile (≤480px or landscape) opens a slide-up modal showing full details — cover art, title, author, narrator, format, duration, progress, and Play/Resume/Download buttons
+- **Compact card tap handler**: Event delegation on book grid detects compact layout via `matchMedia` and routes taps to the detail modal instead of default card behavior
+
+### Fixed
+
+- **Double-click Play bug**: Fixed the root cause of needing to click Play twice — `shellPlay()` now preserves play intent via `sessionStorage` when redirecting from bare `index.html` to `shell.html`, and `shell.js` picks up the autoplay parameter on load
+- **Player bar layout shift**: Shell player bar now overlays content (position: fixed, z-index: 9999) instead of shrinking the iframe from 100% to `calc(100% - 80px)`, eliminating the visual "refresh" that users perceived as the first click failing
+- **Dev Caddyfile**: Changed `try_files` fallback from `/index.html` to `/shell.html` (correct entry point) and `X-Frame-Options` from `DENY` to `SAMEORIGIN` (allows same-origin iframe embedding)
+- **Landscape media query desktop leak**: Added `max-width` constraints to landscape-orientation media queries (`960px` and `1024px`) so they no longer match desktop browser windows that happen to have a landscape aspect ratio
+
 ## [6.7.1.5] - 2026-03-01
 
 ### Fixed
