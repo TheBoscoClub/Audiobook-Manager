@@ -388,6 +388,7 @@
     width: 100%;
     max-width: 500px;
     max-height: 85vh;
+    overflow-y: auto;
     border-radius: 12px 12px 0 0;
     border-bottom: none;
     animation: slideUp 0.25s ease-out;

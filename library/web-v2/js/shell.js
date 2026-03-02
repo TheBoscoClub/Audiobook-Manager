@@ -491,7 +491,13 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.removeItem('pendingPlay');
             sessionStorage.removeItem('pendingPlayResume');
             // Small delay to let iframe load before showing player state
-            setTimeout(() => shellPlayer.playBook(JSON.parse(pending), resume), 100);
+            setTimeout(() => {
+                try {
+                    shellPlayer.playBook(JSON.parse(pending), resume);
+                } catch (e) {
+                    console.warn('Failed to parse pending play data:', e);
+                }
+            }, 100);
         }
         // Clean URL — remove ?autoplay param
         history.replaceState(null, '', window.location.pathname);
