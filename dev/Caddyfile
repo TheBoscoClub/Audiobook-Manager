@@ -20,7 +20,7 @@ https://localhost:9443 {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
+		X-Frame-Options "SAMEORIGIN"
 		X-XSS-Protection "1; mode=block"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
@@ -58,6 +58,6 @@ https://localhost:9443 {
 	handle {
 		root * {$PROJECT_DIR}/library/web-v2
 		file_server
-		try_files {path} /index.html
+		try_files {path} /shell.html
 	}
 }
