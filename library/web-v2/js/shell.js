@@ -473,4 +473,20 @@ class ShellPlayer {
 var shellPlayer;
 document.addEventListener('DOMContentLoaded', () => {
     shellPlayer = new ShellPlayer();
+
+    // Check for autoplay intent (from non-iframe redirect)
+    const params = new URLSearchParams(window.location.search);
+    const autoplayId = params.get('autoplay');
+    if (autoplayId) {
+        const pending = sessionStorage.getItem('pendingPlay');
+        const resume = sessionStorage.getItem('pendingPlayResume') === '1';
+        if (pending) {
+            sessionStorage.removeItem('pendingPlay');
+            sessionStorage.removeItem('pendingPlayResume');
+            // Small delay to let iframe load before showing player state
+            setTimeout(() => shellPlayer.playBook(JSON.parse(pending), resume), 100);
+        }
+        // Clean URL — remove ?autoplay param
+        history.replaceState(null, '', window.location.pathname);
+    }
 });
