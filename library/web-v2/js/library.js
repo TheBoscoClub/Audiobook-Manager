@@ -1661,6 +1661,7 @@ class AudiobookLibraryV2 {
         const playBtn = document.createElement('button');
         playBtn.className = 'btn-play';
         playBtn.textContent = '\u25B6 Play';
+        playBtn.title = 'Play from beginning';
         playBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             shellPlay(book, false);
