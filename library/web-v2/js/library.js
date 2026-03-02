@@ -2556,7 +2556,11 @@ function shellPlay(book, resume) {
     if (inIframe) {
         whenShellReady(sp => sp.playBook(book, resume));
     } else {
-        window.location.href = 'shell.html';
+        // Not in iframe — redirect to shell.html with play intent
+        const bookId = book.bookId || book.id;
+        sessionStorage.setItem('pendingPlay', JSON.stringify(book));
+        sessionStorage.setItem('pendingPlayResume', resume ? '1' : '0');
+        window.location.href = `shell.html?autoplay=${encodeURIComponent(bookId)}`;
     }
 }
 
