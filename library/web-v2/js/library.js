@@ -43,6 +43,7 @@ class AudiobookLibraryV2 {
         // Tab state
         this.currentTab = 'browse';
         this.myLibraryBooks = [];
+        this.browseBooks = [];
 
         this.init();
     }
@@ -1360,6 +1361,7 @@ class AudiobookLibraryV2 {
             this.totalPages = data.pagination.total_pages;
             this.totalCount = data.pagination.total_count;
 
+            this.browseBooks = data.audiobooks;
             this.renderBooks(data.audiobooks);
             this.renderPagination(data.pagination);
             this.updateResultsInfo(data.pagination);
