@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.2.1] - 2026-03-03
+
+### Fixed
+
+- **Marquee viewport fill**: New books marquee now measures one cycle's width and repeats content enough times to always overflow the viewport, eliminating visible duplication when only 1-2 books are new
+
 ## [6.7.2] - 2026-03-02
 
 ### Added
