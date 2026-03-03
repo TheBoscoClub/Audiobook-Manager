@@ -36,7 +36,37 @@ function initMarquee() {
 }
 
 /**
+ * Build one cycle of marquee content: NEW label + titles + separators.
+ * @param {Array} books - Array of book objects with title property.
+ * @returns {HTMLElement} A span wrapping one complete cycle.
+ */
+function buildCycle(books) {
+    var cycle = document.createElement('span');
+    cycle.className = 'marquee-cycle';
+
+    var label = document.createElement('span');
+    label.className = 'marquee-label';
+    label.textContent = 'NEW';
+    cycle.appendChild(label);
+
+    for (var i = 0; i < books.length; i++) {
+        var item = document.createElement('span');
+        item.className = 'marquee-item';
+        item.textContent = books[i].title || 'Untitled';
+        cycle.appendChild(item);
+
+        var sep = document.createElement('span');
+        sep.className = 'marquee-separator';
+        sep.textContent = '\u2605'; // star character
+        cycle.appendChild(sep);
+    }
+    return cycle;
+}
+
+/**
  * Build the marquee DOM structure with book titles.
+ * Repeats content enough times to always overflow the viewport,
+ * so the seamless scroll loop never shows both copies at once.
  * @param {HTMLElement} container - The marquee container element.
  * @param {Array} books - Array of book objects with title property.
  */
@@ -50,57 +80,36 @@ function buildMarquee(container, books) {
     var track = document.createElement('div');
     track.className = 'marquee-track';
 
-    // Create a set of titles with separators
-    var fragment = document.createDocumentFragment();
-
-    // "NEW" label at the start of each cycle
-    var label = document.createElement('span');
-    label.className = 'marquee-label';
-    label.textContent = 'NEW';
-    fragment.appendChild(label);
-
-    for (var i = 0; i < books.length; i++) {
-        var item = document.createElement('span');
-        item.className = 'marquee-item';
-        item.textContent = books[i].title || 'Untitled';
-        fragment.appendChild(item);
-
-        // Add separator after each item (including last, for seamless loop)
-        var sep = document.createElement('span');
-        sep.className = 'marquee-separator';
-        sep.textContent = '\u2605'; // star character
-        fragment.appendChild(sep);
-    }
-
-    track.appendChild(fragment);
-
-    // Duplicate the content for seamless infinite scroll
-    var clone = document.createDocumentFragment();
-
-    var cloneLabel = document.createElement('span');
-    cloneLabel.className = 'marquee-label';
-    cloneLabel.textContent = 'NEW';
-    clone.appendChild(cloneLabel);
-
-    for (var j = 0; j < books.length; j++) {
-        var cloneItem = document.createElement('span');
-        cloneItem.className = 'marquee-item';
-        cloneItem.textContent = books[j].title || 'Untitled';
-        clone.appendChild(cloneItem);
-
-        var cloneSep = document.createElement('span');
-        cloneSep.className = 'marquee-separator';
-        cloneSep.textContent = '\u2605';
-        clone.appendChild(cloneSep);
-    }
-
-    track.appendChild(clone);
-
-    // Set animation duration based on number of titles
-    var duration = Math.max(20, books.length * 5);
-    track.style.animationDuration = duration + 's';
-
+    // Insert first cycle and measure its width vs container
+    var firstCycle = buildCycle(books);
+    track.appendChild(firstCycle);
     container.appendChild(track);
+
+    // Briefly show for measurement (no repaint until JS yields)
+    container.classList.remove('hidden');
+    var cycleWidth = firstCycle.offsetWidth;
+    var containerWidth = container.offsetWidth;
+
+    // Repeat enough times so one full cycle is always off-screen
+    var copies = Math.max(2, Math.ceil(containerWidth / Math.max(1, cycleWidth)) + 1);
+    copies = Math.min(copies, 20);
+    for (var c = 1; c < copies; c++) {
+        track.appendChild(buildCycle(books));
+    }
+
+    // Dynamic keyframe sized to scroll by exactly one cycle
+    var shiftPercent = (100 / copies).toFixed(4);
+    var styleEl = document.createElement('style');
+    styleEl.textContent =
+        '@keyframes marquee-scroll-fill{' +
+        '0%{transform:translateX(0)}' +
+        '100%{transform:translateX(-' + shiftPercent + '%)}' +
+        '}';
+    container.appendChild(styleEl);
+
+    // Duration scales with content length
+    var duration = Math.max(20, books.length * 5);
+    track.style.animation = 'marquee-scroll-fill ' + duration + 's linear infinite';
 
     // Dismiss button
     var dismissBtn = document.createElement('button');
@@ -112,9 +121,6 @@ function buildMarquee(container, books) {
         dismissMarquee(container);
     });
     container.appendChild(dismissBtn);
-
-    // Show the marquee
-    container.classList.remove('hidden');
 }
 
 /**

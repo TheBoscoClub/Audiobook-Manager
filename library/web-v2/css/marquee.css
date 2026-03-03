@@ -36,6 +36,12 @@
     will-change: transform;
 }
 
+/* One cycle of content (NEW + titles + separators) */
+.marquee-cycle {
+    display: inline-flex;
+    align-items: center;
+}
+
 /* Pause on hover for readability */
 .new-books-marquee:hover .marquee-track {
     animation-play-state: paused;
