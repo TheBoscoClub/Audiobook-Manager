@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.2.2] - 2026-03-03
+
+### Fixed
+
+- **Marquee ticker mode**: When few new books don't fill the viewport, marquee now uses a single-pass news-ticker scroll (right-to-left, no visible duplication) instead of the 2-copy infinite loop. Classic seamless scroll still activates when content fills or overflows the viewport.
+
 ## [6.7.2.1] - 2026-03-03
 
 ### Fixed
