@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Marquee ticker mode**: When few new books don't fill the viewport, marquee now uses a single-pass news-ticker scroll (right-to-left, no visible duplication) instead of the 2-copy infinite loop. Classic seamless scroll still activates when content fills or overflows the viewport.
+- **Cache-buster sync**: Updated `?v=` query strings to 6.7.2.2 across all 12 HTML files and CSS `@import` chain (were stale at 6.6.3 or 6.7.2)
+- **Backup code recovery**: Fixed login.html backup code form calling non-existent `/auth/login/backup` — now correctly calls `/auth/recover/backup-code` and displays new TOTP credentials
+- **JS formatting**: Auto-formatted all 7 JavaScript files with Prettier for consistent style
 
 ## [6.7.2.1] - 2026-03-03
 
