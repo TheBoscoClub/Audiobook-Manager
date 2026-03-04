@@ -14,29 +14,29 @@
  * Fetches new books from the API and builds a scrolling ticker if any exist.
  */
 function initMarquee() {
-    var container = document.getElementById('new-books-marquee');
-    if (!container) {
+  var container = document.getElementById("new-books-marquee");
+  if (!container) {
+    return;
+  }
+
+  fetch("/api/user/new-books", {
+    credentials: "include",
+  })
+    .then(function (response) {
+      if (!response.ok) {
+        return null;
+      }
+      return response.json();
+    })
+    .then(function (data) {
+      if (!data || !data.books || data.books.length === 0) {
         return;
-    }
+      }
 
-    fetch('/api/user/new-books', {
-        credentials: 'include'
+      buildMarquee(container, data.books);
     })
-    .then(function(response) {
-        if (!response.ok) {
-            return null;
-        }
-        return response.json();
-    })
-    .then(function(data) {
-        if (!data || !data.books || data.books.length === 0) {
-            return;
-        }
-
-        buildMarquee(container, data.books);
-    })
-    .catch(function(err) {
-        console.log('Marquee: could not load new books:', err.message);
+    .catch(function (err) {
+      console.log("Marquee: could not load new books:", err.message);
     });
 }
 
@@ -46,26 +46,26 @@ function initMarquee() {
  * @returns {HTMLElement} A span wrapping one complete cycle.
  */
 function buildCycle(books) {
-    var cycle = document.createElement('span');
-    cycle.className = 'marquee-cycle';
+  var cycle = document.createElement("span");
+  cycle.className = "marquee-cycle";
 
-    var label = document.createElement('span');
-    label.className = 'marquee-label';
-    label.textContent = 'NEW';
-    cycle.appendChild(label);
+  var label = document.createElement("span");
+  label.className = "marquee-label";
+  label.textContent = "NEW";
+  cycle.appendChild(label);
 
-    for (var i = 0; i < books.length; i++) {
-        var item = document.createElement('span');
-        item.className = 'marquee-item';
-        item.textContent = books[i].title || 'Untitled';
-        cycle.appendChild(item);
+  for (var i = 0; i < books.length; i++) {
+    var item = document.createElement("span");
+    item.className = "marquee-item";
+    item.textContent = books[i].title || "Untitled";
+    cycle.appendChild(item);
 
-        var sep = document.createElement('span');
-        sep.className = 'marquee-separator';
-        sep.textContent = '\u2605'; // star character
-        cycle.appendChild(sep);
-    }
-    return cycle;
+    var sep = document.createElement("span");
+    sep.className = "marquee-separator";
+    sep.textContent = "\u2605"; // star character
+    cycle.appendChild(sep);
+  }
+  return cycle;
 }
 
 /**
@@ -80,58 +80,65 @@ function buildCycle(books) {
  * @param {Array} books - Array of book objects with title property.
  */
 function buildMarquee(container, books) {
-    // Clear any existing content safely
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
+  // Clear any existing content safely
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
 
-    // Build the scrolling track
-    var track = document.createElement('div');
-    track.className = 'marquee-track';
+  // Build the scrolling track
+  var track = document.createElement("div");
+  track.className = "marquee-track";
 
-    // Insert first cycle and measure its width vs container
-    var firstCycle = buildCycle(books);
-    track.appendChild(firstCycle);
-    container.appendChild(track);
+  // Insert first cycle and measure its width vs container
+  var firstCycle = buildCycle(books);
+  track.appendChild(firstCycle);
+  container.appendChild(track);
 
-    // Show for measurement
-    container.classList.remove('hidden');
-    var cycleWidth = firstCycle.offsetWidth;
-    var containerWidth = container.offsetWidth;
+  // Show for measurement
+  container.classList.remove("hidden");
+  var cycleWidth = firstCycle.offsetWidth;
+  var containerWidth = container.offsetWidth;
 
-    if (cycleWidth < containerWidth) {
-        // TICKER MODE — content shorter than viewport.
-        // Single copy scrolls from off-screen right to off-screen left,
-        // like a 1930s news ticker. No visible duplication.
-        var styleEl = document.createElement('style');
-        styleEl.textContent =
-            '@keyframes marquee-ticker{' +
-            '0%{transform:translateX(' + containerWidth + 'px)}' +
-            '100%{transform:translateX(-' + cycleWidth + 'px)}' +
-            '}';
-        container.appendChild(styleEl);
+  if (cycleWidth < containerWidth) {
+    // TICKER MODE — content shorter than viewport.
+    // Single copy scrolls from off-screen right to off-screen left,
+    // like a 1930s news ticker. No visible duplication.
+    var styleEl = document.createElement("style");
+    styleEl.textContent =
+      "@keyframes marquee-ticker{" +
+      "0%{transform:translateX(" +
+      containerWidth +
+      "px)}" +
+      "100%{transform:translateX(-" +
+      cycleWidth +
+      "px)}" +
+      "}";
+    container.appendChild(styleEl);
 
-        // ~80px/s feels natural for a ticker
-        var tickerDuration = (containerWidth + cycleWidth) / 80;
-        track.style.animation = 'marquee-ticker ' + Math.max(8, tickerDuration).toFixed(1) + 's linear infinite';
-    } else {
-        // CLASSIC MODE — content fills or overflows viewport.
-        // Duplicate once for seamless infinite scroll (translateX -50%).
-        track.appendChild(buildCycle(books));
-        var duration = Math.max(20, books.length * 5);
-        track.style.animation = 'marquee-scroll ' + duration + 's linear infinite';
-    }
+    // ~80px/s feels natural for a ticker
+    var tickerDuration = (containerWidth + cycleWidth) / 80;
+    track.style.animation =
+      "marquee-ticker " +
+      Math.max(8, tickerDuration).toFixed(1) +
+      "s linear infinite";
+  } else {
+    // CLASSIC MODE — content fills or overflows viewport.
+    // Duplicate once for seamless infinite scroll (translateX -50%).
+    track.appendChild(buildCycle(books));
+    var duration = Math.max(20, books.length * 5);
+    track.style.animation = "marquee-scroll " + duration + "s linear infinite";
+  }
 
-    // Dismiss button
-    var dismissBtn = document.createElement('button');
-    dismissBtn.className = 'marquee-dismiss';
-    dismissBtn.setAttribute('title', 'Dismiss new books notification');
-    dismissBtn.textContent = '\u00D7'; // multiplication sign (x)
-    dismissBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        dismissMarquee(container);
-    });
-    container.appendChild(dismissBtn);
+  // Dismiss button
+  var dismissBtn = document.createElement("button");
+  dismissBtn.className = "marquee-dismiss";
+  dismissBtn.setAttribute("title", "Dismiss new books notification");
+  dismissBtn.textContent = "\u00D7"; // multiplication sign (x)
+  dismissBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    dismissMarquee(container);
+  });
+  container.appendChild(dismissBtn);
 }
 
 /**
@@ -139,12 +146,12 @@ function buildMarquee(container, books) {
  * @param {HTMLElement} container - The marquee container element.
  */
 function dismissMarquee(container) {
-    container.classList.add('hidden');
+  container.classList.add("hidden");
 
-    fetch('/api/user/new-books/dismiss', {
-        method: 'POST',
-        credentials: 'include'
-    }).catch(function(err) {
-        console.log('Marquee: dismiss failed:', err.message);
-    });
+  fetch("/api/user/new-books/dismiss", {
+    method: "POST",
+    credentials: "include",
+  }).catch(function (err) {
+    console.log("Marquee: dismiss failed:", err.message);
+  });
 }

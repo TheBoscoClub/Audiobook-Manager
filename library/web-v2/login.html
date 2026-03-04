@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sign In - The Library</title>
-    <link rel="stylesheet" href="css/theme-art-deco.css?v=6.7.2">
-    <link rel="stylesheet" href="css/auth.css?v=6.7.2">
-    <link rel="stylesheet" href="css/help-tooltips.css?v=6.7.2">
-    <link rel="stylesheet" href="css/responsive.css?v=6.7.2">
-    <script src="js/webauthn.js?v=6.7.2"></script>
-    <script src="js/session-persistence.js?v=6.7.2"></script>
+    <link rel="stylesheet" href="css/theme-art-deco.css?v=6.7.2.2">
+    <link rel="stylesheet" href="css/auth.css?v=6.7.2.2">
+    <link rel="stylesheet" href="css/help-tooltips.css?v=6.7.2.2">
+    <link rel="stylesheet" href="css/responsive.css?v=6.7.2.2">
+    <script src="js/webauthn.js?v=6.7.2.2"></script>
+    <script src="js/session-persistence.js?v=6.7.2.2"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
@@ -579,7 +579,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/auth/login/backup`, {
+                const response = await fetch(`${API_BASE}/auth/recover/backup-code`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -589,10 +589,18 @@
                 const data = await safeJsonParse(response);
 
                 if (response.ok) {
-                    if (data.remaining_codes !== undefined && data.remaining_codes <= 2) {
-                        alert(`Warning: You have ${data.remaining_codes} backup code(s) remaining. Consider generating new ones.`);
+                    // Recovery resets TOTP — show new credentials and redirect to login
+                    var msg = 'Account recovered! Your authenticator has been reset.\n\n';
+                    msg += 'New TOTP Secret: ' + data.totp_secret + '\n\n';
+                    msg += 'Save your new backup codes:\n';
+                    if (data.backup_codes) {
+                        msg += data.backup_codes.join('\n');
                     }
-                    window.location.href = 'shell.html';
+                    msg += '\n\nYou will now be redirected to log in with your new code.';
+                    alert(msg);
+                    backupForm.hidden = true;
+                    loginForm.hidden = false;
+                    resetLoginForm();
                 } else {
                     showError(backupErrorMessage, data.error || 'Invalid backup code');
                 }
