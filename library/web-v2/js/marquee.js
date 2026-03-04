@@ -2,6 +2,11 @@
  * New Books Marquee - Art Deco neon ticker for new audiobook announcements.
  * Fetches new books from /api/user/new-books and displays scrolling titles.
  * Uses safe DOM construction (createElement + textContent only).
+ *
+ * Two scroll modes based on content width vs viewport:
+ *   Ticker:  content < viewport — single copy, scrolls right-to-left like
+ *            a news ticker (no visible duplication).
+ *   Classic: content >= viewport — seamless 2-copy infinite scroll.
  */
 
 /**
@@ -65,8 +70,12 @@ function buildCycle(books) {
 
 /**
  * Build the marquee DOM structure with book titles.
- * Repeats content enough times to always overflow the viewport,
- * so the seamless scroll loop never shows both copies at once.
+ *
+ * When content is shorter than the viewport (few books), uses ticker mode:
+ * a single copy scrolls from right edge to left edge — no visible
+ * duplication. When content fills the viewport, uses classic 2-copy
+ * infinite scroll for a seamless loop.
+ *
  * @param {HTMLElement} container - The marquee container element.
  * @param {Array} books - Array of book objects with title property.
  */
@@ -85,31 +94,33 @@ function buildMarquee(container, books) {
     track.appendChild(firstCycle);
     container.appendChild(track);
 
-    // Briefly show for measurement (no repaint until JS yields)
+    // Show for measurement
     container.classList.remove('hidden');
     var cycleWidth = firstCycle.offsetWidth;
     var containerWidth = container.offsetWidth;
 
-    // Repeat enough times so one full cycle is always off-screen
-    var copies = Math.max(2, Math.ceil(containerWidth / Math.max(1, cycleWidth)) + 1);
-    copies = Math.min(copies, 20);
-    for (var c = 1; c < copies; c++) {
+    if (cycleWidth < containerWidth) {
+        // TICKER MODE — content shorter than viewport.
+        // Single copy scrolls from off-screen right to off-screen left,
+        // like a 1930s news ticker. No visible duplication.
+        var styleEl = document.createElement('style');
+        styleEl.textContent =
+            '@keyframes marquee-ticker{' +
+            '0%{transform:translateX(' + containerWidth + 'px)}' +
+            '100%{transform:translateX(-' + cycleWidth + 'px)}' +
+            '}';
+        container.appendChild(styleEl);
+
+        // ~80px/s feels natural for a ticker
+        var tickerDuration = (containerWidth + cycleWidth) / 80;
+        track.style.animation = 'marquee-ticker ' + Math.max(8, tickerDuration).toFixed(1) + 's linear infinite';
+    } else {
+        // CLASSIC MODE — content fills or overflows viewport.
+        // Duplicate once for seamless infinite scroll (translateX -50%).
         track.appendChild(buildCycle(books));
+        var duration = Math.max(20, books.length * 5);
+        track.style.animation = 'marquee-scroll ' + duration + 's linear infinite';
     }
-
-    // Dynamic keyframe sized to scroll by exactly one cycle
-    var shiftPercent = (100 / copies).toFixed(4);
-    var styleEl = document.createElement('style');
-    styleEl.textContent =
-        '@keyframes marquee-scroll-fill{' +
-        '0%{transform:translateX(0)}' +
-        '100%{transform:translateX(-' + shiftPercent + '%)}' +
-        '}';
-    container.appendChild(styleEl);
-
-    // Duration scales with content length
-    var duration = Math.max(20, books.length * 5);
-    track.style.animation = 'marquee-scroll-fill ' + duration + 's linear infinite';
 
     // Dismiss button
     var dismissBtn = document.createElement('button');
