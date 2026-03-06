@@ -3005,7 +3005,7 @@ function createUserItem(user) {
   if (user.last_login) {
     meta.textContent = `Last login: ${new Date(user.last_login).toLocaleString()}${emailInfo}`;
   } else if (user.created_at) {
-    let metaText = `Invited: ${new Date(user.created_at).toLocaleString()}${emailInfo}`;
+    let metaText = `Invited: ${new Date(user.created_at).toLocaleString()} UTC${emailInfo}`;
     meta.textContent = metaText;
     if (user.invite_expires_at) {
       const br = document.createElement("br");
@@ -3013,10 +3013,10 @@ function createUserItem(user) {
       const expirySpan = document.createElement("span");
       if (user.invite_expired) {
         expirySpan.style.color = "var(--color-danger, #e74c3c)";
-        expirySpan.textContent = `Expired: ${new Date(user.invite_expires_at).toLocaleString()}`;
+        expirySpan.textContent = `Expired: ${new Date(user.invite_expires_at).toLocaleString()} UTC`;
       } else {
         expirySpan.style.color = "var(--color-warning, #f39c12)";
-        expirySpan.textContent = `Expires: ${new Date(user.invite_expires_at).toLocaleString()}`;
+        expirySpan.textContent = `Expires: ${new Date(user.invite_expires_at).toLocaleString()} UTC`;
       }
       meta.appendChild(expirySpan);
     }
