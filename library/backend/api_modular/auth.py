@@ -3827,6 +3827,7 @@ def list_users():
 
     db = get_auth_db()
     user_repo = UserRepository(db)
+    request_repo = AccessRequestRepository(db)
 
     all_users = user_repo.list_all()
     total = len(all_users)
@@ -3834,24 +3835,42 @@ def list_users():
         :limit
     ]  # Apply limit in Python since list_all() doesn't support it
 
-    return jsonify(
-        {
-            "users": [
-                {
-                    "id": u.id,
-                    "username": u.username,
-                    "email": u.recovery_email,
-                    "auth_type": u.auth_type.value,
-                    "can_download": u.can_download,
-                    "is_admin": u.is_admin,
-                    "created_at": u.created_at.isoformat() if u.created_at else None,
-                    "last_login": u.last_login.isoformat() if u.last_login else None,
-                }
-                for u in users
-            ],
-            "total": total,
+    user_list = []
+    for u in users:
+        entry = {
+            "id": u.id,
+            "username": u.username,
+            "email": u.recovery_email,
+            "auth_type": u.auth_type.value,
+            "can_download": u.can_download,
+            "is_admin": u.is_admin,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login": u.last_login.isoformat() if u.last_login else None,
         }
-    )
+        # For users who never logged in, include invitation expiry
+        if not u.last_login:
+            if u.auth_type == AuthType.MAGIC_LINK:
+                # Magic link invitations store expiry in pending_recovery
+                with db.connection() as conn:
+                    cursor = conn.execute(
+                        "SELECT expires_at, used_at FROM pending_recovery "
+                        "WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+                        (u.id,),
+                    )
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        expires_at = datetime.fromisoformat(row[0])
+                        entry["invite_expires_at"] = expires_at.isoformat()
+                        entry["invite_expired"] = datetime.now() > expires_at
+            else:
+                # TOTP/passkey invitations store expiry in access_requests
+                ar = request_repo.get_by_username(u.username)
+                if ar and ar.claim_expires_at:
+                    entry["invite_expires_at"] = ar.claim_expires_at.isoformat()
+                    entry["invite_expired"] = ar.is_claim_expired()
+        user_list.append(entry)
+
+    return jsonify({"users": user_list, "total": total})
 
 
 @auth_bp.route("/admin/users/invite", methods=["POST"])
