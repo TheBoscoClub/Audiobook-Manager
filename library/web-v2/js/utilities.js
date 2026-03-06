@@ -3001,11 +3001,28 @@ function createUserItem(user) {
 
   const meta = document.createElement("div");
   meta.className = "user-meta";
-  const lastLogin = user.last_login
-    ? new Date(user.last_login).toLocaleString()
-    : "Never";
   const emailInfo = user.email ? ` • ${user.email}` : "";
-  meta.textContent = `Last login: ${lastLogin}${emailInfo}`;
+  if (user.last_login) {
+    meta.textContent = `Last login: ${new Date(user.last_login).toLocaleString()}${emailInfo}`;
+  } else if (user.created_at) {
+    let metaText = `Invited: ${new Date(user.created_at).toLocaleString()}${emailInfo}`;
+    meta.textContent = metaText;
+    if (user.invite_expires_at) {
+      const br = document.createElement("br");
+      meta.appendChild(br);
+      const expirySpan = document.createElement("span");
+      if (user.invite_expired) {
+        expirySpan.style.color = "var(--color-danger, #e74c3c)";
+        expirySpan.textContent = `Expired: ${new Date(user.invite_expires_at).toLocaleString()}`;
+      } else {
+        expirySpan.style.color = "var(--color-warning, #f39c12)";
+        expirySpan.textContent = `Expires: ${new Date(user.invite_expires_at).toLocaleString()}`;
+      }
+      meta.appendChild(expirySpan);
+    }
+  } else {
+    meta.textContent = `Last login: Never${emailInfo}`;
+  }
   info.appendChild(meta);
 
   item.appendChild(info);

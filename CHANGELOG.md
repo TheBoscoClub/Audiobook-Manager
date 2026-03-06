@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.2.3] - 2026-03-05
+
+### Added
+
+- **Back office invitation timestamps**: Admin user list now shows "Invited: [date]" and "Expires/Expired: [date]" for users who haven't logged in yet, replacing the uninformative "Never" label. Expired invitations display in red, pending ones in yellow.
+- **API invitation data**: `/auth/admin/users` endpoint now includes `invite_expires_at` and `invite_expired` fields for unclaimed invitations, sourcing expiry from `pending_recovery` (magic link) or `access_requests` (TOTP/passkey)
+
 ## [6.7.2.2] - 2026-03-03
 
 ### Fixed

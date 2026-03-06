@@ -690,10 +690,27 @@
             downloadBtn.addEventListener('click', () => toggleDownload(user.id, !user.can_download));
             tdDownload.appendChild(downloadBtn);
 
-            // Last login cell
+            // Last login cell (shows invitation info for users who never logged in)
             const tdLastLogin = document.createElement('td');
             if (user.last_login) {
                 tdLastLogin.textContent = formatDate(user.last_login);
+            } else if (user.created_at) {
+                const invitedSpan = document.createElement('span');
+                invitedSpan.textContent = 'Invited: ' + formatDate(user.created_at);
+                tdLastLogin.appendChild(invitedSpan);
+                if (user.invite_expires_at) {
+                    const br = document.createElement('br');
+                    tdLastLogin.appendChild(br);
+                    const expirySpan = document.createElement('span');
+                    if (user.invite_expired) {
+                        expirySpan.style.color = 'var(--color-danger, #e74c3c)';
+                        expirySpan.textContent = 'Expired: ' + formatDate(user.invite_expires_at);
+                    } else {
+                        expirySpan.style.color = 'var(--color-warning, #f39c12)';
+                        expirySpan.textContent = 'Expires: ' + formatDate(user.invite_expires_at);
+                    }
+                    tdLastLogin.appendChild(expirySpan);
+                }
             } else {
                 const em = document.createElement('em');
                 em.textContent = 'Never';
