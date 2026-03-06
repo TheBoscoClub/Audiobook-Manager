@@ -16,8 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![6](https://img.shields.io/badge/6-brightgreen)![7](https://img.shields.io/badge/7-darkgreen)![2](https://img.shields.io/badge/2-green)![3](https://img.shields.io/badge/3-yellow) | Latest tweak | [v6.7.2.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.2.3) |
-| ![6](https://img.shields.io/badge/6-brightred)![7](https://img.shields.io/badge/7-darkred)![2](https://img.shields.io/badge/2-red)![2](https://img.shields.io/badge/2-orange) | Prior tweak | [v6.7.2.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.2.2) |
+| ![6](https://img.shields.io/badge/6-brightgreen)![7](https://img.shields.io/badge/7-darkgreen)![2](https://img.shields.io/badge/2-green)![4](https://img.shields.io/badge/4-yellow) | Latest tweak | [v6.7.2.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.2.4) |
+| ![6](https://img.shields.io/badge/6-brightred)![7](https://img.shields.io/badge/7-darkred)![2](https://img.shields.io/badge/2-red)![3](https://img.shields.io/badge/3-orange) | Prior tweak | [v6.7.2.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.2.3) |
 | ![6](https://img.shields.io/badge/6-brightred)![7](https://img.shields.io/badge/7-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v6.7.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.2) |
 | ![6](https://img.shields.io/badge/6-brightred)![7](https://img.shields.io/badge/7-darkred)![1](https://img.shields.io/badge/1-red)![5](https://img.shields.io/badge/5-orange) | Prior tweak | [v6.7.1.5](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.1.5) |
 | ![6](https://img.shields.io/badge/6-brightred)![7](https://img.shields.io/badge/7-darkred)![1](https://img.shields.io/badge/1-red)![4](https://img.shields.io/badge/4-orange) | Prior tweak | [v6.7.1.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.1.4) |
