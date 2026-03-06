@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.7.2.4] - 2026-03-05
+
+### Fixed
+
+- **UTC timezone label**: Invitation timestamps in admin UI now display "UTC" suffix so admins don't mistake UTC times for local time
+- **Cache-buster sync**: Updated `?v=` query strings to 6.7.2.4 across all 12 HTML files and CSS `@import` chain (stale at 6.7.2.2, caused browser to serve cached JS without invitation timestamp feature)
+
 ## [6.7.2.3] - 2026-03-05
 
 ### Added
