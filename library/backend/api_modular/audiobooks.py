@@ -324,6 +324,58 @@ def init_audiobooks_routes(db_path, project_root, database_path):
             )
             supplements_map = {r["audiobook_id"]: r["count"] for r in cursor.fetchall()}
 
+            # Batch: authors for all books in one query (normalized many-to-many)
+            authors_map: dict[int, list[dict]] = {}
+            try:
+                cursor.execute(
+                    f"""
+                    SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position
+                    FROM book_authors ba
+                    JOIN authors a ON ba.author_id = a.id
+                    WHERE ba.book_id IN ({placeholders})
+                    ORDER BY ba.position
+                    """,
+                    book_ids,
+                )
+                for r in cursor.fetchall():
+                    authors_map.setdefault(r["book_id"], []).append(
+                        {
+                            "id": r["id"],
+                            "name": r["name"],
+                            "sort_name": r["sort_name"],
+                            "position": r["position"],
+                        }
+                    )
+            except Exception:
+                # Tables may not exist yet (pre-migration)
+                pass
+
+            # Batch: narrators for all books in one query (normalized many-to-many)
+            narrators_map: dict[int, list[dict]] = {}
+            try:
+                cursor.execute(
+                    f"""
+                    SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position
+                    FROM book_narrators bn
+                    JOIN narrators n ON bn.narrator_id = n.id
+                    WHERE bn.book_id IN ({placeholders})
+                    ORDER BY bn.position
+                    """,
+                    book_ids,
+                )
+                for r in cursor.fetchall():
+                    narrators_map.setdefault(r["book_id"], []).append(
+                        {
+                            "id": r["id"],
+                            "name": r["name"],
+                            "sort_name": r["sort_name"],
+                            "position": r["position"],
+                        }
+                    )
+            except Exception:
+                # Tables may not exist yet (pre-migration)
+                pass
+
             # Batch: edition detection — get all titles by the same authors
             authors = list({book["author"] for book in audiobooks if book["author"]})
             edition_titles_by_author: dict[str, list[str]] = {}
@@ -348,6 +400,8 @@ def init_audiobooks_routes(db_path, project_root, database_path):
                 book["eras"] = eras_map.get(bid, [])
                 book["topics"] = topics_map.get(bid, [])
                 book["supplement_count"] = supplements_map.get(bid, 0)
+                book["authors"] = authors_map.get(bid, [])
+                book["narrators"] = narrators_map.get(bid, [])
 
                 # Edition count from pre-fetched author titles
                 base_title = normalize_base_title(book["title"])
