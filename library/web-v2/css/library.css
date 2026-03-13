@@ -473,3 +473,85 @@
         width: 100%;
     }
 }
+
+/* ============================================
+   Grouped View — Collapsible Author/Narrator Groups
+   ============================================ */
+
+/* Override grid layout when in grouped mode */
+.books-grid.grouped-view {
+    display: block;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 clamp(var(--spacing-md), 3vw, var(--spacing-xl));
+}
+
+.grouped-section {
+    margin-bottom: var(--spacing-md);
+    border: 2px solid var(--gold-dark);
+    background: var(--deco-charcoal);
+}
+
+.grouped-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: linear-gradient(90deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    border: none;
+    border-bottom: 1px solid var(--gold-deep);
+    color: var(--gold);
+    font-family: var(--font-heading);
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-align: left;
+}
+
+.grouped-header:hover {
+    background: linear-gradient(90deg, var(--emerald) 0%, var(--deco-slate) 100%);
+}
+
+.grouped-section.expanded .grouped-header {
+    border-bottom: 2px solid var(--gold);
+}
+
+.grouped-header-name {
+    flex: 1;
+    font-weight: 600;
+}
+
+.grouped-header-count {
+    color: var(--parchment);
+    font-size: 0.85em;
+    margin-right: var(--spacing-md);
+    opacity: 0.8;
+}
+
+.grouped-header-arrow {
+    font-size: 1.2em;
+    transition: transform 0.2s ease;
+    color: var(--gold-bright);
+}
+
+.grouped-books {
+    padding: var(--spacing-md);
+}
+
+.grouped-books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(clamp(200px, 25vw, 280px), 100%), 1fr));
+    gap: clamp(var(--spacing-md), 2vw, var(--spacing-xl));
+}
+
+/* Responsive: smaller group headers on mobile */
+@media (max-width: 640px) {
+    .grouped-header {
+        padding: var(--spacing-sm) var(--spacing-md);
+        font-size: 0.95rem;
+    }
+
+    .grouped-books {
+        padding: var(--spacing-sm);
+    }
+}

@@ -1483,6 +1483,7 @@ class AudiobookLibraryV2 {
 
   renderBooks(books) {
     const grid = document.getElementById("books-grid");
+    grid.classList.remove("grouped-view");
 
     if (books.length === 0) {
       grid.innerHTML = `
@@ -1550,6 +1551,132 @@ class AudiobookLibraryV2 {
                 ${hasEditions ? '<div class="book-editions" data-book-id="' + book.id + '" style="display: none;"></div>' : ""}
             </div>
         `;
+  }
+
+  // ============================================================
+  // Grouped view — collapsible author/narrator groups
+  // ============================================================
+
+  async loadGroupedBooks(groupBy) {
+    this.showLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/audiobooks/grouped?by=${encodeURIComponent(groupBy)}`,
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load grouped books");
+      }
+
+      this.renderGroupedBooks(data, groupBy);
+
+      // Hide pagination — grouped view shows all books
+      const paginationEl = document.getElementById("pagination");
+      if (paginationEl) paginationEl.textContent = "";
+      const resultsInfo = document.getElementById("results-info");
+      if (resultsInfo) {
+        resultsInfo.textContent = `${data.total_books} books in ${data.total_groups} ${groupBy} groups`;
+      }
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.error("Error loading grouped books:", error);
+      const grid = document.getElementById("books-grid");
+      grid.textContent = "";
+      const errorMsg = document.createElement("p");
+      errorMsg.style.cssText =
+        "color: var(--parchment); text-align: center; grid-column: 1/-1;";
+      errorMsg.textContent =
+        "Error loading grouped view. Please ensure the API server is running.";
+      grid.appendChild(errorMsg);
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  renderGroupedBooks(data, groupBy) {
+    const grid = document.getElementById("books-grid");
+
+    if (!data.groups || data.groups.length === 0) {
+      grid.textContent = "";
+      const emptyMsg = document.createElement("p");
+      emptyMsg.style.cssText =
+        "color: var(--parchment); text-align: center; grid-column: 1/-1;";
+      emptyMsg.textContent = "No grouped audiobooks found.";
+      grid.appendChild(emptyMsg);
+      return;
+    }
+
+    // Build grouped view using DOM methods for safety
+    grid.textContent = "";
+    grid.classList.add("grouped-view");
+
+    data.groups.forEach((group, idx) => {
+      const groupId = `group-${groupBy}-${idx}`;
+      const name = group.key.name;
+      const bookCount = group.books.length;
+
+      // Section wrapper
+      const section = document.createElement("div");
+      section.className = "grouped-section";
+      section.dataset.groupId = groupId;
+
+      // Collapsible header button
+      const header = document.createElement("button");
+      header.className = "grouped-header";
+      header.title = `Click to expand/collapse ${name}`;
+      header.addEventListener("click", () => this.toggleGroup(groupId));
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "grouped-header-name";
+      nameSpan.textContent = name;
+
+      const countSpan = document.createElement("span");
+      countSpan.className = "grouped-header-count";
+      countSpan.textContent = `${bookCount} ${bookCount === 1 ? "book" : "books"}`;
+
+      const arrow = document.createElement("span");
+      arrow.className = "grouped-header-arrow";
+      arrow.textContent = "\u25B8"; // ▸
+
+      header.appendChild(nameSpan);
+      header.appendChild(countSpan);
+      header.appendChild(arrow);
+      section.appendChild(header);
+
+      // Books container (hidden by default)
+      const booksContainer = document.createElement("div");
+      booksContainer.className = "grouped-books";
+      booksContainer.id = groupId;
+      booksContainer.style.display = "none";
+
+      const booksGrid = document.createElement("div");
+      booksGrid.className = "grouped-books-grid";
+      // Book cards use the existing createBookCard which returns safe HTML
+      // (all user content passed through escapeHtml)
+      booksGrid.innerHTML = group.books // nosec: createBookCard escapes all user data
+        .map((book) => this.createBookCard(book))
+        .join("");
+
+      booksContainer.appendChild(booksGrid);
+      section.appendChild(booksContainer);
+      grid.appendChild(section);
+    });
+  }
+
+  toggleGroup(groupId) {
+    const booksContainer = document.getElementById(groupId);
+    const section = booksContainer?.closest(".grouped-section");
+    if (!booksContainer || !section) return;
+
+    const isVisible = booksContainer.style.display !== "none";
+    booksContainer.style.display = isVisible ? "none" : "block";
+    section.classList.toggle("expanded", !isVisible);
+
+    const arrow = section.querySelector(".grouped-header-arrow");
+    if (arrow) arrow.textContent = isVisible ? "\u25B8" : "\u25BE"; // ▸ / ▾
   }
 
   async toggleEditions(bookId) {
@@ -2314,13 +2441,19 @@ class AudiobookLibraryV2 {
       this.loadAudiobooks();
     });
 
-    // Sort filter
+    // Sort filter — detect grouped mode vs flat mode
     document.getElementById("sort-filter").addEventListener("change", (e) => {
       const [sort, order] = e.target.value.split(":");
       this.currentFilters.sort = sort;
       this.currentFilters.order = order;
       this.currentPage = 1;
-      this.loadAudiobooks();
+
+      if (sort === "grouped_author" || sort === "grouped_narrator") {
+        const groupBy = sort === "grouped_author" ? "author" : "narrator";
+        this.loadGroupedBooks(groupBy);
+      } else {
+        this.loadAudiobooks();
+      }
     });
 
     // Per page
