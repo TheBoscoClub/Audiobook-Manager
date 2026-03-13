@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [6.8.0] - 2026-03-13
+
+### Added
+
+- **Multi-author/narrator normalization**: New `authors`, `narrators`, `book_authors`, and `book_narrators` tables provide proper many-to-many relationships. Books with multiple authors (e.g., "Stephen King, Peter Straub") now have each author as a separate, sortable entity.
+- **Name parser module** (`name_parser.py`): Three-tier metadata extraction — structured tags, delimiter splitting (semicolons, "and", "&"), and comma disambiguation ("Last, First" vs "Author1, Author2"). Handles group names (Full Cast, BBC Radio), compound last names (de, van, von, le), and role suffixes.
+- **Grouped sort view**: New "Author (Grouped A-Z)" and "Narrator (Grouped A-Z)" sort options in the frontend. Books appear under collapsible author/narrator headers with Art Deco styling. Multi-author books appear under each author group.
+- **Grouped API endpoint**: `GET /api/audiobooks/grouped?by=author|narrator` returns books grouped by normalized author/narrator with sort_name ordering and orphan "Unknown" group.
+- **Enriched flat API**: `/api/audiobooks` response now includes `authors` and `narrators` arrays alongside existing flat string fields for backward compatibility.
+- **Admin correction endpoints**: `PUT /api/admin/authors/<id>` (rename), `POST /api/admin/authors/merge` (merge duplicates), `PUT /api/admin/books/<id>/authors` (reassign). Symmetric endpoints for narrators. All operations regenerate flat text columns.
+- **Schema migration** (`011_multi_author_narrator.sql`): DDL for normalized tables with foreign keys and indices. Applied automatically during `upgrade.sh`.
+- **Data migration** (`migrate_to_normalized_authors.py`): Idempotent script parses flat author/narrator columns and populates junction tables. Group name redirection ensures entities like "Full Cast" are always classified as narrators.
+
+### Changed
+
+- **upgrade.sh**: Now detects and applies database schema migrations automatically. Checks for `authors` table existence before applying DDL, runs data migration if tables are empty.
+
 ## [6.7.2.4] - 2026-03-05
 
 ### Fixed
