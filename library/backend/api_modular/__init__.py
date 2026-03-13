@@ -144,14 +144,32 @@ def create_app(
         """Handle CORS preflight requests"""
         return "", 204
 
-    # Initialize all route modules with their dependencies
-    init_audiobooks_routes(database_path, project_root, database_path)
-    init_collections_routes(database_path)
-    init_editions_routes(database_path)
-    init_duplicates_routes(database_path)
-    init_supplements_routes(database_path, supplements_dir)
-    init_utilities_routes(database_path, project_root)
-    init_position_routes(database_path)
+    # Initialize all route modules with their dependencies.
+    # Guard: only initialize routes once per blueprint to avoid re-registration
+    # errors when create_app() is called multiple times (e.g., in tests).
+    if not getattr(audiobooks_bp, "_routes_initialized", False):
+        init_audiobooks_routes(database_path, project_root, database_path)
+        audiobooks_bp._routes_initialized = True
+    if not getattr(collections_bp, "_routes_initialized", False):
+        init_collections_routes(database_path)
+        collections_bp._routes_initialized = True
+    if not getattr(editions_bp, "_routes_initialized", False):
+        init_editions_routes(database_path)
+        editions_bp._routes_initialized = True
+    if not getattr(duplicates_bp, "_routes_initialized", False):
+        init_duplicates_routes(database_path)
+        duplicates_bp._routes_initialized = True
+    if not getattr(supplements_bp, "_routes_initialized", False):
+        init_supplements_routes(database_path, supplements_dir)
+        supplements_bp._routes_initialized = True
+    if not getattr(utilities_bp, "_routes_initialized", False):
+        init_utilities_routes(database_path, project_root)
+        utilities_bp._routes_initialized = True
+    if not getattr(position_bp, "_routes_initialized", False):
+        init_position_routes(database_path)
+        position_bp._routes_initialized = True
+    # grouped and admin_authors use module-level _db_path (not closures),
+    # so init is safe to call every time — always update the db_path.
     init_grouped_routes(database_path)
     init_admin_authors_routes(database_path)
 

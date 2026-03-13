@@ -65,27 +65,28 @@ def _reset_db(db_path: Path) -> None:
     conn.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def admin_authors_tmpdir():
-    """Session-scoped temp directory."""
+    """Module-scoped temp directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def admin_authors_app(admin_authors_tmpdir):
-    """Create a session-scoped Flask app with admin authors blueprint.
+    """Create a module-scoped Flask app for admin author tests.
 
-    Session-scoped to avoid Flask blueprint re-registration errors.
-    Auth is disabled (single-user mode) so all admin endpoints are accessible
-    without authentication — admin_if_enabled passes through.
+    Builds a minimal Flask app directly (not via create_app) to avoid
+    blueprint re-registration conflicts when multiple test files each
+    need their own app instance with different database paths.
     """
-    from backend.api_modular import create_app
+    from flask import Flask
+
+    from backend.api_modular.admin_authors import admin_authors_bp, init_admin_authors_routes
+    from backend.api_modular.core import add_cors_headers
 
     tmpdir = admin_authors_tmpdir
     db_path = tmpdir / "test.db"
-    supplements_dir = tmpdir / "supplements"
-    supplements_dir.mkdir(exist_ok=True)
 
     # Initialize database with schema + test data
     conn = sqlite3.connect(db_path)
@@ -96,14 +97,24 @@ def admin_authors_app(admin_authors_tmpdir):
     conn.commit()
     conn.close()
 
-    app = create_app(
-        database_path=db_path,
-        project_dir=tmpdir,
-        supplements_dir=supplements_dir,
-        api_port=5099,
-    )
+    app = Flask(__name__)
     app.config["TESTING"] = True
+    app.config["AUTH_ENABLED"] = False
     app.config["test_db_path"] = db_path
+
+    # Create fresh blueprint to avoid re-registration
+    from flask import Blueprint
+    fresh_bp = Blueprint("admin_authors_test", __name__)
+
+    # Import the route setup function internals and bind to fresh blueprint
+    from backend.api_modular.admin_authors import init_admin_authors_routes as _init
+    _init(db_path)
+
+    @app.after_request
+    def cors(response):
+        return add_cors_headers(response)
+
+    app.register_blueprint(admin_authors_bp)
 
     yield app
 
