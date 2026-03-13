@@ -27,61 +27,76 @@ VALID_GROUP_BY = {"author", "narrator"}
 
 grouped_bp = Blueprint("grouped", __name__)
 
+# Module-level database path (set by init function)
+_db_path: Path | None = None
+
 
 def init_grouped_routes(db_path: Path) -> None:
     """Initialize grouped routes with the database path."""
+    global _db_path
+    _db_path = db_path
 
-    @grouped_bp.route("/api/audiobooks/grouped", methods=["GET"])
-    @guest_allowed
-    def get_grouped_audiobooks() -> FlaskResponse:
-        """
-        Get audiobooks grouped by author or narrator.
 
-        Query params:
-            by: Group by field — "author" or "narrator" (required)
+def _get_grouped_db() -> sqlite3.Connection:
+    """Get database connection for grouped endpoint."""
+    if _db_path is None:
+        raise RuntimeError(
+            "Grouped routes not initialized. Call init_grouped_routes first."
+        )
+    return get_db(_db_path)
 
-        Returns:
-            {
-                "groups": [
-                    {
-                        "key": {"id": N, "name": "...", "sort_name": "..."},
-                        "books": [{"id": N, "title": "...", ...}, ...]
-                    },
-                    ...
-                ],
-                "total_groups": N,
-                "total_books": N   # deduplicated
-            }
-        """
-        group_by = request.args.get("by", "").strip().lower()
-        if group_by not in VALID_GROUP_BY:
-            return (
-                jsonify(
-                    {
-                        "error": f"Invalid 'by' parameter: '{group_by}'. "
-                        f"Must be one of: {', '.join(sorted(VALID_GROUP_BY))}"
-                    }
-                ),
-                400,
-            )
 
-        conn = get_db(db_path)
+@grouped_bp.route("/api/audiobooks/grouped", methods=["GET"])
+@guest_allowed
+def get_grouped_audiobooks() -> FlaskResponse:
+    """
+    Get audiobooks grouped by author or narrator.
 
-        try:
-            if group_by == "author":
-                groups, all_book_ids = _group_by_author(conn)
-            else:
-                groups, all_book_ids = _group_by_narrator(conn)
+    Query params:
+        by: Group by field — "author" or "narrator" (required)
 
-            return jsonify(
+    Returns:
+        {
+            "groups": [
                 {
-                    "groups": groups,
-                    "total_groups": len(groups),
-                    "total_books": len(all_book_ids),
+                    "key": {"id": N, "name": "...", "sort_name": "..."},
+                    "books": [{"id": N, "title": "...", ...}, ...]
+                },
+                ...
+            ],
+            "total_groups": N,
+            "total_books": N   # deduplicated
+        }
+    """
+    group_by = request.args.get("by", "").strip().lower()
+    if group_by not in VALID_GROUP_BY:
+        return (
+            jsonify(
+                {
+                    "error": f"Invalid 'by' parameter: '{group_by}'. "
+                    f"Must be one of: {', '.join(sorted(VALID_GROUP_BY))}"
                 }
-            )
-        finally:
-            conn.close()
+            ),
+            400,
+        )
+
+    conn = _get_grouped_db()
+
+    try:
+        if group_by == "author":
+            groups, all_book_ids = _group_by_author(conn)
+        else:
+            groups, all_book_ids = _group_by_narrator(conn)
+
+        return jsonify(
+            {
+                "groups": groups,
+                "total_groups": len(groups),
+                "total_books": len(all_book_ids),
+            }
+        )
+    finally:
+        conn.close()
 
 
 def _get_book_columns() -> str:
