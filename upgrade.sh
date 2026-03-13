@@ -769,6 +769,64 @@ do_upgrade() {
         fi
     fi
 
+    # Apply database schema migrations (safe to run multiple times)
+    if [[ "$DRY_RUN" == "false" ]] && [[ -d "$target/library" ]]; then
+        # Locate the library database from config or default
+        local db_path=""
+        if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
+            db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
+        fi
+        db_path="${db_path:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}"
+
+        if [[ -f "$db_path" ]]; then
+            # Apply DDL migration for normalized author/narrator tables
+            local migration_sql="$target/library/backend/migrations/011_multi_author_narrator.sql"
+            if [[ -f "$migration_sql" ]]; then
+                echo -e "${BLUE}Applying schema migrations...${NC}"
+                local needs_migration
+                needs_migration=$(sqlite3 "$db_path" \
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='authors';" 2>/dev/null)
+                if [[ "$needs_migration" == "0" ]]; then
+                    if [[ -n "$use_sudo" ]]; then
+                        sudo sqlite3 "$db_path" < "$migration_sql"
+                    else
+                        sqlite3 "$db_path" < "$migration_sql"
+                    fi
+                    echo "  Applied: 011_multi_author_narrator.sql"
+                else
+                    echo "  Schema already up to date (authors table exists)"
+                fi
+            fi
+
+            # Run data migration to populate normalized tables (idempotent)
+            local migration_py="$target/library/backend/migrations/migrate_to_normalized_authors.py"
+            local venv_python="$target/library/venv/bin/python"
+            if [[ -f "$migration_py" ]] && [[ -x "$venv_python" ]]; then
+                local author_count
+                author_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM authors;" 2>/dev/null || echo "0")
+                if [[ "$author_count" == "0" ]]; then
+                    echo -e "${BLUE}Running author/narrator data migration...${NC}"
+                    if [[ -n "$use_sudo" ]]; then
+                        (cd "$target" && sudo -u audiobooks PYTHONPATH="$target" \
+                            "$venv_python" -m library.backend.migrations.migrate_to_normalized_authors \
+                            --db-path "$db_path" 2>&1) || {
+                            echo -e "${YELLOW}Warning: Author migration failed (non-critical, grouped sort unavailable)${NC}"
+                        }
+                    else
+                        (cd "$target" && PYTHONPATH="$target" \
+                            "$venv_python" -m library.backend.migrations.migrate_to_normalized_authors \
+                            --db-path "$db_path" 2>&1) || {
+                            echo -e "${YELLOW}Warning: Author migration failed (non-critical, grouped sort unavailable)${NC}"
+                        }
+                    fi
+                    echo "  Data migration complete"
+                else
+                    echo "  Author data already migrated ($author_count authors)"
+                fi
+            fi
+        fi
+    fi
+
     # Refresh /usr/local/bin symlinks to point to canonical scripts
     if [[ "$target" == "/opt/audiobooks" || "$target" == "/usr/local/lib/audiobooks" ]]; then
         refresh_bin_symlinks "$target" "${use_sudo}"
