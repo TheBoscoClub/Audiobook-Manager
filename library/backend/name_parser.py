@@ -12,6 +12,54 @@ import re
 
 # Known performance/production group names - always narrators, never authors.
 # If detected in author metadata, caller should redirect to narrator list.
+# Role suffixes that indicate a contributor is NOT the primary author.
+# Names with these suffixes are excluded from the authors table.
+# Pattern: "Name - role" or "Name (role)"
+ROLE_SUFFIXES = frozenset(
+    {
+        "translator",
+        "editor",
+        "foreword",
+        "introduction",
+        "afterword",
+        "preface",
+        "note",
+        "translated",
+        "illustrator",
+        "contributor",
+        "narrator",
+    }
+)
+
+# Regex to detect "Name - role" pattern (case-insensitive)
+_ROLE_SUFFIX_RE = re.compile(
+    r"\s+-\s+(" + "|".join(re.escape(r) for r in sorted(ROLE_SUFFIXES)) + r")\w*$",
+    re.IGNORECASE,
+)
+
+# Regex to detect "Name (role)" pattern
+_ROLE_PAREN_RE = re.compile(
+    r"\s*\((" + "|".join(re.escape(r) for r in sorted(ROLE_SUFFIXES)) + r")\w*\)\s*$",
+    re.IGNORECASE,
+)
+
+
+def has_role_suffix(name: str) -> bool:
+    """Check if a name has a role suffix like '- translator' or '(editor)'."""
+    if not name:
+        return False
+    return bool(_ROLE_SUFFIX_RE.search(name)) or bool(_ROLE_PAREN_RE.search(name))
+
+
+def strip_role_suffix(name: str) -> str:
+    """Strip role suffix from a name, returning the clean name."""
+    if not name:
+        return name
+    clean = _ROLE_SUFFIX_RE.sub("", name).strip()
+    clean = _ROLE_PAREN_RE.sub("", clean).strip()
+    return clean
+
+
 GROUP_NAMES = frozenset(
     {
         "full cast",
