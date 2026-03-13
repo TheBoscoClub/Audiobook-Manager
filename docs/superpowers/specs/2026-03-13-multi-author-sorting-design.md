@@ -27,43 +27,55 @@ Sorting by author or narrator fails when a book has multiple authors or narrator
 ### New Tables
 
 ```sql
-CREATE TABLE authors (
+CREATE TABLE IF NOT EXISTS authors (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     sort_name TEXT NOT NULL,
     UNIQUE(name)
 );
 
-CREATE TABLE narrators (
+CREATE TABLE IF NOT EXISTS narrators (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     sort_name TEXT NOT NULL,
     UNIQUE(name)
 );
 
-CREATE TABLE book_authors (
+CREATE TABLE IF NOT EXISTS book_authors (
     book_id INTEGER NOT NULL REFERENCES audiobooks(id) ON DELETE CASCADE,
     author_id INTEGER NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
     position INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (book_id, author_id)
 );
 
-CREATE TABLE book_narrators (
+CREATE TABLE IF NOT EXISTS book_narrators (
     book_id INTEGER NOT NULL REFERENCES audiobooks(id) ON DELETE CASCADE,
     narrator_id INTEGER NOT NULL REFERENCES narrators(id) ON DELETE CASCADE,
     position INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (book_id, narrator_id)
 );
 
-CREATE INDEX idx_authors_sort ON authors(sort_name);
-CREATE INDEX idx_narrators_sort ON narrators(sort_name);
-CREATE INDEX idx_book_authors_author ON book_authors(author_id);
-CREATE INDEX idx_book_narrators_narrator ON book_narrators(narrator_id);
+CREATE INDEX IF NOT EXISTS idx_authors_sort ON authors(sort_name);
+CREATE INDEX IF NOT EXISTS idx_narrators_sort ON narrators(sort_name);
+CREATE INDEX IF NOT EXISTS idx_book_authors_author ON book_authors(author_id);
+CREATE INDEX IF NOT EXISTS idx_book_narrators_narrator ON book_narrators(narrator_id);
 ```
+
+### Foreign Key Enforcement
+
+All database connections MUST set `PRAGMA foreign_keys = ON` before any operations on the new tables. Without this, SQLite silently ignores `REFERENCES` and `ON DELETE CASCADE`. This pragma must be set per-connection (it does not persist). The existing schema has the same latent gap — this migration is the occasion to fix it globally.
 
 ### Existing Columns Retained
 
 The `author`, `narrator`, `author_first_name`, `author_last_name`, `narrator_first_name`, `narrator_last_name` columns on the `audiobooks` table remain as denormalized display caches. The new junction tables are the source of truth for sorting and grouping.
+
+### Sync Direction: Normalized → Flat
+
+When admin correction endpoints modify the normalized tables (merge, rename, reassign), the flat `author`/`narrator` columns on the `audiobooks` table MUST be regenerated from the junction tables. This triggers the existing FTS update triggers on the `audiobooks` table, keeping full-text search in sync. The flat columns are always derived from the normalized tables, never the reverse.
+
+### `audiobooks_full` View
+
+The existing `audiobooks_full` view will NOT be modified in this phase. It continues to use the flat `author`/`narrator` columns for search and filtering. The grouped endpoint uses direct JOINs against the new tables instead of going through the view. If genre/subgenre normalization happens in a future phase, the view may be redesigned then.
 
 ## Name Parsing & Metadata Extraction
 
@@ -83,7 +95,8 @@ The `author`, `narrator`, `author_first_name`, `author_last_name`, `narrator_fir
 
 - `"King, Stephen"` — two single-word tokens → "Last, First" → one author
 - `"Stephen King, Peter Straub"` — multi-word tokens → multiple authors
-- `"King, Stephen, Straub, Peter"` — alternating single-word pattern → pairs of "Last, First"
+- `"King, Stephen, Straub, Peter"` — alternating single-word pattern where ALL tokens are single words → pairs of "Last, First"
+- The alternating-single-word heuristic ONLY applies when every token is a single word. If any token contains spaces, hyphens, or prefixes (e.g., `"de Saint-Exupery, Antoine, Straub, Peter"`), fall back to conservative single-author interpretation and flag for manual review
 - When ambiguous → treat as single author (conservative), flag for manual review
 
 ### Group Name Redirection
@@ -144,12 +157,40 @@ Returns pre-grouped results sorted by `sort_name`:
 
 `total_books` is the deduplicated count. `?by=narrator` works identically.
 
+### Grouped Endpoint Pagination
+
+The grouped endpoint returns all groups in a single response (no pagination). At the current scale (~500 authors, ~800 books), the full response is approximately 200-400 KB — well within acceptable payload size. If the library grows to the point where this becomes a performance concern (thousands of authors), pagination by group can be added as a future enhancement. Books within each group are not independently paginated — each group contains all its books.
+
 ### Back-Office Correction Endpoints
 
-- `PUT /api/admin/authors/{id}` — rename, update sort_name
-- `POST /api/admin/authors/merge` — merge duplicate author records
-- `POST /api/admin/books/{id}/authors` — reassign authors to a book
-- Same set of endpoints for narrators
+**Rename**: `PUT /api/admin/authors/{id}`
+```json
+// Request
+{"name": "Stephen King", "sort_name": "King, Stephen"}
+// Response: 200 with updated author object
+```
+
+**Merge duplicates**: `POST /api/admin/authors/merge`
+```json
+// Request — merge source(s) into target, reassign all books, delete sources
+{"source_ids": [3, 7], "target_id": 1}
+// Response: 200 with target author object and count of books reassigned
+```
+
+**Reassign book authors**: `PUT /api/admin/books/{id}/authors`
+```json
+// Request — full replacement of the book's author list
+{"author_ids": [1, 2], "positions": [0, 1]}
+// Response: 200 with updated book object including authors array
+```
+
+Same set of endpoints for narrators (`/api/admin/narrators/{id}`, `/api/admin/narrators/merge`, `/api/admin/books/{id}/narrators`).
+
+All admin endpoints regenerate the flat `author`/`narrator` columns on affected `audiobooks` rows after modification (see Sync Direction above).
+
+### Existing Sort Parameters
+
+The flat endpoint's `?sort=author_last` and `?sort=narrator_last` parameters continue to work, sorting by the denormalized `author_last_name`/`narrator_last_name` columns. These provide single-author sorting as before. For proper multi-author sorting, the frontend uses the grouped endpoint instead. The flat sort parameters are not deprecated — they serve the flat view where grouping isn't needed.
 
 ## Frontend / UI
 
@@ -185,6 +226,8 @@ Runs once during upgrade. Creates the four new tables and indices. Non-destructi
 ### Phase 2 — Data Migration
 
 Python script reads every `audiobooks` row, parses flat `author`/`narrator` strings using Tier 2/3 parsing, populates new tables. Deduplicates as it goes. Logs ambiguous parses to a migration report file. App is fully functional after this phase.
+
+**Books with NULL/empty authors or narrators**: If a book's `author` or `narrator` column is NULL or empty, it gets zero junction rows for that relationship. In the grouped view, these books appear in a synthetic "Unknown Author" or "Unknown Narrator" group sorted to the end of the list. The migration report flags these for manual review.
 
 ### Phase 3 — Background Re-Scan
 
