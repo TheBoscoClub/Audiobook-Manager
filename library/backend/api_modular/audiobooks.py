@@ -217,12 +217,24 @@ def get_audiobooks() -> Response:
         params.append(search)
 
     if author:
-        where_clauses.append("author LIKE ?")
-        params.append(f"%{author}%")
+        where_clauses.append(
+            """id IN (
+                SELECT ba.book_id FROM book_authors ba
+                JOIN authors a ON a.id = ba.author_id
+                WHERE a.name = ?
+            )"""
+        )
+        params.append(author)
 
     if narrator:
-        where_clauses.append("narrator LIKE ?")
-        params.append(f"%{narrator}%")
+        where_clauses.append(
+            """id IN (
+                SELECT bn.book_id FROM book_narrators bn
+                JOIN narrators n ON n.id = bn.narrator_id
+                WHERE n.name = ?
+            )"""
+        )
+        params.append(narrator)
 
     if publisher:
         where_clauses.append("publisher LIKE ?")
@@ -459,25 +471,29 @@ def get_filters() -> Response:
     conn = _get_audiobooks_db()
     cursor = conn.cursor()
 
-    # Get unique authors (audiobooks only)
+    # Get unique authors from normalized table (individual names, not composites)
     cursor.execute(
         f"""
-        SELECT DISTINCT author FROM audiobooks
-        WHERE {AUDIOBOOK_FILTER} AND author IS NOT NULL
-        ORDER BY author
+        SELECT DISTINCT a.name FROM authors a
+        JOIN book_authors ba ON ba.author_id = a.id
+        JOIN audiobooks ab ON ab.id = ba.book_id
+        WHERE {AUDIOBOOK_FILTER.replace('content_type', 'ab.content_type')}
+        ORDER BY a.sort_name
     """
     )
-    authors = [row["author"] for row in cursor.fetchall()]
+    authors = [row["name"] for row in cursor.fetchall()]
 
-    # Get unique narrators (audiobooks only)
+    # Get unique narrators from normalized table
     cursor.execute(
         f"""
-        SELECT DISTINCT narrator FROM audiobooks
-        WHERE {AUDIOBOOK_FILTER} AND narrator IS NOT NULL
-        ORDER BY narrator
+        SELECT DISTINCT n.name FROM narrators n
+        JOIN book_narrators bn ON bn.narrator_id = n.id
+        JOIN audiobooks ab ON ab.id = bn.book_id
+        WHERE {AUDIOBOOK_FILTER.replace('content_type', 'ab.content_type')}
+        ORDER BY n.sort_name
     """
     )
-    narrators = [row["narrator"] for row in cursor.fetchall()]
+    narrators = [row["name"] for row in cursor.fetchall()]
 
     # Get unique publishers (audiobooks only)
     cursor.execute(
@@ -535,14 +551,12 @@ def get_narrator_counts() -> Response:
 
     cursor.execute(
         f"""
-        SELECT narrator, COUNT(*) as count
-        FROM audiobooks
-        WHERE {AUDIOBOOK_FILTER}
-          AND narrator IS NOT NULL
-          AND narrator != ''
-          AND narrator != 'Unknown Narrator'
-        GROUP BY narrator
-        ORDER BY narrator
+        SELECT n.name as narrator, COUNT(DISTINCT bn.book_id) as count
+        FROM narrators n
+        JOIN book_narrators bn ON bn.narrator_id = n.id
+        JOIN audiobooks ab ON ab.id = bn.book_id
+        WHERE {AUDIOBOOK_FILTER.replace('content_type', 'ab.content_type')}
+        ORDER BY n.sort_name
     """
     )
 
