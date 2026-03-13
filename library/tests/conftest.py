@@ -384,6 +384,34 @@ def auth_app(auth_temp_dir):
             FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
         );
 
+        -- Normalized author/narrator tables
+        CREATE TABLE IF NOT EXISTS authors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            sort_name TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS narrators (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            sort_name TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS book_authors (
+            book_id INTEGER NOT NULL,
+            author_id INTEGER NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (book_id, author_id),
+            FOREIGN KEY (book_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS book_narrators (
+            book_id INTEGER NOT NULL,
+            narrator_id INTEGER NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (book_id, narrator_id),
+            FOREIGN KEY (book_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+            FOREIGN KEY (narrator_id) REFERENCES narrators(id) ON DELETE CASCADE
+        );
+
         -- Test audiobooks (used by auth API and user state tests)
         INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
         VALUES (1, 'The Fellowship of the Ring', 'J.R.R. Tolkien', '/test/fellowship.opus', 'opus', 19.0, 'Product', '2026-01-01 00:00:00');
@@ -396,6 +424,13 @@ def auth_app(auth_temp_dir):
 
         INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
         VALUES (4, 'The Hobbit', 'J.R.R. Tolkien', '/test/hobbit.opus', 'opus', 11.0, 'Product', '2026-02-20 00:00:00');
+
+        -- Normalized author data for test audiobooks
+        INSERT INTO authors (id, name, sort_name) VALUES (1, 'J.R.R. Tolkien', 'Tolkien, J.R.R.');
+        INSERT INTO book_authors (book_id, author_id, position) VALUES (1, 1, 0);
+        INSERT INTO book_authors (book_id, author_id, position) VALUES (2, 1, 0);
+        INSERT INTO book_authors (book_id, author_id, position) VALUES (3, 1, 0);
+        INSERT INTO book_authors (book_id, author_id, position) VALUES (4, 1, 0);
     """)
     conn.close()
 
