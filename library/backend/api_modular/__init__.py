@@ -48,6 +48,7 @@ from .editions import (
 )
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
+from .grouped import grouped_bp, init_grouped_routes
 from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .user_state import init_user_state_routes, user_bp
 from .utilities import init_utilities_routes, utilities_bp
@@ -150,6 +151,7 @@ def create_app(
     init_supplements_routes(database_path, supplements_dir)
     init_utilities_routes(database_path, project_root)
     init_position_routes(database_path)
+    init_grouped_routes(database_path)
 
     # Initialize auth routes if configured
     if flask_app.config["AUTH_ENABLED"]:
@@ -169,6 +171,7 @@ def create_app(
     flask_app.register_blueprint(supplements_bp)
     flask_app.register_blueprint(utilities_bp)
     flask_app.register_blueprint(position_bp)
+    flask_app.register_blueprint(grouped_bp)
 
     # Register auth blueprint if configured
     if flask_app.config["AUTH_ENABLED"]:
@@ -281,6 +284,7 @@ __all__ = [
     "utilities_bp",
     "position_bp",
     "admin_activity_bp",
+    "grouped_bp",
     "auth_bp",
     "user_bp",
     # Auth decorators
