@@ -775,6 +775,9 @@ do_upgrade() {
         local db_path=""
         if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
             db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
+            # Strip surrounding quotes if present
+            db_path="${db_path%\"}"
+            db_path="${db_path#\"}"
         fi
         db_path="${db_path:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}"
 
