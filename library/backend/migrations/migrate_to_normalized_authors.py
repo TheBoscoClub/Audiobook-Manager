@@ -12,7 +12,13 @@ import argparse
 import logging
 import sqlite3
 
-from library.backend.name_parser import generate_sort_name, is_group_name, parse_names
+from library.backend.name_parser import (
+    generate_sort_name,
+    has_role_suffix,
+    is_group_name,
+    parse_names,
+    strip_role_suffix,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +53,16 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         author_names = parse_names(row["author"]) if row["author"] else []
         narrator_names = parse_names(row["narrator"]) if row["narrator"] else []
 
-        # Redirect group names from author to narrator
+        # Redirect group names from author to narrator, exclude role-suffixed names
         redirected = []
         clean_authors = []
         for name in author_names:
             if is_group_name(name):
                 redirected.append(name)
                 stats["group_redirections"] += 1
+            elif has_role_suffix(name):
+                # "Frances Riddle - translator" → not an author, skip
+                stats["role_excluded"] = stats.get("role_excluded", 0) + 1
             else:
                 clean_authors.append(name)
 
