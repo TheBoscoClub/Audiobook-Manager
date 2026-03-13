@@ -95,6 +95,44 @@ CREATE TABLE IF NOT EXISTS audiobook_topics (
     FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
 );
 
+-- Normalized author/narrator tables (many-to-many)
+CREATE TABLE IF NOT EXISTS authors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    sort_name TEXT NOT NULL,
+    UNIQUE(name)
+);
+
+CREATE TABLE IF NOT EXISTS narrators (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    sort_name TEXT NOT NULL,
+    UNIQUE(name)
+);
+
+CREATE TABLE IF NOT EXISTS book_authors (
+    book_id INTEGER NOT NULL,
+    author_id INTEGER NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (book_id, author_id),
+    FOREIGN KEY (book_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+    FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS book_narrators (
+    book_id INTEGER NOT NULL,
+    narrator_id INTEGER NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (book_id, narrator_id),
+    FOREIGN KEY (book_id) REFERENCES audiobooks(id) ON DELETE CASCADE,
+    FOREIGN KEY (narrator_id) REFERENCES narrators(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_authors_sort ON authors(sort_name);
+CREATE INDEX IF NOT EXISTS idx_narrators_sort ON narrators(sort_name);
+CREATE INDEX IF NOT EXISTS idx_book_authors_author ON book_authors(author_id);
+CREATE INDEX IF NOT EXISTS idx_book_narrators_narrator ON book_narrators(narrator_id);
+
 -- Full-text search virtual table for fast text search
 CREATE VIRTUAL TABLE IF NOT EXISTS audiobooks_fts USING fts5(
     title,
