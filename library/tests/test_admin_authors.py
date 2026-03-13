@@ -100,15 +100,8 @@ def admin_authors_app(admin_authors_tmpdir):
     app = Flask(__name__)
     app.config["TESTING"] = True
     app.config["AUTH_ENABLED"] = False
+    app.config["DATABASE_PATH"] = db_path
     app.config["test_db_path"] = db_path
-
-    # Create fresh blueprint to avoid re-registration
-    from flask import Blueprint
-    fresh_bp = Blueprint("admin_authors_test", __name__)
-
-    # Import the route setup function internals and bind to fresh blueprint
-    from backend.api_modular.admin_authors import init_admin_authors_routes as _init
-    _init(db_path)
 
     @app.after_request
     def cors(response):

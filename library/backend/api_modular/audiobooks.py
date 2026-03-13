@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from flask import Blueprint, Response, jsonify, request, send_file, send_from_directory
+from flask import Blueprint, Response, current_app, jsonify, request, send_file, send_from_directory
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -34,736 +34,759 @@ AUDIOBOOK_FILTER = (
     "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 )
 
-
 def init_audiobooks_routes(db_path, project_root, database_path):
-    """Initialize routes with database path and project directories."""
+    """Initialize audiobooks routes (no-op, kept for API compatibility).
 
-    @audiobooks_bp.route("/api/stats", methods=["GET"])
-    @guest_allowed
-    def get_stats() -> Response:
-        """Get library statistics (audiobooks only)"""
-        conn = get_db(db_path)
-        cursor = conn.cursor()
+    Database path is now resolved at request time via current_app.config.
+    """
+    pass
 
-        # Total audiobooks (audiobooks only)
-        cursor.execute(
-            f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+
+def _get_audiobooks_db():
+    """Get database connection from current Flask app config."""
+    db_path = current_app.config.get("DATABASE_PATH")
+    if db_path is None:
+        raise RuntimeError(
+            "DATABASE_PATH not configured in Flask app."
         )
-        total_books = cursor.fetchone()["total"]
+    return get_db(db_path)
 
-        # Total hours (audiobooks only)
-        cursor.execute(
-            f"SELECT SUM(duration_hours) as total_hours FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
-        )
-        total_hours = cursor.fetchone()["total_hours"] or 0
 
-        # Total storage used (sum of file sizes in MB, convert to GB)
-        cursor.execute(
-            f"SELECT SUM(file_size_mb) as total_size FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
-        )
-        total_size_mb = cursor.fetchone()["total_size"] or 0
-        total_size_gb = total_size_mb / 1024
+@audiobooks_bp.route("/api/stats", methods=["GET"])
+@guest_allowed
+def get_stats() -> Response:
+    """Get library statistics (audiobooks only)"""
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
 
-        # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
-        cursor.execute(
-            f"""
-            SELECT COUNT(DISTINCT author) as count FROM audiobooks
-            WHERE {AUDIOBOOK_FILTER}
-              AND author IS NOT NULL
-              AND LOWER(TRIM(author)) != 'audiobook'
-              AND LOWER(TRIM(author)) != 'unknown author'
-        """
-        )
-        unique_authors = cursor.fetchone()["count"]
+    # Total audiobooks (audiobooks only)
+    cursor.execute(
+        f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+    )
+    total_books = cursor.fetchone()["total"]
 
-        cursor.execute(
-            f"""
-            SELECT COUNT(DISTINCT narrator) as count FROM audiobooks
-            WHERE {AUDIOBOOK_FILTER}
-              AND narrator IS NOT NULL
-              AND LOWER(TRIM(narrator)) != 'unknown narrator'
-              AND LOWER(TRIM(narrator)) != ''
-        """
-        )
-        unique_narrators = cursor.fetchone()["count"]
+    # Total hours (audiobooks only)
+    cursor.execute(
+        f"SELECT SUM(duration_hours) as total_hours FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+    )
+    total_hours = cursor.fetchone()["total_hours"] or 0
 
-        cursor.execute(
-            f"SELECT COUNT(DISTINCT publisher) as count FROM audiobooks WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL"
-        )
-        unique_publishers = cursor.fetchone()["count"]
+    # Total storage used (sum of file sizes in MB, convert to GB)
+    cursor.execute(
+        f"SELECT SUM(file_size_mb) as total_size FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+    )
+    total_size_mb = cursor.fetchone()["total_size"] or 0
+    total_size_gb = total_size_mb / 1024
 
-        cursor.execute("SELECT COUNT(*) as count FROM genres")
-        unique_genres = cursor.fetchone()["count"]
+    # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
+    cursor.execute(
+        f"""
+        SELECT COUNT(DISTINCT author) as count FROM audiobooks
+        WHERE {AUDIOBOOK_FILTER}
+          AND author IS NOT NULL
+          AND LOWER(TRIM(author)) != 'audiobook'
+          AND LOWER(TRIM(author)) != 'unknown author'
+    """
+    )
+    unique_authors = cursor.fetchone()["count"]
 
-        conn.close()
+    cursor.execute(
+        f"""
+        SELECT COUNT(DISTINCT narrator) as count FROM audiobooks
+        WHERE {AUDIOBOOK_FILTER}
+          AND narrator IS NOT NULL
+          AND LOWER(TRIM(narrator)) != 'unknown narrator'
+          AND LOWER(TRIM(narrator)) != ''
+    """
+    )
+    unique_narrators = cursor.fetchone()["count"]
 
-        # Get database file size
-        database_size_mb: float = 0.0
-        try:
-            import os
+    cursor.execute(
+        f"SELECT COUNT(DISTINCT publisher) as count FROM audiobooks WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL"
+    )
+    unique_publishers = cursor.fetchone()["count"]
 
-            db_path_str = str(database_path)
-            if os.path.exists(db_path_str):
-                database_size_mb = os.path.getsize(db_path_str) / (1024 * 1024)
-        except OSError:
-            pass  # Non-critical: database size is for informational display only
+    cursor.execute("SELECT COUNT(*) as count FROM genres")
+    unique_genres = cursor.fetchone()["count"]
 
-        return jsonify(
-            {
-                "total_audiobooks": total_books,
-                "total_hours": round(total_hours),
-                "total_days": round(total_hours / 24),
-                "total_size_gb": round(total_size_gb, 2),
-                "database_size_mb": round(database_size_mb, 2),
-                "unique_authors": unique_authors,
-                "unique_narrators": unique_narrators,
-                "unique_publishers": unique_publishers,
-                "unique_genres": unique_genres,
-            }
-        )
+    conn.close()
 
-    @audiobooks_bp.route("/api/audiobooks", methods=["GET"])
-    @guest_allowed
-    def get_audiobooks() -> Response:
-        """
-        Get paginated audiobooks with optional filtering
-        Query params:
-        - page: Page number (default: 1)
-        - per_page: Items per page (default: 50, max: 200)
-        - search: Search query (full-text search)
-        - author: Filter by author
-        - narrator: Filter by narrator
-        - publisher: Filter by publisher
-        - genre: Filter by genre
-        - format: Filter by format (opus, m4b, etc.)
-        - collection: Filter by predefined collection (e.g., 'great-courses')
-        - sort: Sort field (title, author, duration_hours, created_at)
-        - order: Sort order (asc, desc)
-        """
-        # Parse parameters
-        page = max(1, int(request.args.get("page", 1)))
-        per_page = min(200, max(1, int(request.args.get("per_page", 50))))
-        search = request.args.get("search", "").strip()
-        author = request.args.get("author", "").strip()
-        narrator = request.args.get("narrator", "").strip()
-        publisher = request.args.get("publisher", "").strip()
-        genre = request.args.get("genre", "").strip()
-        format_filter = request.args.get("format", "").strip()
-        collection = request.args.get("collection", "").strip()
-        sort_field = request.args.get("sort", "title")
-        sort_order = request.args.get("order", "asc").lower()
+    # Get database file size
+    database_size_mb: float = 0.0
+    try:
+        import os
 
-        # Map user-friendly sort names to SQL expressions
-        sort_mappings = {
-            "title": "title",
-            "author": "author",
-            "author_last": "author_last_name",
-            "author_first": "author_first_name",
-            "narrator": "narrator",
-            "narrator_last": "narrator_last_name",
-            "narrator_first": "narrator_first_name",
-            "duration_hours": "duration_hours",
-            "created_at": "created_at",
-            "acquired_date": "acquired_date",
-            "published_year": "published_year",
-            "published_date": "published_date",
-            "file_size_mb": "file_size_mb",
-            "series": "series, series_sequence",
-            "asin": "asin",
-            "edition": "edition",
+        db_path_str = str(current_app.config.get("DATABASE_PATH", ""))
+        if os.path.exists(db_path_str):
+            database_size_mb = os.path.getsize(db_path_str) / (1024 * 1024)
+    except OSError:
+        pass  # Non-critical: database size is for informational display only
+
+    return jsonify(
+        {
+            "total_audiobooks": total_books,
+            "total_hours": round(total_hours),
+            "total_days": round(total_hours / 24),
+            "total_size_gb": round(total_size_gb, 2),
+            "database_size_mb": round(database_size_mb, 2),
+            "unique_authors": unique_authors,
+            "unique_narrators": unique_narrators,
+            "unique_publishers": unique_publishers,
+            "unique_genres": unique_genres,
         }
+    )
 
-        # Get SQL sort expression
-        if sort_field in sort_mappings:
-            sort_sql = sort_mappings[sort_field]
-        else:
-            sort_sql = "title"
 
-        # Validate sort order
-        if sort_order not in ["asc", "desc"]:
-            sort_order = "asc"
+@audiobooks_bp.route("/api/audiobooks", methods=["GET"])
+@guest_allowed
+def get_audiobooks() -> Response:
+    """
+    Get paginated audiobooks with optional filtering
+    Query params:
+    - page: Page number (default: 1)
+    - per_page: Items per page (default: 50, max: 200)
+    - search: Search query (full-text search)
+    - author: Filter by author
+    - narrator: Filter by narrator
+    - publisher: Filter by publisher
+    - genre: Filter by genre
+    - format: Filter by format (opus, m4b, etc.)
+    - collection: Filter by predefined collection (e.g., 'great-courses')
+    - sort: Sort field (title, author, duration_hours, created_at)
+    - order: Sort order (asc, desc)
+    """
+    # Parse parameters
+    page = max(1, int(request.args.get("page", 1)))
+    per_page = min(200, max(1, int(request.args.get("per_page", 50))))
+    search = request.args.get("search", "").strip()
+    author = request.args.get("author", "").strip()
+    narrator = request.args.get("narrator", "").strip()
+    publisher = request.args.get("publisher", "").strip()
+    genre = request.args.get("genre", "").strip()
+    format_filter = request.args.get("format", "").strip()
+    collection = request.args.get("collection", "").strip()
+    sort_field = request.args.get("sort", "title")
+    sort_order = request.args.get("order", "asc").lower()
 
-        conn = get_db(db_path)
-        cursor = conn.cursor()
+    # Map user-friendly sort names to SQL expressions
+    sort_mappings = {
+        "title": "title",
+        "author": "author",
+        "author_last": "author_last_name",
+        "author_first": "author_first_name",
+        "narrator": "narrator",
+        "narrator_last": "narrator_last_name",
+        "narrator_first": "narrator_first_name",
+        "duration_hours": "duration_hours",
+        "created_at": "created_at",
+        "acquired_date": "acquired_date",
+        "published_year": "published_year",
+        "published_date": "published_date",
+        "file_size_mb": "file_size_mb",
+        "series": "series, series_sequence",
+        "asin": "asin",
+        "edition": "edition",
+    }
 
-        # Build query - filter to audiobooks only unless collection bypasses it
-        # Collections like "Podcasts" set bypasses_filter=True to show non-audiobook content
-        collection_data = COLLECTIONS.get(collection) if collection else None
-        bypasses = collection_data and collection_data.get("bypasses_filter", False)
+    # Get SQL sort expression
+    if sort_field in sort_mappings:
+        sort_sql = sort_mappings[sort_field]
+    else:
+        sort_sql = "title"
 
-        where_clauses = [] if bypasses else [AUDIOBOOK_FILTER]
-        params = []
+    # Validate sort order
+    if sort_order not in ["asc", "desc"]:
+        sort_order = "asc"
 
-        if search:
-            # Full-text search
-            where_clauses.append(
-                "id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)"
-            )
-            params.append(search)
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
 
-        if author:
-            where_clauses.append("author LIKE ?")
-            params.append(f"%{author}%")
+    # Build query - filter to audiobooks only unless collection bypasses it
+    # Collections like "Podcasts" set bypasses_filter=True to show non-audiobook content
+    collection_data = COLLECTIONS.get(collection) if collection else None
+    bypasses = collection_data and collection_data.get("bypasses_filter", False)
 
-        if narrator:
-            where_clauses.append("narrator LIKE ?")
-            params.append(f"%{narrator}%")
+    where_clauses = [] if bypasses else [AUDIOBOOK_FILTER]
+    params = []
 
-        if publisher:
-            where_clauses.append("publisher LIKE ?")
-            params.append(f"%{publisher}%")
+    if search:
+        # Full-text search
+        where_clauses.append(
+            "id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)"
+        )
+        params.append(search)
 
-        if format_filter:
-            where_clauses.append("format = ?")
-            params.append(format_filter.lower())
+    if author:
+        where_clauses.append("author LIKE ?")
+        params.append(f"%{author}%")
 
-        if genre:
-            where_clauses.append(
-                """
-                id IN (
-                    SELECT audiobook_id FROM audiobook_genres ag
-                    JOIN genres g ON ag.genre_id = g.id
-                    WHERE g.name LIKE ?
-                )
+    if narrator:
+        where_clauses.append("narrator LIKE ?")
+        params.append(f"%{narrator}%")
+
+    if publisher:
+        where_clauses.append("publisher LIKE ?")
+        params.append(f"%{publisher}%")
+
+    if format_filter:
+        where_clauses.append("format = ?")
+        params.append(format_filter.lower())
+
+    if genre:
+        where_clauses.append(
             """
+            id IN (
+                SELECT audiobook_id FROM audiobook_genres ag
+                JOIN genres g ON ag.genre_id = g.id
+                WHERE g.name LIKE ?
             )
-            params.append(f"%{genre}%")
-
-        # Collection filter (predefined query from COLLECTIONS)
-        if collection_data:
-            where_clauses.append(f"({collection_data['query']})")
-
-        where_sql = ""
-        if where_clauses:
-            where_sql = "WHERE " + " AND ".join(where_clauses)
-
-        # Count total matching audiobooks
-        count_query = f"SELECT COUNT(*) as total FROM audiobooks {where_sql}"
-        cursor.execute(count_query, params)
-        total_count = cursor.fetchone()["total"]
-
-        # Get paginated audiobooks
-        offset = (page - 1) * per_page
-
-        # CodeQL: sort_sql is from sort_mappings allowlist (lines 148-165), sort_order validated (line 174)
-        query = f"""
-            SELECT
-                id, title, author, narrator, publisher, series,
-                series_sequence, edition, asin, acquired_date, published_year,
-                author_last_name, author_first_name,
-                narrator_last_name, narrator_first_name,
-                duration_hours, duration_formatted, file_size_mb,
-                file_path, cover_path, format, quality, description
-            FROM audiobooks
-            {where_sql}
-            ORDER BY {sort_sql} {sort_order}
-            LIMIT ? OFFSET ?
-        """
-
-        cursor.execute(query, params + [per_page, offset])
-        rows = cursor.fetchall()
-
-        # Convert to list of dicts
-        audiobooks = []
-        book_ids = []
-        for row in rows:
-            book = dict(row)
-            audiobooks.append(book)
-            book_ids.append(book["id"])
-
-        if book_ids:
-            placeholders = ",".join("?" * len(book_ids))
-
-            # Batch: genres for all books in one query
-            cursor.execute(
-                f"""
-                SELECT ag.audiobook_id, g.name FROM genres g
-                JOIN audiobook_genres ag ON g.id = ag.genre_id
-                WHERE ag.audiobook_id IN ({placeholders})
-                """,
-                book_ids,
-            )
-            genres_map: dict[int, list[str]] = {}
-            for r in cursor.fetchall():
-                genres_map.setdefault(r["audiobook_id"], []).append(r["name"])
-
-            # Batch: eras for all books in one query
-            cursor.execute(
-                f"""
-                SELECT ae.audiobook_id, e.name FROM eras e
-                JOIN audiobook_eras ae ON e.id = ae.era_id
-                WHERE ae.audiobook_id IN ({placeholders})
-                """,
-                book_ids,
-            )
-            eras_map: dict[int, list[str]] = {}
-            for r in cursor.fetchall():
-                eras_map.setdefault(r["audiobook_id"], []).append(r["name"])
-
-            # Batch: topics for all books in one query
-            cursor.execute(
-                f"""
-                SELECT at.audiobook_id, t.name FROM topics t
-                JOIN audiobook_topics at ON t.id = at.topic_id
-                WHERE at.audiobook_id IN ({placeholders})
-                """,
-                book_ids,
-            )
-            topics_map: dict[int, list[str]] = {}
-            for r in cursor.fetchall():
-                topics_map.setdefault(r["audiobook_id"], []).append(r["name"])
-
-            # Batch: supplement counts in one query
-            cursor.execute(
-                f"""
-                SELECT audiobook_id, COUNT(*) as count FROM supplements
-                WHERE audiobook_id IN ({placeholders})
-                GROUP BY audiobook_id
-                """,
-                book_ids,
-            )
-            supplements_map = {r["audiobook_id"]: r["count"] for r in cursor.fetchall()}
-
-            # Batch: authors for all books in one query (normalized many-to-many)
-            authors_map: dict[int, list[dict]] = {}
-            try:
-                cursor.execute(
-                    f"""
-                    SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position
-                    FROM book_authors ba
-                    JOIN authors a ON ba.author_id = a.id
-                    WHERE ba.book_id IN ({placeholders})
-                    ORDER BY ba.position
-                    """,
-                    book_ids,
-                )
-                for r in cursor.fetchall():
-                    authors_map.setdefault(r["book_id"], []).append(
-                        {
-                            "id": r["id"],
-                            "name": r["name"],
-                            "sort_name": r["sort_name"],
-                            "position": r["position"],
-                        }
-                    )
-            except Exception:
-                # Tables may not exist yet (pre-migration)
-                pass
-
-            # Batch: narrators for all books in one query (normalized many-to-many)
-            narrators_map: dict[int, list[dict]] = {}
-            try:
-                cursor.execute(
-                    f"""
-                    SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position
-                    FROM book_narrators bn
-                    JOIN narrators n ON bn.narrator_id = n.id
-                    WHERE bn.book_id IN ({placeholders})
-                    ORDER BY bn.position
-                    """,
-                    book_ids,
-                )
-                for r in cursor.fetchall():
-                    narrators_map.setdefault(r["book_id"], []).append(
-                        {
-                            "id": r["id"],
-                            "name": r["name"],
-                            "sort_name": r["sort_name"],
-                            "position": r["position"],
-                        }
-                    )
-            except Exception:
-                # Tables may not exist yet (pre-migration)
-                pass
-
-            # Batch: edition detection — get all titles by the same authors
-            authors = list({book["author"] for book in audiobooks if book["author"]})
-            edition_titles_by_author: dict[str, list[str]] = {}
-            if authors:
-                author_placeholders = ",".join("?" * len(authors))
-                cursor.execute(
-                    f"""
-                    SELECT author, title FROM audiobooks
-                    WHERE author IN ({author_placeholders})
-                    """,
-                    authors,
-                )
-                for r in cursor.fetchall():
-                    edition_titles_by_author.setdefault(r["author"], []).append(
-                        r["title"]
-                    )
-
-            # Assign batch results to each book
-            for book in audiobooks:
-                bid = book["id"]
-                book["genres"] = genres_map.get(bid, [])
-                book["eras"] = eras_map.get(bid, [])
-                book["topics"] = topics_map.get(bid, [])
-                book["supplement_count"] = supplements_map.get(bid, 0)
-                book["authors"] = authors_map.get(bid, [])
-                book["narrators"] = narrators_map.get(bid, [])
-
-                # Edition count from pre-fetched author titles
-                base_title = normalize_base_title(book["title"])
-                related_titles = edition_titles_by_author.get(book["author"], [])
-                matching_editions = [
-                    t for t in related_titles if normalize_base_title(t) == base_title
-                ]
-                has_markers = any(
-                    has_edition_marker(title) for title in matching_editions
-                )
-                if len(matching_editions) > 1 and has_markers:
-                    book["edition_count"] = len(matching_editions)
-                else:
-                    book["edition_count"] = 1
-
-        conn.close()
-
-        # Calculate pagination metadata
-        total_pages = (total_count + per_page - 1) // per_page
-
-        return jsonify(
-            {
-                "audiobooks": audiobooks,
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total_count": total_count,
-                    "total_pages": total_pages,
-                    "has_next": page < total_pages,
-                    "has_prev": page > 1,
-                },
-            }
-        )
-
-    @audiobooks_bp.route("/api/filters", methods=["GET"])
-    @guest_allowed
-    def get_filters() -> Response:
-        """Get all available filter options (audiobooks only)"""
-        conn = get_db(db_path)
-        cursor = conn.cursor()
-
-        # Get unique authors (audiobooks only)
-        cursor.execute(
-            f"""
-            SELECT DISTINCT author FROM audiobooks
-            WHERE {AUDIOBOOK_FILTER} AND author IS NOT NULL
-            ORDER BY author
         """
         )
-        authors = [row["author"] for row in cursor.fetchall()]
+        params.append(f"%{genre}%")
 
-        # Get unique narrators (audiobooks only)
-        cursor.execute(
-            f"""
-            SELECT DISTINCT narrator FROM audiobooks
-            WHERE {AUDIOBOOK_FILTER} AND narrator IS NOT NULL
-            ORDER BY narrator
-        """
-        )
-        narrators = [row["narrator"] for row in cursor.fetchall()]
+    # Collection filter (predefined query from COLLECTIONS)
+    if collection_data:
+        where_clauses.append(f"({collection_data['query']})")
 
-        # Get unique publishers (audiobooks only)
-        cursor.execute(
-            f"""
-            SELECT DISTINCT publisher FROM audiobooks
-            WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
-            ORDER BY publisher
-        """
-        )
-        publishers = [row["publisher"] for row in cursor.fetchall()]
+    where_sql = ""
+    if where_clauses:
+        where_sql = "WHERE " + " AND ".join(where_clauses)
 
-        # Get genres
-        cursor.execute("SELECT name FROM genres ORDER BY name")
-        genres = [row["name"] for row in cursor.fetchall()]
+    # Count total matching audiobooks
+    count_query = f"SELECT COUNT(*) as total FROM audiobooks {where_sql}"
+    cursor.execute(count_query, params)
+    total_count = cursor.fetchone()["total"]
 
-        # Get eras
-        cursor.execute("SELECT name FROM eras ORDER BY name")
-        eras = [row["name"] for row in cursor.fetchall()]
+    # Get paginated audiobooks
+    offset = (page - 1) * per_page
 
-        # Get topics
-        cursor.execute("SELECT name FROM topics ORDER BY name")
-        topics = [row["name"] for row in cursor.fetchall()]
+    # CodeQL: sort_sql is from sort_mappings allowlist (lines 148-165), sort_order validated (line 174)
+    query = f"""
+        SELECT
+            id, title, author, narrator, publisher, series,
+            series_sequence, edition, asin, acquired_date, published_year,
+            author_last_name, author_first_name,
+            narrator_last_name, narrator_first_name,
+            duration_hours, duration_formatted, file_size_mb,
+            file_path, cover_path, format, quality, description
+        FROM audiobooks
+        {where_sql}
+        ORDER BY {sort_sql} {sort_order}
+        LIMIT ? OFFSET ?
+    """
 
-        # Get formats (audiobooks only)
-        cursor.execute(
-            f"""
-            SELECT DISTINCT format FROM audiobooks
-            WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
-            ORDER BY format
-        """
-        )
-        formats = [row["format"] for row in cursor.fetchall()]
+    cursor.execute(query, params + [per_page, offset])
+    rows = cursor.fetchall()
 
-        conn.close()
-
-        return jsonify(
-            {
-                "authors": authors,
-                "narrators": narrators,
-                "publishers": publishers,
-                "genres": genres,
-                "eras": eras,
-                "topics": topics,
-                "formats": formats,
-            }
-        )
-
-    @audiobooks_bp.route("/api/narrator-counts", methods=["GET"])
-    @guest_allowed
-    def get_narrator_counts() -> Response:
-        """Get narrator book counts for autocomplete (audiobooks only)"""
-        conn = get_db(db_path)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            f"""
-            SELECT narrator, COUNT(*) as count
-            FROM audiobooks
-            WHERE {AUDIOBOOK_FILTER}
-              AND narrator IS NOT NULL
-              AND narrator != ''
-              AND narrator != 'Unknown Narrator'
-            GROUP BY narrator
-            ORDER BY narrator
-        """
-        )
-
-        counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}
-        conn.close()
-
-        return jsonify(counts)
-
-    @audiobooks_bp.route("/api/audiobooks/<int:audiobook_id>", methods=["GET"])
-    @guest_allowed
-    def get_audiobook(audiobook_id: int) -> FlaskResponse:
-        """Get single audiobook details"""
-        conn = get_db(db_path)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT * FROM audiobooks WHERE id = ?
-        """,
-            (audiobook_id,),
-        )
-
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return jsonify({"error": "Audiobook not found"}), 404
-
+    # Convert to list of dicts
+    audiobooks = []
+    book_ids = []
+    for row in rows:
         book = dict(row)
+        audiobooks.append(book)
+        book_ids.append(book["id"])
 
-        # Get related data
+    if book_ids:
+        placeholders = ",".join("?" * len(book_ids))
+
+        # Batch: genres for all books in one query
         cursor.execute(
-            """
-            SELECT g.name FROM genres g
+            f"""
+            SELECT ag.audiobook_id, g.name FROM genres g
             JOIN audiobook_genres ag ON g.id = ag.genre_id
-            WHERE ag.audiobook_id = ?
-        """,
-            (audiobook_id,),
+            WHERE ag.audiobook_id IN ({placeholders})
+            """,
+            book_ids,
         )
-        book["genres"] = [r["name"] for r in cursor.fetchall()]
+        genres_map: dict[int, list[str]] = {}
+        for r in cursor.fetchall():
+            genres_map.setdefault(r["audiobook_id"], []).append(r["name"])
 
+        # Batch: eras for all books in one query
         cursor.execute(
-            """
-            SELECT e.name FROM eras e
+            f"""
+            SELECT ae.audiobook_id, e.name FROM eras e
             JOIN audiobook_eras ae ON e.id = ae.era_id
-            WHERE ae.audiobook_id = ?
-        """,
-            (audiobook_id,),
+            WHERE ae.audiobook_id IN ({placeholders})
+            """,
+            book_ids,
         )
-        book["eras"] = [r["name"] for r in cursor.fetchall()]
+        eras_map: dict[int, list[str]] = {}
+        for r in cursor.fetchall():
+            eras_map.setdefault(r["audiobook_id"], []).append(r["name"])
 
+        # Batch: topics for all books in one query
         cursor.execute(
-            """
-            SELECT t.name FROM topics t
+            f"""
+            SELECT at.audiobook_id, t.name FROM topics t
             JOIN audiobook_topics at ON t.id = at.topic_id
-            WHERE at.audiobook_id = ?
-        """,
-            (audiobook_id,),
+            WHERE at.audiobook_id IN ({placeholders})
+            """,
+            book_ids,
         )
-        book["topics"] = [r["name"] for r in cursor.fetchall()]
+        topics_map: dict[int, list[str]] = {}
+        for r in cursor.fetchall():
+            topics_map.setdefault(r["audiobook_id"], []).append(r["name"])
 
-        conn.close()
-
-        return jsonify(book)
-
-    @audiobooks_bp.route("/covers/<path:filename>")
-    @guest_allowed
-    def serve_cover(filename: str) -> Response:
-        """Serve cover images from configured COVER_DIR"""
-        return send_from_directory(COVER_DIR, filename)
-
-    @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
-    @auth_if_enabled
-    def stream_audiobook(audiobook_id: int) -> FlaskResponse:
-        """Stream audiobook file.
-
-        Supports ?format=webm for Safari/iOS compatibility. Opus files are
-        natively in Ogg containers (audio/ogg) which Safari cannot play.
-        When format=webm is requested, the file is remuxed to WebM container
-        (same Opus codec, no re-encoding) and cached for subsequent requests.
-        """
-        conn = get_db(db_path)
-        cursor = conn.cursor()
-
+        # Batch: supplement counts in one query
         cursor.execute(
-            "SELECT file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,)
+            f"""
+            SELECT audiobook_id, COUNT(*) as count FROM supplements
+            WHERE audiobook_id IN ({placeholders})
+            GROUP BY audiobook_id
+            """,
+            book_ids,
         )
-        row = cursor.fetchone()
+        supplements_map = {r["audiobook_id"]: r["count"] for r in cursor.fetchall()}
+
+        # Batch: authors for all books in one query (normalized many-to-many)
+        authors_map: dict[int, list[dict]] = {}
+        try:
+            cursor.execute(
+                f"""
+                SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position
+                FROM book_authors ba
+                JOIN authors a ON ba.author_id = a.id
+                WHERE ba.book_id IN ({placeholders})
+                ORDER BY ba.position
+                """,
+                book_ids,
+            )
+            for r in cursor.fetchall():
+                authors_map.setdefault(r["book_id"], []).append(
+                    {
+                        "id": r["id"],
+                        "name": r["name"],
+                        "sort_name": r["sort_name"],
+                        "position": r["position"],
+                    }
+                )
+        except Exception:
+            # Tables may not exist yet (pre-migration)
+            pass
+
+        # Batch: narrators for all books in one query (normalized many-to-many)
+        narrators_map: dict[int, list[dict]] = {}
+        try:
+            cursor.execute(
+                f"""
+                SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position
+                FROM book_narrators bn
+                JOIN narrators n ON bn.narrator_id = n.id
+                WHERE bn.book_id IN ({placeholders})
+                ORDER BY bn.position
+                """,
+                book_ids,
+            )
+            for r in cursor.fetchall():
+                narrators_map.setdefault(r["book_id"], []).append(
+                    {
+                        "id": r["id"],
+                        "name": r["name"],
+                        "sort_name": r["sort_name"],
+                        "position": r["position"],
+                    }
+                )
+        except Exception:
+            # Tables may not exist yet (pre-migration)
+            pass
+
+        # Batch: edition detection — get all titles by the same authors
+        authors = list({book["author"] for book in audiobooks if book["author"]})
+        edition_titles_by_author: dict[str, list[str]] = {}
+        if authors:
+            author_placeholders = ",".join("?" * len(authors))
+            cursor.execute(
+                f"""
+                SELECT author, title FROM audiobooks
+                WHERE author IN ({author_placeholders})
+                """,
+                authors,
+            )
+            for r in cursor.fetchall():
+                edition_titles_by_author.setdefault(r["author"], []).append(
+                    r["title"]
+                )
+
+        # Assign batch results to each book
+        for book in audiobooks:
+            bid = book["id"]
+            book["genres"] = genres_map.get(bid, [])
+            book["eras"] = eras_map.get(bid, [])
+            book["topics"] = topics_map.get(bid, [])
+            book["supplement_count"] = supplements_map.get(bid, 0)
+            book["authors"] = authors_map.get(bid, [])
+            book["narrators"] = narrators_map.get(bid, [])
+
+            # Edition count from pre-fetched author titles
+            base_title = normalize_base_title(book["title"])
+            related_titles = edition_titles_by_author.get(book["author"], [])
+            matching_editions = [
+                t for t in related_titles if normalize_base_title(t) == base_title
+            ]
+            has_markers = any(
+                has_edition_marker(title) for title in matching_editions
+            )
+            if len(matching_editions) > 1 and has_markers:
+                book["edition_count"] = len(matching_editions)
+            else:
+                book["edition_count"] = 1
+
+    conn.close()
+
+    # Calculate pagination metadata
+    total_pages = (total_count + per_page - 1) // per_page
+
+    return jsonify(
+        {
+            "audiobooks": audiobooks,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1,
+            },
+        }
+    )
+
+
+@audiobooks_bp.route("/api/filters", methods=["GET"])
+@guest_allowed
+def get_filters() -> Response:
+    """Get all available filter options (audiobooks only)"""
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
+
+    # Get unique authors (audiobooks only)
+    cursor.execute(
+        f"""
+        SELECT DISTINCT author FROM audiobooks
+        WHERE {AUDIOBOOK_FILTER} AND author IS NOT NULL
+        ORDER BY author
+    """
+    )
+    authors = [row["author"] for row in cursor.fetchall()]
+
+    # Get unique narrators (audiobooks only)
+    cursor.execute(
+        f"""
+        SELECT DISTINCT narrator FROM audiobooks
+        WHERE {AUDIOBOOK_FILTER} AND narrator IS NOT NULL
+        ORDER BY narrator
+    """
+    )
+    narrators = [row["narrator"] for row in cursor.fetchall()]
+
+    # Get unique publishers (audiobooks only)
+    cursor.execute(
+        f"""
+        SELECT DISTINCT publisher FROM audiobooks
+        WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
+        ORDER BY publisher
+    """
+    )
+    publishers = [row["publisher"] for row in cursor.fetchall()]
+
+    # Get genres
+    cursor.execute("SELECT name FROM genres ORDER BY name")
+    genres = [row["name"] for row in cursor.fetchall()]
+
+    # Get eras
+    cursor.execute("SELECT name FROM eras ORDER BY name")
+    eras = [row["name"] for row in cursor.fetchall()]
+
+    # Get topics
+    cursor.execute("SELECT name FROM topics ORDER BY name")
+    topics = [row["name"] for row in cursor.fetchall()]
+
+    # Get formats (audiobooks only)
+    cursor.execute(
+        f"""
+        SELECT DISTINCT format FROM audiobooks
+        WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
+        ORDER BY format
+    """
+    )
+    formats = [row["format"] for row in cursor.fetchall()]
+
+    conn.close()
+
+    return jsonify(
+        {
+            "authors": authors,
+            "narrators": narrators,
+            "publishers": publishers,
+            "genres": genres,
+            "eras": eras,
+            "topics": topics,
+            "formats": formats,
+        }
+    )
+
+
+@audiobooks_bp.route("/api/narrator-counts", methods=["GET"])
+@guest_allowed
+def get_narrator_counts() -> Response:
+    """Get narrator book counts for autocomplete (audiobooks only)"""
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        f"""
+        SELECT narrator, COUNT(*) as count
+        FROM audiobooks
+        WHERE {AUDIOBOOK_FILTER}
+          AND narrator IS NOT NULL
+          AND narrator != ''
+          AND narrator != 'Unknown Narrator'
+        GROUP BY narrator
+        ORDER BY narrator
+    """
+    )
+
+    counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}
+    conn.close()
+
+    return jsonify(counts)
+
+
+@audiobooks_bp.route("/api/audiobooks/<int:audiobook_id>", methods=["GET"])
+@guest_allowed
+def get_audiobook(audiobook_id: int) -> FlaskResponse:
+    """Get single audiobook details"""
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT * FROM audiobooks WHERE id = ?
+    """,
+        (audiobook_id,),
+    )
+
+    row = cursor.fetchone()
+    if not row:
         conn.close()
+        return jsonify({"error": "Audiobook not found"}), 404
 
-        if not row:
-            return jsonify({"error": "Audiobook not found"}), 404
+    book = dict(row)
 
-        file_path = Path(row["file_path"])
-        if not file_path.exists():
-            return jsonify({"error": "File not found on disk"}), 404
+    # Get related data
+    cursor.execute(
+        """
+        SELECT g.name FROM genres g
+        JOIN audiobook_genres ag ON g.id = ag.genre_id
+        WHERE ag.audiobook_id = ?
+    """,
+        (audiobook_id,),
+    )
+    book["genres"] = [r["name"] for r in cursor.fetchall()]
 
-        file_format = row["format"] or file_path.suffix.lower().lstrip(".")
-        requested_format = request.args.get("format", "")
+    cursor.execute(
+        """
+        SELECT e.name FROM eras e
+        JOIN audiobook_eras ae ON e.id = ae.era_id
+        WHERE ae.audiobook_id = ?
+    """,
+        (audiobook_id,),
+    )
+    book["eras"] = [r["name"] for r in cursor.fetchall()]
 
-        # Safari/iOS: remux Opus from Ogg to WebM container (codec copy, no quality loss)
-        if requested_format == "webm" and file_format == "opus":
-            webm_path = AUDIOBOOKS_WEBM_CACHE / f"{audiobook_id}.webm"
+    cursor.execute(
+        """
+        SELECT t.name FROM topics t
+        JOIN audiobook_topics at ON t.id = at.topic_id
+        WHERE at.audiobook_id = ?
+    """,
+        (audiobook_id,),
+    )
+    book["topics"] = [r["name"] for r in cursor.fetchall()]
 
-            if (
-                not webm_path.exists()
-                or webm_path.stat().st_mtime < file_path.stat().st_mtime
-            ):
-                AUDIOBOOKS_WEBM_CACHE.mkdir(parents=True, exist_ok=True)
-                tmp_path = webm_path.with_suffix(".webm.tmp")
-                try:
-                    result = subprocess.run(  # nosec B603
-                        [
-                            "ffmpeg",
-                            "-y",
-                            "-i",
-                            str(file_path),
-                            "-c:a",
-                            "copy",
-                            "-f",
-                            "webm",
-                            str(tmp_path),
-                        ],
-                        capture_output=True,
-                        timeout=300,
-                    )
-                    if result.returncode != 0:
-                        # Sanitize subprocess output (CWE-117)
-                        stderr = result.stderr or ""
-                        safe_err = stderr[:500].replace("\n", " ")
-                        logger.error(
-                            "WebM remux failed for %d: %s",
-                            audiobook_id,
-                            safe_err,
-                        )
-                        tmp_path.unlink(missing_ok=True)
-                        return jsonify({"error": "Format conversion failed"}), 500
-                    tmp_path.rename(webm_path)
-                except (subprocess.TimeoutExpired, OSError) as e:
-                    safe_msg = str(e).replace("\n", " ")
+    conn.close()
+
+    return jsonify(book)
+
+
+@audiobooks_bp.route("/covers/<path:filename>")
+@guest_allowed
+def serve_cover(filename: str) -> Response:
+    """Serve cover images from configured COVER_DIR"""
+    return send_from_directory(COVER_DIR, filename)
+
+
+@audiobooks_bp.route("/api/stream/<int:audiobook_id>")
+@auth_if_enabled
+def stream_audiobook(audiobook_id: int) -> FlaskResponse:
+    """Stream audiobook file.
+
+    Supports ?format=webm for Safari/iOS compatibility. Opus files are
+    natively in Ogg containers (audio/ogg) which Safari cannot play.
+    When format=webm is requested, the file is remuxed to WebM container
+    (same Opus codec, no re-encoding) and cached for subsequent requests.
+    """
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify({"error": "Audiobook not found"}), 404
+
+    file_path = Path(row["file_path"])
+    if not file_path.exists():
+        return jsonify({"error": "File not found on disk"}), 404
+
+    file_format = row["format"] or file_path.suffix.lower().lstrip(".")
+    requested_format = request.args.get("format", "")
+
+    # Safari/iOS: remux Opus from Ogg to WebM container (codec copy, no quality loss)
+    if requested_format == "webm" and file_format == "opus":
+        webm_path = AUDIOBOOKS_WEBM_CACHE / f"{audiobook_id}.webm"
+
+        if (
+            not webm_path.exists()
+            or webm_path.stat().st_mtime < file_path.stat().st_mtime
+        ):
+            AUDIOBOOKS_WEBM_CACHE.mkdir(parents=True, exist_ok=True)
+            tmp_path = webm_path.with_suffix(".webm.tmp")
+            try:
+                result = subprocess.run(  # nosec B603
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        str(file_path),
+                        "-c:a",
+                        "copy",
+                        "-f",
+                        "webm",
+                        str(tmp_path),
+                    ],
+                    capture_output=True,
+                    timeout=300,
+                )
+                if result.returncode != 0:
+                    # Sanitize subprocess output (CWE-117)
+                    stderr = result.stderr or ""
+                    safe_err = stderr[:500].replace("\n", " ")
                     logger.error(
-                        "WebM remux error for %d: %s",
+                        "WebM remux failed for %d: %s",
                         audiobook_id,
-                        safe_msg,
+                        safe_err,
                     )
                     tmp_path.unlink(missing_ok=True)
                     return jsonify({"error": "Format conversion failed"}), 500
-
-            return send_file(
-                webm_path,
-                mimetype="audio/webm",
-                as_attachment=False,
-                conditional=True,
-            )
-
-        # Default: serve the original file
-        mime_types = {
-            "opus": "audio/ogg",
-            "m4b": "audio/mp4",
-            "m4a": "audio/mp4",
-            "mp3": "audio/mpeg",
-        }
-        mimetype = mime_types.get(file_format, "application/octet-stream")
+                tmp_path.rename(webm_path)
+            except (subprocess.TimeoutExpired, OSError) as e:
+                safe_msg = str(e).replace("\n", " ")
+                logger.error(
+                    "WebM remux error for %d: %s",
+                    audiobook_id,
+                    safe_msg,
+                )
+                tmp_path.unlink(missing_ok=True)
+                return jsonify({"error": "Format conversion failed"}), 500
 
         return send_file(
-            file_path,
-            mimetype=mimetype,
+            webm_path,
+            mimetype="audio/webm",
             as_attachment=False,
             conditional=True,
         )
 
-    @audiobooks_bp.route("/api/download/<int:audiobook_id>")
-    @download_permission_required
-    def download_audiobook(audiobook_id: int) -> FlaskResponse:
-        """Download audiobook file for offline listening.
+    # Default: serve the original file
+    mime_types = {
+        "opus": "audio/ogg",
+        "m4b": "audio/mp4",
+        "m4a": "audio/mp4",
+        "mp3": "audio/mpeg",
+    }
+    mimetype = mime_types.get(file_format, "application/octet-stream")
 
-        Requires download permission. The file is returned as an attachment
-        with a filename based on the audiobook title.
-        """
-        conn = get_db(db_path)
-        cursor = conn.cursor()
+    return send_file(
+        file_path,
+        mimetype=mimetype,
+        as_attachment=False,
+        conditional=True,
+    )
 
-        cursor.execute(
-            "SELECT title, author, file_path, format FROM audiobooks WHERE id = ?",
-            (audiobook_id,),
-        )
-        row = cursor.fetchone()
-        conn.close()
 
-        if not row:
-            return jsonify({"error": "Audiobook not found"}), 404
+@audiobooks_bp.route("/api/download/<int:audiobook_id>")
+@download_permission_required
+def download_audiobook(audiobook_id: int) -> FlaskResponse:
+    """Download audiobook file for offline listening.
 
-        file_path = Path(row["file_path"])
-        if not file_path.exists():
-            return jsonify({"error": "File not found on disk"}), 404
+    Requires download permission. The file is returned as an attachment
+    with a filename based on the audiobook title.
+    """
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
 
-        # Build a clean filename from title and author
-        title = row["title"] or "audiobook"
-        author = row["author"]
-        file_format = row["format"] or file_path.suffix.lower().lstrip(".")
+    cursor.execute(
+        "SELECT title, author, file_path, format FROM audiobooks WHERE id = ?",
+        (audiobook_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
 
-        # Sanitize filename: remove/replace problematic characters
-        def sanitize(s: str) -> str:
-            # Replace characters that are problematic in filenames
-            for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
-                s = s.replace(char, "-")
-            return s.strip()
+    if not row:
+        return jsonify({"error": "Audiobook not found"}), 404
 
-        if author:
-            download_name = f"{sanitize(title)} - {sanitize(author)}.{file_format}"
-        else:
-            download_name = f"{sanitize(title)}.{file_format}"
+    file_path = Path(row["file_path"])
+    if not file_path.exists():
+        return jsonify({"error": "File not found on disk"}), 404
 
-        # Map file formats to MIME types
-        mime_types = {
-            "opus": "audio/ogg",
-            "m4b": "audio/mp4",
-            "m4a": "audio/mp4",
-            "mp3": "audio/mpeg",
-        }
-        mimetype = mime_types.get(file_format, "application/octet-stream")
+    # Build a clean filename from title and author
+    title = row["title"] or "audiobook"
+    author = row["author"]
+    file_format = row["format"] or file_path.suffix.lower().lstrip(".")
 
-        return send_file(
-            file_path,
-            mimetype=mimetype,
-            as_attachment=True,
-            download_name=download_name,
-        )
+    # Sanitize filename: remove/replace problematic characters
+    def sanitize(s: str) -> str:
+        # Replace characters that are problematic in filenames
+        for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
+            s = s.replace(char, "-")
+        return s.strip()
 
-    @audiobooks_bp.route("/health")
-    def health() -> Response:
-        """Health check endpoint with version info"""
-        version = "unknown"
-        # VERSION file is in project root (one level above library/)
-        version_file = project_root.parent / "VERSION"
+    if author:
+        download_name = f"{sanitize(title)} - {sanitize(author)}.{file_format}"
+    else:
+        download_name = f"{sanitize(title)}.{file_format}"
+
+    # Map file formats to MIME types
+    mime_types = {
+        "opus": "audio/ogg",
+        "m4b": "audio/mp4",
+        "m4a": "audio/mp4",
+        "mp3": "audio/mpeg",
+    }
+    mimetype = mime_types.get(file_format, "application/octet-stream")
+
+    return send_file(
+        file_path,
+        mimetype=mimetype,
+        as_attachment=True,
+        download_name=download_name,
+    )
+
+
+@audiobooks_bp.route("/health")
+def health() -> Response:
+    """Health check endpoint with version info"""
+    version = "unknown"
+    project_dir = current_app.config.get("PROJECT_DIR")
+    if project_dir is not None:
+        version_file = Path(project_dir) / "VERSION"
         if version_file.exists():
             version = version_file.read_text().strip()
-        return jsonify(
-            {"status": "ok", "database": str(db_path.exists()), "version": version}
-        )
-
-    return audiobooks_bp
+    db_path = current_app.config.get("DATABASE_PATH")
+    db_exists = str(Path(db_path).exists()) if db_path is not None else "false"
+    return jsonify(
+        {"status": "ok", "database": db_exists, "version": version}
+    )

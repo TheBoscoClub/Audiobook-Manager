@@ -21,31 +21,30 @@ Endpoints:
 
 import sqlite3
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from .auth import admin_if_enabled
 
 # Blueprint for admin author/narrator correction routes
 admin_authors_bp = Blueprint("admin_authors", __name__, url_prefix="/api/admin")
 
-# Module-level database path (set by init function)
-_db_path: str | None = None
-
 
 def init_admin_authors_routes(database_path: str) -> None:
-    """Initialize admin author/narrator routes with the library database path."""
-    global _db_path
-    _db_path = database_path
+    """Initialize admin author routes (no-op, kept for API compatibility).
+
+    Database path is now resolved at request time via current_app.config.
+    """
+    pass
 
 
 def _get_db() -> sqlite3.Connection:
-    """Get library database connection with foreign keys enabled."""
-    if _db_path is None:
+    """Get library database connection from current Flask app config."""
+    db_path = current_app.config.get("DATABASE_PATH")
+    if db_path is None:
         raise RuntimeError(
-            "Admin authors routes not initialized. "
-            "Call init_admin_authors_routes first."
+            "DATABASE_PATH not configured in Flask app."
         )
-    conn = sqlite3.connect(_db_path)
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")

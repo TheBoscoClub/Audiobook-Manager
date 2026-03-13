@@ -38,6 +38,17 @@ def grouped_db(flask_app, app_client):
     conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
 
+    # Save existing data and clear tables for isolated grouped tests
+    cursor.execute("SELECT * FROM audiobooks")
+    _saved_books = cursor.fetchall()
+    _saved_cols = [desc[0] for desc in cursor.description]
+    cursor.execute("DELETE FROM book_authors")
+    cursor.execute("DELETE FROM book_narrators")
+    cursor.execute("DELETE FROM authors")
+    cursor.execute("DELETE FROM narrators")
+    cursor.execute("DELETE FROM audiobooks")
+    conn.commit()
+
     # Insert audiobooks
     books = [
         (
@@ -157,11 +168,18 @@ def grouped_db(flask_app, app_client):
         "narrator_ids": {"muller": muller_id, "weber": weber_id},
     }
 
-    # Cleanup
-    for bid in book_ids:
-        cursor.execute("DELETE FROM audiobooks WHERE id = ?", (bid,))
-    cursor.execute("DELETE FROM authors WHERE id IN (?, ?)", (king_id, straub_id))
-    cursor.execute("DELETE FROM narrators WHERE id IN (?, ?)", (muller_id, weber_id))
+    # Cleanup: remove test data and restore original books
+    cursor.execute("DELETE FROM book_authors")
+    cursor.execute("DELETE FROM book_narrators")
+    cursor.execute("DELETE FROM authors")
+    cursor.execute("DELETE FROM narrators")
+    cursor.execute("DELETE FROM audiobooks")
+    if _saved_books:
+        placeholders = ", ".join("?" * len(_saved_cols))
+        cursor.executemany(
+            f"INSERT INTO audiobooks ({', '.join(_saved_cols)}) VALUES ({placeholders})",
+            _saved_books,
+        )
     conn.commit()
     conn.close()
 

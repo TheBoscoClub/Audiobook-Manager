@@ -9,7 +9,7 @@ multiple authors/narrators appear under each relevant group. Orphan books
 import sqlite3
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from .auth import guest_allowed
 from .core import FlaskResponse, get_db
@@ -27,23 +27,23 @@ VALID_GROUP_BY = {"author", "narrator"}
 
 grouped_bp = Blueprint("grouped", __name__)
 
-# Module-level database path (set by init function)
-_db_path: Path | None = None
-
 
 def init_grouped_routes(db_path: Path) -> None:
-    """Initialize grouped routes with the database path."""
-    global _db_path
-    _db_path = db_path
+    """Initialize grouped routes (no-op, kept for API compatibility).
+
+    Database path is now resolved at request time via current_app.config.
+    """
+    pass
 
 
 def _get_grouped_db() -> sqlite3.Connection:
-    """Get database connection for grouped endpoint."""
-    if _db_path is None:
+    """Get database connection from current Flask app config."""
+    db_path = current_app.config.get("DATABASE_PATH")
+    if db_path is None:
         raise RuntimeError(
-            "Grouped routes not initialized. Call init_grouped_routes first."
+            "DATABASE_PATH not configured in Flask app."
         )
-    return get_db(_db_path)
+    return get_db(db_path)
 
 
 @grouped_bp.route("/api/audiobooks/grouped", methods=["GET"])
