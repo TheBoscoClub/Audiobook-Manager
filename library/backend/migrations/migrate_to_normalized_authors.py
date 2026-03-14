@@ -17,7 +17,6 @@ from library.backend.name_parser import (
     has_role_suffix,
     is_group_name,
     parse_names,
-    strip_role_suffix,
 )
 
 logger = logging.getLogger(__name__)

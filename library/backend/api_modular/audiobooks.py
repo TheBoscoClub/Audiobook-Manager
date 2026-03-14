@@ -10,7 +10,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-from flask import Blueprint, Response, current_app, jsonify, request, send_file, send_from_directory
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    jsonify,
+    request,
+    send_file,
+    send_from_directory,
+)
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -34,6 +42,7 @@ AUDIOBOOK_FILTER = (
     "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 )
 
+
 def init_audiobooks_routes(db_path, project_root, database_path):
     """Initialize audiobooks routes (no-op, kept for API compatibility).
 
@@ -46,9 +55,7 @@ def _get_audiobooks_db():
     """Get database connection from current Flask app config."""
     db_path = current_app.config.get("DATABASE_PATH")
     if db_path is None:
-        raise RuntimeError(
-            "DATABASE_PATH not configured in Flask app."
-        )
+        raise RuntimeError("DATABASE_PATH not configured in Flask app.")
     return get_db(db_path)
 
 
@@ -60,9 +67,7 @@ def get_stats() -> Response:
     cursor = conn.cursor()
 
     # Total audiobooks (audiobooks only)
-    cursor.execute(
-        f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
-    )
+    cursor.execute(f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}")
     total_books = cursor.fetchone()["total"]
 
     # Total hours (audiobooks only)
@@ -416,9 +421,7 @@ def get_audiobooks() -> Response:
                 authors,
             )
             for r in cursor.fetchall():
-                edition_titles_by_author.setdefault(r["author"], []).append(
-                    r["title"]
-                )
+                edition_titles_by_author.setdefault(r["author"], []).append(r["title"])
 
         # Assign batch results to each book
         for book in audiobooks:
@@ -436,9 +439,7 @@ def get_audiobooks() -> Response:
             matching_editions = [
                 t for t in related_titles if normalize_base_title(t) == base_title
             ]
-            has_markers = any(
-                has_edition_marker(title) for title in matching_editions
-            )
+            has_markers = any(has_edition_marker(title) for title in matching_editions)
             if len(matching_editions) > 1 and has_markers:
                 book["edition_count"] = len(matching_editions)
             else:
@@ -477,7 +478,7 @@ def get_filters() -> Response:
         SELECT DISTINCT a.name FROM authors a
         JOIN book_authors ba ON ba.author_id = a.id
         JOIN audiobooks ab ON ab.id = ba.book_id
-        WHERE {AUDIOBOOK_FILTER.replace('content_type', 'ab.content_type')}
+        WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
         ORDER BY a.sort_name
     """
     )
@@ -489,7 +490,7 @@ def get_filters() -> Response:
         SELECT DISTINCT n.name FROM narrators n
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
-        WHERE {AUDIOBOOK_FILTER.replace('content_type', 'ab.content_type')}
+        WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
         ORDER BY n.sort_name
     """
     )
@@ -555,7 +556,7 @@ def get_narrator_counts() -> Response:
         FROM narrators n
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
-        WHERE {AUDIOBOOK_FILTER.replace('content_type', 'ab.content_type')}
+        WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
         ORDER BY n.sort_name
     """
     )
@@ -801,6 +802,4 @@ def health() -> Response:
             version = version_file.read_text().strip()
     db_path = current_app.config.get("DATABASE_PATH")
     db_exists = str(Path(db_path).exists()) if db_path is not None else "false"
-    return jsonify(
-        {"status": "ok", "database": db_exists, "version": version}
-    )
+    return jsonify({"status": "ok", "database": db_exists, "version": version})

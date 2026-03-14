@@ -40,9 +40,7 @@ def _get_grouped_db() -> sqlite3.Connection:
     """Get database connection from current Flask app config."""
     db_path = current_app.config.get("DATABASE_PATH")
     if db_path is None:
-        raise RuntimeError(
-            "DATABASE_PATH not configured in Flask app."
-        )
+        raise RuntimeError("DATABASE_PATH not configured in Flask app.")
     return get_db(db_path)
 
 
