@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.0.2] - 2026-03-14
+
+### Fixed
+
+- Fixed `upgrade.sh --from-github` failing with "Invalid target directory" due to 0-indexed array bug in `find_installed_dir()` (`${found[1]}` → `${found[0]}`)
+
 ## [7.0.1] - 2026-03-14
 
 ### Fixed
