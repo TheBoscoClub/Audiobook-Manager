@@ -594,9 +594,11 @@ class TestSecurityAttributes:
         login_content = (WEB_DIR / "login.html").read_text()
         library_js_content = (JS_DIR / "library.js").read_text()
 
-        assert "credentials: 'include'" in login_content or 'credentials: "include"' in login_content, (
-            "Login should include credentials"
-        )
-        assert "credentials: 'include'" in library_js_content or 'credentials: "include"' in library_js_content, (
-            "Library.js should include credentials"
-        )
+        assert (
+            "credentials: 'include'" in login_content
+            or 'credentials: "include"' in login_content
+        ), "Login should include credentials"
+        assert (
+            "credentials: 'include'" in library_js_content
+            or 'credentials: "include"' in library_js_content
+        ), "Library.js should include credentials"

@@ -117,13 +117,21 @@ GENERATIONAL_SUFFIXES = frozenset(
 
 # Regex to strip trailing credential suffixes (one or more, comma-separated or space-separated)
 _CREDENTIAL_RE = re.compile(
-    r"[,\s]+(?:" + "|".join(re.escape(c) for c in sorted(CREDENTIAL_SUFFIXES, key=len, reverse=True)) + r")\.?(?:[,\s]+(?:" + "|".join(re.escape(c) for c in sorted(CREDENTIAL_SUFFIXES, key=len, reverse=True)) + r")\.?)*\s*$",
+    r"[,\s]+(?:"
+    + "|".join(re.escape(c) for c in sorted(CREDENTIAL_SUFFIXES, key=len, reverse=True))
+    + r")\.?(?:[,\s]+(?:"
+    + "|".join(re.escape(c) for c in sorted(CREDENTIAL_SUFFIXES, key=len, reverse=True))
+    + r")\.?)*\s*$",
     re.IGNORECASE,
 )
 
 # Generational suffix at end of name: "Robert S. Mueller III"
 _GENERATIONAL_RE = re.compile(
-    r"[,\s]+(?:" + "|".join(re.escape(g) for g in sorted(GENERATIONAL_SUFFIXES, key=len, reverse=True)) + r")\s*$",
+    r"[,\s]+(?:"
+    + "|".join(
+        re.escape(g) for g in sorted(GENERATIONAL_SUFFIXES, key=len, reverse=True)
+    )
+    + r")\s*$",
     re.IGNORECASE,
 )
 
@@ -250,7 +258,9 @@ BRAND_NAMES = frozenset(
 
 # Patterns that indicate an organization, not a person
 ORG_PATTERNS = [
-    re.compile(r"\b(department of|office of|council|commission|bureau)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(department of|office of|council|commission|bureau)\b", re.IGNORECASE
+    ),
     re.compile(r"\bU\.?S\.?\s+(Department|Office|Government)\b", re.IGNORECASE),
     re.compile(r"\bSpecial Counsel", re.IGNORECASE),
 ]
