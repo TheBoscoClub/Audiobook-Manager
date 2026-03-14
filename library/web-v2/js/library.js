@@ -1007,16 +1007,28 @@ class AudiobookLibraryV2 {
     const dropdown = document.getElementById("author-dropdown");
     const authors = this.filters.authors || [];
 
-    // Filter by letter group first
-    let filtered = this.filterByLetterGroup(authors, this.authorLetterGroup);
+    // Filter by letter group using sort_name initial
+    let filtered = this.filterAuthorsByLetterGroup(
+      authors,
+      this.authorLetterGroup,
+    );
 
-    // Then filter by search query
+    // Then filter by search query (match against both name and sort_name)
     if (query) {
-      filtered = filtered.filter((a) => a.toLowerCase().includes(query));
+      filtered = filtered.filter(
+        (a) =>
+          a.name.toLowerCase().includes(query) ||
+          a.sort_name.toLowerCase().includes(query),
+      );
     }
 
-    // Sort the results
-    filtered = this.sortByLastName(filtered, this.authorSortAsc);
+    // Sort by sort_name (already sorted from API, but respect ascending/descending)
+    filtered = [...filtered].sort((a, b) => {
+      const cmp = a.sort_name.localeCompare(b.sort_name, undefined, {
+        sensitivity: "base",
+      });
+      return this.authorSortAsc ? cmp : -cmp;
+    });
 
     // Build dropdown HTML — show all results (scrollable via CSS max-height)
     let html = "";
@@ -1037,8 +1049,9 @@ class AudiobookLibraryV2 {
       html += `<div class="author-no-results">No authors in this range</div>`;
     } else {
       filtered.forEach((author) => {
-        html += `<div class="author-option" data-value="${this.escapeHtml(author)}">
-                    <span>${this.highlightMatch(author, query)}</span>
+        // Display sort_name ("King, Stephen") but filter by name ("Stephen King")
+        html += `<div class="author-option" data-value="${this.escapeHtml(author.name)}" data-sort-name="${this.escapeHtml(author.sort_name)}">
+                    <span>${this.highlightMatch(author.sort_name, query)}</span>
                 </div>`;
       });
     }
@@ -1049,7 +1062,7 @@ class AudiobookLibraryV2 {
     // Add click handlers to options
     dropdown.querySelectorAll(".author-option").forEach((option) => {
       option.addEventListener("click", () => {
-        this.selectAuthor(option.dataset.value);
+        this.selectAuthor(option.dataset.value, option.dataset.sortName);
       });
     });
 
@@ -1077,12 +1090,13 @@ class AudiobookLibraryV2 {
     }
   }
 
-  selectAuthor(author) {
+  selectAuthor(author, sortName) {
     const input = document.getElementById("author-search");
     const clearBtn = document.getElementById("author-clear");
 
     this.currentFilters.author = author || "";
-    input.value = author || "";
+    // Display sort_name ("Last, First") in the search box if available
+    input.value = sortName || author || "";
 
     // Show/hide clear button
     if (clearBtn) {
@@ -1092,6 +1106,24 @@ class AudiobookLibraryV2 {
     this.hideAuthorDropdown();
     this.currentPage = 1;
     this.loadAudiobooks();
+  }
+
+  filterAuthorsByLetterGroup(authors, group) {
+    if (group === "all") return [...authors];
+
+    const ranges = {
+      "a-e": ["A", "B", "C", "D", "E"],
+      "f-j": ["F", "G", "H", "I", "J"],
+      "k-o": ["K", "L", "M", "N", "O"],
+      "p-t": ["P", "Q", "R", "S", "T"],
+      "u-z": ["U", "V", "W", "X", "Y", "Z"],
+    };
+
+    const letters = ranges[group] || [];
+    return authors.filter((a) => {
+      const firstLetter = a.sort_name.charAt(0).toUpperCase();
+      return letters.includes(firstLetter);
+    });
   }
 
   async loadNarratorCounts() {
