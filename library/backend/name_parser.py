@@ -17,17 +17,21 @@ import re
 # Pattern: "Name - role" or "Name (role)"
 ROLE_SUFFIXES = frozenset(
     {
-        "translator",
+        "adaptation",
+        "adapter",
+        "afterword",
+        "compiler",
+        "contributor",
         "editor",
         "foreword",
-        "introduction",
-        "afterword",
-        "preface",
-        "note",
-        "translated",
         "illustrator",
-        "contributor",
+        "introduction",
         "narrator",
+        "note",
+        "preface",
+        "retold",
+        "translated",
+        "translator",
     }
 )
 
