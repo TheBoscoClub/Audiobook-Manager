@@ -15,6 +15,7 @@ import sqlite3
 from library.backend.name_parser import (
     generate_sort_name,
     has_role_suffix,
+    is_brand_name,
     is_group_name,
     parse_names,
 )
@@ -52,7 +53,8 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         author_names = parse_names(row["author"]) if row["author"] else []
         narrator_names = parse_names(row["narrator"]) if row["narrator"] else []
 
-        # Redirect group names from author to narrator, exclude role-suffixed names
+        # Redirect group names from author to narrator, exclude role-suffixed
+        # and brand/publisher names
         redirected = []
         clean_authors = []
         for name in author_names:
@@ -62,6 +64,9 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
             elif has_role_suffix(name):
                 # "Frances Riddle - translator" → not an author, skip
                 stats["role_excluded"] = stats.get("role_excluded", 0) + 1
+            elif is_brand_name(name):
+                # "Aaptiv", "Earworms Learning" → publisher/brand, not a person
+                stats["brand_excluded"] = stats.get("brand_excluded", 0) + 1
             else:
                 clean_authors.append(name)
 
@@ -90,8 +95,11 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
                 )
                 stats["author_links"] += 1
 
-        # Insert narrators and link
+        # Insert narrators and link (skip brands)
         for pos, name in enumerate(narrator_names):
+            if is_brand_name(name):
+                stats["brand_excluded"] = stats.get("brand_excluded", 0) + 1
+                continue
             sort_name = generate_sort_name(name)
             if not sort_name:
                 continue
