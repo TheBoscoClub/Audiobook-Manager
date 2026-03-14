@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![7](https://img.shields.io/badge/7-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![2](https://img.shields.io/badge/2-green) | Latest patch | [v7.0.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.0.2) |
+| ![7](https://img.shields.io/badge/7-brightgreen)![1](https://img.shields.io/badge/1-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v7.1.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.1.0) |
+| ![7](https://img.shields.io/badge/7-brightred)![0](https://img.shields.io/badge/0-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v7.0.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.0.2) |
 | ![7](https://img.shields.io/badge/7-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v7.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.0.1) |
 | ![7](https://img.shields.io/badge/7-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v7.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.0.0) |
 | ![6](https://img.shields.io/badge/6-brightred)![7](https://img.shields.io/badge/7-darkred)![2](https://img.shields.io/badge/2-red)![4](https://img.shields.io/badge/4-orange) | Prior tweak | [v6.7.2.4](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v6.7.2.4) |

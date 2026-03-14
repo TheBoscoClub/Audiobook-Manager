@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.0] - 2026-03-14
+
+### Added
+
+- **Help Page**: Added FAQ section with 10 common questions about the library (multi-device sync, downloads, grouped vs sorted view, collections, media keys, etc.)
+- **Help Page**: Added Grouped View documentation to the sorting section explaining collapsible author/narrator headers
+- **Tutorial**: Updated Sort Options step to mention grouped view feature
+
+### Changed
+
+- **Documentation**: Comprehensive audit of all documentation for v7.0.0-v7.0.2 changes — updated README, ARCHITECTURE, CONTRIBUTING, INSTALL, QUICKSTART, UPGRADE_GUIDE, and API docs with multi-author normalization, grouped views, admin endpoints, and normalized database tables
+- **Documentation**: Fixed stale port references (5000 → 5001) and removed obsolete `api.py` references in library docs
+- **Description**: Updated project description to reflect removal of Audible sync (removed in v6.3.0); now reads "Self-hosted audiobook library browser with conversion, web player, and optional Audible downloading"
+- **Help Page**: Updated cache busters from v7.0.0 to v7.0.2
+
 ## [7.0.2] - 2026-03-14
 
 ### Fixed
