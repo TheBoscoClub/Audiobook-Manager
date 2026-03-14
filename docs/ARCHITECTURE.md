@@ -1524,9 +1524,10 @@ Recommended mount options:
   defaults,noatime,nodatacow  # Or use chattr +C on directory
 
 Subvolume layout (recommended):
-  @audiobooks          → /srv/audiobooks
-  @audiobooks-db       → /var/lib/audiobooks  (nodatacow)
-  @audiobooks-logs     → /var/log/audiobooks
+  @audiobooks          → /srv/audiobooks       (HDD RAID, bulk storage)
+  @var-lib-audiobooks  → /var/lib/audiobooks   (NVMe, state + DB)
+  @etc-audiobooks      → /etc/audiobooks       (NVMe, configuration)
+  @audiobooks-db       → /var/lib/audiobooks/db (NVMe, nodatacow)
 
 Compression notes:
   - Opus audio files are already compressed; zstd provides minimal benefit
