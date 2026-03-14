@@ -9,18 +9,19 @@ This document describes the system architecture, installation workflows, storage
 3. [Authentication Module Architecture](#authentication-module-architecture)
 4. [Scanner Module Architecture](#scanner-module-architecture)
 5. [API Module Architecture](#api-module-architecture)
-6. [Position Tracking Architecture](#position-tracking-architecture)
-7. [Systemd Services Reference](#systemd-services-reference)
-8. [Scripts Reference](#scripts-reference)
-9. [Installation Workflow](#installation-workflow)
-10. [Upgrade Workflow](#upgrade-workflow)
-11. [Migration Workflow](#migration-workflow)
-12. [Storage Layout](#storage-layout)
-13. [Storage Recommendations](#storage-recommendations)
-14. [Filesystem Recommendations](#filesystem-recommendations)
-15. [Kernel Compatibility](#kernel-compatibility)
-16. [Quick Reference](#quick-reference)
-17. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
+6. [Multi-Author/Narrator Normalization](#multi-authornarrator-normalization-v70)
+7. [Position Tracking Architecture](#position-tracking-architecture)
+8. [Systemd Services Reference](#systemd-services-reference)
+9. [Scripts Reference](#scripts-reference)
+10. [Installation Workflow](#installation-workflow)
+11. [Upgrade Workflow](#upgrade-workflow)
+12. [Migration Workflow](#migration-workflow)
+13. [Storage Layout](#storage-layout)
+14. [Storage Recommendations](#storage-recommendations)
+15. [Filesystem Recommendations](#filesystem-recommendations)
+16. [Kernel Compatibility](#kernel-compatibility)
+17. [Quick Reference](#quick-reference)
+18. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
 
 ---
 
@@ -573,6 +574,8 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `utilities_bp` | `/api` | CRUD, imports, exports, maintenance |
 | `utilities_system_bp` | `/api` | Service control, upgrades, diagnostics (guarded by `@admin_or_localhost`) |
 | `position_bp` | `/api` | Playback position tracking |
+| `grouped_bp` | `/api` | Grouped A-Z view by author or narrator (v7.0+) |
+| `admin_authors_bp` | `/api/admin` | Author/narrator rename, merge, reassign (v7.0+) |
 | `user_bp` | `/api/user` | Per-user state: history, downloads, library, new books (v6.3+) |
 | `admin_activity_bp` | `/api/admin` | Admin activity log and statistics (v6.3+) |
 
@@ -597,6 +600,77 @@ library/backend/api_modular/utilities_ops/
 | `library.py` | `rescan_library()`, `cleanup_missing()` | POST `/api/utilities/rescan` |
 | `maintenance.py` | `vacuum_database()`, `rebuild_fts()` | POST `/api/utilities/maintenance` |
 | `status.py` | `get_operation_status()` | GET `/api/utilities/status/<id>` |
+
+### Multi-Author/Narrator Normalization (v7.0+)
+
+The v7.0.0 release introduced normalized author and narrator storage, replacing the flat `author`/`narrator` text columns with proper many-to-many relationships.
+
+#### New Database Tables
+
+```sql
+-- Individual author entities
+CREATE TABLE authors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    sort_name TEXT NOT NULL  -- "Last, First" for sorting
+);
+
+-- Individual narrator entities
+CREATE TABLE narrators (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    sort_name TEXT NOT NULL
+);
+
+-- Many-to-many: books <-> authors
+CREATE TABLE book_authors (
+    audiobook_id INTEGER NOT NULL REFERENCES audiobooks(id),
+    author_id INTEGER NOT NULL REFERENCES authors(id),
+    position INTEGER NOT NULL DEFAULT 0,  -- ordering
+    PRIMARY KEY (audiobook_id, author_id)
+);
+
+-- Many-to-many: books <-> narrators
+CREATE TABLE book_narrators (
+    audiobook_id INTEGER NOT NULL REFERENCES audiobooks(id),
+    narrator_id INTEGER NOT NULL REFERENCES narrators(id),
+    position INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (audiobook_id, narrator_id)
+);
+```
+
+#### Name Parser Module
+
+`library/backend/name_parser.py` provides three-tier metadata extraction:
+
+1. **Structured tags**: Direct use of tag fields when available
+2. **Delimiter splitting**: Splits on semicolons, " and ", " & "
+3. **Comma disambiguation**: Distinguishes "Last, First" from "Author1, Author2"
+
+Handles group names (Full Cast, BBC Radio), compound last names (de, van, von, le), and role suffixes (translator, editor, foreword). Role suffixes are excluded from the authors table.
+
+#### API Extensions
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `GET /api/audiobooks/grouped?by=author\|narrator` | GET | Books grouped by normalized author/narrator |
+| `GET /api/audiobooks` | GET | Now includes `authors` and `narrators` arrays |
+| `PUT /api/admin/authors/<id>` | PUT | Rename an author |
+| `POST /api/admin/authors/merge` | POST | Merge duplicate authors |
+| `PUT /api/admin/books/<id>/authors` | PUT | Reassign authors for a book |
+| `PUT /api/admin/narrators/<id>` | PUT | Rename a narrator |
+| `POST /api/admin/narrators/merge` | POST | Merge duplicate narrators |
+| `PUT /api/admin/books/<id>/narrators` | PUT | Reassign narrators for a book |
+
+#### Data Migration
+
+`migrate_to_normalized_authors.py` is an idempotent script that parses flat author/narrator columns and populates junction tables. Run automatically during `upgrade.sh`. Group name redirection ensures entities like "Full Cast" are classified as narrators.
+
+#### Frontend Changes
+
+- **Grouped sort view**: "Author (Grouped A-Z)" and "Narrator (Grouped A-Z)" sort options display books under collapsible Art Deco-styled headers
+- **Sidebar filters**: Now show individual names from normalized tables (572 individual authors vs 138 composite strings), sorted by last name
+- **Author/narrator filtering**: Uses junction table JOINs for exact per-author matching
 
 ---
 
@@ -1163,6 +1237,10 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 
 Note: Symlinks in /usr/local/bin/ automatically point to updated scripts
       because they reference /opt/audiobooks/scripts/ (canonical location)
+
+Note: Since v7.0.0, upgrade.sh automatically detects and applies database
+      schema migrations (e.g., 011_multi_author_narrator.sql). It checks
+      for the authors table and runs DDL + data migration if needed.
 ```
 
 ---

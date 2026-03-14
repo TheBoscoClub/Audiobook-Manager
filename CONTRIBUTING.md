@@ -103,7 +103,9 @@ audiobooks/
 ├── library/              # Main application
 │   ├── backend/          # Flask API
 │   │   ├── api_server.py # Server launcher
-│   │   └── api_modular/  # Modular Flask Blueprints
+│   │   ├── api_modular/  # Modular Flask Blueprints
+│   │   ├── name_parser.py # Multi-name parsing (v7.0+)
+│   │   └── migrate_to_normalized_authors.py # Author/narrator migration (v7.0+)
 │   ├── scanner/          # Audiobook scanning
 │   ├── scripts/          # Utility scripts
 │   ├── web-v2/           # Web interface

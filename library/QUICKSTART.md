@@ -119,7 +119,7 @@ See [INSTALL.md](INSTALL.md#tmpfs-considerations) for details.
 
 ---
 
-## 📊 API Endpoints
+## API Endpoints
 
 The library includes a REST API (proxied through HTTPS on port 8443):
 
@@ -127,11 +127,14 @@ The library includes a REST API (proxied through HTTPS on port 8443):
 # Get statistics
 curl -sk https://localhost:8443/api/stats
 
-# Search audiobooks
+# Search audiobooks (response includes authors[] and narrators[] arrays)
 curl -sk "https://localhost:8443/api/audiobooks?search=tolkien"
 
 # Filter by author
 curl -sk "https://localhost:8443/api/audiobooks?author=sanderson"
+
+# Get audiobooks grouped by author or narrator (v7.0.0+)
+curl -sk "https://localhost:8443/api/audiobooks/grouped?by=author"
 
 # Get all filters (authors, narrators, etc.)
 curl -sk https://localhost:8443/api/filters
@@ -168,12 +171,14 @@ python3 import_to_db.py
 
 ---
 
-## 📁 File Locations
+## File Locations
 
 - **Database:** `backend/audiobooks.db`
-- **API Server:** `backend/api.py` (port 5001)
+- **API Server:** `backend/api_server.py` (port 5001, using `api_modular/` package)
 - **Proxy Server:** `web-v2/proxy_server.py` (port 8443)
 - **Web Interface:** `web-v2/`
+- **Name Parser:** `backend/name_parser.py` (author/narrator normalization)
+- **Migrations:** `backend/migrations/` (schema 006-011+)
 
 ---
 

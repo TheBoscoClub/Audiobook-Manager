@@ -27,8 +27,11 @@ A beautiful, old-fashioned library-themed web interface for browsing, searching,
 ### Backend
 
 - **SQLite Database**: Fast, indexed database with 2,700+ audiobooks
-- **Flask REST API**: RESTful API with CORS support
+- **Normalized Authors/Narrators**: Multi-author and multi-narrator support via junction tables (v7.0.0+)
+- **Flask REST API**: RESTful API with CORS support, modular Blueprint architecture
 - **Streaming Support**: Direct audiobook streaming with seek support
+- **Authentication**: TOTP-based admin authentication with WebAuthn/Passkey support
+- **Name Parser**: Intelligent author/narrator name normalization and deduplication
 
 ## Quick Start
 
@@ -68,10 +71,24 @@ The launcher script will:
 ```text
 audiobook-library/
 ├── backend/              # Flask API and database
-│   ├── api_modular/     # Modular REST API (replaces monolithic api.py)
+│   ├── api_modular/     # Modular REST API (Blueprint-based architecture)
+│   │   ├── audiobooks.py       # Core listing, filtering, streaming
+│   │   ├── grouped.py          # Grouped queries (by author/narrator)
+│   │   ├── admin_authors.py    # Author/narrator management
+│   │   ├── auth.py             # TOTP authentication
+│   │   ├── collections.py      # Genre collections
+│   │   ├── duplicates.py       # Duplicate detection
+│   │   ├── supplements.py      # Companion files (PDF, images)
+│   │   ├── position_sync.py    # Audible position sync
+│   │   ├── user_state.py       # User preferences/state
+│   │   ├── admin_activity.py   # Admin activity logging
+│   │   └── utilities*.py       # Admin/system operations
 │   ├── api_server.py    # API server launcher
+│   ├── name_parser.py   # Author/narrator name normalization
 │   ├── schema.sql       # Database schema
 │   ├── import_to_db.py  # JSON to SQLite importer
+│   ├── migrations/      # Schema migrations (006-011+)
+│   │   └── migrate_to_normalized_authors.py  # v7.0.0 data migration
 │   └── audiobooks.db    # SQLite database (generated)
 ├── scanner/              # Metadata extraction
 │   └── scan_audiobooks.py
@@ -94,9 +111,9 @@ audiobook-library/
 
 ## Requirements
 
-- **Python**: 3.8 or higher
-- **ffmpeg**: 4.0 or higher (with ffprobe)
-- **Flask**: 3.0.0+
+- **Python**: 3.12 or higher (3.14 recommended)
+- **ffmpeg**: 7.0 or higher (with ffprobe)
+- **Flask**: 3.1.3+
 - **Web Browser**: Modern browser with HTML5 audio support
 
 ## Audio Format
@@ -134,12 +151,18 @@ export AUDIOBOOKS_LIBRARY=/your/path/to/audiobooks
 The Flask API provides the following endpoints:
 
 - `GET /api/stats` - Library statistics
-- `GET /api/audiobooks` - Paginated audiobook list
+- `GET /api/audiobooks` - Paginated audiobook list (includes `authors` and `narrators` arrays)
   - Query params: `page`, `per_page`, `search`, `author`, `narrator`, `sort`, `order`
 - `GET /api/audiobooks/<id>` - Single audiobook details
+- `GET /api/audiobooks/grouped?by=author|narrator` - Audiobooks grouped by author or narrator
 - `GET /api/filters` - Available filter options (authors, narrators)
 - `GET /api/stream/<id>` - Stream audiobook file
 - `GET /covers/<filename>` - Serve cover images
+- `GET /api/collections` - Genre collections
+- `GET /api/supplements` - Companion files (PDFs, images)
+- `GET /api/system/version` - Application version info
+- `POST /auth/login` - TOTP authentication
+- Admin endpoints for author/narrator management (requires authentication)
 
 Example queries:
 

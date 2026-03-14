@@ -80,7 +80,7 @@ This will:
 ┌─────────────────────────────────────────────┐
 │          Flask API Server                   │
 │  RESTful API with pagination               │
-│  Port: 5000                                 │
+│  Port: 5001                                 │
 └──────────────┬──────────────────────────────┘
                │ SQL Queries
                ▼
@@ -98,7 +98,7 @@ This will:
 
 ### Base URL
 
-`http://localhost:5000/api`
+`http://localhost:5001/api`
 
 ### Endpoints
 
@@ -140,19 +140,19 @@ Get paginated audiobooks
 
 ```bash
 # Get first page (50 books)
-curl http://localhost:5000/api/audiobooks
+curl http://localhost:5001/api/audiobooks
 
 # Search for "tolkien"
-curl http://localhost:5000/api/audiobooks?search=tolkien
+curl http://localhost:5001/api/audiobooks?search=tolkien
 
 # Filter by author
-curl http://localhost:5000/api/audiobooks?author=sanderson
+curl http://localhost:5001/api/audiobooks?author=sanderson
 
 # Sort by duration (longest first)
-curl http://localhost:5000/api/audiobooks?sort=duration_hours&order=desc
+curl http://localhost:5001/api/audiobooks?sort=duration_hours&order=desc
 
 # Page 2 with 100 items
-curl http://localhost:5000/api/audiobooks?page=2&per_page=100
+curl http://localhost:5001/api/audiobooks?page=2&per_page=100
 ```
 
 **Response:**
@@ -165,6 +165,8 @@ curl http://localhost:5000/api/audiobooks?page=2&per_page=100
       "title": "11/22/63",
       "author": "Stephen King",
       "narrator": "Craig Wasson",
+      "authors": [{"id": 1, "name": "Stephen King", "sort_name": "King, Stephen"}],
+      "narrators": [{"id": 1, "name": "Craig Wasson", "sort_name": "Wasson, Craig"}],
       "duration_hours": 30.25,
       "format": "opus",
       "genres": ["Fiction", "Thriller"],
@@ -248,24 +250,24 @@ ssh user@yourserver.com
 cd /var/www/audiobook-library
 python3 -m venv venv
 source venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 
 # 4. Create database
 python backend/import_to_db.py
 
 # 5. Run with gunicorn (production WSGI server)
 pip install gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 backend.api:app
+gunicorn -w 4 -b 0.0.0.0:5001 backend.api_server:app
 ```
 
 ### Option 2: Docker Container
 
 ```dockerfile
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
@@ -274,7 +276,7 @@ RUN python backend/import_to_db.py
 
 EXPOSE 5000
 
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "backend.api:app"]
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5001", "backend.api_server:app"]
 ```
 
 ### Option 3: Static Export (No Server)
@@ -298,7 +300,7 @@ python backend/export_static.py
 ```bash
 cd /path/to/audiobook-library  # Your project directory
 source venv/bin/activate
-python backend/api.py
+python backend/api_server.py
 ```
 
 ### "Database not found"
@@ -310,19 +312,16 @@ python backend/api.py
 python backend/import_to_db.py
 ```
 
-### "Port 5000 already in use"
+### "Port 5001 already in use"
 
-**Problem:** Another service using port 5000
-**Solution:** Edit `backend/api.py` and change the port:
+**Problem:** Another service using port 5001
+**Solution:** Change the port in configuration:
 
-```python
-app.run(debug=True, host='0.0.0.0', port=5001)  # Changed from 5000
-```
-
-Also update `web-v2/js/library.js`:
-
-```javascript
-const API_BASE = 'http://localhost:5001/api';  // Changed from 5000
+```bash
+# Edit config file
+# System: /etc/audiobooks/audiobooks.conf
+# User: ~/.config/audiobooks/audiobooks.conf
+AUDIOBOOKS_API_PORT="5002"  # Changed from 5001
 ```
 
 ---
@@ -393,7 +392,7 @@ If you encounter issues:
 1. Check API server logs
 2. Check browser console for JavaScript errors
 3. Verify database exists: `ls -lh backend/audiobooks.db`
-4. Test API directly: `curl http://localhost:5000/api/stats`
+4. Test API directly: `curl http://localhost:5001/api/stats`
 
 ---
 
