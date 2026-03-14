@@ -34,7 +34,7 @@ class LibraryTutorial {
         target: "#sort-filter",
         title: "Sort Options",
         description:
-          "Choose how books are ordered: by title, author, narrator, duration, date acquired, publication year, series, or edition.",
+          "Choose how books are ordered: by title, author, narrator, duration, date acquired, publication year, series, edition, or use grouped view to see books organized under collapsible author/narrator headers.",
       },
       {
         target: "#sidebar-toggle",
