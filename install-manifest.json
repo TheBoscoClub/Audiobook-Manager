@@ -256,6 +256,20 @@
 
   "data_directories": [
     {
+      "path": "/var/lib/audiobooks",
+      "required": true,
+      "min_permissions": "755",
+      "description": "Persistent state directory (BTRFS subvolume on NVMe)",
+      "btrfs_subvolume": true
+    },
+    {
+      "path": "/etc/audiobooks",
+      "required": true,
+      "min_permissions": "755",
+      "description": "System configuration directory (BTRFS subvolume on NVMe)",
+      "btrfs_subvolume": true
+    },
+    {
       "path": "/opt/audiobooks",
       "required": true,
       "min_permissions": "755",
