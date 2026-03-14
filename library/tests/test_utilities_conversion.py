@@ -19,9 +19,12 @@ class TestGetFfmpegProcesses:
 
         mock_run.return_value = MagicMock(
             stdout=(
-                "user  1234 0.5 1.0 12345 6789 pts/0 S+ 10:00 0:05 ffmpeg -i input.aaxc -c:a libopus output.opus\n"
-                "user  5678 0.3 0.8 11111 5555 pts/1 S+ 10:01 0:03 ffmpeg -i another.aaxc -c:a libopus another.opus\n"
-                "user  9999 0.1 0.2 2222 1111 pts/2 S+ 10:02 0:01 python some_script.py\n"
+                "user  1234 0.5 1.0 12345 6789 pts/0 S+ 10:00 0:05"
+                " ffmpeg -i input.aaxc -c:a libopus output.opus\n"
+                "user  5678 0.3 0.8 11111 5555 pts/1 S+ 10:01 0:03"
+                " ffmpeg -i another.aaxc -c:a libopus another.opus\n"
+                "user  9999 0.1 0.2 2222 1111 pts/2 S+ 10:02 0:01"
+                " python some_script.py\n"
             )
         )
 
@@ -67,8 +70,10 @@ class TestGetFfmpegProcesses:
         mock_run.return_value = MagicMock(
             stdout=(
                 "short line ffmpeg libopus\n"  # Too few columns
-                "user notanumber 0.5 1.0 12345 6789 pts/0 S+ 10:00 0:05 ffmpeg libopus\n"  # Invalid PID
-                "user 1234 0.5 1.0 12345 6789 pts/0 S+ 10:00 0:05 ffmpeg -c:a libopus good\n"  # Valid
+                "user notanumber 0.5 1.0 12345 6789 pts/0 S+ 10:00 0:05"
+                " ffmpeg libopus\n"  # Invalid PID
+                "user 1234 0.5 1.0 12345 6789 pts/0 S+ 10:00 0:05"
+                " ffmpeg -c:a libopus good\n"  # Valid
             )
         )
 
@@ -257,7 +262,10 @@ class TestGetSystemStats:
 
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout="Filesystem      Size  Used Avail Use% Mounted on\ntmpfs           8.0G  1.5G  6.5G  19% /tmp\n",
+            stdout=(
+                "Filesystem      Size  Used Avail Use% Mounted on\n"
+                "tmpfs           8.0G  1.5G  6.5G  19% /tmp\n"
+            ),
         )
 
         with patch(

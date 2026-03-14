@@ -31,7 +31,10 @@ DB_PATH = DATABASE_PATH
 
 
 def hash_file_worker(args: tuple) -> tuple:
-    """Worker function for parallel hashing. Returns (audiobook_id, hash, title, file_size_mb, error)"""
+    """Worker function for parallel hashing.
+
+    Returns (audiobook_id, hash, title, file_size_mb, error)
+    """
     audiobook_id, file_path, file_size_mb, title = args
     filepath = Path(file_path)
 
@@ -144,7 +147,8 @@ def generate_hashes(
         cursor.execute("ALTER TABLE audiobooks ADD COLUMN sha256_hash TEXT")
         cursor.execute("ALTER TABLE audiobooks ADD COLUMN hash_verified_at TIMESTAMP")
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_audiobooks_sha256 ON audiobooks(sha256_hash)"
+            "CREATE INDEX IF NOT EXISTS idx_audiobooks_sha256"
+            " ON audiobooks(sha256_hash)"
         )
         conn.commit()
         print("✓ Column added")
@@ -372,7 +376,8 @@ def show_stats(conn: sqlite3.Connection):
 
             print(f"\nHash: {hash_val[:16]}...")
             print(
-                f"  Count: {count} files | Wasted space: {format_size(wasted * 1024 * 1024)}"
+                f"  Count: {count} files |"
+                f" Wasted space: {format_size(wasted * 1024 * 1024)}"
             )
 
             # Show each file - use parameterized query

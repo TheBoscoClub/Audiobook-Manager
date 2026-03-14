@@ -38,7 +38,8 @@ class TestPerUserStateTables:
 
     def test_user_listening_history_table_exists(self, db):
         cursor = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_listening_history'"
+            "SELECT name FROM sqlite_master WHERE type='table'"
+            " AND name='user_listening_history'"
         )
         assert cursor.fetchone() is not None
 
@@ -56,7 +57,8 @@ class TestPerUserStateTables:
 
     def test_user_downloads_table_exists(self, db):
         cursor = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_downloads'"
+            "SELECT name FROM sqlite_master WHERE type='table'"
+            " AND name='user_downloads'"
         )
         assert cursor.fetchone() is not None
 
@@ -71,7 +73,8 @@ class TestPerUserStateTables:
 
     def test_user_preferences_table_exists(self, db):
         cursor = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_preferences'"
+            "SELECT name FROM sqlite_master WHERE type='table'"
+            " AND name='user_preferences'"
         )
         assert cursor.fetchone() is not None
 
@@ -86,10 +89,12 @@ class TestPerUserStateTables:
     def test_cascade_delete_listening_history(self, db):
         """Deleting a user cascades to listening history."""
         db.execute(
-            "INSERT INTO users (id, username, auth_type, auth_credential) VALUES (1, 'testuser1', 'totp', X'00')"
+            "INSERT INTO users (id, username, auth_type, auth_credential)"
+            " VALUES (1, 'testuser1', 'totp', X'00')"
         )
         db.execute(
-            "INSERT INTO user_listening_history (user_id, audiobook_id, position_start_ms) VALUES (1, 100, 0)"
+            "INSERT INTO user_listening_history"
+            " (user_id, audiobook_id, position_start_ms) VALUES (1, 100, 0)"
         )
         db.commit()
         db.execute("DELETE FROM users WHERE id = 1")
@@ -102,7 +107,8 @@ class TestPerUserStateTables:
     def test_cascade_delete_downloads(self, db):
         """Deleting a user cascades to downloads."""
         db.execute(
-            "INSERT INTO users (id, username, auth_type, auth_credential) VALUES (1, 'testuser1', 'totp', X'00')"
+            "INSERT INTO users (id, username, auth_type, auth_credential)"
+            " VALUES (1, 'testuser1', 'totp', X'00')"
         )
         db.execute("INSERT INTO user_downloads (user_id, audiobook_id) VALUES (1, 100)")
         db.commit()
@@ -114,7 +120,8 @@ class TestPerUserStateTables:
     def test_cascade_delete_preferences(self, db):
         """Deleting a user cascades to preferences."""
         db.execute(
-            "INSERT INTO users (id, username, auth_type, auth_credential) VALUES (1, 'testuser1', 'totp', X'00')"
+            "INSERT INTO users (id, username, auth_type, auth_credential)"
+            " VALUES (1, 'testuser1', 'totp', X'00')"
         )
         db.execute("INSERT INTO user_preferences (user_id) VALUES (1)")
         db.commit()
@@ -174,7 +181,8 @@ class TestMigrationRunner:
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
-                auth_type TEXT NOT NULL CHECK (auth_type IN ('passkey', 'fido2', 'totp')),
+                auth_type TEXT NOT NULL
+                    CHECK (auth_type IN ('passkey', 'fido2', 'totp')),
                 auth_credential BLOB NOT NULL,
                 can_download BOOLEAN DEFAULT FALSE,
                 is_admin BOOLEAN DEFAULT FALSE,
@@ -286,7 +294,8 @@ class TestMigrationRunner:
 
             # Table should still be absent (migration was skipped)
             cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='user_downloads'"
+                "SELECT name FROM sqlite_master WHERE type='table'"
+                " AND name='user_downloads'"
             )
             assert cursor.fetchone() is None
         finally:

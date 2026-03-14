@@ -185,7 +185,7 @@ def init_db_routes(db_path, project_root):
             # Get size before vacuum
             size_before = db_path.stat().st_size
 
-            # Use memory for temp storage to avoid disk I/O errors in sandboxed environments
+            # Use memory for temp storage to avoid disk I/O errors in sandboxed envs
             # (ProtectSystem=strict blocks default temp directory access)
             conn.execute("PRAGMA temp_store = MEMORY;")
 
@@ -284,7 +284,8 @@ def init_db_routes(db_path, project_root):
         cursor.execute(
             """
             SELECT id, title, author, narrator, publisher, series, series_sequence,
-                   duration_hours, duration_formatted, file_size_mb, published_year, asin, isbn, file_path
+                   duration_hours, duration_formatted, file_size_mb,
+                   published_year, asin, isbn, file_path
             FROM audiobooks
             ORDER BY title
         """
@@ -325,8 +326,11 @@ def init_db_routes(db_path, project_root):
         response = current_app.response_class(
             response=output.getvalue(), status=200, mimetype="text/csv"
         )
+        export_filename = (
+            f"audiobooks_export_{datetime.now().strftime('%Y%m%d')}.csv"
+        )
         response.headers["Content-Disposition"] = (
-            f"attachment; filename=audiobooks_export_{datetime.now().strftime('%Y%m%d')}.csv"
+            f"attachment; filename={export_filename}"
         )
         return response
 

@@ -67,7 +67,8 @@ def populate_genres(dry_run=True):
                     }
 
     print(
-        f"Built lookup with {len(audible_by_asin)} ASINs, {len(audible_by_title)} titles"
+        f"Built lookup with {len(audible_by_asin)} ASINs,"
+        f" {len(audible_by_title)} titles"
     )
 
     # Connect to database
@@ -183,7 +184,8 @@ def populate_genres(dry_run=True):
             for genre in m["genres"]:
                 if genre in genre_id_map and genre not in seen_genres:
                     cursor.execute(
-                        "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+                        "INSERT INTO audiobook_genres"
+                        " (audiobook_id, genre_id) VALUES (?, ?)",
                         (m["id"], genre_id_map[genre]),
                     )
                     association_count += 1

@@ -3,7 +3,8 @@ Phase 2 Data Migration: Populate normalized author/narrator tables
 from existing flat text columns in the audiobooks table.
 
 Usage:
-    python -m library.backend.migrations.migrate_to_normalized_authors [--db-path PATH] [--dry-run]
+    python -m library.backend.migrations.migrate_to_normalized_authors \
+        [--db-path PATH] [--dry-run]
 
 Idempotent: safe to run multiple times. Uses INSERT OR IGNORE for deduplication.
 Deduplicates case-insensitively and accent-insensitively (Miéville = Mieville).
@@ -14,7 +15,7 @@ import logging
 import sqlite3
 import unicodedata
 
-from library.backend.name_parser import (
+from backend.name_parser import (
     clean_name,
     generate_sort_name,
     has_role_suffix,
@@ -261,7 +262,10 @@ if __name__ == "__main__":
 
     db_path = args.db_path
     if not db_path:
-        from library.backend.config import DATABASE_PATH
+        try:
+            from library.backend.config import DATABASE_PATH
+        except ModuleNotFoundError:
+            from backend.config import DATABASE_PATH
 
         db_path = str(DATABASE_PATH)
 

@@ -92,7 +92,8 @@ class SoftwareAuthenticator:
             origin: The origin to use in clientDataJSON (must match server config).
 
         Returns:
-            A dict matching the PublicKeyCredential interface for the /complete endpoint.
+            A dict matching the PublicKeyCredential interface for
+            the /complete endpoint.
         """
         # Extract challenge
         challenge_b64 = options["challenge"]
@@ -164,7 +165,8 @@ class SoftwareAuthenticator:
                           matching credential from allowCredentials.
 
         Returns:
-            A dict matching the PublicKeyCredential interface for the /complete endpoint.
+            A dict matching the PublicKeyCredential interface for
+            the /complete endpoint.
         """
         challenge_b64 = options["challenge"]
 

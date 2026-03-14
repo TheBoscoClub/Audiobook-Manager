@@ -1254,7 +1254,9 @@ class TestDuplicatesTitleAuthorLogic:
                     pytest.fail("Should not group books with 'Audiobook' as author")
         finally:
             cursor.execute(
-                "DELETE FROM audiobooks WHERE author = 'Audiobook' AND title = 'Book With Audiobook Author'"
+                "DELETE FROM audiobooks"
+                " WHERE author = 'Audiobook'"
+                " AND title = 'Book With Audiobook Author'"
             )
             conn.commit()
             conn.close()

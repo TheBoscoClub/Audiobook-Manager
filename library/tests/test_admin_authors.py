@@ -42,7 +42,8 @@ INSERT INTO book_authors (book_id, author_id, position) VALUES (3, 2, 0);
 
 INSERT INTO narrators (id, name, sort_name) VALUES (1, 'Frank Muller', 'Muller, Frank');
 INSERT INTO narrators (id, name, sort_name) VALUES (2, 'Steven Weber', 'Weber, Steven');
-INSERT INTO narrators (id, name, sort_name) VALUES (3, 'Frank Mueller', 'Mueller, Frank');
+INSERT INTO narrators (id, name, sort_name)
+VALUES (3, 'Frank Mueller', 'Mueller, Frank');
 
 INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (1, 1, 0);
 INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (2, 2, 0);
@@ -227,7 +228,8 @@ class TestMergeAuthors:
 
     def test_merge_authors_target_already_linked(self, client, db_conn):
         """Merge where target is already linked to the same book."""
-        # Link author 3 (Steven King) to book 2 which already has author 1 (Stephen King)
+        # Link author 3 (Steven King) to book 2 which already has
+        # author 1 (Stephen King)
         db_conn.execute(
             "INSERT INTO book_authors (book_id, author_id, position) VALUES (2, 3, 1)"
         )
@@ -398,7 +400,8 @@ class TestMergeNarrators:
         """Merge typo duplicate narrator."""
         # Link narrator 3 (Frank Mueller) to book 2
         db_conn.execute(
-            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (2, 3, 1)"
+            "INSERT INTO book_narrators (book_id, narrator_id, position)"
+            " VALUES (2, 3, 1)"
         )
         db_conn.commit()
 
@@ -418,7 +421,8 @@ class TestMergeNarrators:
     def test_merge_narrator_regenerates_flat(self, client, db_conn):
         """Merge updates flat narrator column."""
         db_conn.execute(
-            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (3, 3, 1)"
+            "INSERT INTO book_narrators (book_id, narrator_id, position)"
+            " VALUES (3, 3, 1)"
         )
         db_conn.commit()
 

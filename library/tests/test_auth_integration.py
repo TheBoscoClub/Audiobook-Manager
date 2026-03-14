@@ -2,7 +2,8 @@
 Integration tests for the full authentication lifecycle.
 
 Tests the complete auth flow for each auth method against the VM API:
-  Admin login → Register user → Admin approve → Claim credentials → Login → Verify session
+  Admin login → Register user → Admin approve → Claim credentials
+  → Login → Verify session
 
 Runs against: http://192.168.122.104:5001
 
@@ -150,7 +151,8 @@ def _cleanup_access_request_db(username: str) -> None:
 import sys
 sys.path.insert(0, '/opt/audiobooks/library')
 from auth.database import AuthDatabase
-db = AuthDatabase(db_path='/var/lib/audiobooks/auth.db', key_path='/etc/audiobooks/auth.key')
+db = AuthDatabase(db_path='/var/lib/audiobooks/auth.db',
+    key_path='/etc/audiobooks/auth.key')
 db.initialize()
 with db.connection() as conn:
     conn.execute('DELETE FROM access_requests WHERE username = ?', ('{username}',))
@@ -672,7 +674,8 @@ def _b64url_decode_hw(s: str) -> bytes:
 
 
 def _parse_creation_options(options: dict):
-    """Convert server JSON options to fido2.webauthn PublicKeyCredentialCreationOptions."""
+    """Convert server JSON options to fido2.webauthn
+    PublicKeyCredentialCreationOptions."""
     from fido2.webauthn import (
         PublicKeyCredentialCreationOptions,
         PublicKeyCredentialRpEntity,
@@ -714,7 +717,8 @@ def _parse_creation_options(options: dict):
 
 
 def _parse_request_options(options: dict):
-    """Convert server JSON options to fido2.webauthn PublicKeyCredentialRequestOptions."""
+    """Convert server JSON options to fido2.webauthn
+    PublicKeyCredentialRequestOptions."""
     from fido2.webauthn import (
         PublicKeyCredentialRequestOptions,
         PublicKeyCredentialDescriptor,

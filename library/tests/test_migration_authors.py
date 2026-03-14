@@ -56,7 +56,7 @@ class TestMigration:
 
     def test_single_author_migrated(self):
         self._insert_book("It", "Stephen King")
-        from library.backend.migrations.migrate_to_normalized_authors import migrate
+        from backend.migrations.migrate_to_normalized_authors import migrate
 
         migrate(self.db_path)
 
@@ -71,7 +71,7 @@ class TestMigration:
 
     def test_multi_author_creates_both(self):
         self._insert_book("The Talisman", "Stephen King, Peter Straub")
-        from library.backend.migrations.migrate_to_normalized_authors import migrate
+        from backend.migrations.migrate_to_normalized_authors import migrate
 
         migrate(self.db_path)
 
@@ -89,7 +89,7 @@ class TestMigration:
     def test_deduplication(self):
         self._insert_book("It", "Stephen King")
         self._insert_book("The Shining", "Stephen King")
-        from library.backend.migrations.migrate_to_normalized_authors import migrate
+        from backend.migrations.migrate_to_normalized_authors import migrate
 
         migrate(self.db_path)
 
@@ -101,7 +101,7 @@ class TestMigration:
 
     def test_narrator_migrated(self):
         self._insert_book("It", "Stephen King", "Steven Weber")
-        from library.backend.migrations.migrate_to_normalized_authors import migrate
+        from backend.migrations.migrate_to_normalized_authors import migrate
 
         migrate(self.db_path)
 
@@ -119,7 +119,7 @@ class TestMigration:
             ("Orphan Book", "Some Narrator", "/fake/orphan.opus"),
         )
         self.conn.commit()
-        from library.backend.migrations.migrate_to_normalized_authors import migrate
+        from backend.migrations.migrate_to_normalized_authors import migrate
 
         migrate(self.db_path)
 
@@ -131,7 +131,7 @@ class TestMigration:
 
     def test_group_name_redirected_to_narrator(self):
         self._insert_book("Drama", "Full Cast", "Someone Else")
-        from library.backend.migrations.migrate_to_normalized_authors import migrate
+        from backend.migrations.migrate_to_normalized_authors import migrate
 
         migrate(self.db_path)
 
@@ -148,7 +148,7 @@ class TestMigration:
     def test_idempotent(self):
         """Running migration twice should not duplicate data."""
         self._insert_book("It", "Stephen King")
-        from library.backend.migrations.migrate_to_normalized_authors import migrate
+        from backend.migrations.migrate_to_normalized_authors import migrate
 
         migrate(self.db_path)
         migrate(self.db_path)  # Second run

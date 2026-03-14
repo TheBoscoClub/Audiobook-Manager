@@ -619,7 +619,8 @@ class TestDownloadPermissionEndpoints:
     """Test endpoints that require download permission."""
 
     def test_stream_allowed_without_download_permission(self, client, auth_app):
-        """Test streaming works for any authenticated user (no download permission needed)."""
+        """Test streaming works for any authenticated user (no download permission
+        needed)."""
         # testuser1 has can_download=False but should still be able to stream
         auth = TOTPAuthenticator(auth_app.test_user_secret)
         client.post(

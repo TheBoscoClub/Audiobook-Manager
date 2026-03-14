@@ -230,7 +230,8 @@ def init_crud_routes(db_path):
             files_to_delete = []
             if delete_files:
                 cursor.execute(
-                    f"SELECT id, file_path FROM audiobooks WHERE id IN ({placeholders})",
+                    "SELECT id, file_path FROM audiobooks"
+                    f" WHERE id IN ({placeholders})",
                     ids,
                 )
                 files_to_delete = [
@@ -415,7 +416,8 @@ def init_crud_routes(db_path):
                 cursor.execute("SELECT id FROM genres WHERE name = ?", (name,))
                 genre_id = cursor.fetchone()["id"]
                 cursor.execute(
-                    "INSERT OR IGNORE INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO audiobook_genres"
+                    " (audiobook_id, genre_id) VALUES (?, ?)",
                     (id, genre_id),
                 )
 
@@ -492,7 +494,8 @@ def init_crud_routes(db_path):
 
                     for book_id in ids:
                         cursor.execute(
-                            "INSERT OR IGNORE INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+                            "INSERT OR IGNORE INTO audiobook_genres"
+                            " (audiobook_id, genre_id) VALUES (?, ?)",
                             (book_id, genre_id),
                         )
                         affected += cursor.rowcount
@@ -509,7 +512,8 @@ def init_crud_routes(db_path):
 
                     placeholders = ",".join("?" * len(ids))
                     cursor.execute(
-                        f"DELETE FROM audiobook_genres WHERE genre_id = ? AND audiobook_id IN ({placeholders})",
+                        "DELETE FROM audiobook_genres"
+                        f" WHERE genre_id = ? AND audiobook_id IN ({placeholders})",
                         [genre_id] + list(ids),
                     )
                     affected += cursor.rowcount

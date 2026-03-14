@@ -438,7 +438,10 @@ def init_maintenance_routes(project_root):
         return jsonify(
             {
                 "success": True,
-                "message": f"Sort field population started {'(dry run)' if dry_run else ''}",
+                "message": (
+                    f"Sort field population started"
+                    f" {'(dry run)' if dry_run else ''}"
+                ),
                 "operation_id": operation_id,
             }
         )
@@ -482,7 +485,7 @@ def init_maintenance_routes(project_root):
                 / "migrations"
                 / "populate_asins_from_library.py"
             )
-            # Use a secure temp file to avoid race conditions (CVE: insecure-temporary-file)
+            # Use a secure temp file to avoid race conditions (CVE: insecure-tmp-file)
             # mkstemp() atomically creates the file, preventing TOCTOU race conditions
             fd, library_export_str = tempfile.mkstemp(
                 suffix=".json", prefix="audible-export-"
@@ -498,7 +501,9 @@ def init_maintenance_routes(project_root):
                 # This bypasses the wrapper script and PATH issues
                 try:
                     # HOME for audible to find ~/.audible config
-                    _audible_home = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")  # fmt: skip
+                    _audible_home = os.environ.get(
+                        "AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks"
+                    )
                     export_result = subprocess.run(
                         [
                             sys.executable,
@@ -535,7 +540,8 @@ def init_maintenance_routes(project_root):
                     )
                     tracker.fail_operation(
                         operation_id,
-                        f"Failed to export Audible library (code {export_result.returncode}): {error_msg}",
+                        f"Failed to export Audible library"
+                        f" (code {export_result.returncode}): {error_msg}",
                     )
                     return
 

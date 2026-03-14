@@ -209,7 +209,8 @@ def init_supplements_routes(db_path, supplements_dir):
                     # Insert new record
                     cursor.execute(
                         """
-                        INSERT INTO supplements (audiobook_id, type, filename, file_path, file_size_mb)
+                        INSERT INTO supplements
+                            (audiobook_id, type, filename, file_path, file_size_mb)
                         VALUES (?, ?, ?, ?, ?)
                     """,
                         (audiobook_id, supplement_type, filename, path_str, file_size),

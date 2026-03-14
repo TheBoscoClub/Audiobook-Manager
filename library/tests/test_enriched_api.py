@@ -85,10 +85,12 @@ def enriched_app(enriched_temp_dir):
 
     # Populate normalized authors
     conn.execute(
-        "INSERT INTO authors (id, name, sort_name) VALUES (1, 'Stephen King', 'King, Stephen')"
+        "INSERT INTO authors (id, name, sort_name)"
+        " VALUES (1, 'Stephen King', 'King, Stephen')"
     )
     conn.execute(
-        "INSERT INTO authors (id, name, sort_name) VALUES (2, 'Peter Straub', 'Straub, Peter')"
+        "INSERT INTO authors (id, name, sort_name)"
+        " VALUES (2, 'Peter Straub', 'Straub, Peter')"
     )
     conn.execute(
         "INSERT INTO authors (id, name, sort_name) VALUES (3, 'Jane Doe', 'Doe, Jane')"
@@ -96,13 +98,16 @@ def enriched_app(enriched_temp_dir):
 
     # Populate normalized narrators
     conn.execute(
-        "INSERT INTO narrators (id, name, sort_name) VALUES (1, 'Frank Muller', 'Muller, Frank')"
+        "INSERT INTO narrators (id, name, sort_name)"
+        " VALUES (1, 'Frank Muller', 'Muller, Frank')"
     )
     conn.execute(
-        "INSERT INTO narrators (id, name, sort_name) VALUES (2, 'Steven Weber', 'Weber, Steven')"
+        "INSERT INTO narrators (id, name, sort_name)"
+        " VALUES (2, 'Steven Weber', 'Weber, Steven')"
     )
     conn.execute(
-        "INSERT INTO narrators (id, name, sort_name) VALUES (3, 'John Smith', 'Smith, John')"
+        "INSERT INTO narrators (id, name, sort_name)"
+        " VALUES (3, 'John Smith', 'Smith, John')"
     )
 
     # Populate junction tables (book_authors)

@@ -172,8 +172,9 @@ class TestUpdatePositionRoute:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT OR IGNORE INTO audiobooks (id, title, author, duration_hours, playback_position_ms, file_path)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO audiobooks (
+                id, title, author, duration_hours, playback_position_ms, file_path
+            ) VALUES (?, ?, ?, ?, ?, ?)
             """,
             (9002, "Update Position Book", "Author", 8.0, 1000000, "/test/update.opus"),
         )
@@ -199,7 +200,8 @@ class TestUpdatePositionRoute:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR IGNORE INTO audiobooks (id, title, author, duration_hours, file_path) VALUES (?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO audiobooks"
+            " (id, title, author, duration_hours, file_path) VALUES (?, ?, ?, ?, ?)",
             (9003, "No Position Book", "Author", 5.0, "/test/nopos.opus"),
         )
         conn.commit()
@@ -236,8 +238,9 @@ class TestPercentageCalculation:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT OR IGNORE INTO audiobooks (id, title, author, asin, duration_hours, playback_position_ms, file_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO audiobooks (
+                id, title, author, asin, duration_hours, playback_position_ms, file_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 9030,
@@ -265,7 +268,8 @@ class TestPercentageCalculation:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR IGNORE INTO audiobooks (id, title, author, duration_hours, file_path) VALUES (?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO audiobooks"
+            " (id, title, author, duration_hours, file_path) VALUES (?, ?, ?, ?, ?)",
             (9031, "Zero Duration Book", "Author", 0, "/test/zerodur.opus"),
         )
         conn.commit()

@@ -176,8 +176,9 @@ def grouped_db(flask_app, app_client):
     cursor.execute("DELETE FROM audiobooks")
     if _saved_books:
         placeholders = ", ".join("?" * len(_saved_cols))
+        cols_str = ", ".join(_saved_cols)
         cursor.executemany(
-            f"INSERT INTO audiobooks ({', '.join(_saved_cols)}) VALUES ({placeholders})",
+            f"INSERT INTO audiobooks ({cols_str}) VALUES ({placeholders})",
             _saved_books,
         )
     conn.commit()

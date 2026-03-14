@@ -27,13 +27,22 @@ from pathlib import Path
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from library.auth import (
-    AuthDatabase,
-    AuthType,
-    User,
-    UserRepository,
-    SessionRepository,
-)
+try:
+    from library.auth import (
+        AuthDatabase,
+        AuthType,
+        User,
+        UserRepository,
+        SessionRepository,
+    )
+except ModuleNotFoundError:
+    from auth import (
+        AuthDatabase,
+        AuthType,
+        User,
+        UserRepository,
+        SessionRepository,
+    )
 
 
 def get_db(args) -> AuthDatabase:
@@ -84,7 +93,8 @@ def cmd_list(args) -> int:
             return 0
 
         print(
-            f"{'ID':<5} {'Username':<18} {'Auth':<8} {'Download':<10} {'Admin':<7} {'Last Login'}"
+            f"{'ID':<5} {'Username':<18} {'Auth':<8} "
+            f"{'Download':<10} {'Admin':<7} {'Last Login'}"
         )
         print("-" * 80)
 
@@ -164,7 +174,8 @@ def cmd_add(args) -> int:
             print(f"OTPAuth URI: {uri}")
             print()
             print(
-                "Scan this QR code or enter the secret manually in your authenticator app."
+                "Scan this QR code or enter the secret manually in your"
+                " authenticator app."
             )
             print("(Use 'qrencode' or an online QR generator with the URI above)")
 
@@ -321,22 +332,34 @@ def cmd_info(args) -> int:
         print(f"  Auth type: {user.auth_type.value}")
         print(f"  Can download: {'Yes' if user.can_download else 'No'}")
         print(f"  Is admin: {'Yes' if user.is_admin else 'No'}")
-        print(
-            f"  Created: {user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else 'Unknown'}"
+        created_str = (
+            user.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            if user.created_at
+            else "Unknown"
         )
-        print(
-            f"  Last login: {user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'Never'}"
+        print(f"  Created: {created_str}")
+        last_login_str = (
+            user.last_login.strftime("%Y-%m-%d %H:%M:%S")
+            if user.last_login
+            else "Never"
         )
+        print(f"  Last login: {last_login_str}")
 
         print()
         if session:
             print("Active session:")
-            print(
-                f"  Created: {session.created_at.strftime('%Y-%m-%d %H:%M:%S') if session.created_at else 'Unknown'}"
+            sess_created = (
+                session.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                if session.created_at
+                else "Unknown"
             )
-            print(
-                f"  Last seen: {session.last_seen.strftime('%Y-%m-%d %H:%M:%S') if session.last_seen else 'Unknown'}"
+            print(f"  Created: {sess_created}")
+            sess_seen = (
+                session.last_seen.strftime("%Y-%m-%d %H:%M:%S")
+                if session.last_seen
+                else "Unknown"
             )
+            print(f"  Last seen: {sess_seen}")
             print(f"  User agent: {session.user_agent or 'Unknown'}")
             print(f"  IP address: {session.ip_address or 'Unknown'}")
         else:
@@ -371,7 +394,8 @@ def cmd_totp_reset(args) -> int:
 
         if not args.yes:
             confirm = input(
-                f"Reset TOTP for '{args.username}'? This will invalidate the current authenticator. [y/N]: "
+                f"Reset TOTP for '{args.username}'?"
+                " This will invalidate the current authenticator. [y/N]: "
             )
             if confirm.lower() != "y":
                 print("Aborted.")
@@ -442,13 +466,19 @@ def main():
         "--database",
         "-d",
         default=os.environ.get("AUTH_DATABASE", "/var/lib/audiobooks/auth.db"),
-        help="Path to auth database (default: $AUTH_DATABASE or /var/lib/audiobooks/auth.db)",
+        help=(
+            "Path to auth database"
+            " (default: $AUTH_DATABASE or /var/lib/audiobooks/auth.db)"
+        ),
     )
     parser.add_argument(
         "--key-file",
         "-k",
         default=os.environ.get("AUTH_KEY_FILE", "/etc/audiobooks/auth.key"),
-        help="Path to encryption key (default: $AUTH_KEY_FILE or /etc/audiobooks/auth.key)",
+        help=(
+            "Path to encryption key"
+            " (default: $AUTH_KEY_FILE or /etc/audiobooks/auth.key)"
+        ),
     )
     parser.add_argument(
         "--dev", action="store_true", help="Development mode (relaxed key permissions)"

@@ -413,20 +413,37 @@ def auth_app(auth_temp_dir):
         );
 
         -- Test audiobooks (used by auth API and user state tests)
-        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
-        VALUES (1, 'The Fellowship of the Ring', 'J.R.R. Tolkien', '/test/fellowship.opus', 'opus', 19.0, 'Product', '2026-01-01 00:00:00');
+        INSERT INTO audiobooks
+            (id, title, author, file_path, format, duration_hours,
+             content_type, created_at)
+        VALUES (1, 'The Fellowship of the Ring', 'J.R.R. Tolkien',
+            '/test/fellowship.opus', 'opus', 19.0,
+            'Product', '2026-01-01 00:00:00');
 
-        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
-        VALUES (2, 'The Two Towers', 'J.R.R. Tolkien', '/test/towers.opus', 'opus', 16.0, 'Product', '2026-01-15 00:00:00');
+        INSERT INTO audiobooks
+            (id, title, author, file_path, format, duration_hours,
+             content_type, created_at)
+        VALUES (2, 'The Two Towers', 'J.R.R. Tolkien',
+            '/test/towers.opus', 'opus', 16.0,
+            'Product', '2026-01-15 00:00:00');
 
-        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
-        VALUES (3, 'Return of the King', 'J.R.R. Tolkien', '/test/return.opus', 'opus', 14.5, 'Product', '2026-02-01 00:00:00');
+        INSERT INTO audiobooks
+            (id, title, author, file_path, format, duration_hours,
+             content_type, created_at)
+        VALUES (3, 'Return of the King', 'J.R.R. Tolkien',
+            '/test/return.opus', 'opus', 14.5,
+            'Product', '2026-02-01 00:00:00');
 
-        INSERT INTO audiobooks (id, title, author, file_path, format, duration_hours, content_type, created_at)
-        VALUES (4, 'The Hobbit', 'J.R.R. Tolkien', '/test/hobbit.opus', 'opus', 11.0, 'Product', '2026-02-20 00:00:00');
+        INSERT INTO audiobooks
+            (id, title, author, file_path, format, duration_hours,
+             content_type, created_at)
+        VALUES (4, 'The Hobbit', 'J.R.R. Tolkien',
+            '/test/hobbit.opus', 'opus', 11.0,
+            'Product', '2026-02-20 00:00:00');
 
         -- Normalized author data for test audiobooks
-        INSERT INTO authors (id, name, sort_name) VALUES (1, 'J.R.R. Tolkien', 'Tolkien, J.R.R.');
+        INSERT INTO authors (id, name, sort_name)
+            VALUES (1, 'J.R.R. Tolkien', 'Tolkien, J.R.R.');
         INSERT INTO book_authors (book_id, author_id, position) VALUES (1, 1, 0);
         INSERT INTO book_authors (book_id, author_id, position) VALUES (2, 1, 0);
         INSERT INTO book_authors (book_id, author_id, position) VALUES (3, 1, 0);

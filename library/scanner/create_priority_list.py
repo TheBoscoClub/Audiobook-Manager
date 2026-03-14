@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Create a priority list of actual audiobooks (excluding cover files) that need re-downloading
+Create a priority list of actual audiobooks (excluding cover files)
+that need re-downloading
 """
 
 import csv
@@ -26,7 +27,8 @@ def main():
         f.write("PRIORITY: ACTUAL AUDIOBOOKS NEEDING RE-DOWNLOAD\n")
         f.write("=" * 80 + "\n\n")
         f.write(
-            f"Total: {len(priority_books)} audiobook files (excludes cover image files)\n\n"
+            f"Total: {len(priority_books)} audiobook files"
+            " (excludes cover image files)\n\n"
         )
         f.write("INSTRUCTIONS:\n")
         f.write("1. Log in to your Audible account at audible.com\n")
@@ -50,8 +52,9 @@ def main():
 
         for dir_name, items in sorted(by_directory.items()):
             f.write(f"\n{'=' * 80}\n")
+            plural = "s" if len(items) > 1 else ""
             f.write(
-                f"DIRECTORY: {dir_name} ({len(items)} file{'s' if len(items) > 1 else ''})\n"
+                f"DIRECTORY: {dir_name} ({len(items)} file{plural})\n"
             )
             f.write(f"{'=' * 80}\n\n")
 

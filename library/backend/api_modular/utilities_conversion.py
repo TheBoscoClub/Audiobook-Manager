@@ -271,7 +271,8 @@ def init_conversion_routes(project_root: str | Path):
                         "library_count": library_count,
                         "staged_count": staged_count,
                         "total_converted": total_converted,
-                        "queue_count": effective_remaining,  # Use effective for consistency
+                        # Use effective for consistency
+                        "queue_count": effective_remaining,
                         "remaining": effective_remaining,
                         "percent_complete": percent,
                         "is_complete": is_complete,

@@ -47,7 +47,8 @@ def find_audiobook_folder_duplicates(conn):
     cursor.execute(
         """
         SELECT id, title, author, file_path, file_size_mb, duration_hours,
-               LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
+               LOWER(TRIM(REPLACE(REPLACE(REPLACE(
+                   title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
                ROUND(duration_hours, 1) as duration_group
         FROM audiobooks
         WHERE file_path LIKE '%/Library/Audiobook/%'
@@ -74,7 +75,8 @@ def find_audiobook_folder_duplicates(conn):
             """
             SELECT id, title, author, file_path
             FROM audiobooks
-            WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
+            WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(
+                title, ':', ''), '-', ''), '  ', ' '))) = ?
               AND ROUND(duration_hours, 1) = ?
               AND file_path NOT LIKE '%/Library/Audiobook/%'
               AND LOWER(TRIM(author)) != 'audiobook'
@@ -235,7 +237,9 @@ def cleanup_duplicates(dry_run=True, delete_files=False):
 
 def main():
     parser = ArgumentParser(
-        description="Clean up duplicate audiobook entries from /Library/Audiobook/ folder"
+        description=(
+            "Clean up duplicate audiobook entries from /Library/Audiobook/ folder"
+        )
     )
     parser.add_argument(
         "--execute",

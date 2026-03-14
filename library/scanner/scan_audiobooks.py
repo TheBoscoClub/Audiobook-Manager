@@ -217,7 +217,8 @@ def print_scan_statistics(audiobooks: list[dict]) -> None:
 
     total_hours = sum(ab["duration_hours"] for ab in audiobooks)
     print(
-        f"\nTotal listening time: {int(total_hours)} hours ({int(total_hours / 24)} days)"
+        f"\nTotal listening time: {int(total_hours)} hours"
+        f" ({int(total_hours / 24)} days)"
     )
 
 

@@ -224,7 +224,8 @@ def run_server(
         flask_app = app
     if flask_app is None:
         raise RuntimeError(
-            "No Flask application provided and global app is not initialized. Call create_app() first."
+            "No Flask application provided and global app is not initialized."
+            " Call create_app() first."
         )
     port = port or API_PORT
 

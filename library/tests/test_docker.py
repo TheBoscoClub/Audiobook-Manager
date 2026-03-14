@@ -188,8 +188,8 @@ def _seed_empty_database(data_dir: str) -> None:
     conn.close()
     # Make directory and database accessible by container user (may differ
     # from host UID — e.g. host claude=1001 vs container appuser=1000).
-    os.chmod(data_dir, 0o777)
-    os.chmod(str(db_path), 0o666)
+    os.chmod(data_dir, 0o777)  # noqa: S103 # nosec B103 — test container needs cross-UID access
+    os.chmod(str(db_path), 0o666)  # noqa: S103 # nosec B103 — test container needs cross-UID access
 
 
 @pytest.fixture
@@ -210,7 +210,7 @@ def docker_container(docker_image):
     _seed_empty_database(data_dir)
 
     # Ensure covers dir is accessible by container user (may have different UID)
-    os.chmod(covers_dir, 0o777)
+    os.chmod(covers_dir, 0o777)  # noqa: S103 # nosec B103 — test container needs cross-UID access
 
     # Use --publish with port 0 on host to let Docker pick free ports
     # Override AUDIOBOOKS_BIND_ADDRESS to 0.0.0.0 so ports are reachable
@@ -371,7 +371,7 @@ class TestAPIIntegration:
     def test_api_stats_endpoint(self, healthy_container):
         """GET /api/stats returns valid JSON with expected keys."""
         url = self._https_url(healthy_container, "/api/stats")
-        resp = requests.get(url, verify=False, timeout=10)
+        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200, f"Unexpected status {resp.status_code}"
         data = resp.json()
         assert isinstance(data, dict)
@@ -379,7 +379,7 @@ class TestAPIIntegration:
     def test_api_version_endpoint(self, healthy_container):
         """GET /api/system/version returns version info matching VERSION file."""
         url = self._https_url(healthy_container, "/api/system/version")
-        resp = requests.get(url, verify=False, timeout=10)
+        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         data = resp.json()
         assert "version" in data or "app_version" in data
@@ -387,14 +387,14 @@ class TestAPIIntegration:
     def test_https_web_ui_loads(self, healthy_container):
         """HTTPS on 8443 serves the web UI (HTML page)."""
         url = self._https_url(healthy_container, "/")
-        resp = requests.get(url, verify=False, timeout=10)
+        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         assert "text/html" in resp.headers.get("Content-Type", "")
 
     def test_http_redirect_works(self, healthy_container):
         """HTTP on 8080 redirects (301/302/307/308) to HTTPS."""
         url = self._http_url(healthy_container, "/")
-        resp = requests.get(url, verify=False, timeout=10, allow_redirects=False)
+        resp = requests.get(url, verify=False, timeout=10, allow_redirects=False)  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code in (301, 302, 307, 308), (
             f"Expected redirect, got {resp.status_code}"
         )
@@ -406,7 +406,7 @@ class TestAPIIntegration:
     def test_api_audiobooks_list(self, healthy_container):
         """GET /api/audiobooks returns a valid response (empty library is OK)."""
         url = self._https_url(healthy_container, "/api/audiobooks")
-        resp = requests.get(url, verify=False, timeout=10)
+        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         data = resp.json()
         # Response is a list of audiobooks (possibly empty)
@@ -514,7 +514,7 @@ class TestEnvironmentVariables:
             if healthy and requests is not None:
                 url = f"https://127.0.0.1:{mapped}/"
                 try:
-                    resp = requests.get(url, verify=False, timeout=10)
+                    resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
                     assert resp.status_code == 200
                 except RequestsConnectionError:
                     # Port bound but HTTPS proxy may still be starting

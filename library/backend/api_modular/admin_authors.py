@@ -383,7 +383,8 @@ def reassign_book_authors(book_id: int):
         # Insert new links
         for aid, pos in zip(author_ids, positions):
             conn.execute(
-                "INSERT INTO book_authors (book_id, author_id, position) VALUES (?, ?, ?)",
+                "INSERT INTO book_authors"
+                " (book_id, author_id, position) VALUES (?, ?, ?)",
                 (book_id, aid, pos),
             )
 
@@ -514,13 +515,15 @@ def merge_narrators():
                 affected_book_ids.add(bid)
 
                 existing = conn.execute(
-                    "SELECT 1 FROM book_narrators WHERE book_id = ? AND narrator_id = ?",
+                    "SELECT 1 FROM book_narrators"
+                    " WHERE book_id = ? AND narrator_id = ?",
                     (bid, target_id),
                 ).fetchone()
 
                 if existing:
                     conn.execute(
-                        "DELETE FROM book_narrators WHERE book_id = ? AND narrator_id = ?",
+                        "DELETE FROM book_narrators"
+                        " WHERE book_id = ? AND narrator_id = ?",
                         (bid, sid),
                     )
                 else:
@@ -593,7 +596,8 @@ def reassign_book_narrators(book_id: int):
 
         for nid, pos in zip(narrator_ids, positions):
             conn.execute(
-                "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (?, ?, ?)",
+                "INSERT INTO book_narrators"
+                " (book_id, narrator_id, position) VALUES (?, ?, ?)",
                 (book_id, nid, pos),
             )
 

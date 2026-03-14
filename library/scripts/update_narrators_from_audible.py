@@ -68,7 +68,8 @@ def update_narrators(dry_run=True):
                 }
 
     print(
-        f"Built lookup with {len(audible_by_title)} titles, {len(audible_by_asin)} ASINs"
+        f"Built lookup with {len(audible_by_title)} titles,"
+        f" {len(audible_by_asin)} ASINs"
     )
 
     # Connect to database

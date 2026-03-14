@@ -1,6 +1,6 @@
 """Tests for multi-author/narrator name parser."""
 
-from library.backend.name_parser import (
+from backend.name_parser import (
     clean_name,
     generate_sort_name,
     has_role_suffix,
@@ -168,7 +168,7 @@ class TestParseNames:
         assert parse_names(None) == []
 
     def test_group_name_in_author_context_flagged(self):
-        from library.backend.name_parser import is_group_name
+        from backend.name_parser import is_group_name
 
         assert is_group_name("Full Cast") is True
         assert is_group_name("BBC Radio") is True

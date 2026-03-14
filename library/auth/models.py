@@ -120,8 +120,11 @@ class User:
             if self.id is None:
                 cursor = conn.execute(
                     """
-                    INSERT INTO users (username, auth_type, auth_credential, can_download, is_admin,
-                                       recovery_email, recovery_phone, recovery_enabled)
+                    INSERT INTO users (
+                        username, auth_type, auth_credential,
+                        can_download, is_admin,
+                        recovery_email, recovery_phone, recovery_enabled
+                    )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
@@ -372,7 +375,9 @@ class Session:
             # Create new session
             cursor = conn.execute(
                 """
-                INSERT INTO sessions (user_id, token_hash, user_agent, ip_address, is_persistent)
+                INSERT INTO sessions (
+                    user_id, token_hash, user_agent, ip_address, is_persistent
+                )
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (user_id, token_hash, user_agent, ip_address, remember_me),
@@ -456,7 +461,8 @@ class SessionRepository:
         """
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
         persistent_threshold = datetime.now() - timedelta(days=30)
-        # Use SQLite-compatible format (space separator) to match DEFAULT CURRENT_TIMESTAMP
+        # Use SQLite-compatible format (space separator) to match
+        # DEFAULT CURRENT_TIMESTAMP
         threshold_str = threshold.strftime("%Y-%m-%d %H:%M:%S")
         persistent_str = persistent_threshold.strftime("%Y-%m-%d %H:%M:%S")
         with self.db.connection() as conn:
@@ -498,7 +504,9 @@ class UserPosition:
         with db.connection() as conn:
             conn.execute(
                 """
-                INSERT INTO user_positions (user_id, audiobook_id, position_ms, updated_at)
+                INSERT INTO user_positions (
+                    user_id, audiobook_id, position_ms, updated_at
+                )
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT (user_id, audiobook_id) DO UPDATE SET
                     position_ms = excluded.position_ms,
@@ -534,7 +542,8 @@ class PositionRepository:
         """Get all positions for a user."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM user_positions WHERE user_id = ? ORDER BY updated_at DESC",
+                "SELECT * FROM user_positions WHERE user_id = ?"
+                " ORDER BY updated_at DESC",
                 (user_id,),
             )
             return [UserPosition.from_row(row) for row in cursor.fetchall()]
@@ -934,7 +943,8 @@ class Notification:
                 cursor = conn.execute(
                     """
                     INSERT INTO notifications
-                    (message, type, target_user_id, starts_at, expires_at, dismissable, priority, created_by)
+                    (message, type, target_user_id, starts_at,
+                     expires_at, dismissable, priority, created_by)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
@@ -1158,7 +1168,8 @@ class InboxRepository:
                 cursor = conn.execute("SELECT * FROM inbox ORDER BY created_at DESC")
             else:
                 cursor = conn.execute(
-                    "SELECT * FROM inbox WHERE status != 'archived' ORDER BY created_at DESC"
+                    "SELECT * FROM inbox WHERE status != 'archived'"
+                    " ORDER BY created_at DESC"
                 )
             return [InboxMessage.from_row(row) for row in cursor.fetchall()]
 
@@ -1519,7 +1530,8 @@ class AccessRequestRepository:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
                     requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied')),
+                    status TEXT DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'approved', 'denied')),
                     reviewed_at TIMESTAMP,
                     reviewed_by TEXT,
                     deny_reason TEXT,
@@ -1534,7 +1546,8 @@ class AccessRequestRepository:
                 )
             """)
 
-            # Migrate existing table if needed (add new columns) - MUST run before index creation
+            # Migrate existing table if needed (add new columns)
+            # - MUST run before index creation
             cursor = conn.execute("PRAGMA table_info(access_requests)")
             columns = {row[1] for row in cursor.fetchall()}
             if "claim_token_hash" not in columns:
@@ -1555,7 +1568,8 @@ class AccessRequestRepository:
                 )
             if "credentials_claimed" not in columns:
                 conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN credentials_claimed BOOLEAN DEFAULT FALSE"
+                    "ALTER TABLE access_requests ADD COLUMN"
+                    " credentials_claimed BOOLEAN DEFAULT FALSE"
                 )
             if "claim_expires_at" not in columns:
                 conn.execute(
@@ -1564,13 +1578,16 @@ class AccessRequestRepository:
 
             # Create indexes AFTER columns exist
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)"
+                "CREATE INDEX IF NOT EXISTS idx_access_requests_status"
+                " ON access_requests(status)"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_access_requests_username ON access_requests(username)"
+                "CREATE INDEX IF NOT EXISTS idx_access_requests_username"
+                " ON access_requests(username)"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_access_requests_claim_token ON access_requests(claim_token_hash)"
+                "CREATE INDEX IF NOT EXISTS idx_access_requests_claim_token"
+                " ON access_requests(claim_token_hash)"
             )
 
     def create(
@@ -1583,7 +1600,9 @@ class AccessRequestRepository:
         """Create a new access request with claim token."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "INSERT INTO access_requests (username, claim_token_hash, contact_email, claim_expires_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO access_requests"
+                " (username, claim_token_hash, contact_email, claim_expires_at)"
+                " VALUES (?, ?, ?, ?)",
                 (
                     username,
                     claim_token_hash,
@@ -1619,7 +1638,8 @@ class AccessRequestRepository:
         """List all pending access requests."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM access_requests WHERE status = 'pending' ORDER BY requested_at ASC LIMIT ?",
+                "SELECT * FROM access_requests WHERE status = 'pending'"
+                " ORDER BY requested_at ASC LIMIT ?",
                 (limit,),
             )
             return [AccessRequest.from_row(row) for row in cursor.fetchall()]
@@ -1681,7 +1701,8 @@ class AccessRequestRepository:
         """Check if username has a pending request."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT 1 FROM access_requests WHERE username = ? AND status = 'pending'",
+                "SELECT 1 FROM access_requests"
+                " WHERE username = ? AND status = 'pending'",
                 (username,),
             )
             return cursor.fetchone() is not None
@@ -1758,7 +1779,8 @@ class AccessRequestRepository:
         """Get access request by username and claim token (for status check)."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM access_requests WHERE username = ? AND claim_token_hash = ?",
+                "SELECT * FROM access_requests"
+                " WHERE username = ? AND claim_token_hash = ?",
                 (username, claim_token_hash),
             )
             row = cursor.fetchone()

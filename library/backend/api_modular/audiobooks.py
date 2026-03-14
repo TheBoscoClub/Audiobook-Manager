@@ -72,13 +72,15 @@ def get_stats() -> Response:
 
     # Total hours (audiobooks only)
     cursor.execute(
-        f"SELECT SUM(duration_hours) as total_hours FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+        "SELECT SUM(duration_hours) as total_hours FROM audiobooks"
+        f" WHERE {AUDIOBOOK_FILTER}"
     )
     total_hours = cursor.fetchone()["total_hours"] or 0
 
     # Total storage used (sum of file sizes in MB, convert to GB)
     cursor.execute(
-        f"SELECT SUM(file_size_mb) as total_size FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+        "SELECT SUM(file_size_mb) as total_size FROM audiobooks"
+        f" WHERE {AUDIOBOOK_FILTER}"
     )
     total_size_mb = cursor.fetchone()["total_size"] or 0
     total_size_gb = total_size_mb / 1024
@@ -107,7 +109,8 @@ def get_stats() -> Response:
     unique_narrators = cursor.fetchone()["count"]
 
     cursor.execute(
-        f"SELECT COUNT(DISTINCT publisher) as count FROM audiobooks WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL"
+        "SELECT COUNT(DISTINCT publisher) as count FROM audiobooks"
+        f" WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL"
     )
     unique_publishers = cursor.fetchone()["count"]
 
@@ -277,7 +280,7 @@ def get_audiobooks() -> Response:
     # Get paginated audiobooks
     offset = (page - 1) * per_page
 
-    # CodeQL: sort_sql is from sort_mappings allowlist (lines 148-165), sort_order validated (line 174)
+    # CodeQL: sort_sql from allowlist (lines 148-165), sort_order validated (174)
     query = f"""
         SELECT
             id, title, author, narrator, publisher, series,

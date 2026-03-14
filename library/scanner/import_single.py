@@ -237,7 +237,8 @@ def main():
         sys.exit(1)
 
     print(
-        f"Import complete: {result['added']} added, {result['skipped']} skipped, {result['errors']} errors"
+        f"Import complete: {result['added']} added,"
+        f" {result['skipped']} skipped, {result['errors']} errors"
     )
     sys.exit(0 if result["errors"] == 0 else 1)
 

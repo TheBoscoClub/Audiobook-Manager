@@ -72,7 +72,9 @@ class TestDatabasePerformance:
         p95_time = sorted(times)[int(len(times) * 0.95)]
 
         print(
-            f"\nUser creation: avg={avg_time * 1000:.2f}ms, max={max_time * 1000:.2f}ms, p95={p95_time * 1000:.2f}ms"
+            f"\nUser creation: avg={avg_time * 1000:.2f}ms,"
+            f" max={max_time * 1000:.2f}ms,"
+            f" p95={p95_time * 1000:.2f}ms"
         )
 
         # Assertions: should be fast for SQLite
@@ -108,7 +110,9 @@ class TestDatabasePerformance:
         p95_time = sorted(times)[int(len(times) * 0.95)]
 
         print(
-            f"\nUser lookup: avg={avg_time * 1000:.2f}ms, max={max_time * 1000:.2f}ms, p95={p95_time * 1000:.2f}ms"
+            f"\nUser lookup: avg={avg_time * 1000:.2f}ms,"
+            f" max={max_time * 1000:.2f}ms,"
+            f" p95={p95_time * 1000:.2f}ms"
         )
 
         assert avg_time < 0.01, f"Average lookup too slow: {avg_time * 1000:.2f}ms"
@@ -144,7 +148,9 @@ class TestDatabasePerformance:
         p95_time = sorted(times)[int(len(times) * 0.95)]
 
         print(
-            f"\nToken lookup: avg={avg_time * 1000:.2f}ms, max={max_time * 1000:.2f}ms, p95={p95_time * 1000:.2f}ms"
+            f"\nToken lookup: avg={avg_time * 1000:.2f}ms,"
+            f" max={max_time * 1000:.2f}ms,"
+            f" p95={p95_time * 1000:.2f}ms"
         )
 
         # Token lookup includes hashing, so allow slightly more time
@@ -160,7 +166,7 @@ class TestTokenHashingPerformance:
     def test_hash_token_speed(self):
         """Test token hashing is fast enough."""
         times = []
-        token = "sample_session_token_abc123xyz789"
+        token = "sample_session_token_abc123xyz789"  # noqa: S105 — test fixture, not a real credential
 
         for _ in range(1000):
             start = time.perf_counter()
@@ -172,7 +178,8 @@ class TestTokenHashingPerformance:
         max_time = max(times)
 
         print(
-            f"\nToken hashing: avg={avg_time * 1000000:.2f}μs, max={max_time * 1000000:.2f}μs"
+            f"\nToken hashing: avg={avg_time * 1000000:.2f}μs,"
+            f" max={max_time * 1000000:.2f}μs"
         )
 
         # Hashing should be very fast (< 1ms)
@@ -180,7 +187,7 @@ class TestTokenHashingPerformance:
 
     def test_hash_token_consistency(self):
         """Verify same token produces same hash."""
-        token = "consistent_token_test"
+        token = "consistent_token_test"  # noqa: S105 — test fixture, not a real credential
         hashes = [hash_token(token) for _ in range(100)]
 
         # All hashes should be identical
@@ -292,7 +299,8 @@ class TestBulkOperations:
 
         elapsed = time.perf_counter() - start
         print(
-            f"\n100 notifications created in {elapsed * 1000:.2f}ms ({elapsed * 10:.2f}ms each)"
+            f"\n100 notifications created in {elapsed * 1000:.2f}ms"
+            f" ({elapsed * 10:.2f}ms each)"
         )
 
         assert elapsed < 2.0, f"Bulk notification creation too slow: {elapsed:.2f}s"
@@ -327,7 +335,8 @@ class TestBulkOperations:
 
         avg_time = statistics.mean(times)
         print(
-            f"\nActive notifications query: avg={avg_time * 1000:.2f}ms, count={len(active)}"
+            f"\nActive notifications query: avg={avg_time * 1000:.2f}ms,"
+            f" count={len(active)}"
         )
 
         assert avg_time < 0.05, f"Notification query too slow: {avg_time * 1000:.2f}ms"

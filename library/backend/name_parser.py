@@ -119,7 +119,7 @@ GENERATIONAL_SUFFIXES = frozenset(
     }
 )
 
-# Regex to strip trailing credential suffixes (one or more, comma-separated or space-separated)
+# Regex to strip trailing credential suffixes (one or more, comma or space separated)
 _CREDENTIAL_RE = re.compile(
     r"[,\s]+(?:"
     + "|".join(re.escape(c) for c in sorted(CREDENTIAL_SUFFIXES, key=len, reverse=True))
@@ -509,7 +509,7 @@ def _parse_comma_separated(text: str) -> list[str]:
             if len(words_a) == 1:
                 # Simple: "King, Stephen" -> "Stephen King"
                 return [f"{parts[1]} {parts[0]}"]
-            # Compound last name: "de Saint-Exupery, Antoine" -> "Antoine de Saint-Exupery"
+            # Compound: "de Saint-Exupery, Antoine" -> "Antoine de Saint-Exupery"
             return [f"{parts[1]} {parts[0]}"]
 
         if len(words_a) > 1 and len(words_b) > 1:

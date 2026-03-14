@@ -414,7 +414,8 @@ def init_audible_routes(project_root):
                                     tracker.update_progress(
                                         operation_id,
                                         progress,
-                                        f"Processing narrators: {processed_count}/{total}",
+                                        f"Processing narrators:"
+                                        f" {processed_count}/{total}",
                                     )
                                     last_progress = progress
                             continue

@@ -233,7 +233,10 @@ class TestFileToDbConsistency:
         if mismatches:
             msg = f"{len(mismatches)} author mismatches found:\n"
             for m in mismatches[:5]:
-                msg += f"  ID {m['id']}: DB='{m['db_author']}' vs File='{m['file_author']}'\n"
+                msg += (
+                    f"  ID {m['id']}: DB='{m['db_author']}'"
+                    f" vs File='{m['file_author']}'\n"
+                )
             pytest.fail(msg)
 
 
@@ -351,7 +354,10 @@ class TestAsinConsistency:
         if mismatches:
             msg = f"{len(mismatches)} ASIN/source_asin mismatches:\n"
             for m in mismatches[:5]:
-                msg += f"  ID {m['id']}: asin={m['asin']}, source_asin={m['source_asin']}\n"
+                msg += (
+                    f"  ID {m['id']}: asin={m['asin']},"
+                    f" source_asin={m['source_asin']}\n"
+                )
             pytest.fail(msg)
 
     def test_asin_format_valid(self, prod_db):
@@ -361,7 +367,10 @@ class TestAsinConsistency:
             SELECT id, title, asin
             FROM audiobooks
             WHERE asin IS NOT NULL AND asin != ''
-            AND (LENGTH(asin) != 10 OR asin NOT GLOB '[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]')
+            AND (LENGTH(asin) != 10
+                 OR asin NOT GLOB '[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]'
+                     '[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]'
+                     '[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]')
         """)
         invalid = [dict(row) for row in cursor.fetchall()]
 
@@ -412,7 +421,10 @@ class TestAsinConsistency:
         if mismatches:
             msg = f"{len(mismatches)} source/DB ASIN mismatches:\n"
             for m in mismatches[:5]:
-                msg += f"  {m['source_file'][:40]}: source={m['source_asin']}, db={m['db_asin']}\n"
+                msg += (
+                    f"  {m['source_file'][:40]}: source={m['source_asin']},"
+                    f" db={m['db_asin']}\n"
+                )
             pytest.fail(msg)
 
 
@@ -660,7 +672,8 @@ class TestIndexConsistency:
         """)
         indexes = {row[0] for row in cursor.fetchall()}
 
-        # Note: schema.sql defines idx_audiobooks_asin_position (composite), not plain idx_audiobooks_asin
+        # Note: schema.sql defines idx_audiobooks_asin_position (composite),
+        # not plain idx_audiobooks_asin
         expected_indexes = {
             "idx_audiobooks_title",
             "idx_audiobooks_author",
