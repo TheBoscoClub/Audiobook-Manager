@@ -9,6 +9,7 @@ sort keys in "Last, First" format. Handles three tiers:
 """
 
 import re
+import unicodedata
 
 # Known performance/production group names - always narrators, never authors.
 # If detected in author metadata, caller should redirect to narrator list.
@@ -64,6 +65,157 @@ def strip_role_suffix(name: str) -> str:
     return clean
 
 
+# Credential/title suffixes that are NOT part of a person's name.
+# These appear at the end of names: "Shari Y. Manning PhD", "Blaise Aguirre MD"
+CREDENTIAL_SUFFIXES = frozenset(
+    {
+        "phd",
+        "ph.d.",
+        "md",
+        "m.d.",
+        "msw",
+        "psyd",
+        "do",
+        "d.o.",
+        "edd",
+        "ed.d.",
+        "jd",
+        "j.d.",
+        "rn",
+        "r.n.",
+        "lcsw",
+        "lpc",
+        "dds",
+        "d.d.s.",
+        "dmd",
+        "d.m.d.",
+        "mba",
+        "m.b.a.",
+        "ma",
+        "m.a.",
+        "ms",
+        "m.s.",
+        "mph",
+        "m.p.h.",
+    }
+)
+
+# Generational/honorific suffixes to strip from names
+GENERATIONAL_SUFFIXES = frozenset(
+    {
+        "jr",
+        "jr.",
+        "sr",
+        "sr.",
+        "ii",
+        "iii",
+        "iv",
+        "esq",
+        "esq.",
+    }
+)
+
+# Regex to strip trailing credential suffixes (one or more, comma-separated or space-separated)
+_CREDENTIAL_RE = re.compile(
+    r"[,\s]+(?:" + "|".join(re.escape(c) for c in sorted(CREDENTIAL_SUFFIXES, key=len, reverse=True)) + r")\.?(?:[,\s]+(?:" + "|".join(re.escape(c) for c in sorted(CREDENTIAL_SUFFIXES, key=len, reverse=True)) + r")\.?)*\s*$",
+    re.IGNORECASE,
+)
+
+# Generational suffix at end of name: "Robert S. Mueller III"
+_GENERATIONAL_RE = re.compile(
+    r"[,\s]+(?:" + "|".join(re.escape(g) for g in sorted(GENERATIONAL_SUFFIXES, key=len, reverse=True)) + r")\s*$",
+    re.IGNORECASE,
+)
+
+
+def strip_credentials(name: str) -> str:
+    """Strip credential and generational suffixes from a name.
+
+    Examples:
+        "Shari Y. Manning PhD" -> "Shari Y. Manning"
+        "Jeffrey M. Schwartz, M.D." -> "Jeffrey M. Schwartz"
+        "Robert S. Mueller III" -> "Robert S. Mueller"
+        "Tara Brach, PhD" -> "Tara Brach"
+    """
+    if not name:
+        return name
+    clean = _CREDENTIAL_RE.sub("", name).strip().rstrip(",").strip()
+    clean = _GENERATIONAL_RE.sub("", clean).strip().rstrip(",").strip()
+    return clean
+
+
+# Words that are NOT valid person names when standing alone.
+# These end up as "names" due to bad metadata splitting.
+JUNK_NAMES = frozenset(
+    {
+        "more",
+        "translator",
+        "editor",
+        "narrator",
+        "author",
+        "md",
+        "m.d.",
+        "phd",
+        "ph.d.",
+        "psyd",
+        "msw",
+        "edd",
+        "do",
+        "jr",
+        "sr",
+        "ii",
+        "iii",
+        "iv",
+    }
+)
+
+
+def is_junk_name(name: str) -> bool:
+    """Check if a name is a standalone junk word, not a real person."""
+    if not name:
+        return True
+    clean = name.strip().rstrip(".").lower()
+    if clean in JUNK_NAMES:
+        return True
+    # Single word that's a credential
+    if clean.replace(".", "") in {c.replace(".", "") for c in CREDENTIAL_SUFFIXES}:
+        return True
+    return False
+
+
+def _strip_trailing_role_word(name: str) -> str:
+    """Strip a bare role word from the end of a name.
+
+    Handles: "David Coward Translator" -> "David Coward"
+    Only strips if the last word is a known role and there are 2+ other words.
+    """
+    if not name:
+        return name
+    words = name.split()
+    if len(words) >= 2 and words[-1].lower().rstrip("s") in ROLE_SUFFIXES:
+        return " ".join(words[:-1])
+    return name
+
+
+def normalize_for_dedup(name: str) -> str:
+    """Normalize a name for deduplication: lowercase, strip accents, normalize spacing.
+
+    "Miéville" -> "mieville"
+    "M. R." -> "m.r."
+    "Le Carré" -> "le carre"
+    """
+    if not name:
+        return ""
+    # Normalize unicode (NFD) then strip combining marks (accents)
+    nfkd = unicodedata.normalize("NFKD", name)
+    stripped = "".join(c for c in nfkd if not unicodedata.combining(c))
+    # Lowercase and normalize whitespace
+    lower = stripped.lower().strip()
+    # Remove spaces around periods for initial normalization: "M. R." -> "m.r."
+    lower = re.sub(r"\.\s+", ".", lower)
+    return lower
+
+
 # Keywords that indicate a name is a brand/company, not a person.
 # Names containing these words (case-insensitive) are excluded from
 # both authors and narrators during migration.
@@ -92,19 +244,33 @@ BRAND_KEYWORDS = frozenset(
 BRAND_NAMES = frozenset(
     {
         "aaptiv",
+        "movewith",
     }
 )
 
+# Patterns that indicate an organization, not a person
+ORG_PATTERNS = [
+    re.compile(r"\b(department of|office of|council|commission|bureau)\b", re.IGNORECASE),
+    re.compile(r"\bU\.?S\.?\s+(Department|Office|Government)\b", re.IGNORECASE),
+    re.compile(r"\bSpecial Counsel", re.IGNORECASE),
+]
+
 
 def is_brand_name(name: str) -> bool:
-    """Check if a name is a brand/company/publisher, not a person."""
+    """Check if a name is a brand/company/publisher/organization, not a person."""
     if not name:
         return False
     lower = name.strip().lower()
     if lower in BRAND_NAMES:
         return True
     words = lower.split()
-    return bool(BRAND_KEYWORDS & set(words))
+    if BRAND_KEYWORDS & set(words):
+        return True
+    # Check organization patterns
+    for pattern in ORG_PATTERNS:
+        if pattern.search(name):
+            return True
+    return False
 
 
 GROUP_NAMES = frozenset(
@@ -183,6 +349,12 @@ def generate_sort_name(name: str | None) -> str:
     if " - " in clean:
         clean = clean.split(" - ")[0].strip()
 
+    # Strip trailing bare role word: "David Coward Translator" -> "David Coward"
+    clean = _strip_trailing_role_word(clean)
+
+    # Strip credential suffixes: "Manning PhD" -> "Manning"
+    clean = strip_credentials(clean)
+
     if not clean:
         return ""
 
@@ -251,14 +423,40 @@ def parse_names(raw: str | None) -> list[str]:
     return [text.strip()]
 
 
+def clean_name(name: str) -> str:
+    """Clean a single name: strip roles, credentials, whitespace."""
+    if not name:
+        return ""
+    clean = name.strip()
+    # Strip "(role)" suffix
+    clean = re.sub(r"\s*\([^)]*\)\s*$", "", clean).strip()
+    # Strip "- role" suffix
+    clean = _ROLE_SUFFIX_RE.sub("", clean).strip()
+    # Strip bare trailing role word: "David Coward Translator"
+    clean = _strip_trailing_role_word(clean)
+    # Strip credentials: PhD, MD, M.D., etc.
+    clean = strip_credentials(clean)
+    # Clean up any trailing dashes or commas
+    clean = clean.rstrip("-,").strip()
+    return clean
+
+
 def _clean_parts(parts: list[str]) -> list[str]:
-    """Strip whitespace and role suffixes, filter empties."""
+    """Strip whitespace, roles, and credentials, filter empties and junk."""
     result = []
     for p in parts:
-        clean = re.sub(r"\s*\([^)]*\)\s*$", "", p.strip()).strip()
-        if clean:
-            result.append(clean)
+        cleaned = clean_name(p)
+        if cleaned and not is_junk_name(cleaned):
+            result.append(cleaned)
     return result
+
+
+def _is_credential_word(text: str) -> bool:
+    """Check if a string is just a credential suffix (PhD, MD, M.D., etc.)."""
+    clean = text.strip().rstrip(".").lower().replace(".", "")
+    return clean in {c.replace(".", "") for c in CREDENTIAL_SUFFIXES} or clean in {
+        g.replace(".", "") for g in GENERATIONAL_SUFFIXES
+    }
 
 
 def _parse_comma_separated(text: str) -> list[str]:
@@ -273,6 +471,14 @@ def _parse_comma_separated(text: str) -> list[str]:
     - If any token has spaces/hyphens: conservative treatment, flag for review
     """
     parts = [p.strip() for p in text.split(",") if p.strip()]
+
+    # Filter out standalone credential/junk parts before disambiguation
+    # "Tara Brach, PhD" -> filter PhD -> ["Tara Brach"]
+    # "Jeffrey M. Schwartz, M.D., Rebecca Gladding, M.D., M.D." -> filter M.D.
+    filtered = [p for p in parts if not _is_credential_word(p) and not is_junk_name(p)]
+    if not filtered:
+        return _clean_parts(parts)
+    parts = filtered
 
     if len(parts) == 2:
         # Two parts: is it "Last, First" or "Author1, Author2"?
@@ -310,4 +516,4 @@ def _parse_comma_separated(text: str) -> list[str]:
         # Not all single words - treat as multiple authors separated by commas
         return _clean_parts(parts)
 
-    return [text.strip()]
+    return _clean_parts(parts)
