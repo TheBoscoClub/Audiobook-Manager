@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.0.1] - 2026-03-14
+
+### Fixed
+
+- Updated `install-manifest.json` with BTRFS subvolume entries for `/var/lib/audiobooks` and `/etc/audiobooks`
+- Updated ARCHITECTURE.md recommended subvolume layout to reflect NVMe-backed state and config directories
+
 ## [7.0.0] - 2026-03-13
 
 ### Added
