@@ -23,7 +23,8 @@ class TestListeningHistoryModel:
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
-            "INSERT INTO users (id, username, auth_type, auth_credential) VALUES (1, 'testuser1', 'totp', X'00')"
+            "INSERT INTO users (id, username, auth_type, auth_credential)"
+            " VALUES (1, 'testuser1', 'totp', X'00')"
         )
         conn.commit()
         yield conn
@@ -164,7 +165,8 @@ class TestDownloadModel:
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
-            "INSERT INTO users (id, username, auth_type, auth_credential) VALUES (1, 'testuser1', 'totp', X'00')"
+            "INSERT INTO users (id, username, auth_type, auth_credential)"
+            " VALUES (1, 'testuser1', 'totp', X'00')"
         )
         conn.commit()
         yield conn
@@ -225,7 +227,8 @@ class TestUserPreferencesModel:
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
-            "INSERT INTO users (id, username, auth_type, auth_credential) VALUES (1, 'testuser1', 'totp', X'00')"
+            "INSERT INTO users (id, username, auth_type, auth_credential)"
+            " VALUES (1, 'testuser1', 'totp', X'00')"
         )
         conn.commit()
         yield conn

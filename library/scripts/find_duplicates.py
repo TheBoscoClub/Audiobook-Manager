@@ -386,9 +386,8 @@ def remove_duplicates(dry_run: bool = True):
         print(f"✓ Removed: {removed} files")
         print(f"✗ Errors: {errors}")
         print(f"⊘ Blocked: {len(blocked)} (protected last copies)")
-        print(
-            f"💾 Space freed: {format_size(sum(f['size_mb'] for f in verified_safe if f in verified_safe) * 1024 * 1024)}"
-        )
+        freed = sum(f["size_mb"] for f in verified_safe if f in verified_safe)
+        print(f"💾 Space freed: {format_size(freed * 1024 * 1024)}")
 
     conn.close()
 

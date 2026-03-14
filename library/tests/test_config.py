@@ -146,7 +146,7 @@ class TestNoHardcodedPaths:
     """
 
     # Paths that should be configured, not hardcoded
-    # Note: /etc/audiobooks is NOT forbidden - it's the proper FHS system config location
+    # Note: /etc/audiobooks is NOT forbidden - proper FHS system config location
     FORBIDDEN_PATHS = [
         "/var/lib/audiobooks",
         "/opt/audiobooks",
@@ -186,7 +186,8 @@ class TestNoHardcodedPaths:
         violations = []
         try:
             content = filepath.read_text(encoding="utf-8", errors="ignore")
-            for line_num, line in enumerate(content.splitlines(), 1):
+            lines = content.splitlines()
+            for line_num, line in enumerate(lines, 1):
                 # Skip comments
                 stripped = line.strip()
                 if stripped.startswith("#") or stripped.startswith("//"):
@@ -194,9 +195,23 @@ class TestNoHardcodedPaths:
                 # Check for forbidden paths
                 for forbidden in self.FORBIDDEN_PATHS:
                     if forbidden in line:
-                        # Skip if it's in a config.get() default or environment variable fallback
-                        # These are acceptable as they're fallback defaults
-                        if "get_config(" in line or "environ.get(" in line:
+                        # Skip if it's in a config.get() default
+                        # or environment variable fallback
+                        # (acceptable as fallback defaults).
+                        # Also check prior lines for multi-line
+                        # environ.get() calls.
+                        if (
+                            "get_config(" in line
+                            or "environ.get(" in line
+                        ):
+                            continue
+                        # Multi-line environ.get(): path on
+                        # continuation line
+                        ctx_start = max(0, line_num - 4)
+                        prior = " ".join(
+                            lines[ctx_start:line_num - 1]
+                        )
+                        if "environ.get(" in prior:
                             continue
                         # Skip bash variable defaults: ${VAR:-/default/path}
                         # This is the proper way to specify fallbacks in shell
@@ -207,7 +222,8 @@ class TestNoHardcodedPaths:
                             else False
                         ):
                             continue
-                        # Skip config file sourcing bootstrap (needed before config is loaded)
+                        # Skip config file sourcing bootstrap
+                        # (needed before config is loaded)
                         if "audiobook-config.sh" in line:
                             continue
                         violations.append((line_num, forbidden, line.strip()[:100]))

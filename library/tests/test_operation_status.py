@@ -2,7 +2,8 @@
 Tests for the operation status tracking module.
 
 The OperationTracker is a singleton that manages long-running operation state.
-These tests cover the complete lifecycle: create -> start -> update -> complete/fail/cancel.
+These tests cover the complete lifecycle:
+create -> start -> update -> complete/fail/cancel.
 """
 
 import threading

@@ -116,7 +116,8 @@ def create_registration_options(
     username: str,
     rp_id: str = DEFAULT_RP_ID,
     rp_name: str = DEFAULT_RP_NAME,
-    authenticator_type: str = "platform",  # "platform" for passkey, "cross-platform" for security key
+    # "platform" for passkey, "cross-platform" for security key
+    authenticator_type: str = "platform",
     existing_credentials: Optional[list[bytes]] = None,
 ) -> tuple[str, bytes]:
     """
@@ -165,7 +166,8 @@ def create_registration_options(
         user_id=webauthn_user_id,
         user_name=username,
         user_display_name=username,
-        attestation=AttestationConveyancePreference.NONE,  # Don't need attestation for our use case
+        # Don't need attestation for our use case
+        attestation=AttestationConveyancePreference.NONE,
         authenticator_selection=authenticator_selection,
         exclude_credentials=exclude_list if exclude_list else None,
         supported_pub_key_algs=[

@@ -177,7 +177,8 @@ def init_library_routes(db_path, project_root):
                                     tracker.update_progress(
                                         operation_id,
                                         scaled,
-                                        f"Scanning: {current}/{total} files ({percent}%)",
+                                        f"Scanning: {current}/{total} files"
+                                        f" ({percent}%)",
                                     )
                                     last_progress = percent
 

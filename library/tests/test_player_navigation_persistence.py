@@ -12,7 +12,8 @@ Requires: pytest-playwright or selenium with Chrome/Chromium/Firefox
 Run with:
     pytest library/tests/test_player_navigation_persistence.py -v --headed
     # Or with browser specified:
-    pytest library/tests/test_player_navigation_persistence.py -v --headed --browser chromium
+    pytest library/tests/test_player_navigation_persistence.py -v --headed \
+        --browser chromium
 
 Note: Use --headed flag to see browser for visual verification.
 """
@@ -46,7 +47,8 @@ except ImportError:
     SELENIUM_AVAILABLE = False
 
 
-# Configuration — defaults to test-audiobook-cachyos VM; override with env var for local dev
+# Configuration — defaults to test-audiobook-cachyos VM;
+# override with env var for local dev
 VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
 WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
@@ -219,7 +221,8 @@ class TestPlayerNavigationPlaywright:
 
         print(f"\n  Position before navigation: {position_before:.2f}s")
 
-        # Navigate to Back Office (Note: This is a full page navigation in the current implementation)
+        # Navigate to Back Office (Note: This is a full page navigation
+        # in the current implementation)
         # The player may stop on full navigation - test is verifying behavior
         back_office_link = page.locator('a[href="utilities.html"]')
         back_office_link.click()
@@ -324,7 +327,8 @@ class TestPlayerNavigationPlaywright:
             return audio ? audio.currentTime : -1;
         }""")
         print(
-            f"\n  Playing before resize: {is_playing_before}, position: {position_before:.2f}s"
+            f"\n  Playing before resize: {is_playing_before},"
+            f" position: {position_before:.2f}s"
         )
 
         # Resize to small (simulate mobile or minimize-ish)
@@ -354,7 +358,8 @@ class TestPlayerNavigationPlaywright:
         }""")
 
         print(
-            f"  Playing after resize: {is_playing_after_large}, position: {position_after:.2f}s"
+            f"  Playing after resize: {is_playing_after_large},"
+            f" position: {position_after:.2f}s"
         )
 
         assert is_playing_after_large, "Audio should continue playing after resize"
@@ -395,7 +400,8 @@ class TestPlayerNavigationPlaywright:
         for key, data in saved_data.items():
             if isinstance(data, dict):
                 print(
-                    f"    {key}: position={data.get('position', 0):.2f}s, duration={data.get('duration', 0):.2f}s"
+                    f"    {key}: position={data.get('position', 0):.2f}s,"
+                    f" duration={data.get('duration', 0):.2f}s"
                 )
             else:
                 print(f"    {key}: {data}")

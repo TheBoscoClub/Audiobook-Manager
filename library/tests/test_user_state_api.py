@@ -256,7 +256,8 @@ class TestUserLibrary:
         assert "author" in book
 
     def test_library_includes_timestamps(self, client, user_state_seeded):
-        """Library response should include last_listened_at and downloaded_at timestamps."""
+        """Library response should include last_listened_at and
+        downloaded_at timestamps."""
         _login(client, user_state_seeded, user_state_seeded.test_user_secret)
         resp = client.get("/api/user/library")
         data = resp.get_json()

@@ -208,7 +208,8 @@ class BackupCodeRepository:
         """
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT COUNT(*) FROM backup_codes WHERE user_id = ? AND used_at IS NULL",
+                "SELECT COUNT(*) FROM backup_codes"
+                " WHERE user_id = ? AND used_at IS NULL",
                 (user_id,),
             )
             return cursor.fetchone()[0]

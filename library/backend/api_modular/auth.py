@@ -999,7 +999,8 @@ def start_registration():
     if user_repo.username_exists(username):
         return jsonify({"error": "Username already taken"}), 400
 
-    # Check if there's already a request (any status - the table has UNIQUE constraint on username)
+    # Check if there's already a request (any status - the table has UNIQUE
+    # constraint on username)
     if request_repo.has_any_request(username):
         # Check specifically for pending to give more helpful error
         if request_repo.has_pending_request(username):
@@ -1062,7 +1063,10 @@ def start_registration():
 
     response_data = {
         "success": True,
-        "message": "Access request submitted. Save your claim token - you'll need it to complete setup after approval.",
+        "message": (
+            "Access request submitted. Save your claim token - you'll need it"
+            " to complete setup after approval."
+        ),
         "request_id": access_request.id,
         "claim_token": formatted_token,
         "username": username,
@@ -1097,7 +1101,8 @@ def validate_claim_token():
             "status": "approved",
             "username": "..."
         }
-        400: {"valid": false, "status": "pending|denied|already_claimed", "error": "..."}
+        400: {"valid": false, "status": "pending|denied|already_claimed",
+              "error": "..."}
         404: {"valid": false, "error": "Invalid username or claim token"}
     """
     data = request.get_json()
@@ -1154,7 +1159,10 @@ def validate_claim_token():
             {
                 "valid": False,
                 "status": "already_claimed",
-                "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page.",
+                "error": (
+                    "Credentials have already been claimed. If you lost your"
+                    " authenticator, use the recovery page."
+                ),
             }
         ), 400
 
@@ -1254,7 +1262,10 @@ def claim_credentials():
     if access_req.credentials_claimed or user_repo.username_exists(username):
         return jsonify(
             {
-                "error": "Credentials have already been claimed. If you lost your authenticator, use the recovery page.",
+                "error": (
+                    "Credentials have already been claimed. If you lost your"
+                    " authenticator, use the recovery page."
+                ),
                 "status": "already_claimed",
             }
         ), 400
@@ -1263,7 +1274,10 @@ def claim_credentials():
     if access_req.is_claim_expired():
         return jsonify(
             {
-                "error": "This invitation has expired. Please ask the admin to send a new one.",
+                "error": (
+                    "This invitation has expired. Please ask the admin to send"
+                    " a new one."
+                ),
                 "status": "expired",
             }
         ), 400
@@ -1308,12 +1322,14 @@ def claim_credentials():
                 "username": username,
                 "backup_codes": backup_codes,
                 "message": (
-                    "Your account is ready! To sign in, click 'Sign in with email link' "
-                    "on the login page. We'll send a one-click link to your email."
+                    "Your account is ready! To sign in, click"
+                    " 'Sign in with email link' on the login page."
+                    " We'll send a one-click link to your email."
                 ),
                 "warning": (
-                    "IMPORTANT: Save your backup codes in a safe place! These are your ONLY way to "
-                    "recover your account if you lose access to your email."
+                    "IMPORTANT: Save your backup codes in a safe place!"
+                    " These are your ONLY way to recover your account"
+                    " if you lose access to your email."
                 ),
             }
         )
@@ -1350,12 +1366,14 @@ def claim_credentials():
         "backup_codes": backup_codes,
         "recovery_enabled": recovery_enabled,
         "message": (
-            "Your account is ready! Set up your authenticator app using the QR code or "
-            "manual entry, then log in with your 6-digit code. Save your backup codes securely."
+            "Your account is ready! Set up your authenticator app using the"
+            " QR code or manual entry, then log in with your 6-digit code."
+            " Save your backup codes securely."
         ),
         "warning": (
-            "IMPORTANT: Save your backup codes in a safe place! These are your ONLY way to "
-            "recover your account if you lose your authenticator device."
+            "IMPORTANT: Save your backup codes in a safe place! These are"
+            " your ONLY way to recover your account if you lose your"
+            " authenticator device."
         ),
     }
 
@@ -1429,7 +1447,10 @@ def claim_webauthn_begin():
     if access_req.is_claim_expired():
         return jsonify(
             {
-                "error": "This invitation has expired. Please ask the admin to send a new one."
+                "error": (
+                    "This invitation has expired. Please ask the admin"
+                    " to send a new one."
+                )
             }
         ), 400
 
@@ -1529,7 +1550,10 @@ def claim_webauthn_complete():
     if access_req.is_claim_expired():
         return jsonify(
             {
-                "error": "This invitation has expired. Please ask the admin to send a new one."
+                "error": (
+                    "This invitation has expired. Please ask the admin"
+                    " to send a new one."
+                )
             }
         ), 400
 
@@ -1609,14 +1633,16 @@ def claim_webauthn_complete():
 
     if recovery_enabled:
         response_data["warning"] = (
-            "Save your backup codes in a safe place. You can also recover your account "
-            "using your registered email/phone if you lose your passkey."
+            "Save your backup codes in a safe place. You can also recover"
+            " your account using your registered email/phone if you lose"
+            " your passkey."
         )
     else:
         response_data["warning"] = (
-            "IMPORTANT: Save these backup codes in a safe place! Without stored contact "
-            "information, these codes are your ONLY way to recover your account if you "
-            "lose your passkey. Each code can only be used once."
+            "IMPORTANT: Save these backup codes in a safe place! Without"
+            " stored contact information, these codes are your ONLY way to"
+            " recover your account if you lose your passkey."
+            " Each code can only be used once."
         )
 
     response = jsonify(response_data)
@@ -1701,7 +1727,8 @@ def verify_registration():
         }
 
     Recovery options:
-        - If recovery_email or recovery_phone is provided, user can use magic link recovery
+        - If recovery_email or recovery_phone is provided, user can use
+          magic link recovery
         - If neither is provided, backup codes are the only recovery method
         - Backup codes are ALWAYS generated regardless of recovery settings
 
@@ -1781,20 +1808,25 @@ def verify_registration():
         "totp_uri": uri,
         "backup_codes": backup_codes,
         "recovery_enabled": recovery_enabled,
-        "message": "Account created. Scan the QR code or enter the secret in your authenticator app.",
+        "message": (
+            "Account created. Scan the QR code or enter the secret in your"
+            " authenticator app."
+        ),
     }
 
     # Add appropriate warning based on recovery settings
     if recovery_enabled:
         response_data["warning"] = (
-            "Save your backup codes in a safe place. You can also recover your account "
-            "using your registered email/phone if you lose access to your authenticator."
+            "Save your backup codes in a safe place. You can also recover"
+            " your account using your registered email/phone if you lose"
+            " access to your authenticator."
         )
     else:
         response_data["warning"] = (
-            "IMPORTANT: Save these backup codes in a safe place! Without stored contact "
-            "information, these codes are your ONLY way to recover your account if you "
-            "lose your authenticator. Each code can only be used once."
+            "IMPORTANT: Save these backup codes in a safe place! Without"
+            " stored contact information, these codes are your ONLY way to"
+            " recover your account if you lose your authenticator."
+            " Each code can only be used once."
         )
 
     if include_qr:
@@ -1816,7 +1848,8 @@ def get_webauthn_config() -> tuple[str, str, str]:
 
     Priority:
     1. Explicit WEBAUTHN_RP_ID / WEBAUTHN_ORIGIN (env or audiobooks.conf)
-    2. Auto-derived from AUDIOBOOKS_HOSTNAME + AUDIOBOOKS_WEB_PORT + AUDIOBOOKS_HTTPS_ENABLED
+    2. Auto-derived from AUDIOBOOKS_HOSTNAME + AUDIOBOOKS_WEB_PORT +
+       AUDIOBOOKS_HTTPS_ENABLED
     3. Fallback to localhost defaults (development)
     """
     import socket
@@ -2047,14 +2080,16 @@ def register_webauthn_complete():
 
     if recovery_enabled:
         response_data["warning"] = (
-            "Save your backup codes in a safe place. You can also recover your account "
-            "using your registered email/phone if you lose your passkey."
+            "Save your backup codes in a safe place. You can also recover"
+            " your account using your registered email/phone if you lose"
+            " your passkey."
         )
     else:
         response_data["warning"] = (
-            "IMPORTANT: Save these backup codes in a safe place! Without stored contact "
-            "information, these codes are your ONLY way to recover your account if you "
-            "lose your passkey. Each code can only be used once."
+            "IMPORTANT: Save these backup codes in a safe place! Without"
+            " stored contact information, these codes are your ONLY way to"
+            " recover your account if you lose your passkey."
+            " Each code can only be used once."
         )
 
     return jsonify(response_data)
@@ -2367,14 +2402,20 @@ def recover_with_backup_code():
             "totp_uri": uri,
             "backup_codes": new_backup_codes,
             "remaining_old_codes": remaining,
-            "message": "Account recovered. Set up your new authenticator and save your new backup codes.",
+            "message": (
+                "Account recovered. Set up your new authenticator and"
+                " save your new backup codes."
+            ),
             "warning": (
-                "Your old backup codes have been invalidated. Save these new codes "
-                "in a safe place - they are your only recovery option if you lose "
-                "your authenticator again."
+                "Your old backup codes have been invalidated. Save these"
+                " new codes in a safe place - they are your only recovery"
+                " option if you lose your authenticator again."
                 if not user.recovery_enabled
-                else "Your old backup codes have been invalidated. You can also recover "
-                "using your registered email/phone if needed."
+                else (
+                    "Your old backup codes have been invalidated. You can"
+                    " also recover using your registered email/phone if"
+                    " needed."
+                )
             ),
         }
     )
@@ -2423,7 +2464,10 @@ def regenerate_backup_codes():
         {
             "success": True,
             "backup_codes": new_codes,
-            "message": "New backup codes generated. Your old codes are no longer valid.",
+            "message": (
+                "New backup codes generated. Your old codes are no longer"
+                " valid."
+            ),
             "warning": (
                 "Save these codes in a safe place! They are your recovery option "
                 "if you lose your authenticator."
@@ -2476,9 +2520,11 @@ def update_recovery_contact():
             "success": True,
             "recovery_enabled": user.recovery_enabled,
             "message": (
-                "Recovery contact updated. You can now use magic link recovery."
+                "Recovery contact updated. You can now use magic link"
+                " recovery."
                 if user.recovery_enabled
-                else "Recovery contact removed. Backup codes are now your only recovery option."
+                else "Recovery contact removed. Backup codes are now your"
+                " only recovery option."
             ),
         }
     )
@@ -2715,7 +2761,8 @@ def verify_magic_link():
 
 
 def _get_base_url() -> str:
-    """Get the base URL for email links, auto-detecting from request if not configured."""
+    """Get the base URL for email links, auto-detecting from request if not
+    configured."""
     configured = os.environ.get("BASE_URL", "")
     if configured:
         return configured.rstrip("/")
@@ -2758,9 +2805,12 @@ def _send_magic_link_email(
 <head>
     <meta charset="UTF-8">
 </head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">The Library</h1>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a;
+  color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a;
+      padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center;
+          margin-bottom: 20px;">The Library</h1>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
             Hello {username},
@@ -2772,7 +2822,8 @@ def _send_magic_link_email(
 
         <div style="text-align: center; margin: 30px 0;">
             <a href="{full_link}"
-               style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+               style="background: linear-gradient(to bottom,
+                        #ffd700, #daa520, #8b7355);
                       color: #1a1a1a;
                       padding: 18px 40px;
                       text-decoration: none;
@@ -2784,19 +2835,26 @@ def _send_magic_link_email(
         </div>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            This link works for {expires_minutes} minutes. After that, you'll need to request a new one.
+            This link works for {expires_minutes} minutes.
+            After that, you'll need to request a new one.
         </p>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em;">
-            If you didn't ask for this link, you can ignore this email. Someone may have typed your username by mistake.
+            If you didn't ask for this link, you can ignore this email.
+            Someone may have typed your username by mistake.
         </p>
 
-        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+        <hr style="border: none; border-top: 1px solid #8b7355;
+          margin: 20px 0;">
 
-        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
-            If the button doesn't work, copy the link below and paste it into your web browser's address bar (the long bar at the top of your browser window):
+        <p style="color: #888; font-size: 0.9em; text-align: center;
+          line-height: 1.8;">
+            If the button doesn't work, copy the link below and paste it
+            into your web browser's address bar (the long bar at the top
+            of your browser window):
             <br>
-            <a href="{full_link}" style="color: #daa520; word-break: break-all;">{full_link}</a>
+            <a href="{full_link}"
+              style="color: #daa520; word-break: break-all;">{full_link}</a>
         </p>
     </div>
 </body>
@@ -2809,9 +2867,11 @@ Click the link below to sign in to The Library:
 
 {full_link}
 
-This link works for {expires_minutes} minutes. After that, you'll need to request a new one.
+This link works for {expires_minutes} minutes.
+After that, you'll need to request a new one.
 
-If the link doesn't work, copy it and paste it into your web browser's address bar (the long bar at the top of your browser window).
+If the link doesn't work, copy it and paste it into your web browser's
+address bar (the long bar at the top of your browser window).
 
 If you didn't ask for this link, you can ignore this email.
 """
@@ -2861,65 +2921,93 @@ def _send_approval_email(to_email: str, username: str) -> bool:
 <head>
     <meta charset="UTF-8">
 </head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">Welcome to The Library!</h1>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a;
+  color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a;
+      padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center;
+          margin-bottom: 20px;">Welcome to The Library!</h1>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
             Hello {username},
         </p>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            Great news &mdash; your access has been approved! Follow the steps below to finish setting up your account.
+            Great news &mdash; your access has been approved! Follow the
+            steps below to finish setting up your account.
         </p>
 
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em; font-style: italic;">
-            You might want to print this email or write down these steps before you start.
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em;
+          font-style: italic;">
+            You might want to print this email or write down these steps
+            before you start.
         </p>
 
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
+          padding-bottom: 10px;">
             First: Install a Free App on Your Phone
         </h2>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            Instead of a password, The Library uses a free app on your phone that shows a
-            6-digit number. You type that number to sign in. Pick one of these free apps
+            Instead of a password, The Library uses a free app on your
+            phone that shows a 6-digit number. You type that number to
+            sign in. Pick one of these free apps
             (none of them need your phone number):
         </p>
 
-        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #daa520;">
+        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0;
+          border-left: 3px solid #daa520;">
             <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Google Authenticator</strong> (Recommended &mdash; simple and free)<br>
-                <a href="https://apps.apple.com/app/google-authenticator/id388497605" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+                <strong style="color: #daa520;">Google Authenticator</strong>
+                (Recommended &mdash; simple and free)<br>
+                <a href="https://apps.apple.com/app/google-authenticator/id388497605"
+                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
+                  style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or
+                  phone number needed.</span>
             </p>
             <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Aegis Authenticator</strong> (Android only, free &amp; open source)<br>
-                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis" style="color: #daa520;">Google Play Store</a> |
-                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/" style="color: #daa520;">F-Droid</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+                <strong style="color: #daa520;">Aegis Authenticator</strong>
+                (Android only, free &amp; open source)<br>
+                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis"
+                  style="color: #daa520;">Google Play Store</a> |
+                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/"
+                  style="color: #daa520;">F-Droid</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or
+                  phone number needed.</span>
             </p>
             <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">FreeOTP</strong> (by Red Hat &mdash; free &amp; open source)<br>
-                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp" style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+                <strong style="color: #daa520;">FreeOTP</strong>
+                (by Red Hat &mdash; free &amp; open source)<br>
+                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395"
+                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp"
+                  style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or
+                  phone number needed.</span>
             </p>
         </div>
 
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
+          padding-bottom: 10px;">
             Then: Set Up Your Account
         </h2>
 
         <ol style="color: #f5f5dc; line-height: 2; font-size: 1em;">
-            <li><strong>Install one of the apps above</strong> on your phone (if you don't have one already)</li>
-            <li><strong>Find your claim token</strong> &mdash; this is the code you saved when you requested access.
-                It looks like four groups of letters and numbers: <code style="background: #3a3a3a; padding: 2px 6px;">ABCD-EFGH-IJKL-MNOP</code></li>
-            <li><strong>Click the gold button below</strong> to go to the setup page:
+            <li><strong>Install one of the apps above</strong> on your
+              phone (if you don't have one already)</li>
+            <li><strong>Find your claim token</strong> &mdash; this is
+              the code you saved when you requested access.
+              It looks like four groups of letters and numbers:
+              <code style="background: #3a3a3a; padding: 2px 6px;"
+                >ABCD-EFGH-IJKL-MNOP</code></li>
+            <li><strong>Click the gold button below</strong> to go to
+              the setup page:
                 <div style="text-align: center; margin: 15px 0;">
                     <a href="{claim_url}"
-                       style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+                       style="background: linear-gradient(to bottom,
+                                #ffd700, #daa520, #8b7355);
                               color: #1a1a1a;
                               padding: 14px 30px;
                               text-decoration: none;
@@ -2931,33 +3019,49 @@ def _send_approval_email(to_email: str, username: str) -> bool:
                     </a>
                 </div>
             </li>
-            <li>Type your <strong>username</strong> ({username}) and <strong>claim token</strong></li>
-            <li><strong>Point your phone's camera at the QR code</strong> shown on screen
-                <div style="background-color: #3a3a3a; padding: 10px; margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
-                    In your app, tap the <strong>+</strong> button, then choose <strong>"Scan QR Code"</strong>.
-                    <br>Can't scan? Choose <strong>"Enter Key Manually"</strong> instead and type the code shown on screen.
+            <li>Type your <strong>username</strong> ({username}) and
+              <strong>claim token</strong></li>
+            <li><strong>Point your phone's camera at the QR code</strong>
+              shown on screen
+                <div style="background-color: #3a3a3a; padding: 10px;
+                  margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
+                    In your app, tap the <strong>+</strong> button, then
+                    choose <strong>"Scan QR Code"</strong>.
+                    <br>Can't scan? Choose
+                    <strong>"Enter Key Manually"</strong> instead and
+                    type the code shown on screen.
                 </div>
             </li>
-            <li><strong>Write down your backup codes</strong> on paper and keep them safe &mdash;
-                these are your emergency codes if you ever lose your phone</li>
-            <li><strong>Type the 6-digit number</strong> from your app to finish!</li>
+            <li><strong>Write down your backup codes</strong> on paper
+              and keep them safe &mdash; these are your emergency codes
+              if you ever lose your phone</li>
+            <li><strong>Type the 6-digit number</strong> from your app
+              to finish!</li>
         </ol>
 
-        <div style="background-color: #4a3a2a; padding: 15px; margin: 20px 0; border: 1px solid #8b7355;">
-            <p style="color: #ffcc00; margin: 0; font-weight: bold; font-size: 1em;">
+        <div style="background-color: #4a3a2a; padding: 15px; margin: 20px 0;
+          border: 1px solid #8b7355;">
+            <p style="color: #ffcc00; margin: 0; font-weight: bold;
+              font-size: 1em;">
                 Can't find your claim token?
             </p>
-            <p style="color: #f5f5dc; margin: 10px 0 0 0; font-size: 0.95em; line-height: 1.8;">
-                The claim token was shown when you first requested access. If you didn't save it,
-                contact the person who runs The Library to reset your request.
+            <p style="color: #f5f5dc; margin: 10px 0 0 0; font-size: 0.95em;
+              line-height: 1.8;">
+                The claim token was shown when you first requested access.
+                If you didn't save it, contact the person who runs The
+                Library to reset your request.
             </p>
         </div>
 
-        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+        <hr style="border: none; border-top: 1px solid #8b7355;
+          margin: 20px 0;">
 
-        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
-            If the button doesn't work, copy this link and paste it into your browser:<br>
-            <a href="{claim_url}" style="color: #daa520; word-break: break-all;">{claim_url}</a>
+        <p style="color: #888; font-size: 0.9em; text-align: center;
+          line-height: 1.8;">
+            If the button doesn't work, copy this link and paste it into
+            your browser:<br>
+            <a href="{claim_url}"
+              style="color: #daa520; word-break: break-all;">{claim_url}</a>
         </p>
     </div>
 </body>
@@ -2968,32 +3072,40 @@ def _send_approval_email(to_email: str, username: str) -> bool:
 
 Hello {username},
 
-Great news - your access has been approved! Follow these steps to set up your account.
+Great news - your access has been approved! Follow these steps to set
+up your account.
 
 (You might want to print this email or write the steps down.)
 
 FIRST: INSTALL A FREE APP ON YOUR PHONE
-The Library uses a free app instead of passwords. Pick one (none need your phone number):
+The Library uses a free app instead of passwords. Pick one
+(none need your phone number):
 
 - Google Authenticator (recommended):
-  iPhone/iPad: https://apps.apple.com/app/google-authenticator/id388497605
-  Android: https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
+  iPhone/iPad:
+    https://apps.apple.com/app/google-authenticator/id388497605
+  Android:
+    https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
 
 - Aegis Authenticator (Android only, open source):
-  Play Store: https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
+  Play Store:
+    https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
   F-Droid: https://f-droid.org/en/packages/com.beemdevelopment.aegis/
 
 - FreeOTP (by Red Hat):
-  iPhone/iPad: https://apps.apple.com/app/freeotp-authenticator/id872559395
-  Android: https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
+  iPhone/iPad:
+    https://apps.apple.com/app/freeotp-authenticator/id872559395
+  Android:
+    https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
 
 THEN: SET UP YOUR ACCOUNT
 1. Install one of the apps above on your phone
-2. Find your claim token (the ABCD-EFGH-IJKL-MNOP code from when you requested access)
+2. Find your claim token (the ABCD-EFGH-IJKL-MNOP code from when you
+   requested access)
 3. Go to: {claim_url}
 4. Type your username ({username}) and claim token
 5. Point your phone's camera at the QR code on screen
-   (Can't scan? Choose "Enter Key Manually" and type the code shown on screen.)
+   (Can't scan? Choose "Enter Key Manually" and type the code shown.)
 6. Write down your backup codes on paper and keep them safe
 7. Type the 6-digit number from your app to finish!
 
@@ -3042,20 +3154,24 @@ def _send_denial_email(
 <head>
     <meta charset="UTF-8">
 </head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">The Library</h1>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a;
+  color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a;
+      padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center;
+          margin-bottom: 20px;">The Library</h1>
 
         <p style="color: #f5f5dc; line-height: 1.6;">
             Hello {username},
         </p>
 
         <p style="color: #f5f5dc; line-height: 1.6;">
-            We've reviewed your access request, and unfortunately we're unable to
-            approve it at this time.
+            We've reviewed your access request, and unfortunately we're
+            unable to approve it at this time.
         </p>
 
-        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #8b7355;">
+        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0;
+          border-left: 3px solid #8b7355;">
             <p style="color: #f5f5dc; margin: 0;">
                 <strong>Reason:</strong> {reason_text}
             </p>
@@ -3065,7 +3181,8 @@ def _send_denial_email(
             If you believe this was in error, you may submit a new request.
         </p>
 
-        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+        <hr style="border: none; border-top: 1px solid #8b7355;
+          margin: 20px 0;">
 
         <p style="color: #888; font-size: 0.8em; text-align: center;">
             This is an automated message from The Library.
@@ -3077,7 +3194,8 @@ def _send_denial_email(
 
     text_content = f"""Hello {username},
 
-We've reviewed your access request, and unfortunately we're unable to approve it at this time.
+We've reviewed your access request, and unfortunately we're unable to
+approve it at this time.
 
 Reason: {reason_text}
 
@@ -3357,7 +3475,8 @@ def create_notification():
     Request body:
         {
             "message": str,           # Required
-            "type": str,              # Optional: "info", "maintenance", "outage", "personal"
+            "type": str,              # Optional: "info", "maintenance",
+                                  # "outage", "personal"
             "target_user_id": int,    # Optional: null for global
             "starts_at": str,         # Optional: ISO datetime
             "expires_at": str,        # Optional: ISO datetime
@@ -4081,77 +4200,110 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
 <head>
     <meta charset="UTF-8">
 </head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">Welcome to The Library!</h1>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a;
+  color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a;
+      padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center;
+          margin-bottom: 20px;">Welcome to The Library!</h1>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
             Hello {username},
         </p>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            You've been invited to The Library &mdash; a private audiobook collection! Follow the steps in this email to set up your account.
+            You've been invited to The Library &mdash; a private audiobook
+            collection! Follow the steps in this email to set up your account.
         </p>
 
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em; font-style: italic;">
-            You might want to print this email or write down these steps before you start.
+        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em;
+          font-style: italic;">
+            You might want to print this email or write down these steps
+            before you start.
         </p>
 
-        <div style="background-color: #3a3a3a; padding: 25px; margin: 25px 0; border: 3px solid #daa520; text-align: center;">
-            <p style="color: #f5f5dc; margin: 0 0 10px 0; font-size: 1em; font-weight: bold;">
+        <div style="background-color: #3a3a3a; padding: 25px; margin: 25px 0;
+          border: 3px solid #daa520; text-align: center;">
+            <p style="color: #f5f5dc; margin: 0 0 10px 0; font-size: 1em;
+              font-weight: bold;">
                 YOUR CLAIM TOKEN (write this down!):
             </p>
-            <p style="color: #daa520; font-family: 'Courier New', monospace; font-size: 1.8em; letter-spacing: 0.15em; margin: 0; font-weight: bold;">
+            <p style="color: #daa520; font-family: 'Courier New', monospace;
+              font-size: 1.8em; letter-spacing: 0.15em; margin: 0;
+              font-weight: bold;">
                 {claim_token}
             </p>
         </div>
 
-        <div style="background-color: #4a2a2a; padding: 15px; margin: 0 0 25px 0; border: 2px solid #ff9999;">
-            <p style="color: #ff9999; font-weight: bold; margin: 0; font-size: 1.05em;">
-                WRITE THIS TOKEN DOWN or save this email! You'll need it to finish setting up your account.
-                This invitation expires in 48 hours.
+        <div style="background-color: #4a2a2a; padding: 15px;
+          margin: 0 0 25px 0; border: 2px solid #ff9999;">
+            <p style="color: #ff9999; font-weight: bold; margin: 0;
+              font-size: 1.05em;">
+                WRITE THIS TOKEN DOWN or save this email! You'll need it to
+                finish setting up your account. This invitation expires in
+                48 hours.
             </p>
         </div>
 
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
+          padding-bottom: 10px;">
             Step 1: Install a Free App on Your Phone
         </h2>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            The Library uses a free phone app instead of passwords. The app shows a 6-digit number that you type to sign in. Pick one of these free apps (none of them need your phone number):
+            The Library uses a free phone app instead of passwords. The app
+            shows a 6-digit number that you type to sign in. Pick one of
+            these free apps (none of them need your phone number):
         </p>
 
-        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0; border-left: 3px solid #daa520;">
+        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0;
+          border-left: 3px solid #daa520;">
             <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Google Authenticator</strong> (Recommended &mdash; simple and free)<br>
-                <a href="https://apps.apple.com/app/google-authenticator/id388497605" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+                <strong style="color: #daa520;">Google Authenticator</strong>
+                (Recommended &mdash; simple and free)<br>
+                <a href="https://apps.apple.com/app/google-authenticator/id388497605"
+                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
+                  style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or
+                  phone number needed.</span>
             </p>
             <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Aegis Authenticator</strong> (Android only, free &amp; open source)<br>
-                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis" style="color: #daa520;">Google Play Store</a> |
-                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/" style="color: #daa520;">F-Droid</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+                <strong style="color: #daa520;">Aegis Authenticator</strong>
+                (Android only, free &amp; open source)<br>
+                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis"
+                  style="color: #daa520;">Google Play Store</a> |
+                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/"
+                  style="color: #daa520;">F-Droid</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or
+                  phone number needed.</span>
             </p>
             <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">FreeOTP</strong> (by Red Hat &mdash; free &amp; open source)<br>
-                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395" style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp" style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or phone number needed.</span>
+                <strong style="color: #daa520;">FreeOTP</strong>
+                (by Red Hat &mdash; free &amp; open source)<br>
+                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395"
+                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
+                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp"
+                  style="color: #daa520;">Google Play Store (Android)</a><br>
+                <span style="font-size: 0.9em; color: #ccc;">No account or
+                  phone number needed.</span>
             </p>
         </div>
 
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355; padding-bottom: 10px;">
+        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
+          padding-bottom: 10px;">
             Step 2: Set Up Your Account
         </h2>
 
         <ol style="color: #f5f5dc; line-height: 2; font-size: 1em;">
-            <li><strong>Install one of the apps above</strong> on your phone</li>
-            <li><strong>Click the gold button below</strong> to go to the setup page:
+            <li><strong>Install one of the apps above</strong> on your
+              phone</li>
+            <li><strong>Click the gold button below</strong> to go to
+              the setup page:
                 <div style="text-align: center; margin: 15px 0;">
                     <a href="{claim_url}"
-                       style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+                       style="background: linear-gradient(to bottom,
+                                #ffd700, #daa520, #8b7355);
                               color: #1a1a1a;
                               padding: 14px 30px;
                               text-decoration: none;
@@ -4163,24 +4315,37 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
                     </a>
                 </div>
             </li>
-            <li>Type your <strong>username</strong>: <strong>{username}</strong></li>
-            <li>Type your <strong>claim token</strong> (the code in the gold box above)</li>
-            <li><strong>Point your phone's camera at the QR code</strong> shown on screen
-                <div style="background-color: #3a3a3a; padding: 10px; margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
-                    In your app, tap the <strong>+</strong> button, then choose <strong>"Scan QR Code"</strong>.
-                    <br>Can't scan? Choose <strong>"Enter Key Manually"</strong> instead and type the code shown on screen.
+            <li>Type your <strong>username</strong>:
+              <strong>{username}</strong></li>
+            <li>Type your <strong>claim token</strong> (the code in the
+              gold box above)</li>
+            <li><strong>Point your phone's camera at the QR code</strong>
+              shown on screen
+                <div style="background-color: #3a3a3a; padding: 10px;
+                  margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
+                    In your app, tap the <strong>+</strong> button, then
+                    choose <strong>"Scan QR Code"</strong>.
+                    <br>Can't scan? Choose
+                    <strong>"Enter Key Manually"</strong> instead and
+                    type the code shown on screen.
                 </div>
             </li>
-            <li><strong>Write down your backup codes</strong> on paper and keep them safe &mdash;
-                these are your emergency codes if you ever lose your phone</li>
-            <li><strong>Type the 6-digit number</strong> from your app to finish!</li>
+            <li><strong>Write down your backup codes</strong> on paper
+              and keep them safe &mdash; these are your emergency codes
+              if you ever lose your phone</li>
+            <li><strong>Type the 6-digit number</strong> from your app
+              to finish!</li>
         </ol>
 
-        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+        <hr style="border: none; border-top: 1px solid #8b7355;
+          margin: 20px 0;">
 
-        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
-            If the button doesn't work, copy this link and paste it into your browser:<br>
-            <a href="{claim_url}" style="color: #daa520; word-break: break-all;">{claim_url}</a>
+        <p style="color: #888; font-size: 0.9em; text-align: center;
+          line-height: 1.8;">
+            If the button doesn't work, copy this link and paste it into
+            your browser:<br>
+            <a href="{claim_url}"
+              style="color: #daa520; word-break: break-all;">{claim_url}</a>
         </p>
     </div>
 </body>
@@ -4203,19 +4368,25 @@ This invitation expires in 48 hours.
 (You might want to print this email or write these steps down.)
 
 STEP 1: INSTALL A FREE APP ON YOUR PHONE
-The Library uses a free app instead of passwords. Pick one (none need your phone number):
+The Library uses a free app instead of passwords. Pick one
+(none need your phone number):
 
 - Google Authenticator (recommended):
-  iPhone/iPad: https://apps.apple.com/app/google-authenticator/id388497605
-  Android: https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
+  iPhone/iPad:
+    https://apps.apple.com/app/google-authenticator/id388497605
+  Android:
+    https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
 
 - Aegis Authenticator (Android only, open source):
-  Play Store: https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
+  Play Store:
+    https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
   F-Droid: https://f-droid.org/en/packages/com.beemdevelopment.aegis/
 
 - FreeOTP (by Red Hat):
-  iPhone/iPad: https://apps.apple.com/app/freeotp-authenticator/id872559395
-  Android: https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
+  iPhone/iPad:
+    https://apps.apple.com/app/freeotp-authenticator/id872559395
+  Android:
+    https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
 
 STEP 2: SET UP YOUR ACCOUNT
 1. Install one of the apps above on your phone
@@ -4223,7 +4394,7 @@ STEP 2: SET UP YOUR ACCOUNT
 3. Type your username: {username}
 4. Type your claim token (the code above)
 5. Point your phone's camera at the QR code on screen
-   (Can't scan? Choose "Enter Key Manually" and type the code shown on screen.)
+   (Can't scan? Choose "Enter Key Manually" and type the code shown.)
 6. Write down your backup codes on paper and keep them safe
 7. Type the 6-digit number from your app to finish!
 """
@@ -4274,22 +4445,27 @@ def _send_activation_email(to_email: str, username: str, activation_token: str) 
 <head>
     <meta charset="UTF-8">
 </head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a; color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center; margin-bottom: 20px;">Welcome to The Library</h1>
+<body style="font-family: Georgia, serif; background-color: #1a1a1a;
+  color: #f5f5dc; padding: 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a;
+      padding: 30px; border: 1px solid #8b7355;">
+        <h1 style="color: #daa520; text-align: center;
+          margin-bottom: 20px;">Welcome to The Library</h1>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
             Hello {username},
         </p>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            You've been invited to The Library &mdash; a private audiobook collection.
-            Click the big gold button below to activate your account and start listening.
+            You've been invited to The Library &mdash; a private audiobook
+            collection. Click the big gold button below to activate your
+            account and start listening.
         </p>
 
         <div style="text-align: center; margin: 30px 0;">
             <a href="{activation_url}"
-               style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);
+               style="background: linear-gradient(to bottom,
+                        #ffd700, #daa520, #8b7355);
                       color: #1a1a1a;
                       padding: 18px 40px;
                       text-decoration: none;
@@ -4301,19 +4477,26 @@ def _send_activation_email(to_email: str, username: str, activation_token: str) 
         </div>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            This link works for 48 hours. After that, ask the admin to resend your invitation.
+            This link works for 48 hours. After that, ask the admin to
+            resend your invitation.
         </p>
 
         <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            <strong>How it works:</strong> Each time you want to sign in, you'll enter your username
-            and we'll email you a sign-in link. No passwords or apps needed!
+            <strong>How it works:</strong> Each time you want to sign in,
+            you'll enter your username and we'll email you a sign-in link.
+            No passwords or apps needed!
         </p>
 
-        <hr style="border: none; border-top: 1px solid #8b7355; margin: 20px 0;">
+        <hr style="border: none; border-top: 1px solid #8b7355;
+          margin: 20px 0;">
 
-        <p style="color: #888; font-size: 0.9em; text-align: center; line-height: 1.8;">
-            If the button doesn't work, copy this link and paste it into your browser:<br>
-            <a href="{activation_url}" style="color: #daa520; word-break: break-all;">{activation_url}</a>
+        <p style="color: #888; font-size: 0.9em; text-align: center;
+          line-height: 1.8;">
+            If the button doesn't work, copy this link and paste it into
+            your browser:<br>
+            <a href="{activation_url}"
+              style="color: #daa520; word-break: break-all;"
+              >{activation_url}</a>
         </p>
     </div>
 </body>

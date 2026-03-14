@@ -31,7 +31,8 @@ class TestContentPageLinks:
                 links = re.findall(rf'<a[^>]*href="{auth_page}"[^>]*>', content)
                 for link in links:
                     assert 'target="_top"' in link, (
-                        f"{page_name}: link to {auth_page} must have target='_top': {link}"
+                        f"{page_name}: link to {auth_page}"
+                        f" must have target='_top': {link}"
                     )
 
     def test_js_redirects_to_auth_use_top(self):
@@ -41,7 +42,8 @@ class TestContentPageLinks:
             if not page_path.exists():
                 continue
             content = page_path.read_text()
-            # Find window.location.href = 'login.html' patterns (not window.top.location.href)
+            # Find window.location.href = 'login.html' patterns
+            # (not window.top.location.href)
             # First count plain window.location redirects to login
             plain_redirects = re.findall(
                 r"window\.location\.href\s*=\s*['\"]login\.html", content

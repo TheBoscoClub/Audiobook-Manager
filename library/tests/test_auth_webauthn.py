@@ -198,12 +198,14 @@ class TestRegistrationOptions:
 
         # Check authenticator selection
         auth_sel = options.get("authenticatorSelection", {})
-        # Passkey: no authenticatorAttachment restriction (allows phone, password manager, biometrics)
+        # Passkey: no authenticatorAttachment restriction
+        # (allows phone, password manager, biometrics)
         assert "authenticatorAttachment" not in auth_sel
         assert auth_sel.get("userVerification") == "required"
 
     def test_create_registration_options_cross_platform(self):
-        """Test generating registration options for cross-platform authenticator (FIDO2 key)."""
+        """Test generating registration options for cross-platform authenticator
+        (FIDO2 key)."""
         options_json, challenge = create_registration_options(
             username="fido2user", authenticator_type="cross-platform"
         )

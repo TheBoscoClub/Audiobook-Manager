@@ -75,9 +75,9 @@ class TestAuthDatabase:
         assert status["key_exists"]
         assert status["can_connect"]
         assert status["schema_version"] == 7
-        assert (
-            status["table_count"] == 17
-        )  # 13 original + user_listening_history, user_downloads, user_preferences, webauthn_credentials
+        # 13 original + user_listening_history, user_downloads,
+        # user_preferences, webauthn_credentials
+        assert status["table_count"] == 17
 
     def test_database_encryption(self):
         """Test database file is actually encrypted."""
@@ -91,7 +91,8 @@ class TestAuthDatabase:
             # Insert test data
             with db.connection() as conn:
                 conn.execute(
-                    "INSERT INTO users (username, auth_type, auth_credential) VALUES (?, ?, ?)",
+                    "INSERT INTO users (username, auth_type, auth_credential)"
+                    " VALUES (?, ?, ?)",
                     ("testuser", "totp", b"secret"),
                 )
 
@@ -597,7 +598,7 @@ class TestTokenHashing:
 
     def test_hash_consistency(self):
         """Test that hash function is consistent."""
-        token = "test_token_value"
+        token = "test_token_value"  # noqa: S105 — test fixture, not a real credential
         hash1 = hash_token(token)
         hash2 = hash_token(token)
         assert hash1 == hash2

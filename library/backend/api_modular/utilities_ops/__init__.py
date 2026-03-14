@@ -6,13 +6,14 @@ This package provides modular endpoints for background operations:
 - library: Library content (add-new, rescan, reimport)
 - hashing: File integrity (generate-hashes, generate-checksums)
 - audible: Audible integration (download, sync-genres, sync-narrators, prereqs)
-- maintenance: System maintenance (rebuild-queue, cleanup-indexes, sort-fields, duplicates)
+- maintenance: System maintenance (rebuild-queue, cleanup-indexes, sort-fields,
+  duplicates)
 """
 
 import sys
 from pathlib import Path
 
-# Path setup for sibling module import (operation_status is in backend/, not api_modular/)
+# Path setup for sibling module import (operation_status in backend/, not api_modular/)
 # This must be done before importing sub-modules that use operation_status
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 

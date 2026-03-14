@@ -20,3 +20,4 @@ marshmallow>=4.0.0  # CVE-2025-68480 (actual installed: 4.x)
 pynacl>=1.6.2       # CVE-2025-69277
 werkzeug>=3.1.6     # CVE-2025-66221, CVE-2026-21860, GHSA-29vq-49wr-vm6x
 pillow>=12.1.1      # GHSA-cfh3-3jmp-rvhc (OOB write on PSD)
+defusedxml>=0.7.1   # S314: safe XML parsing for external/untrusted content

@@ -81,7 +81,8 @@ def init_editions_routes(db_path):
     def get_book_editions(book_id: int) -> FlaskResponse:
         """
         Get all editions of a specific audiobook.
-        Only returns books that are truly different editions (with edition markers in title).
+        Only returns books that are truly different editions
+        (with edition markers in title).
         """
         conn = get_db(db_path)
         cursor = conn.cursor()

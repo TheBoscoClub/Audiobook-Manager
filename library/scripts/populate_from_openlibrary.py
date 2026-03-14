@@ -291,7 +291,8 @@ def populate_from_openlibrary(
             # Update ISBN if found and not already set
             if result.isbn_found:
                 cursor.execute(
-                    "UPDATE audiobooks SET isbn = ? WHERE id = ? AND (isbn IS NULL OR isbn = '')",
+                    "UPDATE audiobooks SET isbn = ? WHERE id = ?"
+                    " AND (isbn IS NULL OR isbn = '')",
                     (result.isbn_found, result.audiobook_id),
                 )
                 if cursor.rowcount > 0:
@@ -300,7 +301,8 @@ def populate_from_openlibrary(
             # Update publication year if found and not already set
             if result.publication_year:
                 cursor.execute(
-                    "UPDATE audiobooks SET published_year = ? WHERE id = ? AND (published_year IS NULL OR published_year = 0)",
+                    "UPDATE audiobooks SET published_year = ? WHERE id = ?"
+                    " AND (published_year IS NULL OR published_year = 0)",
                     (result.publication_year, result.audiobook_id),
                 )
                 if cursor.rowcount > 0:
@@ -312,12 +314,14 @@ def populate_from_openlibrary(
                 if subject in genre_id_map and subject not in seen_genres:
                     # Check if association already exists
                     cursor.execute(
-                        "SELECT 1 FROM audiobook_genres WHERE audiobook_id = ? AND genre_id = ?",
+                        "SELECT 1 FROM audiobook_genres"
+                        " WHERE audiobook_id = ? AND genre_id = ?",
                         (result.audiobook_id, genre_id_map[subject]),
                     )
                     if not cursor.fetchone():
                         cursor.execute(
-                            "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+                            "INSERT INTO audiobook_genres"
+                            " (audiobook_id, genre_id) VALUES (?, ?)",
                             (result.audiobook_id, genre_id_map[subject]),
                         )
                         association_count += 1

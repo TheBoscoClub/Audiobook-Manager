@@ -368,7 +368,9 @@ def get_file_metadata(
                 "comment", tags_normalized.get("description", "")
             ),
             "duration_hours": round(duration_hours, 2),
-            "duration_formatted": f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m",
+            "duration_formatted": (
+                f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m"
+            ),
             "file_size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
             "file_path": str(filepath),
             "series": tags_normalized.get("series", ""),

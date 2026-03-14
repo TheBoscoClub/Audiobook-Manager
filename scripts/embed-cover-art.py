@@ -256,7 +256,8 @@ def main():
         f.write(f"\n{'=' * 60}\n")
         f.write(f"Run: {datetime.now().isoformat()}\n")
         f.write(
-            f"Total: {total}, Embedded: {success_count}, Skipped: {skip_count}, Failed: {fail_count}\n"
+            f"Total: {total}, Embedded: {success_count},"
+            f" Skipped: {skip_count}, Failed: {fail_count}\n"
         )
         if failed_files:
             f.write("Failed files:\n")

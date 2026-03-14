@@ -58,7 +58,8 @@ def ensure_supplements_table(cursor):
     """
     )
     cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_supplements_audiobook_id ON supplements(audiobook_id)"
+        "CREATE INDEX IF NOT EXISTS idx_supplements_audiobook_id"
+        " ON supplements(audiobook_id)"
     )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_supplements_asin ON supplements(asin)"
@@ -154,7 +155,8 @@ def scan_supplements(supplements_dir: Path, verbose: bool = True):
             # Insert new record
             cursor.execute(
                 """
-                INSERT INTO supplements (audiobook_id, type, filename, file_path, file_size_mb)
+                INSERT INTO supplements
+                    (audiobook_id, type, filename, file_path, file_size_mb)
                 VALUES (?, ?, ?, ?, ?)
             """,
                 (audiobook_id, supplement_type, filename, path_str, file_size),

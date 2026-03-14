@@ -37,7 +37,8 @@ def cmd_list(args):
         return 0
 
     print(
-        f"\n{'ID':<6} {'Type':<12} {'Target':<10} {'Dismissable':<12} {'Created':<20} {'Message'}"
+        f"\n{'ID':<6} {'Type':<12} {'Target':<10} {'Dismissable':<12}"
+        f" {'Created':<20} {'Message'}"
     )
     print("-" * 100)
 
@@ -48,7 +49,8 @@ def cmd_list(args):
         message = n.message[:50] + "..." if len(n.message) > 50 else n.message
 
         print(
-            f"{n.id:<6} {n.type.value:<12} {target:<10} {dismissable:<12} {created:<20} {message}"
+            f"{n.id:<6} {n.type.value:<12} {target:<10}"
+            f" {dismissable:<12} {created:<20} {message}"
         )
 
     print(f"\nTotal: {len(notifications)} notification(s)")
@@ -63,7 +65,8 @@ def cmd_create(args):
     notif_type = args.type.lower()
     if notif_type not in ("info", "maintenance", "outage", "personal"):
         print(
-            f"Error: Invalid type '{args.type}'. Must be: info, maintenance, outage, personal"
+            f"Error: Invalid type '{args.type}'."
+            " Must be: info, maintenance, outage, personal"
         )
         return 1
 
@@ -121,7 +124,8 @@ def main():
 Examples:
     %(prog)s list
     %(prog)s create "Library updated with new books!" --type info
-    %(prog)s create "Scheduled maintenance Saturday 2am" --type maintenance --expires 2026-01-25T04:00:00
+    %(prog)s create "Scheduled maintenance Saturday 2am" \
+        --type maintenance --expires 2026-01-25T04:00:00
     %(prog)s create "Hey Bob, added the series you wanted!" --type personal --user 5
     %(prog)s delete 3
         """,

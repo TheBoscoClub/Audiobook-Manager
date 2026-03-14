@@ -441,7 +441,7 @@ def init_system_routes(project_root):
 
         if source == "project" and project_path:
             # SECURITY: Validate project_path is a real project directory
-            # Must exist, be a directory, and contain a VERSION file (valid project marker)
+            # Must exist, be a directory, and contain a VERSION file (valid marker)
             # CodeQL: Path is validated via is_dir() and VERSION file check before use
             project_path_obj = Path(project_path)
             if not project_path_obj.is_dir():  # lgtm[py/path-injection]

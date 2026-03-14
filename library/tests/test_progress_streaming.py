@@ -358,7 +358,11 @@ class TestCarriageReturnHandling:
     def test_parse_cr_progress(self):
         """Test parsing progress with carriage returns (scanner style)."""
         # Scanner outputs with \r for in-place updates
-        output = "Scanning: 10% | 100/1000\rScanning: 20% | 200/1000\rScanning: 30% | 300/1000\n"
+        output = (
+            "Scanning: 10% | 100/1000\r"
+            "Scanning: 20% | 200/1000\r"
+            "Scanning: 30% | 300/1000\n"
+        )
 
         pattern = re.compile(r"(\d+)%\s*\|\s*(\d+)/(\d+)")
 

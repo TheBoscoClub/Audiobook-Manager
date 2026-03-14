@@ -340,14 +340,16 @@ def get_new_books():
         if prefs.new_books_seen_at is None:
             # Never dismissed — all books are "new"
             cursor.execute(
-                "SELECT id, title, author, duration_hours, cover_path, format, created_at "
-                "FROM audiobooks ORDER BY created_at DESC"
+                "SELECT id, title, author, duration_hours,"
+                " cover_path, format, created_at"
+                " FROM audiobooks ORDER BY created_at DESC"
             )
         else:
             seen_at = prefs.new_books_seen_at.isoformat()
             cursor.execute(
-                "SELECT id, title, author, duration_hours, cover_path, format, created_at "
-                "FROM audiobooks WHERE created_at > ? ORDER BY created_at DESC",
+                "SELECT id, title, author, duration_hours,"
+                " cover_path, format, created_at"
+                " FROM audiobooks WHERE created_at > ? ORDER BY created_at DESC",
                 (seen_at,),
             )
 

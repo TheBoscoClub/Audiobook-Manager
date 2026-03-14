@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_by TEXT DEFAULT 'admin'
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_target ON notifications(target_user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_active ON notifications(starts_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_active
+    ON notifications(starts_at, expires_at);
 
 CREATE TABLE IF NOT EXISTS notification_dismissals (
     notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
@@ -93,7 +94,8 @@ CREATE TABLE IF NOT EXISTS inbox (
     message TEXT NOT NULL,
     reply_via TEXT NOT NULL CHECK (reply_via IN ('in-app', 'email')),
     reply_email TEXT,
-    status TEXT DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'replied', 'archived')),
+    status TEXT DEFAULT 'unread'
+        CHECK (status IN ('unread', 'read', 'replied', 'archived')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     read_at TIMESTAMP,
     replied_at TIMESTAMP

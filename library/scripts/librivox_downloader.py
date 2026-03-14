@@ -53,7 +53,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
-from xml.etree import ElementTree
+import defusedxml.ElementTree as ElementTree
 
 import requests
 

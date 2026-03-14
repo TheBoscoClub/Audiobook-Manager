@@ -55,7 +55,9 @@ def import_audiobooks(conn):
     # Save narrator data (keyed by file_path)
     preserved_narrators = {}
     cursor.execute(
-        "SELECT file_path, narrator FROM audiobooks WHERE narrator IS NOT NULL AND narrator != 'Unknown Narrator' AND narrator != ''"
+        "SELECT file_path, narrator FROM audiobooks"
+        " WHERE narrator IS NOT NULL"
+        " AND narrator != 'Unknown Narrator' AND narrator != ''"
     )
     for row in cursor.fetchall():
         preserved_narrators[row[0]] = row[1]

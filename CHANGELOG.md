@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated `install-manifest.json` with BTRFS subvolume entries for `/var/lib/audiobooks` and `/etc/audiobooks`
 - Updated ARCHITECTURE.md recommended subvolume layout to reflect NVMe-backed state and config directories
+- Resolved all 343 E501 line-too-long violations across 70+ files (88 char limit)
+- Added `defusedxml` for safe XML parsing in librivox_downloader.py (S314 security fix)
+- Fixed `from library.` import paths that failed under pytest (ModuleNotFoundError)
+- Updated hardcoded-path test scanner to handle multi-line `environ.get()` calls
 
 ## [7.0.0] - 2026-03-13
 

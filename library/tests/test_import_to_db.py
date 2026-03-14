@@ -217,7 +217,8 @@ class TestImportAudiobooks:
 
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT title, author, narrator, duration_hours FROM audiobooks WHERE title = 'The Great Test'"
+            "SELECT title, author, narrator, duration_hours"
+            " FROM audiobooks WHERE title = 'The Great Test'"
         )
         row = cursor.fetchone()
 
@@ -322,7 +323,8 @@ class TestImportAudiobooks:
 
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT narrator, publisher, series FROM audiobooks WHERE title = 'Another Book'"
+            "SELECT narrator, publisher, series FROM audiobooks"
+            " WHERE title = 'Another Book'"
         )
         row = cursor.fetchone()
 
@@ -378,7 +380,8 @@ class TestImportAudiobooks:
 
         # Manually update narrator (simulating Audible export sync)
         cursor.execute(
-            "UPDATE audiobooks SET narrator = 'Manually Set Narrator' WHERE title = 'Another Book'"
+            "UPDATE audiobooks SET narrator = 'Manually Set Narrator'"
+            " WHERE title = 'Another Book'"
         )
         conn.commit()
 
@@ -388,7 +391,10 @@ class TestImportAudiobooks:
 
         # Test the preservation query that import_audiobooks uses
         cursor.execute(
-            "SELECT file_path, narrator FROM audiobooks WHERE narrator IS NOT NULL AND narrator != 'Unknown Narrator' AND narrator != ''"
+            "SELECT file_path, narrator FROM audiobooks"
+            " WHERE narrator IS NOT NULL"
+            " AND narrator != 'Unknown Narrator'"
+            " AND narrator != ''"
         )
         preserved = {row[0]: row[1] for row in cursor.fetchall()}
 
@@ -436,9 +442,8 @@ class TestImportAudiobooks:
 
         # Insert book
         cursor.execute(
-            """
-            INSERT INTO audiobooks (title, file_path) VALUES ('Another Book', '/test/book.opus')
-        """
+            "INSERT INTO audiobooks (title, file_path)"
+            " VALUES ('Another Book', '/test/book.opus')"
         )
         book_id = cursor.lastrowid
 

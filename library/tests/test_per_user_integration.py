@@ -24,7 +24,8 @@ sys.path.insert(0, str(LIBRARY_DIR))
 
 from auth.totp import TOTPAuthenticator  # noqa: E402
 
-# auth_app, flask_app, and session_temp_dir fixtures come from conftest.py (session-scoped)
+# auth_app, flask_app, and session_temp_dir fixtures come from
+# conftest.py (session-scoped)
 
 
 # ============================================================

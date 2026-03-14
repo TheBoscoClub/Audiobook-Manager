@@ -7,8 +7,10 @@ ASIN-to-title mapping directly from Amazon's database. This is more reliable
 than filename extraction for audiobooks whose source files were deleted.
 
 Usage:
-    audible library export --format json --output /tmp/audible-library.json --resolve-podcasts
-    python3 populate_asins_from_library.py --library /tmp/audible-library.json [--dry-run]
+    audible library export --format json --output /tmp/audible-library.json \
+        --resolve-podcasts
+    python3 populate_asins_from_library.py \
+        --library /tmp/audible-library.json [--dry-run]
 """
 
 import argparse
@@ -240,7 +242,8 @@ def analyze_unmatched(unmatched: list[dict]):
         print(f"   {book['title'][:60]}")
         if book.get("best_match"):
             print(
-                f"       Best match ({book['best_score']:.0%}): {book['best_match'][:50]}"
+                f"       Best match ({book['best_score']:.0%}):"
+                f" {book['best_match'][:50]}"
             )
         else:
             print("       No potential matches found")
@@ -268,7 +271,8 @@ def main():
     if not args.library.exists():
         print(f"Library file not found: {args.library}")
         print(
-            "   Generate with: audible library export --format json --output library.json --resolve-podcasts"
+            "   Generate with: audible library export"
+            " --format json --output library.json --resolve-podcasts"
         )
         sys.exit(1)
 

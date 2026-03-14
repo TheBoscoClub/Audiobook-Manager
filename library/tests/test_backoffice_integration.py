@@ -168,7 +168,8 @@ class TestDatabaseExports:
 
         print(f"\n  ✓ Exported {total_count} audiobooks as JSON")
         print(
-            f"  ✓ Sample: {book.get('title', 'Unknown')[:50]} by {book.get('author', 'Unknown')[:30]}"
+            f"  ✓ Sample: {book.get('title', 'Unknown')[:50]}"
+            f" by {book.get('author', 'Unknown')[:30]}"
         )
 
     def test_export_csv(self, api_available):
@@ -260,7 +261,8 @@ class TestAsyncOperations:
         # Handle both new operation and already-running cases
         if response.status_code == 409 or data.get("success") is False:
             print(
-                f"\n  ✓ Queue rebuild already in progress (operation: {data['operation_id']})"
+                f"\n  ✓ Queue rebuild already in progress"
+                f" (operation: {data['operation_id']})"
             )
 
         op = wait_for_operation(data["operation_id"], timeout=600)
@@ -308,7 +310,8 @@ class TestAsyncOperations:
         # Handle both new operation and already-running cases
         if response.status_code == 409 or data.get("success") is False:
             print(
-                f"\n  ✓ Duplicate scan already in progress (operation: {data['operation_id']})"
+                f"\n  ✓ Duplicate scan already in progress"
+                f" (operation: {data['operation_id']})"
             )
 
         op = wait_for_operation(data["operation_id"], timeout=300)
@@ -381,7 +384,8 @@ class TestLibraryOperations:
         # Handle both new operation and already-running cases
         if response.status_code == 409 or data.get("success") is False:
             print(
-                f"\n  ✓ Library rescan already in progress (operation: {data['operation_id']})"
+                f"\n  ✓ Library rescan already in progress"
+                f" (operation: {data['operation_id']})"
             )
 
         # Use short timeout - rescan can take very long with large libraries

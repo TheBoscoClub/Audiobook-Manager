@@ -31,7 +31,8 @@ class TestIframeBridge:
         )
 
     def test_player_overlay_not_in_index(self):
-        """The old player overlay should not be in index.html (replaced by shell player bar)."""
+        """The old player overlay should not be in index.html
+        (replaced by shell player bar)."""
         content = INDEX_HTML.read_text()
         assert 'id="audio-player"' not in content, (
             "The old audio-player overlay must be removed from index.html"

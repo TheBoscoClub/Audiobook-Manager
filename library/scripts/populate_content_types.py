@@ -203,7 +203,8 @@ def populate_content_types(dry_run: bool = True) -> None:
         print("\nSample updates:")
         for u in updates[:10]:
             print(
-                f"  {u['title'][:55]:55s}  {u['old_ct']} → {u['new_ct']} ({u['delivery_type']})"
+                f"  {u['title'][:55]:55s}  {u['old_ct']} → {u['new_ct']}"
+                f" ({u['delivery_type']})"
             )
         if len(updates) > 10:
             print(f"  ... and {len(updates) - 10} more")
@@ -245,7 +246,8 @@ def populate_content_types(dry_run: bool = True) -> None:
 
         cat_dist = Counter(u["new_ct"] for u in catalog_updates)
         print(
-            f"\nCatalog results: {len(catalog_updates)} updates, {catalog_failed} failed"
+            f"\nCatalog results: {len(catalog_updates)} updates,"
+            f" {catalog_failed} failed"
         )
         if catalog_updates:
             print("Updates by content_type:")

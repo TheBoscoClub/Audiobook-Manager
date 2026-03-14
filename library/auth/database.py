@@ -202,7 +202,7 @@ class AuthDatabase:
             # (schema.sql inserts current version, which would mask pending migrations)
             self._apply_migrations()
 
-        # Load and apply schema SQL (CREATE TABLE IF NOT EXISTS is safe for existing DBs)
+        # Load and apply schema SQL (safe for existing DBs: CREATE TABLE IF NOT EXISTS)
         schema_path = Path(__file__).parent / "schema.sql"
         schema_sql = schema_path.read_text()
 
@@ -263,7 +263,8 @@ class AuthDatabase:
 
         # Check if access_requests table exists
         ar_exists = conn.execute(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='access_requests'"
+            "SELECT COUNT(*) FROM sqlite_master"
+            " WHERE type='table' AND name='access_requests'"
         ).fetchone()[0]
         ar_count = 0
         if ar_exists:
@@ -306,7 +307,9 @@ class AuthDatabase:
                 CREATE TABLE users_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
-                    auth_type TEXT NOT NULL CHECK (auth_type IN ('passkey', 'fido2', 'totp', 'magic_link')),
+                    auth_type TEXT NOT NULL CHECK (
+                        auth_type IN ('passkey', 'fido2', 'totp', 'magic_link')
+                    ),
                     auth_credential BLOB NOT NULL,
                     can_download BOOLEAN DEFAULT FALSE,
                     is_admin BOOLEAN DEFAULT FALSE,
@@ -346,7 +349,8 @@ class AuthDatabase:
             }
             if "preferred_auth_method" not in ar_cols:
                 conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN preferred_auth_method TEXT DEFAULT 'totp'"
+                    "ALTER TABLE access_requests"
+                    " ADD COLUMN preferred_auth_method TEXT DEFAULT 'totp'"
                 )
                 logger.info("Added preferred_auth_method to access_requests")
 
@@ -363,7 +367,8 @@ class AuthDatabase:
             )
         if post_session_count != session_count:
             raise RuntimeError(
-                f"Migration validation failed: sessions {session_count} → {post_session_count}"
+                f"Migration validation failed: sessions"
+                f" {session_count} → {post_session_count}"
             )
 
         logger.info(

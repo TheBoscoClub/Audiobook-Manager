@@ -44,10 +44,14 @@ COLLECTION_TREE = [
         "id": "podcasts",
         "name": "Podcasts & Shows",
         "description": "Podcasts, shows, and other non-audiobook Audible content",
-        "query": "content_type NOT IN ('Product', 'Performance', 'Speech', 'Lecture') AND content_type IS NOT NULL",
+        "query": (
+            "content_type NOT IN ('Product', 'Performance', 'Speech', 'Lecture')"
+            " AND content_type IS NOT NULL"
+        ),
         "icon": "🎙️",
         "category": "special",
-        "bypasses_filter": True,  # Show non-audiobook content excluded by AUDIOBOOK_FILTER
+        # Show non-audiobook content excluded by AUDIOBOOK_FILTER
+        "bypasses_filter": True,
     },
     {
         "id": "great-courses",

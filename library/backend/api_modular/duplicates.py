@@ -266,7 +266,8 @@ def init_duplicates_routes(db_path):
         cursor.execute(
             """
             SELECT
-                LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
+                LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''),
+                '  ', ' '))) as norm_title,
                 LOWER(TRIM(author)) as norm_author,
                 ROUND(duration_hours, 1) as duration_group,
                 COUNT(*) as count
@@ -290,13 +291,16 @@ def init_duplicates_routes(db_path):
             norm_author = group["norm_author"]
             duration_group = group["duration_group"]
 
-            # Get all files in this group (including any with "Audiobook" author that match)
+            # Get all files in this group (including any with "Audiobook" author
+            # that match)
             cursor.execute(
                 """
                 SELECT id, title, author, narrator, file_path, file_size_mb,
-                       format, duration_formatted, duration_hours, cover_path, sha256_hash
+                       format, duration_formatted, duration_hours,
+                       cover_path, sha256_hash
                 FROM audiobooks
-                WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
+                WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''),
+                '-', ''), '  ', ' '))) = ?
                   AND (LOWER(TRIM(author)) = ? OR LOWER(TRIM(author)) = 'audiobook')
                   AND ROUND(duration_hours, 1) = ?
                 ORDER BY
@@ -395,8 +399,10 @@ def init_duplicates_routes(db_path):
         placeholders = ",".join("?" * len(ids_to_delete))
         cursor.execute(
             f"""
-            SELECT id, sha256_hash, title, author, file_path, duration_hours, file_size_mb,
-                   LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
+            SELECT id, sha256_hash, title, author, file_path,
+                   duration_hours, file_size_mb,
+                   LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''),
+                   '-', ''), '  ', ' '))) as norm_title,
                    LOWER(TRIM(author)) as norm_author,
                    ROUND(duration_hours, 1) as duration_group
             FROM audiobooks
@@ -411,7 +417,8 @@ def init_duplicates_routes(db_path):
         safe_to_delete = []
 
         if mode == "title":
-            # Group by normalized title + duration (duration distinguishes different books with same title)
+            # Group by normalized title + duration (duration distinguishes
+            # different books with same title)
             title_groups: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
             for item in to_delete:
                 key = (item["norm_title"], item["duration_group"])
@@ -425,7 +432,8 @@ def init_duplicates_routes(db_path):
                 cursor.execute(
                     """
                     SELECT COUNT(*) as count FROM audiobooks
-                    WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''), '  ', ' '))) = ?
+                    WHERE LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''),
+                    '-', ''), '  ', ' '))) = ?
                       AND ROUND(duration_hours, 1) = ?
                 """,
                     (norm_title, duration_group),
@@ -540,7 +548,9 @@ def init_duplicates_routes(db_path):
                 "deleted_files": deleted_files,
                 "blocked_count": len(blocked_ids),
                 "blocked_ids": blocked_ids,
-                "blocked_reason": "These IDs were blocked to prevent deleting the last copy",
+                "blocked_reason": (
+                    "These IDs were blocked to prevent deleting the last copy"
+                ),
                 "errors": errors,
             }
         )
@@ -610,7 +620,8 @@ def init_duplicates_routes(db_path):
                                 os.path.getsize(fpath) if os.path.exists(fpath) else 0
                             )
                             basename = os.path.basename(fpath)
-                            # Extract ASIN if present (first 10 alphanumeric chars before _)
+                            # Extract ASIN if present
+                            # (first 10 alphanumeric chars before _)
                             asin = None
                             if "_" in basename and len(basename) > 10:
                                 potential_asin = basename.split("_")[0]
@@ -699,7 +710,8 @@ def init_duplicates_routes(db_path):
         Request body:
             type: "sources" | "library" | "both" (default: "both")
 
-        Note: This runs synchronously and may take several minutes for large collections.
+        Note: This runs synchronously and may take several minutes for large
+        collections.
         """
         import os
         import subprocess
@@ -708,8 +720,12 @@ def init_duplicates_routes(db_path):
         check_type = data.get("type", "both")
 
         index_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks") + "/.index"
-        sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources")  # fmt: skip
-        library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")  # fmt: skip
+        sources_dir = os.environ.get(
+            "AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources"
+        )
+        library_dir = os.environ.get(
+            "AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library"
+        )
 
         results = {}
 
@@ -717,12 +733,14 @@ def init_duplicates_routes(db_path):
             """Generate checksums for files matching pattern."""
             try:
                 # Use find + head + md5sum for efficiency
-                cmd = f"""
-                find "{scan_dir}" -name "{pattern}" -type f 2>/dev/null | sort | while read -r f; do
-                    checksum=$(head -c 1048576 "$f" 2>/dev/null | md5sum | cut -d" " -f1)
-                    echo "${{checksum}}|${{f}}"
-                done > "{output_file}"
-                """
+                cmd = (
+                    f'find "{scan_dir}" -name "{pattern}" -type f'
+                    f' 2>/dev/null | sort | while read -r f; do'
+                    f' checksum=$(head -c 1048576 "$f" 2>/dev/null'
+                    f' | md5sum | cut -d" " -f1);'
+                    f' echo "${{checksum}}|${{f}}";'
+                    f' done > "{output_file}"'
+                )
                 subprocess.run(["bash", "-c", cmd], check=True, timeout=600)
 
                 # Count results
@@ -846,7 +864,8 @@ def init_duplicates_routes(db_path):
                     except Exception:
                         import logging
 
-                        # CodeQL: _sanitize_for_log removes control chars (log injection safe)
+                        # CodeQL: _sanitize_for_log removes control chars
+                        # (log injection safe)
                         logging.exception(  # lgtm[py/log-injection]
                             "Error deleting library file %s",
                             _sanitize_for_log(filepath_str),
@@ -871,7 +890,8 @@ def init_duplicates_routes(db_path):
                         except Exception:
                             import logging
 
-                            # CodeQL: _sanitize_for_log removes control chars (log injection safe)
+                            # CodeQL: _sanitize_for_log removes control chars
+                            # (log injection safe)
                             logging.exception(  # lgtm[py/log-injection]
                                 "Error deleting file %s",
                                 _sanitize_for_log(filepath_str),
@@ -895,7 +915,8 @@ def init_duplicates_routes(db_path):
                     except Exception:
                         import logging
 
-                        # CodeQL: _sanitize_for_log removes control chars (log injection safe)
+                        # CodeQL: _sanitize_for_log removes control chars
+                        # (log injection safe)
                         logging.exception(  # lgtm[py/log-injection]
                             "Error deleting source file %s",
                             _sanitize_for_log(filepath_str),

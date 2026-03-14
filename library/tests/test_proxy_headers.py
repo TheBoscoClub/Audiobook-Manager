@@ -57,7 +57,8 @@ class TestHopByHopHeaders:
         assert headers == expected, f"Missing or extra headers: {headers ^ expected}"
 
     def test_hop_by_hop_headers_are_lowercase(self):
-        """All hop-by-hop header names must be lowercase for case-insensitive matching."""
+        """All hop-by-hop header names must be lowercase for
+        case-insensitive matching."""
         headers = self._get_hop_by_hop_headers()
         for h in headers:
             assert h == h.lower(), f"Header '{h}' is not lowercase"

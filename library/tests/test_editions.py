@@ -231,7 +231,8 @@ class TestEditionsAPI:
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO audiobooks
-                (id, title, author, narrator, duration_hours, duration_formatted, file_size_mb, file_path, format)
+                (id, title, author, narrator, duration_hours, duration_formatted,
+                 file_size_mb, file_path, format)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
