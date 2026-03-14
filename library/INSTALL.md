@@ -155,9 +155,16 @@ Install the following using your system's package manager:
 
 ### Python Packages
 
-All Python dependencies are listed in `requirements.txt`:
+All Python dependencies are listed in `requirements.txt`. Key packages include:
 
-- **Flask** (>=3.0.0) - Web framework for API server
+- **Flask** (>=3.1.3) - Web framework for API server
+- **waitress** (>=2.1.0) - Production WSGI server
+- **mutagen** (>=1.47.0) - Audio metadata library
+- **webauthn** (>=2.3.0) - Passkey/FIDO2 authentication
+- **pyotp** (>=2.9.0) - TOTP authentication
+- **defusedxml** (>=0.7.1) - Safe XML parsing
+- **cryptography** (>=46.0.5) - SSL/TLS support
+- **sqlcipher3** (>=0.5.0) - Encrypted database support
 
 ---
 

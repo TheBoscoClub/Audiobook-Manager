@@ -147,6 +147,8 @@ Web-based audiobook library browser with:
 - **Author/Narrator autocomplete** with letter group filters (A-E, F-J, K-O, P-T, U-Z)
 - **Collections sidebar** for browsing by category (Fiction, Nonfiction, Mystery, Sci-Fi, etc.)
 - **Comprehensive sorting**: title, author/narrator first/last name, duration, publish date, acquired date, series with sequence, edition
+- **Grouped view**: Author (Grouped A-Z) and Narrator (Grouped A-Z) with collapsible headers (v7.0+)
+- **Normalized author/narrator data**: Multi-author books properly split into individual entities with admin correction tools (v7.0+)
 - **Smart duplicate detection** by title/author/narrator or SHA-256 hash
 - Cover art display with automatic extraction
 - PDF supplement support (course materials, maps, etc.)
@@ -654,8 +656,14 @@ Audiobooks/
 │   │   │   ├── utilities_db.py      # Database maintenance
 │   │   │   ├── utilities_conversion.py # Conversion operations
 │   │   │   ├── user_state.py        # Per-user history, downloads, library (v6.3+)
-│   │   │   └── admin_activity.py    # Activity audit log and stats (v6.3+)
+│   │   │   ├── admin_activity.py    # Activity audit log and stats (v6.3+)
+│   │   │   ├── grouped.py          # Grouped A-Z view by author/narrator (v7.0+)
+│   │   │   └── admin_authors.py    # Admin author/narrator management (v7.0+)
 │   │   ├── import_to_db.py      # Database importer
+│   │   ├── name_parser.py       # Multi-name parsing and sort key generation (v7.0+)
+│   │   ├── migrate_to_normalized_authors.py  # Data migration for normalized tables (v7.0+)
+│   │   ├── migrations/          # Schema migration SQL files (v7.0+)
+│   │   │   └── 011_multi_author_narrator.sql
 │   │   ├── schema.sql           # Database schema
 │   │   └── operation_status.py  # Operation tracking
 │   ├── scanner/
@@ -787,6 +795,8 @@ Browse your library by curated categories:
 | Duration | Longest or shortest first |
 | Recently Acquired | By file modification date |
 | Newest/Oldest Published | By publication year |
+| Author (Grouped A-Z) | Books grouped under collapsible author headers, sorted by last name (v7.0+) |
+| Narrator (Grouped A-Z) | Books grouped under collapsible narrator headers, sorted by last name (v7.0+) |
 | Series (A-Z with sequence) | Groups series together, ordered by book number |
 | Edition | Sort by edition type |
 
@@ -1089,6 +1099,23 @@ The library exposes a REST API on port 5001:
 | `/api/audiobooks/<id>/genres` | PUT | Set genres for a single audiobook (replace mode) |
 | `/api/audiobooks/bulk-genres` | POST | Add or remove genres across multiple audiobooks |
 
+### Grouped View (v7.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/audiobooks/grouped` | GET | Books grouped by author or narrator (`?by=author\|narrator`) |
+
+### Admin Author/Narrator Management (v7.0+)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/authors/<id>` | PUT | Rename an author |
+| `/api/admin/authors/merge` | POST | Merge duplicate authors |
+| `/api/admin/books/<id>/authors` | PUT | Reassign authors for a book |
+| `/api/admin/narrators/<id>` | PUT | Rename a narrator |
+| `/api/admin/narrators/merge` | POST | Merge duplicate narrators |
+| `/api/admin/books/<id>/narrators` | PUT | Reassign narrators for a book |
+
 ### Admin Activity Audit (v6.3+)
 
 | Endpoint | Method | Description |
@@ -1144,7 +1171,7 @@ The library exposes a REST API on port 5001:
 - `author` - Filter by author name
 - `narrator` - Filter by narrator name
 - `collection` - Filter by collection slug (e.g., `fiction`, `mystery-thriller`, `great-courses`)
-- `sort` - Sort field (title, author, author_last, narrator_last, duration_hours, acquired_date, published_year, series, edition)
+- `sort` - Sort field (title, author, author_last, narrator_last, duration_hours, acquired_date, published_year, series, edition, author_grouped, narrator_grouped)
 - `order` - Sort order (asc, desc)
 
 ## Database Schema
@@ -1177,6 +1204,17 @@ The SQLite database stores audiobook metadata with the following key fields:
 | `content_type` | TEXT | Audible content classification (Product, Podcast, Lecture, etc.) |
 
 Additional tables: `supplements` (PDF attachments), `audiobook_genres`, `audiobook_topics`, `audiobook_eras`, `playback_history`
+
+### Normalized Author/Narrator Tables (v7.0+)
+
+| Table | Purpose |
+|-------|---------|
+| `authors` | Individual author entities with `name` and `sort_name` (last-name-first) |
+| `narrators` | Individual narrator entities with `name` and `sort_name` |
+| `book_authors` | Many-to-many junction: `audiobook_id` + `author_id` with `position` ordering |
+| `book_narrators` | Many-to-many junction: `audiobook_id` + `narrator_id` with `position` ordering |
+
+These tables enable proper multi-author/narrator handling. Books with multiple authors (e.g., "Stephen King, Peter Straub") have each name as a separate entity, enabling per-author grouping, sorting by last name, and admin correction (rename, merge, reassign).
 
 Additional views: `library_audiobooks` (filters to standard audiobook content types)
 

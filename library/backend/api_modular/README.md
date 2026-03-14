@@ -13,9 +13,14 @@ This package provides a **modular Flask Blueprint-based architecture** for the A
 api_modular/
 ├── __init__.py             # Package initialization, app factory, exports
 ├── core.py                 # Database connections, CORS, shared utilities
+├── audiobooks.py           # Main listing, filtering, streaming endpoints
+├── grouped.py              # Grouped queries by author/narrator (v7.0.0+)
+├── admin_authors.py        # Author/narrator CRUD management (v7.0.0+)
+├── admin_activity.py       # Admin activity audit logging
+├── auth.py                 # TOTP authentication and session management
+├── user_state.py           # User preferences and state persistence
 ├── collections.py          # Genre collections and collection routes
 ├── editions.py             # Edition detection (Dramatized, Full Cast, etc.)
-├── audiobooks.py           # Main listing, filtering, streaming endpoints
 ├── duplicates.py           # Duplicate detection and management (with index cleanup)
 ├── supplements.py          # Companion file (PDF, images) management
 ├── position_sync.py        # Playback position sync with Audible cloud
@@ -53,10 +58,38 @@ api_modular/
 ### `audiobooks.py` - Core Endpoints
 
 - Main audiobook listing with pagination
+- Enriched responses include `authors` and `narrators` arrays (v7.0.0+)
 - Advanced filtering (genre, narrator, series, etc.)
 - Audio streaming with range request support
 - Cover image serving from configurable `COVER_DIR`
 - Routes: `/api/audiobooks`, `/api/stats`, `/api/filters`, `/api/stream/<id>`, `/covers/<filename>`
+
+### `grouped.py` - Grouped Queries (v7.0.0+)
+
+- Audiobooks grouped by author or narrator using normalized junction tables
+- Routes: `/api/audiobooks/grouped?by=author|narrator`
+
+### `admin_authors.py` - Author/Narrator Management (v7.0.0+)
+
+- CRUD operations for normalized author and narrator records
+- Merge duplicate authors/narrators
+- Routes: `/api/admin/authors/*`, `/api/admin/narrators/*`
+
+### `admin_activity.py` - Admin Activity Logging
+
+- Audit trail for administrative operations
+- Routes: `/api/admin/activity`
+
+### `auth.py` - Authentication
+
+- TOTP-based authentication flow
+- Session management
+- Routes: `/auth/login`, `/auth/logout`, `/auth/admin/*`
+
+### `user_state.py` - User State
+
+- User preference persistence
+- Routes: `/api/user/*`
 
 ### `duplicates.py` - Duplicate Management
 
@@ -102,7 +135,7 @@ Routes: `/api/utilities/*`, `/api/conversion/*`, `/api/system/*`
 
 | Aspect | Details |
 |--------|---------|
-| **File Size** | 8 files, ~200-450 lines each |
+| **File Size** | 18 modules, ~50-900 lines each |
 | **Deployment** | Directory with multiple modules |
 | **Testing** | Requires updated mock paths |
 | **Production Status** | Reference implementation, needs test updates |
@@ -221,21 +254,26 @@ The modular architecture provides:
 
 ## Files Reference
 
-| File | Lines | Primary Responsibility |
-|------|-------|----------------------|
-| `core.py` | ~34 | Database, CORS |
-| `collections.py` | ~231 | Genre collections |
-| `editions.py` | ~161 | Edition detection |
-| `audiobooks.py` | ~556 | Core listing/streaming |
-| `duplicates.py` | ~914 | Duplicate detection, index cleanup |
-| `supplements.py` | ~226 | Companion files |
-| `position_sync.py` | ~692 | Audible position sync |
-| `utilities.py` | ~67 | Blueprint aggregator |
-| `utilities_crud.py` | ~324 | Audiobook CRUD |
-| `utilities_db.py` | ~324 | Database maintenance, scan, hashes |
-| `utilities_conversion.py` | ~300 | Conversion monitoring |
-| `utilities_system.py` | ~463 | System administration |
-| `__init__.py` | ~228 | Package init/exports |
+| File | Primary Responsibility |
+|------|----------------------|
+| `core.py` | Database, CORS |
+| `audiobooks.py` | Core listing/streaming |
+| `grouped.py` | Grouped queries by author/narrator |
+| `admin_authors.py` | Author/narrator management |
+| `admin_activity.py` | Admin activity audit logging |
+| `auth.py` | TOTP authentication |
+| `user_state.py` | User preferences/state |
+| `collections.py` | Genre collections |
+| `editions.py` | Edition detection |
+| `duplicates.py` | Duplicate detection, index cleanup |
+| `supplements.py` | Companion files |
+| `position_sync.py` | Audible position sync |
+| `utilities.py` | Blueprint aggregator |
+| `utilities_crud.py` | Audiobook CRUD |
+| `utilities_db.py` | Database maintenance, scan, hashes |
+| `utilities_conversion.py` | Conversion monitoring |
+| `utilities_system.py` | System administration |
+| `__init__.py` | Package init/exports |
 
 ## See Also
 
