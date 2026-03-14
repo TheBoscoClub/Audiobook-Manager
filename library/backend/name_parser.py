@@ -64,6 +64,49 @@ def strip_role_suffix(name: str) -> str:
     return clean
 
 
+# Keywords that indicate a name is a brand/company, not a person.
+# Names containing these words (case-insensitive) are excluded from
+# both authors and narrators during migration.
+BRAND_KEYWORDS = frozenset(
+    {
+        "publishing",
+        "publications",
+        "press",
+        "media",
+        "entertainment",
+        "studio",
+        "studios",
+        "productions",
+        "inc",
+        "llc",
+        "ltd",
+        "corp",
+        "learning",
+        "academy",
+        "institute",
+        "foundation",
+    }
+)
+
+# Exact brand names that don't contain a keyword but aren't person names.
+BRAND_NAMES = frozenset(
+    {
+        "aaptiv",
+    }
+)
+
+
+def is_brand_name(name: str) -> bool:
+    """Check if a name is a brand/company/publisher, not a person."""
+    if not name:
+        return False
+    lower = name.strip().lower()
+    if lower in BRAND_NAMES:
+        return True
+    words = lower.split()
+    return bool(BRAND_KEYWORDS & set(words))
+
+
 GROUP_NAMES = frozenset(
     {
         "full cast",

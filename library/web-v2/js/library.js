@@ -1018,15 +1018,7 @@ class AudiobookLibraryV2 {
     // Sort the results
     filtered = this.sortByLastName(filtered, this.authorSortAsc);
 
-    // Count for this group before limiting
-    const groupTotal = filtered.length;
-
-    // Limit display to prevent performance issues
-    const maxDisplay = 50;
-    const hasMore = filtered.length > maxDisplay;
-    filtered = filtered.slice(0, maxDisplay);
-
-    // Build dropdown HTML
+    // Build dropdown HTML — show all results (scrollable via CSS max-height)
     let html = "";
 
     // "All Authors" option at top
@@ -1036,7 +1028,7 @@ class AudiobookLibraryV2 {
         : `All ${this.authorLetterGroup.toUpperCase()}`;
     html += `<div class="author-option author-all-option" data-value="">
             <span>${allLabel}</span>
-            <span class="count">${authors.length} total</span>
+            <span class="count">${filtered.length} total</span>
         </div>`;
 
     if (filtered.length === 0 && query) {
@@ -1049,10 +1041,6 @@ class AudiobookLibraryV2 {
                     <span>${this.highlightMatch(author, query)}</span>
                 </div>`;
       });
-
-      if (hasMore) {
-        html += `<div class="author-no-results">Showing ${maxDisplay} of ${groupTotal}. Type to filter...</div>`;
-      }
     }
 
     // XSS safe: All dynamic content passes through escapeHtml() (lines 433, highlightMatch->escapeHtml)
@@ -1230,15 +1218,7 @@ class AudiobookLibraryV2 {
     // Sort the results
     filtered = this.sortNarrators(filtered, this.narratorSortAsc);
 
-    // Count for this group before limiting
-    const groupTotal = filtered.length;
-
-    // Limit display to prevent performance issues
-    const maxDisplay = 50;
-    const hasMore = filtered.length > maxDisplay;
-    filtered = filtered.slice(0, maxDisplay);
-
-    // Build dropdown HTML
+    // Build dropdown HTML — show all results (scrollable via CSS max-height)
     let html = "";
 
     // "All Narrators" option at top (shows total count for current group)
@@ -1248,7 +1228,7 @@ class AudiobookLibraryV2 {
         : `All ${this.narratorLetterGroup.toUpperCase()}`;
     html += `<div class="narrator-option narrator-all-option" data-value="">
             <span>${allLabel}</span>
-            <span class="count">${narrators.length} total</span>
+            <span class="count">${filtered.length} total</span>
         </div>`;
 
     if (filtered.length === 0 && query) {
@@ -1265,10 +1245,6 @@ class AudiobookLibraryV2 {
                     ${countHtml}
                 </div>`;
       });
-
-      if (hasMore) {
-        html += `<div class="narrator-no-results">Showing ${maxDisplay} of ${groupTotal}. Type to filter...</div>`;
-      }
     }
 
     // XSS safe: All dynamic content passes through escapeHtml() (lines 626, highlightMatch->escapeHtml)

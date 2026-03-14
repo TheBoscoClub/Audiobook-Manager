@@ -327,7 +327,7 @@
     top: 100%;
     left: 0;
     right: 0;
-    max-height: 300px;
+    max-height: 60vh;
     overflow-y: auto;
     background: var(--deco-charcoal);
     border: 2px solid var(--gold);
