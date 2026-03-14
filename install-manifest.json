@@ -1,7 +1,7 @@
 {
   "name": "audiobooks",
   "version": "7.0.2",
-  "description": "Audiobook library management with Audible sync, conversion, and web interface",
+  "description": "Self-hosted audiobook library browser with conversion, web player, and optional Audible downloading",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
   "service_user": "audiobooks",
