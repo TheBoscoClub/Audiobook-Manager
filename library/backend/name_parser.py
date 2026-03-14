@@ -20,10 +20,13 @@ ROLE_SUFFIXES = frozenset(
     {
         "adaptation",
         "adapter",
+        "adaptor",
         "afterword",
         "compiler",
         "contributor",
+        "cover",
         "editor",
+        "essay",
         "foreword",
         "illustrator",
         "introduction",
@@ -37,8 +40,9 @@ ROLE_SUFFIXES = frozenset(
 )
 
 # Regex to detect "Name - role" pattern (case-insensitive)
+# Allows optional trailing words for multi-word roles like "cover design"
 _ROLE_SUFFIX_RE = re.compile(
-    r"\s+-\s+(" + "|".join(re.escape(r) for r in sorted(ROLE_SUFFIXES)) + r")\w*$",
+    r"\s+-\s+(" + "|".join(re.escape(r) for r in sorted(ROLE_SUFFIXES)) + r")[\w\s]*$",
     re.IGNORECASE,
 )
 
@@ -161,6 +165,7 @@ JUNK_NAMES = frozenset(
         "editor",
         "narrator",
         "author",
+        "unknown",
         "md",
         "m.d.",
         "phd",
@@ -252,7 +257,9 @@ BRAND_KEYWORDS = frozenset(
 BRAND_NAMES = frozenset(
     {
         "aaptiv",
+        "cracked.com",
         "movewith",
+        "wondery",
     }
 )
 
