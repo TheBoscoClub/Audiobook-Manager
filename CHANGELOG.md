@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [6.8.0] - 2026-03-13
+## [7.0.0] - 2026-03-13
 
 ### Added
 
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Author/narrator book filtering**: Selecting an author in the sidebar now uses junction table JOINs for exact matching, finding all books linked to that author — including multi-author books.
 - **Narrator counts**: `/api/narrator-counts` now uses normalized narrator table for accurate per-narrator book counts.
 - **upgrade.sh**: Now detects and applies database schema migrations automatically. Checks for `authors` table existence before applying DDL, runs data migration if tables are empty. `--force` flag now forwarded to remote SSH deploys.
-- **Cache busting**: All CSS/JS version strings updated to `v=6.8.0` across all HTML files and CSS `@import` chain.
+- **Cache busting**: All CSS/JS version strings updated to `v=7.0.0` across all HTML files and CSS `@import` chain.
 
 ### Fixed
 
