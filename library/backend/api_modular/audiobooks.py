@@ -473,16 +473,20 @@ def get_filters() -> Response:
     cursor = conn.cursor()
 
     # Get unique authors from normalized table (individual names, not composites)
+    # Return objects with name + sort_name so frontend can display "Last, First"
     cursor.execute(
         f"""
-        SELECT DISTINCT a.name FROM authors a
+        SELECT DISTINCT a.name, a.sort_name FROM authors a
         JOIN book_authors ba ON ba.author_id = a.id
         JOIN audiobooks ab ON ab.id = ba.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
         ORDER BY a.sort_name
     """
     )
-    authors = [row["name"] for row in cursor.fetchall()]
+    authors = [
+        {"name": row["name"], "sort_name": row["sort_name"]}
+        for row in cursor.fetchall()
+    ]
 
     # Get unique narrators from normalized table
     cursor.execute(
