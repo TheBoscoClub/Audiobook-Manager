@@ -169,7 +169,7 @@ app = create_app(
     database_path=Path("/path/to/audiobooks.db"),
     project_dir=Path("/path/to/audiobook/files"),
     supplements_dir=Path("/path/to/supplements"),
-    api_port=5000
+    api_port=5001
 )
 
 app.run(debug=True)
@@ -181,7 +181,7 @@ app.run(debug=True)
 from api_modular import create_app, run_server
 
 app = create_app(...)
-run_server(app, port=5000, debug=False, use_waitress=True)
+run_server(app, port=5001, debug=False, use_waitress=True)
 ```
 
 ### Entry Point Script
@@ -212,7 +212,7 @@ AssertionError: The setup method 'route' can no longer be called on the blueprin
 
 **Impact:** The modular package cannot be used with test fixtures that create multiple app instances.
 
-**Workaround:** Use the original `api.py` for testing, or refactor to create fresh Blueprint instances per app.
+**Workaround:** Refactor to create fresh Blueprint instances per app, or restart the Python process between app creations.
 
 ### 2. Test Mock Paths
 

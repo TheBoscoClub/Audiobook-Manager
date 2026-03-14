@@ -17,7 +17,7 @@ This guide provides step-by-step instructions for migrating from the monolithic 
 
 Before migrating, ensure:
 
-- [ ] All current tests pass (`pytest library/` shows 234/234 passing)
+- [ ] All current tests pass (`pytest library/`)
 - [ ] You have a backup of the current working state
 - [ ] No active users on the API server
 - [ ] Database backup exists
@@ -33,8 +33,8 @@ cd <project-root>
 pytest library/ -v
 
 # Check API is working
-curl http://localhost:5000/health
-curl http://localhost:5000/api/stats
+curl http://localhost:5001/health
+curl http://localhost:5001/api/stats
 ```
 
 ---
@@ -89,9 +89,9 @@ In another terminal:
 
 ```bash
 # Test endpoints
-curl http://localhost:5000/health
-curl http://localhost:5000/api/stats
-curl http://localhost:5000/api/audiobooks?limit=5
+curl http://localhost:5001/health
+curl http://localhost:5001/api/stats
+curl http://localhost:5001/api/audiobooks?limit=5
 ```
 
 ### Step 3: Update Entry Point (Manual Test)
@@ -151,13 +151,13 @@ sudo systemctl status audiobook-api
 
 ```bash
 # Health check
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 
 # Stats check
-curl http://localhost:5000/api/stats
+curl http://localhost:5001/api/stats
 
 # List audiobooks
-curl "http://localhost:5000/api/audiobooks?limit=5"
+curl "http://localhost:5001/api/audiobooks?limit=5"
 ```
 
 ---
@@ -168,11 +168,9 @@ curl "http://localhost:5000/api/audiobooks?limit=5"
 
 Existing tests mock paths like `backend.api.send_file`. The modular package has different import paths.
 
-### Option A: Keep Tests as-is (Recommended)
+### Option A: Test Against Modular Package (Current State)
 
-The original `api.py` remains in place. Tests continue to work against it without modification. The modular package exists alongside as a reference implementation.
-
-**This is the recommended approach** until you're ready to fully commit to the modular architecture.
+The monolithic `api.py` was removed in v3.2.0. All tests now use the modular `api_modular/` package. Mock paths should reference the appropriate module (e.g., `backend.api_modular.audiobooks.send_file`).
 
 ### Option B: Update Test Mock Paths
 
@@ -227,7 +225,7 @@ def api_app(request):
     else:
         from backend.api_modular import create_app
         from config import DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
-        app = create_app(DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR, 5000)
+        app = create_app(DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR, 5001)
     return app
 ```
 
@@ -270,7 +268,8 @@ Everything else remains identical.
 
 ## Rollback Procedure
 
-If issues occur, rollback is simple:
+> **Note:** The monolithic `api.py` was removed in v3.2.0. Rollback is now via git
+> checkout of a previous version, not switching entry points.
 
 ### Quick Rollback
 
@@ -278,13 +277,8 @@ If issues occur, rollback is simple:
 # Stop service
 sudo systemctl stop audiobook-api
 
-# Edit service file
-sudo nano /etc/systemd/system/audiobook-api.service
-
-# Change ExecStart back to:
-# ExecStart=/opt/audiobooks/.venv/bin/python /opt/audiobooks/library/backend/api.py
-
-# Reload and start
+# Restore previous version via upgrade.sh or manual rollback
+# Then reload and start
 sudo systemctl daemon-reload
 sudo systemctl start audiobook-api
 ```
@@ -292,8 +286,8 @@ sudo systemctl start audiobook-api
 ### Verify Rollback
 
 ```bash
-curl http://localhost:5000/health
-curl http://localhost:5000/api/stats
+curl http://localhost:5001/health
+curl http://localhost:5001/api/stats
 ```
 
 ---
@@ -312,9 +306,8 @@ AssertionError: The setup method 'route' can no longer be called on the blueprin
 
 **Solution:**
 
-1. Use the monolithic `api.py` for tests
-2. Or restart the Python process between app creations
-3. Or refactor to create fresh Blueprint instances (requires code changes)
+1. Restart the Python process between app creations
+2. Or refactor to create fresh Blueprint instances (requires code changes)
 
 ### Error: Import Module Not Found
 
@@ -385,12 +378,10 @@ app = create_app(database_path, project_dir, supplements_dir, api_port)
 | **Soft Migration** | 1 week | Switch production, monitor closely |
 | **Cleanup** | When stable | Consider removing `api.py` (optional) |
 
-### Keep Both Indefinitely
+### Migration Complete
 
-There's no requirement to remove `api.py`. Many projects keep both:
-
-- `api.py` - Simple, proven, good for quick fixes
-- `api_modular/` - Structured, good for feature development
+The monolithic `api.py` was removed in v3.2.0. The modular `api_modular/` package is the
+sole API implementation. This migration guide is retained for historical reference.
 
 ---
 
@@ -400,24 +391,24 @@ After successful migration, verify all functionality:
 
 ```bash
 # Core endpoints
-curl http://localhost:5000/health
-curl http://localhost:5000/api/stats
-curl http://localhost:5000/api/audiobooks?limit=10
-curl http://localhost:5000/api/filters
+curl http://localhost:5001/health
+curl http://localhost:5001/api/stats
+curl http://localhost:5001/api/audiobooks?limit=10
+curl http://localhost:5001/api/filters
 
 # Collections
-curl http://localhost:5000/api/collections
-curl http://localhost:5000/api/collections/classics
+curl http://localhost:5001/api/collections
+curl http://localhost:5001/api/collections/classics
 
 # Duplicates
-curl http://localhost:5000/api/hash-stats
-curl http://localhost:5000/api/duplicates
+curl http://localhost:5001/api/hash-stats
+curl http://localhost:5001/api/duplicates
 
 # Supplements
-curl http://localhost:5000/api/supplements/stats
+curl http://localhost:5001/api/supplements/stats
 
 # Streaming (requires valid audiobook ID)
-curl -I "http://localhost:5000/api/stream/1"
+curl -I "http://localhost:5001/api/stream/1"
 ```
 
 All endpoints should return valid JSON responses with appropriate HTTP status codes.

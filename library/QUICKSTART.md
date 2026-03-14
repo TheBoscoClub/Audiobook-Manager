@@ -182,12 +182,13 @@ python3 import_to_db.py
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - `INSTALL.md` - Full installation guide
 - `UPGRADE_GUIDE.md` - Features and deployment guide
 - `PERFORMANCE_REPORT.md` - Benchmarks and analysis
 - `../README.md` - Main project documentation
+- `../docs/ARCHITECTURE.md` - System architecture
 
 ---
 
