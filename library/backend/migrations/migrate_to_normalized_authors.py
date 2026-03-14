@@ -6,21 +6,85 @@ Usage:
     python -m library.backend.migrations.migrate_to_normalized_authors [--db-path PATH] [--dry-run]
 
 Idempotent: safe to run multiple times. Uses INSERT OR IGNORE for deduplication.
+Deduplicates case-insensitively and accent-insensitively (Miéville = Mieville).
 """
 
 import argparse
 import logging
 import sqlite3
+import unicodedata
 
 from library.backend.name_parser import (
+    clean_name,
     generate_sort_name,
     has_role_suffix,
     is_brand_name,
     is_group_name,
+    is_junk_name,
+    normalize_for_dedup,
     parse_names,
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Preferred display forms for group names (title case)
+_GROUP_DISPLAY = {
+    "full cast": "Full Cast",
+    "bbc radio": "BBC Radio",
+    "bbc radio 4": "BBC Radio 4",
+    "bbc radio drama": "BBC Radio Drama",
+    "various authors": "Various Authors",
+    "various narrators": "Various Narrators",
+    "various": "Various",
+}
+
+
+def _normalize_group_case(name: str) -> str:
+    """Normalize group name casing to preferred display form."""
+    if not name:
+        return name
+    lower = name.strip().lower()
+    if lower in _GROUP_DISPLAY:
+        return _GROUP_DISPLAY[lower]
+    return name
+
+
+def _find_canonical(seen: dict, name: str) -> str | None:
+    """Find the canonical name for dedup, or return None if this is new.
+
+    Uses accent-insensitive, case-insensitive normalization.
+    Prefers the version with more proper casing (title case > lowercase)
+    and accented characters (Miéville > Mieville).
+    """
+    key = normalize_for_dedup(name)
+    if key in seen:
+        existing = seen[key]
+        # Prefer version with accents (longer NFD = has accents)
+        # Prefer version with title case over all-lower
+        if _name_quality(name) > _name_quality(existing):
+            seen[key] = name
+            return name
+        return existing
+    seen[key] = name
+    return None
+
+
+def _name_quality(name: str) -> int:
+    """Score a name variant for quality — higher is better.
+
+    Prefers: proper casing, accented characters, longer form.
+    """
+    score = 0
+    # Prefer title case or mixed case over all-lower
+    if name != name.lower():
+        score += 10
+    # Prefer accented characters (Miéville > Mieville)
+    if any(unicodedata.combining(c) for c in unicodedata.normalize("NFD", name)):
+        score += 5
+    # Prefer longer form slightly (M. R. James > M.R. James)
+    score += len(name)
+    return score
 
 
 def migrate(db_path: str, dry_run: bool = False) -> dict:
@@ -33,6 +97,13 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
 
+    # Clear existing normalized data for clean re-migration
+    if not dry_run:
+        conn.execute("DELETE FROM book_authors")
+        conn.execute("DELETE FROM book_narrators")
+        conn.execute("DELETE FROM authors")
+        conn.execute("DELETE FROM narrators")
+
     stats = {
         "books_processed": 0,
         "authors_created": 0,
@@ -40,8 +111,16 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         "author_links": 0,
         "narrator_links": 0,
         "group_redirections": 0,
+        "role_excluded": 0,
+        "brand_excluded": 0,
+        "junk_excluded": 0,
+        "dedup_merged": 0,
         "ambiguous": [],
     }
+
+    # Track seen names for dedup (normalized_key -> canonical_name)
+    seen_authors = {}
+    seen_narrators = {}
 
     rows = conn.execute("SELECT id, title, author, narrator FROM audiobooks").fetchall()
 
@@ -53,20 +132,28 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         author_names = parse_names(row["author"]) if row["author"] else []
         narrator_names = parse_names(row["narrator"]) if row["narrator"] else []
 
-        # Redirect group names from author to narrator, exclude role-suffixed
-        # and brand/publisher names
+        # Clean each name (strip credentials, trailing roles)
+        author_names = [clean_name(n) for n in author_names]
+        narrator_names = [clean_name(n) for n in narrator_names]
+
+        # Normalize group name casing (prefer title case: "Full Cast" not "full cast")
+        author_names = [_normalize_group_case(n) for n in author_names]
+        narrator_names = [_normalize_group_case(n) for n in narrator_names]
+
+        # Redirect group names from author to narrator, exclude role-suffixed,
+        # brand/publisher names, and junk entries
         redirected = []
         clean_authors = []
         for name in author_names:
-            if is_group_name(name):
+            if not name or is_junk_name(name):
+                stats["junk_excluded"] += 1
+            elif is_group_name(name):
                 redirected.append(name)
                 stats["group_redirections"] += 1
             elif has_role_suffix(name):
-                # "Frances Riddle - translator" → not an author, skip
-                stats["role_excluded"] = stats.get("role_excluded", 0) + 1
+                stats["role_excluded"] += 1
             elif is_brand_name(name):
-                # "Aaptiv", "Earworms Learning" → publisher/brand, not a person
-                stats["brand_excluded"] = stats.get("brand_excluded", 0) + 1
+                stats["brand_excluded"] += 1
             else:
                 clean_authors.append(name)
 
@@ -75,8 +162,14 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
             if name not in narrator_names:
                 narrator_names.append(name)
 
-        # Insert authors and link
+        # Insert authors and link (with dedup)
         for pos, name in enumerate(clean_authors):
+            # Check for dedup match
+            canonical = _find_canonical(seen_authors, name)
+            if canonical is not None:
+                name = canonical
+                stats["dedup_merged"] += 1
+
             sort_name = generate_sort_name(name)
             if not sort_name:
                 continue
@@ -95,11 +188,21 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
                 )
                 stats["author_links"] += 1
 
-        # Insert narrators and link (skip brands)
+        # Insert narrators and link (skip brands/junk, with dedup)
         for pos, name in enumerate(narrator_names):
-            if is_brand_name(name):
-                stats["brand_excluded"] = stats.get("brand_excluded", 0) + 1
+            if not name or is_junk_name(name):
+                stats["junk_excluded"] += 1
                 continue
+            if is_brand_name(name):
+                stats["brand_excluded"] += 1
+                continue
+
+            # Check for dedup match
+            canonical = _find_canonical(seen_narrators, name)
+            if canonical is not None:
+                name = canonical
+                stats["dedup_merged"] += 1
+
             sort_name = generate_sort_name(name)
             if not sort_name:
                 continue
@@ -132,13 +235,16 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
 
     logger.info(
         "Migration complete: %d books, %d authors, %d narrators,"
-        " %d author-links, %d narrator-links, %d group redirections",
+        " %d author-links, %d narrator-links, %d group redirections,"
+        " %d dedup merges, %d junk excluded",
         stats["books_processed"],
         stats["authors_created"],
         stats["narrators_created"],
         stats["author_links"],
         stats["narrator_links"],
         stats["group_redirections"],
+        stats["dedup_merged"],
+        stats["junk_excluded"],
     )
 
     return stats
