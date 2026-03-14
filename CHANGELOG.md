@@ -28,7 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **upgrade.sh**: Now detects and applies database schema migrations automatically. Checks for `authors` table existence before applying DDL, runs data migration if tables are empty.
+- **Author/narrator sidebar filter**: Now displays individual names from normalized `authors`/`narrators` tables instead of raw composite strings from flat columns. 572 individual authors (was 138 composite strings). Sorted by last name.
+- **Author/narrator book filtering**: Selecting an author in the sidebar now uses junction table JOINs for exact matching, finding all books linked to that author — including multi-author books.
+- **Narrator counts**: `/api/narrator-counts` now uses normalized narrator table for accurate per-narrator book counts.
+- **upgrade.sh**: Now detects and applies database schema migrations automatically. Checks for `authors` table existence before applying DDL, runs data migration if tables are empty. `--force` flag now forwarded to remote SSH deploys.
+- **Cache busting**: All CSS/JS version strings updated to `v=6.8.0` across all HTML files and CSS `@import` chain.
+
+### Fixed
+
+- **Role suffix exclusion**: Names with role suffixes (translator, editor, foreword, illustrator, etc.) are excluded from the authors table during migration. 43 entries like "Frances Riddle - translator" properly filtered.
+- **Schema migration reliability**: `apply_schema_migrations()` extracted as standalone function, runs even when versions are identical (handles cases where code was deployed but migration didn't run). Fixed quote stripping from `AUDIOBOOKS_DATABASE` config value.
 
 ## [6.7.2.4] - 2026-03-05
 
