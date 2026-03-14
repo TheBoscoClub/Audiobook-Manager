@@ -221,10 +221,12 @@ do_remote_upgrade() {
 
     # Run upgrade.sh remotely with full lifecycle
     local remote_target="${TARGET_DIR:-/opt/audiobooks}"
+    local remote_flags="--yes"
+    [[ "$FORCE" == "true" ]] && remote_flags="$remote_flags --force"
     echo -e "${BLUE}Running remote upgrade (full lifecycle)...${NC}"
     echo ""
     ssh "${ssh_opts[@]}" "$ssh_target" \
-        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' --yes" \
+        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" \
         || {
             local rc=$?
             echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"

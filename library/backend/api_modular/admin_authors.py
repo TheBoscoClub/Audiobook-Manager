@@ -41,9 +41,7 @@ def _get_db() -> sqlite3.Connection:
     """Get library database connection from current Flask app config."""
     db_path = current_app.config.get("DATABASE_PATH")
     if db_path is None:
-        raise RuntimeError(
-            "DATABASE_PATH not configured in Flask app."
-        )
+        raise RuntimeError("DATABASE_PATH not configured in Flask app.")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
