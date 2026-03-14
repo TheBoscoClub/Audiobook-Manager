@@ -214,9 +214,7 @@ class TestParseNames:
 
     def test_comma_md_dotted_filtered(self):
         """'Jeffrey M. Schwartz, M.D., Rebecca Gladding, M.D., M.D.' cleanup."""
-        result = parse_names(
-            "Jeffrey M. Schwartz, M.D., Rebecca Gladding, M.D., M.D."
-        )
+        result = parse_names("Jeffrey M. Schwartz, M.D., Rebecca Gladding, M.D., M.D.")
         assert "Jeffrey M. Schwartz" in result
         assert "Rebecca Gladding" in result
         assert "M.D." not in result
@@ -285,9 +283,9 @@ class TestBrandDetection:
         assert is_brand_name(None) is False
 
     def test_government_org(self):
-        assert is_brand_name(
-            "Special Counsel's Office U.S. Department of Justice"
-        ) is True
+        assert (
+            is_brand_name("Special Counsel's Office U.S. Department of Justice") is True
+        )
 
     def test_department_of(self):
         assert is_brand_name("Department of Defense") is True

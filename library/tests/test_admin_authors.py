@@ -82,7 +82,7 @@ def admin_authors_app(admin_authors_tmpdir):
     """
     from flask import Flask
 
-    from backend.api_modular.admin_authors import admin_authors_bp, init_admin_authors_routes
+    from backend.api_modular.admin_authors import admin_authors_bp
     from backend.api_modular.core import add_cors_headers
 
     tmpdir = admin_authors_tmpdir
