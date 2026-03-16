@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.1.1] - 2026-03-16
+
+### Changed
+
+- **Cloudflare credentials**: Cache purge script and upgrade.sh now source credentials from `~/.config/api-keys.env` (shared with cloudflare-manager) instead of requiring a dedicated token file at `/etc/audiobooks/cloudflare-api-token`
+- **Zone ID hardcoded**: thebosco.club zone ID is now hardcoded, eliminating an unnecessary API lookup on every purge
+- **Config cleanup**: Removed `CF_TOKEN_FILE` from `audiobook-config.sh` (no longer needed)
+
 ## [7.1.1] - 2026-03-16
 
 ### Added
