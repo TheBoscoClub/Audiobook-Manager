@@ -41,21 +41,25 @@ AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
 AUDIOBOOKS_HOME="/opt/audiobooks"
 
 # Database file location
-# Default: /var/lib/audiobooks/audiobooks.db (system)
+# Default: /var/lib/audiobooks/db/audiobooks.db (system)
 #      or: ${AUDIOBOOKS_HOME}/library/backend/audiobooks.db (user)
-AUDIOBOOKS_DATABASE="/var/lib/audiobooks/audiobooks.db"
+AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
 
-# Cover art cache directory (stored with audiobook data, not application)
-# Default: ${AUDIOBOOKS_DATA}/.covers
-AUDIOBOOKS_COVERS="${AUDIOBOOKS_DATA}/.covers"
+# Cover art cache directory
+# Default: /var/lib/audiobooks/covers
+AUDIOBOOKS_COVERS="/var/lib/audiobooks/covers"
 
 # SSL certificate directory (for HTTPS)
 # Default: ${AUDIOBOOKS_HOME}/library/certs
 AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
 
+# WebM cache directory (for browser-compatible audio streams)
+# Default: ${AUDIOBOOKS_DATA}/.webm-cache
+#AUDIOBOOKS_WEBM_CACHE="${AUDIOBOOKS_DATA}/.webm-cache"
+
 # Log file directory
-# Default: /var/log/audiobooks (system) or ${AUDIOBOOKS_DATA}/logs (user)
-AUDIOBOOKS_LOGS="/var/log/audiobooks"
+# Default: ${AUDIOBOOKS_DATA}/logs
+AUDIOBOOKS_LOGS="${AUDIOBOOKS_DATA}/logs"
 
 # =============================================================================
 # Server Configuration
@@ -175,5 +179,5 @@ AUDIOBOOKS_PARALLEL_JOBS="8"
 DATA_DIR="/var/lib/audiobooks/data"
 
 # Index directory for checksum files (duplicates detection)
-# Default: /var/lib/audiobooks/db/.index
-AUDIOBOOKS_INDEX="/var/lib/audiobooks/db/.index"
+# NOTE: Currently unused — reserved for future implementation
+#AUDIOBOOKS_INDEX="/var/lib/audiobooks/db/.index"

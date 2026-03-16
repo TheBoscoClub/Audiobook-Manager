@@ -720,12 +720,8 @@ def init_duplicates_routes(db_path):
         check_type = data.get("type", "both")
 
         index_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks") + "/.index"
-        sources_dir = os.environ.get(
-            "AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources"
-        )
-        library_dir = os.environ.get(
-            "AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library"
-        )
+        sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources")
+        library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")
 
         results = {}
 
@@ -735,7 +731,7 @@ def init_duplicates_routes(db_path):
                 # Use find + head + md5sum for efficiency
                 cmd = (
                     f'find "{scan_dir}" -name "{pattern}" -type f'
-                    f' 2>/dev/null | sort | while read -r f; do'
+                    f" 2>/dev/null | sort | while read -r f; do"
                     f' checksum=$(head -c 1048576 "$f" 2>/dev/null'
                     f' | md5sum | cut -d" " -f1);'
                     f' echo "${{checksum}}|${{f}}";'

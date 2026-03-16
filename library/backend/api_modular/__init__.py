@@ -256,7 +256,7 @@ def run_server(
         try:
             from waitress import serve
 
-            bind_address = os.environ.get("AUDIOBOOKS_BIND_ADDRESS", "127.0.0.1")
+            bind_address = os.environ.get("AUDIOBOOKS_BIND_ADDRESS", "0.0.0.0")
             print("Running in production mode (waitress)")
             print(f"Listening on: http://{bind_address}:{port}")
             print()

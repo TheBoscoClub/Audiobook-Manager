@@ -326,9 +326,7 @@ def init_db_routes(db_path, project_root):
         response = current_app.response_class(
             response=output.getvalue(), status=200, mimetype="text/csv"
         )
-        export_filename = (
-            f"audiobooks_export_{datetime.now().strftime('%Y%m%d')}.csv"
-        )
+        export_filename = f"audiobooks_export_{datetime.now().strftime('%Y%m%d')}.csv"
         response.headers["Content-Disposition"] = (
             f"attachment; filename={export_filename}"
         )

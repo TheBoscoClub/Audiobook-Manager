@@ -98,9 +98,7 @@ def cmd_read(args):
     print("\n" + "=" * 60)
     print(f"From: {username}")
     msg_date = (
-        message.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        if message.created_at
-        else "-"
+        message.created_at.strftime("%Y-%m-%d %H:%M:%S") if message.created_at else "-"
     )
     print(f"Date: {msg_date}")
     print(f"Reply via: {message.reply_via.value}")

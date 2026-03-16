@@ -115,9 +115,15 @@ fi
 : "${AUDIOBOOKS_OPUS_LEVEL:=10}"                  # Opus compression level (0-10)
 : "${AUDIOBOOKS_DOWNLOAD_DELAY:=30}"              # Seconds between downloads
 
+# WebM cache directory
+: "${AUDIOBOOKS_WEBM_CACHE:=${AUDIOBOOKS_DATA}/.webm-cache}"
+
 # Runtime directories
 : "${AUDIOBOOKS_RUN_DIR:=/var/lib/audiobooks/.run}" # Runtime data (locks, temp) - NOT /run due to ProtectSystem=strict
 : "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"      # Persistent state data
+
+# Data directory for scan results and intermediate files
+: "${DATA_DIR:=${AUDIOBOOKS_VAR_DIR}/data}"
 : "${AUDIOBOOKS_TRIGGERS:=/tmp/audiobook-triggers}" # Trigger files for service coordination
 : "${AUDIOBOOKS_DOWNLOADER_LOCK:=/tmp/audiobook-downloader.lock}"
 
@@ -143,6 +149,7 @@ export AUDIOBOOKS_HOME AUDIOBOOKS_DATABASE AUDIOBOOKS_COVERS AUDIOBOOKS_CERTS
 export AUDIOBOOKS_LOGS AUDIOBOOKS_VENV AUDIOBOOKS_CONVERTER
 export AUDIOBOOKS_STAGING AUDIOBOOKS_PARALLEL_JOBS AUDIOBOOKS_SCAN_INTERVAL
 export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELAY
+export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
 export AUDIOBOOKS_AUDIBLE_CMD
 export CF_TOKEN_FILE CF_ZONE_ID

@@ -2465,8 +2465,7 @@ def regenerate_backup_codes():
             "success": True,
             "backup_codes": new_codes,
             "message": (
-                "New backup codes generated. Your old codes are no longer"
-                " valid."
+                "New backup codes generated. Your old codes are no longer valid."
             ),
             "warning": (
                 "Save these codes in a safe place! They are your recovery option "
@@ -2520,8 +2519,7 @@ def update_recovery_contact():
             "success": True,
             "recovery_enabled": user.recovery_enabled,
             "message": (
-                "Recovery contact updated. You can now use magic link"
-                " recovery."
+                "Recovery contact updated. You can now use magic link recovery."
                 if user.recovery_enabled
                 else "Recovery contact removed. Backup codes are now your"
                 " only recovery option."
