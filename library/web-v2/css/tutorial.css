@@ -80,32 +80,42 @@
     font-size: 0.85rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    border: 1px solid var(--gold-dark);
+    border: 2px solid var(--gold-dark);
     cursor: pointer;
     transition: all 0.2s;
+    box-shadow: var(--btn-3d-raised);
+}
+
+.tutorial-btn:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .tutorial-btn-next {
-    background: linear-gradient(to bottom, var(--gold-bright), var(--gold), var(--gold-dark));
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
     border-color: var(--gold);
     font-weight: bold;
+    text-shadow: var(--text-3d-dark);
 }
 
 .tutorial-btn-next:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 2px 8px rgba(218, 165, 32, 0.4);
+    background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
+    box-shadow: var(--btn-3d-hover), 0 0 12px rgba(218, 165, 32, 0.4);
+    transform: translateY(-2px);
 }
 
 .tutorial-btn-back {
-    background: var(--deco-slate);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 100%);
     color: var(--cream);
     border-color: var(--deco-gray);
+    text-shadow: var(--text-3d-light);
 }
 
 .tutorial-btn-back:hover {
-    background: var(--deco-gray);
+    background: linear-gradient(180deg, #444 0%, var(--deco-gray) 100%);
     border-color: var(--gold-dark);
+    transform: translateY(-1px);
 }
 
 .tutorial-btn-skip {

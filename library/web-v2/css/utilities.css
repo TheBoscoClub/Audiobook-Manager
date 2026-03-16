@@ -4,7 +4,7 @@
    ============================================ */
 
 /* Import shared Art Deco theme */
-@import url('theme-art-deco.css');
+@import url('theme-art-deco.css?v=1773686866');
 
 /* Back Office Color Mapping - Matching Main Library */
 :root {
@@ -114,16 +114,25 @@ body.back-office {
     color: var(--ledger-cream);
     text-decoration: none;
     padding: 0.5rem 1rem;
-    border: 1px solid var(--brass-dark);
-    border-radius: 4px;
-    background: var(--office-dark);
-    transition: all 0.3s;
+    border: 2px solid var(--brass-dark);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--office-dark) 100%);
+    transition: all 0.2s;
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .back-link:hover {
-    background: var(--brass-dark);
-    color: var(--office-dark);
-    border-color: var(--brass);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
+    color: var(--deco-black);
+    border-color: var(--gold);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+    text-shadow: var(--text-3d-dark);
+}
+
+.back-link:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .back-icon {
@@ -504,7 +513,7 @@ body.back-office {
     align-items: center;
     gap: 0.5rem;
     padding: 0.6rem 1.2rem;
-    background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--cream);
     border: 2px solid var(--gold);
     cursor: pointer;
@@ -514,45 +523,55 @@ body.back-office {
     letter-spacing: 1px;
     text-transform: uppercase;
     transition: all 0.2s;
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .office-btn:hover {
-    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
     border-color: var(--gold-bright);
-    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+    text-shadow: var(--text-3d-dark);
+}
+
+.office-btn:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .office-btn.primary {
-    background: linear-gradient(180deg, var(--emerald-light) 0%, var(--emerald) 100%);
+    background: linear-gradient(180deg, var(--emerald-light) 0%, var(--emerald) 40%, #1a6b52 100%);
     border-color: var(--emerald-light);
 }
 
 .office-btn.primary:hover {
-    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
-    border-color: var(--gold-bright);
+    background: linear-gradient(180deg, #5ec4a0 0%, var(--emerald-light) 40%, var(--emerald) 100%);
+    border-color: #5ec4a0;
     color: var(--deco-black);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(46, 139, 87, 0.4);
 }
 
 .office-btn.secondary {
-    background: var(--deco-gray);
+    background: linear-gradient(180deg, #444 0%, var(--deco-gray) 40%, var(--deco-slate) 100%);
     border-color: var(--deco-gray);
 }
 
 .office-btn.secondary:hover {
-    background: var(--gold-dark);
+    background: linear-gradient(180deg, var(--gold-dark) 0%, var(--gold) 100%);
     border-color: var(--gold);
     color: var(--deco-black);
 }
 
 .office-btn.danger {
-    background: linear-gradient(180deg, #a03020 0%, var(--ruby) 100%);
+    background: linear-gradient(180deg, #c04030 0%, #a03020 40%, var(--ruby) 100%);
     border-color: #a03020;
 }
 
 .office-btn.danger:hover {
-    background: linear-gradient(180deg, #c04030 0%, #a03020 100%);
-    box-shadow: 0 4px 12px rgba(160, 48, 32, 0.4);
+    background: linear-gradient(180deg, #d05040 0%, #c04030 40%, #a03020 100%);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(160, 48, 32, 0.4);
 }
 
 .office-btn:disabled {
@@ -1824,24 +1843,41 @@ body.back-office {
 .sort-btn {
     padding: 0.15rem 0.4rem;
     font-size: 0.7rem;
-    background: #e8e8e0;
+    background: linear-gradient(180deg, #f0f0e8 0%, #e8e8e0 40%, #d8d8d0 100%);
     border: 1px solid #c0c0b8;
-    border-radius: 3px;
     cursor: pointer;
     color: #555;
     font-weight: 500;
     transition: all 0.15s ease;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+        0 2px 3px rgba(0, 0, 0, 0.15);
 }
 
 .sort-btn:hover {
-    background: #d8d8d0;
+    background: linear-gradient(180deg, #e8e8e0 0%, #d8d8d0 100%);
     border-color: #a0a098;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+        0 3px 5px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+.sort-btn:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .sort-btn.active {
-    background: var(--banker-green);
+    background: linear-gradient(180deg, var(--banker-green-light) 0%, var(--banker-green) 100%);
     color: white;
-    border-color: var(--banker-green-dark);
+    border-color: var(--banker-green);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+        0 2px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Active Conversions Card - Full Height */
@@ -2056,7 +2092,7 @@ body.back-office {
 .service-btn {
     padding: 0.35rem 0.6rem;
     font-size: 0.8rem;
-    background: var(--office-desk);
+    background: linear-gradient(180deg, var(--office-leather) 0%, var(--office-desk) 100%);
     border: 1px solid var(--brass-dark);
     border-radius: 4px;
     color: var(--ledger-cream);
@@ -2105,21 +2141,25 @@ body.back-office {
 }
 
 .office-btn.success {
-    background: var(--banker-green);
+    background: linear-gradient(180deg, var(--banker-green-light) 0%, var(--banker-green) 100%);
     border-color: var(--banker-green-light);
 }
 
 .office-btn.success:hover {
-    background: var(--banker-green-light);
+    background: linear-gradient(180deg, #3d7a6e 0%, var(--banker-green-light) 100%);
+    box-shadow: var(--btn-3d-hover), 0 0 10px var(--banker-green-glow);
 }
 
 .office-btn.warning {
-    background: var(--brass-dark);
+    background: linear-gradient(180deg, var(--brass) 0%, var(--brass-dark) 100%);
     border-color: var(--brass);
+    color: var(--deco-black);
+    text-shadow: var(--text-3d-dark);
 }
 
 .office-btn.warning:hover {
-    background: var(--brass);
+    background: linear-gradient(180deg, var(--brass-light) 0%, var(--brass) 100%);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(218, 165, 32, 0.4);
 }
 
 /* Services Status Badge */

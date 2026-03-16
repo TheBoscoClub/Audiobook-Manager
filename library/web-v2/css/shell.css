@@ -97,7 +97,7 @@ html, body {
 }
 
 .sp-btn {
-    background: none;
+    background: linear-gradient(180deg, var(--deco-gray, #333) 0%, var(--deco-slate, #1e1e1e) 40%, var(--deco-charcoal, #141414) 100%);
     border: 1px solid var(--gold);
     color: var(--gold);
     padding: 4px 10px;
@@ -105,13 +105,35 @@ html, body {
     cursor: pointer;
     font-size: 0.85rem;
     font-family: inherit;
+    transition: all 0.2s;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+        0 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 1px 0 rgba(255, 215, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
-.sp-btn:hover { background: rgba(201, 168, 76, 0.15); }
+.sp-btn:hover {
+    background: linear-gradient(180deg, #444 0%, var(--deco-gray, #333) 40%, var(--deco-slate, #1e1e1e) 100%);
+    border-color: #FFD700;
+    color: #FFD700;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+        0 3px 6px rgba(0, 0, 0, 0.35),
+        0 0 8px rgba(255, 215, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.sp-btn:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
 .sp-play { font-size: 1.2rem; padding: 4px 14px; }
 .sp-btn-sm { padding: 2px 8px; font-size: 0.75rem; }
 .sp-close { border-color: #888; color: #888; }
-.sp-close:hover { border-color: #f44; color: #f44; }
+.sp-close:hover { border-color: #f44; color: #f44; transform: translateY(-1px); }
 
 /* Progress */
 .player-progress-bar {

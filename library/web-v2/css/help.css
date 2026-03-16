@@ -78,18 +78,29 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     text-decoration: none;
-    border: 2px solid var(--gold);
-    background: var(--deco-charcoal);
+    border: 2px solid var(--gold-dark);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--parchment);
     cursor: pointer;
     transition: all 0.3s;
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .help-header-actions a:hover,
 .help-header-actions button:hover {
-    background: var(--gold);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
-    border-color: var(--gold-bright);
+    border-color: var(--gold);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+    text-shadow: var(--text-3d-dark);
+}
+
+.help-header-actions a:active,
+.help-header-actions button:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 /* Content container */

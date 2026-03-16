@@ -128,7 +128,7 @@
 }
 
 .control-btn {
-    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
     border: 2px solid var(--gold);
     padding: clamp(0.5rem, 1vw, 0.75rem) clamp(1rem, 2vw, 1.5rem);
@@ -136,15 +136,19 @@
     font-size: clamp(1rem, 0.3vw + 0.9rem, 1.2rem);
     font-weight: bold;
     transition: all 0.2s;
-    box-shadow: var(--shadow-elevation-1);
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-dark);
 }
 
 .control-btn:hover {
-    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+    background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
     transform: translateY(-2px);
-    box-shadow:
-        var(--shadow-elevation-2),
-        0 0 16px rgba(255, 215, 0, 0.4);
+    box-shadow: var(--btn-3d-hover), 0 0 16px rgba(255, 215, 0, 0.4);
+}
+
+.control-btn:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .control-btn.small-btn {
