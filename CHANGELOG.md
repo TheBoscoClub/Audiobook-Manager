@@ -13,6 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.1] - 2026-03-16
+
+### Added
+
+- **3D Cuboid Buttons**: All buttons throughout the entire UI now have a pronounced 3D cuboid appearance with visible colored wall shadows (dark brown walls, gold highlights) — main library, back office, admin panel, player, sidebar, modals, help, tutorial, auth, and shell pages
+- **Tab Color Identity**: BROWSE ALL tab has distinct gold identity; MY LIBRARY tab has distinct emerald identity for visual differentiation
+- **Cloudflare Cache Purge Script**: New `audiobook-purge-cache` standalone script for manual CDN cache purging with auto-detected zone ID, selective URL purging, and quiet mode for scripting
+- **Upgrade Cache Purge**: `upgrade.sh` now automatically purges Cloudflare CDN cache after both local and remote deployments (non-fatal — skips if no API token configured)
+- **Config Variables**: Added `CF_TOKEN_FILE` and `CF_ZONE_ID` to `audiobook-config.sh` for Cloudflare CDN integration
+
+### Changed
+
+- **3D Shadow System**: Replaced invisible `rgba(0,0,0,...)` box-shadows with colored wall shadows (`#4a3520`, `#6b5030`, `#3a2810`) that are visible on the dark Art Deco theme
+- **Cache Busters**: Switched from semantic version strings (`?v=7.1.3`) to timestamp-based cache busters (`?v=1773686866`) across all 13 HTML files and all CSS `@import` chains to reliably bypass Cloudflare CDN caching
+
+### Fixed
+
+- **CSS Cache Chain**: Fixed `@import` cache-buster mismatch where HTML `<link>` tags had updated versions but inner CSS `@import` statements still referenced old versions, causing Cloudflare to serve stale theme CSS
+- **Scrub Bar & Position Saving**: Fixed player scrub bar, position saving, and Resume button functionality (committed in prior session as d548ed2)
+
 ## [7.1.0] - 2026-03-14
 
 ### Added
