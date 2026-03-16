@@ -870,18 +870,23 @@ do_upgrade() {
 
 purge_cloudflare_cache() {
     # Purge Cloudflare CDN cache after deploying web assets.
-    # Non-fatal: if the token isn't configured, just log and continue.
-    local cf_token_file="${CF_TOKEN_FILE:-/etc/audiobooks/cloudflare-api-token}"
+    # Non-fatal: if credentials aren't available, just log and continue.
+    # Credentials sourced from ~/.config/api-keys.env (shared with cloudflare-manager).
+    local cf_keys_file="${CF_KEYS_FILE:-$HOME/.config/api-keys.env}"
 
-    if [[ ! -f "$cf_token_file" ]]; then
-        echo -e "${YELLOW}  Cloudflare cache purge skipped (no token at $cf_token_file)${NC}"
+    if [[ -f "$cf_keys_file" ]]; then
+        source "$cf_keys_file"
+    fi
+
+    if [[ -z "$CF_GLOBAL_API_KEY" || -z "$CF_AUTH_EMAIL" ]]; then
+        echo -e "${YELLOW}  Cloudflare cache purge skipped (no credentials in $cf_keys_file)${NC}"
         echo -e "${YELLOW}  See: audiobook-purge-cache --help${NC}"
         return 0
     fi
 
     echo -e "${BLUE}Purging Cloudflare CDN cache...${NC}"
 
-    # Delegate to the standalone script (handles zone lookup, error reporting)
+    # Delegate to the standalone script if available
     local purge_script=""
     if [[ -x "${SCRIPT_DIR}/scripts/audiobook-purge-cache" ]]; then
         purge_script="${SCRIPT_DIR}/scripts/audiobook-purge-cache"
@@ -899,33 +904,18 @@ purge_cloudflare_cache() {
         fi
     else
         # Inline fallback if script not found
-        local cf_token
-        cf_token=$(cat "$cf_token_file")
-        local domain="${AUDIOBOOKS_HOSTNAME:-library.thebosco.club}"
-        local root_domain
-        root_domain=$(echo "$domain" | awk -F. '{print $(NF-1)"."$NF}')
+        local zone_id="${CF_ZONE_ID:-24558cb1f70c1a803c249d79a56bde7c}"
 
-        local zone_id="${CF_ZONE_ID:-}"
-        if [[ -z "$zone_id" ]]; then
-            zone_id=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$root_domain" \
-                -H "Authorization: Bearer $cf_token" \
-                -H "Content-Type: application/json" | \
-                python3 -c "import sys,json;d=json.load(sys.stdin);print(d['result'][0]['id'] if d.get('success') and d.get('result') else '')" 2>/dev/null)
-        fi
-
-        if [[ -n "$zone_id" ]]; then
-            local result
-            result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/purge_cache" \
-                -H "Authorization: Bearer $cf_token" \
-                -H "Content-Type: application/json" \
-                --data '{"purge_everything":true}')
-            if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
-                echo -e "${GREEN}  CDN cache purged${NC}"
-            else
-                echo -e "${YELLOW}  CDN cache purge failed (non-fatal)${NC}"
-            fi
+        local result
+        result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/purge_cache" \
+            -H "X-Auth-Key: $CF_GLOBAL_API_KEY" \
+            -H "X-Auth-Email: $CF_AUTH_EMAIL" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+        if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
+            echo -e "${GREEN}  CDN cache purged${NC}"
         else
-            echo -e "${YELLOW}  Could not determine Cloudflare zone ID${NC}"
+            echo -e "${YELLOW}  CDN cache purge failed (non-fatal)${NC}"
         fi
     fi
 }

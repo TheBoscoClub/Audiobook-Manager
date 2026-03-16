@@ -130,9 +130,8 @@ fi
 # External tools
 : "${AUDIOBOOKS_AUDIBLE_CMD:=/usr/bin/audible}" # Path to audible-cli
 
-# Cloudflare CDN cache purge (optional — skipped if token file doesn't exist)
-: "${CF_TOKEN_FILE:=/etc/audiobooks/cloudflare-api-token}"
-: "${CF_ZONE_ID:=}"  # Auto-detected from AUDIOBOOKS_HOSTNAME if blank
+# Cloudflare CDN cache purge (credentials from ~/.config/api-keys.env)
+: "${CF_ZONE_ID:=24558cb1f70c1a803c249d79a56bde7c}"  # thebosco.club zone
 
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
@@ -152,7 +151,7 @@ export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELA
 export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
 export AUDIOBOOKS_AUDIBLE_CMD
-export CF_TOKEN_FILE CF_ZONE_ID
+export CF_ZONE_ID
 export AUDIOBOOKS_API_PORT AUDIOBOOKS_WEB_PORT AUDIOBOOKS_HTTP_REDIRECT_PORT AUDIOBOOKS_BIND_ADDRESS AUDIOBOOKS_HTTPS_ENABLED AUDIOBOOKS_HTTP_REDIRECT_ENABLED AUDIOBOOKS_USE_WAITRESS
 
 # -----------------------------------------------------------------------------

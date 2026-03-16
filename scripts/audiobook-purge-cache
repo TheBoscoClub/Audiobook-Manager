@@ -5,11 +5,8 @@
 # Purges the Cloudflare CDN cache for the library domain.
 # Call after deploying CSS/JS/HTML changes to ensure visitors get fresh assets.
 #
-# Setup:
-#   1. Create a Cloudflare API Token with Zone > Cache Purge > Purge permission
-#   2. Save it: echo "YOUR_TOKEN" | sudo tee /etc/audiobooks/cloudflare-api-token
-#   3. Secure it: sudo chmod 600 /etc/audiobooks/cloudflare-api-token
-#                 sudo chown audiobooks:audiobooks /etc/audiobooks/cloudflare-api-token
+# Credentials are sourced from ~/.config/api-keys.env (shared with cloudflare-manager).
+# Zone ID is hardcoded for thebosco.club or auto-detected via API.
 #
 # Usage:
 #   audiobook-purge-cache              # Purge everything
@@ -19,7 +16,7 @@
 
 set -e
 
-# Load config
+# Load audiobook config
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
 if [[ -f "$LIB_DIR/audiobook-config.sh" ]]; then
@@ -28,9 +25,14 @@ elif [[ -f /usr/local/lib/audiobooks/audiobook-config.sh ]]; then
     source /usr/local/lib/audiobooks/audiobook-config.sh
 fi
 
-# Cloudflare configuration
-CF_TOKEN_FILE="${CF_TOKEN_FILE:-/etc/audiobooks/cloudflare-api-token}"
-CF_ZONE_ID="${CF_ZONE_ID:-}"
+# Load Cloudflare credentials from canonical API keys file
+CF_KEYS_FILE="${CF_KEYS_FILE:-$HOME/.config/api-keys.env}"
+if [[ -f "$CF_KEYS_FILE" ]]; then
+    source "$CF_KEYS_FILE"
+fi
+
+# thebosco.club zone ID (from cloudflare-manager project)
+CF_ZONE_ID="${CF_ZONE_ID:-24558cb1f70c1a803c249d79a56bde7c}"
 QUIET=false
 PURGE_FILES=""
 
@@ -49,70 +51,24 @@ while [[ $# -gt 0 ]]; do
             echo "  --quiet, -q      Suppress output"
             echo "  --help, -h       Show this help"
             echo ""
-            echo "Environment:"
-            echo "  CF_TOKEN_FILE    Path to API token file (default: /etc/audiobooks/cloudflare-api-token)"
-            echo "  CF_ZONE_ID       Cloudflare zone ID (default: auto-detected from config)"
+            echo "Credentials: sourced from ~/.config/api-keys.env"
+            echo "  CF_GLOBAL_API_KEY and CF_AUTH_EMAIL must be set"
+            echo "  CF_ZONE_ID defaults to thebosco.club zone"
             exit 0
             ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
-# Check for API token
-if [[ ! -f "$CF_TOKEN_FILE" ]]; then
+# Verify credentials
+if [[ -z "$CF_GLOBAL_API_KEY" || -z "$CF_AUTH_EMAIL" ]]; then
     if [[ "$QUIET" == "false" ]]; then
-        echo "Cloudflare API token not found at $CF_TOKEN_FILE"
+        echo "Cloudflare credentials not found."
         echo ""
-        echo "Setup instructions:"
-        echo "  1. Go to https://dash.cloudflare.com → My Profile → API Tokens"
-        echo "  2. Create token with: Zone > Cache Purge > Purge (for thebosco.club)"
-        echo "  3. Save it:"
-        echo "     echo \"YOUR_TOKEN\" | sudo tee $CF_TOKEN_FILE"
-        echo "     sudo chmod 600 $CF_TOKEN_FILE"
-        echo "     sudo chown audiobooks:audiobooks $CF_TOKEN_FILE"
+        echo "Expected: CF_GLOBAL_API_KEY and CF_AUTH_EMAIL in ~/.config/api-keys.env"
+        echo "This file is shared with the cloudflare-manager project."
     fi
     exit 1
-fi
-
-CF_TOKEN=$(cat "$CF_TOKEN_FILE")
-if [[ -z "$CF_TOKEN" ]]; then
-    [[ "$QUIET" == "false" ]] && echo "Error: Token file is empty"
-    exit 1
-fi
-
-# Auto-detect zone ID if not set
-if [[ -z "$CF_ZONE_ID" ]]; then
-    # Use the hostname from config to look up the zone
-    domain="${AUDIOBOOKS_HOSTNAME:-library.thebosco.club}"
-    # Extract the root domain (last two parts)
-    root_domain=$(echo "$domain" | awk -F. '{print $(NF-1)"."$NF}')
-
-    if [[ "$QUIET" == "false" ]]; then
-        echo "Looking up Cloudflare zone for $root_domain..."
-    fi
-
-    zone_response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$root_domain" \
-        -H "Authorization: Bearer $CF_TOKEN" \
-        -H "Content-Type: application/json")
-
-    CF_ZONE_ID=$(echo "$zone_response" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-if data.get('success') and data.get('result'):
-    print(data['result'][0]['id'])
-else:
-    print('')
-" 2>/dev/null)
-
-    if [[ -z "$CF_ZONE_ID" ]]; then
-        [[ "$QUIET" == "false" ]] && echo "Error: Could not find Cloudflare zone for $root_domain"
-        [[ "$QUIET" == "false" ]] && echo "Set CF_ZONE_ID manually or check your API token permissions"
-        exit 1
-    fi
-
-    if [[ "$QUIET" == "false" ]]; then
-        echo "Found zone: $CF_ZONE_ID"
-    fi
 fi
 
 # Build purge request
@@ -136,7 +92,8 @@ if [[ "$QUIET" == "false" ]]; then
 fi
 
 response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
-    -H "Authorization: Bearer $CF_TOKEN" \
+    -H "X-Auth-Key: $CF_GLOBAL_API_KEY" \
+    -H "X-Auth-Email: $CF_AUTH_EMAIL" \
     -H "Content-Type: application/json" \
     --data "$files_json")
 
