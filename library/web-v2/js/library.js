@@ -1514,7 +1514,7 @@ class AudiobookLibraryV2 {
     // Check for saved playback position (lightweight localStorage read)
     const savedPosition = getLocalPosition(book.id);
     const percentComplete = getLocalPercentComplete(book.id);
-    const hasContinue = percentComplete > 0;
+    const hasContinue = savedPosition !== null;
 
     return `
             <div class="book-card" data-id="${book.id}">
@@ -1739,7 +1739,7 @@ class AudiobookLibraryV2 {
     const quality = edition.quality ? ` ${edition.quality}` : "";
     const savedPosition = getLocalPosition(edition.id);
     const percentComplete = getLocalPercentComplete(edition.id);
-    const hasContinue = percentComplete > 0;
+    const hasContinue = savedPosition !== null;
 
     return `
             <div class="edition-item">
@@ -1792,7 +1792,7 @@ class AudiobookLibraryV2 {
 
     const savedPosition = getLocalPosition(book.id);
     const percentComplete = getLocalPercentComplete(book.id);
-    const hasContinue = percentComplete > 0;
+    const hasContinue = savedPosition !== null;
     const formatQuality = book.format ? book.format.toUpperCase() : "M4B";
     const quality = book.quality ? ` ${book.quality}` : "";
     const hasSupplement = book.supplement_count > 0;

@@ -12,13 +12,15 @@ class ShellPlayer {
     this.currentBook = null;
     this.playbackRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
     this.currentRateIndex = 2; // 1.0x
-    this.saveTimeout = null;
     this._lastMediaSessionSecond = -1;
+    this._isScrubbing = false;
+    this._lastSaveTime = 0;
 
     // Position persistence
     this.storagePrefix = "audiobook_";
     this.apiSaveTimeout = null;
     this.apiSaveDelay = 15000; // API save every 15s
+    this.positionSaveInterval = 30000; // localStorage save every 30s
 
     // No crossOrigin needed — streaming is same-origin
 
@@ -51,10 +53,33 @@ class ShellPlayer {
     document.getElementById("sp-volume").addEventListener("input", (e) => {
       this.audio.volume = e.target.value / 100;
     });
-    document.getElementById("sp-progress").addEventListener("input", (e) => {
+    const progressBar = document.getElementById("sp-progress");
+    progressBar.addEventListener("mousedown", () => {
+      this._isScrubbing = true;
+    });
+    progressBar.addEventListener("touchstart", () => {
+      this._isScrubbing = true;
+    });
+    progressBar.addEventListener("input", (e) => {
+      // During drag, only update time display — don't seek yet
+      if (this._isScrubbing && this.audio.duration) {
+        const seekTime = (e.target.value / 1000) * this.audio.duration;
+        document.getElementById("sp-current-time").textContent =
+          this.formatTime(seekTime);
+      }
+    });
+    progressBar.addEventListener("change", (e) => {
+      // Drag ended — seek once to final position
       if (this.audio.duration) {
         this.audio.currentTime = (e.target.value / 1000) * this.audio.duration;
       }
+      this._isScrubbing = false;
+    });
+    progressBar.addEventListener("mouseup", () => {
+      this._isScrubbing = false;
+    });
+    progressBar.addEventListener("touchend", () => {
+      this._isScrubbing = false;
     });
     document
       .getElementById("sp-close")
@@ -104,6 +129,22 @@ class ShellPlayer {
 
     this.audio.addEventListener("pause", () => {
       this.setPlayPauseIcon(false);
+      // Save position on user-initiated pause (not source changes).
+      // When audio.src changes, pause fires with currentTime near 0 — saving
+      // that would destroy the real position. Only save meaningful positions.
+      if (
+        this.currentBook &&
+        this.audio.currentTime > 30 &&
+        this.audio.duration &&
+        this.audio.src
+      ) {
+        this.savePosition(
+          this.currentBook.id,
+          this.audio.currentTime,
+          this.audio.duration,
+        );
+        this.flushToAPI(this.currentBook.id, this.audio.currentTime);
+      }
     });
   }
 
@@ -116,14 +157,14 @@ class ShellPlayer {
   onTimeUpdate() {
     if (!this.audio.duration) return;
 
-    // Update progress bar (range 0-1000 for smooth scrubbing)
-    const progress = (this.audio.currentTime / this.audio.duration) * 1000;
-    document.getElementById("sp-progress").value = progress;
-
-    // Update time display
-    document.getElementById("sp-current-time").textContent = this.formatTime(
-      this.audio.currentTime,
-    );
+    // Don't fight with the user's drag — skip updates while scrubbing
+    if (!this._isScrubbing) {
+      const progress = (this.audio.currentTime / this.audio.duration) * 1000;
+      document.getElementById("sp-progress").value = progress;
+      document.getElementById("sp-current-time").textContent = this.formatTime(
+        this.audio.currentTime,
+      );
+    }
 
     // Media Session position (throttled to whole seconds)
     if (Math.floor(this.audio.currentTime) !== this._lastMediaSessionSecond) {
@@ -131,14 +172,17 @@ class ShellPlayer {
       this.updateMediaPositionState();
     }
 
-    // Auto-save position (debounced 5s)
+    // Auto-save position periodically during playback
     if (this.currentBook && this.audio.currentTime > 0) {
-      if (this.saveTimeout) clearTimeout(this.saveTimeout);
-      const bookId = this.currentBook.id;
-      this.saveTimeout = setTimeout(() => {
-        if (!this.currentBook) return;
-        this.savePosition(bookId, this.audio.currentTime, this.audio.duration);
-      }, 5000);
+      const now = Date.now();
+      if (now - this._lastSaveTime >= this.positionSaveInterval) {
+        this._lastSaveTime = now;
+        this.savePosition(
+          this.currentBook.id,
+          this.audio.currentTime,
+          this.audio.duration,
+        );
+      }
     }
 
     // Send state to iframe
@@ -174,6 +218,21 @@ class ShellPlayer {
         console.error("Failed to resume audio:", error);
       }
       return;
+    }
+
+    // Save current book's position before switching to a new one
+    if (
+      this.currentBook &&
+      this.currentBook.bookId !== bookId &&
+      this.audio.currentTime > 0 &&
+      this.audio.duration
+    ) {
+      this.savePosition(
+        this.currentBook.id,
+        this.audio.currentTime,
+        this.audio.duration,
+      );
+      this.flushToAPI(this.currentBook.id, this.audio.currentTime);
     }
 
     this.currentBook = { ...book, bookId, coverUrl };
@@ -215,7 +274,26 @@ class ShellPlayer {
     // Media Session metadata
     this.updateMediaMetadata();
 
-    // Start playback IMMEDIATELY — must happen within user gesture window.
+    // Restore saved position BEFORE play when resuming.
+    // Read localStorage synchronously (fast) so we can seek before playback
+    // starts. Then check the API async and adjust if it has a further position.
+    let localPos = null;
+    if (resume) {
+      localPos = this.getPosition(bookId);
+    }
+
+    // If we have a local position, set it before play so audio starts there
+    if (localPos && localPos.position > 30) {
+      this.audio.addEventListener(
+        "loadedmetadata",
+        () => {
+          this.audio.currentTime = localPos.position;
+        },
+        { once: true },
+      );
+    }
+
+    // Start playback — must happen within user gesture window.
     // Cross-frame calls (iframe → parent) lose gesture activation if async
     // operations (like API fetch) run first.
     try {
@@ -224,21 +302,17 @@ class ShellPlayer {
       console.error("Failed to play audio:", error);
     }
 
-    // Restore saved position only when resuming (not fresh play)
+    // Check API for a further-ahead position (async, adjusts after play starts)
     if (resume) {
-      const savedPosition = await this.getBestPosition(bookId);
-      if (savedPosition && savedPosition.position > 30) {
-        if (this.audio.readyState >= 1) {
-          this.audio.currentTime = savedPosition.position;
-        } else {
-          this.audio.addEventListener(
-            "loadedmetadata",
-            () => {
-              this.audio.currentTime = savedPosition.position;
-            },
-            { once: true },
-          );
+      const apiPos = await this.getPositionFromAPI(bookId);
+      if (apiPos && apiPos.position > 30) {
+        // Use API position if it's ahead of local, or if no local position
+        const currentTarget = localPos ? localPos.position : 0;
+        if (apiPos.position > currentTarget) {
+          this.audio.currentTime = apiPos.position;
         }
+      } else if (!localPos && !apiPos) {
+        // No position found anywhere — stays at 0
       }
     }
   }
