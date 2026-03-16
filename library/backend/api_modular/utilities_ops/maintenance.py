@@ -439,8 +439,7 @@ def init_maintenance_routes(project_root):
             {
                 "success": True,
                 "message": (
-                    f"Sort field population started"
-                    f" {'(dry run)' if dry_run else ''}"
+                    f"Sort field population started {'(dry run)' if dry_run else ''}"
                 ),
                 "operation_id": operation_id,
             }

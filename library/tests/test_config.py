@@ -200,17 +200,12 @@ class TestNoHardcodedPaths:
                         # (acceptable as fallback defaults).
                         # Also check prior lines for multi-line
                         # environ.get() calls.
-                        if (
-                            "get_config(" in line
-                            or "environ.get(" in line
-                        ):
+                        if "get_config(" in line or "environ.get(" in line:
                             continue
                         # Multi-line environ.get(): path on
                         # continuation line
                         ctx_start = max(0, line_num - 4)
-                        prior = " ".join(
-                            lines[ctx_start:line_num - 1]
-                        )
+                        prior = " ".join(lines[ctx_start : line_num - 1])
                         if "environ.get(" in prior:
                             continue
                         # Skip bash variable defaults: ${VAR:-/default/path}

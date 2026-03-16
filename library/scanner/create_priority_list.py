@@ -53,9 +53,7 @@ def main():
         for dir_name, items in sorted(by_directory.items()):
             f.write(f"\n{'=' * 80}\n")
             plural = "s" if len(items) > 1 else ""
-            f.write(
-                f"DIRECTORY: {dir_name} ({len(items)} file{plural})\n"
-            )
+            f.write(f"DIRECTORY: {dir_name} ({len(items)} file{plural})\n")
             f.write(f"{'=' * 80}\n\n")
 
             for idx, item in enumerate(items, 1):
