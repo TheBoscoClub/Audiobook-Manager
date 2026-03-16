@@ -124,6 +124,10 @@ fi
 # External tools
 : "${AUDIOBOOKS_AUDIBLE_CMD:=/usr/bin/audible}" # Path to audible-cli
 
+# Cloudflare CDN cache purge (optional — skipped if token file doesn't exist)
+: "${CF_TOKEN_FILE:=/etc/audiobooks/cloudflare-api-token}"
+: "${CF_ZONE_ID:=}"  # Auto-detected from AUDIOBOOKS_HOSTNAME if blank
+
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
 : "${AUDIOBOOKS_WEB_PORT:=8443}"           # HTTPS port (changed from 8090)
@@ -141,6 +145,7 @@ export AUDIOBOOKS_STAGING AUDIOBOOKS_PARALLEL_JOBS AUDIOBOOKS_SCAN_INTERVAL
 export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELAY
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
 export AUDIOBOOKS_AUDIBLE_CMD
+export CF_TOKEN_FILE CF_ZONE_ID
 export AUDIOBOOKS_API_PORT AUDIOBOOKS_WEB_PORT AUDIOBOOKS_HTTP_REDIRECT_PORT AUDIOBOOKS_BIND_ADDRESS AUDIOBOOKS_HTTPS_ENABLED AUDIOBOOKS_HTTP_REDIRECT_ENABLED AUDIOBOOKS_USE_WAITRESS
 
 # -----------------------------------------------------------------------------

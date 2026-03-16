@@ -11,86 +11,99 @@
     cursor: pointer;
     font-family: var(--font-serif);
     font-size: 0.9rem;
-    border: none;
+    border: 2px solid var(--gold-dark);
     transition: all 0.2s;
     font-weight: 600;
     letter-spacing: 0.5px;
-    box-shadow: var(--shadow-elevation-1);
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 /* Primary Button - Gold */
 .btn-primary {
-    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
     border: 2px solid var(--gold);
+    text-shadow: var(--text-3d-dark);
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
-    box-shadow:
-        var(--shadow-elevation-2),
-        0 0 16px rgba(255, 215, 0, 0.4);
-    transform: translateY(-1px);
+    background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
+    box-shadow: var(--btn-3d-hover), 0 0 16px rgba(255, 215, 0, 0.4);
+    transform: translateY(-2px);
 }
 
 /* Secondary Button */
 .btn-secondary {
-    background: var(--deco-slate);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--cream);
-    border: 2px solid var(--gold);
+    border: 2px solid var(--gold-dark);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background: var(--deco-gray);
-    border-color: var(--gold-bright);
-    box-shadow: var(--shadow-elevation-2);
-    transform: translateY(-1px);
+    background: linear-gradient(180deg, #444 0%, var(--deco-gray) 40%, var(--deco-slate) 100%);
+    border-color: var(--gold);
+    box-shadow: var(--btn-3d-hover);
+    transform: translateY(-2px);
 }
 
 /* Danger Button */
 .btn-danger {
-    background: linear-gradient(180deg, #c0392b 0%, #962d22 100%);
+    background: linear-gradient(180deg, #e74c3c 0%, #c0392b 40%, #962d22 100%);
     color: white;
     border: 2px solid #c0392b;
+    text-shadow: var(--text-3d-light);
 }
 
 .btn-danger:hover:not(:disabled) {
-    background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
-    box-shadow:
-        var(--shadow-elevation-2),
-        0 0 16px rgba(231, 76, 60, 0.4);
-    transform: translateY(-1px);
+    background: linear-gradient(180deg, #ff6b5a 0%, #e74c3c 40%, #c0392b 100%);
+    box-shadow: var(--btn-3d-hover), 0 0 16px rgba(231, 76, 60, 0.4);
+    transform: translateY(-2px);
 }
 
 /* Clear Button */
 .clear-btn {
     padding: 0.8rem 1.5rem;
-    background: var(--deco-slate);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--cream);
-    border: 2px solid var(--gold);
+    border: 2px solid var(--gold-dark);
     cursor: pointer;
     font-family: var(--font-serif);
     font-size: 0.95rem;
     transition: all 0.3s;
-    box-shadow: var(--shadow-elevation-1);
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .clear-btn:hover {
-    background: var(--gold);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
-    box-shadow: var(--shadow-elevation-2);
-    transform: translateY(-1px);
+    border-color: var(--gold);
+    box-shadow: var(--btn-3d-hover), 0 0 12px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+    text-shadow: var(--text-3d-dark);
+}
+
+.clear-btn:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 /* Refresh Button */
 .refresh-btn {
     padding: 0.7rem 1.5rem;
-    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
     border: 2px solid var(--gold);
     cursor: pointer;
@@ -98,50 +111,67 @@
     font-size: 1rem;
     font-weight: bold;
     transition: all 0.3s;
-    box-shadow: var(--shadow-elevation-1);
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-dark);
 }
 
 .refresh-btn:hover:not(:disabled) {
-    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+    background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
     transform: translateY(-2px);
-    box-shadow:
-        var(--shadow-elevation-2),
-        0 0 16px rgba(255, 215, 0, 0.4);
+    box-shadow: var(--btn-3d-hover), 0 0 16px rgba(255, 215, 0, 0.4);
+}
+
+.refresh-btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .refresh-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 /* Pagination Button */
 .pagination-btn {
     padding: 0.5rem 1rem;
-    background: var(--deco-slate);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--cream);
-    border: 2px solid var(--gold);
+    border: 2px solid var(--gold-dark);
     cursor: pointer;
     font-family: var(--font-serif);
     transition: all 0.2s;
-    box-shadow: var(--shadow-elevation-1);
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .pagination-btn:hover:not(:disabled) {
-    background: var(--gold);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
-    box-shadow: var(--shadow-elevation-2);
-    transform: translateY(-1px);
+    border-color: var(--gold);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+    text-shadow: var(--text-3d-dark);
+}
+
+.pagination-btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .pagination-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 .pagination-btn.active {
-    background: var(--gold);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
     font-weight: bold;
+    border-color: var(--gold-bright);
+    box-shadow: var(--btn-3d-pressed), 0 0 8px rgba(255, 215, 0, 0.3);
+    text-shadow: var(--text-3d-dark);
 }
 
 /* ============================================
@@ -224,30 +254,42 @@
 .letter-group {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
-    background: var(--deco-slate);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 100%);
     color: var(--cream);
     border: 1px solid var(--gold-dark);
     cursor: pointer;
     font-family: var(--font-serif);
     transition: all 0.2s;
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .letter-group:hover {
-    background: var(--gold-dark);
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
     color: var(--deco-black);
+    border-color: var(--gold);
+    transform: translateY(-1px);
+    text-shadow: var(--text-3d-dark);
+}
+
+.letter-group:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .letter-group.active {
-    background: var(--gold);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     border-color: var(--gold-bright);
     color: var(--deco-black);
     font-weight: bold;
+    box-shadow: var(--btn-3d-pressed), 0 0 6px rgba(255, 215, 0, 0.3);
+    text-shadow: var(--text-3d-dark);
 }
 
 .sort-toggle {
     padding: 0.25rem 0.6rem;
     font-size: 0.75rem;
-    background: var(--deco-slate);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 100%);
     color: var(--cream);
     border: 1px solid var(--gold-dark);
     cursor: pointer;
@@ -255,10 +297,19 @@
     font-weight: bold;
     transition: all 0.2s;
     margin-left: auto;
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .sort-toggle:hover {
-    background: var(--deco-gray);
+    background: linear-gradient(180deg, #444 0%, var(--deco-gray) 100%);
+    border-color: var(--gold);
+    transform: translateY(-1px);
+}
+
+.sort-toggle:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .author-search-row,
@@ -495,21 +546,29 @@
 
 .dropdown-btn {
     padding: 0.7rem 1.5rem;
-    background: var(--deco-slate);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--cream);
-    border: 2px solid var(--gold);
+    border: 2px solid var(--gold-dark);
     cursor: pointer;
     font-family: var(--font-serif);
     font-size: 0.95rem;
     transition: all 0.3s;
-    box-shadow: var(--shadow-elevation-1);
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .dropdown-btn:hover {
-    background: var(--gold);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
-    box-shadow: var(--shadow-elevation-2);
-    transform: translateY(-1px);
+    border-color: var(--gold);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+    text-shadow: var(--text-3d-dark);
+}
+
+.dropdown-btn:active {
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .dropdown-content {

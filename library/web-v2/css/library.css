@@ -7,13 +7,13 @@
    ============================================ */
 
 /* Import modular CSS files */
-@import url('theme-art-deco.css?v=7.0.0');
-@import url('layout.css?v=7.0.0');
-@import url('components.css?v=7.0.0');
-@import url('sidebar.css?v=7.0.0');
-@import url('player.css?v=7.0.0');
-@import url('modals.css?v=7.0.0');
-@import url('responsive.css?v=7.0.0');
+@import url('theme-art-deco.css?v=1773686866');
+@import url('layout.css?v=1773686866');
+@import url('components.css?v=1773686866');
+@import url('sidebar.css?v=1773686866');
+@import url('player.css?v=1773686866');
+@import url('modals.css?v=1773686866');
+@import url('responsive.css?v=1773686866');
 
 /* ============================================
    Book Cards - Art Deco Geometric Design
@@ -152,8 +152,8 @@
     flex: 1 1 0;
     min-width: 0;
     padding: 6px 4px;
-    border: 2px solid var(--gold);
-    background: linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+    border: 2px solid var(--gold-dark);
+    background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--cream);
     font-family: var(--font-serif);
     font-size: clamp(0.6rem, 3.8cqw, 0.9rem);
@@ -164,6 +164,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: center;
+    box-shadow: var(--btn-3d-raised);
+    text-shadow: var(--text-3d-light);
 }
 
 .btn-download {
@@ -172,30 +174,34 @@
 
 .btn-play:hover:not(:disabled),
 .btn-resume:hover:not(:disabled) {
-    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
+    border-color: var(--gold);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(218, 165, 32, 0.3);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
+    text-shadow: var(--text-3d-dark);
 }
 
 .btn-download:hover:not(:disabled) {
-    background: linear-gradient(180deg, var(--emerald-light) 0%, var(--emerald) 100%);
+    background: linear-gradient(180deg, #5ec4a0 0%, var(--emerald-light) 40%, var(--emerald) 100%);
     color: var(--cream-light);
+    border-color: #5ec4a0;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(45, 90, 78, 0.4);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(45, 90, 78, 0.4);
 }
 
 .btn-play:active:not(:disabled),
 .btn-resume:active:not(:disabled),
 .btn-download:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(218, 165, 32, 0.2);
+    transform: translateY(1px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .btn-resume:disabled {
     opacity: 0.4;
     cursor: not-allowed;
     border-color: rgba(218, 165, 32, 0.3);
+    box-shadow: none;
 }
 
 /* ============================================

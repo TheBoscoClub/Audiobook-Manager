@@ -83,6 +83,63 @@ html {
     /* Inset shadow for depth on containers */
     --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 
+    /* 3D Cuboid Button System - Visible on dark themes
+       Uses COLORED shadows instead of black-on-black.
+       border-bottom/right = visible cuboid walls
+       Inset highlights = lit top face of the block
+       Ground shadow = contact with surface beneath */
+    --btn-3d-wall-color: #4a3520;       /* Warm dark brown - visible cuboid walls */
+    --btn-3d-wall-light: #6b5030;       /* Lighter wall (right side, catches light) */
+    --btn-3d-wall-corner: #3a2810;      /* Darkest corner where walls meet */
+    --btn-3d-highlight: rgba(255, 215, 0, 0.30); /* Gold top-edge highlight */
+    --btn-3d-highlight-left: rgba(255, 215, 0, 0.15); /* Subtler left edge */
+    --btn-3d-thickness: 5px;            /* Wall thickness */
+    --btn-3d-raised:
+        /* Top edge - bright gold highlight (light from above) */
+        inset 0 2px 0 var(--btn-3d-highlight),
+        /* Left edge highlight */
+        inset 2px 0 0 var(--btn-3d-highlight-left),
+        /* Bottom wall - the cuboid's south face (COLORED, not black) */
+        0 5px 0 0 var(--btn-3d-wall-color),
+        /* Right wall - the cuboid's east face */
+        5px 0 0 0 var(--btn-3d-wall-light),
+        /* Corner where bottom + right walls meet */
+        5px 5px 0 0 var(--btn-3d-wall-corner),
+        /* Contact shadow on the surface */
+        0 8px 16px rgba(0, 0, 0, 0.6),
+        2px 6px 8px rgba(0, 0, 0, 0.4);
+    /* Pressed: sunk into surface - walls vanish, deep inset appears */
+    --btn-3d-pressed:
+        inset 0 4px 8px rgba(0, 0, 0, 0.6),
+        inset 0 2px 4px rgba(0, 0, 0, 0.5),
+        inset 3px 3px 6px rgba(0, 0, 0, 0.4),
+        0 1px 0 0 var(--btn-3d-wall-corner);
+    /* Hover: button lifts higher - walls grow thicker */
+    --btn-3d-hover:
+        /* Brighter gold top highlight */
+        inset 0 2px 0 rgba(255, 215, 0, 0.45),
+        inset 2px 0 0 rgba(255, 215, 0, 0.20),
+        /* Thicker bottom wall */
+        0 7px 0 0 var(--btn-3d-wall-color),
+        /* Thicker right wall */
+        7px 0 0 0 var(--btn-3d-wall-light),
+        /* Corner */
+        7px 7px 0 0 var(--btn-3d-wall-corner),
+        /* Higher ground shadow */
+        0 12px 24px rgba(0, 0, 0, 0.6),
+        3px 8px 12px rgba(0, 0, 0, 0.4);
+    /* Embossed text - chiseled into button face */
+    --text-3d-gold:
+        0 2px 0 rgba(255, 215, 0, 0.6),
+        0 -1px 0 rgba(0, 0, 0, 0.5),
+        0 0 10px rgba(218, 165, 32, 0.25);
+    --text-3d-light:
+        0 1px 0 rgba(255, 255, 255, 0.4),
+        0 -1px 0 rgba(0, 0, 0, 0.6);
+    --text-3d-dark:
+        0 -1px 0 rgba(0, 0, 0, 0.7),
+        0 1px 0 rgba(255, 215, 0, 0.4);
+
     /* Spacing and sizing */
     --border-radius: 4px;
     --spacing-xs: 0.25rem;
