@@ -172,8 +172,11 @@ class ShellPlayer {
       this.updateMediaPositionState();
     }
 
-    // Auto-save position periodically during playback
-    if (this.currentBook && this.audio.currentTime > 0) {
+    // Auto-save position periodically during playback.
+    // Threshold of 30s prevents overwriting real saved positions with near-zero
+    // values when audio restarts from the beginning (the read side already
+    // filters out positions < 30s, so this makes save consistent with load).
+    if (this.currentBook && this.audio.currentTime > 30) {
       const now = Date.now();
       if (now - this._lastSaveTime >= this.positionSaveInterval) {
         this._lastSaveTime = now;
@@ -224,7 +227,7 @@ class ShellPlayer {
     if (
       this.currentBook &&
       this.currentBook.bookId !== bookId &&
-      this.audio.currentTime > 0 &&
+      this.audio.currentTime > 30 &&
       this.audio.duration
     ) {
       this.savePosition(
@@ -236,6 +239,10 @@ class ShellPlayer {
     }
 
     this.currentBook = { ...book, bookId, coverUrl };
+
+    // Reset save timer so auto-save doesn't fire immediately with a stale
+    // _lastSaveTime when restarting a book (prevents saving near-zero position)
+    this._lastSaveTime = Date.now();
 
     // Update player bar UI
     document.getElementById("sp-title").textContent =
@@ -335,8 +342,8 @@ class ShellPlayer {
   }
 
   close() {
-    // Save position before closing
-    if (this.currentBook && this.audio.currentTime > 0 && this.audio.duration) {
+    // Save position before closing (> 30s threshold prevents saving near-zero)
+    if (this.currentBook && this.audio.currentTime > 30 && this.audio.duration) {
       this.savePosition(
         this.currentBook.id,
         this.audio.currentTime,
@@ -368,6 +375,8 @@ class ShellPlayer {
   // ═══════════════════════════════════════════
 
   savePosition(fileId, position, duration) {
+    // Defense-in-depth: never save near-zero positions (callers should also guard)
+    if (position < 30) return;
     const data = { position, duration, timestamp: Date.now() };
     localStorage.setItem(
       `${this.storagePrefix}position_${fileId}`,
@@ -448,6 +457,8 @@ class ShellPlayer {
       clearTimeout(this.apiSaveTimeout);
       this.apiSaveTimeout = null;
     }
+    // Defense-in-depth: never flush near-zero positions to API
+    if (positionSeconds < 30) return;
     await this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
   }
 

@@ -249,6 +249,12 @@ def update_position(audiobook_id: int):
     if position_ms is None:
         return jsonify({"error": "position_ms required"}), 400
 
+    # Defense-in-depth: reject near-zero positions (1-29999ms) that indicate
+    # a frontend bug where auto-save fires at the start of playback.
+    # Exactly 0 is allowed (intentional clear on book completion).
+    if 0 < position_ms < 30000:
+        return jsonify({"error": "Position too small (< 30s), likely erroneous"}), 422
+
     conn = get_db()
     try:
         cursor = conn.cursor()
