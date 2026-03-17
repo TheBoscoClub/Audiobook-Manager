@@ -36,13 +36,13 @@ html, body {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: var(--player-height);
+    height: calc(var(--player-height) + env(safe-area-inset-bottom, 0px));
     background: linear-gradient(to top, var(--deep-burgundy), var(--dark-wood));
     border-top: 1px solid var(--gold);
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 16px;
+    padding: 0 16px env(safe-area-inset-bottom, 0px);
     color: var(--parchment);
     z-index: 9999;
 }

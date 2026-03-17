@@ -253,8 +253,8 @@ def scan_audiobooks() -> None:
         if not metadata:
             continue
 
-        # Extract cover art
-        cover_path = extract_cover_art(filepath, COVER_DIR)
+        # Extract cover art (tiers: embedded → sidecar → external API)
+        cover_path = extract_cover_art(filepath, COVER_DIR, metadata=metadata)
         metadata["cover_path"] = cover_path
 
         # Enrich with derived fields (genre categories, era, topics)
