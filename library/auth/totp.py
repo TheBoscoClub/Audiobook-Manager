@@ -29,16 +29,18 @@ def generate_secret() -> bytes:
     return secrets.token_bytes(20)
 
 
-def secret_to_base32(secret: bytes) -> str:
+def secret_to_base32(secret: bytes | str) -> str:
     """
     Convert raw secret bytes to base32 string for authenticator apps.
 
     Args:
-        secret: Raw secret bytes
+        secret: Raw secret bytes (or hex string from SQLCipher BLOB)
 
     Returns:
         Base32-encoded string (without padding)
     """
+    if isinstance(secret, str):
+        secret = secret.encode("utf-8")
     return base64.b32encode(secret).decode("ascii").rstrip("=")
 
 
