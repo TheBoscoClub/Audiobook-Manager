@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.2.1] - 2026-03-17
+
+### Added
+
+- **Cover Art Resolver**: New tiered external cover art resolver (`scanner/utils/cover_resolver.py`) fetches missing covers from Audible CDN (by ASIN), Open Library API, and Google Books API as a fallback when embedded and sidecar covers are absent
+
+### Changed
+
+- **Clean URL**: Web proxy now serves shell.html content directly at `/` instead of 302 redirect; `/shell.html` returns 301 → `/` for clean browser URLs
+
+### Fixed
+
+- **Mobile player clipping**: Added `env(safe-area-inset-bottom)` CSS padding to shell player to prevent bottom browser chrome from covering the scrub bar on mobile devices
+
 ## [7.1.2] - 2026-03-16
 
 ### Fixed
