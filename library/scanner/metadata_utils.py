@@ -395,10 +395,19 @@ def get_file_metadata(
 
 
 def extract_cover_art(
-    filepath: Path, output_dir: Path, timeout: int = 30
+    filepath: Path,
+    output_dir: Path,
+    timeout: int = 30,
+    metadata: Optional[dict] = None,
 ) -> str | None:
     """
     Extract cover art from audiobook file.
+
+    Tiered strategy:
+      1. ffmpeg — extract embedded cover art from the audio file
+      2. Standalone sidecar — look for {title}.jpg or cover.jpg next to the file
+      3. External resolver — query Audible/OpenLibrary/Google Books APIs
+         (requires metadata dict with 'title' and optionally 'author', 'asin')
 
     Returns the cover filename if successful, None otherwise.
     """
@@ -449,6 +458,28 @@ def extract_cover_art(
             except OSError as copy_err:
                 print(
                     f"Warning: found cover {standalone} but copy failed: {copy_err}",
+                    file=sys.stderr,
+                )
+
+        # Tier 3: External API resolver (Audible → Open Library → Google Books)
+        if metadata and metadata.get("title"):
+            try:
+                from utils.cover_resolver import resolve_cover
+
+                resolved = resolve_cover(
+                    title=metadata["title"],
+                    author=metadata.get("author"),
+                    asin=metadata.get("asin"),
+                    output_dir=output_dir,
+                    timeout=timeout,
+                )
+                if resolved:
+                    return resolved
+            except ImportError:
+                pass
+            except Exception as e:
+                print(
+                    f"Warning: external cover resolver failed: {e}",
                     file=sys.stderr,
                 )
 

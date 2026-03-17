@@ -61,11 +61,16 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         if self._is_proxy_path():
             self.proxy_to_api("GET")
         elif self.path == "/":
-            # Redirect root to shell.html (persistent player entry point).
-            # Note: /index.html is NOT redirected — the iframe inside shell.html
-            # loads index.html and must receive the actual file, not a redirect.
-            self.send_response(302)
-            self.send_header("Location", "/shell.html")
+            # Serve shell.html directly at / so the browser address bar shows
+            # the clean URL (e.g., https://library.thebosco.club/) with no
+            # shell.html visible. Note: /index.html is NOT affected — the
+            # iframe inside shell.html loads it and must receive the actual file.
+            self.path = "/shell.html"
+            super().do_GET()
+        elif self.path == "/shell.html":
+            # Canonical URL is /; redirect direct shell.html access there.
+            self.send_response(301)
+            self.send_header("Location", "/")
             self.end_headers()
         else:
             # Serve static files

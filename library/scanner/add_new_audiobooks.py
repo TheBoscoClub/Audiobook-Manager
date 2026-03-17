@@ -248,8 +248,8 @@ def add_new_audiobooks(
                 errors_count += 1
                 continue
 
-            # Extract cover art
-            cover_path = extract_cover_art(filepath, cover_dir)
+            # Extract cover art (tiers: embedded → sidecar → external API)
+            cover_path = extract_cover_art(filepath, cover_dir, metadata=metadata)
 
             try:
                 # Insert into database
