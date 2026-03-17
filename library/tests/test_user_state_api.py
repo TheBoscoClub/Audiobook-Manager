@@ -331,10 +331,10 @@ class TestPositionSyncHistory:
         """Updating position should create a listening history entry."""
         _login(client, user_state_seeded, user_state_seeded.test_user_secret)
 
-        # Update position for book 4 (no history yet)
+        # Update position for book 4 (no history yet — must be >= 30000ms)
         resp = client.put(
             "/api/position/4",
-            json={"position_ms": 5000},
+            json={"position_ms": 60000},
         )
         assert resp.status_code == 200
 

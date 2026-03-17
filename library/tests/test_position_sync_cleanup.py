@@ -54,10 +54,10 @@ class TestPositionEndpointsRemain:
         with flask_app.test_client() as client:
             response = client.put(
                 "/api/position/1",
-                json={"position_ms": 5000},
+                json={"position_ms": 60000},
                 content_type="application/json",
             )
-        assert response.status_code in (200, 400, 401, 404)
+        assert response.status_code in (200, 400, 401, 404, 422)
 
     def test_get_position_response_no_audible_fields(self, flask_app, session_temp_dir):
         """GET /api/position/<id> should not include Audible-specific fields."""

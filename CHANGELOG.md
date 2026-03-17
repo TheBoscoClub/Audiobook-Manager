@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.2] - 2026-03-16
+
+### Fixed
+
+- **Critical: Position save reset bug** — Playback position could reset to 0:00 when auto-save fired at the start of playback (e.g., pausing then resuming "A Dirty Job" lost 6h+ of progress). Root cause: `onTimeUpdate()` auto-save guard used `> 0` instead of `> 30`, allowing near-zero positions (168ms) to overwrite real saved positions when audio restarts from the beginning
+- **Frontend defense-in-depth** — All position save paths (auto-save, pause, book-switch, page-close, `savePosition()`, `flushToAPI()`) now guard against positions < 30s, consistent with the read-side filter
+- **Backend defense-in-depth** — API endpoint `PUT /api/position/<id>` now rejects positions 1–29999ms with HTTP 422, preventing near-zero positions from reaching the database regardless of frontend behavior (position 0 is still allowed for intentional clear on book completion)
+- **Reset auto-save timer on book switch** — `_lastSaveTime` is now reset in `playBook()` so auto-save doesn't fire immediately with a stale timer when restarting a book
+
 ## [7.1.1.1] - 2026-03-16
 
 ### Changed

@@ -176,17 +176,17 @@ class TestMultiUserConcurrency:
         self, authed_client, authed_client_2
     ):
         """Position updates create listening history entries per user."""
-        # User 1 updates position for book 3
+        # User 1 updates position for book 3 (must be >= 30000ms to pass guard)
         r1 = authed_client.put(
             "/api/position/3",
-            json={"position_ms": 15000},
+            json={"position_ms": 60000},
         )
         assert r1.status_code == 200
 
         # User 2 updates position for book 3 at different point
         r2 = authed_client_2.put(
             "/api/position/3",
-            json={"position_ms": 45000},
+            json={"position_ms": 120000},
         )
         assert r2.status_code == 200
 
@@ -277,6 +277,25 @@ class TestAuthDisabledFallback:
         read_resp = client_no_auth.get("/api/position/1")
         assert read_resp.status_code == 200
         assert read_resp.get_json()["local_position_ms"] == 30000
+
+    def test_near_zero_position_rejected(self, client_no_auth):
+        """Positions between 1-29999ms are rejected as likely erroneous."""
+        # Near-zero position should be rejected
+        r1 = client_no_auth.put("/api/position/1", json={"position_ms": 168})
+        assert r1.status_code == 422
+        assert "too small" in r1.get_json()["error"].lower()
+
+        # Exactly 0 should be accepted (intentional clear on book completion)
+        r2 = client_no_auth.put("/api/position/1", json={"position_ms": 0})
+        assert r2.status_code == 200
+
+        # At threshold (30000ms) should be accepted
+        r3 = client_no_auth.put("/api/position/1", json={"position_ms": 30000})
+        assert r3.status_code == 200
+
+        # Just below threshold should be rejected
+        r4 = client_no_auth.put("/api/position/1", json={"position_ms": 29999})
+        assert r4.status_code == 422
 
     def test_position_nonexistent_book_without_auth(self, client_no_auth):
         """Position for nonexistent book returns 404."""
