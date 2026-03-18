@@ -227,6 +227,10 @@ def some_admin_endpoint():
 
 The HTTPS reverse proxy (`proxy_server.py`) terminates SSL and forwards requests to the Flask API.
 
+**Shell + iframe Architecture** (v7.1.3+): The web UI uses a shell + iframe design. `shell.html` is the persistent outer frame containing the audio player bar, navigation, and search. `index.html` (the library) loads inside an iframe. The proxy serves shell content at the clean URL `/` — navigating to `/shell.html` returns a 301 redirect to `/`. Query strings (e.g., `/?autoplay=...`) are preserved using `urlparse` to separate path from parameters. Auth pages (`login.html`, `verify.html`, etc.) navigate to `/` rather than `shell.html`.
+
+**Mobile Viewport Handling** (v7.1.3+): The shell uses the `window.visualViewport` API to dynamically calculate actual visible height, compensating for mobile browser chrome (address bar, toolbar). The measured height is communicated to the iframe via `postMessage` and applied as the CSS custom property `--app-height`, preventing the player bar from being obscured by mobile browser UI.
+
 **Header Forwarding** (v6.0+): When deployed behind an external reverse proxy (Caddy, nginx, Cloudflare), the proxy forwards client identity and protocol headers:
 
 ```python
@@ -868,8 +872,12 @@ This view ensures the main library displays full-length audiobooks only.
 |-------------|-------------|
 | **My Library** tab | Personal library showing books user has listened to, downloaded, or has positions for |
 | **New Books** marquee | Scrolling banner showing recently added books since user's last visit |
-| **About** page | Library statistics, system info, and version details |
+| **About** page | Version info (displayed prominently at top, fetched live from `/api/system/version`), library description, attributions, and links |
 | **Admin Audit** section | Back Office section showing unified activity log and statistics |
+
+### Book Card UI (v7.1.3)
+
+Book cards display cover art with a Resume button for in-progress books. The "Continue" text badge overlay was removed in v7.1.3 — only the Resume button appears on hover/tap.
 
 For complete position tracking documentation, see [Position Sync Guide](POSITION_SYNC.md).
 

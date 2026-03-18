@@ -245,13 +245,22 @@ For major changes, create a new theme file:
 
 CSS changes take effect immediately on browser refresh. No restart required.
 
-If you've modified files in the project directory:
+If you've modified files in the project directory, deploy using the standard upgrade script:
 
 ```bash
-# Deploy changes to production
-sudo rsync -av library/web-v2/css/ /opt/audiobooks/library/web-v2/css/
-sudo chown -R audiobooks:audiobooks /opt/audiobooks/library/web-v2/css/
+./upgrade.sh --from-project . --target /opt/audiobooks --yes
 ```
+
+## Mobile Viewport & Safe Areas
+
+The shell uses the `visualViewport` API to dynamically measure the actual visible area on mobile devices, compensating for browser chrome (address bar, toolbar). This is exposed as the CSS custom property `--app-height`.
+
+When customizing bottom-anchored UI elements (player bar, footers, toolbars):
+
+- Respect `env(safe-area-inset-bottom)` for devices with rounded corners or home indicators
+- The `#shell-player` element uses this padding automatically — custom overlays should do the same
+- Test at multiple viewport sizes, including with the mobile keyboard open
+- The `--app-height` variable updates in real-time as the browser chrome shows/hides
 
 ## Accessibility Notes
 
