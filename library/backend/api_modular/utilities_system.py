@@ -479,9 +479,8 @@ def init_system_routes(project_root):
     # =========================================================================
 
     @utilities_system_bp.route("/api/system/version", methods=["GET"])
-    @auth_if_enabled
     def get_version() -> FlaskResponse:
-        """Get current application version."""
+        """Get current application version. No auth required."""
         version_file = Path(project_root).parent / "VERSION"
         try:
             if version_file.exists():
@@ -491,12 +490,7 @@ def init_system_routes(project_root):
         except Exception:
             version = "unknown"
 
-        return jsonify(
-            {
-                "version": version,
-                "project_root": str(project_root),
-            }
-        )
+        return jsonify({"version": version})
 
     @utilities_system_bp.route("/api/system/health", methods=["GET"])
     def get_health() -> FlaskResponse:
