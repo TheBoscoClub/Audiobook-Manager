@@ -341,13 +341,13 @@ body {
         flex: 1 !important;
     }
 
-    /* Hide everything else on mobile */
+    /* Hide verbose elements on mobile book cards (not modals) */
     .book-narrator,
     .book-meta,
     .book-editions,
     .book-progress,
-    .btn-resume,
-    .btn-download {
+    .book-card .btn-resume,
+    .book-card .btn-download {
         display: none !important;
     }
 
@@ -463,8 +463,8 @@ body {
     .book-meta,
     .book-editions,
     .book-progress,
-    .btn-resume,
-    .btn-download {
+    .book-card .btn-resume,
+    .book-card .btn-download {
         display: none !important;
     }
 
@@ -575,13 +575,13 @@ body {
         flex: 1 !important;
     }
 
-    /* Hide everything else on mobile */
+    /* Hide verbose elements on mobile book cards (not modals) */
     .book-narrator,
     .book-meta,
     .book-editions,
     .book-progress,
-    .btn-resume,
-    .btn-download {
+    .book-card .btn-resume,
+    .book-card .btn-download {
         display: none !important;
     }
 

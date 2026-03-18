@@ -5,9 +5,10 @@
 /* Page layout */
 .help-page {
     min-height: 100vh;
+    min-height: 100dvh;
     background: var(--deco-black);
     color: var(--cream-light);
-    padding: 0 0 4rem;
+    padding: 0 0 calc(4rem + max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)));
 }
 
 /* Header banner */

@@ -1115,8 +1115,8 @@ body.back-office {
 /* Toast Notifications */
 .toast-container {
     position: fixed;
-    bottom: 2rem;
-    right: 2rem;
+    bottom: calc(2rem + max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)));
+    right: calc(2rem + env(safe-area-inset-right, 0px));
     z-index: 1000;
     display: flex;
     flex-direction: column;
@@ -1164,6 +1164,12 @@ body.back-office {
     z-index: 1000;
     align-items: center;
     justify-content: center;
+    padding:
+        calc(env(safe-area-inset-top, 0px) + 1rem)
+        calc(env(safe-area-inset-right, 0px) + 1rem)
+        calc(max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)) + 1rem)
+        calc(env(safe-area-inset-left, 0px) + 1rem);
+    box-sizing: border-box;
 }
 
 .modal.active {
