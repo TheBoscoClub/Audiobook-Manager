@@ -689,10 +689,31 @@ Audiobooks/
 │   │   └── utils/
 │   │       └── openlibrary_client.py    # OpenLibrary API client
 │   └── web-v2/
-│       ├── index.html           # Main web interface
-│       ├── js/library.js        # Frontend JavaScript
-│       ├── css/library.css      # Vintage library styling
-│       ├── proxy_server.py      # HTTPS reverse proxy
+│       ├── shell.html           # Outer frame with persistent player bar
+│       ├── index.html           # Main library (loads inside shell iframe)
+│       ├── about.html           # Credits, attributions, version info
+│       ├── help.html            # User guide and FAQ
+│       ├── admin.html           # Admin panel (user management)
+│       ├── utilities.html       # Back office (scan, import, maintenance)
+│       ├── login.html           # TOTP / Passkey / FIDO2 login
+│       ├── register.html        # Access request form
+│       ├── claim.html           # Credential setup with claim token
+│       ├── verify.html          # Email / token verification
+│       ├── contact.html         # Contact / feedback form
+│       ├── 401.html             # Unauthorized error page
+│       ├── 403.html             # Forbidden error page
+│       ├── js/
+│       │   ├── library.js       # Library frontend (search, sort, player)
+│       │   └── shell.js         # Shell frame (viewport fix, player controls)
+│       ├── css/
+│       │   ├── library.css      # Main library styling
+│       │   ├── shell.css        # Shell frame and player bar layout
+│       │   ├── theme-art-deco.css # Art Deco visual theme
+│       │   ├── responsive.css   # Mobile/tablet breakpoints
+│       │   ├── modals.css       # Modal dialogs
+│       │   ├── about.css        # About page styling
+│       │   └── help.css         # Help page styling
+│       ├── proxy_server.py      # HTTPS reverse proxy (serves / as shell.html)
 │       └── redirect_server.py   # HTTP→HTTPS redirect
 ├── Dockerfile                   # Docker build file
 ├── docker-compose.yml           # Docker Compose config
@@ -830,7 +851,11 @@ An Art Deco neon-styled marquee highlights audiobooks added since your last visi
 
 ### About Page
 
-Credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js), version info, and project links. Accessible from the Help page header.
+Version info (displayed prominently at the top, fetched live from the API), credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js), and project links. Accessible from the Help page header.
+
+### Shell Architecture
+
+The web UI uses a shell + iframe design. `shell.html` is the persistent outer frame containing the audio player bar, while `index.html` loads inside an iframe. The proxy serves shell content at the clean URL `/` — navigating to `/shell.html` returns a 301 redirect to `/`. The `visualViewport` API dynamically adjusts layout height to prevent mobile browser chrome from obscuring the player controls.
 
 ### Audio Player
 
