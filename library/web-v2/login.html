@@ -385,7 +385,7 @@
                     credentials: 'include'
                 });
                 if (response.ok) {
-                    window.location.href = 'shell.html';
+                    window.location.href = '/';
                 }
             } catch (e) {
                 // Not logged in, stay on login page
@@ -521,7 +521,7 @@
                     const result = await WebAuthn.authenticate(username, remember_me);
 
                     if (result.success) {
-                        window.location.href = 'shell.html';
+                        window.location.href = '/';
                     } else {
                         showError(errorMessage, result.error || 'Authentication failed');
                     }
@@ -554,7 +554,7 @@
                         if (data.session_token && typeof SessionPersistence !== 'undefined') {
                             await SessionPersistence.store(data.session_token);
                         }
-                        window.location.href = 'shell.html';
+                        window.location.href = '/';
                     } else {
                         showError(errorMessage, data.error || 'Login failed');
                     }

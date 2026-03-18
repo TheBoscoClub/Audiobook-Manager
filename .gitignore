@@ -194,6 +194,7 @@ nohup.out
 # Claude Code local settings
 .claude.local
 .claude-session
+.claude/hookify.*.local.md
 .claude-session-exit
 .claude-exit
 .claude-state

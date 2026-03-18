@@ -550,7 +550,7 @@
                 <p class="print-hint">Tip: Print this page, or take a photo with another device.</p>
             </div>
 
-            <a href="shell.html" class="auth-button" style="display: block; text-align: center; text-decoration: none; margin-top: 1.5rem;">
+            <a href="/" class="auth-button" style="display: block; text-align: center; text-decoration: none; margin-top: 1.5rem;">
                 <span class="button-text">Enter The Library</span>
             </a>
         </div>
@@ -1036,7 +1036,7 @@
                 const data = await safeJsonParse(response);
 
                 if (response.ok && data.success) {
-                    window.location.href = 'shell.html';
+                    window.location.href = '/';
                 } else {
                     errorEl.textContent = data.error || 'Invalid code. Check your authenticator app and try again.';
                     errorEl.hidden = false;

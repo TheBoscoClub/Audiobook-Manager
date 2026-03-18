@@ -1525,7 +1525,7 @@ class AudiobookLibraryV2 {
                         : '<span class="book-cover-placeholder">📖</span>'
                     }
                     ${hasSupplement ? `<span class="supplement-badge" title="Has PDF supplement" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ""}
-                    ${hasContinue ? `<span class="continue-badge" title="${percentComplete}% complete">Continue</span>` : ""}
+                    ${""/* Continue badge removed — Resume button is sufficient indication */}
                     ${hasEditions ? `<span class="editions-badge" title="${book.edition_count} editions" onclick="event.stopPropagation(); library.toggleEditions(${book.id})">${book.edition_count} editions</span>` : ""}
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
@@ -2287,13 +2287,7 @@ class AudiobookLibraryV2 {
       placeholder.textContent = "\u{1F4D6}";
       coverDiv.appendChild(placeholder);
     }
-    if (percent > 0) {
-      const badge = document.createElement("span");
-      badge.className = "continue-badge";
-      badge.title = `${percent}% complete`;
-      badge.textContent = "Continue";
-      coverDiv.appendChild(badge);
-    }
+    // Continue badge removed — Resume button is sufficient indication
     card.appendChild(coverDiv);
 
     // Title
@@ -3078,7 +3072,7 @@ function shellPlay(book, resume) {
     const bookId = book.bookId || book.id;
     sessionStorage.setItem("pendingPlay", JSON.stringify(book));
     sessionStorage.setItem("pendingPlayResume", resume ? "1" : "0");
-    window.location.href = `shell.html?autoplay=${encodeURIComponent(bookId)}`;
+    window.location.href = `/?autoplay=${encodeURIComponent(bookId)}`;
   }
 }
 
@@ -3126,8 +3120,17 @@ window.addEventListener("message", (event) => {
       card.classList.remove("now-playing");
     });
   } else if (data.type === "playerVisible") {
-    // Add/remove bottom padding so content isn't hidden behind overlay player bar
-    // 100px covers both desktop (80px) and mobile (100px) player heights
-    document.body.style.paddingBottom = data.visible ? "100px" : "0";
+    // Shell uses flex layout (iframe + player as siblings), so the iframe
+    // auto-shrinks when the player appears. Toggle a class for any CSS
+    // adjustments needed (e.g., scroll-to-bottom behavior).
+    document.body.classList.toggle("shell-player-active", data.visible);
+  } else if (data.type === "viewportBottom") {
+    // Shell reports how much of the layout viewport is behind browser chrome.
+    // Set a CSS variable so bottom-positioned elements can account for it.
+    const offset = Math.max(data.offset || 0, 0);
+    document.documentElement.style.setProperty(
+      "--browser-chrome-bottom",
+      offset + "px",
+    );
   }
 });

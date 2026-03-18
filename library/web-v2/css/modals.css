@@ -43,6 +43,7 @@
         var(--shadow-gold-glow-strong),
         inset 0 1px 0 rgba(255, 215, 0, 0.15);
     max-height: 90vh;
+    max-height: 90dvh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -403,10 +404,12 @@
     width: 100%;
     max-width: 500px;
     max-height: 85vh;
+    max-height: 85dvh;
     overflow-y: auto;
     border-radius: 12px 12px 0 0;
     border-bottom: none;
     animation: slideUp 0.25s ease-out;
+    padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)) + 16px);
 }
 
 @keyframes slideUp {
@@ -514,6 +517,7 @@
     .modal-content {
         margin: 1rem;
         max-height: calc(100vh - 2rem);
+        max-height: calc(100dvh - 2rem);
     }
 
     .modal-toolbar {
