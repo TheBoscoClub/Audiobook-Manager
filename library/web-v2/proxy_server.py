@@ -72,14 +72,14 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # Serve shell.html directly at / so the browser address bar shows
             # the clean URL (e.g., https://library.thebosco.club/) with no
             # shell.html visible. Preserve query string (e.g., ?autoplay=...).
-            self.path = "/shell.html" + (
-                "?" + parsed.query if parsed.query else ""
-            )
+            self.path = "/shell.html" + ("?" + parsed.query if parsed.query else "")
             super().do_GET()
         elif bare_path == "/shell.html":
             # Canonical URL is /; redirect direct shell.html access there.
             # Preserve query string across the redirect.
-            location = "/" + ("?" + parsed.query if parsed.query else "")
+            # Strip CRLF to prevent HTTP response splitting (CodeQL #315)
+            query = parsed.query.replace("\r", "").replace("\n", "")
+            location = "/" + ("?" + query if query else "")
             self.send_response(301)
             self.send_header("Location", location)
             self.end_headers()
