@@ -13,10 +13,11 @@ class TestShellCSS:
         content = SHELL_CSS.read_text()
         assert "#content-frame" in content
 
-    def test_player_bar_fixed_bottom(self):
+    def test_player_bar_flex_layout(self):
+        """Player bar uses flexbox layout (not fixed positioning) to avoid mobile clipping."""
         content = SHELL_CSS.read_text()
         assert "#shell-player" in content
-        assert "fixed" in content
+        assert "flex-shrink: 0" in content
 
     def test_responsive_mobile(self):
         """Shell CSS should handle mobile viewports."""
