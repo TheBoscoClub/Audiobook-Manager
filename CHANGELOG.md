@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.3.1] - 2026-03-18
+
+### Fixed
+
+- **Version endpoint auth**: Removed `@auth_if_enabled` from `/api/system/version` — the About page fetches version without authentication, so the endpoint must be public. Previously displayed "Unknown" for unauthenticated visitors
+- **Path info leak**: Removed `project_root` from version API response — internal filesystem paths should not be exposed to unauthenticated users
+
 ## [7.1.3] - 2026-03-18
 
 ### Fixed
@@ -1984,7 +1991,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.1...HEAD
+[7.1.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3...v7.1.3.1
 [7.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.2.1...v7.1.3
 [7.1.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.2...v7.1.2.1
 [7.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.1.1...v7.1.2
