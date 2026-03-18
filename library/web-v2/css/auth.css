@@ -6,6 +6,7 @@
 /* Auth page layout */
 .auth-page {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -13,7 +14,12 @@
     background-image:
         radial-gradient(ellipse at top, var(--deco-charcoal) 0%, transparent 50%),
         radial-gradient(ellipse at bottom, var(--emerald) 0%, transparent 30%);
-    padding: clamp(1rem, 3vw, 2rem);
+    padding:
+        calc(env(safe-area-inset-top, 0px) + clamp(1rem, 3vw, 2rem))
+        calc(env(safe-area-inset-right, 0px) + clamp(1rem, 3vw, 2rem))
+        calc(max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)) + clamp(1rem, 3vw, 2rem))
+        calc(env(safe-area-inset-left, 0px) + clamp(1rem, 3vw, 2rem));
+    box-sizing: border-box;
 }
 
 /* Main container */
@@ -577,6 +583,7 @@
         border-bottom: none;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
         z-index: 1000;
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px));
     }
 
     .user-dropdown-item {

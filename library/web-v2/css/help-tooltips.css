@@ -162,9 +162,9 @@
     /* Make tooltips more prominent on mobile */
     .help-tooltip {
         position: fixed;
-        left: 1rem;
-        right: 1rem;
-        bottom: 1rem;
+        left: calc(1rem + env(safe-area-inset-left, 0px));
+        right: calc(1rem + env(safe-area-inset-right, 0px));
+        bottom: calc(1rem + max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)));
         top: auto;
         z-index: 1000;
         margin: 0;

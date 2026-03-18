@@ -13,7 +13,12 @@
     z-index: 2000;
     justify-content: center;
     align-items: center;
-    padding: clamp(1rem, 3vw, 2rem);
+    padding:
+        calc(env(safe-area-inset-top, 0px) + clamp(0.5rem, 2vw, 2rem))
+        calc(env(safe-area-inset-right, 0px) + clamp(0.5rem, 2vw, 2rem))
+        calc(max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)) + clamp(0.5rem, 2vw, 2rem))
+        calc(env(safe-area-inset-left, 0px) + clamp(0.5rem, 2vw, 2rem));
+    box-sizing: border-box;
 }
 
 .modal.show,
@@ -393,28 +398,31 @@
 }
 
 /* ============================================
-   Book Detail Bottom Sheet (mobile compact view)
+   Book Detail Modal (centered on all devices)
    ============================================ */
 .book-detail-sheet {
-    align-items: flex-end;
-    padding: 0;
+    align-items: center;
+    justify-content: center;
+    padding:
+        calc(env(safe-area-inset-top, 0px) + 1rem)
+        calc(env(safe-area-inset-right, 0px) + 1rem)
+        calc(max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)) + 1rem)
+        calc(env(safe-area-inset-left, 0px) + 1rem);
 }
 
 .book-detail-content {
     width: 100%;
     max-width: 500px;
-    max-height: 85vh;
-    max-height: 85dvh;
+    max-height: min(85vh, 85dvh);
     overflow-y: auto;
-    border-radius: 12px 12px 0 0;
-    border-bottom: none;
-    animation: slideUp 0.25s ease-out;
-    padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)) + 16px);
+    border-radius: 12px;
+    animation: fadeScaleIn 0.25s ease-out;
+    padding-bottom: 16px;
 }
 
-@keyframes slideUp {
-    from { transform: translateY(100%); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+@keyframes fadeScaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 
 .book-detail-body {
@@ -515,9 +523,8 @@
    ============================================ */
 @media (max-width: 768px) {
     .modal-content {
-        margin: 1rem;
-        max-height: calc(100vh - 2rem);
-        max-height: calc(100dvh - 2rem);
+        margin: 0;
+        max-height: 100%;
     }
 
     .modal-toolbar {

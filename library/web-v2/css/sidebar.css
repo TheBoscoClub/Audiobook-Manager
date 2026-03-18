@@ -23,11 +23,12 @@
 
 .collections-sidebar {
     position: fixed;
-    top: 0;
+    top: env(safe-area-inset-top, 0px);
     left: -340px;
     width: 320px;
     height: 100vh;
     height: 100dvh;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
     background:
         /* Wood grain texture overlay */
         repeating-linear-gradient(
@@ -124,6 +125,7 @@
 
 .sidebar-footer {
     padding: 1rem;
+    padding-bottom: calc(1rem + max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)));
     border-top: 3px solid var(--gold);
     background: var(--deco-slate);
 }
