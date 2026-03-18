@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.3] - 2026-03-18
+
+### Fixed
+
+- **Mobile viewport**: Shell layout uses `visualViewport` API with dynamic `--app-height` and `postMessage` to communicate browser chrome offset to iframe, preventing mobile browser bottom bars from obscuring UI (Resume button, scrubber, player controls)
+- **Clean URL (complete fix)**: All auth pages (`login.html`, `verify.html`, `claim.html`) and autoplay redirect now navigate to `/` instead of `shell.html`, ensuring browser address bar always shows the clean canonical URL
+- **Proxy query string handling**: `proxy_server.py` now uses `urlparse` to separate path from query string, correctly serving `/?autoplay=...` and preserving query strings across `/shell.html` → `/` redirects
+- **Continue badge removed**: Removed "Continue" text badge overlay from book cover art images — the Resume button is sufficient indication of saved position
+
 ## [7.1.2.1] - 2026-03-17
 
 ### Added
