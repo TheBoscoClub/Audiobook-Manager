@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CRLF injection sanitization**: Strip `\r` and `\n` from query string in `proxy_server.py` redirect to prevent HTTP response splitting (CodeQL #315)
+- **Docker CVE pins**: Add `pyopenssl>=26.0.0` (CVE-2026-27448, CVE-2026-27459) and bump `pyasn1>=0.6.3` in `requirements-docker.txt`
+- **Unused import**: Remove unused `auth_if_enabled` import from `utilities_system.py`
+
+## [7.1.3.2] - 2026-03-18
+
+### Fixed
+
+- **Resume button missing on mobile**: Scoped `.btn-resume` and `.btn-download` CSS hide rules to `.book-card` only — the book detail modal Resume button was hidden on all mobile browsers (Android Chrome/Brave/Firefox, iOS Safari/iPadOS) due to unscoped `display: none !important` in responsive breakpoints
+- **Book detail modal obscured by browser chrome**: Changed modal from bottom-sheet (`align-items: flex-end`) to centered layout with safe area inset padding on all edges — the Play/Resume buttons were hidden behind mobile browser navigation bars
+- **Comprehensive safe area audit**: Added `env(safe-area-inset-*)` and `--browser-chrome-bottom` protection to all fixed/edge-touching elements across 8 CSS files: modals, sidebar, auth pages, user dropdown menu, backoffice toasts/modals, help tooltips, tutorial tooltips, and help page
+
 ## [7.1.3.1] - 2026-03-18
 
 ### Fixed

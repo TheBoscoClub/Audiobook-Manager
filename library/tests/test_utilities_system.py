@@ -529,7 +529,10 @@ class TestGetVersion:
         assert response.status_code == 200
         data = response.get_json()
         assert "version" in data
-        assert "project_root" in data
+        assert data["version"] == "1.2.3"
+        # project_root intentionally removed from response (security: don't expose
+        # internal filesystem paths to unauthenticated users — see commit 6a9f4da)
+        assert "project_root" not in data
 
     def test_returns_unknown_when_no_file(self, flask_app):
         """Test returns 'unknown' when VERSION file doesn't exist."""

@@ -24,7 +24,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from .auth import admin_or_localhost, auth_if_enabled
+from .auth import admin_or_localhost
 from .core import FlaskResponse
 
 utilities_system_bp = Blueprint("utilities_system", __name__)
