@@ -872,7 +872,12 @@ purge_cloudflare_cache() {
     # Purge Cloudflare CDN cache after deploying web assets.
     # Non-fatal: if credentials aren't available, just log and continue.
     # Credentials sourced from ~/.config/api-keys.env (shared with cloudflare-manager).
-    local cf_keys_file="${CF_KEYS_FILE:-$HOME/.config/api-keys.env}"
+    # When running under sudo, $HOME is /root — use SUDO_USER's home instead.
+    local real_home="$HOME"
+    if [[ -n "$SUDO_USER" ]]; then
+        real_home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    fi
+    local cf_keys_file="${CF_KEYS_FILE:-$real_home/.config/api-keys.env}"
 
     if [[ -f "$cf_keys_file" ]]; then
         source "$cf_keys_file"
