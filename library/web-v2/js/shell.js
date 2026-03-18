@@ -629,11 +629,48 @@ class ShellPlayer {
   }
 }
 
+// Mobile viewport fix: measure the ACTUAL visible viewport height via
+// visualViewport API and set --app-height on the shell. Also calculate
+// how much of the layout viewport is hidden behind browser chrome and
+// post that offset to the iframe so it can add bottom padding.
+function setupViewportFix() {
+  const iframe = document.getElementById("content-frame");
+  function update() {
+    const vv = window.visualViewport;
+    const visibleH = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty("--app-height", visibleH + "px");
+
+    // Calculate bottom chrome offset: difference between layout viewport
+    // (window.innerHeight) and visual viewport. This is the space eaten
+    // by browser bottom bars (Chrome nav, Safari toolbar, etc.)
+    const bottomChrome = vv
+      ? Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
+      : 0;
+    // Tell the iframe how much bottom padding it needs
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage(
+        { type: "viewportBottom", offset: bottomChrome },
+        window.location.origin,
+      );
+    }
+  }
+  update();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", update);
+    window.visualViewport.addEventListener("scroll", update);
+  }
+  window.addEventListener("resize", update);
+  window.addEventListener("orientationchange", () => setTimeout(update, 150));
+  // Re-post when iframe loads (it might load after first update)
+  if (iframe) iframe.addEventListener("load", update);
+}
+
 // Initialize when DOM is ready.
 // MUST use var (not let/const) so shellPlayer is a window property,
 // accessible from the iframe via window.parent.shellPlayer.
 var shellPlayer;
 document.addEventListener("DOMContentLoaded", () => {
+  setupViewportFix();
   shellPlayer = new ShellPlayer();
 
   // Check for autoplay intent (from non-iframe redirect)

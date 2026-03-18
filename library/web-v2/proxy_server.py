@@ -60,17 +60,28 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self._is_proxy_path():
             self.proxy_to_api("GET")
-        elif self.path == "/":
+            return
+
+        # Parse path and query string separately for clean URL routing
+        from urllib.parse import urlparse
+
+        parsed = urlparse(self.path)
+        bare_path = parsed.path
+
+        if bare_path == "/":
             # Serve shell.html directly at / so the browser address bar shows
             # the clean URL (e.g., https://library.thebosco.club/) with no
-            # shell.html visible. Note: /index.html is NOT affected — the
-            # iframe inside shell.html loads it and must receive the actual file.
-            self.path = "/shell.html"
+            # shell.html visible. Preserve query string (e.g., ?autoplay=...).
+            self.path = "/shell.html" + (
+                "?" + parsed.query if parsed.query else ""
+            )
             super().do_GET()
-        elif self.path == "/shell.html":
+        elif bare_path == "/shell.html":
             # Canonical URL is /; redirect direct shell.html access there.
+            # Preserve query string across the redirect.
+            location = "/" + ("?" + parsed.query if parsed.query else "")
             self.send_response(301)
-            self.send_header("Location", "/")
+            self.send_header("Location", location)
             self.end_headers()
         else:
             # Serve static files

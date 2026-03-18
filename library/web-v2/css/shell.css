@@ -11,30 +11,39 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body {
-    height: 100%;
+html {
+    height: var(--app-height, 100dvh);
     overflow: hidden;
     background: var(--deep-burgundy);
     font-family: 'Georgia', 'Times New Roman', serif;
 }
 
-/* Content iframe — full viewport, always full height.
-   Player bar overlays on top (position: fixed, z-index: 9999).
-   No height change = no layout shift when player appears. */
-#content-frame {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
+body {
     height: 100%;
+    overflow: hidden;
+    background: var(--deep-burgundy);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Content iframe — fills available space above the player bar.
+   Flex layout ensures iframe + player always fit within the dynamic
+   viewport (100dvh), so nothing extends behind mobile browser chrome. */
+#content-frame {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
     border: none;
 }
 
-/* Player bar — fixed at bottom, hidden by default via hidden attr */
+/* Player bar — flex child at bottom, hidden by default via hidden attr.
+   When hidden, display:none removes it from flex flow and iframe gets
+   full height. When shown, iframe shrinks to accommodate. */
 #shell-player {
-    position: fixed;
-    bottom: 0;
-    left: 0;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 9999;
     width: 100%;
     height: calc(var(--player-height) + env(safe-area-inset-bottom, 0px));
     background: linear-gradient(to top, var(--deep-burgundy), var(--dark-wood));
@@ -44,7 +53,6 @@ html, body {
     gap: 12px;
     padding: 0 16px env(safe-area-inset-bottom, 0px);
     color: var(--parchment);
-    z-index: 9999;
 }
 
 /* Respect hidden attribute (same pattern as auth.css .button-loading) */
@@ -174,7 +182,7 @@ html, body {
 
     #shell-player {
         flex-wrap: wrap;
-        padding: 6px 10px;
+        padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
         gap: 4px;
     }
 

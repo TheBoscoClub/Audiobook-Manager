@@ -6,8 +6,15 @@
    ============================================ */
 
 /* ============================================
-   A. Safe Area Insets (Notched Devices)
+   A. Safe Area Insets & Mobile Browser Chrome
    ============================================ */
+:root {
+    /* Set by shell.js via postMessage — the pixel height of browser
+       chrome (bottom nav bar, toolbar) that overlaps the viewport.
+       Fallback 0px for desktop or when shell hasn't posted yet. */
+    --browser-chrome-bottom: 0px;
+}
+
 body {
     padding:
         env(safe-area-inset-top)
@@ -16,8 +23,17 @@ body {
         env(safe-area-inset-left);
 }
 
+/* On touch devices (phones/tablets), add extra bottom padding so the
+   last row of content isn't hidden behind mobile browser bottom bars.
+   Uses JS-reported offset with a 48px floor for safety. */
+@media (hover: none) and (pointer: coarse) {
+    body {
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px), 48px);
+    }
+}
+
 .audio-player {
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(1rem + max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)));
     padding-left: calc(2rem + env(safe-area-inset-left));
     padding-right: calc(2rem + env(safe-area-inset-right));
 }
@@ -347,7 +363,6 @@ body {
     }
 
     .modal-content {
-        max-height: 100vh;
         max-height: 100dvh;
     }
 
