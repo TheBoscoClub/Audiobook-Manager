@@ -3068,7 +3068,7 @@ function shellPlay(book, resume) {
   if (inIframe) {
     whenShellReady((sp) => sp.playBook(book, resume));
   } else {
-    // Not in iframe — redirect to shell.html with play intent
+    // Not in iframe — redirect to shell with play intent
     const bookId = book.bookId || book.id;
     sessionStorage.setItem("pendingPlay", JSON.stringify(book));
     sessionStorage.setItem("pendingPlayResume", resume ? "1" : "0");
