@@ -68,6 +68,19 @@ Production audiobook files are personally owned and licensed content. Accidental
 - **Project working tree**: NEVER copy production data (audiobooks, databases, configs) into the project directory. If this happens accidentally, remove it BEFORE any commit or release operation
 - **Pre-release guard**: `/git-release` checks for production paths in release artifacts (see separation check in git-release skill). This is the last line of defense.
 
+## Browser for UI/E2E Testing
+
+**Use Brave browser for all UI and E2E testing.** If Brave is not installed on a test/QA VM, install it before running browser tests:
+
+```bash
+# CachyOS/Arch: install from chaotic-aur
+sudo pacman -S brave-bin --noconfirm
+```
+
+Brave is Chromium-based with full Opus/WebM codec support. Also ensure codec libraries are present: `sudo pacman -S opus libopus --noconfirm`.
+
+For Playwright, use the `chromium` channel pointing to the Brave binary or launch with `--ignore-https-errors` for self-signed cert environments.
+
 ## Testing & Validation Notes
 
 When running `/test`:
