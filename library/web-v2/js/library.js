@@ -1525,7 +1525,7 @@ class AudiobookLibraryV2 {
                         : '<span class="book-cover-placeholder">📖</span>'
                     }
                     ${hasSupplement ? `<span class="supplement-badge" title="Has PDF supplement" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ""}
-                    ${""/* Continue badge removed — Resume button is sufficient indication */}
+                    ${""/* Play button always resumes from saved position */}
                     ${hasEditions ? `<span class="editions-badge" title="${book.edition_count} editions" onclick="event.stopPropagation(); library.toggleEditions(${book.id})">${book.edition_count} editions</span>` : ""}
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
@@ -1548,10 +1548,7 @@ class AudiobookLibraryV2 {
                     : ""
                 }
                 <div class="book-actions">
-                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, false)">▶ Play</button>
-                    <button class="btn-resume" ${!hasContinue ? "disabled" : ""} onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${hasContinue ? "Resume from " + formatPlaybackTime(savedPosition.position) : "No saved position"}">
-                        ${hasContinue ? "⏯ Resume" : "⏯ Resume"}
-                    </button>
+                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${hasContinue ? "Resume from " + formatPlaybackTime(savedPosition.position) : "Play from beginning"}">▶ Play</button>
                     <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download this audiobook for offline listening in a local player. The Library streams from its own server storage and cannot access files on your device.">
                         ⬇ Download
                     </button>
@@ -1753,8 +1750,7 @@ class AudiobookLibraryV2 {
                     </div>
                 </div>
                 <div class="edition-actions">
-                    <button class="btn-play-edition" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(edition).replace(/"/g, "&quot;")}, false)">▶ Play</button>
-                    ${hasContinue ? `<button class="btn-resume-edition" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(edition).replace(/"/g, "&quot;")}, true)">⏯ Resume</button>` : ""}
+                    <button class="btn-play-edition" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(edition).replace(/"/g, "&quot;")}, true)">▶ Play</button>
                 </div>
             </div>
         `;
@@ -1905,22 +1901,10 @@ class AudiobookLibraryV2 {
     const playBtn = document.createElement("button");
     playBtn.className = "btn-play";
     playBtn.textContent = "\u25B6 Play";
-    playBtn.title = "Play from beginning";
+    playBtn.title = hasContinue
+      ? "Resume from " + formatPlaybackTime(savedPosition.position)
+      : "Play from beginning";
     playBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      shellPlay(book, false);
-      modal.remove();
-    });
-
-    const resumeBtn = document.createElement("button");
-    resumeBtn.className = "btn-resume";
-    resumeBtn.textContent = "\u23EF Resume";
-    resumeBtn.disabled = !hasContinue;
-    if (hasContinue && savedPosition) {
-      resumeBtn.title =
-        "Resume from " + formatPlaybackTime(savedPosition.position);
-    }
-    resumeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       shellPlay(book, true);
       modal.remove();
@@ -1937,7 +1921,6 @@ class AudiobookLibraryV2 {
     });
 
     actions.appendChild(playBtn);
-    actions.appendChild(resumeBtn);
     actions.appendChild(downloadBtn);
 
     body.appendChild(coverDiv);
@@ -2287,7 +2270,6 @@ class AudiobookLibraryV2 {
       placeholder.textContent = "\u{1F4D6}";
       coverDiv.appendChild(placeholder);
     }
-    // Continue badge removed — Resume button is sufficient indication
     card.appendChild(coverDiv);
 
     // Title
@@ -2364,23 +2346,13 @@ class AudiobookLibraryV2 {
     const playBtn = document.createElement("button");
     playBtn.className = "btn-play";
     playBtn.textContent = "\u25B6 Play";
+    playBtn.title =
+      percent > 0 ? `Resume from ${positionHuman}` : "Play from beginning";
     playBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      shellPlay(bookData, false);
-    });
-    actionsDiv.appendChild(playBtn);
-
-    const resumeBtn = document.createElement("button");
-    resumeBtn.className = "btn-resume";
-    resumeBtn.textContent = "\u23EF Resume";
-    resumeBtn.disabled = percent <= 0;
-    resumeBtn.title =
-      percent > 0 ? `Resume from ${positionHuman}` : "No saved position";
-    resumeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       shellPlay(bookData, true);
     });
-    actionsDiv.appendChild(resumeBtn);
+    actionsDiv.appendChild(playBtn);
 
     const downloadBtn = document.createElement("button");
     downloadBtn.className = "btn-download download-button";
@@ -3011,9 +2983,9 @@ function getLocalPosition(fileId) {
     const saved = localStorage.getItem(key);
     if (!saved) return null;
     const parsed = JSON.parse(saved);
-    // Return null if position is near end (>95%) or very beginning (<30s)
+    // Return null if position is near end (>95%) or very beginning (<5s)
     const pct = (parsed.position / parsed.duration) * 100;
-    if (pct > 95 || parsed.position < 30) return null;
+    if (pct > 95 || parsed.position < 5) return null;
     return parsed;
   } catch {
     return null;

@@ -147,7 +147,6 @@
 }
 
 .btn-play,
-.btn-resume,
 .btn-download {
     flex: 1 1 0;
     min-width: 0;
@@ -172,8 +171,7 @@
     border-color: var(--emerald-light);
 }
 
-.btn-play:hover:not(:disabled),
-.btn-resume:hover:not(:disabled) {
+.btn-play:hover:not(:disabled) {
     background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 40%, var(--gold-dark) 100%);
     color: var(--deco-black);
     border-color: var(--gold);
@@ -191,17 +189,9 @@
 }
 
 .btn-play:active:not(:disabled),
-.btn-resume:active:not(:disabled),
 .btn-download:active:not(:disabled) {
     transform: translateY(1px);
     box-shadow: var(--btn-3d-pressed);
-}
-
-.btn-resume:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    border-color: rgba(218, 165, 32, 0.3);
-    box-shadow: none;
 }
 
 /* ============================================
@@ -312,8 +302,7 @@
     flex-shrink: 0;
 }
 
-.btn-play-edition,
-.btn-resume-edition {
+.btn-play-edition {
     padding: 6px 12px;
     background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 100%);
     border: 1px solid var(--gold);
@@ -326,29 +315,16 @@
     white-space: nowrap;
 }
 
-.btn-play-edition:hover,
-.btn-resume-edition:hover {
+.btn-play-edition:hover {
     background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
     color: var(--deco-black);
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(218, 165, 32, 0.3);
 }
 
-.btn-play-edition:active,
-.btn-resume-edition:active {
+.btn-play-edition:active {
     transform: translateY(0);
     box-shadow: 0 2px 4px rgba(218, 165, 32, 0.2);
-}
-
-.btn-resume-edition {
-    background: linear-gradient(180deg, #27ae60 0%, #229954 100%);
-    border-color: #2ecc71;
-}
-
-.btn-resume-edition:hover {
-    background: linear-gradient(180deg, #2ecc71 0%, #27ae60 100%);
-    border-color: #27ae60;
-    color: white;
 }
 
 /* ============================================
@@ -461,7 +437,6 @@
     }
 
     .btn-play-edition,
-    .btn-resume-edition,
     .btn-download {
         flex: 1;
     }
@@ -474,7 +449,6 @@
     }
 
     .book-actions .btn-play,
-    .book-actions .btn-resume,
     .book-actions .btn-download {
         width: 100%;
     }

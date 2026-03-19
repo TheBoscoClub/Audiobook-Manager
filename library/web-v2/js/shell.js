@@ -134,7 +134,7 @@ class ShellPlayer {
       // that would destroy the real position. Only save meaningful positions.
       if (
         this.currentBook &&
-        this.audio.currentTime > 30 &&
+        this.audio.currentTime > 5 &&
         this.audio.duration &&
         this.audio.src
       ) {
@@ -173,10 +173,10 @@ class ShellPlayer {
     }
 
     // Auto-save position periodically during playback.
-    // Threshold of 30s prevents overwriting real saved positions with near-zero
+    // Threshold of 5s prevents overwriting real saved positions with near-zero
     // values when audio restarts from the beginning (the read side already
-    // filters out positions < 30s, so this makes save consistent with load).
-    if (this.currentBook && this.audio.currentTime > 30) {
+    // filters out positions < 5s, so this makes save consistent with load).
+    if (this.currentBook && this.audio.currentTime > 5) {
       const now = Date.now();
       if (now - this._lastSaveTime >= this.positionSaveInterval) {
         this._lastSaveTime = now;
@@ -227,7 +227,7 @@ class ShellPlayer {
     if (
       this.currentBook &&
       this.currentBook.bookId !== bookId &&
-      this.audio.currentTime > 30 &&
+      this.audio.currentTime > 5 &&
       this.audio.duration
     ) {
       this.savePosition(
@@ -290,7 +290,7 @@ class ShellPlayer {
     }
 
     // If we have a local position, set it before play so audio starts there
-    if (localPos && localPos.position > 30) {
+    if (localPos && localPos.position > 5) {
       this.audio.addEventListener(
         "loadedmetadata",
         () => {
@@ -312,7 +312,7 @@ class ShellPlayer {
     // Check API for a further-ahead position (async, adjusts after play starts)
     if (resume) {
       const apiPos = await this.getPositionFromAPI(bookId);
-      if (apiPos && apiPos.position > 30) {
+      if (apiPos && apiPos.position > 5) {
         // Use API position if it's ahead of local, or if no local position
         const currentTarget = localPos ? localPos.position : 0;
         if (apiPos.position > currentTarget) {
@@ -342,8 +342,8 @@ class ShellPlayer {
   }
 
   close() {
-    // Save position before closing (> 30s threshold prevents saving near-zero)
-    if (this.currentBook && this.audio.currentTime > 30 && this.audio.duration) {
+    // Save position before closing (> 5s threshold prevents saving near-zero)
+    if (this.currentBook && this.audio.currentTime > 5 && this.audio.duration) {
       this.savePosition(
         this.currentBook.id,
         this.audio.currentTime,
@@ -376,7 +376,7 @@ class ShellPlayer {
 
   savePosition(fileId, position, duration) {
     // Defense-in-depth: never save near-zero positions (callers should also guard)
-    if (position < 30) return;
+    if (position < 5) return;
     const data = { position, duration, timestamp: Date.now() };
     localStorage.setItem(
       `${this.storagePrefix}position_${fileId}`,
@@ -458,7 +458,7 @@ class ShellPlayer {
       this.apiSaveTimeout = null;
     }
     // Defense-in-depth: never flush near-zero positions to API
-    if (positionSeconds < 30) return;
+    if (positionSeconds < 5) return;
     await this.savePositionToAPI(fileId, Math.floor(positionSeconds * 1000));
   }
 
@@ -470,7 +470,7 @@ class ShellPlayer {
     try {
       const parsed = JSON.parse(data);
       const pct = (parsed.position / parsed.duration) * 100;
-      if (pct > 95 || parsed.position < 30) return null;
+      if (pct > 95 || parsed.position < 5) return null;
       return parsed;
     } catch (e) {
       return null;
