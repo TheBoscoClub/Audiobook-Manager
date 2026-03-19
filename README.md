@@ -150,8 +150,8 @@ See [converter/CHANGELOG.md](converter/CHANGELOG.md) for version history.
 Web-based audiobook library browser with:
 
 - Vintage library-themed interface
-- Built-in audio player with playback position saving
-- Resume from last position
+- Built-in audio player with automatic position saving (every 5 seconds, plus on scrub/skip)
+- Play always resumes from last position
 - Full-text search across titles, authors, and narrators
 - **Author/Narrator autocomplete** with letter group filters (A-E, F-J, K-O, P-T, U-Z)
 - **Collections sidebar** for browsing by category (Fiction, Nonfiction, Mystery, Sci-Fi, etc.)
@@ -867,7 +867,7 @@ The web UI uses a shell + iframe design. `shell.html` is the persistent outer fr
 - Adjustable playback speed (0.5x - 2.5x)
 - Volume control
 - **Position saving**: Automatically saves playback position per user per book
-- **Resume playback**: Click any book to resume from last position
+- **Resume playback**: Click Play on any book to resume from last position
 
 ## Playback Position Tracking
 
@@ -875,7 +875,7 @@ Per-user playback positions are tracked locally in the encrypted auth database (
 
 ### How It Works
 
-- **Automatic saving**: Web player saves position every 15 seconds to both localStorage and the API
+- **Automatic saving**: Web player saves position every 5 seconds to both localStorage and the API, and immediately on scrub, +30s, or -30s
 - **Per-user isolation**: Each user has their own position for every book (stored in the auth database)
 - **Resume anywhere**: Log in from any browser and resume where you left off
 - **Listening history**: All sessions are logged with start/end positions and duration
