@@ -510,7 +510,6 @@
 }
 
 .detail-actions .btn-play,
-.detail-actions .btn-resume,
 .detail-actions .btn-download {
     flex: 1;
     min-width: 100px;
