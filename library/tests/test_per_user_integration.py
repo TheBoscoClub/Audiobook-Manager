@@ -176,7 +176,7 @@ class TestMultiUserConcurrency:
         self, authed_client, authed_client_2
     ):
         """Position updates create listening history entries per user."""
-        # User 1 updates position for book 3 (must be >= 30000ms to pass guard)
+        # User 1 updates position for book 3 (must be >= 5000ms to pass guard)
         r1 = authed_client.put(
             "/api/position/3",
             json={"position_ms": 60000},
@@ -266,20 +266,20 @@ class TestAuthDisabledFallback:
         """Position update works globally when auth disabled."""
         response = client_no_auth.put(
             "/api/position/1",
-            json={"position_ms": 30000},
+            json={"position_ms": 5000},
         )
         assert response.status_code == 200
         data = response.get_json()
         assert data["success"] is True
-        assert data["position_ms"] == 30000
+        assert data["position_ms"] == 5000
 
         # Read back to verify it persisted globally
         read_resp = client_no_auth.get("/api/position/1")
         assert read_resp.status_code == 200
-        assert read_resp.get_json()["local_position_ms"] == 30000
+        assert read_resp.get_json()["local_position_ms"] == 5000
 
     def test_near_zero_position_rejected(self, client_no_auth):
-        """Positions between 1-29999ms are rejected as likely erroneous."""
+        """Positions between 1-4999ms are rejected as likely erroneous."""
         # Near-zero position should be rejected
         r1 = client_no_auth.put("/api/position/1", json={"position_ms": 168})
         assert r1.status_code == 422
@@ -289,12 +289,12 @@ class TestAuthDisabledFallback:
         r2 = client_no_auth.put("/api/position/1", json={"position_ms": 0})
         assert r2.status_code == 200
 
-        # At threshold (30000ms) should be accepted
-        r3 = client_no_auth.put("/api/position/1", json={"position_ms": 30000})
+        # At threshold (5000ms) should be accepted
+        r3 = client_no_auth.put("/api/position/1", json={"position_ms": 5000})
         assert r3.status_code == 200
 
         # Just below threshold should be rejected
-        r4 = client_no_auth.put("/api/position/1", json={"position_ms": 29999})
+        r4 = client_no_auth.put("/api/position/1", json={"position_ms": 4999})
         assert r4.status_code == 422
 
     def test_position_nonexistent_book_without_auth(self, client_no_auth):
