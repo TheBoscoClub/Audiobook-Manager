@@ -19,8 +19,8 @@ class ShellPlayer {
     // Position persistence
     this.storagePrefix = "audiobook_";
     this.apiSaveTimeout = null;
-    this.apiSaveDelay = 15000; // API save every 15s
-    this.positionSaveInterval = 30000; // localStorage save every 30s
+    this.apiSaveDelay = 5000; // API save every 5s
+    this.positionSaveInterval = 5000; // localStorage save every 5s
 
     // No crossOrigin needed — streaming is same-origin
 
@@ -40,12 +40,14 @@ class ShellPlayer {
       .addEventListener("click", () => this.togglePlayPause());
     document.getElementById("sp-rewind").addEventListener("click", () => {
       this.audio.currentTime = Math.max(0, this.audio.currentTime - 30);
+      this.saveAfterSeek();
     });
     document.getElementById("sp-forward").addEventListener("click", () => {
       this.audio.currentTime = Math.min(
         this.audio.duration || 0,
         this.audio.currentTime + 30,
       );
+      this.saveAfterSeek();
     });
     document
       .getElementById("sp-speed")
@@ -74,6 +76,7 @@ class ShellPlayer {
         this.audio.currentTime = (e.target.value / 1000) * this.audio.duration;
       }
       this._isScrubbing = false;
+      this.saveAfterSeek();
     });
     progressBar.addEventListener("mouseup", () => {
       this._isScrubbing = false;
@@ -385,6 +388,16 @@ class ShellPlayer {
     this.queueAPISave(fileId, position);
   }
 
+  saveAfterSeek() {
+    if (this.currentBook && this.audio.currentTime > 5 && this.audio.duration) {
+      this.savePosition(
+        this.currentBook.id,
+        this.audio.currentTime,
+        this.audio.duration,
+      );
+    }
+  }
+
   queueAPISave(fileId, positionSeconds) {
     if (this.apiSaveTimeout) clearTimeout(this.apiSaveTimeout);
     this.apiSaveTimeout = setTimeout(() => {
@@ -506,6 +519,7 @@ class ShellPlayer {
         this.audio.currentTime - (d.seekOffset || 30),
       );
       this.updateMediaPositionState();
+      this.saveAfterSeek();
     });
     navigator.mediaSession.setActionHandler("seekforward", (d) => {
       this.audio.currentTime = Math.min(
@@ -513,11 +527,13 @@ class ShellPlayer {
         this.audio.currentTime + (d.seekOffset || 30),
       );
       this.updateMediaPositionState();
+      this.saveAfterSeek();
     });
     navigator.mediaSession.setActionHandler("seekto", (d) => {
       if (d.seekTime !== undefined && this.audio.duration) {
         this.audio.currentTime = Math.min(d.seekTime, this.audio.duration);
         this.updateMediaPositionState();
+        this.saveAfterSeek();
       }
     });
     navigator.mediaSession.setActionHandler("stop", () => this.close());
@@ -586,6 +602,7 @@ class ShellPlayer {
         case "seek":
           if (msg.position !== undefined) {
             this.audio.currentTime = msg.position;
+            this.saveAfterSeek();
           }
           break;
         case "getPlayerState":

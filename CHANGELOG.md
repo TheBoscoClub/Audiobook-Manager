@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Position lost on scrub/skip**: Scrubbing the progress bar, pressing +30s/-30s skip buttons, or using media session seek controls now immediately saves position to localStorage and queues API sync — previously these operations only modified `audio.currentTime` without persisting, so closing the browser after scrubbing while paused would lose the position entirely
+- **Position save interval**: Reduced localStorage save interval from 30s to 5s and API save delay from 15s to 5s for more frequent persistence during playback
 - **CRLF injection sanitization**: Strip `\r` and `\n` from query string in `proxy_server.py` redirect to prevent HTTP response splitting (CodeQL #315)
 - **Docker CVE pins**: Add `pyopenssl>=26.0.0` (CVE-2026-27448, CVE-2026-27459) and bump `pyasn1>=0.6.3` in `requirements-docker.txt`
 - **Unused import**: Remove unused `auth_if_enabled` import from `utilities_system.py`
