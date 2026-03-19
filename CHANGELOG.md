@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.3.3] - 2026-03-19
+
+### Changed
+
+- **Play always resumes**: Play button now always resumes from the user's last saved position — removed the separate Resume button from all views (grid cards, book detail modal, edition view, grouped view) as unnecessary UX clutter
+- **Position threshold lowered**: Save/resume position threshold reduced from 30 seconds to 5 seconds across the entire stack (frontend save guards, frontend position reader, backend API validation)
+
+### Fixed
+
 - **CRLF injection sanitization**: Strip `\r` and `\n` from query string in `proxy_server.py` redirect to prevent HTTP response splitting (CodeQL #315)
 - **Docker CVE pins**: Add `pyopenssl>=26.0.0` (CVE-2026-27448, CVE-2026-27459) and bump `pyasn1>=0.6.3` in `requirements-docker.txt`
 - **Unused import**: Remove unused `auth_if_enabled` import from `utilities_system.py`
@@ -2003,7 +2012,9 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.3...HEAD
+[7.1.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.2...v7.1.3.3
+[7.1.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.1...v7.1.3.2
 [7.1.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3...v7.1.3.1
 [7.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.2.1...v7.1.3
 [7.1.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.2...v7.1.2.1
