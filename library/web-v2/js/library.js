@@ -2970,12 +2970,12 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================
 // LIGHTWEIGHT POSITION HELPERS
 // ============================================
-// Read-only localStorage helpers for book cards (progress bars, "Continue" badges).
+// Read-only localStorage helpers for book cards (progress bars, resume tooltips).
 // Full position persistence (save, API sync) is handled by ShellPlayer in shell.js.
 
 /**
  * Read saved position from localStorage (lightweight, no API call).
- * Used by book cards to show progress bars and "Continue" badges.
+ * Used by book cards to show progress bars and resume tooltips.
  */
 function getLocalPosition(fileId) {
   try {

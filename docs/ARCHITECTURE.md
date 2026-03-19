@@ -694,7 +694,7 @@ Audiobook-Manager provides local-only per-user playback position tracking. When 
   │   (Player)       │         │       API          │
   ├──────────────────┤         ├───────────────────┤
   │                  │  Every  │                   │
-  │  localStorage ───┼──15s───▶│  Auth Database    │  (per-user, encrypted)
+  │  localStorage ───┼───5s───▶│  Auth Database    │  (per-user, encrypted)
   │  (fast cache)    │  save   │     OR            │
   │                  │         │  Library Database │  (global, auth disabled)
   │  PlaybackManager │         │                   │
@@ -718,7 +718,7 @@ Audiobook-Manager provides local-only per-user playback position tracking. When 
 
   Web Player                   Flask API
       │                            │
-      │  Every 15s during play     │
+      │  Every 5s during play      │
       ├───────────────────────────▶│
       │  PUT /api/position/<id>    │
       │  {position_ms: 3600000}    │
@@ -877,7 +877,7 @@ This view ensures the main library displays full-length audiobooks only.
 
 ### Book Card UI (v7.1.3)
 
-Book cards display cover art with a Resume button for in-progress books. The "Continue" text badge overlay was removed in v7.1.3 — only the Resume button appears on hover/tap.
+Book cards display cover art with a progress bar for in-progress books. The Play button always resumes from the user's last saved position — there is no separate Resume button (removed in v7.1.3.3). The Play button tooltip shows the saved position (e.g., "Resume from 12:34").
 
 For complete position tracking documentation, see [Position Sync Guide](POSITION_SYNC.md).
 

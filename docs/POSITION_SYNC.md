@@ -27,7 +27,7 @@ Position tracking allows you to pause an audiobook and resume at the exact same 
 - **Encrypted storage**: Per-user positions stored in the encrypted auth database (SQLCipher)
 - **Automatic listening history**: Every position save creates a listening session record
 - **Dual-layer persistence**: localStorage (fast cache) + API (persistent)
-- **Automatic player saves**: Web player saves positions every 15 seconds during playback
+- **Automatic player saves**: Web player saves positions every 5 seconds during playback, and immediately on scrub/skip
 - **Auth-disabled fallback**: Single-user global position in the library database when auth is off
 
 ---
@@ -46,7 +46,7 @@ Position tracking allows you to pause an audiobook and resume at the exact same 
 │   (Player)       │         │       API          │
 ├──────────────────┤         ├───────────────────┤
 │                  │  Every  │                   │
-│  localStorage ───┼──15s───▶│  Auth Database    │  (per-user, encrypted)
+│  localStorage ───┼───5s───▶│  Auth Database    │  (per-user, encrypted)
 │  (fast cache)    │  save   │     OR            │
 │                  │         │  Library Database │  (global, auth disabled)
 │  PlaybackManager │         │                   │
@@ -64,7 +64,7 @@ Position tracking allows you to pause an audiobook and resume at the exact same 
 
   Web Player                   Flask API
       │                            │
-      │  Every 15s during play     │
+      │  Every 5s during play      │
       ├───────────────────────────▶│
       │  PUT /api/position/<id>    │
       │  {position_ms: 3600000}    │
@@ -106,7 +106,7 @@ The web player uses a two-tier storage approach for optimal responsiveness:
    - Per-browser, cleared when cache is cleared
 
 2. **API/Database (persistent)**
-   - Saved every 15 seconds during playback
+   - Saved every 5 seconds during playback, and immediately on scrub/skip
    - Survives browser clears, available from any device
    - Per-user when auth is enabled (encrypted in auth database)
    - Global when auth is disabled (library database)
@@ -175,7 +175,7 @@ The web player's `PlaybackManager` class handles position persistence:
 ```javascript
 class PlaybackManager {
     constructor() {
-        this.apiSaveDelay = 15000;  // Save to API every 15 seconds
+        this.apiSaveDelay = 5000;   // Save to API every 5 seconds
     }
 
     // Dual-layer: localStorage (fast) + API (persistent)
@@ -192,13 +192,13 @@ class PlaybackManager {
 
 ### Resume Flow
 
-When you click an audiobook to play:
+When you click Play on an audiobook:
 
 1. Check localStorage for cached position
 2. Fetch position from API (`/api/position/<id>`)
 3. Compare positions, use furthest ahead
 4. Start playback at best position
-5. Save position every 15 seconds
+5. Save position every 5 seconds, and immediately on scrub/skip (+30s, -30s, scrub bar)
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
