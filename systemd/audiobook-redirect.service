@@ -5,8 +5,8 @@ After=network-online.target audiobook-proxy.service
 Wants=audiobook-proxy.service network-online.target
 # Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
 RequiresMountsFor=/opt/audiobooks
-# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
-StartLimitIntervalSec=60
+# Generous interval allows time for proxy (and its RAID dependency chain) to come up
+StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
@@ -24,7 +24,7 @@ ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_H
 ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2/redirect_server.py
 
 Restart=on-failure
-RestartSec=5
+RestartSec=30
 # Use journal logging (query with: journalctl -u audiobook-redirect)
 StandardOutput=journal
 StandardError=journal

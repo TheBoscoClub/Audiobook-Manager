@@ -3,8 +3,8 @@ Description=Audiobook Staging Mover (tmpfs to permanent storage)
 After=network.target
 RequiresMountsFor=/srv/audiobooks
 PartOf=audiobook.target
-# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
-StartLimitIntervalSec=60
+# Generous interval allows time for data mounts (RAID arrays) to come up at boot
+StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]

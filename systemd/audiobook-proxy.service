@@ -7,7 +7,8 @@ Wants=network-online.target audiobook-api.service
 PartOf=audiobook-api.service
 # Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)
 RequiresMountsFor=/opt/audiobooks
-StartLimitIntervalSec=60
+# Generous interval allows time for API (and its RAID dependency) to come up
+StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
@@ -25,7 +26,7 @@ ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_W
 ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2/proxy_server.py
 
 Restart=on-failure
-RestartSec=3
+RestartSec=30
 # Use journal logging (query with: journalctl -u audiobook-proxy)
 StandardOutput=journal
 StandardError=journal
