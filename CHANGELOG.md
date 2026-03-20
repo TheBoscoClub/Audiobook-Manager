@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.1.3.4] - 2026-03-20
+
+### Fixed
+
+- **Systemd restart resilience**: Increased `StartLimitIntervalSec` from 60s to 300s and `RestartSec` to 30s across all long-running services (api, proxy, redirect, converter, mover) — services that depend on slow RAID array mounts were hitting the start limit and locking out permanently at boot
+
 ## [7.1.3.3] - 2026-03-19
 
 ### Changed
@@ -2014,7 +2020,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.4...HEAD
+[7.1.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.3...v7.1.3.4
 [7.1.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.2...v7.1.3.3
 [7.1.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.1...v7.1.3.2
 [7.1.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3...v7.1.3.1
