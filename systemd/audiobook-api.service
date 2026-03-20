@@ -8,8 +8,9 @@ Wants=network-online.target
 # If your data dir is on a separate mount (e.g., RAID array), update /srv/audiobooks
 # to match — otherwise the service will fail with NAMESPACE errors until the mount is ready.
 RequiresMountsFor=/opt/audiobooks /srv/audiobooks
-# Prevent rapid restart loops from flooding the journal (max 5 starts per 60s)
-StartLimitIntervalSec=60
+# Prevent rapid restart loops from flooding the journal (max 5 starts per 5 min).
+# Generous interval allows time for slow mounts (RAID arrays, NFS) to come up.
+StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
@@ -31,7 +32,7 @@ ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_A
 ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
 
 Restart=on-failure
-RestartSec=5
+RestartSec=30
 LimitNOFILE=65536
 # Use journal logging for better log management (query with: journalctl -u audiobook-api)
 StandardOutput=journal
