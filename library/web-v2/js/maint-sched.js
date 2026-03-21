@@ -14,6 +14,14 @@
     monthly: "0 {H} 1 * *",
   };
 
+  /** Standard fetch options with auth credentials */
+  var FETCH_OPTS = { credentials: "same-origin" };
+
+  function fetchAuth(url, opts) {
+    var merged = Object.assign({}, FETCH_OPTS, opts || {});
+    return fetch(url, merged);
+  }
+
   function escText(s) {
     return s == null ? "" : String(s);
   }
@@ -24,13 +32,38 @@
     return td;
   }
 
+  /** Format a UTC ISO date string to user's local timezone */
+  function formatLocal(isoStr) {
+    if (!isoStr) return "N/A";
+    var d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    return d.toLocaleString();
+  }
+
   // -- Task type population --
   function loadTaskTypes() {
-    fetch("/api/admin/maintenance/tasks")
-      .then(function (r) { return r.json(); })
+    fetchAuth("/api/admin/maintenance/tasks")
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
       .then(function (tasks) {
         var sel = document.getElementById("maint-task-type");
         while (sel.firstChild) sel.removeChild(sel.firstChild);
+        if (tasks.length === 0) {
+          var empty = document.createElement("option");
+          empty.value = "";
+          empty.textContent = "No tasks registered";
+          empty.disabled = true;
+          sel.appendChild(empty);
+          return;
+        }
+        var placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Select a task\u2026";
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        sel.appendChild(placeholder);
         tasks.forEach(function (t) {
           var opt = document.createElement("option");
           opt.value = t.name;
@@ -39,7 +72,16 @@
           sel.appendChild(opt);
         });
       })
-      .catch(function () {});
+      .catch(function (e) {
+        console.error("Failed to load task types:", e);
+        var sel = document.getElementById("maint-task-type");
+        while (sel.firstChild) sel.removeChild(sel.firstChild);
+        var err = document.createElement("option");
+        err.value = "";
+        err.textContent = "Error loading tasks";
+        err.disabled = true;
+        sel.appendChild(err);
+      });
   }
 
   // -- Schedule type toggle --
@@ -68,9 +110,10 @@
   // -- Create window --
   function createWindow() {
     var schedType = document.getElementById("maint-schedule-type").value;
+    var taskType = document.getElementById("maint-task-type").value;
     var body = {
       name: document.getElementById("maint-name").value.trim(),
-      task_type: document.getElementById("maint-task-type").value,
+      task_type: taskType,
       schedule_type: schedType,
       lead_time_hours: parseInt(document.getElementById("maint-lead-time").value, 10) || 48,
       description: document.getElementById("maint-description").value.trim(),
@@ -84,20 +127,24 @@
     }
 
     if (!body.name) { alert("Name is required"); return; }
+    if (!body.task_type) { alert("Please select a task type"); return; }
 
-    fetch("/api/admin/maintenance/windows", {
+    fetchAuth("/api/admin/maintenance/windows", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     })
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "HTTP " + r.status); });
+        return r.json();
+      })
       .then(function () { loadWindows(); })
       .catch(function (e) { alert("Error: " + e.message); });
   }
 
   // -- Load windows --
   function loadWindows() {
-    fetch("/api/admin/maintenance/windows")
+    fetchAuth("/api/admin/maintenance/windows")
       .then(function (r) { return r.json(); })
       .then(function (windows) {
         var tbody = document.getElementById("maint-windows-body");
@@ -110,9 +157,7 @@
           tr.appendChild(createCell(
             w.schedule_type === "recurring" ? w.cron_expression : "One-time"
           ));
-          tr.appendChild(createCell(
-            w.next_run_at ? new Date(w.next_run_at).toLocaleString() : "N/A"
-          ));
+          tr.appendChild(createCell(formatLocal(w.next_run_at)));
           tr.appendChild(createCell(w.status));
 
           var actionTd = document.createElement("td");
@@ -143,7 +188,7 @@
   }
 
   function cancelWindow(id) {
-    fetch("/api/admin/maintenance/windows/" + id, {
+    fetchAuth("/api/admin/maintenance/windows/" + id, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "cancelled" }),
@@ -151,7 +196,7 @@
   }
 
   function deleteWindow(id) {
-    fetch("/api/admin/maintenance/windows/" + id, { method: "DELETE" })
+    fetchAuth("/api/admin/maintenance/windows/" + id, { method: "DELETE" })
       .then(function () { loadWindows(); });
   }
 
@@ -161,21 +206,44 @@
     var text = input.value.trim();
     if (!text) return;
 
-    fetch("/api/admin/maintenance/messages", {
+    fetchAuth("/api/admin/maintenance/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
     })
-      .then(function (r) { return r.json(); })
-      .then(function () {
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "HTTP " + r.status); });
+        return r.json();
+      })
+      .then(function (created) {
         input.value = "";
         loadMessages();
+        // Trigger banner update on the main page via custom event so the
+        // pulsing indicator activates immediately without waiting for
+        // WebSocket or polling.  The parent frame (shell.html) listens
+        // for a postMessage; if we are IN shell.html, dispatch directly.
+        try {
+          var announceEvt = new CustomEvent("maintenance-announce", {
+            detail: {
+              type: "maintenance_announce",
+              messages: [created],
+            },
+          });
+          // Dispatch on own document (Back Office is inside shell iframe)
+          document.dispatchEvent(announceEvt);
+          // Also notify parent frame if running inside an iframe
+          if (window.parent && window.parent !== window) {
+            window.parent.document.dispatchEvent(announceEvt);
+          }
+        } catch (e) {
+          console.warn("Could not dispatch announcement event:", e);
+        }
       })
       .catch(function (e) { alert("Error: " + e.message); });
   }
 
   function loadMessages() {
-    fetch("/api/admin/maintenance/messages")
+    fetchAuth("/api/admin/maintenance/messages")
       .then(function (r) { return r.json(); })
       .then(function (messages) {
         var container = document.getElementById("maint-messages-list");
@@ -190,7 +258,7 @@
           div.appendChild(text);
 
           var meta = document.createElement("small");
-          meta.textContent = " -- " + m.created_by + " at " + new Date(m.created_at).toLocaleString();
+          meta.textContent = " -- " + m.created_by + " at " + formatLocal(m.created_at);
           div.appendChild(meta);
 
           if (!m.dismissed_at) {
@@ -211,13 +279,13 @@
   }
 
   function dismissMessage(id) {
-    fetch("/api/admin/maintenance/messages/" + id, { method: "DELETE" })
+    fetchAuth("/api/admin/maintenance/messages/" + id, { method: "DELETE" })
       .then(function () { loadMessages(); });
   }
 
   // -- History --
   function loadHistory() {
-    fetch("/api/admin/maintenance/history")
+    fetchAuth("/api/admin/maintenance/history")
       .then(function (r) { return r.json(); })
       .then(function (history) {
         var tbody = document.getElementById("maint-history-body");
@@ -227,7 +295,7 @@
           var tr = document.createElement("tr");
           tr.appendChild(createCell(h.window_name || "Window #" + h.window_id));
           tr.appendChild(createCell(h.task_type));
-          tr.appendChild(createCell(new Date(h.started_at).toLocaleString()));
+          tr.appendChild(createCell(formatLocal(h.started_at)));
 
           var statusTd = document.createElement("td");
           var badge = document.createElement("span");

@@ -3011,6 +3011,23 @@ body.back-office {
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.maint-help-text {
+    width: 100%;
+    margin-left: 120px;
+    margin-top: -0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-muted, #999);
+}
+
+.maint-help-text code {
+    background: rgba(218, 165, 32, 0.15);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    color: var(--brass, #DAA520);
+    font-size: 0.8rem;
 }
 
 .maint-form-row label {
