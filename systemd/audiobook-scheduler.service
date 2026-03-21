@@ -1,0 +1,30 @@
+[Unit]
+Description=Audiobooks Maintenance Scheduler
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+After=audiobook-api.service
+Wants=audiobook-api.service
+RequiresMountsFor=/opt/audiobooks /srv/audiobooks
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/audiobooks/library/backend
+EnvironmentFile=/etc/audiobooks/audiobooks.conf
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME=/var/lib/audiobooks
+ExecStart=/opt/audiobooks/library/venv/bin/python maintenance_scheduler.py
+Restart=on-failure
+RestartSec=30
+
+# Security hardening (mirrors audiobook-api.service)
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/audiobooks /srv/audiobooks /tmp
+ProtectHome=yes
+PrivateTmp=no
+
+[Install]
+WantedBy=audiobook.target

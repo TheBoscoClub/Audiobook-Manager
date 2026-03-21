@@ -385,6 +385,61 @@ echo "=== Done ==="
 
 ---
 
+## 12. Maintenance Scheduling
+
+### Scheduler Not Running
+
+```bash
+# Check service status
+systemctl status audiobook-scheduler
+
+# Check logs
+journalctl -u audiobook-scheduler -f
+
+# Verify lock file isn't stale
+ls -la $AUDIOBOOKS_RUN_DIR/maintenance.lock
+```
+
+### WebSocket Not Connecting
+
+```bash
+# Verify Gunicorn worker type
+ps aux | grep gunicorn
+# Should show: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+
+# Check proxy tunneling
+curl -v -H "Connection: Upgrade" -H "Upgrade: websocket" https://localhost:8443/api/ws
+```
+
+### Announcements Not Appearing
+
+```bash
+# Check notification queue
+sqlite3 /path/to/audiobooks.db "SELECT * FROM maintenance_notifications WHERE delivered = 0"
+
+# Check active announcements
+curl http://localhost:5001/api/maintenance/announcements
+```
+
+### Knife Switch No Sound
+
+Web Audio API requires user interaction with the page before audio can play (browser autoplay policy). Click anywhere on the page first, then toggle the knife switch.
+
+### Scheduled Windows Not Executing
+
+```bash
+# Check for stale lock
+ls -la $AUDIOBOOKS_RUN_DIR/maintenance.lock
+
+# Check cron expression is valid
+python3 -c "from croniter import croniter; print(croniter('0 3 * * 0').get_next())"
+
+# Check window is enabled
+sqlite3 /path/to/audiobooks.db "SELECT id, name, enabled, cron_expression FROM maintenance_windows"
+```
+
+---
+
 ## Quick Reference
 
 | Issue | First Check | Fix |

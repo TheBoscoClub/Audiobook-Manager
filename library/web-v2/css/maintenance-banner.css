@@ -1,0 +1,139 @@
+/* Maintenance Announcement Banner */
+
+.maintenance-indicator {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 9999;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: #FF0040;
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+    display: none; /* shown via JS */
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(255, 0, 64, 0.6),
+                0 0 16px rgba(255, 0, 64, 0.3);
+    animation: maintenance-pulse 2s ease-in-out infinite;
+    border: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.maintenance-indicator.active {
+    display: flex;
+}
+
+@keyframes maintenance-pulse {
+    0%, 100% { transform: scale(1.0); box-shadow: 0 0 8px rgba(255,0,64,0.6); }
+    50%      { transform: scale(1.15); box-shadow: 0 0 20px rgba(255,0,64,0.9); }
+}
+
+/* Expanded Panel */
+.maintenance-panel {
+    position: fixed;
+    bottom: 120px;
+    right: 20px;
+    z-index: 9998;
+    width: 320px;
+    max-width: 90vw;
+    background: linear-gradient(180deg, #141414, #080808);
+    border: 1px solid #8B6914;
+    border-bottom: 2px solid #D4AF37;
+    border-radius: 8px;
+    padding: 1rem;
+    display: none;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+}
+
+.maintenance-panel.open {
+    display: block;
+}
+
+.maintenance-panel-messages {
+    max-height: 5.6rem; /* ~4 lines */
+    overflow-y: auto;
+}
+
+.maintenance-panel-message {
+    color: #FF0040;
+    font-size: 0.95rem;
+    text-shadow: 2px 2px 0 #8B0000, 4px 4px 8px rgba(139,0,0,0.5);
+    animation: maint-text-pulse 3s ease-in-out infinite;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+@keyframes maint-text-pulse {
+    0%, 100% { opacity: 1.0; }
+    50%      { opacity: 0.85; }
+}
+
+/* Knife Switch */
+.knife-switch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #333;
+    cursor: pointer;
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    width: 100%;
+}
+
+.knife-switch:focus-visible {
+    outline: 2px solid #D4AF37;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.knife-switch svg {
+    width: 48px;
+    height: 80px;
+    transition: transform 0.1s;
+}
+
+.knife-switch-blade {
+    fill: #B87333;
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1.1);
+    transform-origin: 24px 55px;
+}
+
+.knife-switch[aria-checked="false"] .knife-switch-blade {
+    transform: rotate(45deg);
+}
+
+.knife-switch-handle {
+    fill: #8B1A1A;
+}
+
+.knife-switch-jaw {
+    fill: #B8860B;
+}
+
+.knife-switch-label {
+    margin-left: 0.5rem;
+    color: #999;
+    font-size: 0.8rem;
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+    .maintenance-panel {
+        right: 10px;
+        left: 10px;
+        width: auto;
+        bottom: 100px;
+    }
+    .maintenance-indicator {
+        bottom: 70px;
+        right: 14px;
+    }
+}
