@@ -1251,6 +1251,9 @@ AUDIOBOOKS_VENV="\${AUDIOBOOKS_HOME}/library/venv"
 # Internal data directory for scan results and intermediate files
 DATA_DIR="/var/lib/audiobooks/data"
 
+# Runtime directory for locks and FIFOs
+AUDIOBOOKS_RUN_DIR="/var/lib/audiobooks/.run"
+
 # Server settings
 AUDIOBOOKS_API_PORT="${API_PORT}"
 AUDIOBOOKS_WEB_PORT="${WEB_PORT}"
