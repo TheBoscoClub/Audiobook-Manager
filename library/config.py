@@ -199,11 +199,7 @@ AUDIOBOOKS_HTTP_REDIRECT_ENABLED = _http_redirect_enabled_raw.lower() in (
     "1",
     "yes",
 )
-AUDIOBOOKS_USE_WAITRESS = get_config("AUDIOBOOKS_USE_WAITRESS", "true").lower() in (
-    "true",
-    "1",
-    "yes",
-)
+# AUDIOBOOKS_USE_WAITRESS removed in v7.2 — migrated to Gunicorn+geventwebsocket
 
 # =============================================================================
 # Legacy Aliases (backwards compatibility)
@@ -261,7 +257,7 @@ def print_config() -> None:
     print(f"AUDIOBOOKS_HTTP_REDIRECT_ENABLED: {AUDIOBOOKS_HTTP_REDIRECT_ENABLED}")
     print(f"AUDIOBOOKS_BIND_ADDRESS: {AUDIOBOOKS_BIND_ADDRESS}")
     print(f"AUDIOBOOKS_HTTPS_ENABLED: {AUDIOBOOKS_HTTPS_ENABLED}")
-    print(f"AUDIOBOOKS_USE_WAITRESS: {AUDIOBOOKS_USE_WAITRESS}")
+    print(f"WSGI_SERVER:            Gunicorn+geventwebsocket")
     print("=" * 50)
 
 
