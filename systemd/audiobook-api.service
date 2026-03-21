@@ -1,5 +1,5 @@
 [Unit]
-Description=Audiobooks Library API Server (Waitress)
+Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target
 Wants=network-online.target
@@ -29,7 +29,17 @@ Environment=HOME=/var/lib/audiobooks
 ExecStartPre=+/bin/sh -c 'mkdir -p /opt/audiobooks/library/data && chown audiobooks:audiobooks /opt/audiobooks/library/data'
 # Only start if port is not already in use (uses ss from iproute2, always available)
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_API_PORT} "'
-ExecStart=/opt/audiobooks/library/venv/bin/python api_server.py
+# Gunicorn with geventwebsocket worker for WebSocket support.
+# HARD CONSTRAINT: -w 1 required for in-memory WebSocket connection manager.
+# Do NOT increase workers without migrating connection state to database.
+ExecStart=/opt/audiobooks/library/venv/bin/gunicorn \
+    -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker \
+    -w 1 \
+    --bind 0.0.0.0:${AUDIOBOOKS_API_PORT} \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile - \
+    api_server:app
 
 Restart=on-failure
 RestartSec=30
