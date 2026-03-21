@@ -257,7 +257,7 @@ def print_config() -> None:
     print(f"AUDIOBOOKS_HTTP_REDIRECT_ENABLED: {AUDIOBOOKS_HTTP_REDIRECT_ENABLED}")
     print(f"AUDIOBOOKS_BIND_ADDRESS: {AUDIOBOOKS_BIND_ADDRESS}")
     print(f"AUDIOBOOKS_HTTPS_ENABLED: {AUDIOBOOKS_HTTPS_ENABLED}")
-    print(f"WSGI_SERVER:            Gunicorn+geventwebsocket")
+    print("WSGI_SERVER:            Gunicorn+geventwebsocket")
     print("=" * 50)
 
 
