@@ -142,6 +142,10 @@
                     <span class="tab-icon">&#9881;</span>
                     <span class="tab-label">System</span>
                 </button>
+                <button class="cabinet-tab" data-section="maint-sched" title="Maintenance scheduling, announcements, and execution history">
+                    <span class="tab-icon">&#x1F527;</span>
+                    <span class="tab-label">Maint Sched</span>
+                </button>
             </div>
         </nav>
 
@@ -995,6 +999,100 @@
                     </div>
                 </div>
             </section>
+            <section class="drawer-content" id="maint-sched-section">
+                <div class="section-header">
+                    <h2>Maintenance Scheduling</h2>
+                    <p class="section-desc">Schedule maintenance windows, send announcements, and view execution history</p>
+                </div>
+
+                <!-- Create Window Form -->
+                <div class="maint-form-card">
+                    <h3>Schedule Maintenance Window</h3>
+                    <div class="maint-form-row">
+                        <label for="maint-name">Name</label>
+                        <input type="text" id="maint-name" placeholder="Nightly Vacuum">
+                    </div>
+                    <div class="maint-form-row">
+                        <label for="maint-description">Description</label>
+                        <input type="text" id="maint-description" placeholder="Optional description">
+                    </div>
+                    <div class="maint-form-row">
+                        <label for="maint-task-type">Task Type</label>
+                        <select id="maint-task-type"></select>
+                    </div>
+                    <div class="maint-form-row">
+                        <label for="maint-schedule-type">Schedule</label>
+                        <select id="maint-schedule-type">
+                            <option value="once">One-Time</option>
+                            <option value="recurring">Recurring</option>
+                        </select>
+                    </div>
+                    <div id="maint-once-fields" class="maint-form-row">
+                        <label for="maint-scheduled-at">Date &amp; Time (UTC)</label>
+                        <input type="datetime-local" id="maint-scheduled-at">
+                    </div>
+                    <div id="maint-recurring-fields" style="display:none;">
+                        <div class="maint-form-row">
+                            <label>Preset</label>
+                            <div class="maint-presets">
+                                <label><input type="radio" name="maint-preset" value="daily"> Daily</label>
+                                <label><input type="radio" name="maint-preset" value="weekly"> Weekly</label>
+                                <label><input type="radio" name="maint-preset" value="biweekly"> Biweekly</label>
+                                <label><input type="radio" name="maint-preset" value="monthly"> Monthly</label>
+                                <label><input type="radio" name="maint-preset" value="custom"> Advanced</label>
+                            </div>
+                        </div>
+                        <div class="maint-form-row">
+                            <label for="maint-time">Time</label>
+                            <input type="time" id="maint-time" value="03:00">
+                        </div>
+                        <div id="maint-cron-row" class="maint-form-row" style="display:none;">
+                            <label for="maint-cron-input">Cron Expression</label>
+                            <input type="text" id="maint-cron-input" placeholder="0 3 * * *"
+                                title="Min Hour Day-of-Mth Mth Day-of-Week (0=Sunday)">
+                        </div>
+                    </div>
+                    <div class="maint-form-row">
+                        <label for="maint-lead-time">Lead Time (hours)</label>
+                        <input type="number" id="maint-lead-time" value="48" min="1" max="168">
+                    </div>
+                    <button id="maint-create-btn" class="office-btn" title="Create a new maintenance window">Create Window</button>
+                </div>
+
+                <!-- Active Windows List -->
+                <div class="maint-section-card">
+                    <h3>Scheduled Windows</h3>
+                    <table id="maint-windows-table" class="maint-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th><th>Task</th><th>Schedule</th><th>Next Run</th><th>Status</th><th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="maint-windows-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- Manual Announcements -->
+                <div class="maint-section-card">
+                    <h3>Manual Announcements</h3>
+                    <div class="maint-form-row">
+                        <input type="text" id="maint-message-input" placeholder="Maintenance message to broadcast immediately">
+                        <button id="maint-send-msg-btn" class="office-btn" title="Send a maintenance announcement to all connected users">Send</button>
+                    </div>
+                    <div id="maint-messages-list"></div>
+                </div>
+
+                <!-- Execution History -->
+                <div class="maint-section-card">
+                    <h3>Execution History</h3>
+                    <table id="maint-history-table" class="maint-table">
+                        <thead>
+                            <tr><th>Window</th><th>Task</th><th>Started</th><th>Status</th><th>Result</th></tr>
+                        </thead>
+                        <tbody id="maint-history-body"></tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -1187,5 +1285,6 @@
         })();
     </script>
     <script src="js/utilities.js?v=1773686866"></script>
+    <script src="js/maint-sched.js"></script>
 </body>
 </html>
