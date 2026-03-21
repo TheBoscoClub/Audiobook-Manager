@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Maintenance scheduling system**: Cron-based automated task execution with 5 built-in tasks (db_vacuum, db_integrity, db_backup, library_scan, hash_verify)
+- **WebSocket infrastructure**: Migrated from Waitress to Gunicorn+geventwebsocket for real-time bidirectional communication
+- **Maintenance announcement banner**: Pulsing indicator with expandable panel, SVG knife switch dismiss control, Web Audio API synthesized sounds
+- **Maintenance scheduler daemon**: `audiobook-scheduler.service` with file lock, notification queue, and graceful shutdown
+- **Admin Maint Sched tab**: Full CRUD for maintenance windows, manual announcements, execution history
+- **Notification bridge**: Gevent greenlet polls DB every 5s, broadcasts to WebSocket clients
+- **Proxy WebSocket tunneling**: Raw TCP socket relay in proxy_server.py for WebSocket upgrade requests
+
 ### Changed
+
+- **API server**: Migrated from Waitress to Gunicorn with `GeventWebSocketWorker` (`-w 1` hard constraint for in-memory connection manager)
+- **Docker entrypoint**: Updated from Waitress to Gunicorn startup
+- **Requirements**: Replaced `waitress` with `gunicorn`, `gevent`, `gevent-websocket`, `flask-sock`, `croniter`
 
 ### Fixed
 

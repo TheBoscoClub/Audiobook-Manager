@@ -81,9 +81,8 @@ AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
 # Default: 8080
 AUDIOBOOKS_HTTP_REDIRECT_PORT="8080"
 
-# Use waitress WSGI server (production mode)
-# Default: true
-AUDIOBOOKS_USE_WAITRESS="true"
+# WSGI server: Gunicorn with geventwebsocket worker (migrated from Waitress in v7.2)
+# No configuration needed — Gunicorn is started via systemd with correct worker class
 
 # =============================================================================
 # Optional Features

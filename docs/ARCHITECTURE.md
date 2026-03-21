@@ -883,6 +883,103 @@ For complete position tracking documentation, see [Position Sync Guide](POSITION
 
 ---
 
+## WebSocket Infrastructure
+
+The application uses WebSocket for real-time bidirectional communication between the server and connected browsers.
+
+### Server Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| WSGI Server | Gunicorn | Production HTTP server |
+| Worker Class | `geventwebsocket.gunicorn.workers.GeventWebSocketWorker` | Cooperative I/O + WebSocket protocol |
+| Monkey-Patch | `gevent.monkey.patch_all()` | Patches stdlib (including sqlite3) for greenlet scheduling |
+| WebSocket Lib | flask-sock | Flask route decorator for WebSocket endpoints |
+| Worker Count | `-w 1` (HARD CONSTRAINT) | Single worker required for in-memory ConnectionManager |
+
+### Connection Manager
+
+`api_modular/websocket.py` provides the `ConnectionManager` singleton:
+
+- **Thread-safe** registration, heartbeat tracking, and broadcast
+- **Admin endpoint** `/api/admin/connections` exposes live connection data
+- **Stale detection** identifies connections that miss heartbeat windows
+- **Broadcast** sends JSON messages to all connected clients (dead connections auto-pruned)
+
+### Client Side
+
+`js/websocket.js` provides automatic WebSocket with REST polling fallback:
+
+- 10-second heartbeat interval with activity state reporting
+- Exponential backoff reconnection (1s → 2s → 4s → ... → 30s cap)
+- Falls back to REST polling if WebSocket fails 3 consecutive times
+- Dispatches custom DOM events: `maintenance-announce`, `maintenance-dismiss`, `maintenance-update`
+
+### Proxy Tunneling
+
+`proxy_server.py` detects WebSocket upgrade requests (`Connection: Upgrade` + `Upgrade: websocket`) and tunnels them as raw TCP sockets, bypassing HTTP proxy logic.
+
+---
+
+## Maintenance Scheduling
+
+Automated and manual maintenance with real-time user notification.
+
+### Architecture Overview
+
+```
+Scheduler Daemon ──writes──> maintenance_notifications table
+                                       │
+                          (5s poll by gevent greenlet)
+                                       │
+                              ConnectionManager.broadcast()
+                                       │
+                              WebSocket → Browser
+                                       │
+                              maintenance-banner.js
+```
+
+### Scheduler Daemon
+
+`maintenance_scheduler.py` runs as `audiobook-scheduler.service`:
+
+- Polls `maintenance_windows` table every 60 seconds for due tasks
+- Executes tasks via the plugin registry (`maintenance_tasks/`)
+- Records results in `maintenance_history`
+- Writes notifications to `maintenance_notifications` for WebSocket delivery
+- File lock at `$AUDIOBOOKS_RUN_DIR/maintenance.lock` prevents concurrent execution
+
+### Task Registry
+
+Plugin pattern in `api_modular/maintenance_tasks/`:
+
+- `base.py`: `MaintenanceTask` ABC with `validate()` + `execute()` contract
+- `MaintenanceRegistry`: Auto-discovers task modules via `pkgutil.iter_modules`
+- `@registry.register` decorator for task registration
+
+Built-in tasks: `db_vacuum`, `db_integrity`, `db_backup`, `library_scan`, `hash_verify`
+
+### Notification Bridge
+
+The scheduler daemon and API server are separate processes. The notification queue (`maintenance_notifications` table) bridges them:
+
+1. Scheduler writes notification rows with `delivered = 0`
+2. Gevent greenlet in the API process polls every 5 seconds
+3. Pending notifications are broadcast to all WebSocket clients
+4. Rows marked `delivered = 1` after successful broadcast
+
+### Announcement Banner
+
+`js/maintenance-banner.js` renders on all pages:
+
+- Pulsing red indicator (bottom-right) when announcements are active
+- Expandable panel with neon red 3D text messages
+- SVG Frankenstein knife switch with Web Audio API synthesized sounds
+- Session-scoped dismissal via sessionStorage
+- Keyboard and ARIA accessible
+
+---
+
 ## Systemd Services Reference
 
 All systemd units are located in `systemd/` and installed to `/etc/systemd/system/`.
@@ -891,7 +988,7 @@ All systemd units are located in `systemd/` and installed to `/etc/systemd/syste
 
 | Unit | Type | Purpose |
 |------|------|---------|
-| `audiobook-api.service` | Service | Flask REST API (Waitress server on port 5001) |
+| `audiobook-api.service` | Service | Flask REST API (Gunicorn+gevent on port 5001) |
 | `audiobook-proxy.service` | Service | HTTPS reverse proxy (port 8443 → 5001) |
 | `audiobook-redirect.service` | Service | HTTP→HTTPS redirect (port 8080 → 8443) |
 | `audiobook-converter.service` | Service | AAXC to Opus conversion daemon |
@@ -899,6 +996,7 @@ All systemd units are located in `systemd/` and installed to `/etc/systemd/syste
 | `audiobook-downloader.service` | Service | Audible download daemon |
 | `audiobook-upgrade-helper.service` | Service | Privileged operations helper (runs as root) |
 | `audiobook-shutdown-saver.service` | Service | Saves staging to disk on system shutdown |
+| `audiobook-scheduler.service` | Service | Maintenance task scheduler daemon (croniter-based) |
 
 ### Timer Units
 

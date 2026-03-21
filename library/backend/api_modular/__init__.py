@@ -20,7 +20,7 @@ import os
 import sys
 from pathlib import Path
 
-from flask import Flask, Response
+from flask import Flask, Response, jsonify, request
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -196,92 +196,69 @@ def create_app(
         flask_app.register_blueprint(user_bp)
         flask_app.register_blueprint(admin_activity_bp)
 
-    return flask_app
+    # Maintenance scheduling
+    from .maintenance import maintenance_bp, init_maintenance_routes
+    init_maintenance_routes(database_path)
+    flask_app.register_blueprint(maintenance_bp)
 
+    # WebSocket endpoint (requires geventwebsocket worker)
+    from flask_sock import Sock
+    from .websocket import connection_manager
+    import json as _json
 
-# Note: Global app instance removed to prevent double-registration issues
-# when api_server.py calls create_app(). For backward compatibility,
-# callers should use create_app() directly.
-app = None  # Placeholder for backward compatibility checks
+    sock = Sock(flask_app)
 
-
-def run_server(
-    flask_app: Optional[Flask] = None,
-    port: Optional[int] = None,
-    debug: bool = False,
-    use_waitress: bool = False,
-):
-    """
-    Run the Flask application.
-
-    Args:
-        flask_app: Flask application instance (default: global app)
-        port: Port to run on (default: from config)
-        debug: Enable debug mode
-        use_waitress: Use waitress production server instead of Flask dev server
-    """
-    if flask_app is None:
-        flask_app = app
-    if flask_app is None:
-        raise RuntimeError(
-            "No Flask application provided and global app is not initialized."
-            " Call create_app() first."
+    @sock.route("/api/ws")
+    def ws_handler(ws):
+        """WebSocket handler for heartbeat and push notifications."""
+        auth_enabled = flask_app.config.get("AUTH_ENABLED", False)
+        session_id = request.cookies.get(
+            "audiobooks_session", "anon-" + str(id(ws))
         )
-    port = port or API_PORT
+        username = "anonymous"
 
-    print("Starting Audiobook Library API...")
-    print(f"Database: {flask_app.config.get('DATABASE_PATH', DATABASE_PATH)}")
-    print("\nEndpoints:")
-    print("  GET /api/stats - Library statistics")
-    print("  GET /api/audiobooks - Paginated audiobooks")
-    print("  GET /api/audiobooks/<id> - Single audiobook")
-    print("  GET /api/filters - Available filter options")
-    print("  GET /api/collections - Predefined collections")
-    print("  GET /api/stream/<id> - Stream audiobook file")
-    print("  GET /api/supplements - All supplements")
-    print("  GET /api/supplements/stats - Supplement statistics")
-    print("  GET /api/audiobooks/<id>/supplements - Supplements for audiobook")
-    print("  GET /api/audiobooks/<id>/editions - Editions of a book")
-    print("  GET /api/duplicates - Hash-based duplicates")
-    print("  GET /api/duplicates/by-title - Title-based duplicates")
-    print("  POST /api/supplements/scan - Scan and import supplements")
-    print("  GET /covers/<filename> - Cover images")
-    print("\nExample queries:")
-    print("  /api/audiobooks?page=1&per_page=50")
-    print("  /api/audiobooks?search=tolkien")
-    print("  /api/audiobooks?author=sanderson&sort=duration_hours&order=desc")
-    print()
+        if auth_enabled:
+            user = get_current_user()
+            if user is None:
+                ws.close(1008, "Authentication required")
+                return
+            username = user.username
+            session_id = request.cookies.get("audiobooks_session", session_id)
 
-    if use_waitress:
+        connection_manager.register(session_id, ws, username=username)
+        from .websocket import init_notification_poller
+        init_notification_poller(database_path)
         try:
-            from waitress import serve
+            while True:
+                data = ws.receive(timeout=15)
+                if data is None:
+                    break
+                try:
+                    msg = _json.loads(data)
+                    if msg.get("type") == "heartbeat":
+                        connection_manager.heartbeat(
+                            session_id, state=msg.get("state", "idle")
+                        )
+                except (ValueError, KeyError):
+                    pass
+        except Exception:
+            pass
+        finally:
+            connection_manager.unregister(session_id)
 
-            bind_address = os.environ.get("AUDIOBOOKS_BIND_ADDRESS", "0.0.0.0")
-            print("Running in production mode (waitress)")
-            print(f"Listening on: http://{bind_address}:{port}")
-            print()
-            serve(flask_app, host=bind_address, port=port, threads=16)
-        except ImportError:
-            print("Error: waitress not installed. Install with: pip install waitress")
-            print("Falling back to Flask development server...")
-            print(f"API running on: http://0.0.0.0:{port}")
-            print()
-            flask_app.run(debug=debug, host="0.0.0.0", port=port)
-    else:
-        # Development mode (Flask dev server)
-        print("Running in development mode (Flask dev server)")
-        print(f"API running on: http://0.0.0.0:{port}")
-        print()
-        flask_app.run(debug=debug, host="0.0.0.0", port=port)
+    # Admin connections endpoint
+    @flask_app.route("/api/admin/connections")
+    @admin_if_enabled
+    def get_connections():
+        return jsonify(connection_manager.admin_connections_list())
+
+    return flask_app
 
 
 # Export public API - including backward-compatible names
 __all__ = [
     # Factory functions
     "create_app",
-    "run_server",
-    # Global instances (backward compatibility)
-    "app",
     "get_db",
     "DB_PATH",
     "PROJECT_ROOT",

@@ -58,7 +58,7 @@ services:
       - WEB_PORT=8443
       - API_PORT=5001
       - HTTP_REDIRECT_PORT=8080
-      - AUDIOBOOKS_USE_WAITRESS=true
+      # Gunicorn+geventwebsocket is used automatically (migrated from Waitress in v7.2)
       - HTTP_REDIRECT_ENABLED=true
 
       # Authentication (disabled by default for Docker standalone mode)

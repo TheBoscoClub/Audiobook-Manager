@@ -172,6 +172,7 @@ Web-based audiobook library browser with:
 - **New books marquee** highlighting recently added audiobooks (v6.3+)
 - **Admin activity audit** with filterable log and usage statistics (v6.3+)
 - **Genre management** with bulk add/remove in Back Office (v6.3+)
+- **Maintenance scheduling** with cron-based task automation, real-time WebSocket announcements, and admin dashboard
 
 ## Quick Start
 
@@ -597,7 +598,7 @@ Configuration is loaded from multiple sources in priority order:
 | `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8080) |
 | `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
 | `AUDIOBOOKS_HTTPS_ENABLED` | Enable HTTPS for web server (default: true) |
-| `AUDIOBOOKS_USE_WAITRESS` | Use Waitress WSGI server for production (default: true) |
+| ~~`AUDIOBOOKS_USE_WAITRESS`~~ | Removed in v7.2 — migrated to Gunicorn+geventwebsocket |
 | `AUTH_ENABLED` | Enable authentication for remote access (default: false) |
 | `AUTH_DATABASE` | Auth database path (default: /var/lib/audiobooks/auth.db) |
 | `AUTH_KEY_FILE` | Auth encryption key path (default: /etc/audiobooks/auth.key) |
