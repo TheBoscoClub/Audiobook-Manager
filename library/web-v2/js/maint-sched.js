@@ -351,26 +351,31 @@
     loadHistory();
   }
 
-  // Auto-init when tab becomes visible
-  document.addEventListener("DOMContentLoaded", function () {
-    var observer = new MutationObserver(function () {
-      var section = document.getElementById("maint-sched-section");
-      if (section && section.style.display !== "none") {
-        initMaintSched();
-        observer.disconnect();
-      }
-    });
-    var section = document.getElementById("maint-sched-section");
-    if (section) {
-      observer.observe(section, { attributes: true, attributeFilter: ["style"] });
-    }
-  });
+  // Auto-init when the Maint Sched tab becomes visible.
+  // The tab system uses classList.toggle("active"), not style.display,
+  // so we observe class attribute changes on the section element.
+  var _initialized = false;
 
-  // Also init if directly navigated
-  if (document.readyState === "complete") {
+  function tryInit() {
+    if (_initialized) return;
     var section = document.getElementById("maint-sched-section");
-    if (section && section.style.display !== "none") {
+    if (section && section.classList.contains("active")) {
+      _initialized = true;
       initMaintSched();
     }
   }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var section = document.getElementById("maint-sched-section");
+    if (!section) return;
+
+    // Watch for class changes (tab activation adds/removes "active")
+    var observer = new MutationObserver(function () {
+      tryInit();
+    });
+    observer.observe(section, { attributes: true, attributeFilter: ["class"] });
+
+    // Also check immediately in case the tab is already active
+    tryInit();
+  });
 })();
