@@ -1024,7 +1024,8 @@
                         <label for="maint-schedule-type">Schedule</label>
                         <select id="maint-schedule-type">
                             <option value="once">One-Time</option>
-                            <option value="recurring">Recurring</option>
+                            <option value="recurring">Recurring (preset)</option>
+                            <option value="cron">Cron (advanced)</option>
                         </select>
                     </div>
                     <div id="maint-once-fields" class="maint-form-row">
@@ -1039,23 +1040,29 @@
                         <div class="maint-form-row">
                             <label>Preset</label>
                             <div class="maint-presets">
-                                <label><input type="radio" name="maint-preset" value="daily"> Daily</label>
+                                <label><input type="radio" name="maint-preset" value="daily" checked> Daily</label>
                                 <label><input type="radio" name="maint-preset" value="weekly"> Weekly</label>
                                 <label><input type="radio" name="maint-preset" value="biweekly"> Biweekly</label>
                                 <label><input type="radio" name="maint-preset" value="monthly"> Monthly</label>
-                                <label title="Enter a custom cron expression for fine-grained scheduling"><input type="radio" name="maint-preset" value="custom"> Cron</label>
                             </div>
                         </div>
                         <div class="maint-form-row">
                             <label for="maint-time">Time</label>
                             <input type="time" id="maint-time" value="03:00">
                         </div>
-                        <div id="maint-cron-row" class="maint-form-row" style="display:none;">
+                    </div>
+                    <div id="maint-cron-fields" style="display:none;">
+                        <div class="maint-form-row">
                             <label for="maint-cron-input">Cron Expression</label>
                             <input type="text" id="maint-cron-input" placeholder="0 3 * * *"
-                                title="Min Hour Day-of-Mth Mth Day-of-Week (0=Sunday)">
-                            <small class="maint-help-text">Format: minute hour day-of-month month day-of-week &mdash; e.g. <code>0 3 * * 1</code> = every Monday at 3:00 AM</small>
+                                title="Standard 5-field cron: minute hour day-of-month month day-of-week">
                         </div>
+                        <small class="maint-help-text">
+                            Standard 5-field cron: <code>minute hour day-of-month month day-of-week</code><br>
+                            Examples: <code>0 3 * * *</code> = daily 3 AM &bull;
+                            <code>0 3 * * 1</code> = Mondays 3 AM &bull;
+                            <code>30 2 1,15 * *</code> = 1st &amp; 15th at 2:30 AM
+                        </small>
                     </div>
                     <div class="maint-form-row">
                         <label for="maint-lead-time">Lead Time (hours)</label>
@@ -1290,6 +1297,6 @@
         })();
     </script>
     <script src="js/utilities.js?v=1773686866"></script>
-    <script src="js/maint-sched.js"></script>
+    <script src="js/maint-sched.js?v=1774403200"></script>
 </body>
 </html>

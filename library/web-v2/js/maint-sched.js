@@ -89,17 +89,18 @@
     var val = document.getElementById("maint-schedule-type").value;
     document.getElementById("maint-once-fields").style.display = val === "once" ? "" : "none";
     document.getElementById("maint-recurring-fields").style.display = val === "recurring" ? "" : "none";
+    document.getElementById("maint-cron-fields").style.display = val === "cron" ? "" : "none";
+
+    // Auto-generate cron from preset when switching to recurring
+    if (val === "recurring") {
+      var checked = document.querySelector('input[name="maint-preset"]:checked');
+      if (checked) onPresetChange({ target: checked });
+    }
   }
 
-  // -- Preset to cron --
+  // -- Preset to cron (generates cron expression from friendly presets) --
   function onPresetChange(e) {
     var val = e.target.value;
-    var cronRow = document.getElementById("maint-cron-row");
-    if (val === "custom") {
-      cronRow.style.display = "";
-      return;
-    }
-    cronRow.style.display = "none";
     var timeVal = document.getElementById("maint-time").value || "03:00";
     var parts = timeVal.split(":");
     var h = parseInt(parts[0], 10);
@@ -111,10 +112,12 @@
   function createWindow() {
     var schedType = document.getElementById("maint-schedule-type").value;
     var taskType = document.getElementById("maint-task-type").value;
+    // Map the 3-option UI to the 2-value API (once/recurring)
+    var apiScheduleType = schedType === "once" ? "once" : "recurring";
     var body = {
       name: document.getElementById("maint-name").value.trim(),
       task_type: taskType,
-      schedule_type: schedType,
+      schedule_type: apiScheduleType,
       lead_time_hours: parseInt(document.getElementById("maint-lead-time").value, 10) || 48,
       description: document.getElementById("maint-description").value.trim(),
     };
