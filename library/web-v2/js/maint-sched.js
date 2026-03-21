@@ -85,11 +85,16 @@
   }
 
   // -- Schedule type toggle --
+  function showHide(id, visible) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = visible ? "" : "none";
+  }
+
   function onScheduleTypeChange() {
     var val = document.getElementById("maint-schedule-type").value;
-    document.getElementById("maint-once-fields").style.display = val === "once" ? "" : "none";
-    document.getElementById("maint-recurring-fields").style.display = val === "recurring" ? "" : "none";
-    document.getElementById("maint-cron-fields").style.display = val === "cron" ? "" : "none";
+    showHide("maint-once-fields", val === "once");
+    showHide("maint-recurring-fields", val === "recurring");
+    showHide("maint-cron-fields", val === "cron");
 
     // Auto-generate cron from preset when switching to recurring
     if (val === "recurring") {
