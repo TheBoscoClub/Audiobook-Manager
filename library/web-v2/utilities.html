@@ -1029,7 +1029,10 @@
                     </div>
                     <div id="maint-once-fields" class="maint-form-row">
                         <label for="maint-scheduled-at">Date &amp; Time</label>
-                        <input type="datetime-local" id="maint-scheduled-at" title="Select date and time in your local timezone. Click the calendar icon for a visual picker.">
+                        <div class="maint-datetime-picker">
+                            <input type="datetime-local" id="maint-scheduled-at" title="Select date and time in your local timezone">
+                            <button type="button" class="maint-pick-btn" id="maint-pick-date-btn" title="Open date and time picker">&#128197; Pick</button>
+                        </div>
                         <small class="maint-help-text">Times are in your local timezone and converted automatically.</small>
                     </div>
                     <div id="maint-recurring-fields" style="display:none;">

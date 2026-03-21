@@ -317,6 +317,21 @@
     document.getElementById("maint-create-btn").addEventListener("click", createWindow);
     document.getElementById("maint-send-msg-btn").addEventListener("click", sendMessage);
 
+    // Wire up the "Pick" button to open the native datetime picker
+    var pickBtn = document.getElementById("maint-pick-date-btn");
+    var dateInput = document.getElementById("maint-scheduled-at");
+    if (pickBtn && dateInput) {
+      pickBtn.addEventListener("click", function () {
+        if (typeof dateInput.showPicker === "function") {
+          dateInput.showPicker();
+        } else {
+          // Fallback for older browsers: focus triggers the picker
+          dateInput.focus();
+          dateInput.click();
+        }
+      });
+    }
+
     var presetRadios = document.querySelectorAll('input[name="maint-preset"]');
     for (var i = 0; i < presetRadios.length; i++) {
       presetRadios[i].addEventListener("change", onPresetChange);
