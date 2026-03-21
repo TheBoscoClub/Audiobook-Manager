@@ -310,6 +310,19 @@
     }
   }
 
+  // -- Data fetching --
+
+  function fetchAnnouncements() {
+    fetch("/api/maintenance/announcements", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        currentMessages = data.messages || [];
+        currentWindows = data.windows || [];
+        updateDisplay();
+      })
+      .catch(function () {});
+  }
+
   // -- Init --
 
   function init() {
@@ -327,14 +340,13 @@
     document.addEventListener("maintenance-update", onUpdate);
 
     // Initial fetch for page load (before WebSocket connects)
-    fetch("/api/maintenance/announcements")
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        currentMessages = data.messages || [];
-        currentWindows = data.windows || [];
-        updateDisplay();
-      })
-      .catch(function () {});
+    fetchAnnouncements();
+
+    // Re-fetch when page regains focus (catches announcements sent while
+    // user was on another tab or when WebSocket is not connected)
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) fetchAnnouncements();
+    });
   }
 
   if (document.readyState === "loading") {

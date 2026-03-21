@@ -1028,8 +1028,9 @@
                         </select>
                     </div>
                     <div id="maint-once-fields" class="maint-form-row">
-                        <label for="maint-scheduled-at">Date &amp; Time (UTC)</label>
-                        <input type="datetime-local" id="maint-scheduled-at">
+                        <label for="maint-scheduled-at">Date &amp; Time</label>
+                        <input type="datetime-local" id="maint-scheduled-at" title="Select date and time in your local timezone. Click the calendar icon for a visual picker.">
+                        <small class="maint-help-text">Times are in your local timezone and converted automatically.</small>
                     </div>
                     <div id="maint-recurring-fields" style="display:none;">
                         <div class="maint-form-row">
@@ -1039,7 +1040,7 @@
                                 <label><input type="radio" name="maint-preset" value="weekly"> Weekly</label>
                                 <label><input type="radio" name="maint-preset" value="biweekly"> Biweekly</label>
                                 <label><input type="radio" name="maint-preset" value="monthly"> Monthly</label>
-                                <label><input type="radio" name="maint-preset" value="custom"> Advanced</label>
+                                <label title="Enter a custom cron expression for fine-grained scheduling"><input type="radio" name="maint-preset" value="custom"> Cron</label>
                             </div>
                         </div>
                         <div class="maint-form-row">
@@ -1050,6 +1051,7 @@
                             <label for="maint-cron-input">Cron Expression</label>
                             <input type="text" id="maint-cron-input" placeholder="0 3 * * *"
                                 title="Min Hour Day-of-Mth Mth Day-of-Week (0=Sunday)">
+                            <small class="maint-help-text">Format: minute hour day-of-month month day-of-week &mdash; e.g. <code>0 3 * * 1</code> = every Monday at 3:00 AM</small>
                         </div>
                     </div>
                     <div class="maint-form-row">
