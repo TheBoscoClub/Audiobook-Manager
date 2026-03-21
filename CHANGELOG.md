@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [7.2.0] - 2026-03-21
+
+### Added
+
 - **Maintenance scheduling system**: Cron-based automated task execution with 5 built-in tasks (db_vacuum, db_integrity, db_backup, library_scan, hash_verify)
 - **WebSocket infrastructure**: Migrated from Waitress to Gunicorn+geventwebsocket for real-time bidirectional communication
 - **Maintenance announcement banner**: Pulsing indicator with expandable panel, SVG knife switch dismiss control, Web Audio API synthesized sounds
@@ -22,8 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **API server**: Migrated from Waitress to Gunicorn with `GeventWebSocketWorker` (`-w 1` hard constraint for in-memory connection manager)
 - **Docker entrypoint**: Updated from Waitress to Gunicorn startup
 - **Requirements**: Replaced `waitress` with `gunicorn`, `gevent`, `gevent-websocket`, `flask-sock`, `croniter`
-
-### Fixed
 
 ## [7.1.3.4] - 2026-03-20
 
@@ -2032,7 +2038,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.4...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.0...HEAD
+[7.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.4...v7.2.0
 [7.1.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.3...v7.1.3.4
 [7.1.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.2...v7.1.3.3
 [7.1.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.1...v7.1.3.2
