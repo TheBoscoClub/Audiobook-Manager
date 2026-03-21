@@ -48,6 +48,13 @@ HOP_BY_HOP_HEADERS = {
 }
 
 
+def is_websocket_upgrade(headers):
+    """Detect WebSocket upgrade request."""
+    upgrade = (headers.get("Upgrade", "") or "").lower()
+    connection = (headers.get("Connection", "") or "").lower()
+    return upgrade == "websocket" and "upgrade" in connection
+
+
 class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     """Handler that proxies API requests and serves static files."""
 
@@ -58,6 +65,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         return any(self.path.startswith(p) for p in self.PROXY_PREFIXES)
 
     def do_GET(self):
+        if self._is_proxy_path() and is_websocket_upgrade(self.headers):
+            self._tunnel_websocket()
+            return
         if self._is_proxy_path():
             self.proxy_to_api("GET")
             return
@@ -118,6 +128,67 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             "Content-Range, Accept-Ranges, Content-Length",
         )
         self.end_headers()
+
+    def _tunnel_websocket(self):
+        """Tunnel a WebSocket upgrade request to the API backend via raw TCP."""
+        import socket
+        import select
+
+        # Build raw HTTP upgrade request to forward to backend
+        request_line = f"{self.command} {self.path} HTTP/1.1\r\n"
+        header_lines = ""
+        for key, value in self.headers.items():
+            header_lines += f"{key}: {value}\r\n"
+        header_lines += "\r\n"
+        raw_request = (request_line + header_lines).encode("latin-1")
+
+        try:
+            backend = socket.create_connection(("127.0.0.1", API_PORT), timeout=10)
+        except (socket.error, OSError) as e:
+            self.send_error(503, f"Backend unreachable: {e}")
+            return
+
+        try:
+            backend.sendall(raw_request)
+
+            # Read the upgrade response from backend and forward to client
+            client_sock = self.request  # the raw client socket
+            buf = b""
+            while b"\r\n\r\n" not in buf:
+                chunk = backend.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+
+            # Send the full upgrade response (headers) to client
+            client_sock.sendall(buf)
+
+            # Check if upgrade was accepted (101 Switching Protocols)
+            if not buf.startswith(b"HTTP/1.1 101"):
+                backend.close()
+                return
+
+            # Bidirectional relay: client <-> backend
+            sockets = [client_sock, backend]
+            while True:
+                readable, _, errored = select.select(sockets, [], sockets, 30)
+                if errored:
+                    break
+                if not readable:
+                    break  # timeout
+                for sock in readable:
+                    data = sock.recv(65536)
+                    if not data:
+                        return
+                    target = backend if sock is client_sock else client_sock
+                    target.sendall(data)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            try:
+                backend.close()
+            except Exception:
+                pass
 
     def proxy_to_api(self, method="GET"):
         """Proxy request to Flask API backend."""
