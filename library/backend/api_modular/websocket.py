@@ -8,6 +8,7 @@ Provides real-time bidirectional communication for:
 """
 import json
 import logging
+import sqlite3
 import time
 import threading
 
@@ -107,3 +108,59 @@ class ConnectionManager:
 
 # Singleton instance -- shared across the Flask app
 connection_manager = ConnectionManager()
+
+_poller_started = False
+_db_path_for_poller = None
+
+
+def init_notification_poller(db_path):
+    """Start the notification queue poller greenlet.
+
+    Called once when the first WebSocket connects. Polls
+    maintenance_notifications for pending items every 5 seconds.
+    """
+    global _poller_started, _db_path_for_poller
+    if _poller_started:
+        return
+    _poller_started = True
+    _db_path_for_poller = db_path
+
+    try:
+        import gevent
+    except ImportError:
+        logger.warning("gevent not available; notification polling disabled")
+        return
+
+    def _poll_loop():
+        while True:
+            try:
+                conn = sqlite3.connect(str(_db_path_for_poller))
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    """SELECT id, notification_type, payload
+                       FROM maintenance_notifications
+                       WHERE delivered = 0
+                       ORDER BY created_at ASC"""
+                ).fetchall()
+
+                for row in rows:
+                    try:
+                        payload = json.loads(row["payload"])
+                        payload["type"] = "maintenance_" + row["notification_type"]
+                        connection_manager.broadcast(payload)
+                        conn.execute(
+                            "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?",
+                            (row["id"],),
+                        )
+                    except Exception as e:
+                        logger.error("Failed to deliver notification %d: %s", row["id"], e)
+
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.error("Notification poll error: %s", e)
+
+            gevent.sleep(5)
+
+    gevent.spawn(_poll_loop)
+    logger.info("Notification queue poller started (5s interval)")
