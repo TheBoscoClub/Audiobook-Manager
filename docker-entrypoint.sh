@@ -30,7 +30,6 @@ export SUPPLEMENTS_DIR="${SUPPLEMENTS_DIR:-/supplements}"
 export WEB_PORT="${WEB_PORT:-8443}"
 export API_PORT="${API_PORT:-5001}"
 export HTTP_REDIRECT_PORT="${HTTP_REDIRECT_PORT:-8080}"
-export AUDIOBOOKS_USE_WAITRESS="${AUDIOBOOKS_USE_WAITRESS:-true}"
 export AUDIOBOOKS_BIND_ADDRESS="${AUDIOBOOKS_BIND_ADDRESS:-0.0.0.0}"
 
 # Function to check if audiobooks are mounted
@@ -213,10 +212,10 @@ echo "  Starting services"
 echo -e "==========================================${NC}"
 echo ""
 
-# Start API server with waitress (production WSGI)
-echo -e "Starting API server (waitress) on port ${API_PORT}..."
+# Start API server with gunicorn (production WSGI with WebSocket support)
+echo -e "Starting API server (gunicorn) on port ${API_PORT}..."
 cd /app/backend
-AUDIOBOOKS_USE_WAITRESS=true AUDIOBOOKS_BIND_ADDRESS="${AUDIOBOOKS_BIND_ADDRESS}" python3 api_server.py &
+gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind "${AUDIOBOOKS_BIND_ADDRESS}:${API_PORT}" --timeout 120 --access-logfile - --error-logfile - api_server:app &
 API_PID=$!
 
 # Wait for API to start
@@ -227,7 +226,7 @@ if ! kill -0 $API_PID 2>/dev/null; then
     echo -e "${RED}Error: API server failed to start${NC}"
     echo "Check logs for details"
 else
-    echo -e "  API: ${GREEN}Running on port ${API_PORT}${NC} (waitress)"
+    echo -e "  API: ${GREEN}Running on port ${API_PORT}${NC} (gunicorn)"
 fi
 
 # Wait for API health check

@@ -1496,7 +1496,7 @@ EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer
+Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer audiobook-scheduler.service
 
 [Install]
 WantedBy=multi-user.target
@@ -1510,7 +1510,7 @@ EOF
 
         # Enable the target and all individual services
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer; do
+        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
 
