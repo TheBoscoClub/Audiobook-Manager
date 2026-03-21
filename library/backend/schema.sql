@@ -253,3 +253,65 @@ WHERE asin IS NOT NULL AND asin != '';
 CREATE VIEW IF NOT EXISTS library_audiobooks AS
 SELECT * FROM audiobooks
 WHERE content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL;
+
+-- ================================================================
+-- Maintenance Scheduling Tables
+-- ================================================================
+
+CREATE TABLE IF NOT EXISTS maintenance_windows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    task_type TEXT NOT NULL,
+    task_params TEXT DEFAULT '{}',
+    schedule_type TEXT NOT NULL,
+    cron_expression TEXT,
+    scheduled_at TEXT,
+    next_run_at TEXT,
+    duration_minutes INTEGER DEFAULT 30,
+    lead_time_hours INTEGER DEFAULT 48,
+    status TEXT DEFAULT 'active',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_maint_windows_updated
+    AFTER UPDATE ON maintenance_windows
+    FOR EACH ROW
+BEGIN
+    UPDATE maintenance_windows SET updated_at = datetime('now') WHERE id = NEW.id;
+END;
+
+CREATE TABLE IF NOT EXISTS maintenance_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    dismissed_at TEXT,
+    dismissed_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS maintenance_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    window_id INTEGER NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    status TEXT NOT NULL,
+    result_message TEXT,
+    result_data TEXT DEFAULT '{}',
+    FOREIGN KEY (window_id) REFERENCES maintenance_windows(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS maintenance_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    notification_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    delivered INTEGER DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_maint_windows_next_run ON maintenance_windows(next_run_at);
+CREATE INDEX IF NOT EXISTS idx_maint_windows_status ON maintenance_windows(status);
+CREATE INDEX IF NOT EXISTS idx_maint_messages_active ON maintenance_messages(dismissed_at);
+CREATE INDEX IF NOT EXISTS idx_maint_history_window ON maintenance_history(window_id);
+CREATE INDEX IF NOT EXISTS idx_maint_notifications_pending ON maintenance_notifications(delivered, created_at);
