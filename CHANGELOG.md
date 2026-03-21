@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.2.1] - 2026-03-21
+
+### Fixed
+
+- **Maint Sched tab never initialized**: MutationObserver watched `style` attribute changes but the tab system uses `classList.toggle("active")` — `initMaintSched()` was dead code, so task dropdown was always empty and schedule toggle never worked
+- **Task Type dropdown empty**: Added `credentials: "same-origin"` to all fetch calls, placeholder option, and error state instead of silent `.catch()`
+- **Dates labeled "(UTC)"**: Removed misleading label — `datetime-local` input works in the user's local timezone; added helper text clarifying automatic conversion
+- **Datetime picker not discoverable**: Added explicit "Pick" button calling `showPicker()` and styled `::-webkit-calendar-picker-indicator` with `invert` filter for dark theme visibility
+- **Cron scheduling hidden**: Promoted from buried radio button under Recurring to top-level "Cron (advanced)" dropdown option with inline format examples
+- **Announcement banner not activating**: `sendMessage()` now dispatches `CustomEvent` directly after POST; added `visibilitychange` re-fetch for tab-switch catch-up
+
+### Changed
+
+- **Cache-Control headers**: Proxy now sends `no-cache` for HTML (revalidate each request), `immutable, max-age=1yr` for versioned JS/CSS (`?v=`), `max-age=5min` for unversioned JS/CSS, `max-age=1day` for images/fonts
+- **Cache-busting**: Added `?v=` parameters to all new JS/CSS assets (maint-sched.js, websocket.js, maintenance-banner.js, maintenance-banner.css)
+
 ## [7.2.0] - 2026-03-21
 
 ### Added
@@ -2038,7 +2054,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1...HEAD
+[7.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.0...v7.2.1
 [7.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.4...v7.2.0
 [7.1.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.3...v7.1.3.4
 [7.1.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.2...v7.1.3.3
