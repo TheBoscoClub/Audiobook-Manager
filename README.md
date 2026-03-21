@@ -172,6 +172,7 @@ Web-based audiobook library browser with:
 - **New books marquee** highlighting recently added audiobooks (v6.3+)
 - **Admin activity audit** with filterable log and usage statistics (v6.3+)
 - **Genre management** with bulk add/remove in Back Office (v6.3+)
+- **Maintenance scheduling** with cron-based task automation, real-time WebSocket announcements, and admin dashboard
 
 ## Quick Start
 
