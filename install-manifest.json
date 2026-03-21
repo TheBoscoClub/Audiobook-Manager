@@ -1,6 +1,6 @@
 {
   "name": "audiobooks",
-  "version": "7.1.3.4",
+  "version": "7.2.0",
   "description": "Self-hosted audiobook library browser with conversion, web player, and optional Audible downloading",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
@@ -176,7 +176,7 @@
       "name": "audiobook-api.service",
       "type": "system",
       "expected_state": "active",
-      "description": "API server (Waitress)",
+      "description": "API server (Gunicorn+geventwebsocket)",
       "health_endpoint": "http://localhost:${AUDIOBOOKS_API_PORT:-5001}/health"
     },
     {
@@ -232,6 +232,12 @@
       "type": "system",
       "expected_state": "inactive",
       "description": "Runs upgrade when triggered by path unit (oneshot, normally inactive)"
+    },
+    {
+      "name": "audiobook-scheduler.service",
+      "type": "system",
+      "expected_state": "active",
+      "description": "Maintenance task scheduler daemon"
     },
     {
       "name": "audiobook.target",
