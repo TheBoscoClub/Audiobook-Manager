@@ -3014,6 +3014,42 @@ body.back-office {
     flex-wrap: wrap;
 }
 
+.maint-datetime-picker {
+    display: flex;
+    flex: 1;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.maint-datetime-picker input[type="datetime-local"] {
+    flex: 1;
+}
+
+/* Make the native calendar icon visible on dark themes */
+.maint-datetime-picker input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+    padding: 4px;
+}
+
+.maint-pick-btn {
+    padding: 0.4rem 0.7rem;
+    background: var(--brass-dark, #B8860B);
+    color: var(--office-dark, #1a1208);
+    border: 1px solid var(--brass, #DAA520);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.maint-pick-btn:hover {
+    background: var(--brass, #DAA520);
+    box-shadow: 0 0 6px rgba(218, 165, 32, 0.4);
+}
+
 .maint-help-text {
     width: 100%;
     margin-left: 120px;
