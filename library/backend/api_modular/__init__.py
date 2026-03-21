@@ -196,6 +196,11 @@ def create_app(
         flask_app.register_blueprint(user_bp)
         flask_app.register_blueprint(admin_activity_bp)
 
+    # Maintenance scheduling
+    from .maintenance import maintenance_bp, init_maintenance_routes
+    init_maintenance_routes(database_path)
+    flask_app.register_blueprint(maintenance_bp)
+
     # WebSocket endpoint (requires geventwebsocket worker)
     from flask_sock import Sock
     from .websocket import connection_manager
