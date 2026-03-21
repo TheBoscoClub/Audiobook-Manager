@@ -61,6 +61,43 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     # Paths that get proxied to the Flask API backend
     PROXY_PREFIXES = ("/api/", "/auth/", "/covers/")
 
+    def end_headers(self):
+        """Inject Cache-Control headers for static files.
+
+        Strategy:
+        - HTML: no-cache (revalidate every request; ~200ms conditional GET).
+          HTML files are small and reference versioned JS/CSS via ?v= params,
+          so they must always reflect current asset versions.
+        - JS/CSS with ?v=: immutable, cache for 1 year.  The ?v= param changes
+          on each release, busting the cache automatically.
+        - JS/CSS without ?v=: short cache (5 min) to avoid stale scripts
+          while still reducing repeat requests.
+        - Images/fonts: cache for 1 day.
+        - API responses: not touched here (proxied responses have their own
+          headers from Flask).
+        """
+        from urllib.parse import urlparse
+
+        parsed = urlparse(self.path)
+        path = parsed.path.lower()
+        has_version = "v=" in (parsed.query or "")
+
+        # Only set cache headers for static file responses (not proxied API)
+        if not any(self.path.startswith(p) for p in self.PROXY_PREFIXES):
+            if path.endswith(".html") or path == "/":
+                self.send_header("Cache-Control", "no-cache")
+            elif (path.endswith(".js") or path.endswith(".css")) and has_version:
+                self.send_header("Cache-Control",
+                                 "public, max-age=31536000, immutable")
+            elif path.endswith(".js") or path.endswith(".css"):
+                self.send_header("Cache-Control", "public, max-age=300")
+            elif any(path.endswith(ext) for ext in
+                     (".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+                      ".woff", ".woff2", ".ttf", ".eot")):
+                self.send_header("Cache-Control", "public, max-age=86400")
+
+        super().end_headers()
+
     def _is_proxy_path(self):
         return any(self.path.startswith(p) for p in self.PROXY_PREFIXES)
 
