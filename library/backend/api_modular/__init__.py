@@ -226,6 +226,8 @@ def create_app(
             session_id = request.cookies.get("audiobooks_session", session_id)
 
         connection_manager.register(session_id, ws, username=username)
+        from .websocket import init_notification_poller
+        init_notification_poller(database_path)
         try:
             while True:
                 data = ws.receive(timeout=15)
