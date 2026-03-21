@@ -2329,6 +2329,44 @@ let activityOffset = 0;
 const ACTIVITY_PAGE_SIZE = 25;
 
 function initActivitySection() {
+  // Load live connections count
+  fetch("/api/admin/connections")
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var container = document.getElementById("activity-connections");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "activity-connections";
+        container.className = "connections-card";
+        var actSection = document.getElementById("activity-section");
+        if (actSection) {
+          var sectionHeader = actSection.querySelector(".section-header");
+          if (sectionHeader && sectionHeader.nextSibling) {
+            actSection.insertBefore(container, sectionHeader.nextSibling);
+          } else {
+            actSection.insertBefore(container, actSection.firstChild);
+          }
+        }
+      }
+      while (container.firstChild) container.removeChild(container.firstChild);
+
+      var heading = document.createElement("h3");
+      heading.textContent = "Live Connections: " + data.count;
+      container.appendChild(heading);
+
+      if (data.users && data.users.length > 0) {
+        var ul = document.createElement("ul");
+        ul.className = "connections-list";
+        data.users.forEach(function (u) {
+          var li = document.createElement("li");
+          li.textContent = u.username + " (" + u.state + ")";
+          ul.appendChild(li);
+        });
+        container.appendChild(ul);
+      }
+    })
+    .catch(function () {});
+
   // Filter controls
   document
     .getElementById("activity-filter-apply")

@@ -2995,3 +2995,121 @@ body.back-office {
         gap: 0.4rem;
     }
 }
+
+/* Maint Sched tab */
+.maint-form-card,
+.maint-section-card {
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.maint-form-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.maint-form-row label {
+    min-width: 120px;
+    font-weight: 600;
+}
+
+.maint-form-row input,
+.maint-form-row select {
+    flex: 1;
+    padding: 0.4rem;
+    background: var(--input-bg, #0d0d1a);
+    color: var(--text-color, #e0e0e0);
+    border: 1px solid var(--border-color, #444);
+    border-radius: 4px;
+}
+
+.maint-presets {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.maint-presets label {
+    min-width: auto;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.maint-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.maint-table th,
+.maint-table td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color, #333);
+}
+
+.maint-table th {
+    font-weight: 600;
+    color: var(--heading-color, #d4af37);
+}
+
+.office-btn-sm {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+    margin-left: 0.25rem;
+}
+
+.office-btn-danger {
+    background: #8B0000;
+}
+
+.office-btn-danger:hover {
+    background: #a00;
+}
+
+.maint-message-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border-color, #222);
+}
+
+.maint-message-item.dismissed {
+    opacity: 0.4;
+    text-decoration: line-through;
+}
+
+.maint-status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.maint-status-success { background: #1a3a1a; color: #4caf50; }
+.maint-status-failure { background: #3a1a1a; color: #f44336; }
+.maint-status-running { background: #1a2a3a; color: #2196f3; }
+.maint-status-cancelled { background: #2a2a1a; color: #ff9800; }
+
+.connections-card {
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.connections-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0 0;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
