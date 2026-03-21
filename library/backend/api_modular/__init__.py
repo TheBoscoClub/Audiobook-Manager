@@ -196,6 +196,55 @@ def create_app(
         flask_app.register_blueprint(user_bp)
         flask_app.register_blueprint(admin_activity_bp)
 
+    # WebSocket endpoint (requires geventwebsocket worker)
+    from flask_sock import Sock
+    from .websocket import connection_manager
+    import json as _json
+
+    sock = Sock(flask_app)
+
+    @sock.route("/api/ws")
+    def ws_handler(ws):
+        """WebSocket handler for heartbeat and push notifications."""
+        auth_enabled = flask_app.config.get("AUTH_ENABLED", False)
+        session_id = request.cookies.get(
+            "audiobooks_session", "anon-" + str(id(ws))
+        )
+        username = "anonymous"
+
+        if auth_enabled:
+            user = get_current_user()
+            if user is None:
+                ws.close(1008, "Authentication required")
+                return
+            username = user.username
+            session_id = request.cookies.get("audiobooks_session", session_id)
+
+        connection_manager.register(session_id, ws, username=username)
+        try:
+            while True:
+                data = ws.receive(timeout=15)
+                if data is None:
+                    break
+                try:
+                    msg = _json.loads(data)
+                    if msg.get("type") == "heartbeat":
+                        connection_manager.heartbeat(
+                            session_id, state=msg.get("state", "idle")
+                        )
+                except (ValueError, KeyError):
+                    pass
+        except Exception:
+            pass
+        finally:
+            connection_manager.unregister(session_id)
+
+    # Admin connections endpoint
+    @flask_app.route("/api/admin/connections")
+    @admin_if_enabled
+    def get_connections():
+        return jsonify(connection_manager.admin_connections_list())
+
     return flask_app
 
 
