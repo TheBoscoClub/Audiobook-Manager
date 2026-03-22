@@ -1383,6 +1383,34 @@ do_upgrade() {
             fi
         fi
 
+        # Sync Caddy files if Caddy is installed
+        if command -v caddy &>/dev/null && [[ -d "${project}/caddy" ]]; then
+            echo -e "${BLUE}Upgrading Caddy maintenance page...${NC}"
+            local caddy_changed=false
+            for caddy_file in audiobooks.conf maintenance.html; do
+                local src="${project}/caddy/${caddy_file}"
+                local dst
+                if [[ "$caddy_file" == "audiobooks.conf" ]]; then
+                    dst="/etc/caddy/conf.d/audiobooks.conf"
+                else
+                    dst="/etc/caddy/${caddy_file}"
+                fi
+                if [[ -f "$src" ]] && ! diff -q "$src" "$dst" &>/dev/null; then
+                    if [[ "$DRY_RUN" == "true" ]]; then
+                        echo "  [DRY-RUN] Would update: $caddy_file"
+                    else
+                        sudo mkdir -p "$(dirname "$dst")"
+                        sudo cp -f "$src" "$dst"
+                        caddy_changed=true
+                        echo "  Updated: $caddy_file"
+                    fi
+                fi
+            done
+            if [[ "$caddy_changed" == "true" ]]; then
+                sudo systemctl reload caddy 2>/dev/null || true
+            fi
+        fi
+
         # Reload systemd to pick up changes
         if [[ "$DRY_RUN" == "false" ]]; then
             sudo systemctl daemon-reload
