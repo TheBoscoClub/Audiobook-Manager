@@ -446,7 +446,7 @@ class TestStartUpgrade:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade",
-                json={"source": "github"},
+                json={"source": "github", "force": True},
             )
 
         assert response.status_code == 200
@@ -504,7 +504,11 @@ class TestStartUpgrade:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade",
-                json={"source": "project", "project_path": str(temp_dir)},
+                json={
+                    "source": "project",
+                    "project_path": str(temp_dir),
+                    "force": True,
+                },
             )
 
         assert response.status_code == 200
