@@ -122,12 +122,17 @@ _SERVICES_STOPPED=false
 _SERVICES_USE_SUDO=""
 _cleanup_on_exit() {
     if [[ "$_SERVICES_STOPPED" == "true" ]]; then
-        echo ""
-        echo -e "${YELLOW}Script exited before services were restarted — restarting now...${NC}"
-        start_services "$_SERVICES_USE_SUDO" 2>/dev/null || {
-            echo -e "${RED}CRITICAL: Failed to restart services. Run manually:${NC}"
-            echo -e "${RED}  sudo systemctl start audiobook-api audiobook-proxy${NC}"
-        }
+        if [[ "$SKIP_SERVICE_LIFECYCLE" == "true" ]]; then
+            echo ""
+            echo -e "${YELLOW}Services were stopped but --skip-service-lifecycle is set — leaving restart to caller.${NC}"
+        else
+            echo ""
+            echo -e "${YELLOW}Script exited before services were restarted — restarting now...${NC}"
+            start_services "$_SERVICES_USE_SUDO" 2>/dev/null || {
+                echo -e "${RED}CRITICAL: Failed to restart services. Run manually:${NC}"
+                echo -e "${RED}  sudo systemctl start audiobook-api audiobook-proxy${NC}"
+            }
+        fi
     fi
 }
 trap _cleanup_on_exit EXIT
@@ -149,6 +154,7 @@ REMOTE_HOST=""        # Remote host for SSH-based deployment
 REMOTE_USER="claude"  # SSH username for remote deployment
 AUTO_YES=false        # Skip confirmation prompts (--yes/-y)
 MAJOR_VERSION=false   # Force venv rebuild + config migration + service enablement
+SKIP_SERVICE_LIFECYCLE=false  # Internal: caller (upgrade-helper) manages service start/stop
 
 # GitHub configuration (loaded from .release-info or defaults)
 GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
@@ -517,6 +523,16 @@ create_backup() {
     fi
 
     echo -e "${GREEN}  Backup created successfully${NC}"
+
+    # Rolling retention: keep last 5 backups, delete older ones
+    local -a backups
+    mapfile -t backups < <(ls -1dt "${target}.backup."* 2>/dev/null)
+    if (( ${#backups[@]} > 5 )); then
+        for old_backup in "${backups[@]:5}"; do
+            echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
+            rm -rf "$old_backup"
+        done
+    fi
 }
 
 check_for_updates() {
@@ -931,6 +947,238 @@ audit_and_cleanup() {
 }
 
 # -----------------------------------------------------------------------------
+# Preflight Check System
+# -----------------------------------------------------------------------------
+
+generate_preflight() {
+    # Generate a preflight report for the pending upgrade.
+    # Writes JSON to ${AUDIOBOOKS_VAR_DIR}/.control/upgrade-preflight.json.
+    # Called during --check mode and before the main upgrade begins.
+    #
+    # Arguments:
+    #   $1 - project dir (source)
+    #   $2 - target dir (installed)
+    local project="${1:-$PROJECT_DIR}"
+    local target="${2:-$TARGET_DIR}"
+
+    local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+    local control_dir="${var_dir}/.control"
+    local preflight_file="${control_dir}/upgrade-preflight.json"
+
+    # Determine versions
+    local current_version
+    current_version=$(get_version "$target")
+    local target_version
+    target_version=$(get_version "$project")
+
+    # Determine upgrade source identifier
+    local source_id
+    if [[ "$UPGRADE_SOURCE" == "github" ]]; then
+        source_id="github:${REQUESTED_VERSION:-latest}"
+    else
+        source_id="project:${project}"
+    fi
+
+    # Determine if this is a major version bump (first digit change)
+    local is_major="false"
+    local cur_major
+    cur_major=$(echo "$current_version" | cut -d. -f1)
+    local new_major
+    new_major=$(echo "$target_version" | cut -d. -f1)
+    if [[ "$cur_major" != "$new_major" ]] && [[ "$cur_major" != "unknown" ]] && [[ "$new_major" != "unknown" ]]; then
+        is_major="true"
+    fi
+
+    # Detect if venv rebuild is needed (major version or requirements.txt changed)
+    local venv_rebuild_needed="false"
+    if [[ "$is_major" == "true" ]] || [[ "$MAJOR_VERSION" == "true" ]]; then
+        venv_rebuild_needed="true"
+    elif [[ -f "${project}/library/requirements.txt" ]] && [[ -f "${target}/library/requirements.txt" ]]; then
+        if ! diff -q "${project}/library/requirements.txt" "${target}/library/requirements.txt" >/dev/null 2>&1; then
+            venv_rebuild_needed="true"
+        fi
+    fi
+
+    # Detect config changes (new keys in audiobooks.conf template)
+    local config_changes="false"
+    if [[ -d "${project}/config-migrations" ]]; then
+        local migration_count
+        migration_count=$(find "${project}/config-migrations" -name "*.sh" 2>/dev/null | wc -l)
+        if [[ "$migration_count" -gt 0 ]]; then
+            config_changes="true"
+        fi
+    fi
+
+    # Detect new systemd services in project vs installed
+    local new_services="[]"
+    if [[ -d "${project}/systemd" ]] && [[ -d "${target}/systemd" ]]; then
+        local new_svc_list=""
+        for svc in "${project}/systemd/"*.service; do
+            [[ -f "$svc" ]] || continue
+            local svc_name
+            svc_name=$(basename "$svc")
+            if [[ ! -f "${target}/systemd/${svc_name}" ]]; then
+                new_svc_list="${new_svc_list}\"${svc_name}\","
+            fi
+        done
+        if [[ -n "$new_svc_list" ]]; then
+            new_services="[${new_svc_list%,}]"
+        fi
+    fi
+
+    # Count changed files (rough estimate from library and scripts)
+    local files_changed=0
+    for check_dir in "library" "scripts"; do
+        if [[ -d "${project}/${check_dir}" ]] && [[ -d "${target}/${check_dir}" ]]; then
+            local changed
+            changed=$(diff -rq --exclude="*.pyc" --exclude="__pycache__" \
+                "${project}/${check_dir}" "${target}/${check_dir}" 2>/dev/null | wc -l || echo "0")
+            files_changed=$(( files_changed + changed ))
+        fi
+    done
+
+    # Collect warnings
+    local warnings="[]"
+    local warn_list=""
+    if [[ "$is_major" == "true" ]]; then
+        warn_list="${warn_list}\"Major version upgrade — manual review recommended\","
+    fi
+
+    # Check disk space: estimate 200MB needed for upgrade
+    local disk_free_kb
+    disk_free_kb=$(df -k "$target" 2>/dev/null | awk 'NR==2{print $4}' || echo "999999")
+    if [[ "$disk_free_kb" -lt 204800 ]]; then
+        warn_list="${warn_list}\"Low disk space: ${disk_free_kb}KB free at ${target}\","
+    fi
+
+    if [[ -n "$warn_list" ]]; then
+        warnings="[${warn_list%,}]"
+    fi
+
+    # Ensure control directory exists
+    if [[ ! -d "$control_dir" ]]; then
+        if [[ ! -w "$var_dir" ]]; then
+            sudo mkdir -p "$control_dir"
+            sudo chown audiobooks:audiobooks "$control_dir" 2>/dev/null || true
+        else
+            mkdir -p "$control_dir"
+        fi
+    fi
+
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    # Write JSON report using printf (no jq dependency)
+    local tmp_file
+    tmp_file=$(mktemp)
+    printf '{
+  "timestamp": "%s",
+  "source": "%s",
+  "current_version": "%s",
+  "target_version": "%s",
+  "is_major": %s,
+  "venv_rebuild_needed": %s,
+  "config_changes": %s,
+  "new_services": %s,
+  "files_changed": %d,
+  "warnings": %s
+}\n' \
+        "$timestamp" \
+        "$source_id" \
+        "$current_version" \
+        "$target_version" \
+        "$is_major" \
+        "$venv_rebuild_needed" \
+        "$config_changes" \
+        "$new_services" \
+        "$files_changed" \
+        "$warnings" > "$tmp_file"
+
+    if [[ ! -w "$control_dir" ]]; then
+        sudo mv "$tmp_file" "$preflight_file"
+        sudo chown audiobooks:audiobooks "$preflight_file" 2>/dev/null || true
+        sudo chmod 644 "$preflight_file"
+    else
+        mv "$tmp_file" "$preflight_file"
+        chmod 644 "$preflight_file"
+    fi
+
+    echo -e "${BLUE}Preflight report written: $preflight_file${NC}"
+    echo "  Source:          $source_id"
+    echo "  Current version: $current_version"
+    echo "  Target version:  $target_version"
+    echo "  Major upgrade:   $is_major"
+    echo "  Venv rebuild:    $venv_rebuild_needed"
+    echo "  Config changes:  $config_changes"
+    echo "  Files changed:   $files_changed"
+    if [[ "$warnings" != "[]" ]]; then
+        echo -e "  ${YELLOW}Warnings: $warnings${NC}"
+    fi
+}
+
+validate_preflight() {
+    # Validate the preflight report before proceeding with an upgrade.
+    # Returns 0 (valid/proceed) or 1 (invalid — caller should abort or re-run check).
+    #
+    # Arguments:
+    #   $1 - project dir (source), used to verify source matches
+    local project="${1:-$PROJECT_DIR}"
+
+    # --force bypasses preflight validation (but NOT backup)
+    if [[ "$FORCE" == "true" ]]; then
+        echo -e "${YELLOW}Warning: --force specified — skipping preflight validation.${NC}"
+        return 0
+    fi
+
+    local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+    local preflight_file="${var_dir}/.control/upgrade-preflight.json"
+
+    # Check file exists
+    if [[ ! -f "$preflight_file" ]]; then
+        echo -e "${RED}Preflight check required before upgrade.${NC}"
+        echo "Run: ./upgrade.sh --check --from-project $project --target $TARGET_DIR"
+        echo "Then re-run the upgrade."
+        return 1
+    fi
+
+    # Check timestamp freshness (< 30 minutes)
+    local file_mtime
+    file_mtime=$(stat -c %Y "$preflight_file" 2>/dev/null || echo "0")
+    local now
+    now=$(date +%s)
+    local age_seconds=$(( now - file_mtime ))
+    local max_age=1800  # 30 minutes
+
+    if [[ "$age_seconds" -gt "$max_age" ]]; then
+        echo -e "${RED}Preflight report is stale (${age_seconds}s old, max ${max_age}s).${NC}"
+        echo "Re-run: ./upgrade.sh --check --from-project $project --target $TARGET_DIR"
+        return 1
+    fi
+
+    # Check source matches current request
+    local expected_source
+    if [[ "$UPGRADE_SOURCE" == "github" ]]; then
+        expected_source="github:${REQUESTED_VERSION:-latest}"
+    else
+        expected_source="project:${project}"
+    fi
+
+    local recorded_source
+    recorded_source=$(grep -oP '"source":\s*"\K[^"]+' "$preflight_file" 2>/dev/null || echo "")
+
+    if [[ "$recorded_source" != "$expected_source" ]]; then
+        echo -e "${RED}Preflight source mismatch.${NC}"
+        echo "  Expected: $expected_source"
+        echo "  Recorded: $recorded_source"
+        echo "Re-run: ./upgrade.sh --check --from-project $project --target $TARGET_DIR"
+        return 1
+    fi
+
+    echo -e "${GREEN}Preflight validated (${age_seconds}s old, source: $recorded_source)${NC}"
+    return 0
+}
+
+# -----------------------------------------------------------------------------
 # Core Upgrade
 # -----------------------------------------------------------------------------
 
@@ -1132,6 +1380,34 @@ do_upgrade() {
                     sudo chmod 775 "${var_dir}/.run" "$staging"
                 }
                 echo "  Updated: tmpfiles.d/audiobooks.conf"
+            fi
+        fi
+
+        # Sync Caddy files if Caddy is installed
+        if command -v caddy &>/dev/null && [[ -d "${project}/caddy" ]]; then
+            echo -e "${BLUE}Upgrading Caddy maintenance page...${NC}"
+            local caddy_changed=false
+            for caddy_file in audiobooks.conf maintenance.html; do
+                local src="${project}/caddy/${caddy_file}"
+                local dst
+                if [[ "$caddy_file" == "audiobooks.conf" ]]; then
+                    dst="/etc/caddy/conf.d/audiobooks.conf"
+                else
+                    dst="/etc/caddy/${caddy_file}"
+                fi
+                if [[ -f "$src" ]] && ! diff -q "$src" "$dst" &>/dev/null; then
+                    if [[ "$DRY_RUN" == "true" ]]; then
+                        echo "  [DRY-RUN] Would update: $caddy_file"
+                    else
+                        sudo mkdir -p "$(dirname "$dst")"
+                        sudo cp -f "$src" "$dst"
+                        caddy_changed=true
+                        echo "  Updated: $caddy_file"
+                    fi
+                fi
+            done
+            if [[ "$caddy_changed" == "true" ]]; then
+                sudo systemctl reload caddy 2>/dev/null || true
             fi
         fi
 
@@ -1885,25 +2161,25 @@ do_github_upgrade() {
         echo ""
     fi
 
-    # Create backup if requested
-    if [[ "$CREATE_BACKUP" == "true" ]]; then
-        create_backup "$target"
-        echo ""
-    fi
-
     # Determine if we need sudo
     local use_sudo=""
     if [[ ! -w "$target" ]]; then
         use_sudo="sudo"
     fi
 
+    # Always create backup before upgrade (rolling retention: last 5 kept)
+    create_backup "$target"
+    echo ""
+
     # Backup auth database before any changes
     backup_auth_db "$target" "$use_sudo"
 
     # Stop services before upgrade (trap ensures restart on failure)
     _SERVICES_USE_SUDO="$use_sudo"
-    stop_services "$use_sudo"
-    _SERVICES_STOPPED=true
+    if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
+        stop_services "$use_sudo"
+        _SERVICES_STOPPED=true
+    fi
     echo ""
 
     # Use the existing do_upgrade function with the extracted release
@@ -1912,8 +2188,10 @@ do_github_upgrade() {
     echo ""
 
     # Start services after upgrade
-    start_services "$use_sudo"
-    _SERVICES_STOPPED=false
+    if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
+        start_services "$use_sudo"
+        _SERVICES_STOPPED=false
+    fi
 
     # Validate auth database post-upgrade
     validate_auth_post_upgrade "$target"
@@ -1955,6 +2233,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --backup)
+            # Backup now runs unconditionally on every upgrade; this flag is a no-op
+            # kept for backwards compatibility.
             CREATE_BACKUP=true
             shift
             ;;
@@ -1988,6 +2268,12 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dry-run)
             DRY_RUN=true
+            shift
+            ;;
+        --skip-service-lifecycle)
+            # Internal flag: upgrade-helper-process manages service start/stop.
+            # Not shown in --help — callers must know this flag explicitly.
+            SKIP_SERVICE_LIFECYCLE=true
             shift
             ;;
         --help|-h)
@@ -2093,11 +2379,23 @@ if ! check_for_updates "$PROJECT_DIR" "$TARGET_DIR"; then
 fi
 
 if [[ "$CHECK_ONLY" == "true" ]]; then
+    # Generate preflight report during --check so the upgrade can proceed without re-running
+    generate_preflight "$PROJECT_DIR" "$TARGET_DIR"
     exit 0
 fi
 
 echo ""
 [[ "$DRY_RUN" == "true" ]] && echo -e "${YELLOW}=== DRY RUN MODE ===${NC}" && echo ""
+
+# Validate preflight report before proceeding (--force bypasses)
+if [[ "$DRY_RUN" == "false" ]]; then
+    if ! validate_preflight "$PROJECT_DIR"; then
+        echo ""
+        echo -e "${YELLOW}Tip: Run with --force to skip preflight validation (not recommended).${NC}"
+        exit 1
+    fi
+    echo ""
+fi
 
 # Confirm upgrade
 if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
@@ -2109,11 +2407,15 @@ if [[ "$DRY_RUN" == "false" ]] && [[ "$AUTO_YES" != "true" ]]; then
     echo ""
 fi
 
-# Create backup if requested
-if [[ "$CREATE_BACKUP" == "true" ]]; then
-    create_backup "$TARGET_DIR"
-    echo ""
+# Re-run preflight to detect drift between --check and upgrade execution
+# (catches cases where files changed or a different version was deployed in the gap)
+if [[ "$DRY_RUN" == "false" ]] && [[ "$FORCE" != "true" ]]; then
+    generate_preflight "$PROJECT_DIR" "$TARGET_DIR"
 fi
+
+# Always create backup before upgrade (rolling retention: last 5 kept)
+create_backup "$TARGET_DIR"
+echo ""
 
 # Determine if we need sudo for service operations
 use_sudo=""
@@ -2126,8 +2428,10 @@ backup_auth_db "$TARGET_DIR" "$use_sudo"
 
 # Stop services before upgrade (trap ensures restart on failure)
 _SERVICES_USE_SUDO="$use_sudo"
-stop_services "$use_sudo"
-_SERVICES_STOPPED=true
+if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
+    stop_services "$use_sudo"
+    _SERVICES_STOPPED=true
+fi
 echo ""
 
 # Perform upgrade
@@ -2135,8 +2439,10 @@ do_upgrade "$PROJECT_DIR" "$TARGET_DIR"
 
 # Start services after upgrade
 echo ""
-start_services "$use_sudo"
-_SERVICES_STOPPED=false
+if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
+    start_services "$use_sudo"
+    _SERVICES_STOPPED=false
+fi
 
 # Validate auth database post-upgrade
 validate_auth_post_upgrade "$TARGET_DIR"

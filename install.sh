@@ -1548,6 +1548,16 @@ EOF
             echo "  Created: /var/lib/audiobooks/.control, /var/lib/audiobooks/.run, /tmp/audiobook-staging"
         fi
 
+        # Install Caddy maintenance page (if Caddy is installed)
+        if command -v caddy &>/dev/null; then
+            echo -e "${BLUE}Installing Caddy maintenance page configuration...${NC}"
+            sudo mkdir -p /etc/caddy/conf.d
+            sudo cp -f "${SCRIPT_DIR}/caddy/audiobooks.conf" /etc/caddy/conf.d/audiobooks.conf
+            sudo cp -f "${SCRIPT_DIR}/caddy/maintenance.html" /etc/caddy/maintenance.html
+            sudo systemctl reload caddy 2>/dev/null || true
+            echo "  Installed: Caddy reverse proxy config and maintenance page"
+        fi
+
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
         if [[ -f "${SYSTEMD_DIR}/audiobook-upgrade-helper.path" ]]; then
             echo -e "${BLUE}Enabling privileged operations helper...${NC}"

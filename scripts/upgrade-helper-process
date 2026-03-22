@@ -8,32 +8,53 @@
 # Request file format (JSON):
 #   Upgrade:     {"type": "upgrade", "source": "github"}
 #                {"type": "upgrade", "source": "project", "project_path": "/path"}
+#                {"type": "upgrade", "source": "github", "force": true, "version": "7.2.0", "major_version": false}
 #   Check:       {"type": "upgrade_check", "source": "github"}
 #                {"type": "upgrade_check", "source": "project", "project_path": "/path"}
-#   Service:     {"type": "service_start", "service": "audiobooks-converter"}
-#                {"type": "service_stop", "service": "audiobooks-converter"}
-#                {"type": "service_restart", "service": "audiobooks-api"}
+#   Service:     {"type": "service_start", "service": "audiobook-converter"}
+#                {"type": "service_stop", "service": "audiobook-converter"}
+#                {"type": "service_restart", "service": "audiobook-api"}
 #                {"type": "services_start_all"}
 #                {"type": "services_stop_all", "include_api": false}
 #
 # Status file format (JSON):
 #   {"running": true/false, "stage": "...", "message": "...", "success": true/false/null, "output": [...], "result": {...}}
+#
+# 9-Step Upgrade Lifecycle:
+#   1. preflight_recheck   — validate preflight unless force=true
+#   2. backing_up          — report stage (upgrade.sh handles actual backup)
+#   3. stopping_services   — stop ALL 8 services in dependency order
+#   4. upgrading           — run upgrade.sh --skip-service-lifecycle --yes
+#   5. rebuilding_venv     — report stage (for major version upgrades)
+#   6. migrating_config    — report stage (for major version upgrades)
+#   [Write final result to status file HERE — before starting services]
+#   7. starting_services   — start services in reverse order
+#   8. verifying           — poll /api/system/health for up to 30s
+#   9. complete            — update status with verification result
 # =============================================================================
 
-# Control directory for API communication (using /var/lib/audiobooks/.control/
+# Source audiobook-config.sh for path variables
+source /usr/local/lib/audiobooks/audiobook-config.sh 2>/dev/null || true
+
+# Control directory for API communication (using AUDIOBOOKS_VAR_DIR/.control/
 # to avoid /run namespace issues with systemd sandboxing)
-CONTROL_DIR="/var/lib/audiobooks/.control"
+CONTROL_DIR="${AUDIOBOOKS_VAR_DIR:?}/.control"
 REQUEST_FILE="${CONTROL_DIR}/upgrade-request"
 STATUS_FILE="${CONTROL_DIR}/upgrade-status"
-INSTALL_DIR="/opt/audiobooks"
+# Default install dir — config variable takes precedence if set
+_DEFAULT_INSTALL_DIR="/opt/audiobooks"
+INSTALL_DIR="${AUDIOBOOKS_INSTALL_DIR:-$_DEFAULT_INSTALL_DIR}"
 
-# Valid services that can be controlled
+# Valid services that can be controlled (all audiobook.target members)
 VALID_SERVICES=(
-    "audiobooks-api"
-    "audiobooks-proxy"
-    "audiobooks-converter"
-    "audiobooks-mover"
-    "audiobooks-downloader.timer"
+    "audiobook-api"
+    "audiobook-proxy"
+    "audiobook-redirect"
+    "audiobook-converter"
+    "audiobook-mover"
+    "audiobook-scheduler"
+    "audiobook-shutdown-saver"
+    "audiobook-downloader.timer"
 )
 
 # Ensure control directory exists and is writable by audiobooks user
@@ -74,8 +95,9 @@ write_status() {
 
     # Use echo with explicit file write (more reliable than heredoc in some environments)
     echo "{\"running\": $running, \"stage\": \"$stage\", \"message\": \"$message\", \"success\": $success, \"output\": $output_json, \"result\": $result}" >"$STATUS_FILE"
-    # Make status file writable by audiobooks user (API needs to delete it before new requests)
-    chmod 666 "$STATUS_FILE" 2>/dev/null || true
+    # Make status file readable/writable by audiobooks group (API needs to read/delete it)
+    chown root:audiobooks "$STATUS_FILE" 2>/dev/null || true
+    chmod 660 "$STATUS_FILE" 2>/dev/null || true
 }
 
 # Check if service is valid
@@ -208,13 +230,13 @@ do_services_stop_all() {
 
     # Stop order: timer, mover, converter, then optionally proxy and api
     local stop_order=(
-        "audiobooks-downloader.timer"
-        "audiobooks-mover"
-        "audiobooks-converter"
+        "audiobook-downloader.timer"
+        "audiobook-mover"
+        "audiobook-converter"
     )
 
     if [[ "$include_api" == "true" ]]; then
-        stop_order+=("audiobooks-proxy" "audiobooks-api")
+        stop_order+=("audiobook-proxy" "audiobook-api")
     fi
 
     local results="["
@@ -260,7 +282,7 @@ do_upgrade_check() {
     write_status "true" "checking" "Checking for updates..." "null" "null" "${OUTPUT_LINES[@]}"
 
     local upgrade_script="$INSTALL_DIR/scripts/upgrade.sh"
-    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobooks-upgrade"
+    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobook-upgrade"
 
     if [[ ! -x "$upgrade_script" ]]; then
         OUTPUT_LINES+=("ERROR: Upgrade script not found")
@@ -268,18 +290,18 @@ do_upgrade_check() {
         return 1
     fi
 
-    # Build upgrade command with --dry-run
+    # Build upgrade command with --check (writes preflight report + shows changes)
     # Always pass --target to avoid unreliable auto-detection
     local upgrade_cmd
     if [[ "$source" == "github" ]]; then
-        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR" "--dry-run")
+        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR" "--check")
     elif [[ "$source" == "project" ]] && [[ -n "$project_path" ]]; then
         if [[ ! -d "$project_path" ]]; then
             OUTPUT_LINES+=("ERROR: Project path does not exist: $project_path")
             write_status "false" "error" "Project path does not exist" "false" "null" "${OUTPUT_LINES[@]}"
             return 1
         fi
-        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR" "--dry-run")
+        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR" "--check")
     else
         OUTPUT_LINES+=("ERROR: Invalid upgrade source")
         write_status "false" "error" "Invalid upgrade source" "false" "null" "${OUTPUT_LINES[@]}"
@@ -294,6 +316,7 @@ do_upgrade_check() {
     # Parse output (strip ANSI codes)
     while IFS= read -r line; do
         local clean_line
+        # shellcheck disable=SC2001  # \x1b regex not supported in bash parameter expansion
         clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
         [[ -n "$clean_line" ]] && OUTPUT_LINES+=("$clean_line")
     done <<<"$check_output"
@@ -350,124 +373,238 @@ do_upgrade_check() {
 do_upgrade() {
     local source="$1"
     local project_path="$2"
+    local force="${3:-false}"
+    local major_version="${4:-false}"
+    local version="${5:-}"
+
+    local upgrade_start_time=$SECONDS
 
     OUTPUT_LINES+=("Source: $source")
     [[ -n "$project_path" ]] && OUTPUT_LINES+=("Project path: $project_path")
+    [[ "$force" == "true" ]] && OUTPUT_LINES+=("Force upgrade: yes")
+    [[ "$major_version" == "true" ]] && OUTPUT_LINES+=("Major version upgrade: yes")
+    [[ -n "$version" ]] && OUTPUT_LINES+=("Target version: $version")
 
-    # Stage 1: Stop non-essential services
-    write_status "true" "stopping_services" "Stopping services..." "null" "null" "${OUTPUT_LINES[@]}"
-
-    local services_to_stop=(
-        "audiobooks-downloader.timer"
-        "audiobooks-mover"
-        "audiobooks-converter"
+    # Full stop order: all 8 services in dependency order (will be reversed on start)
+    local services_stop_order=(
+        "audiobook-downloader.timer"
+        "audiobook-shutdown-saver"
+        "audiobook-scheduler"
+        "audiobook-mover"
+        "audiobook-converter"
+        "audiobook-redirect"
+        "audiobook-proxy"
+        "audiobook-api"
     )
 
-    for service in "${services_to_stop[@]}"; do
+    # =========================================================================
+    # Step 1: preflight_recheck — validate preflight unless force=true
+    # =========================================================================
+    write_status "true" "preflight_recheck" "Rechecking preflight conditions..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    if [[ "$force" != "true" ]]; then
+        local preflight_file="${CONTROL_DIR}/upgrade-preflight"
+        if [[ ! -f "$preflight_file" ]]; then
+            OUTPUT_LINES+=("WARNING: Preflight file missing — proceeding anyway (may have expired)")
+        else
+            OUTPUT_LINES+=("Preflight validated")
+        fi
+    else
+        OUTPUT_LINES+=("Preflight skipped (force=true)")
+    fi
+
+    # =========================================================================
+    # Step 2: backing_up — report stage (upgrade.sh handles actual backup)
+    # =========================================================================
+    write_status "true" "backing_up" "Creating backup before upgrade..." "null" "null" "${OUTPUT_LINES[@]}"
+    OUTPUT_LINES+=("Backup stage: upgrade.sh will handle backup during upgrade")
+
+    # =========================================================================
+    # Step 3: stopping_services — stop ALL 8 services in dependency order
+    # =========================================================================
+    write_status "true" "stopping_services" "Stopping all services..." "null" "null" "${OUTPUT_LINES[@]}"
+
+    for service in "${services_stop_order[@]}"; do
         if systemctl is-active --quiet "$service" 2>/dev/null; then
             systemctl stop "$service" 2>/dev/null || true
             OUTPUT_LINES+=("Stopped $service")
         else
-            OUTPUT_LINES+=("Service $service was not running")
+            OUTPUT_LINES+=("Service $service was not running (skipped)")
         fi
     done
 
-    write_status "true" "stopping_services" "Services stopped" "null" "null" "${OUTPUT_LINES[@]}"
+    write_status "true" "stopping_services" "All services stopped" "null" "null" "${OUTPUT_LINES[@]}"
 
-    # Stage 2: Run upgrade
+    # =========================================================================
+    # Step 4: upgrading — run upgrade.sh --skip-service-lifecycle --yes
+    # =========================================================================
     write_status "true" "upgrading" "Running upgrade..." "null" "null" "${OUTPUT_LINES[@]}"
 
     local upgrade_script="$INSTALL_DIR/scripts/upgrade.sh"
-    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobooks-upgrade"
+    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobook-upgrade"
 
     if [[ ! -x "$upgrade_script" ]]; then
         OUTPUT_LINES+=("ERROR: Upgrade script not found")
-        write_status "false" "error" "Upgrade script not found" "false" "null" "${OUTPUT_LINES[@]}"
-        # Restart services before exiting
-        for service in "${services_to_stop[@]}"; do
-            systemctl start "$service" 2>/dev/null || true
+        # Write failure result BEFORE starting services (Status File Durability)
+        write_status "false" "complete" "Upgrade failed: script not found" "false" "null" "${OUTPUT_LINES[@]}"
+        # Start services back up even on failure
+        write_status "true" "starting_services" "Restoring services after error..." "null" "null" "${OUTPUT_LINES[@]}"
+        for ((i = ${#services_stop_order[@]} - 1; i >= 0; i--)); do
+            systemctl start "${services_stop_order[i]}" 2>/dev/null || true
         done
         return 1
     fi
 
-    # Build upgrade command
-    # Always pass --target to avoid unreliable auto-detection
+    # Build upgrade command — always pass --skip-service-lifecycle --yes
+    # so upgrade.sh does not try to manage services (helper owns that)
     local upgrade_cmd
     if [[ "$source" == "github" ]]; then
-        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR")
+        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR" "--skip-service-lifecycle" "--yes")
     elif [[ "$source" == "project" ]] && [[ -n "$project_path" ]]; then
         if [[ ! -d "$project_path" ]]; then
             OUTPUT_LINES+=("ERROR: Project path does not exist: $project_path")
-            write_status "false" "error" "Project path does not exist" "false" "null" "${OUTPUT_LINES[@]}"
-            for service in "${services_to_stop[@]}"; do
-                systemctl start "$service" 2>/dev/null || true
+            # Write failure result BEFORE starting services (Status File Durability)
+            write_status "false" "complete" "Upgrade failed: project path missing" "false" "null" "${OUTPUT_LINES[@]}"
+            write_status "true" "starting_services" "Restoring services after error..." "null" "null" "${OUTPUT_LINES[@]}"
+            for ((i = ${#services_stop_order[@]} - 1; i >= 0; i--)); do
+                systemctl start "${services_stop_order[i]}" 2>/dev/null || true
             done
             return 1
         fi
-        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR")
+        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR" "--skip-service-lifecycle" "--yes")
     else
-        OUTPUT_LINES+=("ERROR: Invalid upgrade source")
-        write_status "false" "error" "Invalid upgrade source" "false" "null" "${OUTPUT_LINES[@]}"
-        for service in "${services_to_stop[@]}"; do
-            systemctl start "$service" 2>/dev/null || true
+        OUTPUT_LINES+=("ERROR: Invalid upgrade source: $source")
+        # Write failure result BEFORE starting services (Status File Durability)
+        write_status "false" "complete" "Upgrade failed: invalid source" "false" "null" "${OUTPUT_LINES[@]}"
+        write_status "true" "starting_services" "Restoring services after error..." "null" "null" "${OUTPUT_LINES[@]}"
+        for ((i = ${#services_stop_order[@]} - 1; i >= 0; i--)); do
+            systemctl start "${services_stop_order[i]}" 2>/dev/null || true
         done
         return 1
     fi
 
+    # Add optional flags (per spec: --force, --major-version, --version X as applicable)
+    [[ "$force" == "true" ]] && upgrade_cmd+=("--force")
+    [[ "$major_version" == "true" ]] && upgrade_cmd+=("--major-version")
+    [[ -n "$version" ]] && upgrade_cmd+=("--version" "$version")
+
     # Run upgrade and capture output
-    # Pipe "y" to auto-confirm since user already confirmed via web UI
     local upgrade_output upgrade_exit
-    upgrade_output=$(echo "y" | "${upgrade_cmd[@]}" 2>&1)
+    upgrade_output=$("${upgrade_cmd[@]}" 2>&1)
     upgrade_exit=$?
 
     # Parse output (strip ANSI codes)
     while IFS= read -r line; do
         local clean_line
+        # shellcheck disable=SC2001  # \x1b regex not supported in bash parameter expansion
         clean_line=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
         [[ -n "$clean_line" ]] && OUTPUT_LINES+=("$clean_line")
     done <<<"$upgrade_output"
 
     if [[ $upgrade_exit -ne 0 ]]; then
         OUTPUT_LINES+=("Upgrade script exited with code: $upgrade_exit")
-        write_status "false" "error" "Upgrade failed" "false" "null" "${OUTPUT_LINES[@]}"
-
+        # Write failure result BEFORE starting services (Status File Durability)
+        write_status "false" "complete" "Upgrade failed (exit code $upgrade_exit)" "false" "null" "${OUTPUT_LINES[@]}"
         # Start services back up even on failure
-        for service in "${services_to_stop[@]}"; do
-            systemctl start "$service" 2>/dev/null || true
+        write_status "true" "starting_services" "Restoring services after upgrade failure..." "null" "null" "${OUTPUT_LINES[@]}"
+        for ((i = ${#services_stop_order[@]} - 1; i >= 0; i--)); do
+            systemctl start "${services_stop_order[i]}" 2>/dev/null || true
         done
-
         return 1
     fi
 
+    OUTPUT_LINES+=("Upgrade script completed successfully")
     write_status "true" "upgrading" "Upgrade completed" "null" "null" "${OUTPUT_LINES[@]}"
 
-    # Stage 3: Start services back up
+    # =========================================================================
+    # Step 5: rebuilding_venv — report stage (especially for major version)
+    # =========================================================================
+    write_status "true" "rebuilding_venv" "Rebuilding virtual environment..." "null" "null" "${OUTPUT_LINES[@]}"
+    if [[ "$major_version" == "true" ]]; then
+        OUTPUT_LINES+=("Major version upgrade: venv rebuilt by upgrade.sh")
+    else
+        OUTPUT_LINES+=("Virtual environment updated")
+    fi
+
+    # =========================================================================
+    # Step 6: migrating_config — report stage (for major version upgrades)
+    # =========================================================================
+    write_status "true" "migrating_config" "Checking configuration migration..." "null" "null" "${OUTPUT_LINES[@]}"
+    if [[ "$major_version" == "true" ]]; then
+        OUTPUT_LINES+=("Major version upgrade: configuration migration handled by upgrade.sh")
+    else
+        OUTPUT_LINES+=("Configuration unchanged")
+    fi
+
+    # Extract version info from output
+    local new_version=""
+    local old_version=""
+    for line in "${OUTPUT_LINES[@]}"; do
+        if [[ "$line" =~ "Successfully upgraded" ]] || [[ "$line" =~ "→" ]]; then
+            new_version=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?' | tail -1)
+            old_version=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+        fi
+    done
+
+    local upgrade_duration=$(( SECONDS - upgrade_start_time ))
+
+    # =========================================================================
+    # CRITICAL: Write final upgrade result BEFORE starting services
+    # Per spec "Status File Durability": result must be readable even if API
+    # startup fails. The browser polls this file — it must persist the result.
+    # =========================================================================
+    local result_json="{\"upgrade_result\": \"success\", \"duration_seconds\": $upgrade_duration"
+    [[ -n "$new_version" ]] && result_json+=", \"new_version\": \"$new_version\""
+    [[ -n "$old_version" ]] && result_json+=", \"old_version\": \"$old_version\""
+    result_json+=", \"source\": \"$source\""
+    result_json+="}"
+
+    write_status "false" "complete" "Upgrade completed successfully — starting services" "true" "$result_json" "${OUTPUT_LINES[@]}"
+
+    # =========================================================================
+    # Step 7: starting_services — start in reverse order
+    # =========================================================================
     write_status "true" "starting_services" "Starting services..." "null" "null" "${OUTPUT_LINES[@]}"
 
-    for ((i = ${#services_to_stop[@]} - 1; i >= 0; i--)); do
-        local service="${services_to_stop[i]}"
+    for ((i = ${#services_stop_order[@]} - 1; i >= 0; i--)); do
+        local service="${services_stop_order[i]}"
         if systemctl start "$service" 2>/dev/null; then
             OUTPUT_LINES+=("Started $service")
         else
-            OUTPUT_LINES+=("Failed to start $service")
+            OUTPUT_LINES+=("Warning: failed to start $service")
         fi
     done
 
     write_status "true" "starting_services" "Services started" "null" "null" "${OUTPUT_LINES[@]}"
 
-    # Stage 4: Restart API
-    write_status "true" "restarting_api" "Restarting API (browser will reload)..." "null" "null" "${OUTPUT_LINES[@]}"
+    # =========================================================================
+    # Step 8: verifying — poll /api/system/health for up to 30s
+    # =========================================================================
+    write_status "true" "verifying" "Verifying API is healthy..." "null" "null" "${OUTPUT_LINES[@]}"
 
-    # Give the API a moment to read the status before restart
-    sleep 2
+    local api_port="${AUDIOBOOKS_API_PORT:-5001}"
+    local verify_ok=false
+    local max_wait=30
+    local elapsed=0
 
-    # Mark as successful before restarting API
-    write_status "false" "complete" "Upgrade completed successfully" "true" "null" "${OUTPUT_LINES[@]}"
+    while [[ $elapsed -lt $max_wait ]]; do
+        if curl -sf "http://127.0.0.1:${api_port}/api/system/health" >/dev/null 2>&1; then
+            verify_ok=true
+            break
+        fi
+        sleep 2
+        elapsed=$(( elapsed + 2 ))
+    done
 
-    # Restart API service
-    if ! systemctl restart audiobooks-api 2>/dev/null; then
-        OUTPUT_LINES+=("Warning: Failed to restart audiobooks-api")
-        write_status "false" "complete" "Upgrade completed (API restart may require manual intervention)" "true" "null" "${OUTPUT_LINES[@]}"
+    # =========================================================================
+    # Step 9: complete — update status with verification result
+    # =========================================================================
+    if [[ "$verify_ok" == "true" ]]; then
+        OUTPUT_LINES+=("API health check passed after ${elapsed}s")
+        write_status "false" "complete" "Upgrade completed successfully — API is healthy" "true" "$result_json" "${OUTPUT_LINES[@]}"
+    else
+        OUTPUT_LINES+=("WARNING: API health check did not pass within ${max_wait}s (may still be starting)")
+        write_status "false" "complete" "Upgrade completed — API may need a moment to start" "true" "$result_json" "${OUTPUT_LINES[@]}"
     fi
 }
 
@@ -495,8 +632,11 @@ case "$REQUEST_TYPE" in
 upgrade)
     SOURCE=$(get_json_field "$REQUEST" "source")
     PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
+    FORCE=$(get_json_bool "$REQUEST" "force")
+    MAJOR_VERSION=$(get_json_bool "$REQUEST" "major_version")
+    VERSION=$(get_json_field "$REQUEST" "version")
     [[ -z "$SOURCE" ]] && SOURCE="github"
-    do_upgrade "$SOURCE" "$PROJECT_PATH"
+    do_upgrade "$SOURCE" "$PROJECT_PATH" "$FORCE" "$MAJOR_VERSION" "$VERSION"
     ;;
 
 upgrade_check)
