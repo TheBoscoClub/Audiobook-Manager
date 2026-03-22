@@ -10,9 +10,9 @@
 #                {"type": "upgrade", "source": "project", "project_path": "/path"}
 #   Check:       {"type": "upgrade_check", "source": "github"}
 #                {"type": "upgrade_check", "source": "project", "project_path": "/path"}
-#   Service:     {"type": "service_start", "service": "audiobooks-converter"}
-#                {"type": "service_stop", "service": "audiobooks-converter"}
-#                {"type": "service_restart", "service": "audiobooks-api"}
+#   Service:     {"type": "service_start", "service": "audiobook-converter"}
+#                {"type": "service_stop", "service": "audiobook-converter"}
+#                {"type": "service_restart", "service": "audiobook-api"}
 #                {"type": "services_start_all"}
 #                {"type": "services_stop_all", "include_api": false}
 #
@@ -29,11 +29,11 @@ INSTALL_DIR="/opt/audiobooks"
 
 # Valid services that can be controlled
 VALID_SERVICES=(
-    "audiobooks-api"
-    "audiobooks-proxy"
-    "audiobooks-converter"
-    "audiobooks-mover"
-    "audiobooks-downloader.timer"
+    "audiobook-api"
+    "audiobook-proxy"
+    "audiobook-converter"
+    "audiobook-mover"
+    "audiobook-downloader.timer"
 )
 
 # Ensure control directory exists and is writable by audiobooks user
@@ -208,13 +208,13 @@ do_services_stop_all() {
 
     # Stop order: timer, mover, converter, then optionally proxy and api
     local stop_order=(
-        "audiobooks-downloader.timer"
-        "audiobooks-mover"
-        "audiobooks-converter"
+        "audiobook-downloader.timer"
+        "audiobook-mover"
+        "audiobook-converter"
     )
 
     if [[ "$include_api" == "true" ]]; then
-        stop_order+=("audiobooks-proxy" "audiobooks-api")
+        stop_order+=("audiobook-proxy" "audiobook-api")
     fi
 
     local results="["
@@ -260,7 +260,7 @@ do_upgrade_check() {
     write_status "true" "checking" "Checking for updates..." "null" "null" "${OUTPUT_LINES[@]}"
 
     local upgrade_script="$INSTALL_DIR/scripts/upgrade.sh"
-    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobooks-upgrade"
+    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobook-upgrade"
 
     if [[ ! -x "$upgrade_script" ]]; then
         OUTPUT_LINES+=("ERROR: Upgrade script not found")
@@ -358,9 +358,9 @@ do_upgrade() {
     write_status "true" "stopping_services" "Stopping services..." "null" "null" "${OUTPUT_LINES[@]}"
 
     local services_to_stop=(
-        "audiobooks-downloader.timer"
-        "audiobooks-mover"
-        "audiobooks-converter"
+        "audiobook-downloader.timer"
+        "audiobook-mover"
+        "audiobook-converter"
     )
 
     for service in "${services_to_stop[@]}"; do
@@ -378,7 +378,7 @@ do_upgrade() {
     write_status "true" "upgrading" "Running upgrade..." "null" "null" "${OUTPUT_LINES[@]}"
 
     local upgrade_script="$INSTALL_DIR/scripts/upgrade.sh"
-    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobooks-upgrade"
+    [[ ! -x "$upgrade_script" ]] && upgrade_script="/usr/local/bin/audiobook-upgrade"
 
     if [[ ! -x "$upgrade_script" ]]; then
         OUTPUT_LINES+=("ERROR: Upgrade script not found")
@@ -465,8 +465,8 @@ do_upgrade() {
     write_status "false" "complete" "Upgrade completed successfully" "true" "null" "${OUTPUT_LINES[@]}"
 
     # Restart API service
-    if ! systemctl restart audiobooks-api 2>/dev/null; then
-        OUTPUT_LINES+=("Warning: Failed to restart audiobooks-api")
+    if ! systemctl restart audiobook-api 2>/dev/null; then
+        OUTPUT_LINES+=("Warning: Failed to restart audiobook-api")
         write_status "false" "complete" "Upgrade completed (API restart may require manual intervention)" "true" "null" "${OUTPUT_LINES[@]}"
     fi
 }
