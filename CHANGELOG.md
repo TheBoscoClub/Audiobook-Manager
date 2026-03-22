@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.2.1.1] - 2026-03-21
+
+### Added
+
+- **`upgrade.sh --major-version`**: New flag for major version upgrades — forces venv rebuild (removes old deps like waitress, installs new ones), runs config migrations, enables new services
+- **`upgrade.sh` audit and cleanup**: Every upgrade now scans for and fixes broken symlinks, orphaned systemd units, stale legacy files, and deprecated config variables
+- **`install.sh --fresh-install`**: Reinstall from scratch while preserving audiobook library and user settings (ports, auth, data dirs)
+- **Config migration system**: `config-migrations/` directory with numbered idempotent scripts that add new config variables to existing installations
+- **`show_usage()`**: Both `upgrade.sh` and `install.sh` now show comprehensive formatted help with `--help`, `-h`, or no arguments
+
+### Changed
+
+- **Documentation**: All Waitress references updated to Gunicorn+geventwebsocket across README, ARCHITECTURE, INSTALL.md, install-services.sh, proxy_server.py
+- **`launch-v3.sh`**: Marked as deprecated with notice pointing to systemd services
+- **`audiobooks.conf.example`**: Added `AUDIOBOOKS_RUN_DIR` setting
+
 ## [7.2.1] - 2026-03-21
 
 ### Fixed
@@ -2054,7 +2070,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1.1...HEAD
+[7.2.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1...v7.2.1.1
 [7.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.0...v7.2.1
 [7.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.4...v7.2.0
 [7.1.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.3...v7.1.3.4
