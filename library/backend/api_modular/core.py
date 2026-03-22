@@ -61,7 +61,7 @@ def add_security_headers(response: Response) -> Response:
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
-        "connect-src 'self'; "
+        "connect-src 'self' wss: ws:; "
         "font-src 'self'; "
         "frame-ancestors 'self'; "
         "frame-src 'self'"

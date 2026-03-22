@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # Direct execution for development/testing only
     debug = os.environ.get("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
     if debug:
-        app.run(host="0.0.0.0", port=API_PORT, debug=True)
+        app.run(host="127.0.0.1", port=API_PORT, debug=True)
     else:
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler

@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CSP headers**: Added `wss:` and `ws:` WebSocket schemes to `connect-src` in proxy_server.py (blocked WebSocket connections in strict CSP environments)
+- **SQL injection**: Parameterized raw string interpolation in maintenance.py `_get_history()` and `_get_windows()` queries
+- **Flask debug bind**: Fixed `app.run(host='localhost')` to `app.run(host='127.0.0.1')` in maintenance.py — `localhost` may resolve to `::1` on IPv6 systems
+- **python-security.yml**: Fixed pip-audit invocation path to use venv pip directly
+- **ASIN GLOB test**: Corrected `test_audiobooks_extended.py` ASIN pattern from `B0*` to `[AB][0-9A-Z]*` to match real Audible ASIN format
+- **Dev DB orphaned refs**: Cleaned stale foreign-key references in audiobooks-dev.db (orphaned edition, position, and hash records)
+- **`library/launch-v3.sh`**: Deleted deprecated launch script (replaced by `audiobook.target` systemd service)
+
 ## [7.2.1.1] - 2026-03-21
 
 ### Added
