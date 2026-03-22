@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="30">
+    <title>Audiobook Library — Upgrading</title>
+    <style>
+        body { background: #1a1a2e; color: #e0e0e0; font-family: system-ui; display: flex;
+               align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { text-align: center; max-width: 500px; padding: 2rem; }
+        h1 { font-size: 2rem; color: #fff; }
+        p { font-size: 1.25rem; }
+        .pulse { width: 40px; height: 40px; border-radius: 50%; background: #4a90d9;
+                 margin: 2rem auto; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); }
+                           50% { opacity: 0.5; transform: scale(1.2); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="pulse"></div>
+        <h1>Audiobook Library is being upgraded</h1>
+        <p>This page will reload automatically when the upgrade is complete.</p>
+    </div>
+    <script>
+        (function poll() {
+            fetch('/api/system/health', { signal: AbortSignal.timeout(3000) })
+                .then(function(r) { if (r.ok) location.reload(); })
+                .catch(function() {});
+            setTimeout(poll, 3000);
+        })();
+    </script>
+    <noscript><p>JavaScript is disabled. This page will auto-refresh every 30 seconds.</p></noscript>
+</body>
+</html>

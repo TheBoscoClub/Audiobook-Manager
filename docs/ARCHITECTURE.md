@@ -1349,6 +1349,87 @@ Note: Since v7.0.0, upgrade.sh automatically detects and applies database
       for the authors table and runs DDL + data migration if needed.
 ```
 
+### Web-Triggered Upgrade (Privilege-Separated Helper)
+
+The web UI cannot run upgrades directly (Flask runs as `audiobooks` user, upgrades need root). A privilege-separated helper pattern solves this:
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│                  WEB-TRIGGERED UPGRADE FLOW                         │
+└──────────────────────────────────────────────────────────────────────┘
+
+  Browser (admin)          Flask API (5001)        systemd (root)
+  ─────────────────        ─────────────────       ──────────────────
+  POST /upgrade    ──────► Write JSON request ───► path unit detects
+                           to .run/upgrade-req     new file
+                                                        │
+                                                        ▼
+                                                   helper-process
+                                                   runs as root
+                                                        │
+                                                        ▼
+                                                   upgrade.sh
+                                                   --skip-service-lifecycle
+                                                   (helper owns stop/start)
+```
+
+**Lifecycle ownership**: The helper process (`upgrade-helper-process`) owns the full 9-step lifecycle. `upgrade.sh` is invoked with `--skip-service-lifecycle` so it only handles file sync, venv rebuild, and config migrations. The helper handles service stop/start, backup, and verification.
+
+**9-step lifecycle stages**:
+
+1. `preflight_recheck` — Re-validate preflight checks
+2. `backing_up` — Rolling backup (keep last 5)
+3. `stopping_services` — Stop application services
+4. `upgrading` — Run upgrade.sh (file sync, venv, migrations)
+5. `rebuilding_venv` — (Part of upgrade.sh execution)
+6. `migrating_config` — (Part of upgrade.sh execution)
+7. `starting_services` — Restart application services
+8. `verifying` — Health check endpoints
+9. `complete` / `failed` — Write result to status file
+
+### Preflight System
+
+Upgrades require a valid preflight check before execution (unless `--force`). Inspired by LEAPP's pre-upgrade validation pattern.
+
+```text
+GET /api/system/upgrade/preflight
+  → Runs disk space, version, dependency checks
+  → Writes result JSON to .run/upgrade-preflight.json
+  → Returns check results + staleness timestamp
+
+POST /api/system/upgrade
+  → Reads preflight JSON, validates freshness (< 30 min server-side, < 10 min browser-side)
+  → Rejects if stale or missing (unless force=true)
+  → Writes upgrade request JSON → triggers helper
+```
+
+### Traffic Flow During Maintenance
+
+```text
+Normal:    Cloudflare (443) → cloudflared → Caddy (8084) → proxy_server (8443) → Flask (5001)
+
+During upgrade, three tiers of maintenance handling:
+
+1. Browser overlay     — Authenticated admin sees 9-step progress overlay
+                         (tolerates API downtime, polls for recovery)
+
+2. Caddy maintenance   — External/unauthenticated visitors get static
+                         maintenance page (auto-reloads via health polling)
+
+3. Cloudflare 502      — If Caddy is also unreachable, Cloudflare shows
+                         its default error page
+```
+
+### Always-On Backup
+
+Backup runs on every upgrade with rolling retention (keep last 5). The `--backup` flag is retained for backward compatibility but is now a no-op.
+
+```text
+Backups: /opt/audiobooks.backup.YYYYMMDD-HHMMSS/
+Retention: Keep 5 most recent, delete oldest when exceeding limit
+Scope: Full /opt/audiobooks/ directory (excludes venv, .git)
+```
+
 ---
 
 ## Migration Workflow
