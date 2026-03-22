@@ -12,11 +12,11 @@ sudo systemctl start audiobook.target
 sudo systemctl start audiobook-api audiobook-proxy audiobook-redirect
 ```
 
-### Manual Launch
+### Manual Launch (Development Only)
 
 ```bash
 cd /opt/audiobooks/library
-./launch-v3.sh
+./launch-v2.sh  # Opens http://localhost:8090
 ```
 
 Your browser will open to: **<https://localhost:8443>**
@@ -164,10 +164,12 @@ python3 import_to_db.py
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `audiobook-api` | 5001 (localhost) | Flask REST API |
+| `audiobook-api` | 5001 (localhost) | Flask REST API (Gunicorn+geventwebsocket) |
 | `audiobook-proxy` | 8443 (public) | HTTPS reverse proxy |
+| `audiobook-redirect` | 8080 (public) | HTTP to HTTPS redirect |
 | `audiobook-converter` | - | AAXC → OPUS conversion |
 | `audiobook-mover` | - | Move files from tmpfs |
+| `audiobook-scheduler` | - | Maintenance task scheduler daemon |
 
 ---
 

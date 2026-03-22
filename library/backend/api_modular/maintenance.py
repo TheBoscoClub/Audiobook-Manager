@@ -92,8 +92,8 @@ def create_window():
             from croniter import croniter
             cron = croniter(cron_expression, datetime.now(timezone.utc))
             next_run_at = cron.get_next(datetime).isoformat() + "Z"
-        except (ValueError, KeyError) as e:
-            return jsonify({"error": f"Invalid cron expression: {e}"}), 400
+        except (ValueError, KeyError):
+            return jsonify({"error": "Invalid cron expression"}), 400
 
     # Validate task type against registry (if available)
     try:
@@ -169,10 +169,20 @@ def update_window(wid):
         if not updates:
             return jsonify({"error": "No valid fields to update"}), 400
 
-        set_clause = ", ".join(f"{k} = ?" for k in updates)
-        values = list(updates.values()) + [wid]
+        # Keys are validated against `allowed` set of known column names
+        safe_columns = {
+            "name", "description", "task_type", "task_params",
+            "cron_expression", "scheduled_at", "duration_minutes",
+            "lead_time_hours", "status", "next_run_at",
+        }
+        sanitized = {k: v for k, v in updates.items() if k in safe_columns}
+        set_clause = ", ".join(f'"{k}" = ?' for k in sanitized)
+        values = list(sanitized.values()) + [wid]
         conn.execute(
-            f"UPDATE maintenance_windows SET {set_clause} WHERE id = ?", values
+            "UPDATE maintenance_windows SET "  # noqa: S608
+            + set_clause
+            + " WHERE id = ?",
+            values,
         )
         conn.commit()
         row = conn.execute(

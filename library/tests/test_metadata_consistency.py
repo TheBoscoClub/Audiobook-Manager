@@ -363,15 +363,21 @@ class TestAsinConsistency:
     def test_asin_format_valid(self, prod_db):
         """Verify all ASINs have valid format (10 alphanumeric characters)."""
         cursor = prod_db.cursor()
-        cursor.execute("""
+        asin_pattern = (
+            "[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]"
+            "[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]"
+            "[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]"
+        )
+        cursor.execute(
+            """
             SELECT id, title, asin
             FROM audiobooks
             WHERE asin IS NOT NULL AND asin != ''
             AND (LENGTH(asin) != 10
-                 OR asin NOT GLOB '[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]'
-                     '[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]'
-                     '[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]')
-        """)
+                 OR asin NOT GLOB ?)
+            """,
+            (asin_pattern,),
+        )
         invalid = [dict(row) for row in cursor.fetchall()]
 
         if invalid:

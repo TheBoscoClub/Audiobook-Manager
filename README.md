@@ -182,15 +182,15 @@ Web-based audiobook library browser with:
 ### Browse Library
 
 ```bash
-# Launch the web interface (production mode)
-cd library
-./launch-v3.sh
+# Launch via systemd (recommended — production mode)
+sudo systemctl start audiobook.target
 
 # Opens https://localhost:8443 in your browser
 # HTTP requests to port 8080 are automatically redirected to HTTPS
 # Uses Gunicorn with geventwebsocket for production-ready performance and WebSocket support
 
-# Or use legacy launcher (development mode)
+# Or use legacy launcher (development mode, no systemd)
+cd library
 ./launch-v2.sh  # Opens http://localhost:8090
 ```
 
@@ -1448,6 +1448,7 @@ All services use the `audiobook-*` naming convention for easy management.
 | `audiobook-redirect` | HTTP to HTTPS redirect on 0.0.0.0:8080 | always running |
 | `audiobook-converter` | AAXC → OPUS conversion | always running |
 | `audiobook-mover` | Move converted files from tmpfs to storage | always running |
+| `audiobook-scheduler` | Maintenance task scheduler daemon (croniter-based) | always running |
 | `audiobook-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
 | `audiobook-shutdown-saver` | Save staging files before shutdown | on shutdown |
 | `audiobook-upgrade-helper.path` | Watch for upgrade trigger files | path watcher |
@@ -1501,6 +1502,7 @@ journalctl -u 'audiobook-*' --since today
 | `audiobook-redirect` | HTTP to HTTPS redirect (port 8080) |
 | `audiobook-converter` | Continuous AAXC → Opus conversion |
 | `audiobook-mover` | Moves converted files to library |
+| `audiobook-scheduler` | Maintenance task scheduler daemon |
 | `audiobook-downloader.timer` | Scheduled Audible downloads |
 
 ### Conversion Priority
