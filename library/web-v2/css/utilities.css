@@ -3166,3 +3166,133 @@ body.back-office {
     gap: 1rem;
     flex-wrap: wrap;
 }
+
+/* ============================================
+   Advanced Upgrade Options
+   ============================================ */
+.upgrade-advanced-options {
+    margin: 1rem 0;
+    padding: 0.75rem;
+    border-top: 1px solid var(--ledger-line, #4a3828);
+}
+
+.upgrade-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+    cursor: pointer;
+}
+
+.upgrade-option small {
+    color: var(--ink-muted, #c4b498);
+    font-size: 0.85rem;
+}
+
+.upgrade-force-warning {
+    color: var(--red-ink, #c44);
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    margin: 0.25rem 0 0.5rem 1.5rem;
+    border-left: 2px solid var(--red-ink, #c44);
+}
+
+.upgrade-version-input {
+    margin: 0.5rem 0 0 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.upgrade-version-input label {
+    white-space: nowrap;
+}
+
+.upgrade-version-input small {
+    color: var(--ink-muted, #c4b498);
+    font-size: 0.85rem;
+}
+
+/* ============================================
+   Full-Screen Upgrade Overlay
+   ============================================ */
+.upgrade-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: var(--office-dark, #1a1208);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upgrade-overlay-content {
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+    padding: 2rem;
+}
+
+.upgrade-overlay-title {
+    font-size: 2rem;
+    color: var(--brass-light, #FFD700);
+    margin-bottom: 1.5rem;
+}
+
+.upgrade-overlay-status {
+    font-size: 1.5rem;
+    color: var(--ink, #FFF8DC);
+    margin: 1rem 0;
+    min-height: 2.5rem;
+}
+
+.upgrade-overlay-stages {
+    text-align: left;
+    margin: 1.5rem auto;
+    max-width: 400px;
+}
+
+.upgrade-stage-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    font-size: 1.25rem;
+}
+
+.upgrade-stage-item.pending {
+    color: var(--ink-muted, #666);
+}
+
+.upgrade-stage-item.active {
+    color: var(--brass-light, #FFD700);
+    font-weight: bold;
+}
+
+.upgrade-stage-item.complete {
+    color: #4caf50;
+}
+
+.upgrade-stage-item.error {
+    color: #f44336;
+}
+
+.upgrade-overlay-result {
+    margin-top: 2rem;
+}
+
+.upgrade-overlay-result .btn {
+    margin-top: 1rem;
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border: 1px solid var(--brass, #DAA520);
+    background: var(--office-wood, #2d2015);
+    color: var(--brass-light, #FFD700);
+    border-radius: 4px;
+}
+
+.upgrade-overlay-result .btn:hover {
+    background: var(--brass-dark, #B8860B);
+    color: #fff;
+}
