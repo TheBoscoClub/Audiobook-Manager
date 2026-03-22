@@ -45,12 +45,15 @@ STATUS_FILE="${CONTROL_DIR}/upgrade-status"
 _DEFAULT_INSTALL_DIR="/opt/audiobooks"
 INSTALL_DIR="${AUDIOBOOKS_INSTALL_DIR:-$_DEFAULT_INSTALL_DIR}"
 
-# Valid services that can be controlled
+# Valid services that can be controlled (all audiobook.target members)
 VALID_SERVICES=(
     "audiobook-api"
     "audiobook-proxy"
+    "audiobook-redirect"
     "audiobook-converter"
     "audiobook-mover"
+    "audiobook-scheduler"
+    "audiobook-shutdown-saver"
     "audiobook-downloader.timer"
 )
 
@@ -92,8 +95,9 @@ write_status() {
 
     # Use echo with explicit file write (more reliable than heredoc in some environments)
     echo "{\"running\": $running, \"stage\": \"$stage\", \"message\": \"$message\", \"success\": $success, \"output\": $output_json, \"result\": $result}" >"$STATUS_FILE"
-    # Make status file writable by audiobooks user (API needs to delete it before new requests)
-    chmod 666 "$STATUS_FILE" 2>/dev/null || true
+    # Make status file readable/writable by audiobooks group (API needs to read/delete it)
+    chown root:audiobooks "$STATUS_FILE" 2>/dev/null || true
+    chmod 660 "$STATUS_FILE" 2>/dev/null || true
 }
 
 # Check if service is valid
@@ -286,18 +290,18 @@ do_upgrade_check() {
         return 1
     fi
 
-    # Build upgrade command with --dry-run
+    # Build upgrade command with --check (writes preflight report + shows changes)
     # Always pass --target to avoid unreliable auto-detection
     local upgrade_cmd
     if [[ "$source" == "github" ]]; then
-        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR" "--dry-run")
+        upgrade_cmd=("$upgrade_script" "--from-github" "--target" "$INSTALL_DIR" "--check")
     elif [[ "$source" == "project" ]] && [[ -n "$project_path" ]]; then
         if [[ ! -d "$project_path" ]]; then
             OUTPUT_LINES+=("ERROR: Project path does not exist: $project_path")
             write_status "false" "error" "Project path does not exist" "false" "null" "${OUTPUT_LINES[@]}"
             return 1
         fi
-        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR" "--dry-run")
+        upgrade_cmd=("$upgrade_script" "--from-project" "$project_path" "--target" "$INSTALL_DIR" "--check")
     else
         OUTPUT_LINES+=("ERROR: Invalid upgrade source")
         write_status "false" "error" "Invalid upgrade source" "false" "null" "${OUTPUT_LINES[@]}"

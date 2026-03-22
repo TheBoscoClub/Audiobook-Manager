@@ -1398,7 +1398,7 @@ GET /api/system/upgrade/preflight
   → Returns check results + staleness timestamp
 
 POST /api/system/upgrade
-  → Reads preflight JSON, validates freshness (< 5 min)
+  → Reads preflight JSON, validates freshness (< 30 min server-side, < 10 min browser-side)
   → Rejects if stale or missing (unless force=true)
   → Writes upgrade request JSON → triggers helper
 ```
