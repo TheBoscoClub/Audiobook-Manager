@@ -987,12 +987,36 @@
                                     <!-- Available projects loaded here -->
                                 </div>
                             </div>
+
+                            <!-- Advanced upgrade options -->
+                            <div class="upgrade-advanced-options">
+                                <label class="upgrade-option">
+                                    <input type="checkbox" id="upgrade-force">
+                                    <span>Force upgrade</span>
+                                    <small>Skip preflight check, reinstall even if versions match</small>
+                                </label>
+                                <div class="upgrade-force-warning" id="upgrade-force-warning" style="display:none;">
+                                    Warning: Bypasses all safety checks. Use only with a specific technical reason.
+                                </div>
+
+                                <label class="upgrade-option">
+                                    <input type="checkbox" id="upgrade-major">
+                                    <span>Major version upgrade</span>
+                                    <small>Full venv rebuild + config migration + new services (~60s extra downtime)</small>
+                                </label>
+
+                                <div class="upgrade-version-input" id="upgrade-version-group" style="display:none;">
+                                    <label for="upgrade-version">Version:</label>
+                                    <input type="text" id="upgrade-version" class="office-input" placeholder="blank = latest">
+                                    <small>GitHub only — specify exact version to install</small>
+                                </div>
+                            </div>
                         </div>
                         <div class="card-footer">
                             <button class="office-btn secondary" id="check-upgrade" title="Check for available updates without making changes (dry-run)">
                                 <span class="btn-icon">&#128269;</span> Check for Updates
                             </button>
-                            <button class="office-btn primary" id="start-upgrade" title="Begin upgrade process - services will restart automatically">
+                            <button class="office-btn primary" id="start-upgrade-btn" disabled title="Run 'Check for Updates' first">
                                 <span class="btn-icon">&#8593;</span> Start Upgrade
                             </button>
                         </div>
@@ -1296,6 +1320,18 @@
             }
         })();
     </script>
+    <!-- Upgrade overlay - shown during active upgrade -->
+    <div id="upgrade-overlay" class="upgrade-overlay" style="display:none;">
+        <div class="upgrade-overlay-content">
+            <h1 class="upgrade-overlay-title">Upgrading Audiobook Library</h1>
+            <div class="upgrade-overlay-status" id="upgrade-overlay-status">
+                Initializing...
+            </div>
+            <div class="upgrade-overlay-stages" id="upgrade-overlay-stages"></div>
+            <div class="upgrade-overlay-result" id="upgrade-overlay-result" style="display:none;"></div>
+        </div>
+    </div>
+
     <script src="js/utilities.js?v=1773686866"></script>
     <script src="js/maint-sched.js?v=1774403201"></script>
 </body>
