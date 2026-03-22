@@ -2764,6 +2764,9 @@ function initSystemSection() {
         versionGroup.style.display =
           e.target.value === "github" ? "flex" : "none";
       }
+      // Source changed — invalidate preflight (check was for different source)
+      preflightData = null;
+      preflightTimestamp = null;
       updateUpgradeButtonState();
     });
   });
@@ -3974,6 +3977,10 @@ async function checkUpgrade() {
     if (source === "project") {
       body.project_path = projectPath;
     }
+    const versionInput = document.getElementById("upgrade-version");
+    if (versionInput && versionInput.value.trim() && source === "github") {
+      body.version = versionInput.value.trim();
+    }
 
     const res = await fetch(`${API_BASE}/api/system/upgrade/check`, {
       method: "POST",
@@ -4070,25 +4077,16 @@ async function startUpgrade() {
     return;
   }
 
-  // Force upgrade requires extra confirmation
-  if (forceChecked) {
-    if (
-      !confirm(
-        "FORCE UPGRADE: This bypasses all safety checks including " +
-          "preflight validation. Only proceed if you have a specific " +
-          "technical reason.\n\nContinue with force upgrade?",
-      )
-    ) {
-      return;
-    }
-  }
-
-  const message =
-    source === "github"
+  // Single confirmation — danger-styled for force, normal for regular
+  const message = forceChecked
+    ? "FORCE UPGRADE: This bypasses all safety checks including preflight validation, version comparison, and compatibility checks.\n\nThe installation backup will still be created.\n\nOnly proceed if you have a specific technical reason."
+    : source === "github"
       ? "This will download and install the latest version from GitHub. The browser will reload when complete. Continue?"
       : "This will install from the project directory. The browser will reload when complete. Continue?";
 
-  if (!(await confirmAction("Start Upgrade", message))) {
+  const title = forceChecked ? "Force Upgrade — Safety Checks Bypassed" : "Start Upgrade";
+
+  if (!(await confirmAction(title, message))) {
     return;
   }
 
