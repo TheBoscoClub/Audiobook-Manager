@@ -380,3 +380,9 @@ vm-ips.txt
 # Staged release breadcrumb (two-phase release workflow)
 .staged-release
 sandbox-*
+
+# Git worktrees
+.worktrees/
+
+# Git worktrees
+.worktrees/
