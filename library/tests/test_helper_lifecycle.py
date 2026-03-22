@@ -39,6 +39,12 @@ def test_new_request_fields_parsed():
     for field in ["force", "major_version", "version"]:
         assert field in content, f"Must parse '{field}' from request JSON"
 
+def test_force_and_major_version_forwarded_to_upgrade_sh():
+    """--force and --major-version must be forwarded to upgrade.sh command."""
+    content = HELPER_PATH.read_text()
+    assert '"--force"' in content, "Must pass --force flag to upgrade.sh when force=true"
+    assert '"--major-version"' in content, "Must pass --major-version flag to upgrade.sh when major_version=true"
+
 def test_all_services_in_stop_order():
     """Stop order must include ALL audiobook.target services."""
     content = HELPER_PATH.read_text()

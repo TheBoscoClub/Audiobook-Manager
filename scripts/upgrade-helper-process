@@ -479,7 +479,9 @@ do_upgrade() {
         return 1
     fi
 
-    # Add optional flags
+    # Add optional flags (per spec: --force, --major-version, --version X as applicable)
+    [[ "$force" == "true" ]] && upgrade_cmd+=("--force")
+    [[ "$major_version" == "true" ]] && upgrade_cmd+=("--major-version")
     [[ -n "$version" ]] && upgrade_cmd+=("--version" "$version")
 
     # Run upgrade and capture output
