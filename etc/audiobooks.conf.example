@@ -49,6 +49,10 @@ AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
 # Default: /var/lib/audiobooks/covers
 AUDIOBOOKS_COVERS="/var/lib/audiobooks/covers"
 
+# Runtime directory for locks and FIFOs (scheduler, WebSocket)
+# Default: /var/lib/audiobooks/.run
+AUDIOBOOKS_RUN_DIR="/var/lib/audiobooks/.run"
+
 # SSL certificate directory (for HTTPS)
 # Default: ${AUDIOBOOKS_HOME}/library/certs
 AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"

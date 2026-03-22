@@ -158,7 +158,11 @@ Install the following using your system's package manager:
 All Python dependencies are listed in `requirements.txt`. Key packages include:
 
 - **Flask** (>=3.1.3) - Web framework for API server
-- **waitress** (>=2.1.0) - Production WSGI server
+- **gunicorn** (>=23.0.0) - Production WSGI server
+- **gevent** (>=24.11.1) - Async worker for Gunicorn
+- **gevent-websocket** (>=0.10.1) - WebSocket support for gevent
+- **flask-sock** (>=0.7.0) - Flask WebSocket integration
+- **croniter** (>=6.0.0) - Cron expression parsing for maintenance scheduling
 - **mutagen** (>=1.47.0) - Audio metadata library
 - **webauthn** (>=2.3.0) - Passkey/FIDO2 authentication
 - **pyotp** (>=2.9.0) - TOTP authentication

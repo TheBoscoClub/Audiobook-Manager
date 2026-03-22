@@ -263,13 +263,13 @@ for header, value in response.headers.items():
 
 **Symptoms of Missing Hop-by-hop Filter:**
 
-- `AssertionError: Connection is a "hop-by-hop" header` from Waitress/WSGI
+- `AssertionError: Connection is a "hop-by-hop" header` from Gunicorn/WSGI
 - Silently dropped API responses
 - Intermittent failures only when accessed through proxy
 - Works when hitting API directly on port 5001
 
 **Why This Matters:**
-HTTP/1.1 defines hop-by-hop headers as connection-specific; they must be consumed by the first proxy and not forwarded. WSGI servers (Waitress, Gunicorn) reject responses containing these headers, causing the proxy to appear to "hang" or "fail silently."
+HTTP/1.1 defines hop-by-hop headers as connection-specific; they must be consumed by the first proxy and not forwarded. WSGI servers (e.g., Gunicorn) reject responses containing these headers, causing the proxy to appear to "hang" or "fail silently."
 
 **Security Response Headers** (v6.6+): All API responses include browser security headers applied via an `after_request` hook in `core.py`:
 
