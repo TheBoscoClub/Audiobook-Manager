@@ -187,7 +187,7 @@ cd library
 
 # Opens https://localhost:8443 in your browser
 # HTTP requests to port 8080 are automatically redirected to HTTPS
-# Uses Waitress WSGI server for production-ready performance
+# Uses Gunicorn with geventwebsocket for production-ready performance and WebSocket support
 
 # Or use legacy launcher (development mode)
 ./launch-v2.sh  # Opens http://localhost:8090
@@ -1442,7 +1442,7 @@ All services use the `audiobook-*` naming convention for easy management.
 
 | Service | Description | Type |
 |---------|-------------|------|
-| `audiobook-api` | Flask REST API (Waitress) on localhost:5001 | always running |
+| `audiobook-api` | Flask REST API (Gunicorn+geventwebsocket) on localhost:5001 | always running |
 | `audiobook-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
 | `audiobook-redirect` | HTTP to HTTPS redirect on 0.0.0.0:8080 | always running |
 | `audiobook-converter` | AAXC → OPUS conversion | always running |
@@ -2031,7 +2031,7 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 - Docker auto-initialization
 - Portable configuration system
-- Production-ready HTTPS server with Waitress
+- Production-ready HTTPS server with Gunicorn+geventwebsocket and real-time WebSocket support
 
 See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases) for full version history.
 

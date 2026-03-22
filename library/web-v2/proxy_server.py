@@ -3,7 +3,7 @@
 Reverse Proxy Server for Audiobooks Library
 ============================================
 Serves as a unified HTTPS endpoint that:
-- Proxies /api/* requests to the Flask backend (waitress on localhost:5001)
+- Proxies /api/* requests to the Flask backend (Gunicorn+geventwebsocket on localhost:5001)
 - Serves static files (HTML/CSS/JS) from web-v2/ directory
 - Handles SSL/TLS with existing certificates
 - Supports range requests for audio streaming

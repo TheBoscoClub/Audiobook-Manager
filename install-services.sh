@@ -117,10 +117,10 @@ echo -e "${YELLOW}Step 2: Creating systemd user services...${NC}"
 SYSTEMD_DIR="$HOME/.config/systemd/user"
 mkdir -p "$SYSTEMD_DIR"
 
-# API Service - uses waitress WSGI server (production-ready)
+# API Service - uses Gunicorn with geventwebsocket worker (production-ready)
 cat >"$SYSTEMD_DIR/audiobook-api.service" <<EOF
 [Unit]
-Description=Audiobooks Library API Server (Waitress)
+Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=default.target
 

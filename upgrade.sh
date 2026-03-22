@@ -60,6 +60,61 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+show_usage() {
+    echo -e "${CYAN}${BOLD}Audiobook Library — Upgrade Script${NC}"
+    echo ""
+    echo -e "${BOLD}USAGE${NC}"
+    echo "  ./upgrade.sh [OPTIONS]"
+    echo ""
+    echo -e "${BOLD}UPGRADE SOURCES${NC}"
+    echo -e "  ${GREEN}--from-project${NC} PATH   Upgrade from a local project directory"
+    echo -e "  ${GREEN}--from-github${NC}         Upgrade from the latest GitHub release"
+    echo -e "  ${GREEN}--version${NC} VERSION     Install a specific version (use with --from-github)"
+    echo ""
+    echo -e "${BOLD}TARGET${NC}"
+    echo -e "  ${GREEN}--target${NC} PATH         Target installation directory (default: auto-detect)"
+    echo -e "  ${GREEN}--remote${NC} HOST         Deploy to a remote host via SSH (requires --from-project)"
+    echo -e "  ${GREEN}--user${NC} USER           SSH username for remote deploy (default: claude)"
+    echo ""
+    echo -e "${BOLD}MODES${NC}"
+    echo -e "  ${GREEN}--check${NC}               Check for available updates without upgrading"
+    echo -e "  ${GREEN}--dry-run${NC}             Show what would be done without making changes"
+    echo -e "  ${GREEN}--backup${NC}              Create a backup of the installation before upgrading"
+    echo -e "  ${GREEN}--force${NC}               Force upgrade even if versions are identical"
+    echo -e "  ${GREEN}--yes${NC}, ${GREEN}-y${NC}             Non-interactive mode (skip all confirmation prompts)"
+    echo ""
+    echo -e "${BOLD}MAJOR UPGRADES${NC}"
+    echo -e "  ${GREEN}--major-version${NC}, ${GREEN}--mv${NC} Perform major version upgrade (venv rebuild,"
+    echo "                         config migration, enable new services)"
+    echo ""
+    echo -e "${BOLD}ARCHITECTURE${NC}"
+    echo -e "  ${GREEN}--switch-to-modular${NC}   Switch to modular Flask Blueprint architecture"
+    echo -e "  ${GREEN}--switch-to-monolithic${NC} Switch to single-file architecture"
+    echo ""
+    echo -e "${BOLD}COMMON WORKFLOWS${NC}"
+    echo ""
+    echo -e "  ${BLUE}# Deploy from local project to system installation:${NC}"
+    echo "  ./upgrade.sh --from-project . --target /opt/audiobooks --yes"
+    echo ""
+    echo -e "  ${BLUE}# Deploy to a remote VM (full lifecycle: stop, sync, venv, restart):${NC}"
+    echo "  ./upgrade.sh --from-project . --remote 192.168.122.104 --yes"
+    echo ""
+    echo -e "  ${BLUE}# Upgrade from the latest GitHub release:${NC}"
+    echo "  ./upgrade.sh --from-github --target /opt/audiobooks"
+    echo ""
+    echo -e "  ${BLUE}# Upgrade to a specific version from GitHub:${NC}"
+    echo "  ./upgrade.sh --from-github --version 7.1.0 --target /opt/audiobooks"
+    echo ""
+    echo -e "  ${BLUE}# Check if updates are available (no changes):${NC}"
+    echo "  ./upgrade.sh --from-github --check"
+    echo ""
+    echo -e "  ${BLUE}# Dry run to see what would happen:${NC}"
+    echo "  ./upgrade.sh --from-project . --target /opt/audiobooks --dry-run"
+    echo ""
+    echo -e "  ${BLUE}# Major version upgrade with venv rebuild:${NC}"
+    echo "  ./upgrade.sh --from-project . --target /opt/audiobooks --major-version --yes"
+}
+
 # Safety net: restart services if script dies after stopping them.
 # set -e can kill the script mid-upgrade, leaving services dead with no 502
 # recovery. This trap ensures services always come back up.
@@ -694,6 +749,188 @@ enable_new_services() {
 }
 
 # -----------------------------------------------------------------------------
+# Audit & Cleanup (runs on every upgrade)
+# -----------------------------------------------------------------------------
+
+audit_and_cleanup() {
+    # Post-sync audit: remove broken symlinks, stale units, legacy files.
+    # Runs on every upgrade (not gated by --major-version). Idempotent.
+    local target="$1"
+    local use_sudo="${2:-}"
+
+    echo ""
+    echo -e "${BLUE}=== Post-Upgrade Audit & Cleanup ===${NC}"
+
+    local issues=0
+
+    # --- (a) Broken symlinks in /usr/local/bin ---
+    echo -e "${BLUE}Checking for broken symlinks in /usr/local/bin...${NC}"
+    local broken_links
+    mapfile -t broken_links < <(find /usr/local/bin -name "audiobook*" -xtype l 2>/dev/null)
+    if [[ ${#broken_links[@]} -gt 0 ]]; then
+        for link in "${broken_links[@]}"; do
+            local link_target
+            link_target=$(readlink "$link" 2>/dev/null || echo "unknown")
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo -e "  ${YELLOW}[DRY-RUN] Would remove broken symlink: $link -> $link_target${NC}"
+            else
+                if [[ -n "$use_sudo" ]]; then
+                    sudo rm -f "$link"
+                else
+                    rm -f "$link"
+                fi
+                echo -e "  ${GREEN}Removed broken symlink: $link -> $link_target${NC}"
+            fi
+            issues=$((issues + 1))
+        done
+    else
+        echo -e "  ${GREEN}No broken symlinks found${NC}"
+    fi
+
+    # --- (b) Stale legacy symlinks (wrong target) ---
+    echo -e "${BLUE}Checking for stale legacy symlinks...${NC}"
+    local legacy_found=0
+    while IFS= read -r link; do
+        [[ -z "$link" ]] && continue
+        local link_target
+        link_target=$(readlink "$link" 2>/dev/null || echo "")
+        # Flag symlinks pointing to /usr/local/lib/audiobooks/ instead of /opt/audiobooks/scripts/
+        if [[ "$link_target" == /usr/local/lib/audiobooks/* ]]; then
+            local script_name
+            script_name=$(basename "$link_target")
+            local correct_target="${target}/scripts/${script_name}"
+            if [[ -f "$correct_target" ]]; then
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo -e "  ${YELLOW}[DRY-RUN] Would relink: $link -> $correct_target (was $link_target)${NC}"
+                else
+                    if [[ -n "$use_sudo" ]]; then
+                        sudo rm -f "$link"
+                        sudo ln -s "$correct_target" "$link"
+                    else
+                        rm -f "$link"
+                        ln -s "$correct_target" "$link"
+                    fi
+                    echo -e "  ${GREEN}Relinked: $link -> $correct_target (was $link_target)${NC}"
+                fi
+                legacy_found=$((legacy_found + 1))
+                issues=$((issues + 1))
+            fi
+        fi
+    done < <(find /usr/local/bin -name "audiobook*" -type l 2>/dev/null)
+    if [[ $legacy_found -eq 0 ]]; then
+        echo -e "  ${GREEN}No stale legacy symlinks found${NC}"
+    fi
+
+    # --- (c) Orphaned systemd units ---
+    echo -e "${BLUE}Checking for orphaned systemd units...${NC}"
+    local orphan_found=0
+    local project_systemd_dir="${target}/systemd"
+    # Fall back to the project source if target doesn't have systemd/ yet
+    [[ ! -d "$project_systemd_dir" ]] && project_systemd_dir="${SCRIPT_DIR}/systemd"
+    while IFS= read -r unit_path; do
+        [[ -z "$unit_path" ]] && continue
+        local unit_name
+        unit_name=$(basename "$unit_path")
+        # Skip the .wants directory (managed by systemd enable/disable)
+        [[ "$unit_path" == *".wants/"* ]] && continue
+        # Skip non-unit files (e.g., audiobooks-tmpfiles.conf in /etc/systemd is unlikely but be safe)
+        [[ "$unit_name" != *.service && "$unit_name" != *.timer && "$unit_name" != *.path && "$unit_name" != *.target ]] && continue
+        # Check if this unit exists in the project's systemd/ directory
+        if [[ ! -f "${project_systemd_dir}/${unit_name}" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo -e "  ${YELLOW}[DRY-RUN] Would remove orphaned unit: $unit_name${NC}"
+            else
+                if [[ -n "$use_sudo" ]]; then
+                    sudo systemctl disable "$unit_name" 2>/dev/null || true
+                    sudo systemctl stop "$unit_name" 2>/dev/null || true
+                    sudo rm -f "$unit_path"
+                fi
+                echo -e "  ${GREEN}Removed orphaned unit: $unit_name${NC}"
+            fi
+            orphan_found=$((orphan_found + 1))
+            issues=$((issues + 1))
+        fi
+    done < <(find /etc/systemd/system -maxdepth 1 -name "audiobook*" -type f 2>/dev/null)
+    if [[ $orphan_found -eq 0 ]]; then
+        echo -e "  ${GREEN}No orphaned systemd units found${NC}"
+    fi
+
+    # --- (d) Legacy files in the app directory ---
+    echo -e "${BLUE}Checking for legacy files in ${target}...${NC}"
+    local legacy_files=(
+        "$target/library/launch-v3.sh"
+        "$target/install-services.sh"
+    )
+    for legacy_file in "${legacy_files[@]}"; do
+        if [[ -f "$legacy_file" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo -e "  ${YELLOW}[DRY-RUN] Would remove legacy file: $legacy_file${NC}"
+            else
+                if [[ -n "$use_sudo" ]]; then
+                    sudo rm -f "$legacy_file"
+                else
+                    rm -f "$legacy_file"
+                fi
+                echo -e "  ${GREEN}Removed legacy file: $legacy_file${NC}"
+            fi
+            issues=$((issues + 1))
+        fi
+    done
+    # Warn about waitress files in venv (venv rebuild handles these)
+    local waitress_count
+    waitress_count=$(find "$target/library/venv/" -name "*waitress*" 2>/dev/null | wc -l)
+    if [[ "$waitress_count" -gt 0 ]]; then
+        echo -e "  ${YELLOW}Found $waitress_count waitress-related file(s) in venv — will be cleaned on next venv rebuild (--major-version)${NC}"
+    fi
+
+    # --- (e) Stale config references ---
+    echo -e "${BLUE}Checking for stale config references...${NC}"
+    local conf_file="/etc/audiobooks/audiobooks.conf"
+    if [[ -f "$conf_file" ]]; then
+        if grep -q "AUDIOBOOKS_USE_WAITRESS" "$conf_file" 2>/dev/null; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo -e "  ${YELLOW}[DRY-RUN] Would remove AUDIOBOOKS_USE_WAITRESS from $conf_file${NC}"
+            else
+                if [[ -n "$use_sudo" ]]; then
+                    sudo sed -i '/AUDIOBOOKS_USE_WAITRESS/d' "$conf_file"
+                else
+                    sed -i '/AUDIOBOOKS_USE_WAITRESS/d' "$conf_file"
+                fi
+                echo -e "  ${GREEN}Removed AUDIOBOOKS_USE_WAITRESS from $conf_file${NC}"
+            fi
+            issues=$((issues + 1))
+        else
+            echo -e "  ${GREEN}No stale config references found${NC}"
+        fi
+    else
+        echo -e "  ${GREEN}No config file to check (not a system install)${NC}"
+    fi
+
+    # --- (f) Legacy app directory ---
+    echo -e "${BLUE}Checking for legacy install location...${NC}"
+    if [[ -d "/usr/local/lib/audiobooks" ]]; then
+        echo -e "  ${YELLOW}WARNING: Legacy install directory /usr/local/lib/audiobooks still exists${NC}"
+        echo -e "  ${YELLOW}  This is the old install location. Consider removing it:${NC}"
+        echo -e "  ${YELLOW}  sudo rm -rf /usr/local/lib/audiobooks${NC}"
+        issues=$((issues + 1))
+    else
+        echo -e "  ${GREEN}No legacy install directory found${NC}"
+    fi
+
+    # Summary
+    echo ""
+    if [[ $issues -gt 0 ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo -e "${YELLOW}Audit found $issues issue(s) (dry-run — no changes made)${NC}"
+        else
+            echo -e "${GREEN}Audit complete — resolved $issues issue(s)${NC}"
+        fi
+    else
+        echo -e "${GREEN}Audit complete — installation is clean${NC}"
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Core Upgrade
 # -----------------------------------------------------------------------------
 
@@ -1008,6 +1245,9 @@ do_upgrade() {
 
     # Verify permissions after upgrade
     verify_installation_permissions "$target"
+
+    # Run audit & cleanup (every upgrade)
+    audit_and_cleanup "$target" "$use_sudo"
 }
 
 # -----------------------------------------------------------------------------
@@ -1686,6 +1926,12 @@ do_github_upgrade() {
 # Parse Command Line Arguments
 # -----------------------------------------------------------------------------
 
+# Show usage and exit if no arguments provided
+if [[ $# -eq 0 ]]; then
+    show_usage
+    exit 0
+fi
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --from-project)
@@ -1745,7 +1991,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            head -30 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
+            show_usage
             exit 0
             ;;
         *)

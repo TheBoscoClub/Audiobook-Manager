@@ -1,4 +1,8 @@
 #!/bin/bash
+# DEPRECATED: This script is superseded by systemd services in v7.2+.
+# Use 'systemctl start audiobook.target' or 'audiobook-start' instead.
+# Retained for reference only — do not use in production.
+#
 # Audiobook Library V3 - Production-ready HTTPS server
 # Features:
 # - Waitress WSGI server for API

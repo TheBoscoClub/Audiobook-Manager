@@ -54,6 +54,7 @@ INSTALL_MODE=""
 DATA_DIR=""
 INSTALL_SERVICES=true
 UNINSTALL=false
+FRESH_INSTALL=false
 API_ARCHITECTURE="monolithic"  # monolithic (api.py) or modular (api_modular/)
 
 # -----------------------------------------------------------------------------
@@ -120,6 +121,67 @@ print_header() {
     echo "║                                                                   ║"
     echo "╚═══════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
+    echo ""
+}
+
+show_usage() {
+    echo -e "${CYAN}${BOLD}Audiobook Library - Unified Installation Script${NC}"
+    echo ""
+    echo -e "${BOLD}USAGE${NC}"
+    echo "  ./install.sh [OPTIONS]"
+    echo ""
+    echo -e "${BOLD}OPTIONS${NC}"
+    echo -e "  ${GREEN}--system${NC}              Skip menu, perform system-wide installation"
+    echo -e "  ${GREEN}--user${NC}                Skip menu, perform per-user installation"
+    echo -e "  ${GREEN}--data-dir PATH${NC}       Set audiobook data directory (default: /srv/audiobooks"
+    echo "                        for system, ~/Audiobooks for user)"
+    echo -e "  ${GREEN}--modular${NC}             Use modular Flask Blueprint API architecture"
+    echo -e "  ${GREEN}--monolithic${NC}          Use single-file API architecture (default)"
+    echo -e "  ${GREEN}--no-services${NC}         Skip systemd service installation"
+    echo -e "  ${GREEN}--uninstall${NC}           Remove the installation (delegates to uninstall.sh)"
+    echo -e "  ${GREEN}--fresh-install, -fi${NC}  Reinstall from scratch while preserving your"
+    echo "                        audiobook library and configuration settings"
+    echo -e "  ${GREEN}--help, -h${NC}            Show this help message"
+    echo ""
+    echo -e "${BOLD}WHAT A FRESH INSTALL CREATES${NC}"
+    echo "  System (--system):"
+    echo "    /opt/audiobooks/           Application code and Python venv"
+    echo "    /etc/audiobooks/           Configuration (audiobooks.conf, auth.key)"
+    echo "    /var/lib/audiobooks/       Database, auth DB, runtime state"
+    echo "    /var/log/audiobooks/       Log files"
+    echo "    /srv/audiobooks/           Data (Library/, Sources/, Supplements/)"
+    echo "    /usr/local/bin/audiobook-* CLI commands (symlinks)"
+    echo "    /etc/systemd/system/       audiobook-api, audiobook-proxy, etc."
+    echo "    SSL certificate (3-year), Python venv, SQLite database"
+    echo ""
+    echo "  User (--user):"
+    echo "    ~/.local/share/audiobooks/ Application code and Python venv"
+    echo "    ~/.config/audiobooks/      Configuration and SSL certs"
+    echo "    ~/.local/var/lib/audiobooks/ Database and runtime state"
+    echo "    ~/.local/bin/audiobook-*   CLI commands"
+    echo "    ~/.config/systemd/user/    User-level systemd services"
+    echo ""
+    echo -e "${BOLD}STORAGE TIER RECOMMENDATIONS${NC}"
+    echo -e "  ${GREEN}NVMe/SSD${NC}  Database (audiobooks.db), index files (.index/)"
+    echo -e "  ${BLUE}SSD${NC}       Cover art (.covers/) for fast random reads"
+    echo -e "  ${YELLOW}HDD OK${NC}    Audio Library (Library/), source files (Sources/)"
+    echo "  SQLite query times: NVMe ~0.002s vs HDD ~0.2s (100x difference)"
+    echo ""
+    echo -e "${BOLD}FRESH INSTALL (--fresh-install)${NC}"
+    echo "  Performs a clean reinstall while preserving your audiobook library."
+    echo "  1. Captures current settings from audiobooks.conf"
+    echo "  2. Uninstalls the application (keeps Library/, Sources/, Supplements/)"
+    echo "  3. Runs a fresh install with the same settings"
+    echo "  4. Triggers a library scan to reindex preserved audiobooks"
+    echo "  Use this to fix a broken installation or upgrade between major versions."
+    echo ""
+    echo -e "${BOLD}EXAMPLES${NC}"
+    echo "  ./install.sh                         Interactive menu"
+    echo "  ./install.sh --system                Non-interactive system install"
+    echo "  ./install.sh --system --data-dir /mnt/data/audiobooks"
+    echo "  ./install.sh --user --modular        User install with modular API"
+    echo "  ./install.sh --system --fresh-install Reinstall, keep library + settings"
+    echo "  ./install.sh --system --uninstall    Remove system installation"
     echo ""
 }
 
@@ -2116,6 +2178,259 @@ do_user_uninstall() {
 }
 
 # -----------------------------------------------------------------------------
+# Fresh Install (reinstall preserving audiobook library)
+# -----------------------------------------------------------------------------
+
+do_fresh_install() {
+    local install_type="$1"  # "system" or "user"
+
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}Fresh Install — Reinstall with Library Preservation${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    # Determine config file location based on install type
+    local config_file
+    if [[ "$install_type" == "system" ]]; then
+        config_file="/etc/audiobooks/audiobooks.conf"
+    else
+        config_file="$HOME/.config/audiobooks/audiobooks.conf"
+    fi
+
+    # --- Step 1: Detect existing installation ---
+    local existing_install=false
+    if [[ "$install_type" == "system" ]]; then
+        if [[ -d "/opt/audiobooks" ]] || [[ -f "$config_file" ]]; then
+            existing_install=true
+        fi
+    else
+        if [[ -d "$HOME/.local/share/audiobooks" ]] || [[ -f "$config_file" ]]; then
+            existing_install=true
+        fi
+    fi
+
+    if [[ "$existing_install" == "false" ]]; then
+        echo -e "${YELLOW}No existing installation detected.${NC}"
+        echo "Running a normal fresh install instead."
+        echo ""
+        if [[ "$install_type" == "system" ]]; then
+            do_system_install
+        else
+            do_user_install
+        fi
+        return $?
+    fi
+
+    echo -e "${GREEN}Existing installation detected.${NC}"
+    echo ""
+
+    # --- Step 2: Capture settings from existing audiobooks.conf ---
+    echo -e "${BLUE}Capturing settings from ${config_file}...${NC}"
+
+    # Settings to preserve
+    local saved_AUDIOBOOKS_DATA=""
+    local saved_AUDIOBOOKS_LIBRARY=""
+    local saved_AUDIOBOOKS_SOURCES=""
+    local saved_AUDIOBOOKS_SUPPLEMENTS=""
+    local saved_AUDIOBOOKS_DATABASE=""
+    local saved_AUDIOBOOKS_API_PORT=""
+    local saved_AUDIOBOOKS_WEB_PORT=""
+    local saved_AUDIOBOOKS_HTTP_REDIRECT_PORT=""
+    local saved_AUDIOBOOKS_BIND_ADDRESS=""
+    local saved_AUDIOBOOKS_HTTPS_ENABLED=""
+    local saved_AUTH_ENABLED=""
+    local saved_AUTH_DATABASE=""
+    local saved_AUTH_KEY_FILE=""
+
+    if [[ -f "$config_file" ]]; then
+        # Source the config in a subshell to extract values safely
+        while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            [[ "$key" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "$key" ]] && continue
+            # Strip leading/trailing whitespace and quotes
+            key=$(echo "$key" | xargs)
+            value=$(echo "$value" | sed 's/^["'"'"']//; s/["'"'"']$//' | xargs)
+            case "$key" in
+                AUDIOBOOKS_DATA)              saved_AUDIOBOOKS_DATA="$value" ;;
+                AUDIOBOOKS_LIBRARY)           saved_AUDIOBOOKS_LIBRARY="$value" ;;
+                AUDIOBOOKS_SOURCES)           saved_AUDIOBOOKS_SOURCES="$value" ;;
+                AUDIOBOOKS_SUPPLEMENTS)       saved_AUDIOBOOKS_SUPPLEMENTS="$value" ;;
+                AUDIOBOOKS_DATABASE)          saved_AUDIOBOOKS_DATABASE="$value" ;;
+                AUDIOBOOKS_API_PORT)          saved_AUDIOBOOKS_API_PORT="$value" ;;
+                AUDIOBOOKS_WEB_PORT)          saved_AUDIOBOOKS_WEB_PORT="$value" ;;
+                AUDIOBOOKS_HTTP_REDIRECT_PORT) saved_AUDIOBOOKS_HTTP_REDIRECT_PORT="$value" ;;
+                AUDIOBOOKS_BIND_ADDRESS)      saved_AUDIOBOOKS_BIND_ADDRESS="$value" ;;
+                AUDIOBOOKS_HTTPS_ENABLED)     saved_AUDIOBOOKS_HTTPS_ENABLED="$value" ;;
+                AUTH_ENABLED)                 saved_AUTH_ENABLED="$value" ;;
+                AUTH_DATABASE)                saved_AUTH_DATABASE="$value" ;;
+                AUTH_KEY_FILE)                saved_AUTH_KEY_FILE="$value" ;;
+            esac
+        done < "$config_file"
+    fi
+
+    # Display what we captured
+    echo ""
+    echo -e "${BOLD}Preserved settings:${NC}"
+    [[ -n "$saved_AUDIOBOOKS_DATA" ]]              && echo -e "  AUDIOBOOKS_DATA              = ${CYAN}${saved_AUDIOBOOKS_DATA}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_LIBRARY" ]]           && echo -e "  AUDIOBOOKS_LIBRARY           = ${CYAN}${saved_AUDIOBOOKS_LIBRARY}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_SOURCES" ]]           && echo -e "  AUDIOBOOKS_SOURCES           = ${CYAN}${saved_AUDIOBOOKS_SOURCES}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_SUPPLEMENTS" ]]       && echo -e "  AUDIOBOOKS_SUPPLEMENTS       = ${CYAN}${saved_AUDIOBOOKS_SUPPLEMENTS}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_DATABASE" ]]          && echo -e "  AUDIOBOOKS_DATABASE          = ${CYAN}${saved_AUDIOBOOKS_DATABASE}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_API_PORT" ]]          && echo -e "  AUDIOBOOKS_API_PORT          = ${CYAN}${saved_AUDIOBOOKS_API_PORT}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_WEB_PORT" ]]          && echo -e "  AUDIOBOOKS_WEB_PORT          = ${CYAN}${saved_AUDIOBOOKS_WEB_PORT}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT" ]] && echo -e "  AUDIOBOOKS_HTTP_REDIRECT_PORT= ${CYAN}${saved_AUDIOBOOKS_HTTP_REDIRECT_PORT}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_BIND_ADDRESS" ]]      && echo -e "  AUDIOBOOKS_BIND_ADDRESS      = ${CYAN}${saved_AUDIOBOOKS_BIND_ADDRESS}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_HTTPS_ENABLED" ]]     && echo -e "  AUDIOBOOKS_HTTPS_ENABLED     = ${CYAN}${saved_AUDIOBOOKS_HTTPS_ENABLED}${NC}"
+    [[ -n "$saved_AUTH_ENABLED" ]]                 && echo -e "  AUTH_ENABLED                 = ${CYAN}${saved_AUTH_ENABLED}${NC}"
+    [[ -n "$saved_AUTH_DATABASE" ]]                && echo -e "  AUTH_DATABASE                 = ${CYAN}${saved_AUTH_DATABASE}${NC}"
+    [[ -n "$saved_AUTH_KEY_FILE" ]]                && echo -e "  AUTH_KEY_FILE                 = ${CYAN}${saved_AUTH_KEY_FILE}${NC}"
+    echo ""
+
+    # Apply captured ports to global variables so the fresh install uses them
+    [[ -n "$saved_AUDIOBOOKS_API_PORT" ]]          && API_PORT="$saved_AUDIOBOOKS_API_PORT"
+    [[ -n "$saved_AUDIOBOOKS_WEB_PORT" ]]          && WEB_PORT="$saved_AUDIOBOOKS_WEB_PORT"
+    [[ -n "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT" ]] && HTTP_REDIRECT_PORT="$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT"
+
+    # Apply captured data dir so the fresh install uses it
+    [[ -n "$saved_AUDIOBOOKS_DATA" ]] && DATA_DIR="$saved_AUDIOBOOKS_DATA"
+
+    # --- Step 3: Uninstall (keep data) ---
+    echo -e "${YELLOW}Uninstalling existing application (keeping audiobook data)...${NC}"
+    echo ""
+
+    local uninstall_script="${SCRIPT_DIR}/uninstall.sh"
+    if [[ ! -f "$uninstall_script" ]]; then
+        echo -e "${RED}Error: uninstall.sh not found at ${uninstall_script}${NC}"
+        echo "Cannot proceed with fresh install without the uninstall script."
+        return 1
+    fi
+
+    if [[ "$install_type" == "system" ]]; then
+        "$uninstall_script" --system --keep-data --force
+    else
+        "$uninstall_script" --user --keep-data --force
+    fi
+
+    local uninstall_rc=$?
+    if [[ $uninstall_rc -ne 0 ]]; then
+        echo -e "${RED}Uninstall failed (exit code $uninstall_rc). Aborting fresh install.${NC}"
+        return 1
+    fi
+
+    echo ""
+    echo -e "${GREEN}Uninstall complete. Audiobook data preserved.${NC}"
+    echo ""
+
+    # --- Step 4: Run fresh install ---
+    echo -e "${BLUE}Running fresh install...${NC}"
+    echo ""
+
+    if [[ "$install_type" == "system" ]]; then
+        do_system_install
+    else
+        do_user_install
+    fi
+
+    local install_rc=$?
+    if [[ $install_rc -ne 0 ]]; then
+        echo -e "${RED}Fresh install failed (exit code $install_rc).${NC}"
+        return 1
+    fi
+
+    # --- Step 5: Apply preserved settings to new config ---
+    echo ""
+    echo -e "${BLUE}Applying preserved settings to new configuration...${NC}"
+
+    if [[ "$install_type" == "system" ]]; then
+        config_file="/etc/audiobooks/audiobooks.conf"
+    else
+        config_file="$HOME/.config/audiobooks/audiobooks.conf"
+    fi
+
+    if [[ -f "$config_file" ]]; then
+        local use_sudo=""
+        [[ "$install_type" == "system" ]] && use_sudo="sudo"
+
+        # Apply each preserved setting by replacing the line in the new config
+        _apply_setting() {
+            local key="$1"
+            local value="$2"
+            [[ -z "$value" ]] && return
+            # If the key exists in the config, replace its value
+            if grep -q "^${key}=" "$config_file" 2>/dev/null; then
+                $use_sudo sed -i "s|^${key}=.*|${key}=\"${value}\"|" "$config_file"
+                echo -e "  Applied: ${key}=${CYAN}${value}${NC}"
+            elif grep -q "^#${key}=" "$config_file" 2>/dev/null; then
+                # Uncomment and set
+                $use_sudo sed -i "s|^#${key}=.*|${key}=\"${value}\"|" "$config_file"
+                echo -e "  Applied (uncommented): ${key}=${CYAN}${value}${NC}"
+            else
+                # Append to config
+                echo "${key}=\"${value}\"" | $use_sudo tee -a "$config_file" > /dev/null
+                echo -e "  Applied (appended): ${key}=${CYAN}${value}${NC}"
+            fi
+        }
+
+        _apply_setting "AUDIOBOOKS_DATA"               "$saved_AUDIOBOOKS_DATA"
+        _apply_setting "AUDIOBOOKS_LIBRARY"            "$saved_AUDIOBOOKS_LIBRARY"
+        _apply_setting "AUDIOBOOKS_SOURCES"            "$saved_AUDIOBOOKS_SOURCES"
+        _apply_setting "AUDIOBOOKS_SUPPLEMENTS"        "$saved_AUDIOBOOKS_SUPPLEMENTS"
+        _apply_setting "AUDIOBOOKS_DATABASE"           "$saved_AUDIOBOOKS_DATABASE"
+        _apply_setting "AUDIOBOOKS_API_PORT"           "$saved_AUDIOBOOKS_API_PORT"
+        _apply_setting "AUDIOBOOKS_WEB_PORT"           "$saved_AUDIOBOOKS_WEB_PORT"
+        _apply_setting "AUDIOBOOKS_HTTP_REDIRECT_PORT" "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT"
+        _apply_setting "AUDIOBOOKS_BIND_ADDRESS"       "$saved_AUDIOBOOKS_BIND_ADDRESS"
+        _apply_setting "AUDIOBOOKS_HTTPS_ENABLED"      "$saved_AUDIOBOOKS_HTTPS_ENABLED"
+        _apply_setting "AUTH_ENABLED"                  "$saved_AUTH_ENABLED"
+        _apply_setting "AUTH_DATABASE"                 "$saved_AUTH_DATABASE"
+        _apply_setting "AUTH_KEY_FILE"                 "$saved_AUTH_KEY_FILE"
+
+        unset -f _apply_setting
+    fi
+
+    # --- Step 6: Trigger library scan to reindex preserved audiobooks ---
+    echo ""
+    echo -e "${BLUE}Scanning library to reindex preserved audiobooks...${NC}"
+
+    local scan_cmd=""
+    if [[ "$install_type" == "system" ]]; then
+        scan_cmd="/usr/local/bin/audiobook-scan"
+    else
+        scan_cmd="$HOME/.local/bin/audiobook-scan"
+    fi
+
+    if [[ -x "$scan_cmd" ]]; then
+        if [[ "$install_type" == "system" ]]; then
+            sudo -u audiobooks "$scan_cmd" 2>&1 || {
+                echo -e "${YELLOW}Library scan returned non-zero. You can run it manually later:${NC}"
+                echo "  $scan_cmd"
+            }
+        else
+            "$scan_cmd" 2>&1 || {
+                echo -e "${YELLOW}Library scan returned non-zero. You can run it manually later:${NC}"
+                echo "  $scan_cmd"
+            }
+        fi
+        echo -e "${GREEN}Library scan complete.${NC}"
+    else
+        echo -e "${YELLOW}Scanner not found at ${scan_cmd}.${NC}"
+        echo "Run the library scan manually after installation:"
+        echo "  audiobook-scan"
+    fi
+
+    echo ""
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}${BOLD}Fresh install complete!${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo "Your audiobook library and settings have been preserved."
+    echo "Configuration: ${config_file}"
+    echo ""
+}
+
+# -----------------------------------------------------------------------------
 # Parse Command Line Arguments
 # -----------------------------------------------------------------------------
 
@@ -2149,12 +2464,12 @@ while [[ $# -gt 0 ]]; do
             INSTALL_SERVICES=false
             shift
             ;;
+        --fresh-install|-fi)
+            FRESH_INSTALL=true
+            shift
+            ;;
         --help|-h)
-            head -25 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
-            echo ""
-            echo "Architecture options:"
-            echo "  --modular          Use modular Flask Blueprint architecture"
-            echo "  --monolithic       Use single-file architecture (default)"
+            show_usage
             exit 0
             ;;
         *)
@@ -2172,35 +2487,38 @@ done
 # Handle command-line mode selection
 if [[ -n "$INSTALL_MODE" ]]; then
     if [[ "$INSTALL_MODE" == "system" ]]; then
-        if [[ "$UNINSTALL" == "true" ]]; then
-            if ! check_sudo_access; then
-                show_sudo_error
-                exit 1
-            fi
-            if ! verify_sudo; then
-                show_sudo_error
-                exit 1
-            fi
+        if ! check_sudo_access; then
+            show_sudo_error
+            exit 1
+        fi
+        if ! verify_sudo; then
+            show_sudo_error
+            exit 1
+        fi
+        if [[ "$FRESH_INSTALL" == "true" ]]; then
+            do_fresh_install "system"
+        elif [[ "$UNINSTALL" == "true" ]]; then
             do_system_uninstall
         else
-            if ! check_sudo_access; then
-                show_sudo_error
-                exit 1
-            fi
-            if ! verify_sudo; then
-                show_sudo_error
-                exit 1
-            fi
             do_system_install
         fi
     elif [[ "$INSTALL_MODE" == "user" ]]; then
-        if [[ "$UNINSTALL" == "true" ]]; then
+        if [[ "$FRESH_INSTALL" == "true" ]]; then
+            do_fresh_install "user"
+        elif [[ "$UNINSTALL" == "true" ]]; then
             do_user_uninstall
         else
             do_user_install
         fi
     fi
     exit 0
+fi
+
+# Fresh install requires --system or --user
+if [[ "$FRESH_INSTALL" == "true" ]]; then
+    echo -e "${RED}Error: --fresh-install requires --system or --user to be specified.${NC}"
+    echo "Example: ./install.sh --system --fresh-install"
+    exit 1
 fi
 
 # Interactive menu loop
