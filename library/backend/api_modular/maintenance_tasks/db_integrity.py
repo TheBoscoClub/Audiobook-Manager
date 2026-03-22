@@ -1,7 +1,6 @@
 """Database integrity check task."""
 import logging
 import sqlite3
-from pathlib import Path
 
 from . import registry
 from .base import ExecutionResult, MaintenanceTask, ValidationResult

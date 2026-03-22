@@ -1,7 +1,6 @@
 """Test that proxy_server detects WebSocket upgrade requests."""
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 # proxy_server uses hyphenated directory; add to path manually
 sys.path.insert(0, str(Path(__file__).parent.parent / "web-v2"))
