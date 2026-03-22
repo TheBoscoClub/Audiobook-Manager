@@ -16,7 +16,6 @@ For backward compatibility, this module also exports:
 - All the constants from the old api.py
 """
 
-import os
 import sys
 from pathlib import Path
 

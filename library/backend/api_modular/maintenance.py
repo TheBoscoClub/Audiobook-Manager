@@ -9,7 +9,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, jsonify, request
 
 from .auth import admin_if_enabled, get_current_user, guest_allowed
 

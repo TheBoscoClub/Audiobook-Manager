@@ -6,7 +6,7 @@ via the @registry.register decorator in its module.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 
 @dataclass

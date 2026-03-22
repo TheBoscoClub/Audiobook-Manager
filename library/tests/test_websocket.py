@@ -1,9 +1,7 @@
 """Tests for WebSocket connection manager."""
-import json
 import time
 from unittest.mock import MagicMock
 
-import pytest
 
 from library.backend.api_modular.websocket import ConnectionManager
 
