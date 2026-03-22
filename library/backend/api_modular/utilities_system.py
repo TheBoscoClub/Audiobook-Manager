@@ -20,6 +20,7 @@ import json
 import os
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
@@ -35,6 +36,10 @@ _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
 CONTROL_DIR = Path(_var_dir) / ".control"
 HELPER_REQUEST_FILE = CONTROL_DIR / "upgrade-request"
 HELPER_STATUS_FILE = CONTROL_DIR / "upgrade-status"
+PREFLIGHT_FILE = CONTROL_DIR / "upgrade-preflight.json"
+
+# Preflight report is considered stale after this many seconds
+PREFLIGHT_STALE_SECONDS = 30 * 60  # 30 minutes
 
 
 def _ensure_control_dir():
@@ -89,6 +94,36 @@ def _read_status() -> dict:
         return status
     except (json.JSONDecodeError, PermissionError):
         return default_status
+
+
+def _read_preflight() -> dict | None:
+    """Read preflight report and compute staleness.
+
+    Returns the preflight dict with an added 'stale' field, or None if
+    no report exists or it cannot be parsed.
+    """
+    if not PREFLIGHT_FILE.exists():
+        return None
+
+    try:
+        content = PREFLIGHT_FILE.read_text()
+        data = json.loads(content)
+    except (json.JSONDecodeError, PermissionError, OSError):
+        return None
+
+    # Compute staleness from the timestamp field
+    timestamp_str = data.get("timestamp", "")
+    stale = True  # Default to stale if we can't parse
+    if timestamp_str:
+        try:
+            ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+            age = (datetime.now(timezone.utc) - ts).total_seconds()
+            stale = age > PREFLIGHT_STALE_SECONDS
+        except (ValueError, TypeError):
+            stale = True
+
+    data["stale"] = stale
+    return data
 
 
 def _wait_for_completion(timeout: float = 30.0, poll_interval: float = 0.5) -> dict:
@@ -348,6 +383,18 @@ def init_system_routes(project_root):
     # Upgrade Endpoints (via privileged helper, async with polling)
     # =========================================================================
 
+    @utilities_system_bp.route("/api/system/upgrade/preflight", methods=["GET"])
+    @admin_or_localhost
+    def get_upgrade_preflight() -> FlaskResponse:
+        """Get the most recent preflight check report.
+
+        Returns the preflight data with a computed 'stale' field (true if
+        the report timestamp is older than 30 minutes), or null if no
+        report exists.
+        """
+        preflight = _read_preflight()
+        return jsonify({"preflight": preflight})
+
     @utilities_system_bp.route("/api/system/upgrade/status", methods=["GET"])
     @admin_or_localhost
     def get_upgrade_status() -> FlaskResponse:
@@ -368,7 +415,8 @@ def init_system_routes(project_root):
         Request body:
         {
             "source": "github" | "project",
-            "project_path": "/path/to/project"  // Required if source is "project"
+            "project_path": "/path/to/project",  // Required if source is "project"
+            "version": "7.3.0"  // Optional: specific version to check (github only)
         }
         """
         # Check if an operation is already running
@@ -379,6 +427,7 @@ def init_system_routes(project_root):
         data = request.get_json() or {}
         source = data.get("source", "github")
         project_path = data.get("project_path")
+        version = data.get("version")
 
         if source == "project" and not project_path:
             return jsonify({"error": "project_path required for project source"}), 400
@@ -396,10 +445,23 @@ def init_system_routes(project_root):
                     400,
                 )
 
+        # version field is only valid with github source
+        if version and source != "github":
+            return (
+                jsonify(
+                    {
+                        "error": "version field is only valid with source 'github'"
+                    }
+                ),
+                400,
+            )
+
         # Write upgrade check request
         request_data = {"type": "upgrade_check", "source": source}
         if project_path:
             request_data["project_path"] = project_path
+        if version:
+            request_data["version"] = version
 
         if not _write_request(request_data):
             return (
@@ -424,7 +486,10 @@ def init_system_routes(project_root):
         Request body:
         {
             "source": "github" | "project",
-            "project_path": "/path/to/project"  // Required if source is "project"
+            "project_path": "/path/to/project",  // Required if source is "project"
+            "force": false,           // Skip preflight gate
+            "major_version": false,   // Allow major version upgrades
+            "version": "7.3.0"       // Specific version (github source only)
         }
         """
         # Check if an operation is already running
@@ -435,6 +500,9 @@ def init_system_routes(project_root):
         data = request.get_json() or {}
         source = data.get("source", "github")
         project_path = data.get("project_path")
+        force = data.get("force", False)
+        major_version = data.get("major_version", False)
+        version = data.get("version")
 
         if source == "project" and not project_path:
             return jsonify({"error": "project_path required for project source"}), 400
@@ -455,10 +523,57 @@ def init_system_routes(project_root):
                     400,
                 )
 
+        # version field is only valid with github source
+        if version and source != "github":
+            return (
+                jsonify(
+                    {
+                        "error": "version field is only valid with source 'github'"
+                    }
+                ),
+                400,
+            )
+
+        # Preflight gate: require a valid, non-stale preflight report
+        # unless force is explicitly set
+        if not force:
+            preflight = _read_preflight()
+            if preflight is None:
+                return (
+                    jsonify(
+                        {
+                            "error": (
+                                "Preflight check required. "
+                                "Run 'Check for Updates' first."
+                            )
+                        }
+                    ),
+                    400,
+                )
+            if preflight.get("stale", True):
+                return (
+                    jsonify(
+                        {
+                            "error": (
+                                "Preflight check required. "
+                                "Run 'Check for Updates' first."
+                            )
+                        }
+                    ),
+                    400,
+                )
+
         # Write upgrade request
-        request_data = {"type": "upgrade", "source": source}
+        request_data = {
+            "type": "upgrade",
+            "source": source,
+            "force": force,
+            "major_version": major_version,
+        }
         if project_path:
             request_data["project_path"] = project_path
+        if version:
+            request_data["version"] = version
 
         if not _write_request(request_data):
             return (
