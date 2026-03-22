@@ -136,6 +136,8 @@ class TestStreamingWithMocks:
             response = app_client.get(f"/api/stream/{audiobook_id}")
             # Should attempt to send file or return the mock
             assert response.status_code in (200, 404, 500)
+            if response.status_code == 200:
+                assert mock_send.called, "send_file should be called when file exists"
 
     def test_stream_audiobook_file_not_on_disk(self, app_client):
         """Test streaming when database entry exists but file doesn't."""
@@ -173,6 +175,10 @@ class TestSupplementDownloadWithMocks:
             response = app_client.get("/api/supplements/1/download")
             # Will be 404 if supplement ID doesn't exist in DB
             assert response.status_code in (200, 404)
+            if response.status_code == 200:
+                assert mock_send.called, (
+                    "send_file should be called when supplement exists"
+                )
 
     def test_download_supplement_file_missing(self, app_client):
         """Test downloading supplement when file is missing from disk."""
@@ -214,63 +220,57 @@ class TestSupplementsScanWithMocks:
 
 
 class TestBulkOperationsWithMocks:
-    """Test bulk operations that modify database."""
+    """Test bulk operations with mocked database writes to avoid shared DB corruption."""
+
+    def _mock_get_db(self):
+        """Create a mock get_db that returns a mock connection with working cursor."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.rowcount = 1
+        mock_cursor.fetchone.return_value = None
+        mock_cursor.fetchall.return_value = []
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.execute.return_value = mock_cursor
+        return mock_conn
 
     def test_bulk_update_valid_field(self, app_client):
-        """Test bulk update with valid field (narrator)."""
-        # Get real audiobook IDs
-        response = app_client.get("/api/audiobooks?per_page=2")
-        data = json.loads(response.data)
-        if not data.get("audiobooks") or len(data["audiobooks"]) < 1:
-            pytest.skip("Need audiobooks in database")
-
-        ids = [book["id"] for book in data["audiobooks"][:2]]
-
-        # Test with allowed field
-        response = app_client.post(
-            "/api/audiobooks/bulk-update",
-            data=json.dumps(
-                {"ids": ids, "field": "narrator", "value": "Test Narrator Update"}
-            ),
-            content_type="application/json",
-        )
+        """Test bulk update with valid field (narrator) — mocked DB write."""
+        with patch("backend.api_modular.utilities_crud.get_db") as mock_gdb:
+            mock_gdb.return_value = self._mock_get_db()
+            response = app_client.post(
+                "/api/audiobooks/bulk-update",
+                data=json.dumps(
+                    {"ids": [1, 2], "field": "narrator", "value": "Test Narrator Update"}
+                ),
+                content_type="application/json",
+            )
         assert response.status_code == 200
         result = json.loads(response.data)
         assert result.get("success") is True
         assert "updated_count" in result
 
     def test_bulk_update_publisher_field(self, app_client):
-        """Test bulk update with publisher field."""
-        response = app_client.get("/api/audiobooks?per_page=1")
-        data = json.loads(response.data)
-        if not data.get("audiobooks"):
-            pytest.skip("Need audiobooks in database")
-
-        ids = [data["audiobooks"][0]["id"]]
-
-        response = app_client.post(
-            "/api/audiobooks/bulk-update",
-            data=json.dumps(
-                {"ids": ids, "field": "publisher", "value": "Test Publisher"}
-            ),
-            content_type="application/json",
-        )
+        """Test bulk update with publisher field — mocked DB write."""
+        with patch("backend.api_modular.utilities_crud.get_db") as mock_gdb:
+            mock_gdb.return_value = self._mock_get_db()
+            response = app_client.post(
+                "/api/audiobooks/bulk-update",
+                data=json.dumps(
+                    {"ids": [1], "field": "publisher", "value": "Test Publisher"}
+                ),
+                content_type="application/json",
+            )
         assert response.status_code == 200
 
     def test_bulk_update_published_year_field(self, app_client):
-        """Test bulk update with published_year field."""
-        response = app_client.get("/api/audiobooks?per_page=1")
-        data = json.loads(response.data)
-        if not data.get("audiobooks"):
-            pytest.skip("Need audiobooks in database")
-
-        ids = [data["audiobooks"][0]["id"]]
-
-        response = app_client.post(
-            "/api/audiobooks/bulk-update",
-            data=json.dumps({"ids": ids, "field": "published_year", "value": 2020}),
-            content_type="application/json",
-        )
+        """Test bulk update with published_year field — mocked DB write."""
+        with patch("backend.api_modular.utilities_crud.get_db") as mock_gdb:
+            mock_gdb.return_value = self._mock_get_db()
+            response = app_client.post(
+                "/api/audiobooks/bulk-update",
+                data=json.dumps({"ids": [1], "field": "published_year", "value": 2020}),
+                content_type="application/json",
+            )
         assert response.status_code == 200
 
 
@@ -488,22 +488,6 @@ class TestEditionsEndpointLogic:
         assert isinstance(result["editions"], list)
 
 
-class TestMissingDataEndpoints:
-    """Test endpoints for finding missing data."""
-
-    def test_missing_narrator_returns_list(self, app_client):
-        """Test missing narrator endpoint returns audiobook list."""
-        response = app_client.get("/api/audiobooks/missing-narrator")
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert "audiobooks" in data or isinstance(data, list)
-
-    def test_missing_hash_returns_data(self, app_client):
-        """Test missing hash endpoint."""
-        response = app_client.get("/api/audiobooks/missing-hash")
-        assert response.status_code in (200, 404)
-
-
 class TestCoverServingWithMocks:
     """Test cover image serving."""
 
@@ -514,6 +498,10 @@ class TestCoverServingWithMocks:
             response = app_client.get("/covers/test.jpg")
             # Will likely 404 as file doesn't exist
             assert response.status_code in (200, 404, 500)
+            if response.status_code == 200:
+                assert mock_send.called, (
+                    "send_from_directory should be called for cover serving"
+                )
 
 
 class TestExportEndpoints:
@@ -569,30 +557,6 @@ class TestDeleteDuplicatesEndpoint:
         assert response.status_code == 200
 
 
-class TestMoreMissingEndpoints:
-    """Test additional endpoints to improve coverage."""
-
-    def test_vacuum_utility(self, app_client):
-        """Test vacuum utility endpoint."""
-        response = app_client.post("/api/utilities/vacuum")
-        assert response.status_code in (200, 404, 500)
-
-    def test_audiobooks_with_nonexistent_collection(self, app_client):
-        """Test audiobooks with non-existent collection."""
-        response = app_client.get(
-            "/api/audiobooks?collection=nonexistent_collection_xyz"
-        )
-        assert response.status_code == 200
-
-    def test_filters_detailed(self, app_client):
-        """Test filters endpoint returns expected data."""
-        response = app_client.get("/api/filters")
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        # Should have filter categories
-        assert isinstance(data, dict)
-
-
 class TestDuplicatesByTitleInnerLogic:
     """Test to cover the inner loops of duplicates by title."""
 
@@ -635,34 +599,25 @@ class TestExceptionHandling:
         assert response.status_code in (200, 400, 500)
 
 
-class TestHashStatsEndpoint:
-    """Test hash statistics endpoint."""
-
-    def test_hash_stats_full_response(self, app_client):
-        """Test hash stats returns complete information."""
-        response = app_client.get("/api/hash-stats")
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert isinstance(data, dict)
-
-
 class TestAudiobookUpdateEndpoint:
     """Test audiobook update endpoint."""
 
     def test_update_audiobook_with_data(self, app_client):
-        """Test updating audiobook with actual data."""
-        response = app_client.get("/api/audiobooks?per_page=1")
-        data = json.loads(response.data)
-        if not data.get("audiobooks"):
-            pytest.skip("Need audiobooks")
+        """Test updating audiobook with mocked DB write."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.rowcount = 1
+        mock_cursor.fetchone.return_value = None
+        mock_cursor.fetchall.return_value = []
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.execute.return_value = mock_cursor
 
-        book_id = data["audiobooks"][0]["id"]
-        response = app_client.put(
-            f"/api/audiobooks/{book_id}",
-            data=json.dumps({"narrator": "Updated Narrator Test"}),
-            content_type="application/json",
-        )
-        # Should work or return method not allowed
+        with patch("backend.api_modular.utilities_crud.get_db", return_value=mock_conn):
+            response = app_client.put(
+                "/api/audiobooks/1",
+                data=json.dumps({"narrator": "Updated Narrator Test"}),
+                content_type="application/json",
+            )
         assert response.status_code in (200, 400, 404, 405)
 
 
@@ -691,14 +646,6 @@ class TestVerifyDeletionWithRealData:
 
 class TestExceptionPaths:
     """Test exception handling paths."""
-
-    def test_stats_database_size_exception(self, app_client):
-        """Test stats endpoint handles database size check errors."""
-        response = app_client.get("/api/stats")
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        # Should have database_size_mb even if it falls back
-        assert "database_size_mb" in data
 
     def test_stream_with_various_formats(self, app_client):
         """Test streaming with various audio formats."""
@@ -773,6 +720,13 @@ class TestExceptionPaths:
 
                 response = app_client.get(f"/api/stream/{book_id}?format=webm")
                 assert response.status_code in (200, 500)
+                if response.status_code == 200:
+                    assert mock_subprocess.run.called, (
+                        "ffmpeg subprocess should be called for webm remux"
+                    )
+                    assert mock_send.called, (
+                        "send_file should be called after successful remux"
+                    )
         finally:
             conn = sqlite3.connect(db_path)
             conn.execute(
@@ -824,6 +778,10 @@ class TestExceptionPaths:
                 # ?format=webm on mp3 should serve mp3 normally (no remux)
                 response = app_client.get(f"/api/stream/{book_id}?format=webm")
                 assert response.status_code in (200, 500)
+                if response.status_code == 200:
+                    assert mock_send.called, (
+                        "send_file should be called for non-opus file"
+                    )
         finally:
             conn = sqlite3.connect(db_path)
             conn.execute(
@@ -835,46 +793,7 @@ class TestExceptionPaths:
 
 
 class TestAdditionalEndpoints:
-    """Test additional endpoints for coverage."""
-
-    def test_supplements_for_audiobook(self, app_client):
-        """Test getting supplements for a specific audiobook."""
-        response = app_client.get("/api/audiobooks?per_page=1")
-        data = json.loads(response.data)
-        if not data.get("audiobooks"):
-            pytest.skip("Need audiobooks")
-
-        book_id = data["audiobooks"][0]["id"]
-        response = app_client.get(f"/api/audiobooks/{book_id}/supplements")
-        assert response.status_code == 200
-        result = json.loads(response.data)
-        assert "supplements" in result
-        assert "count" in result
-
-    def test_hash_stats_detailed(self, app_client):
-        """Test hash stats with detailed response."""
-        response = app_client.get("/api/hash-stats")
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        # Should have hash statistics
-        assert isinstance(data, dict)
-
-    def test_narrator_counts_detailed(self, app_client):
-        """Test narrator counts with detailed check."""
-        response = app_client.get("/api/narrator-counts")
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        # May be list or dict
-        assert isinstance(data, (list, dict))
-
-
-class TestMoreUtilityEndpoints:
-    """Test more utility endpoints."""
-
-    def test_vacuum_db(self, app_client):
-        """Test vacuum database utility."""
-        response = app_client.post("/api/utilities/vacuum")
-        assert response.status_code in (200, 404, 500)
+    """Test additional edge cases for coverage."""
 
     def test_verify_empty_request(self, app_client):
         """Test verify deletion with empty request body."""
@@ -901,43 +820,45 @@ class TestBulkOperationsEdgeCases:
         assert result.get("deleted_count") == 0
 
     def test_bulk_update_all_allowed_fields(self, app_client):
-        """Test bulk update with all allowed fields."""
-        response = app_client.get("/api/audiobooks?per_page=1")
-        data = json.loads(response.data)
-        if not data.get("audiobooks"):
-            pytest.skip("Need audiobooks")
+        """Test bulk update with all allowed fields — mocked DB writes."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.rowcount = 1
+        mock_cursor.fetchone.return_value = None
+        mock_cursor.fetchall.return_value = []
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.execute.return_value = mock_cursor
 
-        book_id = data["audiobooks"][0]["id"]
+        with patch("backend.api_modular.utilities_crud.get_db", return_value=mock_conn):
+            # Test narrator (allowed)
+            response = app_client.post(
+                "/api/audiobooks/bulk-update",
+                data=json.dumps(
+                    {"ids": [1], "field": "narrator", "value": "Test Narrator"}
+                ),
+                content_type="application/json",
+            )
+            assert response.status_code == 200
 
-        # Test narrator (allowed)
-        response = app_client.post(
-            "/api/audiobooks/bulk-update",
-            data=json.dumps(
-                {"ids": [book_id], "field": "narrator", "value": "Test Narrator"}
-            ),
-            content_type="application/json",
-        )
-        assert response.status_code == 200
+            # Test publisher (allowed)
+            response = app_client.post(
+                "/api/audiobooks/bulk-update",
+                data=json.dumps(
+                    {"ids": [1], "field": "publisher", "value": "Test Publisher"}
+                ),
+                content_type="application/json",
+            )
+            assert response.status_code == 200
 
-        # Test publisher (allowed)
-        response = app_client.post(
-            "/api/audiobooks/bulk-update",
-            data=json.dumps(
-                {"ids": [book_id], "field": "publisher", "value": "Test Publisher"}
-            ),
-            content_type="application/json",
-        )
-        assert response.status_code == 200
-
-        # Test published_year (allowed)
-        response = app_client.post(
-            "/api/audiobooks/bulk-update",
-            data=json.dumps(
-                {"ids": [book_id], "field": "published_year", "value": 2023}
-            ),
-            content_type="application/json",
-        )
-        assert response.status_code == 200
+            # Test published_year (allowed)
+            response = app_client.post(
+                "/api/audiobooks/bulk-update",
+                data=json.dumps(
+                    {"ids": [1], "field": "published_year", "value": 2023}
+                ),
+                content_type="application/json",
+            )
+            assert response.status_code == 200
 
 
 class TestDuplicatesByHashWithRealData:

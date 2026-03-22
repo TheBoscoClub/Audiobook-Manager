@@ -7,6 +7,39 @@ import json
 import pytest
 
 
+def _get_first_audiobook_id(app_client):
+    """Helper to get a valid audiobook ID from the database."""
+    response = app_client.get("/api/audiobooks?per_page=1")
+    data = json.loads(response.data)
+    if data.get("audiobooks") and len(data["audiobooks"]) > 0:
+        return data["audiobooks"][0].get("id")
+    return None
+
+
+# --- Consolidated endpoint reachability tests ---
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/api/stats",
+        "/api/filters",
+        "/api/collections",
+        "/api/audiobooks",
+        "/api/hash-stats",
+        "/api/supplements",
+        "/api/supplements/stats",
+        "/api/narrator-counts",
+        "/api/duplicates",
+        "/api/duplicates/by-title",
+    ],
+)
+def test_endpoint_returns_200(app_client, endpoint):
+    """Test that standard GET endpoints return HTTP 200."""
+    response = app_client.get(endpoint)
+    assert response.status_code == 200
+
+
 class TestHealthEndpoint:
     """Test the health check endpoint."""
 
@@ -27,11 +60,6 @@ class TestHealthEndpoint:
 class TestStatsEndpoint:
     """Test the statistics endpoint."""
 
-    def test_stats_returns_200(self, app_client):
-        """Test that /api/stats returns 200."""
-        response = app_client.get("/api/stats")
-        assert response.status_code == 200
-
     def test_stats_contains_required_fields(self, app_client):
         """Test that stats response contains required fields."""
         response = app_client.get("/api/stats")
@@ -43,11 +71,6 @@ class TestStatsEndpoint:
 class TestFiltersEndpoint:
     """Test the filters endpoint."""
 
-    def test_filters_returns_200(self, app_client):
-        """Test that /api/filters returns 200."""
-        response = app_client.get("/api/filters")
-        assert response.status_code == 200
-
     def test_filters_returns_json(self, app_client):
         """Test that /api/filters returns valid JSON."""
         response = app_client.get("/api/filters")
@@ -58,11 +81,6 @@ class TestFiltersEndpoint:
 class TestCollectionsEndpoint:
     """Test the collections endpoint."""
 
-    def test_collections_returns_200(self, app_client):
-        """Test that /api/collections returns 200."""
-        response = app_client.get("/api/collections")
-        assert response.status_code == 200
-
     def test_collections_returns_list(self, app_client):
         """Test that /api/collections returns a list."""
         response = app_client.get("/api/collections")
@@ -72,11 +90,6 @@ class TestCollectionsEndpoint:
 
 class TestAudiobooksEndpoint:
     """Test the audiobooks listing endpoint."""
-
-    def test_audiobooks_returns_200(self, app_client):
-        """Test that /api/audiobooks returns 200."""
-        response = app_client.get("/api/audiobooks")
-        assert response.status_code == 200
 
     def test_audiobooks_returns_list(self, app_client):
         """Test that /api/audiobooks returns audiobooks list."""
@@ -115,50 +128,8 @@ class TestCORSHeaders:
         assert response.status_code in (200, 204)
 
 
-class TestHashStatsEndpoint:
-    """Test the hash statistics endpoint."""
-
-    def test_hash_stats_returns_200(self, app_client):
-        """Test that /api/hash-stats returns 200."""
-        response = app_client.get("/api/hash-stats")
-        assert response.status_code == 200
-
-
-class TestSupplementsEndpoint:
-    """Test the supplements endpoint."""
-
-    def test_supplements_returns_200(self, app_client):
-        """Test that /api/supplements returns 200."""
-        response = app_client.get("/api/supplements")
-        assert response.status_code == 200
-
-    def test_supplements_stats_returns_200(self, app_client):
-        """Test that /api/supplements/stats returns 200."""
-        response = app_client.get("/api/supplements/stats")
-        assert response.status_code == 200
-
-
-class TestNarratorCountsEndpoint:
-    """Test the narrator counts endpoint."""
-
-    def test_narrator_counts_returns_200(self, app_client):
-        """Test that /api/narrator-counts returns 200."""
-        response = app_client.get("/api/narrator-counts")
-        assert response.status_code == 200
-
-
 class TestDuplicatesEndpoints:
     """Test the duplicates-related endpoints."""
-
-    def test_duplicates_returns_200(self, app_client):
-        """Test that /api/duplicates returns 200."""
-        response = app_client.get("/api/duplicates")
-        assert response.status_code == 200
-
-    def test_duplicates_by_title_returns_200(self, app_client):
-        """Test that /api/duplicates/by-title returns 200."""
-        response = app_client.get("/api/duplicates/by-title")
-        assert response.status_code == 200
 
     def test_duplicates_returns_structure(self, app_client):
         """Test that duplicates endpoint returns expected structure."""
@@ -328,11 +299,6 @@ class TestDeletionEndpoints:
 class TestDatabaseEndpoints:
     """Test database management endpoints (may not exist in all API versions)."""
 
-    def test_stats_endpoint_exists(self, app_client):
-        """Test that stats endpoint exists and works."""
-        response = app_client.get("/api/stats")
-        assert response.status_code == 200
-
     def test_hash_stats_structure(self, app_client):
         """Test hash stats returns proper structure."""
         response = app_client.get("/api/hash-stats")
@@ -463,17 +429,9 @@ class TestFiltersEndpointDetails:
 class TestRealDataEndpoints:
     """Tests that use real database data to exercise more code paths."""
 
-    def _get_first_audiobook_id(self, app_client):
-        """Helper to get a valid audiobook ID from the database."""
-        response = app_client.get("/api/audiobooks?per_page=1")
-        data = json.loads(response.data)
-        if data.get("audiobooks") and len(data["audiobooks"]) > 0:
-            return data["audiobooks"][0].get("id")
-        return None
-
     def test_get_single_audiobook_with_real_id(self, app_client):
         """Test getting a single audiobook with a valid ID."""
-        audiobook_id = self._get_first_audiobook_id(app_client)
+        audiobook_id = _get_first_audiobook_id(app_client)
         if audiobook_id is None:
             pytest.skip("No audiobooks in database")
 
@@ -489,7 +447,7 @@ class TestRealDataEndpoints:
 
     def test_get_editions_with_real_id(self, app_client):
         """Test getting editions with a valid ID."""
-        audiobook_id = self._get_first_audiobook_id(app_client)
+        audiobook_id = _get_first_audiobook_id(app_client)
         if audiobook_id is None:
             pytest.skip("No audiobooks in database")
 
@@ -500,7 +458,7 @@ class TestRealDataEndpoints:
 
     def test_stream_with_real_id(self, app_client):
         """Test streaming endpoint with a valid ID."""
-        audiobook_id = self._get_first_audiobook_id(app_client)
+        audiobook_id = _get_first_audiobook_id(app_client)
         if audiobook_id is None:
             pytest.skip("No audiobooks in database")
 
@@ -607,6 +565,9 @@ class TestAPIResponseFormats:
         ]
         for field in expected_fields:
             assert field in data, f"Missing field: {field}"
+            assert isinstance(data[field], (int, float)), (
+                f"Field {field} should be numeric, got {type(data[field]).__name__}"
+            )
 
     def test_narrator_counts_response_format(self, app_client):
         """Test narrator counts endpoint response format."""

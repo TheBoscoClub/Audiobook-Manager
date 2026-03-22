@@ -79,9 +79,6 @@ VM_API_PORT = 5001
 VM_NAME = "test-audiobook-cachyos"
 
 
-VM_STARTED_BY_TESTS = False
-
-
 @pytest.fixture(scope="session", autouse=False)
 def ensure_vm_running():
     """Start test-audiobook-cachyos if it's powered off.
@@ -89,8 +86,6 @@ def ensure_vm_running():
     Checks VM state via virsh and starts it if needed, then waits
     for SSH connectivity before allowing tests to proceed.
     """
-    global VM_STARTED_BY_TESTS
-
     try:
         result = subprocess.run(
             ["sudo", "virsh", "domstate", "test-audiobook-cachyos"],
@@ -120,8 +115,6 @@ def ensure_vm_running():
     )
     if start_result.returncode != 0:
         pytest.fail(f"Failed to start VM: {start_result.stderr}")
-
-    VM_STARTED_BY_TESTS = True
 
     # Wait for SSH connectivity (up to 60s)
     ssh_key = os.path.expanduser("~/.ssh/id_ed25519")

@@ -1,0 +1,91 @@
+<h2>Circuit Breaker Lever — Dismiss Control Style</h2>
+<p class="subtitle">For dismissing the maintenance announcement banner. Lever UP = banner visible (circuit closed). Pull DOWN = banner dismissed (circuit open).</p>
+
+<div class="cards">
+
+  <!-- Option A: Knife Switch -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;min-height:200px;background:#1a1a1a;position:relative;overflow:hidden;">
+      <!-- Knife switch mockup -->
+      <div style="position:relative;width:80px;height:180px;">
+        <!-- Base plate -->
+        <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:60px;height:30px;background:linear-gradient(180deg,#2a2a2a,#1a1a1a);border:2px solid #444;border-radius:4px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);"></div>
+        <!-- Contact jaws (bottom) -->
+        <div style="position:absolute;bottom:25px;left:50%;transform:translateX(-50%);width:8px;height:20px;background:linear-gradient(90deg,#B87333,#CD7F32,#B87333);border-radius:2px;box-shadow:0 0 6px rgba(184,115,51,0.4);"></div>
+        <!-- Blade arm (UP position) -->
+        <div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%) rotate(0deg);transform-origin:bottom center;width:6px;height:100px;background:linear-gradient(90deg,#B87333,#E8A348,#B87333);border-radius:2px 2px 0 0;box-shadow:0 0 8px rgba(184,115,51,0.3);"></div>
+        <!-- Handle knob -->
+        <div style="position:absolute;bottom:125px;left:50%;transform:translateX(-50%);width:24px;height:18px;background:linear-gradient(180deg,#8B0000,#CC0000,#8B0000);border-radius:4px;border:1px solid #660000;box-shadow:0 2px 6px rgba(0,0,0,0.5),inset 0 1px 2px rgba(255,100,100,0.3);"></div>
+        <!-- ON label -->
+        <div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);color:#ff4444;font-family:'Courier New',monospace;font-size:11px;font-weight:bold;text-shadow:0 0 8px rgba(255,68,68,0.6);">ON</div>
+        <!-- Mounting screws -->
+        <div style="position:absolute;bottom:5px;left:10px;width:8px;height:8px;background:radial-gradient(circle,#666,#333);border-radius:50%;border:1px solid #555;"></div>
+        <div style="position:absolute;bottom:5px;right:10px;width:8px;height:8px;background:radial-gradient(circle,#666,#333);border-radius:50%;border:1px solid #555;"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Frankenstein Knife Switch</h3>
+      <p>Single copper blade pivots into jaw contacts. Straight vertical throw. The classic mad-scientist aesthetic — simple, dramatic, immediately recognizable. Red bakelite handle knob.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Two-Slot Breaker -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;min-height:200px;background:#1a1a1a;position:relative;overflow:hidden;">
+      <div style="position:relative;width:100px;height:180px;">
+        <!-- Panel face -->
+        <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:90px;height:160px;background:linear-gradient(180deg,#2d2d2d,#1e1e1e);border:2px solid #444;border-radius:6px;box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),0 4px 12px rgba(0,0,0,0.3);"></div>
+        <!-- Slot 1 -->
+        <div style="position:absolute;bottom:95px;left:50%;transform:translateX(-50%);width:14px;height:40px;background:#111;border:1px solid #555;border-radius:3px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.8);"></div>
+        <!-- Slot 2 -->
+        <div style="position:absolute;bottom:35px;left:50%;transform:translateX(-50%);width:14px;height:40px;background:#111;border:1px solid #555;border-radius:3px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.8);"></div>
+        <!-- Lever handle (in top slot = ON) -->
+        <div style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);width:10px;height:55px;background:linear-gradient(90deg,#8B0000,#CC0000,#8B0000);border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,0.5),inset 0 1px 2px rgba(255,100,100,0.2);"></div>
+        <!-- Handle grip -->
+        <div style="position:absolute;bottom:140px;left:50%;transform:translateX(-50%);width:20px;height:12px;background:linear-gradient(180deg,#660000,#990000,#660000);border-radius:3px;border:1px solid #550000;"></div>
+        <!-- ON / OFF labels -->
+        <div style="position:absolute;bottom:108px;right:12px;color:#ff4444;font-family:'Courier New',monospace;font-size:9px;font-weight:bold;text-shadow:0 0 6px rgba(255,68,68,0.5);">ON</div>
+        <div style="position:absolute;bottom:48px;right:12px;color:#666;font-family:'Courier New',monospace;font-size:9px;font-weight:bold;">OFF</div>
+        <!-- Panel screws -->
+        <div style="position:absolute;bottom:148px;left:12px;width:6px;height:6px;background:radial-gradient(circle,#777,#444);border-radius:50%;"></div>
+        <div style="position:absolute;bottom:148px;right:12px;width:6px;height:6px;background:radial-gradient(circle,#777,#444);border-radius:50%;"></div>
+        <div style="position:absolute;bottom:10px;left:12px;width:6px;height:6px;background:radial-gradient(circle,#777,#444);border-radius:50%;"></div>
+        <div style="position:absolute;bottom:10px;right:12px;width:6px;height:6px;background:radial-gradient(circle,#777,#444);border-radius:50%;"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Two-Slot Panel Breaker</h3>
+      <p>Lever slides between two slotted positions on a dark industrial panel. ON = top slot, OFF = bottom slot. More compact, panel-mounted industrial aesthetic. Stamped ON/OFF labels with corner mounting screws.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Rotary Breaker -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;min-height:200px;background:#1a1a1a;position:relative;overflow:hidden;">
+      <div style="position:relative;width:120px;height:160px;">
+        <!-- Circular base plate -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100px;height:100px;background:radial-gradient(circle,#333,#1a1a1a);border:3px solid #555;border-radius:50%;box-shadow:inset 0 2px 8px rgba(0,0,0,0.6),0 4px 12px rgba(0,0,0,0.4);"></div>
+        <!-- Inner ring -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;border:2px solid #444;border-radius:50%;"></div>
+        <!-- Lever arm (pointing up = ON) -->
+        <div style="position:absolute;top:15px;left:50%;transform:translateX(-50%);width:8px;height:50px;background:linear-gradient(90deg,#8B0000,#CC0000,#8B0000);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>
+        <!-- Center pivot -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;background:radial-gradient(circle,#B87333,#8B5A2B);border-radius:50%;border:2px solid #CD7F32;box-shadow:0 0 8px rgba(184,115,51,0.4);"></div>
+        <!-- ON label (top) -->
+        <div style="position:absolute;top:2px;left:50%;transform:translateX(-50%);color:#ff4444;font-family:'Courier New',monospace;font-size:9px;font-weight:bold;text-shadow:0 0 6px rgba(255,68,68,0.5);">ON</div>
+        <!-- OFF label (bottom) -->
+        <div style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:#666;font-family:'Courier New',monospace;font-size:9px;font-weight:bold;">OFF</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Rotary Breaker Handle</h3>
+      <p>Lever arm rotates 180° around a center pivot on a circular mounting plate. UP = ON, DOWN = OFF. Copper pivot point. Looks like an early electrical panel disconnect. Smooth rotational animation.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:2rem;">
+  <h3>Design Notes</h3>
+  <p class="subtitle">All three will be rendered as compact inline elements (~30-40px wide) positioned at the right edge of the maintenance banner. The mockups above are enlarged for detail. Click animation will be smooth CSS transitions (0.3-0.5s). Each will have a subtle metallic sheen and period-appropriate textures.</p>
+</div>

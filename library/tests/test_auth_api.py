@@ -1290,3 +1290,121 @@ class TestNotificationsInAuthMe:
         data = r.get_json()
         assert "notifications" in data
         assert isinstance(data["notifications"], list)
+
+
+class TestAdminUserManagement:
+    """Test admin user management endpoints (/auth/admin/users).
+
+    Covers: list users, toggle-admin, toggle-download, delete user.
+    These are security-critical — regressions in permission enforcement must be caught.
+    """
+
+    def _admin_login(self, client, auth_app):
+        auth = TOTPAuthenticator(auth_app.admin_secret)
+        client.post(
+            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
+        )
+        return client
+
+    def _user_login(self, client, auth_app):
+        auth = TOTPAuthenticator(auth_app.test_user_secret)
+        client.post(
+            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
+        )
+        return client
+
+    def test_list_users_requires_admin(self, client, auth_app):
+        """Non-admin cannot list users."""
+        self._user_login(client, auth_app)
+        r = client.get("/auth/admin/users")
+        assert r.status_code == 403
+
+    def test_list_users_as_admin(self, client, auth_app):
+        """Admin can list all users."""
+        self._admin_login(client, auth_app)
+        r = client.get("/auth/admin/users")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert "users" in data
+        assert "total" in data
+        assert isinstance(data["users"], list)
+        assert data["total"] >= 2  # At least adminuser + testuser1
+
+    def test_toggle_admin_requires_admin(self, client, auth_app):
+        """Non-admin cannot toggle admin flag."""
+        self._user_login(client, auth_app)
+        r = client.post("/auth/admin/users/1/toggle-admin")
+        assert r.status_code == 403
+
+    def test_toggle_admin_as_admin(self, client, auth_app):
+        """Admin can toggle admin flag on another user."""
+        self._admin_login(client, auth_app)
+        r = client.get("/auth/admin/users")
+        users = r.get_json()["users"]
+        test_user = next((u for u in users if u["username"] == "testuser1"), None)
+        if not test_user:
+            pytest.skip("testuser1 not found")
+        uid = test_user["id"]
+        original_admin = test_user.get("is_admin", False)
+
+        # Toggle admin
+        r = client.post(f"/auth/admin/users/{uid}/toggle-admin")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data.get("is_admin") != original_admin
+
+        # Toggle back to restore state
+        r = client.post(f"/auth/admin/users/{uid}/toggle-admin")
+        assert r.status_code == 200
+        assert r.get_json().get("is_admin") == original_admin
+
+    def test_toggle_download_requires_admin(self, client, auth_app):
+        """Non-admin cannot toggle download permission."""
+        self._user_login(client, auth_app)
+        r = client.post("/auth/admin/users/1/toggle-download")
+        assert r.status_code == 403
+
+    def test_toggle_download_as_admin(self, client, auth_app):
+        """Admin can toggle download permission on another user."""
+        self._admin_login(client, auth_app)
+        r = client.get("/auth/admin/users")
+        users = r.get_json()["users"]
+        test_user = next((u for u in users if u["username"] == "testuser1"), None)
+        if not test_user:
+            pytest.skip("testuser1 not found")
+        uid = test_user["id"]
+        original_download = test_user.get("can_download", False)
+
+        r = client.post(f"/auth/admin/users/{uid}/toggle-download")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data.get("can_download") != original_download
+
+        # Toggle back to restore state
+        r = client.post(f"/auth/admin/users/{uid}/toggle-download")
+        assert r.status_code == 200
+        assert r.get_json().get("can_download") == original_download
+
+    def test_toggle_admin_nonexistent_user(self, client, auth_app):
+        """Toggle admin on non-existent user returns 404."""
+        self._admin_login(client, auth_app)
+        r = client.post("/auth/admin/users/99999/toggle-admin")
+        assert r.status_code == 404
+
+    def test_toggle_download_nonexistent_user(self, client, auth_app):
+        """Toggle download on non-existent user returns 404."""
+        self._admin_login(client, auth_app)
+        r = client.post("/auth/admin/users/99999/toggle-download")
+        assert r.status_code == 404
+
+    def test_delete_user_requires_admin(self, client, auth_app):
+        """Non-admin cannot delete users."""
+        self._user_login(client, auth_app)
+        r = client.delete("/auth/admin/users/1")
+        assert r.status_code == 403
+
+    def test_delete_nonexistent_user(self, client, auth_app):
+        """Delete non-existent user returns 404."""
+        self._admin_login(client, auth_app)
+        r = client.delete("/auth/admin/users/99999")
+        assert r.status_code == 404

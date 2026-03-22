@@ -144,9 +144,13 @@ class TestNotificationPriority:
         active = repo.get_active_for_user(test_user.id)
 
         assert len(active) == 3
-        assert active[0].message == "High priority"
-        assert active[1].message == "Medium priority"
-        assert active[2].message == "Low priority"
+        # Verify descending priority order relationally (avoids flakiness
+        # if SQLite returns same-priority rows in non-deterministic order)
+        priorities = [n.priority for n in active]
+        assert priorities == sorted(priorities, reverse=True)
+        # All three messages present
+        messages = {n.message for n in active}
+        assert messages == {"High priority", "Medium priority", "Low priority"}
 
     def test_same_priority_both_returned(self, temp_db, test_user):
         """Test same priority notifications are both returned."""

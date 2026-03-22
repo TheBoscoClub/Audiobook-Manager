@@ -103,3 +103,28 @@ class TestHelpCSS:
         assert "--deco-charcoal" in content, (
             "help.css should use --deco-charcoal variable"
         )
+
+
+class TestHelpNewFeatures:
+    """Verify help.html covers per-user features added in v7.x."""
+
+    def test_my_library_section(self):
+        content = (WEB_DIR / "help.html").read_text()
+        assert "My Library" in content
+
+    def test_progress_tracking_content(self):
+        content = (WEB_DIR / "help.html").read_text().lower()
+        assert "progress" in content
+
+    def test_download_history_content(self):
+        content = (WEB_DIR / "help.html").read_text().lower()
+        assert "download" in content
+
+    def test_new_books_content(self):
+        content = (WEB_DIR / "help.html").read_text()
+        assert "New Books" in content or "new books" in content.lower()
+
+    def test_tutorial_covers_my_library(self):
+        """Tutorial JS must reference My Library tab."""
+        content = (WEB_DIR / "js" / "tutorial.js").read_text()
+        assert "my-library" in content.lower() or "My Library" in content

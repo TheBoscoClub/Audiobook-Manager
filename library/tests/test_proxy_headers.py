@@ -123,3 +123,45 @@ class TestProxyPrefixes:
 
         instance.path = "/index.html"
         assert instance._is_proxy_path() is False
+
+    def test_root_path_not_proxied(self):
+        """Root path '/' should NOT be proxied (it serves shell.html)."""
+        handler_cls = self._get_handler_class()
+        instance = object.__new__(handler_cls)
+        instance.path = "/"
+        assert instance._is_proxy_path() is False
+
+    def test_path_without_trailing_slash_not_proxied(self):
+        """Path '/api' without trailing slash should NOT match '/api/' prefix."""
+        handler_cls = self._get_handler_class()
+        instance = object.__new__(handler_cls)
+        instance.path = "/api"
+        assert instance._is_proxy_path() is False
+
+    def test_uppercase_api_path_not_proxied(self):
+        """Uppercase '/API/foo' should NOT match (prefix check is case-sensitive)."""
+        handler_cls = self._get_handler_class()
+        instance = object.__new__(handler_cls)
+        instance.path = "/API/foo"
+        assert instance._is_proxy_path() is False
+
+    def test_prefix_substring_not_proxied(self):
+        """Path '/api-data/foo' should NOT match '/api/' prefix."""
+        handler_cls = self._get_handler_class()
+        instance = object.__new__(handler_cls)
+        instance.path = "/api-data/foo"
+        assert instance._is_proxy_path() is False
+
+    def test_auth_path_proxied(self):
+        """Path '/auth/login' should be proxied."""
+        handler_cls = self._get_handler_class()
+        instance = object.__new__(handler_cls)
+        instance.path = "/auth/login"
+        assert instance._is_proxy_path() is True
+
+    def test_covers_path_proxied(self):
+        """Path '/covers/123.jpg' should be proxied."""
+        handler_cls = self._get_handler_class()
+        instance = object.__new__(handler_cls)
+        instance.path = "/covers/123.jpg"
+        assert instance._is_proxy_path() is True

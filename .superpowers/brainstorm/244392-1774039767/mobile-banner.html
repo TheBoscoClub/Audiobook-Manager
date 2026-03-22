@@ -1,0 +1,126 @@
+<h2>Mobile Maintenance Banner — Indicator Style</h2>
+<p class="subtitle">On desktop, the banner is a full-width pulsing bar (1-4 lines). On mobile, you wanted a compact indicator that expands on tap. Which style?</p>
+
+<div class="cards">
+
+  <!-- Option A: Pulsating Circle -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;min-height:220px;background:#111;position:relative;">
+      <!-- Mock mobile viewport -->
+      <div style="width:200px;height:180px;background:#1a1a1a;border:2px solid #333;border-radius:12px;position:relative;overflow:hidden;">
+        <!-- Status bar -->
+        <div style="height:16px;background:#222;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:7px;color:#888;">
+          <span>12:14</span><span>⚡ 87%</span>
+        </div>
+        <!-- Nav bar mock -->
+        <div style="height:22px;background:#1e1e1e;border-bottom:1px solid #B8860B;display:flex;align-items:center;padding:0 8px;">
+          <span style="font-size:8px;color:#DAA520;font-weight:bold;">📚 LIBRARY</span>
+        </div>
+        <!-- Pulsating indicator - top right -->
+        <div style="position:absolute;top:42px;right:10px;z-index:10;">
+          <div style="width:18px;height:18px;background:radial-gradient(circle,#ff2222,#cc0000);border-radius:50%;box-shadow:0 0 8px rgba(255,0,0,0.6),0 0 16px rgba(255,0,0,0.3);animation:pulse-glow 2s ease-in-out infinite;display:flex;align-items:center;justify-content:center;">
+            <span style="color:white;font-size:9px;font-weight:bold;">!</span>
+          </div>
+        </div>
+        <!-- Content grid mock -->
+        <div style="padding:6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+        </div>
+        <!-- Player bar -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:24px;background:#222;border-top:1px solid #333;"></div>
+      </div>
+      <style>
+        @keyframes pulse-glow { 0%,100%{opacity:0.7;transform:scale(0.95)} 50%{opacity:1;transform:scale(1.1)} }
+      </style>
+    </div>
+    <div class="card-body">
+      <h3>A — Pulsing Exclamation Circle</h3>
+      <p>Small red pulsing circle with "!" in the top-right corner. Tapping opens a tooltip/popup with the full message. Collapses when focus is lost. Unobtrusive — doesn't push content down.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Thin Pulsing Strip -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;min-height:220px;background:#111;position:relative;">
+      <div style="width:200px;height:180px;background:#1a1a1a;border:2px solid #333;border-radius:12px;position:relative;overflow:hidden;">
+        <!-- Status bar -->
+        <div style="height:16px;background:#222;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:7px;color:#888;">
+          <span>12:14</span><span>⚡ 87%</span>
+        </div>
+        <!-- Nav bar mock -->
+        <div style="height:22px;background:#1e1e1e;border-bottom:1px solid #B8860B;display:flex;align-items:center;padding:0 8px;">
+          <span style="font-size:8px;color:#DAA520;font-weight:bold;">📚 LIBRARY</span>
+        </div>
+        <!-- Thin pulsing strip -->
+        <div style="height:14px;background:linear-gradient(90deg,#1a0000,#330000,#1a0000);border-bottom:1px solid #660000;display:flex;align-items:center;justify-content:center;animation:strip-pulse 2.5s ease-in-out infinite;">
+          <span style="font-size:6px;color:#ff3333;font-weight:bold;letter-spacing:1px;text-shadow:0 0 4px rgba(255,0,0,0.6),1px 1px 0 #660000;">⚠ MAINTENANCE SCHEDULED</span>
+        </div>
+        <!-- Content grid mock -->
+        <div style="padding:6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+        </div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:24px;background:#222;border-top:1px solid #333;"></div>
+      </div>
+      <style>
+        @keyframes strip-pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+      </style>
+    </div>
+    <div class="card-body">
+      <h3>B — Thin Pulsing Strip</h3>
+      <p>Narrow full-width bar with "⚠ MAINTENANCE SCHEDULED" in small neon red text. Pulses gently. Tapping expands to show full details. Pushes content down by ~14px — minimal but visible.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Corner Flag -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;min-height:220px;background:#111;position:relative;">
+      <div style="width:200px;height:180px;background:#1a1a1a;border:2px solid #333;border-radius:12px;position:relative;overflow:hidden;">
+        <!-- Status bar -->
+        <div style="height:16px;background:#222;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:7px;color:#888;">
+          <span>12:14</span><span>⚡ 87%</span>
+        </div>
+        <!-- Nav bar mock -->
+        <div style="height:22px;background:#1e1e1e;border-bottom:1px solid #B8860B;display:flex;align-items:center;padding:0 8px;">
+          <span style="font-size:8px;color:#DAA520;font-weight:bold;">📚 LIBRARY</span>
+        </div>
+        <!-- Corner ribbon/flag -->
+        <div style="position:absolute;top:30px;right:-28px;transform:rotate(45deg);width:100px;height:14px;background:linear-gradient(180deg,#cc0000,#880000);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.5);animation:ribbon-pulse 2.5s ease-in-out infinite;">
+          <span style="font-size:5px;color:white;font-weight:bold;letter-spacing:0.5px;">MAINTENANCE</span>
+        </div>
+        <!-- Content grid mock -->
+        <div style="padding:6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+          <div style="height:50px;background:#2a2a2a;border-radius:3px;"></div>
+        </div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:24px;background:#222;border-top:1px solid #333;"></div>
+      </div>
+      <style>
+        @keyframes ribbon-pulse { 0%,100%{opacity:0.7} 50%{opacity:1} }
+      </style>
+    </div>
+    <div class="card-body">
+      <h3>C — Corner Ribbon Flag</h3>
+      <p>Diagonal ribbon across the top-right corner, classic "badge" style. Tapping expands a dropdown with full details. Doesn't push content. Always visible but doesn't overlap much content.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:1.5rem;">
+  <h3>Interaction (all options)</h3>
+  <p class="subtitle">Tap to expand → shows full maintenance message(s) in a popup/tooltip → collapses when tapping elsewhere or losing focus. The knife switch lever appears inside the expanded view on mobile (too small for inline).</p>
+</div>
