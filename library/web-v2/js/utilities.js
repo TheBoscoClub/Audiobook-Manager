@@ -2759,8 +2759,26 @@ function initSystemSection() {
         projectSelector.style.display =
           e.target.value === "project" ? "block" : "none";
       }
+      const versionGroup = document.getElementById("upgrade-version-group");
+      if (versionGroup) {
+        versionGroup.style.display =
+          e.target.value === "github" ? "flex" : "none";
+      }
+      updateUpgradeButtonState();
     });
   });
+
+  // Force checkbox toggle
+  const forceCheckbox = document.getElementById("upgrade-force");
+  if (forceCheckbox) {
+    forceCheckbox.addEventListener("change", () => {
+      const warning = document.getElementById("upgrade-force-warning");
+      if (warning) {
+        warning.style.display = forceCheckbox.checked ? "block" : "none";
+      }
+      updateUpgradeButtonState();
+    });
+  }
 
   // Browse projects button
   document
@@ -2772,7 +2790,7 @@ function initSystemSection() {
     .getElementById("check-upgrade")
     ?.addEventListener("click", checkUpgrade);
   document
-    .getElementById("start-upgrade")
+    .getElementById("start-upgrade-btn")
     ?.addEventListener("click", startUpgrade);
 
   // Load initial data when System tab is shown
@@ -3901,6 +3919,41 @@ async function loadProjectsList() {
   }
 }
 
+// ============================================
+// Upgrade Preflight State
+// ============================================
+
+let preflightData = null;
+let preflightTimestamp = null;
+
+function updateUpgradeButtonState() {
+  const startBtn = document.getElementById("start-upgrade-btn");
+  const forceCheckbox = document.getElementById("upgrade-force");
+  if (!startBtn) return;
+
+  if (forceCheckbox && forceCheckbox.checked) {
+    startBtn.disabled = false;
+    startBtn.title = "Force upgrade \u2014 safety checks bypassed";
+    return;
+  }
+
+  if (!preflightData || !preflightTimestamp) {
+    startBtn.disabled = true;
+    startBtn.title = "Run 'Check for Updates' first";
+    return;
+  }
+
+  const ageMinutes = (Date.now() - preflightTimestamp) / 60000;
+  if (ageMinutes > 10) {
+    startBtn.disabled = true;
+    startBtn.title = "Preflight check is stale \u2014 run Check for Updates again";
+    return;
+  }
+
+  startBtn.disabled = false;
+  startBtn.title = "Start upgrade";
+}
+
 async function checkUpgrade() {
   const sourceRadio = document.querySelector(
     'input[name="upgrade-source"]:checked',
@@ -3973,6 +4026,11 @@ function startCheckPolling() {
           closeBtn.style.display = "inline-flex";
         }
 
+        // Store preflight data for button state gating
+        preflightData = status.result || status;
+        preflightTimestamp = Date.now();
+        updateUpgradeButtonState();
+
         // Update message based on result
         if (status.result?.upgrade_available) {
           const current = status.result.current_version || "?";
@@ -4004,30 +4062,63 @@ async function startUpgrade() {
   );
   const source = sourceRadio?.value || "github";
   const projectPath = document.getElementById("project-path-input")?.value;
+  const forceChecked = document.getElementById("upgrade-force")?.checked || false;
+  const majorChecked = document.getElementById("upgrade-major")?.checked || false;
 
   if (source === "project" && !projectPath) {
     showToast("Please enter or select a project directory", "error");
     return;
   }
 
+  // Force upgrade requires extra confirmation
+  if (forceChecked) {
+    if (
+      !confirm(
+        "FORCE UPGRADE: This bypasses all safety checks including " +
+          "preflight validation. Only proceed if you have a specific " +
+          "technical reason.\n\nContinue with force upgrade?",
+      )
+    ) {
+      return;
+    }
+  }
+
   const message =
     source === "github"
       ? "This will download and install the latest version from GitHub. The browser will reload when complete. Continue?"
-      : `This will install from "${projectPath}". The browser will reload when complete. Continue?`;
+      : "This will install from the project directory. The browser will reload when complete. Continue?";
 
   if (!(await confirmAction("Start Upgrade", message))) {
     return;
   }
 
-  // Show progress modal
-  showProgressModal("Upgrading Application", "Starting upgrade process...");
+  // Build request body with advanced options
+  const body = {
+    source,
+    force: forceChecked,
+    major_version: majorChecked,
+  };
+  if (source === "project") {
+    body.project_path = projectPath;
+  }
+  const versionInput = document.getElementById("upgrade-version");
+  const versionValue = versionInput ? versionInput.value.trim() : "";
+  if (versionValue && source === "github") {
+    body.version = versionValue;
+  }
+
+  // Set navigation warning
+  window.onbeforeunload = function () {
+    return "An upgrade is in progress. Leaving may cause issues.";
+  };
+
+  // Show the full-screen overlay
+  const overlay = document.getElementById("upgrade-overlay");
+  if (overlay) {
+    overlay.style.display = "flex";
+  }
 
   try {
-    const body = { source };
-    if (source === "project") {
-      body.project_path = projectPath;
-    }
-
     const res = await fetch(`${API_BASE}/api/system/upgrade`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4037,133 +4128,221 @@ async function startUpgrade() {
     const result = await res.json();
 
     if (result.success) {
-      showToast("Upgrade started", "success");
-      startUpgradePolling();
+      startResilientUpgradePolling();
     } else {
-      hideProgressModal();
+      window.onbeforeunload = null;
+      if (overlay) overlay.style.display = "none";
       showToast(result.error || "Failed to start upgrade", "error");
     }
   } catch (error) {
-    hideProgressModal();
+    window.onbeforeunload = null;
+    if (overlay) overlay.style.display = "none";
     showToast("Failed to start upgrade: " + error.message, "error");
   }
 }
 
-function startUpgradePolling() {
-  // Poll upgrade status every 2 seconds
-  upgradePollingInterval = setInterval(async () => {
+// ============================================
+// Resilient Upgrade Polling & Overlay
+// ============================================
+
+function startResilientUpgradePolling() {
+  const overlay = document.getElementById("upgrade-overlay");
+  if (overlay) overlay.style.display = "flex";
+
+  let apiDown = false;
+  let downSince = null;
+
+  const poll = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/system/upgrade/status`);
-      const status = await res.json();
-
-      // Update progress modal
-      const messageEl = document.getElementById("progress-message");
-      const outputEl = document.getElementById("progress-output");
-
-      if (messageEl) {
-        messageEl.textContent = status.message || "Processing...";
-      }
-
-      if (outputEl && status.output) {
-        outputEl.textContent = status.output.join("\n");
-        outputEl.scrollTop = outputEl.scrollHeight;
-      }
-
-      // Update stage indicator
-      const stageText = {
-        stopping_services: "Stopping services...",
-        upgrading: "Installing update...",
-        starting_services: "Starting services...",
-        restarting_api: "Restarting API (page will reload)...",
-      };
-
-      if (stageText[status.stage] && messageEl) {
-        messageEl.textContent = stageText[status.stage];
-      }
-
-      // Handle completion
-      if (!status.running && status.stage === "complete") {
-        clearInterval(upgradePollingInterval);
-        upgradePollingInterval = null;
-
-        if (status.success) {
-          showToast("Upgrade completed! Reloading...", "success");
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
-        } else {
-          hideProgressModal();
-          showToast("Upgrade failed: " + status.message, "error");
+      if (apiDown) {
+        // Recovery polling — hit health endpoint
+        const healthResp = await fetch(
+          `${API_BASE}/api/system/health`,
+          { signal: AbortSignal.timeout(3000) },
+        );
+        if (healthResp.ok) {
+          apiDown = false;
+          const statusResp = await fetch(
+            `${API_BASE}/api/system/upgrade/status`,
+          );
+          if (statusResp.ok) {
+            const data = await statusResp.json();
+            showUpgradeResult(data);
+            return;
+          }
+        }
+      } else {
+        // Normal polling — hit status endpoint
+        const resp = await fetch(
+          `${API_BASE}/api/system/upgrade/status`,
+          { signal: AbortSignal.timeout(3000) },
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          updateOverlayStages(data);
+          if (!data.running && data.stage === "complete") {
+            showUpgradeResult(data);
+            return;
+          }
         }
       }
-
-      // Handle API restart - connection will drop
-      if (status.stage === "restarting_api") {
-        clearInterval(upgradePollingInterval);
-        upgradePollingInterval = null;
-
-        // Wait and then start checking if API is back
-        setTimeout(() => {
-          waitForApiRestart();
-        }, 3000);
+    } catch {
+      if (!apiDown) {
+        apiDown = true;
+        downSince = Date.now();
+        const statusEl = document.getElementById("upgrade-overlay-status");
+        if (statusEl) {
+          statusEl.textContent = "Services restarting \u2014 waiting for API...";
+        }
       }
-    } catch (error) {
-      // Connection lost - API might be restarting
-      console.log("Lost connection to API, checking if it restarts...");
-      clearInterval(upgradePollingInterval);
-      upgradePollingInterval = null;
-
-      // Wait and check if API is back
-      setTimeout(() => {
-        waitForApiRestart();
-      }, 3000);
-    }
-  }, 2000);
-}
-
-async function waitForApiRestart() {
-  const messageEl = document.getElementById("progress-message");
-  if (messageEl) {
-    messageEl.textContent = "Waiting for API to restart...";
-  }
-
-  let attempts = 0;
-  const maxAttempts = 30; // 30 attempts * 2 seconds = 60 seconds max wait
-
-  const checkApi = async () => {
-    attempts++;
-    try {
-      const res = await fetch(`${API_BASE}/api/system/version`, {
-        method: "GET",
-        signal: AbortSignal.timeout(2000),
-      });
-
-      if (res.ok) {
-        // API is back!
-        hideProgressModal();
-        showToast("Upgrade complete! Reloading page...", "success");
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+      if (downSince && Date.now() - downSince > 120000) {
+        showUpgradeTimeout();
         return;
       }
-    } catch (error) {
-      // Still not ready
     }
-
-    if (attempts < maxAttempts) {
-      if (messageEl) {
-        messageEl.textContent = `Waiting for API to restart... (${attempts}/${maxAttempts})`;
-      }
-      setTimeout(checkApi, 2000);
-    } else {
-      hideProgressModal();
-      showToast(
-        "API did not restart in time. Please refresh the page manually.",
-        "error",
-      );
-    }
+    setTimeout(poll, 2000);
   };
+  poll();
+}
 
-  checkApi();
+function updateOverlayStages(data) {
+  const stagesEl = document.getElementById("upgrade-overlay-stages");
+  if (!stagesEl) return;
+  stagesEl.replaceChildren();
+
+  const stages = [
+    { key: "preflight_recheck", label: "Preflight re-validated" },
+    { key: "backing_up", label: "Installation backed up" },
+    { key: "stopping_services", label: "Services stopped" },
+    { key: "upgrading", label: "Upgrading files" },
+    { key: "starting_services", label: "Starting services" },
+    { key: "verifying", label: "Verifying upgrade" },
+  ];
+  if (data.result && data.result.major_upgrade) {
+    stages.splice(
+      4,
+      0,
+      { key: "rebuilding_venv", label: "Rebuilding virtual environment" },
+      { key: "migrating_config", label: "Migrating configuration" },
+    );
+  }
+
+  const currentIdx = stages.findIndex((s) => s.key === data.stage);
+  for (let i = 0; i < stages.length; i++) {
+    const item = document.createElement("div");
+    item.className = "upgrade-stage-item";
+
+    const icon = document.createElement("span");
+    if (i < currentIdx) {
+      item.classList.add("complete");
+      icon.textContent = "\u2713";
+    } else if (i === currentIdx) {
+      item.classList.add("active");
+      icon.textContent = "\u25CF";
+    } else {
+      item.classList.add("pending");
+      icon.textContent = "\u25CB";
+    }
+
+    const label = document.createElement("span");
+    label.textContent = stages[i].label;
+
+    item.appendChild(icon);
+    item.appendChild(label);
+    stagesEl.appendChild(item);
+  }
+
+  const statusEl = document.getElementById("upgrade-overlay-status");
+  if (statusEl) statusEl.textContent = data.message || "";
+}
+
+function showUpgradeResult(data) {
+  window.onbeforeunload = null;
+  const resultEl = document.getElementById("upgrade-overlay-result");
+  if (!resultEl) return;
+  resultEl.style.display = "block";
+  resultEl.replaceChildren();
+
+  if (data.success) {
+    const heading = document.createElement("h2");
+    heading.textContent = "Upgrade Complete!";
+    heading.style.color = "#4caf50";
+    heading.style.fontSize = "2rem";
+    resultEl.appendChild(heading);
+
+    if (data.result) {
+      const version = document.createElement("p");
+      version.textContent =
+        "Version: " + (data.result.new_version || "unknown");
+      version.style.fontSize = "1.25rem";
+      version.style.color = "var(--ink, #FFF8DC)";
+      resultEl.appendChild(version);
+    }
+
+    const countdown = document.createElement("p");
+    countdown.textContent = "Reloading in 5 seconds...";
+    countdown.style.color = "var(--ink-faded, #e8dcc8)";
+    resultEl.appendChild(countdown);
+
+    const reloadBtn = document.createElement("button");
+    reloadBtn.textContent = "Reload Now";
+    reloadBtn.className = "btn btn-primary";
+    reloadBtn.addEventListener("click", () => location.reload());
+    resultEl.appendChild(reloadBtn);
+
+    let seconds = 5;
+    const timer = setInterval(() => {
+      seconds--;
+      countdown.textContent = "Reloading in " + seconds + " seconds...";
+      if (seconds <= 0) {
+        clearInterval(timer);
+        location.reload();
+      }
+    }, 1000);
+  } else {
+    const heading = document.createElement("h2");
+    heading.textContent = "Upgrade Failed";
+    heading.style.color = "#f44336";
+    heading.style.fontSize = "2rem";
+    resultEl.appendChild(heading);
+
+    if (data.message) {
+      const msg = document.createElement("p");
+      msg.textContent = data.message;
+      msg.style.fontSize = "1.25rem";
+      msg.style.color = "var(--ink, #FFF8DC)";
+      resultEl.appendChild(msg);
+    }
+
+    const hint = document.createElement("p");
+    hint.textContent = "Check server logs for details.";
+    hint.style.color = "var(--ink-muted, #c4b498)";
+    resultEl.appendChild(hint);
+
+    const reloadBtn = document.createElement("button");
+    reloadBtn.textContent = "Reload Application";
+    reloadBtn.className = "btn btn-primary";
+    reloadBtn.addEventListener("click", () => location.reload());
+    resultEl.appendChild(reloadBtn);
+  }
+}
+
+function showUpgradeTimeout() {
+  window.onbeforeunload = null;
+  const statusEl = document.getElementById("upgrade-overlay-status");
+  if (statusEl) {
+    statusEl.textContent =
+      "Upgrade may have issues \u2014 API has not responded for 2 minutes.";
+    statusEl.style.color = "#ff9800";
+  }
+  const resultEl = document.getElementById("upgrade-overlay-result");
+  if (resultEl) {
+    resultEl.style.display = "block";
+    resultEl.replaceChildren();
+    const btn = document.createElement("button");
+    btn.textContent = "Try Reloading";
+    btn.className = "btn btn-primary";
+    btn.addEventListener("click", () => location.reload());
+    resultEl.appendChild(btn);
+  }
 }
