@@ -9,10 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Mandatory preflight check system** (LEAPP-inspired): Upgrades require preflight validation before execution
+- **Always-on backup with rolling retention** (keep last 5): Backup is no longer optional
+- **`--skip-service-lifecycle`** internal flag for helper-owned lifecycle
+- **Full upgrade feature parity in web UI**: Force, major version, and specific version fields
+- **GET `/api/system/upgrade/preflight`** endpoint with staleness computation
+- **Preflight gate on POST `/api/system/upgrade`**: Blocks upgrades without valid preflight (unless force)
+- **Caddy maintenance page** for external visitors during upgrade (auto-reloads via health polling)
+- **Resilient browser upgrade overlay** with 9-step progress tracking (tolerates API downtime)
+- **Upgrade consistency enforcement rule** (`.claude/rules/upgrade-consistency.md`)
+
 ### Changed
+
+- **Helper lifecycle** rewritten to 9-step orchestration with status file durability
+- **`--backup` flag** is now a no-op (backup always runs)
+- **Upgrade overlay** uses textContent/DOM APIs exclusively (no innerHTML)
 
 ### Fixed
 
+- **Service name bug in upgrade-helper-process**: `audiobooks-*` (plural) → `audiobook-*` (singular) — ALL web-triggered service operations were silently failing
 - **CSP headers**: Added `wss:` and `ws:` WebSocket schemes to `connect-src` in proxy_server.py (blocked WebSocket connections in strict CSP environments)
 - **SQL injection**: Parameterized raw string interpolation in maintenance.py `_get_history()` and `_get_windows()` queries
 - **Flask debug bind**: Fixed `app.run(host='localhost')` to `app.run(host='127.0.0.1')` in maintenance.py — `localhost` may resolve to `::1` on IPv6 systems
