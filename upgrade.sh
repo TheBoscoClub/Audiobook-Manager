@@ -23,6 +23,8 @@
 #   --switch-to-modular   Switch to modular Flask Blueprint architecture
 #   --switch-to-monolithic  Switch to single-file architecture
 #   --force               Force upgrade even if versions are identical
+#   --major-version, --mv Perform major version upgrade (venv rebuild,
+#                         config migration, enable new services)
 #   --dry-run             Show what would be done without making changes
 #   --help                Show this help message
 #
@@ -91,6 +93,7 @@ REQUESTED_VERSION=""  # Specific version to install, or empty for latest
 REMOTE_HOST=""        # Remote host for SSH-based deployment
 REMOTE_USER="claude"  # SSH username for remote deployment
 AUTO_YES=false        # Skip confirmation prompts (--yes/-y)
+MAJOR_VERSION=false   # Force venv rebuild + config migration + service enablement
 
 # GitHub configuration (loaded from .release-info or defaults)
 GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
@@ -223,6 +226,7 @@ do_remote_upgrade() {
     local remote_target="${TARGET_DIR:-/opt/audiobooks}"
     local remote_flags="--yes"
     [[ "$FORCE" == "true" ]] && remote_flags="$remote_flags --force"
+    [[ "$MAJOR_VERSION" == "true" ]] && remote_flags="$remote_flags --major-version"
     echo -e "${BLUE}Running remote upgrade (full lifecycle)...${NC}"
     echo ""
     ssh "${ssh_opts[@]}" "$ssh_target" \
@@ -563,6 +567,136 @@ apply_schema_migrations() {
     fi
 }
 
+# -----------------------------------------------------------------------------
+# Major Version Upgrade Functions
+# -----------------------------------------------------------------------------
+
+force_venv_rebuild() {
+    # Force-rebuild the Python virtual environment from requirements.txt.
+    # Ensures new dependencies are installed and old ones are removed.
+    local target="$1"
+    local use_sudo="${2:-}"
+
+    if [[ ! -d "$target/library" ]]; then
+        return 0
+    fi
+
+    echo -e "${BLUE}Force-rebuilding Python virtual environment...${NC}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "  [DRY-RUN] Would delete and recreate venv at $target/library/venv"
+        echo "  [DRY-RUN] Would install packages from $target/library/requirements.txt"
+        return 0
+    fi
+
+    local sys_python="/usr/bin/python3"
+    [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+    [[ -x /usr/bin/python3.13 ]] && [[ ! -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.13"
+
+    if [[ -n "$use_sudo" ]]; then
+        sudo rm -rf "$target/library/venv"
+        sudo "$sys_python" -m venv "$target/library/venv"
+        sudo chown -R audiobooks:audiobooks "$target/library/venv"
+        sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
+            -r "$target/library/requirements.txt" 2>&1 || {
+            echo -e "${RED}  pip install failed — trying minimal fallback${NC}"
+            sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
+                flask mutagen gunicorn gevent
+        }
+    else
+        rm -rf "$target/library/venv"
+        "$sys_python" -m venv "$target/library/venv"
+        "$target/library/venv/bin/pip" install --quiet \
+            -r "$target/library/requirements.txt" 2>&1 || {
+            echo -e "${RED}  pip install failed — trying minimal fallback${NC}"
+            "$target/library/venv/bin/pip" install --quiet flask mutagen gunicorn gevent
+        }
+    fi
+
+    echo -e "${GREEN}  Venv rebuilt with fresh dependencies${NC}"
+}
+
+apply_config_migrations() {
+    # Apply config file migrations — add new variables to existing audiobooks.conf.
+    # Each migration in config-migrations/*.sh is idempotent (checks before modifying).
+    local project="$1"
+    local use_sudo="${2:-}"
+
+    local migrations_dir="$project/config-migrations"
+    if [[ ! -d "$migrations_dir" ]]; then
+        return 0
+    fi
+
+    # Find the config file (system or user-level)
+    local conf_file=""
+    if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
+        conf_file="/etc/audiobooks/audiobooks.conf"
+    elif [[ -f "${HOME}/.config/audiobooks/audiobooks.conf" ]]; then
+        conf_file="${HOME}/.config/audiobooks/audiobooks.conf"
+    fi
+
+    if [[ -z "$conf_file" ]]; then
+        echo -e "${YELLOW}  No audiobooks.conf found — skipping config migrations${NC}"
+        return 0
+    fi
+
+    echo -e "${BLUE}Applying config migrations...${NC}"
+
+    local migration_count=0
+    for migration in "$migrations_dir"/*.sh; do
+        [[ -f "$migration" ]] || continue
+
+        # Export variables for the migration script
+        export CONF_FILE="$conf_file"
+        export USE_SUDO="$use_sudo"
+        export DRY_RUN
+
+        # Source the migration (runs in current shell context)
+        source "$migration"
+        migration_count=$((migration_count + 1))
+    done
+
+    if [[ $migration_count -gt 0 ]]; then
+        echo -e "${GREEN}  Applied $migration_count config migration(s)${NC}"
+    else
+        echo "  No config migrations to apply"
+    fi
+}
+
+enable_new_services() {
+    # Enable all services referenced by audiobook.target.
+    # Idempotent — already-enabled services are silently skipped.
+    local use_sudo="${1:-}"
+
+    if [[ -z "$use_sudo" ]] || [[ ! -f "/etc/systemd/system/audiobook.target" ]]; then
+        return 0
+    fi
+
+    echo -e "${BLUE}Enabling all audiobook services...${NC}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "  [DRY-RUN] Would enable all services in audiobook.target"
+        return 0
+    fi
+
+    # Parse Wants= lines from the target file
+    local services
+    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
+        | sed 's/Wants=//' | tr ' ' '\n' \
+        | grep -v 'network-online')
+
+    for svc in $services; do
+        sudo systemctl enable "$svc" 2>/dev/null || true
+        echo "  Enabled: $svc"
+    done
+
+    echo -e "${GREEN}  All services enabled${NC}"
+}
+
+# -----------------------------------------------------------------------------
+# Core Upgrade
+# -----------------------------------------------------------------------------
+
 do_upgrade() {
     local project="$1"
     local target="$2"
@@ -806,44 +940,56 @@ do_upgrade() {
         fi
     fi
 
-    # Verify venv health — recreate if broken or pointing to /home/ (pyenv)
-    # systemd ProtectHome=yes blocks access to /home/, breaking pyenv-created venvs
-    if [[ "$DRY_RUN" == "false" ]] && [[ -d "$target/library" ]]; then
-        local venv_ok=true
-        if [[ ! -d "$target/library/venv" ]]; then
-            venv_ok=false
-        elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
-            echo -e "${YELLOW}Venv has broken Python symlinks — recreating${NC}"
-            venv_ok=false
-        elif readlink -f "$target/library/venv/bin/python" | grep -q "^/home/"; then
-            echo -e "${YELLOW}Venv points to /home/ (breaks ProtectHome=yes) — recreating${NC}"
-            venv_ok=false
-        fi
-        if [[ "$venv_ok" == "false" ]]; then
-            echo -e "${BLUE}Recreating Python virtual environment (system Python)...${NC}"
-            local sys_python="/usr/bin/python3"
-            [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
-            if [[ -n "$use_sudo" ]]; then
-                sudo rm -rf "$target/library/venv"
-                sudo "$sys_python" -m venv "$target/library/venv"
-                sudo chown -R audiobooks:audiobooks "$target/library/venv"
-                sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                    -r "$target/library/requirements.txt" 2>/dev/null \
-                    || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
-            else
-                rm -rf "$target/library/venv"
-                "$sys_python" -m venv "$target/library/venv"
-                "$target/library/venv/bin/pip" install --quiet \
-                    -r "$target/library/requirements.txt" 2>/dev/null \
-                    || "$target/library/venv/bin/pip" install --quiet flask mutagen
+    # Venv management
+    if [[ -d "$target/library" ]]; then
+        if [[ "$MAJOR_VERSION" == "true" ]]; then
+            # Major version: force complete venv rebuild (new deps in, old deps out)
+            force_venv_rebuild "$target" "$use_sudo"
+        elif [[ "$DRY_RUN" == "false" ]]; then
+            # Normal upgrade: only recreate if broken or pointing to /home/ (pyenv)
+            # systemd ProtectHome=yes blocks access to /home/, breaking pyenv-created venvs
+            local venv_ok=true
+            if [[ ! -d "$target/library/venv" ]]; then
+                venv_ok=false
+            elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
+                echo -e "${YELLOW}Venv has broken Python symlinks — recreating${NC}"
+                venv_ok=false
+            elif readlink -f "$target/library/venv/bin/python" | grep -q "^/home/"; then
+                echo -e "${YELLOW}Venv points to /home/ (breaks ProtectHome=yes) — recreating${NC}"
+                venv_ok=false
             fi
-            echo -e "${GREEN}  Venv recreated with system Python${NC}"
+            if [[ "$venv_ok" == "false" ]]; then
+                echo -e "${BLUE}Recreating Python virtual environment (system Python)...${NC}"
+                local sys_python="/usr/bin/python3"
+                [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
+                if [[ -n "$use_sudo" ]]; then
+                    sudo rm -rf "$target/library/venv"
+                    sudo "$sys_python" -m venv "$target/library/venv"
+                    sudo chown -R audiobooks:audiobooks "$target/library/venv"
+                    sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
+                else
+                    rm -rf "$target/library/venv"
+                    "$sys_python" -m venv "$target/library/venv"
+                    "$target/library/venv/bin/pip" install --quiet \
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        || "$target/library/venv/bin/pip" install --quiet flask mutagen
+                fi
+                echo -e "${GREEN}  Venv recreated with system Python${NC}"
+            fi
         fi
     fi
 
     # Apply database schema migrations
     if [[ "$DRY_RUN" == "false" ]]; then
         apply_schema_migrations "$target" "${use_sudo}"
+    fi
+
+    # Major version: config migration + service enablement
+    if [[ "$MAJOR_VERSION" == "true" ]]; then
+        apply_config_migrations "$project" "${use_sudo}"
+        enable_new_services "${use_sudo}"
     fi
 
     # Refresh /usr/local/bin symlinks to point to canonical scripts
@@ -1588,6 +1734,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --force)
             FORCE=true
+            shift
+            ;;
+        --major-version|--mv)
+            MAJOR_VERSION=true
             shift
             ;;
         --dry-run)
