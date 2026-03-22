@@ -661,3 +661,181 @@ class TestGetHealth:
 
         data = response.get_json()
         assert data["version"] == "9.8.7"
+
+
+class TestWaitForCompletionTimeout:
+    """Test _wait_for_completion timeout behavior with mocked time."""
+
+    def test_timeout_returns_immediately_when_time_exceeds(self, temp_dir):
+        """Test that timeout fires when elapsed time exceeds the limit."""
+        from backend.api_modular import utilities_system as module
+
+        status_file = temp_dir / "status.json"
+        # Write a still-running status (never completes)
+        status_file.write_text(json.dumps({"running": True, "success": None}))
+        module.HELPER_STATUS_FILE = status_file
+
+        # Mock time.time to simulate immediate timeout:
+        # First call returns 0 (start), second call returns 100 (way past timeout)
+        call_count = 0
+
+        def mock_time():
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 1:
+                return 0.0
+            return 100.0
+
+        with patch.object(module.time, "time", side_effect=mock_time):
+            with patch.object(module.time, "sleep"):
+                status = module._wait_for_completion(timeout=5.0, poll_interval=0.1)
+
+        assert status["success"] is False
+        assert status["stage"] == "timeout"
+        assert "timed out" in status["message"]
+
+    def test_completes_mid_poll_when_status_appears(self, temp_dir):
+        """Test that completion is detected during polling."""
+        from backend.api_modular import utilities_system as module
+
+        status_file = temp_dir / "status.json"
+        module.HELPER_STATUS_FILE = status_file
+
+        # Start with empty file, then write completed status on second poll
+        poll_count = 0
+
+        def mock_sleep(interval):
+            nonlocal poll_count
+            poll_count += 1
+            if poll_count >= 1:
+                status_file.write_text(
+                    json.dumps({"running": False, "success": True, "message": "Done"})
+                )
+
+        status_file.write_text("")
+
+        with patch.object(module.time, "sleep", side_effect=mock_sleep):
+            status = module._wait_for_completion(timeout=5.0, poll_interval=0.1)
+
+        assert status["success"] is True
+        assert status["message"] == "Done"
+
+    def test_handles_json_decode_error_during_poll(self, temp_dir):
+        """Test continues polling when status file contains invalid JSON."""
+        from backend.api_modular import utilities_system as module
+
+        status_file = temp_dir / "status.json"
+        module.HELPER_STATUS_FILE = status_file
+
+        poll_count = 0
+
+        def mock_sleep(interval):
+            nonlocal poll_count
+            poll_count += 1
+            if poll_count == 1:
+                # Write invalid JSON first
+                status_file.write_text("{broken json")
+            elif poll_count == 2:
+                # Then write valid completed status
+                status_file.write_text(
+                    json.dumps(
+                        {"running": False, "success": True, "message": "Recovered"}
+                    )
+                )
+
+        status_file.write_text("")
+
+        with patch.object(module.time, "sleep", side_effect=mock_sleep):
+            status = module._wait_for_completion(timeout=5.0, poll_interval=0.1)
+
+        assert status["success"] is True
+        assert status["message"] == "Recovered"
+
+
+class TestCheckUpgrade:
+    """Test the check_upgrade route (POST /api/system/upgrade/check)."""
+
+    @patch("backend.api_modular.utilities_system._write_request")
+    @patch("backend.api_modular.utilities_system._read_status")
+    def test_check_upgrade_github(self, mock_read, mock_write, flask_app):
+        """Test upgrade check from GitHub source."""
+        mock_read.return_value = {"running": False}
+        mock_write.return_value = True
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/system/upgrade/check",
+                json={"source": "github"},
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["source"] == "github"
+
+    @patch("backend.api_modular.utilities_system._read_status")
+    def test_check_upgrade_rejects_when_running(self, mock_read, flask_app):
+        """Test rejects upgrade check when operation already running."""
+        mock_read.return_value = {"running": True}
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/system/upgrade/check",
+                json={"source": "github"},
+            )
+
+        assert response.status_code == 400
+        assert "already in progress" in response.get_json()["error"]
+
+    @patch("backend.api_modular.utilities_system._read_status")
+    def test_check_upgrade_requires_project_path(self, mock_read, flask_app):
+        """Test requires project_path when source is 'project'."""
+        mock_read.return_value = {"running": False}
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/system/upgrade/check",
+                json={"source": "project"},
+            )
+
+        assert response.status_code == 400
+        assert "project_path required" in response.get_json()["error"]
+
+    @patch("backend.api_modular.utilities_system._write_request")
+    @patch("backend.api_modular.utilities_system._read_status")
+    def test_check_upgrade_validates_project_path(
+        self, mock_read, mock_write, flask_app
+    ):
+        """Test validates that project path exists for check."""
+        mock_read.return_value = {"running": False}
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/system/upgrade/check",
+                json={"source": "project", "project_path": "/nonexistent/dir"},
+            )
+
+        assert response.status_code == 400
+        assert "not found" in response.get_json()["error"]
+
+    @patch("backend.api_modular.utilities_system._write_request")
+    @patch("backend.api_modular.utilities_system._read_status")
+    def test_check_upgrade_from_project(
+        self, mock_read, mock_write, flask_app, temp_dir
+    ):
+        """Test upgrade check from valid project directory."""
+        mock_read.return_value = {"running": False}
+        mock_write.return_value = True
+
+        (temp_dir / "VERSION").write_text("2.0.0")
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/system/upgrade/check",
+                json={"source": "project", "project_path": str(temp_dir)},
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["source"] == "project"

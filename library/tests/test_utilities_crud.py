@@ -543,3 +543,305 @@ class TestEndpointMethodConstraints:
         with flask_app.test_client() as client:
             response = client.post("/api/audiobooks/missing-hash")
         assert response.status_code == 405
+
+
+class TestListGenres:
+    """Test the list_genres endpoint (GET /api/genres)."""
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_list_genres_returns_genres(self, mock_get_db, flask_app):
+        """Test returns list of genres with book counts."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [
+            {"id": 1, "name": "Fiction", "book_count": 5},
+            {"id": 2, "name": "Science Fiction", "book_count": 3},
+        ]
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/genres")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert isinstance(data, list)
+        assert len(data) == 2
+        assert data[0]["name"] == "Fiction"
+        assert data[0]["book_count"] == 5
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_list_genres_empty(self, mock_get_db, flask_app):
+        """Test returns empty list when no genres exist."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = []
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/genres")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+
+    def test_list_genres_only_get(self, flask_app):
+        """Test genres endpoint only allows GET."""
+        with flask_app.test_client() as client:
+            response = client.post("/api/genres")
+        assert response.status_code == 405
+
+
+class TestSetAudiobookGenres:
+    """Test the set_audiobook_genres endpoint (PUT /api/audiobooks/<id>/genres)."""
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_set_genres_success(self, mock_get_db, flask_app):
+        """Test successfully setting genres for an audiobook."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        # fetchone returns a row for audiobook existence check, then genre id lookups
+        mock_cursor.fetchone.side_effect = [
+            {"id": 1},  # audiobook exists
+            {"id": 10},  # genre id for "Fiction"
+            {"id": 11},  # genre id for "Mystery"
+        ]
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.put(
+                "/api/audiobooks/1/genres",
+                json={"genres": ["Fiction", "Mystery"]},
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["genres"] == ["Fiction", "Mystery"]
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_set_genres_audiobook_not_found(self, mock_get_db, flask_app):
+        """Test returns 404 when audiobook doesn't exist."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = None  # audiobook not found
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.put(
+                "/api/audiobooks/999999/genres",
+                json={"genres": ["Fiction"]},
+            )
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["success"] is False
+        assert "not found" in data["error"]
+
+    def test_set_genres_missing_field(self, flask_app):
+        """Test returns 400 when genres field is missing."""
+        with flask_app.test_client() as client:
+            response = client.put(
+                "/api/audiobooks/1/genres",
+                json={"wrong_field": "value"},
+            )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "genres" in data["error"]
+
+    def test_set_genres_not_a_list(self, flask_app):
+        """Test returns 400 when genres is not a list."""
+        with flask_app.test_client() as client:
+            response = client.put(
+                "/api/audiobooks/1/genres",
+                json={"genres": "not-a-list"},
+            )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "list" in data["error"]
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_set_genres_database_error(self, mock_get_db, flask_app):
+        """Test returns 500 on database error."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        # First fetchone succeeds (audiobook found), then execute raises
+        mock_cursor.fetchone.return_value = {"id": 1}
+        mock_cursor.execute.side_effect = [
+            None,  # SELECT id FROM audiobooks
+            None,  # fetchone call result handled above
+            Exception("DB Error"),  # BEGIN TRANSACTION or DELETE
+        ]
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.put(
+                "/api/audiobooks/1/genres",
+                json={"genres": ["Fiction"]},
+            )
+
+        assert response.status_code == 500
+        data = response.get_json()
+        assert data["success"] is False
+
+
+class TestBulkManageGenres:
+    """Test the bulk_manage_genres endpoint (POST /api/audiobooks/bulk-genres)."""
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_bulk_add_genres_success(self, mock_get_db, flask_app):
+        """Test bulk adding genres to multiple audiobooks."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = {"id": 10}  # genre id
+        mock_cursor.rowcount = 1
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                json={
+                    "ids": [1, 2, 3],
+                    "genres": ["Thriller"],
+                    "mode": "add",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["mode"] == "add"
+        assert data["book_count"] == 3
+        assert data["genre_count"] == 1
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_bulk_remove_genres_success(self, mock_get_db, flask_app):
+        """Test bulk removing genres from multiple audiobooks."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = {"id": 10}  # genre id
+        mock_cursor.rowcount = 2
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                json={
+                    "ids": [1, 2],
+                    "genres": ["Thriller"],
+                    "mode": "remove",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["mode"] == "remove"
+
+    def test_bulk_genres_no_data(self, flask_app):
+        """Test returns 400 when no data provided."""
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                content_type="application/json",
+                data="null",
+            )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+
+    def test_bulk_genres_no_ids(self, flask_app):
+        """Test returns 400 when no IDs provided."""
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                json={"ids": [], "genres": ["Fiction"], "mode": "add"},
+            )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "No audiobook IDs" in data["error"]
+
+    def test_bulk_genres_no_genres(self, flask_app):
+        """Test returns 400 when no genres provided."""
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                json={"ids": [1, 2], "genres": [], "mode": "add"},
+            )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "No genres" in data["error"]
+
+    def test_bulk_genres_invalid_mode(self, flask_app):
+        """Test returns 400 for invalid mode."""
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                json={"ids": [1], "genres": ["Fiction"], "mode": "replace"},
+            )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "mode" in data["error"]
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_bulk_remove_nonexistent_genre(self, mock_get_db, flask_app):
+        """Test removing a genre that doesn't exist is handled gracefully."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = None  # genre not found
+        mock_cursor.rowcount = 0
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                json={
+                    "ids": [1, 2],
+                    "genres": ["NonexistentGenre"],
+                    "mode": "remove",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["affected"] == 0
+
+    @patch("backend.api_modular.utilities_crud.get_db")
+    def test_bulk_genres_database_error(self, mock_get_db, flask_app):
+        """Test returns 500 on database error during bulk genre operation."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.execute.side_effect = Exception("DB Error")
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_conn
+
+        with flask_app.test_client() as client:
+            response = client.post(
+                "/api/audiobooks/bulk-genres",
+                json={
+                    "ids": [1, 2],
+                    "genres": ["Fiction"],
+                    "mode": "add",
+                },
+            )
+
+        assert response.status_code == 500
+        data = response.get_json()
+        assert data["success"] is False

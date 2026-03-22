@@ -1471,9 +1471,13 @@ class AccessRequest:
                 ar.preferred_auth_method = row[13] or "totp"
             # Handle claim_expires_at (added in v6.6.5)
             if len(row) > 14:
-                ar.claim_expires_at = (
-                    datetime.fromisoformat(row[14]) if row[14] else None
-                )
+                val = row[14]
+                if val and isinstance(val, str):
+                    ar.claim_expires_at = datetime.fromisoformat(val)
+                elif val and isinstance(val, (int, float)):
+                    ar.claim_expires_at = datetime.fromtimestamp(val)
+                else:
+                    ar.claim_expires_at = None
             return ar
         else:
             # Old schema without claim fields

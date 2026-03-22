@@ -6,8 +6,11 @@ Tests position tracking functionality including:
 - Database initialization
 - Position get/update endpoints
 - Percentage calculations
+- Endpoint method constraints (405 enforcement)
+- Audible sync removal verification
 """
 
+import inspect
 import sqlite3
 
 import pytest
@@ -280,3 +283,96 @@ class TestPercentageCalculation:
 
         data = response.get_json()
         assert data["percent_complete"] == 0
+
+
+class TestEndpointMethodConstraints:
+    """Test that endpoints only respond to correct HTTP methods."""
+
+    def test_delete_position_returns_405(self, flask_app):
+        """Test DELETE /api/position/<id> returns 405."""
+        with flask_app.test_client() as client:
+            response = client.delete("/api/position/1")
+        assert response.status_code == 405
+
+    def test_post_status_returns_405(self, flask_app):
+        """Test POST /api/position/status returns 405."""
+        with flask_app.test_client() as client:
+            response = client.post("/api/position/status")
+        assert response.status_code == 405
+
+
+class TestAudibleSyncRemoved:
+    """Verify Audible sync endpoints are removed and responses have no Audible fields."""
+
+    def test_sync_single_endpoint_removed(self, flask_app):
+        """POST /api/position/sync/<id> should not exist."""
+        with flask_app.test_client() as client:
+            response = client.post("/api/position/sync/1")
+        assert response.status_code in (404, 405)
+
+    def test_sync_all_endpoint_removed(self, flask_app):
+        """POST /api/position/sync-all should not exist."""
+        with flask_app.test_client() as client:
+            response = client.post("/api/position/sync-all")
+        assert response.status_code in (404, 405)
+
+    def test_syncable_endpoint_removed(self, flask_app):
+        """GET /api/position/syncable should not exist."""
+        with flask_app.test_client() as client:
+            response = client.get("/api/position/syncable")
+        assert response.status_code in (404, 405)
+
+    def test_history_endpoint_removed(self, flask_app):
+        """GET /api/position/history/<id> should not exist (replaced by per-user)."""
+        with flask_app.test_client() as client:
+            response = client.get("/api/position/history/1")
+        assert response.status_code in (404, 405)
+
+    def test_position_status_no_audible_fields(self, flask_app):
+        """GET /api/position/status should not mention Audible."""
+        with flask_app.test_client() as client:
+            response = client.get("/api/position/status")
+        if response.status_code == 200:
+            data = response.get_json()
+            assert "audible_available" not in data
+            assert "credential_stored" not in data
+            assert "auth_file_exists" not in data
+
+    def test_get_position_response_no_audible_fields(self, flask_app, session_temp_dir):
+        """GET /api/position/<id> should not include Audible-specific fields."""
+        db_path = session_temp_dir / "test_audiobooks.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO audiobooks (
+                id, title, author, asin, duration_hours,
+                playback_position_ms, file_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (8888, "Cleanup Test Book", "Test Author", "B99999", 5.0, 1000000, "/test/cleanup.opus"),
+        )
+        conn.commit()
+        conn.close()
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/position/8888")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "audible_position_ms" not in data
+        assert "audible_position_human" not in data
+        assert "audible_position_updated" not in data
+        assert "position_synced_at" not in data
+        assert "syncable" not in data
+        assert "local_position_ms" in data
+        assert "percent_complete" in data
+
+    def test_no_audible_import_in_position_sync(self):
+        """Verify Audible library is no longer imported in position_sync."""
+        from backend.api_modular import position_sync
+
+        source = inspect.getsource(position_sync)
+        assert "import audible" not in source
+        assert "get_audible_client" not in source
+        assert "fetch_audible_position" not in source
+        assert "AUDIBLE_AVAILABLE" not in source

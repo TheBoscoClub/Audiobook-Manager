@@ -548,3 +548,110 @@ AUDIOBOOKS_LIBRARY = Path("{library_dir}")
         data = response.get_json()
         assert response.status_code == 200
         assert "status" in data or "error" in data
+
+
+class TestParseJobIoEdgeCases:
+    """Additional edge-case tests for parse_job_io."""
+
+    def test_partial_io_file_only_rchar(self):
+        """Test parsing /proc/{pid}/io with only rchar present."""
+        from backend.api_modular.utilities_conversion import parse_job_io
+
+        mock_io_content = "rchar: 55555\nsyscr: 100\n"
+
+        with patch("builtins.open", mock_open(read_data=mock_io_content)):
+            read_bytes, write_bytes = parse_job_io(42)
+
+        assert read_bytes == 55555
+        assert write_bytes == 0
+
+    def test_partial_io_file_only_wchar(self):
+        """Test parsing /proc/{pid}/io with only wchar present."""
+        from backend.api_modular.utilities_conversion import parse_job_io
+
+        mock_io_content = "wchar: 77777\nsyscw: 200\n"
+
+        with patch("builtins.open", mock_open(read_data=mock_io_content)):
+            read_bytes, write_bytes = parse_job_io(43)
+
+        assert read_bytes == 0
+        assert write_bytes == 77777
+
+    def test_empty_io_file(self):
+        """Test parsing an empty /proc/{pid}/io file."""
+        from backend.api_modular.utilities_conversion import parse_job_io
+
+        with patch("builtins.open", mock_open(read_data="")):
+            read_bytes, write_bytes = parse_job_io(44)
+
+        assert read_bytes == 0
+        assert write_bytes == 0
+
+
+class TestParseConversionJobEdgeCases:
+    """Additional edge-case tests for parse_conversion_job."""
+
+    @patch("backend.api_modular.utilities_conversion.parse_job_io")
+    def test_zero_source_size_yields_zero_percent(self, mock_io):
+        """Test that zero source size results in 0% progress."""
+        from backend.api_modular.utilities_conversion import parse_conversion_job
+
+        mock_io.return_value = (500000, 100000)
+
+        cmdline = 'ffmpeg -i /sources/book.aaxc -c:a libopus -f ogg "output.opus"'
+
+        # Source file does not exist -> st_size never read -> job_source_size stays 0
+        with patch.object(Path, "exists", return_value=False):
+            result = parse_conversion_job(100, cmdline)
+
+        assert result is not None
+        assert result["percent"] == 0
+        assert result["source_size"] == 0
+
+    @patch("backend.api_modular.utilities_conversion.parse_job_io")
+    def test_no_source_match_in_cmdline(self, mock_io):
+        """Test cmdline without .aaxc source still parses output file."""
+        from backend.api_modular.utilities_conversion import parse_conversion_job
+
+        mock_io.return_value = (0, 0)
+        cmdline = 'ffmpeg -i /sources/book.mp3 -c:a libopus -f ogg "out.opus"'
+
+        with patch.object(Path, "exists", return_value=False):
+            result = parse_conversion_job(200, cmdline)
+
+        assert result is not None
+        assert result["filename"] == "out.opus"
+        assert result["source_size"] == 0
+
+    @patch("backend.api_modular.utilities_conversion.parse_job_io")
+    def test_short_filename_not_truncated(self, mock_io):
+        """Test filenames under 50 chars are not truncated."""
+        from backend.api_modular.utilities_conversion import parse_conversion_job
+
+        mock_io.return_value = (0, 0)
+        short_name = "short.opus"
+        cmdline = f'ffmpeg -i input.aaxc -c:a libopus -f ogg "{short_name}"'
+
+        with patch.object(Path, "exists", return_value=False):
+            result = parse_conversion_job(300, cmdline)
+
+        assert result is not None
+        assert result["display_name"] == short_name
+        assert result["filename"] == short_name
+
+    @patch("backend.api_modular.utilities_conversion.parse_job_io")
+    def test_exactly_50_char_filename(self, mock_io):
+        """Test filename of exactly 50 chars is not truncated."""
+        from backend.api_modular.utilities_conversion import parse_conversion_job
+
+        mock_io.return_value = (0, 0)
+        # 45 chars + ".opus" = 50
+        name_50 = "a" * 45 + ".opus"
+        assert len(name_50) == 50
+        cmdline = f'ffmpeg -i input.aaxc -c:a libopus -f ogg "{name_50}"'
+
+        with patch.object(Path, "exists", return_value=False):
+            result = parse_conversion_job(400, cmdline)
+
+        assert result is not None
+        assert result["display_name"] == name_50
