@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [7.3.0] - 2026-03-22
+
+### Added
+
 - **Mandatory preflight check system** (LEAPP-inspired): Upgrades require preflight validation before execution
 - **Always-on backup with rolling retention** (keep last 5): Backup is no longer optional
 - **`--skip-service-lifecycle`** internal flag for helper-owned lifecycle

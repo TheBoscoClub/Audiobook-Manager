@@ -1,6 +1,6 @@
 {
   "name": "audiobooks",
-  "version": "7.2.1.1",
+  "version": "7.3.0",
   "description": "Self-hosted audiobook library browser with conversion, web player, and optional Audible downloading",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
