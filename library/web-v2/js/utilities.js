@@ -2328,8 +2328,7 @@ async function loadConversionStatus() {
 let activityOffset = 0;
 const ACTIVITY_PAGE_SIZE = 25;
 
-function initActivitySection() {
-  // Load live connections count
+function refreshLiveConnections() {
   fetch("/api/admin/connections")
     .then(function (r) { return r.json(); })
     .then(function (data) {
@@ -2366,6 +2365,17 @@ function initActivitySection() {
       }
     })
     .catch(function () {});
+}
+
+function initActivitySection() {
+  // Initial load after a short delay to let WebSocket connect first
+  setTimeout(refreshLiveConnections, 1500);
+
+  // Refresh connections when WebSocket opens (audioWs is from websocket.js)
+  document.addEventListener("ws-connected", refreshLiveConnections);
+
+  // Periodically refresh connections count (every 30s)
+  setInterval(refreshLiveConnections, 30000);
 
   // Filter controls
   document
@@ -2399,6 +2409,7 @@ function initActivitySection() {
   document
     .querySelector('.cabinet-tab[data-section="activity"]')
     ?.addEventListener("click", () => {
+      refreshLiveConnections();
       loadActivityStats();
       loadActivityAudit();
     });

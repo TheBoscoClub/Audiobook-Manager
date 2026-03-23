@@ -530,7 +530,7 @@ create_backup() {
     if (( ${#backups[@]} > 5 )); then
         for old_backup in "${backups[@]:5}"; do
             echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
-            rm -rf "$old_backup"
+            rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null || true
         done
     fi
 }
