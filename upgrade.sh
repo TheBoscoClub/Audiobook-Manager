@@ -1203,11 +1203,15 @@ do_upgrade() {
     echo ""
 
     # Upgrade scripts
+    # Dev-only scripts (git hooks, dev-machine admin tools) stay in the project
     if [[ -d "$target/scripts" ]]; then
         echo -e "${BLUE}Upgrading scripts...${NC}"
         for script in "${project}/scripts/"*; do
             if [[ -f "$script" ]] && [[ "$(basename "$script")" != "__pycache__" ]]; then
                 local script_name=$(basename "$script")
+                case "$script_name" in
+                    install-hooks.sh|purge-users.sh|setup-email.sh) continue ;;
+                esac
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would update: $script_name"
                 else

@@ -73,7 +73,7 @@ COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
 # Convert keep list to array
-IFS=',' read -rA KEEP_USERS <<<"$KEEP_LIST"
+IFS=',' read -ra KEEP_USERS <<<"$KEEP_LIST"
 
 is_kept() {
     local username="$1"
