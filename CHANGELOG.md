@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.3.0.1] - 2026-03-23
+
+### Added
+
+- **Art Deco themed error pages** for Caddy reverse proxy: maintenance (upgrade) page with librarian-on-ladder bookshelf scene and sliding progress bar; unavailable page with librarian-pushing-cart scene and blinking status indicator
+- **Generic unavailable page** (`caddy/unavailable.html`) — shown by Caddy on 502/503 when backend is unreachable, with JS health polling (5s) and meta-refresh (30s) fallback for auto-recovery
+
+### Changed
+
+- **Maintenance page** (`caddy/maintenance.html`) restyled from plain dark theme to full Art Deco design matching the app (sunburst panel, gold chevron border, diamond lattice background, Optima font, gold/brass/cream palette)
+
 ## [7.3.0] - 2026-03-22
 
 ### Added
@@ -2101,7 +2112,9 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0.1...HEAD
+[7.3.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0...v7.3.0.1
+[7.3.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1.1...v7.3.0
 [7.2.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1...v7.2.1.1
 [7.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.0...v7.2.1
 [7.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.1.3.4...v7.2.0
