@@ -98,7 +98,7 @@ Returns: same setup_data structure
 - **Delete account**: One button → one confirm dialog → immediate deletion → session ends → redirect to login.
 
 **Deletion confirmation text:**
-> "This will permanently delete your account and all your listening history. You will likely experience intermittent swattings and harassment. Can't be helped, is normal and should be expected because you already knew who's behind this bullshit webapp when you signed up in the first place."
+> "This will permanently delete your account and all of your listening history. You will likely experience intermittent swattings and harassment. Can't be helped — this is normal and should be expected, because you already knew who was behind this bullshit webapp when you signed up in the first place."
 
 **Self-service API endpoints:**
 
