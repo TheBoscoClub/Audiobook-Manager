@@ -34,7 +34,8 @@
 # =============================================================================
 
 # Source audiobook-config.sh for path variables
-source /usr/local/lib/audiobooks/audiobook-config.sh 2>/dev/null || true
+# AUDIOBOOKS_HOME is set via EnvironmentFile in the systemd unit
+source "${AUDIOBOOKS_HOME:-/opt/audiobooks}/lib/audiobook-config.sh" 2>/dev/null || true
 
 # Control directory for API communication (using AUDIOBOOKS_VAR_DIR/.control/
 # to avoid /run namespace issues with systemd sandboxing)

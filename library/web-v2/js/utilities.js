@@ -4005,8 +4005,43 @@ async function checkUpgrade() {
 
 function startCheckPolling() {
   // Poll check status every 1 second (check is faster than upgrade)
+  const CHECK_TIMEOUT_MS = 30000; // 30 second timeout for check operations
+  const checkStartTime = Date.now();
+
+  // Allow Escape key to dismiss a stuck modal
+  const escapeHandler = function (e) {
+    if (e.key === "Escape") {
+      clearInterval(checkPollingInterval);
+      document.removeEventListener("keydown", escapeHandler);
+      hideProgressModal();
+      showToast("Check cancelled", "info");
+    }
+  };
+  document.addEventListener("keydown", escapeHandler);
+
   const checkPollingInterval = setInterval(async () => {
     try {
+      // Timeout: if check takes too long, the helper likely crashed
+      if (Date.now() - checkStartTime > CHECK_TIMEOUT_MS) {
+        clearInterval(checkPollingInterval);
+        document.removeEventListener("keydown", escapeHandler);
+        const messageEl = document.getElementById("progress-message");
+        if (messageEl) {
+          messageEl.textContent =
+            "✗ Check timed out — upgrade helper may have failed";
+          messageEl.style.color = "var(--accent-red, #c0392b)";
+        }
+        const closeBtn = document.getElementById("modal-close-progress");
+        if (closeBtn) {
+          closeBtn.style.display = "inline-flex";
+        }
+        showToast(
+          "Check timed out. Check system logs: journalctl -u audiobook-upgrade-helper.service",
+          "error",
+        );
+        return;
+      }
+
       const res = await fetch(`${API_BASE}/api/system/upgrade/status`);
       const status = await res.json();
 
@@ -4026,6 +4061,7 @@ function startCheckPolling() {
       // Handle completion
       if (!status.running && status.success !== null) {
         clearInterval(checkPollingInterval);
+        document.removeEventListener("keydown", escapeHandler);
 
         // Show close button
         const closeBtn = document.getElementById("modal-close-progress");
@@ -4057,6 +4093,7 @@ function startCheckPolling() {
       }
     } catch (error) {
       clearInterval(checkPollingInterval);
+      document.removeEventListener("keydown", escapeHandler);
       hideProgressModal();
       showToast("Error checking status: " + error.message, "error");
     }
