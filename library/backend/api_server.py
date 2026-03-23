@@ -63,8 +63,7 @@ if __name__ == "__main__":
         app.run(host="127.0.0.1", port=API_PORT, debug=True)
     else:
         from gevent.pywsgi import WSGIServer
-        from geventwebsocket.handler import WebSocketHandler
 
-        server = WSGIServer(("0.0.0.0", API_PORT), app, handler_class=WebSocketHandler)
+        server = WSGIServer(("0.0.0.0", API_PORT), app)
         print(f"Serving on http://0.0.0.0:{API_PORT}")
         server.serve_forever()

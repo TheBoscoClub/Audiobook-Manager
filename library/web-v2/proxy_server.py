@@ -347,8 +347,15 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         print(f"[PROXY] {self.address_string()} - {format % args}")
 
 
-class ReuseHTTPServer(http.server.HTTPServer):
-    """HTTPServer with socket reuse enabled."""
+class ReuseHTTPServer(http.server.ThreadingHTTPServer):
+    """Threaded HTTPServer with socket reuse.
+
+    Threading is required because WebSocket tunnels block the handler
+    for the duration of the connection. Without threading, a single
+    active WebSocket would block all other HTTP requests.
+    """
+
+    daemon_threads = True
 
     def server_bind(self):
         import socket
