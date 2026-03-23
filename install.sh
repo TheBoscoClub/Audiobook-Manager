@@ -1378,11 +1378,15 @@ EOF
     local APP_SCRIPTS_DIR="/opt/audiobooks/scripts"
     sudo mkdir -p "${APP_SCRIPTS_DIR}"
 
-    # Copy all scripts from scripts/ directory to canonical location
+    # Copy operational scripts from scripts/ directory to canonical location
+    # Dev-only scripts (git hooks, dev-machine admin tools) stay in the project
     if [[ -d "${SCRIPT_DIR}/scripts" ]]; then
         for script in "${SCRIPT_DIR}/scripts/"*; do
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
+                case "$script_name" in
+                    install-hooks.sh|purge-users.sh|setup-email.sh) continue ;;
+                esac
                 sudo cp "$script" "${APP_SCRIPTS_DIR}/"
                 sudo chmod 755 "${APP_SCRIPTS_DIR}/${script_name}"
                 echo "  Installed: ${APP_SCRIPTS_DIR}/${script_name}"
@@ -1872,11 +1876,15 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-config"
 
     # Install conversion and management scripts from scripts/ directory
+    # Dev-only scripts (git hooks, dev-machine admin tools) stay in the project
     echo -e "${BLUE}Installing audiobook management scripts...${NC}"
     if [[ -d "${SCRIPT_DIR}/scripts" ]]; then
         for script in "${SCRIPT_DIR}/scripts/"*; do
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
+                case "$script_name" in
+                    install-hooks.sh|purge-users.sh|setup-email.sh) continue ;;
+                esac
                 # Map script names to consistent audiobook- prefix
                 local target_name
                 case "$script_name" in

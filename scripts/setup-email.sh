@@ -49,7 +49,7 @@ echo "6. Restart the audiobooks API:"
 echo "   sudo systemctl restart audiobook-api"
 echo ""
 
-read -r -k 1 "REPLY?Start interactive setup now? [y/N] "
+read -r -n 1 -p "Start interactive setup now? [y/N] " REPLY
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
