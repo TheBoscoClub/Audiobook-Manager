@@ -6,29 +6,399 @@
     <meta http-equiv="refresh" content="30">
     <title>Audiobook Library — Upgrading</title>
     <style>
-        body { background: #1a1a2e; color: #e0e0e0; font-family: system-ui; display: flex;
-               align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { text-align: center; max-width: 500px; padding: 2rem; }
-        h1 { font-size: 2rem; color: #fff; }
-        p { font-size: 1.25rem; }
-        .pulse { width: 40px; height: 40px; border-radius: 50%; background: #4a90d9;
-                 margin: 2rem auto; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); }
-                           50% { opacity: 0.5; transform: scale(1.2); } }
+        :root {
+            --deco-black: #080808;
+            --deco-charcoal: #141414;
+            --deco-slate: #1e1e1e;
+            --deco-gray: #333333;
+            --gold-bright: #FFD700;
+            --gold: #DAA520;
+            --gold-dark: #B8860B;
+            --gold-deep: #8b6914;
+            --brass: #CD853F;
+            --cream: #F5DEB3;
+            --cream-light: #FFF8DC;
+            --parchment: #e8dcc8;
+            --emerald: #1a4a4a;
+            --font-primary: 'Optima', 'Century Gothic', 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background-color: var(--deco-slate);
+            background-image:
+                linear-gradient(135deg, var(--deco-charcoal) 25%, transparent 25%),
+                linear-gradient(225deg, var(--deco-charcoal) 25%, transparent 25%),
+                linear-gradient(45deg, var(--deco-charcoal) 25%, transparent 25%),
+                linear-gradient(315deg, var(--deco-charcoal) 25%, transparent 25%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 0, 30px -30px, 0 30px;
+            color: var(--cream);
+            font-family: var(--font-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 520px;
+            padding: 2.5rem 2rem;
+        }
+
+        /* Sunburst header panel */
+        .sunburst-panel {
+            background:
+                repeating-conic-gradient(
+                    from 0deg at 50% 100%,
+                    var(--gold-deep) 0deg 2deg,
+                    transparent 2deg 10deg
+                ),
+                linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+            border-radius: 4px;
+            padding: 2rem 2rem 1.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Chevron border bottom */
+        .sunburst-panel::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background:
+                linear-gradient(135deg, var(--gold) 25%, transparent 25%) -8px 0,
+                linear-gradient(225deg, var(--gold) 25%, transparent 25%) -8px 0,
+                linear-gradient(315deg, var(--gold) 25%, transparent 25%),
+                linear-gradient(45deg, var(--gold) 25%, transparent 25%);
+            background-size: 16px 8px;
+            background-color: var(--deco-charcoal);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: var(--gold-bright);
+            text-shadow: 2px 2px 0 var(--gold-dark), 4px 4px 8px rgba(0, 0, 0, 0.5);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin: 0.75rem 0 0.5rem;
+        }
+
+        p {
+            font-size: 1.1rem;
+            color: var(--cream);
+            line-height: 1.6;
+        }
+
+        .subtitle {
+            color: var(--parchment);
+            font-size: 1rem;
+            margin-top: 1.2rem;
+        }
+
+        /* --- Scene: librarian on ladder shelving books --- */
+        .scene {
+            position: relative;
+            width: 260px;
+            height: 130px;
+            margin: 0 auto 0.5rem;
+        }
+
+        /* Bookshelf */
+        .shelf {
+            position: absolute;
+            right: 20px;
+            bottom: 8px;
+            width: 120px;
+            height: 120px;
+        }
+        .shelf-frame {
+            position: absolute;
+            inset: 0;
+            border: 3px solid var(--gold-deep);
+            border-radius: 2px;
+            background: #3a2f1f;
+        }
+        .shelf-board {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--gold-deep);
+        }
+        .shelf-board-1 { bottom: 33%; }
+        .shelf-board-2 { bottom: 66%; }
+
+        .sbook { position: absolute; border-radius: 1px; }
+        /* Bottom row (full) */
+        .sb-1  { bottom: 4px; right: 6px;  width: 9px; height: 24px; background: #e74c3c; }
+        .sb-2  { bottom: 4px; right: 17px; width: 8px; height: 22px; background: #3498db; }
+        .sb-3  { bottom: 4px; right: 27px; width: 10px; height: 25px; background: #2ecc71; }
+        .sb-4  { bottom: 4px; right: 39px; width: 7px; height: 21px; background: #9b59b6; }
+        .sb-5  { bottom: 4px; right: 48px; width: 9px; height: 23px; background: #e67e22; }
+        .sb-6  { bottom: 4px; right: 59px; width: 8px; height: 20px; background: var(--emerald); }
+        .sb-7  { bottom: 4px; right: 69px; width: 10px; height: 24px; background: #e84393; }
+        .sb-8  { bottom: 4px; right: 81px; width: 8px; height: 22px; background: var(--gold); }
+        .sb-9  { bottom: 4px; right: 91px; width: 9px; height: 23px; background: #74b9ff; }
+        .sb-10 { bottom: 4px; right: 102px; width: 8px; height: 21px; background: #a29bfe; }
+        /* Middle row (mostly full) */
+        .sb-11 { bottom: 37%; right: 6px;  width: 8px; height: 22px; background: #fd79a8; }
+        .sb-12 { bottom: 37%; right: 16px; width: 9px; height: 24px; background: #00cec9; }
+        .sb-13 { bottom: 37%; right: 27px; width: 7px; height: 20px; background: var(--brass); }
+        .sb-14 { bottom: 37%; right: 36px; width: 10px; height: 23px; background: #636e72; }
+        .sb-15 { bottom: 37%; right: 48px; width: 8px; height: 21px; background: #d63031; }
+        .sb-16 { bottom: 37%; right: 58px; width: 9px; height: 22px; background: #0984e3; }
+        .sb-17 { bottom: 37%; right: 69px; width: 8px; height: 20px; background: #6c5ce7; }
+        /* Top row (sparse — being filled) */
+        .sb-18 { bottom: 69%; right: 6px;  width: 9px; height: 23px; background: #00b894; }
+        .sb-19 { bottom: 69%; right: 17px; width: 8px; height: 21px; background: #e17055; }
+        .sb-20 { bottom: 69%; right: 27px; width: 7px; height: 19px; background: var(--gold-dark); }
+
+        /* Ladder */
+        .ladder {
+            position: absolute;
+            left: 40px;
+            bottom: 8px;
+            width: 36px;
+            height: 110px;
+            transform: rotate(-8deg);
+            transform-origin: bottom center;
+        }
+        .ladder-rail {
+            position: absolute;
+            bottom: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--brass);
+            border-radius: 2px;
+        }
+        .ladder-rail-left  { left: 0; }
+        .ladder-rail-right { right: 0; }
+        .ladder-rung {
+            position: absolute;
+            left: 4px;
+            width: 28px;
+            height: 3px;
+            background: var(--gold-dark);
+            border-radius: 1px;
+        }
+        .rung-1 { bottom: 15%; }
+        .rung-2 { bottom: 30%; }
+        .rung-3 { bottom: 45%; }
+        .rung-4 { bottom: 60%; }
+        .rung-5 { bottom: 75%; }
+        .rung-6 { bottom: 90%; }
+
+        /* Person on ladder */
+        .climber {
+            position: absolute;
+            left: 44px;
+            bottom: 58px;
+            animation: reach 2.5s ease-in-out infinite;
+        }
+        @keyframes reach {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-6px); }
+        }
+
+        .climber .head {
+            width: 14px;
+            height: 14px;
+            background: #f0c090;
+            border-radius: 50%;
+            margin: 0 auto 2px;
+        }
+        .climber .torso {
+            width: 16px;
+            height: 18px;
+            background: var(--emerald);
+            border-radius: 3px 3px 0 0;
+            margin: 0 auto;
+            position: relative;
+        }
+        .climber .arm-reach {
+            position: absolute;
+            top: 4px;
+            right: -14px;
+            width: 16px;
+            height: 4px;
+            background: #f0c090;
+            border-radius: 2px;
+            transform: rotate(-20deg);
+            animation: arm-place 2.5s ease-in-out infinite;
+        }
+        @keyframes arm-place {
+            0%, 100% { transform: rotate(-20deg); }
+            50%      { transform: rotate(-35deg) translateX(4px); }
+        }
+        .climber .arm-hold {
+            position: absolute;
+            top: 6px;
+            left: -8px;
+            width: 10px;
+            height: 4px;
+            background: #f0c090;
+            border-radius: 2px;
+            transform: rotate(15deg);
+        }
+        .climber .held-book {
+            position: absolute;
+            top: -2px;
+            right: -22px;
+            width: 7px;
+            height: 18px;
+            background: var(--gold-bright);
+            border-radius: 1px;
+            animation: book-tilt 2.5s ease-in-out infinite;
+        }
+        @keyframes book-tilt {
+            0%, 100% { transform: rotate(-10deg); }
+            50%      { transform: rotate(-25deg) translateY(-4px); }
+        }
+        .climber .legs {
+            position: relative;
+            width: 16px;
+            height: 16px;
+            margin: 0 auto;
+        }
+        .climber .leg {
+            position: absolute;
+            bottom: 0;
+            width: 5px;
+            height: 16px;
+            background: var(--deco-gray);
+            border-radius: 0 0 2px 2px;
+        }
+        .climber .leg-left  { left: 1px; transform: rotate(4deg); }
+        .climber .leg-right { right: 1px; transform: rotate(-4deg); }
+        .climber .shoe {
+            position: absolute;
+            bottom: 0;
+            width: 7px;
+            height: 4px;
+            background: var(--deco-charcoal);
+            border-radius: 1px;
+        }
+
+        /* Gold decorative floor line */
+        .floor {
+            position: absolute;
+            bottom: 4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold-deep) 15%, var(--gold-deep) 85%, transparent);
+        }
+
+        /* Gold bar divider */
+        .gold-bar {
+            width: 120px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold-dark) 0%, var(--gold-bright) 50%, var(--gold-dark) 100%);
+            margin: 1rem auto;
+            border-radius: 2px;
+        }
+
+        /* Progress bar */
+        .progress-wrap {
+            width: 200px;
+            height: 6px;
+            background: var(--deco-gray);
+            border-radius: 3px;
+            margin: 1.2rem auto 0;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 30%;
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold-bright));
+            border-radius: 3px;
+            animation: progress-slide 2s ease-in-out infinite;
+        }
+        @keyframes progress-slide {
+            0%   { width: 10%; margin-left: 0; }
+            50%  { width: 40%; margin-left: 30%; }
+            100% { width: 10%; margin-left: 90%; }
+        }
+
+        .status-line {
+            font-size: 0.85rem;
+            color: var(--brass);
+            margin-top: 0.75rem;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="pulse"></div>
-        <h1>Audiobook Library is being upgraded</h1>
-        <p>This page will reload automatically when the upgrade is complete.</p>
+        <div class="sunburst-panel">
+            <div class="scene">
+                <!-- Bookshelf -->
+                <div class="shelf">
+                    <div class="shelf-frame"></div>
+                    <div class="shelf-board shelf-board-1"></div>
+                    <div class="shelf-board shelf-board-2"></div>
+                    <div class="sbook sb-1"></div><div class="sbook sb-2"></div>
+                    <div class="sbook sb-3"></div><div class="sbook sb-4"></div>
+                    <div class="sbook sb-5"></div><div class="sbook sb-6"></div>
+                    <div class="sbook sb-7"></div><div class="sbook sb-8"></div>
+                    <div class="sbook sb-9"></div><div class="sbook sb-10"></div>
+                    <div class="sbook sb-11"></div><div class="sbook sb-12"></div>
+                    <div class="sbook sb-13"></div><div class="sbook sb-14"></div>
+                    <div class="sbook sb-15"></div><div class="sbook sb-16"></div>
+                    <div class="sbook sb-17"></div><div class="sbook sb-18"></div>
+                    <div class="sbook sb-19"></div><div class="sbook sb-20"></div>
+                </div>
+
+                <!-- Ladder -->
+                <div class="ladder">
+                    <div class="ladder-rail ladder-rail-left"></div>
+                    <div class="ladder-rail ladder-rail-right"></div>
+                    <div class="ladder-rung rung-1"></div>
+                    <div class="ladder-rung rung-2"></div>
+                    <div class="ladder-rung rung-3"></div>
+                    <div class="ladder-rung rung-4"></div>
+                    <div class="ladder-rung rung-5"></div>
+                    <div class="ladder-rung rung-6"></div>
+                </div>
+
+                <!-- Person on ladder -->
+                <div class="climber">
+                    <div class="head"></div>
+                    <div class="torso">
+                        <div class="arm-reach"></div>
+                        <div class="arm-hold"></div>
+                        <div class="held-book"></div>
+                    </div>
+                    <div class="legs">
+                        <div class="leg leg-left"><div class="shoe"></div></div>
+                        <div class="leg leg-right"><div class="shoe"></div></div>
+                    </div>
+                </div>
+
+                <div class="floor"></div>
+            </div>
+
+            <h1>Upgrading the Audiobook Library</h1>
+        </div>
+
+        <div class="gold-bar"></div>
+        <p class="subtitle">We're adding new shelves. This won't take long.</p>
+        <div class="progress-wrap"><div class="progress-bar"></div></div>
+        <p class="status-line">Upgrade in progress&hellip;</p>
     </div>
+
     <script>
         (function poll() {
             fetch('/api/system/health', { signal: AbortSignal.timeout(3000) })
                 .then(function(r) { if (r.ok) location.reload(); })
                 .catch(function() {});
-            setTimeout(poll, 3000);
+            setTimeout(poll, 5000);
         })();
     </script>
     <noscript><p>JavaScript is disabled. This page will auto-refresh every 30 seconds.</p></noscript>
