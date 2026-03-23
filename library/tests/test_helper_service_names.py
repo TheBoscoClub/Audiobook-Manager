@@ -1,4 +1,5 @@
 """Verify upgrade-helper-process uses correct singular service names."""
+
 import re
 from pathlib import Path
 
@@ -10,7 +11,10 @@ def test_no_plural_service_names():
     content = HELPER_PATH.read_text()
     plural_refs = []
     for i, line in enumerate(content.splitlines(), 1):
-        matches = re.findall(r'audiobooks-(?:api|proxy|converter|mover|downloader|redirect|scheduler|shutdown-saver|upgrade)', line)
+        matches = re.findall(
+            r"audiobooks-(?:api|proxy|converter|mover|downloader|redirect|scheduler|shutdown-saver|upgrade)",
+            line,
+        )
         if matches:
             plural_refs.append((i, line.strip(), matches))
     assert plural_refs == [], (
@@ -35,5 +39,9 @@ def test_valid_services_array_correct():
             if svc:
                 services.append(svc)
     for svc in services:
-        assert svc.startswith("audiobook-"), f"Service '{svc}' should start with 'audiobook-' (singular)"
-        assert not svc.startswith("audiobooks-"), f"Service '{svc}' uses plural 'audiobooks-' — must be singular"
+        assert svc.startswith(
+            "audiobook-"
+        ), f"Service '{svc}' should start with 'audiobook-' (singular)"
+        assert not svc.startswith(
+            "audiobooks-"
+        ), f"Service '{svc}' uses plural 'audiobooks-' — must be singular"

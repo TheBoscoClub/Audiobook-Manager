@@ -78,9 +78,9 @@ class TestDatabasePerformance:
         )
 
         # Assertions: should be fast for SQLite
-        assert avg_time < 0.05, (
-            f"Average user creation too slow: {avg_time * 1000:.2f}ms"
-        )
+        assert (
+            avg_time < 0.05
+        ), f"Average user creation too slow: {avg_time * 1000:.2f}ms"
         assert p95_time < 0.1, f"p95 user creation too slow: {p95_time * 1000:.2f}ms"
 
     def test_user_lookup_latency(self, temp_db):
@@ -154,9 +154,9 @@ class TestDatabasePerformance:
         )
 
         # Token lookup includes hashing, so allow slightly more time
-        assert avg_time < 0.02, (
-            f"Average token lookup too slow: {avg_time * 1000:.2f}ms"
-        )
+        assert (
+            avg_time < 0.02
+        ), f"Average token lookup too slow: {avg_time * 1000:.2f}ms"
         assert p95_time < 0.05, f"p95 token lookup too slow: {p95_time * 1000:.2f}ms"
 
 
@@ -187,7 +187,9 @@ class TestTokenHashingPerformance:
 
     def test_hash_token_consistency(self):
         """Verify same token produces same hash."""
-        token = "consistent_token_test"  # noqa: S105 — test fixture, not a real credential
+        token = (
+            "consistent_token_test"  # noqa: S105 — test fixture, not a real credential
+        )
         hashes = [hash_token(token) for _ in range(100)]
 
         # All hashes should be identical
@@ -410,9 +412,9 @@ class TestDatabaseScaling:
         print(f"Lookups in 500-user table: avg={avg_lookup * 1000:.2f}ms")
 
         # Lookup should still be fast with index
-        assert avg_lookup < 0.01, (
-            f"Lookup degraded with scale: {avg_lookup * 1000:.2f}ms"
-        )
+        assert (
+            avg_lookup < 0.01
+        ), f"Lookup degraded with scale: {avg_lookup * 1000:.2f}ms"
 
     def test_list_all_users_performance(self, temp_db):
         """Test listing all users performance."""

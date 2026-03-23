@@ -126,15 +126,13 @@ def main():
     print(f"\nUnique narrators after update: {narrator_count}")
 
     # Show top narrators
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT narrator, COUNT(*) as count
         FROM audiobooks
         GROUP BY narrator
         ORDER BY count DESC
         LIMIT 10
-    """
-    )
+    """)
     print("\nTop 10 narrators:")
     for narrator, count in cursor.fetchall():
         print(f"  {count:3d} - {narrator[:60]}")

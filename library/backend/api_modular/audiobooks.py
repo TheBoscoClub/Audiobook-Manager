@@ -86,26 +86,22 @@ def get_stats() -> Response:
     total_size_gb = total_size_mb / 1024
 
     # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT COUNT(DISTINCT author) as count FROM audiobooks
         WHERE {AUDIOBOOK_FILTER}
           AND author IS NOT NULL
           AND LOWER(TRIM(author)) != 'audiobook'
           AND LOWER(TRIM(author)) != 'unknown author'
-    """
-    )
+    """)
     unique_authors = cursor.fetchone()["count"]
 
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT COUNT(DISTINCT narrator) as count FROM audiobooks
         WHERE {AUDIOBOOK_FILTER}
           AND narrator IS NOT NULL
           AND LOWER(TRIM(narrator)) != 'unknown narrator'
           AND LOWER(TRIM(narrator)) != ''
-    """
-    )
+    """)
     unique_narrators = cursor.fetchone()["count"]
 
     cursor.execute(
@@ -225,23 +221,19 @@ def get_audiobooks() -> Response:
         params.append(search)
 
     if author:
-        where_clauses.append(
-            """id IN (
+        where_clauses.append("""id IN (
                 SELECT ba.book_id FROM book_authors ba
                 JOIN authors a ON a.id = ba.author_id
                 WHERE a.name = ?
-            )"""
-        )
+            )""")
         params.append(author)
 
     if narrator:
-        where_clauses.append(
-            """id IN (
+        where_clauses.append("""id IN (
                 SELECT bn.book_id FROM book_narrators bn
                 JOIN narrators n ON n.id = bn.narrator_id
                 WHERE n.name = ?
-            )"""
-        )
+            )""")
         params.append(narrator)
 
     if publisher:
@@ -253,15 +245,13 @@ def get_audiobooks() -> Response:
         params.append(format_filter.lower())
 
     if genre:
-        where_clauses.append(
-            """
+        where_clauses.append("""
             id IN (
                 SELECT audiobook_id FROM audiobook_genres ag
                 JOIN genres g ON ag.genre_id = g.id
                 WHERE g.name LIKE ?
             )
-        """
-        )
+        """)
         params.append(f"%{genre}%")
 
     # Collection filter (predefined query from COLLECTIONS)
@@ -477,40 +467,34 @@ def get_filters() -> Response:
 
     # Get unique authors from normalized table (individual names, not composites)
     # Return objects with name + sort_name so frontend can display "Last, First"
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT DISTINCT a.name, a.sort_name FROM authors a
         JOIN book_authors ba ON ba.author_id = a.id
         JOIN audiobooks ab ON ab.id = ba.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
         ORDER BY a.sort_name
-    """
-    )
+    """)
     authors = [
         {"name": row["name"], "sort_name": row["sort_name"]}
         for row in cursor.fetchall()
     ]
 
     # Get unique narrators from normalized table
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT DISTINCT n.name FROM narrators n
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
         ORDER BY n.sort_name
-    """
-    )
+    """)
     narrators = [row["name"] for row in cursor.fetchall()]
 
     # Get unique publishers (audiobooks only)
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT DISTINCT publisher FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
         ORDER BY publisher
-    """
-    )
+    """)
     publishers = [row["publisher"] for row in cursor.fetchall()]
 
     # Get genres
@@ -526,13 +510,11 @@ def get_filters() -> Response:
     topics = [row["name"] for row in cursor.fetchall()]
 
     # Get formats (audiobooks only)
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT DISTINCT format FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
         ORDER BY format
-    """
-    )
+    """)
     formats = [row["format"] for row in cursor.fetchall()]
 
     conn.close()
@@ -557,16 +539,14 @@ def get_narrator_counts() -> Response:
     conn = _get_audiobooks_db()
     cursor = conn.cursor()
 
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT n.name as narrator, COUNT(DISTINCT bn.book_id) as count
         FROM narrators n
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
         ORDER BY n.sort_name
-    """
-    )
+    """)
 
     counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}
     conn.close()

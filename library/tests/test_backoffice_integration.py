@@ -252,9 +252,10 @@ class TestAsyncOperations:
         """Test rebuild-queue-async creates conversion queue."""
         response = api_post("/api/utilities/rebuild-queue-async", json={})
         # Accept 200 (new operation) or 409 (already running)
-        assert response.status_code in (200, 409), (
-            f"Unexpected status: {response.status_code}"
-        )
+        assert response.status_code in (
+            200,
+            409,
+        ), f"Unexpected status: {response.status_code}"
         data = response.json()
         assert "operation_id" in data
 
@@ -268,9 +269,10 @@ class TestAsyncOperations:
         op = wait_for_operation(data["operation_id"], timeout=600)
 
         # Allow both completed and running states (operation may be very long)
-        assert op["state"] in ("completed", "running"), (
-            f"Operation failed: {op.get('error')}"
-        )
+        assert op["state"] in (
+            "completed",
+            "running",
+        ), f"Operation failed: {op.get('error')}"
 
         if op["state"] == "completed":
             print("\n  ✓ Conversion queue rebuilt")
@@ -301,9 +303,10 @@ class TestAsyncOperations:
         """Test find-source-duplicates-async finds duplicate source files."""
         response = api_post("/api/utilities/find-source-duplicates-async", json={})
         # Accept 200 (new operation) or 409 (already running)
-        assert response.status_code in (200, 409), (
-            f"Unexpected status: {response.status_code}"
-        )
+        assert response.status_code in (
+            200,
+            409,
+        ), f"Unexpected status: {response.status_code}"
         data = response.json()
         assert "operation_id" in data
 
@@ -324,9 +327,10 @@ class TestAsyncOperations:
             print(f"    Error: {op.get('error', 'Unknown error')}")
             pytest.skip("Duplicate scan failed - source directory may not be available")
 
-        assert op["state"] in ("completed", "running"), (
-            f"Operation failed: {op.get('error')}"
-        )
+        assert op["state"] in (
+            "completed",
+            "running",
+        ), f"Operation failed: {op.get('error')}"
 
         if op["state"] == "completed":
             print("\n  ✓ Source duplicate scan completed")
@@ -375,9 +379,10 @@ class TestLibraryOperations:
         """Test rescan-async scans library for changes."""
         response = api_post("/api/utilities/rescan-async", json={})
         # Accept 200 (new operation) or 409 (already running)
-        assert response.status_code in (200, 409), (
-            f"Unexpected status: {response.status_code}"
-        )
+        assert response.status_code in (
+            200,
+            409,
+        ), f"Unexpected status: {response.status_code}"
         data = response.json()
         assert "operation_id" in data
 
@@ -392,9 +397,10 @@ class TestLibraryOperations:
         op = wait_for_operation(data["operation_id"], timeout=60)
 
         # Allow both completed and running states
-        assert op["state"] in ("completed", "running"), (
-            f"Operation failed: {op.get('error')}"
-        )
+        assert op["state"] in (
+            "completed",
+            "running",
+        ), f"Operation failed: {op.get('error')}"
 
         if op["state"] == "completed":
             print("\n  ✓ Library rescan completed")

@@ -176,9 +176,9 @@ class TestSupplementDownloadWithMocks:
             # Will be 404 if supplement ID doesn't exist in DB
             assert response.status_code in (200, 404)
             if response.status_code == 200:
-                assert mock_send.called, (
-                    "send_file should be called when supplement exists"
-                )
+                assert (
+                    mock_send.called
+                ), "send_file should be called when supplement exists"
 
     def test_download_supplement_file_missing(self, app_client):
         """Test downloading supplement when file is missing from disk."""
@@ -240,7 +240,11 @@ class TestBulkOperationsWithMocks:
             response = app_client.post(
                 "/api/audiobooks/bulk-update",
                 data=json.dumps(
-                    {"ids": [1, 2], "field": "narrator", "value": "Test Narrator Update"}
+                    {
+                        "ids": [1, 2],
+                        "field": "narrator",
+                        "value": "Test Narrator Update",
+                    }
                 ),
                 content_type="application/json",
             )
@@ -499,9 +503,9 @@ class TestCoverServingWithMocks:
             # Will likely 404 as file doesn't exist
             assert response.status_code in (200, 404, 500)
             if response.status_code == 200:
-                assert mock_send.called, (
-                    "send_from_directory should be called for cover serving"
-                )
+                assert (
+                    mock_send.called
+                ), "send_from_directory should be called for cover serving"
 
 
 class TestExportEndpoints:
@@ -721,12 +725,12 @@ class TestExceptionPaths:
                 response = app_client.get(f"/api/stream/{book_id}?format=webm")
                 assert response.status_code in (200, 500)
                 if response.status_code == 200:
-                    assert mock_subprocess.run.called, (
-                        "ffmpeg subprocess should be called for webm remux"
-                    )
-                    assert mock_send.called, (
-                        "send_file should be called after successful remux"
-                    )
+                    assert (
+                        mock_subprocess.run.called
+                    ), "ffmpeg subprocess should be called for webm remux"
+                    assert (
+                        mock_send.called
+                    ), "send_file should be called after successful remux"
         finally:
             conn = sqlite3.connect(db_path)
             conn.execute(
@@ -779,9 +783,9 @@ class TestExceptionPaths:
                 response = app_client.get(f"/api/stream/{book_id}?format=webm")
                 assert response.status_code in (200, 500)
                 if response.status_code == 200:
-                    assert mock_send.called, (
-                        "send_file should be called for non-opus file"
-                    )
+                    assert (
+                        mock_send.called
+                    ), "send_file should be called for non-opus file"
         finally:
             conn = sqlite3.connect(db_path)
             conn.execute(
@@ -853,9 +857,7 @@ class TestBulkOperationsEdgeCases:
             # Test published_year (allowed)
             response = app_client.post(
                 "/api/audiobooks/bulk-update",
-                data=json.dumps(
-                    {"ids": [1], "field": "published_year", "value": 2023}
-                ),
+                data=json.dumps({"ids": [1], "field": "published_year", "value": 2023}),
                 content_type="application/json",
             )
             assert response.status_code == 200
@@ -930,9 +932,9 @@ class TestDuplicatesByTitleWithRealData:
                 found_group = group
                 break
 
-        assert found_group is not None, (
-            f"Test duplicate group for '{test_title}' not found"
-        )
+        assert (
+            found_group is not None
+        ), f"Test duplicate group for '{test_title}' not found"
         assert found_group["count"] == 2
         assert len(found_group["files"]) == 2
         assert found_group["author"] == "Real Author Name"

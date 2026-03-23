@@ -78,13 +78,11 @@ def update_narrators(dry_run=True):
     cursor = conn.cursor()
 
     # Get all audiobooks with Unknown Narrator
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT id, title, author, narrator, asin
         FROM audiobooks
         WHERE narrator = 'Unknown Narrator' OR narrator IS NULL OR narrator = ''
-    """
-    )
+    """)
     unknown_narrator_books = cursor.fetchall()
 
     print(f"Found {len(unknown_narrator_books)} books with unknown narrator")

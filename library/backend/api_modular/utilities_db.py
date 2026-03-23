@@ -239,14 +239,12 @@ def init_db_routes(db_path, project_root):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT id, title, author, narrator, publisher, series, series_sequence,
                    duration_hours, file_size_mb, file_path, published_year, asin, isbn
             FROM audiobooks
             ORDER BY title
-        """
-        )
+        """)
 
         audiobooks = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -281,15 +279,13 @@ def init_db_routes(db_path, project_root):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT id, title, author, narrator, publisher, series, series_sequence,
                    duration_hours, duration_formatted, file_size_mb,
                    published_year, asin, isbn, file_path
             FROM audiobooks
             ORDER BY title
-        """
-        )
+        """)
 
         audiobooks = cursor.fetchall()
         conn.close()

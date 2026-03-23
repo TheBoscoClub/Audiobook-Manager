@@ -1,4 +1,5 @@
 """Tests for notification queue polling logic."""
+
 import json
 import sqlite3
 from pathlib import Path
@@ -40,7 +41,9 @@ def test_poll_marks_delivered(notif_db):
     )
     conn.commit()
     nid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-    conn.execute("UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?", (nid,))
+    conn.execute(
+        "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?", (nid,)
+    )
     conn.commit()
     pending = conn.execute(
         "SELECT COUNT(*) FROM maintenance_notifications WHERE delivered = 0"

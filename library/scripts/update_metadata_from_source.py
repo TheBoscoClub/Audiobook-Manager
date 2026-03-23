@@ -200,13 +200,11 @@ def update_database():
     cursor = conn.cursor()
 
     # Get all audiobooks
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT id, title, author, narrator, publisher, file_path, description
         FROM audiobooks
         ORDER BY id
-    """
-    )
+    """)
 
     books = cursor.fetchall()
     total_books = len(books)

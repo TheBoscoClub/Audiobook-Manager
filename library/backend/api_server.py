@@ -6,17 +6,19 @@ IMPORTANT: gevent monkey-patching MUST be the first executable code.
 It patches stdlib I/O (including sqlite3) for cooperative scheduling.
 Without this, SQLite queries block the entire greenlet loop.
 """
+
 from gevent import monkey
+
 monkey.patch_all()
 
-import os
-import sys
-from pathlib import Path
+import os  # noqa: E402
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from api_modular import create_app
-from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
+from api_modular import create_app  # noqa: E402
+from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR  # noqa: E402
 
 
 def _create_configured_app():
@@ -27,12 +29,16 @@ def _create_configured_app():
         sys.exit(1)
 
     auth_enabled = os.environ.get("AUTH_ENABLED", "false").lower() in (
-        "true", "1", "yes",
+        "true",
+        "1",
+        "yes",
     )
     auth_db_path = os.environ.get("AUTH_DATABASE") if auth_enabled else None
     auth_key_path = os.environ.get("AUTH_KEY_FILE") if auth_enabled else None
     auth_dev_mode = os.environ.get("AUDIOBOOKS_DEV_MODE", "false").lower() in (
-        "true", "1", "yes",
+        "true",
+        "1",
+        "yes",
     )
 
     return create_app(
@@ -58,8 +64,7 @@ if __name__ == "__main__":
     else:
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler
-        server = WSGIServer(
-            ("0.0.0.0", API_PORT), app, handler_class=WebSocketHandler
-        )
+
+        server = WSGIServer(("0.0.0.0", API_PORT), app, handler_class=WebSocketHandler)
         print(f"Serving on http://0.0.0.0:{API_PORT}")
         server.serve_forever()

@@ -142,9 +142,9 @@ def get_downloads():
                 {
                     "id": d.id,
                     "audiobook_id": d.audiobook_id,
-                    "downloaded_at": d.downloaded_at.isoformat()
-                    if d.downloaded_at
-                    else None,
+                    "downloaded_at": (
+                        d.downloaded_at.isoformat() if d.downloaded_at else None
+                    ),
                     "file_format": d.file_format,
                 }
                 for d in items
@@ -371,9 +371,11 @@ def get_new_books():
             {
                 "books": books,
                 "total": len(books),
-                "new_books_seen_at": prefs.new_books_seen_at.isoformat()
-                if prefs.new_books_seen_at
-                else None,
+                "new_books_seen_at": (
+                    prefs.new_books_seen_at.isoformat()
+                    if prefs.new_books_seen_at
+                    else None
+                ),
             }
         )
     finally:

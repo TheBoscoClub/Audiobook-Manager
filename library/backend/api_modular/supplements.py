@@ -22,14 +22,12 @@ def init_supplements_routes(db_path, supplements_dir):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT s.*, a.title as audiobook_title, a.author as audiobook_author
             FROM supplements s
             LEFT JOIN audiobooks a ON s.audiobook_id = a.id
             ORDER BY s.filename
-        """
-        )
+        """)
 
         supplements = [dict(row) for row in cursor.fetchall()]
         conn.close()

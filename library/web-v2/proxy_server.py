@@ -87,13 +87,24 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             if path.endswith(".html") or path == "/":
                 self.send_header("Cache-Control", "no-cache")
             elif (path.endswith(".js") or path.endswith(".css")) and has_version:
-                self.send_header("Cache-Control",
-                                 "public, max-age=31536000, immutable")
+                self.send_header("Cache-Control", "public, max-age=31536000, immutable")
             elif path.endswith(".js") or path.endswith(".css"):
                 self.send_header("Cache-Control", "public, max-age=300")
-            elif any(path.endswith(ext) for ext in
-                     (".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
-                      ".woff", ".woff2", ".ttf", ".eot")):
+            elif any(
+                path.endswith(ext)
+                for ext in (
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".gif",
+                    ".svg",
+                    ".ico",
+                    ".woff",
+                    ".woff2",
+                    ".ttf",
+                    ".eot",
+                )
+            ):
                 self.send_header("Cache-Control", "public, max-age=86400")
 
         super().end_headers()

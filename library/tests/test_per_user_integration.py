@@ -158,9 +158,9 @@ class TestMultiUserConcurrency:
         downloads = data2.get("items", [])
         # None of user 2's downloads should be for book 2
         # (unless user 2 also downloaded it — which they haven't)
-        assert not any(str(d.get("audiobook_id")) == "2" for d in downloads), (
-            "User 2 should not see user 1's download for book 2"
-        )
+        assert not any(
+            str(d.get("audiobook_id")) == "2" for d in downloads
+        ), "User 2 should not see user 1's download for book 2"
 
     def test_independent_library(self, authed_client, authed_client_2):
         """Each user has their own library view."""
@@ -250,9 +250,10 @@ class TestAuthDisabledFallback:
         ]
         for endpoint in endpoints:
             response = client_no_auth.get(endpoint)
-            assert response.status_code in (404, 405), (
-                f"{endpoint} returned {response.status_code}, expected 404 or 405"
-            )
+            assert response.status_code in (
+                404,
+                405,
+            ), f"{endpoint} returned {response.status_code}, expected 404 or 405"
 
     def test_global_position_read_without_auth(self, client_no_auth):
         """Position read falls back to global when auth disabled."""

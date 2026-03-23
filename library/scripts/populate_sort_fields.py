@@ -224,16 +224,14 @@ def populate_sort_fields(dry_run=True):
     print()
 
     # Get all audiobooks
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT id, title, author, narrator, series, file_path,
                author_last_name, author_first_name,
                narrator_last_name, narrator_first_name,
                series_sequence, edition, acquired_date
         FROM audiobooks
         ORDER BY id
-    """
-    )
+    """)
     audiobooks = cursor.fetchall()
 
     print(f"Processing {len(audiobooks)} audiobooks...")

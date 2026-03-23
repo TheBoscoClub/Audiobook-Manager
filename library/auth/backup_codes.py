@@ -16,7 +16,6 @@ from datetime import datetime
 
 from .database import AuthDatabase
 
-
 # Number of backup codes to generate
 NUM_BACKUP_CODES = 8
 

@@ -1,4 +1,5 @@
 """Verify preflight check infrastructure exists in upgrade.sh."""
+
 from pathlib import Path
 
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
@@ -16,8 +17,11 @@ def test_preflight_file_path_defined():
     content = UPGRADE_SH.read_text()
     assert "upgrade-preflight.json" in content, "Missing preflight JSON filename"
     import re
-    hardcoded = re.findall(r'/var/lib/audiobooks/\.control/upgrade-preflight', content)
-    assert len(hardcoded) == 0, "Preflight path must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
+
+    hardcoded = re.findall(r"/var/lib/audiobooks/\.control/upgrade-preflight", content)
+    assert (
+        len(hardcoded) == 0
+    ), "Preflight path must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
 
 
 def test_force_bypasses_preflight():

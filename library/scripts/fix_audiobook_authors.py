@@ -39,14 +39,12 @@ def fix_audiobook_authors(dry_run=True):
     print()
 
     # Find all entries with author="Audiobook"
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT id, title, author, file_path
         FROM audiobooks
         WHERE LOWER(TRIM(author)) = 'audiobook'
         ORDER BY title
-    """
-    )
+    """)
     entries = cursor.fetchall()
 
     print(f"Found {len(entries)} entries with author='Audiobook'")
@@ -141,12 +139,10 @@ def fix_audiobook_authors(dry_run=True):
     conn.commit()
 
     # Verify
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT COUNT(*) FROM audiobooks
         WHERE LOWER(TRIM(author)) = 'audiobook'
-    """
-    )
+    """)
     remaining = cursor.fetchone()[0]
 
     print(f"Updated: {updated}")

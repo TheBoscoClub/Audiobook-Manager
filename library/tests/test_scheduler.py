@@ -1,4 +1,5 @@
 """Tests for maintenance scheduler daemon."""
+
 import sqlite3
 import sys
 from pathlib import Path
@@ -28,10 +29,8 @@ def test_find_due_windows(scheduler_db):
            VALUES ('Test', 'db_vacuum', 'once', datetime('now', '-1 hour'), 'active')"""
     )
     conn.commit()
-    rows = conn.execute(
-        """SELECT * FROM maintenance_windows
-           WHERE next_run_at <= datetime('now') AND status = 'active'"""
-    ).fetchall()
+    rows = conn.execute("""SELECT * FROM maintenance_windows
+           WHERE next_run_at <= datetime('now') AND status = 'active'""").fetchall()
     conn.close()
     assert len(rows) == 1
 
@@ -39,10 +38,8 @@ def test_find_due_windows(scheduler_db):
 def test_write_notification(scheduler_db):
     """Scheduler writes to notification queue after execution."""
     conn = sqlite3.connect(str(scheduler_db))
-    conn.execute(
-        """INSERT INTO maintenance_notifications (notification_type, payload)
-           VALUES ('update', '{"window_id": 1, "status": "success"}')"""
-    )
+    conn.execute("""INSERT INTO maintenance_notifications (notification_type, payload)
+           VALUES ('update', '{"window_id": 1, "status": "success"}')""")
     conn.commit()
     rows = conn.execute(
         "SELECT * FROM maintenance_notifications WHERE delivered = 0"

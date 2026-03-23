@@ -44,8 +44,7 @@ def find_audiobook_folder_duplicates(conn):
     cursor = conn.cursor()
 
     # Find all entries from /Library/Audiobook/ folder
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT id, title, author, file_path, file_size_mb, duration_hours,
                LOWER(TRIM(REPLACE(REPLACE(REPLACE(
                    title, ':', ''), '-', ''), '  ', ' '))) as norm_title,
@@ -53,8 +52,7 @@ def find_audiobook_folder_duplicates(conn):
         FROM audiobooks
         WHERE file_path LIKE '%/Library/Audiobook/%'
         ORDER BY title
-    """
-    )
+    """)
     audiobook_folder_entries = cursor.fetchall()
 
     duplicates_to_remove = []
