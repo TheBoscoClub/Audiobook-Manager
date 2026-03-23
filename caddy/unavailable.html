@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="30">
+    <title>Audiobook Library — Be Right Back</title>
+    <style>
+        :root {
+            --deco-black: #080808;
+            --deco-charcoal: #141414;
+            --deco-slate: #1e1e1e;
+            --deco-gray: #333333;
+            --gold-bright: #FFD700;
+            --gold: #DAA520;
+            --gold-dark: #B8860B;
+            --gold-deep: #8b6914;
+            --brass: #CD853F;
+            --cream: #F5DEB3;
+            --cream-light: #FFF8DC;
+            --parchment: #e8dcc8;
+            --emerald: #1a4a4a;
+            --font-primary: 'Optima', 'Century Gothic', 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background-color: var(--deco-slate);
+            background-image:
+                linear-gradient(135deg, var(--deco-charcoal) 25%, transparent 25%),
+                linear-gradient(225deg, var(--deco-charcoal) 25%, transparent 25%),
+                linear-gradient(45deg, var(--deco-charcoal) 25%, transparent 25%),
+                linear-gradient(315deg, var(--deco-charcoal) 25%, transparent 25%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 0, 30px -30px, 0 30px;
+            color: var(--cream);
+            font-family: var(--font-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 520px;
+            padding: 2.5rem 2rem;
+        }
+
+        /* Sunburst header panel */
+        .sunburst-panel {
+            background:
+                repeating-conic-gradient(
+                    from 0deg at 50% 100%,
+                    var(--gold-deep) 0deg 2deg,
+                    transparent 2deg 10deg
+                ),
+                linear-gradient(180deg, var(--deco-slate) 0%, var(--deco-charcoal) 100%);
+            border-radius: 4px;
+            padding: 2rem 2rem 1.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Chevron border bottom */
+        .sunburst-panel::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background:
+                linear-gradient(135deg, var(--gold) 25%, transparent 25%) -8px 0,
+                linear-gradient(225deg, var(--gold) 25%, transparent 25%) -8px 0,
+                linear-gradient(315deg, var(--gold) 25%, transparent 25%),
+                linear-gradient(45deg, var(--gold) 25%, transparent 25%);
+            background-size: 16px 8px;
+            background-color: var(--deco-charcoal);
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            color: var(--gold-bright);
+            text-shadow: 2px 2px 0 var(--gold-dark), 4px 4px 8px rgba(0, 0, 0, 0.5);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin: 0.75rem 0 0.5rem;
+        }
+
+        p {
+            font-size: 1.1rem;
+            color: var(--cream);
+            line-height: 1.6;
+        }
+
+        .subtitle {
+            color: var(--parchment);
+            font-size: 1rem;
+            margin-top: 1.2rem;
+        }
+
+        /* --- Scene: librarian pushing cart --- */
+        .scene {
+            position: relative;
+            width: 280px;
+            height: 100px;
+            margin: 0 auto 0.5rem;
+        }
+
+        .cart-group {
+            position: absolute;
+            bottom: 10px;
+            animation: roll 4s ease-in-out infinite;
+        }
+        @keyframes roll {
+            0%   { left: -60px; }
+            45%  { left: 140px; }
+            55%  { left: 140px; }
+            100% { left: 280px; opacity: 0; }
+        }
+
+        .cart {
+            position: relative;
+            width: 64px;
+            height: 44px;
+        }
+        .cart-body {
+            position: absolute;
+            bottom: 12px;
+            left: 0;
+            width: 60px;
+            height: 30px;
+            background: var(--gold-dark);
+            border-radius: 3px 3px 0 0;
+            border: 2px solid var(--gold-deep);
+        }
+        .cart-shelf {
+            position: absolute;
+            bottom: 26px;
+            left: 2px;
+            width: 56px;
+            height: 2px;
+            background: var(--gold-deep);
+        }
+        .book { position: absolute; border-radius: 1px; }
+        .book-1 { bottom: 30px; left: 5px;  width: 8px; height: 16px; background: #e74c3c; }
+        .book-2 { bottom: 30px; left: 15px; width: 7px; height: 14px; background: #3498db; }
+        .book-3 { bottom: 30px; left: 24px; width: 9px; height: 15px; background: #2ecc71; }
+        .book-4 { bottom: 30px; left: 35px; width: 7px; height: 13px; background: #9b59b6; }
+        .book-5 { bottom: 30px; left: 44px; width: 8px; height: 16px; background: #e67e22; }
+        .book-6 { bottom: 14px; left: 6px;  width: 10px; height: 12px; background: var(--emerald); }
+        .book-7 { bottom: 14px; left: 18px; width: 8px; height: 11px; background: #e84393; }
+        .book-8 { bottom: 14px; left: 28px; width: 9px; height: 12px; background: var(--gold); }
+        .book-9 { bottom: 14px; left: 39px; width: 7px; height: 10px; background: #74b9ff; }
+
+        .wheel {
+            position: absolute;
+            bottom: 0;
+            width: 12px;
+            height: 12px;
+            background: var(--deco-gray);
+            border-radius: 50%;
+            border: 2px solid var(--brass);
+            animation: spin 1s linear infinite;
+        }
+        .wheel-left  { left: 6px; }
+        .wheel-right { left: 42px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .handle {
+            position: absolute;
+            bottom: 18px;
+            right: -18px;
+            width: 4px;
+            height: 36px;
+            background: var(--brass);
+            border-radius: 2px;
+            transform: rotate(-12deg);
+            transform-origin: bottom center;
+        }
+        .handle-grip {
+            position: absolute;
+            top: -4px;
+            left: -3px;
+            width: 10px;
+            height: 6px;
+            background: var(--gold-dark);
+            border-radius: 3px;
+        }
+
+        .person {
+            position: absolute;
+            bottom: 12px;
+            right: -46px;
+        }
+        .head {
+            width: 14px;
+            height: 14px;
+            background: #f0c090;
+            border-radius: 50%;
+            margin: 0 auto 2px;
+        }
+        .torso {
+            width: 16px;
+            height: 20px;
+            background: var(--emerald);
+            border-radius: 3px 3px 0 0;
+            margin: 0 auto;
+        }
+        .arms {
+            position: absolute;
+            top: 18px;
+            left: -8px;
+            width: 10px;
+            height: 4px;
+            background: #f0c090;
+            border-radius: 2px;
+        }
+        .legs {
+            position: relative;
+            width: 16px;
+            height: 14px;
+            margin: 0 auto;
+        }
+        .leg {
+            position: absolute;
+            bottom: 0;
+            width: 5px;
+            height: 14px;
+            background: var(--deco-gray);
+            border-radius: 0 0 2px 2px;
+        }
+        .leg-left {
+            left: 2px;
+            animation: walk-left 0.6s ease-in-out infinite;
+        }
+        .leg-right {
+            right: 2px;
+            animation: walk-right 0.6s ease-in-out infinite;
+        }
+        @keyframes walk-left {
+            0%, 100% { transform: rotate(-10deg); }
+            50%      { transform: rotate(10deg); }
+        }
+        @keyframes walk-right {
+            0%, 100% { transform: rotate(10deg); }
+            50%      { transform: rotate(-10deg); }
+        }
+
+        /* Gold decorative floor line */
+        .floor {
+            position: absolute;
+            bottom: 4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold-deep) 20%, var(--gold-deep) 80%, transparent);
+        }
+
+        /* Status indicator */
+        .status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gold);
+            margin-right: 8px;
+            animation: blink 2s ease-in-out infinite;
+            vertical-align: middle;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.3; }
+        }
+        .status-line {
+            font-size: 0.85rem;
+            color: var(--brass);
+            margin-top: 1.2rem;
+        }
+
+        /* Gold bar divider */
+        .gold-bar {
+            width: 120px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold-dark) 0%, var(--gold-bright) 50%, var(--gold-dark) 100%);
+            margin: 1rem auto;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sunburst-panel">
+            <div class="scene">
+                <div class="cart-group">
+                    <div class="cart">
+                        <div class="cart-body"></div>
+                        <div class="cart-shelf"></div>
+                        <div class="book book-1"></div>
+                        <div class="book book-2"></div>
+                        <div class="book book-3"></div>
+                        <div class="book book-4"></div>
+                        <div class="book book-5"></div>
+                        <div class="book book-6"></div>
+                        <div class="book book-7"></div>
+                        <div class="book book-8"></div>
+                        <div class="book book-9"></div>
+                        <div class="wheel wheel-left"></div>
+                        <div class="wheel wheel-right"></div>
+                        <div class="handle">
+                            <div class="handle-grip"></div>
+                        </div>
+                    </div>
+                    <div class="person">
+                        <div class="head"></div>
+                        <div class="torso"></div>
+                        <div class="arms"></div>
+                        <div class="legs">
+                            <div class="leg leg-left"></div>
+                            <div class="leg leg-right"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="floor"></div>
+            </div>
+
+            <h1>We're reshelving the Audiobooks.</h1>
+        </div>
+
+        <div class="gold-bar"></div>
+        <p class="subtitle">The library will be back in a moment.</p>
+        <p class="status-line"><span class="status"></span>Checking availability&hellip;</p>
+    </div>
+
+    <script>
+        (function poll() {
+            fetch('/api/system/health', { method: 'HEAD', signal: AbortSignal.timeout(3000) })
+                .then(function(r) { if (r.ok) location.reload(); })
+                .catch(function() {});
+            setTimeout(poll, 5000);
+        })();
+    </script>
+    <noscript><p>JavaScript is disabled. This page will auto-refresh every 30 seconds.</p></noscript>
+</body>
+</html>
