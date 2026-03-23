@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **WebSocket double handshake**: Removed `geventwebsocket.handler.WebSocketHandler` from direct `api_server.py` execution — `flask_sock` handles WebSocket upgrades natively; both handlers together caused duplicate 101 responses that corrupted WebSocket framing
+- **Proxy WebSocket blocking**: Changed `proxy_server.py` from single-threaded `HTTPServer` to `ThreadingHTTPServer` — active WebSocket tunnels no longer block all other HTTP requests
+- **SSL buffer starvation in proxy WebSocket tunnel**: Added `ssl.SSLSocket.pending()` check before `select.select()` — heartbeats arriving through TLS were stuck in the SSL decryption buffer, invisible to `select()`, causing server-side receive timeouts
+- **Live Connections always showing 0**: Fixed race condition where `/api/admin/connections` was fetched before WebSocket had time to register; now uses delayed initial fetch, event-driven refresh on WebSocket open, 30-second polling, and refresh on Activity tab click
+- **upgrade.sh backup cleanup**: Root-owned `.pyc` files in old backups caused `rm -rf` to fail under `set -e`, silently aborting the upgrade before file sync; added sudo fallback
+
 ## [7.3.0.1] - 2026-03-23
 
 ### Added
