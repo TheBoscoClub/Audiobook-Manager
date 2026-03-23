@@ -891,8 +891,9 @@ The application uses WebSocket for real-time bidirectional communication between
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| WSGI Server | Gunicorn | Production HTTP server |
-| Worker Class | `geventwebsocket.gunicorn.workers.GeventWebSocketWorker` | Cooperative I/O + WebSocket protocol |
+| WSGI Server | Gunicorn (production) / `gevent.pywsgi.WSGIServer` (direct `__main__`) | Production HTTP server |
+| Worker Class | `geventwebsocket.gunicorn.workers.GeventWebSocketWorker` (Gunicorn only) | Cooperative I/O + WebSocket protocol under Gunicorn |
+| Direct Execution | `gevent.pywsgi.WSGIServer` with no custom handler class | `flask_sock` handles WebSocket upgrades natively — `WebSocketHandler` removed to prevent duplicate 101 responses |
 | Monkey-Patch | `gevent.monkey.patch_all()` | Patches stdlib (including sqlite3) for greenlet scheduling |
 | WebSocket Lib | flask-sock | Flask route decorator for WebSocket endpoints |
 | Worker Count | `-w 1` (HARD CONSTRAINT) | Single worker required for in-memory ConnectionManager |
@@ -913,11 +914,14 @@ The application uses WebSocket for real-time bidirectional communication between
 - 10-second heartbeat interval with activity state reporting
 - Exponential backoff reconnection (1s → 2s → 4s → ... → 30s cap)
 - Falls back to REST polling if WebSocket fails 3 consecutive times
-- Dispatches custom DOM events: `maintenance-announce`, `maintenance-dismiss`, `maintenance-update`
+- Dispatches custom DOM events: `maintenance-announce`, `maintenance-dismiss`, `maintenance-update`, `ws-connected`
 
 ### Proxy Tunneling
 
 `proxy_server.py` detects WebSocket upgrade requests (`Connection: Upgrade` + `Upgrade: websocket`) and tunnels them as raw TCP sockets, bypassing HTTP proxy logic.
+
+- **Threading**: `proxy_server.py` uses `ThreadingHTTPServer` (not `HTTPServer`) with `daemon_threads = True`. WebSocket tunnels block the handler thread for the duration of the connection; without threading, one active WebSocket would stall all other HTTP requests.
+- **SSL buffer drain**: The bidirectional relay in `_tunnel_websocket()` calls `ssl.SSLSocket.pending()` before each `select.select()`. TLS decrypts data into an internal buffer that `select()` cannot observe (it only monitors the underlying TCP fd); without the `pending()` drain loop, browser heartbeats arriving through TLS accumulate in the SSL buffer and Flask's `ws.receive(timeout=15)` times out and closes the connection.
 
 ---
 
