@@ -217,8 +217,23 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             # Bidirectional relay: client <-> backend
+            #
+            # client_sock is an ssl.SSLSocket (TLS-terminated here).
+            # select() only sees the underlying TCP fd, NOT data already
+            # decrypted into the SSL buffer.  We must check pending()
+            # before each select() to avoid starving the backend of
+            # heartbeats that are sitting in the SSL read buffer.
             sockets = [client_sock, backend]
             while True:
+                # Drain any data already decrypted in the SSL buffer
+                # before asking select() about the raw TCP fd.
+                if hasattr(client_sock, "pending") and client_sock.pending() > 0:
+                    data = client_sock.recv(65536)
+                    if not data:
+                        return
+                    backend.sendall(data)
+                    continue
+
                 readable, _, errored = select.select(sockets, [], sockets, 30)
                 if errored:
                     break

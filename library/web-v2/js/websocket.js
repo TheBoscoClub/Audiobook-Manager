@@ -55,6 +55,7 @@
         pollTimer = null;
       }
       startHeartbeat();
+      dispatch("ws-connected", {});
     };
 
     ws.onmessage = function (event) {
