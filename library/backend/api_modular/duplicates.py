@@ -133,16 +133,14 @@ def init_duplicates_routes(db_path):
             )
             hashed = cursor.fetchone()["count"]
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT COUNT(*) as count FROM (
                     SELECT sha256_hash FROM audiobooks
                     WHERE sha256_hash IS NOT NULL
                     GROUP BY sha256_hash
                     HAVING COUNT(*) > 1
                 )
-            """
-            )
+            """)
             duplicate_groups = cursor.fetchone()["count"]
 
             return jsonify(
@@ -181,16 +179,14 @@ def init_duplicates_routes(db_path):
                 )
 
             # Get all duplicate groups
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT sha256_hash, COUNT(*) as count
                 FROM audiobooks
                 WHERE sha256_hash IS NOT NULL
                 GROUP BY sha256_hash
                 HAVING count > 1
                 ORDER BY count DESC
-            """
-            )
+            """)
             groups = cursor.fetchall()
 
             duplicate_groups = []
@@ -263,8 +259,7 @@ def init_duplicates_routes(db_path):
 
         # Find duplicates by normalized title + real author (excluding "Audiobook")
         # Also require similar duration to avoid grouping different books
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT
                 LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''), '-', ''),
                 '  ', ' '))) as norm_title,
@@ -279,8 +274,7 @@ def init_duplicates_routes(db_path):
             GROUP BY norm_title, norm_author, duration_group
             HAVING count > 1
             ORDER BY count DESC, norm_title
-        """
-        )
+        """)
         groups = cursor.fetchall()
 
         duplicate_groups = []

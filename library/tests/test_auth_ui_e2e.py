@@ -245,7 +245,9 @@ class TestResponsiveLayout:
         "width,label",
         [(375, "mobile"), (768, "tablet"), (1280, "desktop")],
     )
-    def test_login_page_renders_at_breakpoint(self, browser, web_available, width, label):
+    def test_login_page_renders_at_breakpoint(
+        self, browser, web_available, width, label
+    ):
         """Login page renders without overflow at {label} width."""
         context = browser.new_context(
             viewport={"width": width, "height": 800},

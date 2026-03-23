@@ -1,4 +1,5 @@
 """Database integrity check task."""
+
 import logging
 import sqlite3
 

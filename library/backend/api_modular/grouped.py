@@ -131,8 +131,7 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
 
     # Fetch all books with their authors, sorted by author sort_name then book title
     # nosec B608: AUDIOBOOK_FILTER and book_cols are hardcoded constants, not user input
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT {book_cols}, auth.id AS group_id, auth.name AS group_name,
                auth.sort_name AS group_sort_name
         FROM audiobooks a
@@ -140,8 +139,7 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         JOIN authors auth ON ba.author_id = auth.id
         WHERE {AUDIOBOOK_FILTER}
         ORDER BY auth.sort_name COLLATE NOCASE, a.title COLLATE NOCASE
-        """
-    )
+        """)
     rows = cursor.fetchall()
 
     # Build groups preserving query order
@@ -169,15 +167,13 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
 
     # Find orphan books (no junction rows) — "Unknown Author" group
     # nosec B608: AUDIOBOOK_FILTER is a hardcoded constant
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT {book_cols}
         FROM audiobooks a
         WHERE {AUDIOBOOK_FILTER}
           AND a.id NOT IN (SELECT book_id FROM book_authors)
         ORDER BY a.title COLLATE NOCASE
-        """
-    )
+        """)
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:
@@ -206,8 +202,7 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
     book_cols = _get_book_columns()
 
     # nosec B608: AUDIOBOOK_FILTER and book_cols are hardcoded constants
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT {book_cols}, narr.id AS group_id, narr.name AS group_name,
                narr.sort_name AS group_sort_name
         FROM audiobooks a
@@ -215,8 +210,7 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         JOIN narrators narr ON bn.narrator_id = narr.id
         WHERE {AUDIOBOOK_FILTER}
         ORDER BY narr.sort_name COLLATE NOCASE, a.title COLLATE NOCASE
-        """
-    )
+        """)
     rows = cursor.fetchall()
 
     groups: list[dict] = []
@@ -243,15 +237,13 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
 
     # Orphan books — "Unknown Narrator"
     # nosec B608: AUDIOBOOK_FILTER is a hardcoded constant
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         SELECT {book_cols}
         FROM audiobooks a
         WHERE {AUDIOBOOK_FILTER}
           AND a.id NOT IN (SELECT book_id FROM book_narrators)
         ORDER BY a.title COLLATE NOCASE
-        """
-    )
+        """)
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:

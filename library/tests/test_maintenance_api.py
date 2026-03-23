@@ -1,4 +1,5 @@
 """Tests for maintenance scheduling API endpoints."""
+
 import sqlite3
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import pytest
 def app_with_db(tmp_path):
     """Create a Flask test app with fresh database."""
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
     from api_modular import create_app
 

@@ -73,22 +73,18 @@ def get_pending_files(conn: sqlite3.Connection, force: bool = False) -> list:
     cursor = conn.cursor()
 
     if force:
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT id, file_path, file_size_mb, title
             FROM audiobooks
             ORDER BY file_size_mb ASC
-        """
-        )
+        """)
     else:
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT id, file_path, file_size_mb, title
             FROM audiobooks
             WHERE sha256_hash IS NULL
             ORDER BY file_size_mb ASC
-        """
-        )
+        """)
 
     return cursor.fetchall()
 
@@ -110,8 +106,7 @@ def update_hash(conn: sqlite3.Connection, audiobook_id: int, hash_value: str):
 def find_duplicates(conn: sqlite3.Connection) -> list:
     """Find audiobooks with duplicate hashes"""
     cursor = conn.cursor()
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT sha256_hash, COUNT(*) as count,
                GROUP_CONCAT(id) as ids,
                GROUP_CONCAT(title, ' | ') as titles,
@@ -121,8 +116,7 @@ def find_duplicates(conn: sqlite3.Connection) -> list:
         GROUP BY sha256_hash
         HAVING count > 1
         ORDER BY total_size_mb DESC
-    """
-    )
+    """)
     return cursor.fetchall()
 
 

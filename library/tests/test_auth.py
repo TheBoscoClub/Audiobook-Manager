@@ -100,9 +100,9 @@ class TestAuthDatabase:
             with open(db_path, "rb") as f:
                 header = f.read(16)
 
-            assert not header.startswith(b"SQLite format 3"), (
-                "Database should be encrypted"
-            )
+            assert not header.startswith(
+                b"SQLite format 3"
+            ), "Database should be encrypted"
 
     def test_wrong_key_rejected(self):
         """Test that wrong encryption key is rejected."""

@@ -49,8 +49,7 @@ def enriched_app(enriched_temp_dir):
         conn.executescript(f.read())
 
     # Insert test audiobooks
-    conn.execute(
-        """
+    conn.execute("""
         INSERT INTO audiobooks (id, title, author, narrator, file_path, format,
             duration_hours, duration_formatted, file_size_mb, content_type,
             author_last_name, author_first_name,
@@ -58,10 +57,8 @@ def enriched_app(enriched_temp_dir):
         VALUES (1, 'The Talisman', 'Stephen King, Peter Straub', 'Frank Muller',
             '/test/talisman.opus', 'opus', 25.5, '25:30:00', 500.0, 'Product',
             'King', 'Stephen', 'Muller', 'Frank')
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         INSERT INTO audiobooks (id, title, author, narrator, file_path, format,
             duration_hours, duration_formatted, file_size_mb, content_type,
             author_last_name, author_first_name,
@@ -69,10 +66,8 @@ def enriched_app(enriched_temp_dir):
         VALUES (2, 'It', 'Stephen King', 'Steven Weber',
             '/test/it.opus', 'opus', 44.5, '44:30:00', 900.0, 'Product',
             'King', 'Stephen', 'Weber', 'Steven')
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         INSERT INTO audiobooks (id, title, author, narrator, file_path, format,
             duration_hours, duration_formatted, file_size_mb, content_type,
             author_last_name, author_first_name,
@@ -80,8 +75,7 @@ def enriched_app(enriched_temp_dir):
         VALUES (3, 'Solo Book', 'Jane Doe', 'John Smith',
             '/test/solo.opus', 'opus', 10.0, '10:00:00', 200.0, 'Product',
             'Doe', 'Jane', 'Smith', 'John')
-        """
-    )
+        """)
 
     # Populate normalized authors
     conn.execute(
@@ -231,9 +225,9 @@ class TestEnrichedNarratorsArray:
         resp = client.get("/api/audiobooks")
         data = resp.get_json()
         for book in data["audiobooks"]:
-            assert "narrators" in book, (
-                f"Book '{book['title']}' missing 'narrators' array"
-            )
+            assert (
+                "narrators" in book
+            ), f"Book '{book['title']}' missing 'narrators' array"
             assert isinstance(book["narrators"], list)
 
     def test_narrator_entry_has_required_fields(self, client):
@@ -297,14 +291,12 @@ class TestEmptyAuthorsNarrators:
         # Insert a book with no normalized author data
         db_path = enriched_app.config["DATABASE_PATH"]
         conn = sqlite3.connect(db_path)
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO audiobooks (id, title, author, narrator, file_path, format,
                 duration_hours, duration_formatted, file_size_mb, content_type)
             VALUES (99, 'Orphan Book', 'Unknown Author', 'Unknown Narrator',
                 '/test/orphan.opus', 'opus', 5.0, '5:00:00', 100.0, 'Product')
-            """
-        )
+            """)
         conn.commit()
         conn.close()
 

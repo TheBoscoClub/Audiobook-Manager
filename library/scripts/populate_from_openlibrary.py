@@ -117,11 +117,9 @@ def populate_from_openlibrary(
     else:
         if only_missing_genres:
             # Books with no genre associations
-            conditions.append(
-                """
+            conditions.append("""
                 a.id NOT IN (SELECT audiobook_id FROM audiobook_genres)
-            """
-            )
+            """)
         if only_non_audible:
             conditions.append("(a.asin IS NULL OR a.asin = '')")
 

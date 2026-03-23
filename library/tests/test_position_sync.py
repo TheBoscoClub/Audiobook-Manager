@@ -350,7 +350,15 @@ class TestAudibleSyncRemoved:
                 playback_position_ms, file_path
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (8888, "Cleanup Test Book", "Test Author", "B99999", 5.0, 1000000, "/test/cleanup.opus"),
+            (
+                8888,
+                "Cleanup Test Book",
+                "Test Author",
+                "B99999",
+                5.0,
+                1000000,
+                "/test/cleanup.opus",
+            ),
         )
         conn.commit()
         conn.close()

@@ -4,6 +4,7 @@ Maintenance task registry.
 Auto-discovers and registers all task handler modules in this package.
 Import this module to get the singleton `registry` instance.
 """
+
 import importlib
 import pkgutil
 from pathlib import Path

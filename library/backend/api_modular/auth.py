@@ -240,9 +240,10 @@ def localhost_only(f: Callable) -> Callable:
                 remote_addr = forwarded.split(",")[0].strip()
 
             if remote_addr not in ("127.0.0.1", "::1", "localhost"):
-                return jsonify(
-                    {"error": "Access denied"}
-                ), 404  # Return 404 to hide existence
+                return (
+                    jsonify({"error": "Access denied"}),
+                    404,
+                )  # Return 404 to hide existence
         return f(*args, **kwargs)
 
     return decorated
@@ -595,12 +596,12 @@ def get_current_user_info():
                 "last_login": user.last_login.isoformat() if user.last_login else None,
             },
             "session": {
-                "created_at": session.created_at.isoformat()
-                if session.created_at
-                else None,
-                "last_seen": session.last_seen.isoformat()
-                if session.last_seen
-                else None,
+                "created_at": (
+                    session.created_at.isoformat() if session.created_at else None
+                ),
+                "last_seen": (
+                    session.last_seen.isoformat() if session.last_seen else None
+                ),
             },
             "notifications": [
                 {
@@ -650,9 +651,10 @@ def update_current_user():
             return jsonify({"error": "Username contains invalid characters"}), 400
         # No leading/trailing whitespace
         if new_username != new_username.strip():
-            return jsonify(
-                {"error": "Username cannot have leading or trailing spaces"}
-            ), 400
+            return (
+                jsonify({"error": "Username cannot have leading or trailing spaces"}),
+                400,
+            )
 
         if not user_repo.update_username(user.id, new_username):
             return jsonify({"error": "Username already taken"}), 409
@@ -718,9 +720,14 @@ def update_auth_method():
     if auth_method == "magic_link":
         # Requires recovery_email to be set
         if not user.recovery_email:
-            return jsonify(
-                {"error": "Email address required. Add an email in your profile first."}
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Email address required. Add an email in your profile first."
+                    }
+                ),
+                400,
+            )
 
         # Switch immediately — no setup phase needed
         with db.connection() as conn:
@@ -982,9 +989,10 @@ def start_registration():
         return jsonify({"error": "Username contains invalid characters"}), 400
     # No leading/trailing whitespace
     if username != username.strip():
-        return jsonify(
-            {"error": "Username cannot have leading or trailing spaces"}
-        ), 400
+        return (
+            jsonify({"error": "Username cannot have leading or trailing spaces"}),
+            400,
+        )
 
     # Basic email validation if provided
     if contact_email:
@@ -1004,13 +1012,15 @@ def start_registration():
     if request_repo.has_any_request(username):
         # Check specifically for pending to give more helpful error
         if request_repo.has_pending_request(username):
-            return jsonify(
-                {"error": "Access request already pending for this username"}
-            ), 400
+            return (
+                jsonify({"error": "Access request already pending for this username"}),
+                400,
+            )
         else:
-            return jsonify(
-                {"error": "Username already has a previous access request"}
-            ), 400
+            return (
+                jsonify({"error": "Username already has a previous access request"}),
+                400,
+            )
 
     # First-user-is-admin bootstrap: if no users exist, auto-approve as admin
     if user_repo.count() == 0:
@@ -1074,9 +1084,9 @@ def start_registration():
 
     if contact_email:
         response_data["email_notification"] = True
-        response_data["message"] += (
-            f" We'll also notify you at {contact_email} when your request is reviewed."
-        )
+        response_data[
+            "message"
+        ] += f" We'll also notify you at {contact_email} when your request is reviewed."
 
     return jsonify(response_data)
 
@@ -1130,41 +1140,51 @@ def validate_claim_token():
         username, claim_token_hash
     )
     if not access_req:
-        return jsonify(
-            {"valid": False, "error": "Invalid username or claim token"}
-        ), 404
+        return (
+            jsonify({"valid": False, "error": "Invalid username or claim token"}),
+            404,
+        )
 
     # Check status
     if access_req.status == AccessRequestStatus.PENDING:
-        return jsonify(
-            {
-                "valid": False,
-                "status": "pending",
-                "error": "Your request is still pending admin review",
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "valid": False,
+                    "status": "pending",
+                    "error": "Your request is still pending admin review",
+                }
+            ),
+            400,
+        )
 
     if access_req.status == AccessRequestStatus.DENIED:
-        return jsonify(
-            {
-                "valid": False,
-                "status": "denied",
-                "error": access_req.deny_reason or "Your request was denied",
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "valid": False,
+                    "status": "denied",
+                    "error": access_req.deny_reason or "Your request was denied",
+                }
+            ),
+            400,
+        )
 
     # Check if already claimed (user already exists)
     if access_req.credentials_claimed or user_repo.username_exists(username):
-        return jsonify(
-            {
-                "valid": False,
-                "status": "already_claimed",
-                "error": (
-                    "Credentials have already been claimed. If you lost your"
-                    " authenticator, use the recovery page."
-                ),
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "valid": False,
+                    "status": "already_claimed",
+                    "error": (
+                        "Credentials have already been claimed. If you lost your"
+                        " authenticator, use the recovery page."
+                    ),
+                }
+            ),
+            400,
+        )
 
     # Token is valid and approved
     return jsonify(
@@ -1218,14 +1238,18 @@ def claim_credentials():
         return jsonify({"error": "Username and claim_token are required"}), 400
 
     if auth_method not in ("totp", "magic_link"):
-        return jsonify(
-            {"error": "Invalid auth_method. Use 'totp' or 'magic_link'"}
-        ), 400
+        return (
+            jsonify({"error": "Invalid auth_method. Use 'totp' or 'magic_link'"}),
+            400,
+        )
 
     if auth_method == "magic_link" and not recovery_email:
-        return jsonify(
-            {"error": "Email address is required for magic link authentication"}
-        ), 400
+        return (
+            jsonify(
+                {"error": "Email address is required for magic link authentication"}
+            ),
+            400,
+        )
 
     # Remove dashes from token if formatted
     clean_token = claim_token.replace("-", "")
@@ -1246,41 +1270,56 @@ def claim_credentials():
 
     # Check status
     if access_req.status == AccessRequestStatus.PENDING:
-        return jsonify(
-            {"error": "Your request is still pending admin review", "status": "pending"}
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": "Your request is still pending admin review",
+                    "status": "pending",
+                }
+            ),
+            400,
+        )
 
     if access_req.status == AccessRequestStatus.DENIED:
-        return jsonify(
-            {
-                "error": access_req.deny_reason or "Your request was denied",
-                "status": "denied",
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": access_req.deny_reason or "Your request was denied",
+                    "status": "denied",
+                }
+            ),
+            400,
+        )
 
     # Check if already claimed
     if access_req.credentials_claimed or user_repo.username_exists(username):
-        return jsonify(
-            {
-                "error": (
-                    "Credentials have already been claimed. If you lost your"
-                    " authenticator, use the recovery page."
-                ),
-                "status": "already_claimed",
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "Credentials have already been claimed. If you lost your"
+                        " authenticator, use the recovery page."
+                    ),
+                    "status": "already_claimed",
+                }
+            ),
+            400,
+        )
 
     # Check if invitation has expired
     if access_req.is_claim_expired():
-        return jsonify(
-            {
-                "error": (
-                    "This invitation has expired. Please ask the admin to send"
-                    " a new one."
-                ),
-                "status": "expired",
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "This invitation has expired. Please ask the admin to send"
+                        " a new one."
+                    ),
+                    "status": "expired",
+                }
+            ),
+            400,
+        )
 
     # Check for invite metadata (admin-set permissions)
     import json as json_module
@@ -1445,14 +1484,17 @@ def claim_webauthn_begin():
         return jsonify({"error": "Credentials already claimed"}), 400
 
     if access_req.is_claim_expired():
-        return jsonify(
-            {
-                "error": (
-                    "This invitation has expired. Please ask the admin"
-                    " to send a new one."
-                )
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "This invitation has expired. Please ask the admin"
+                        " to send a new one."
+                    )
+                }
+            ),
+            400,
+        )
 
     # Get WebAuthn configuration
     rp_id, rp_name, _ = get_webauthn_config()
@@ -1517,9 +1559,14 @@ def claim_webauthn_complete():
     recovery_enabled = bool(recovery_email or recovery_phone)
 
     if not username or not claim_token or not credential or not challenge_b64:
-        return jsonify(
-            {"error": "Username, claim_token, credential, and challenge are required"}
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": "Username, claim_token, credential, and challenge are required"
+                }
+            ),
+            400,
+        )
 
     if auth_type not in ("passkey", "fido2"):
         return jsonify({"error": "Invalid auth type"}), 400
@@ -1548,14 +1595,17 @@ def claim_webauthn_complete():
         return jsonify({"error": "Credentials already claimed"}), 400
 
     if access_req.is_claim_expired():
-        return jsonify(
-            {
-                "error": (
-                    "This invitation has expired. Please ask the admin"
-                    " to send a new one."
-                )
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "This invitation has expired. Please ask the admin"
+                        " to send a new one."
+                    )
+                }
+            ),
+            400,
+        )
 
     # Get WebAuthn configuration
     rp_id, _, origin = get_webauthn_config()
@@ -2138,12 +2188,15 @@ def login_webauthn_begin():
 
     # Check user uses WebAuthn
     if user.auth_type not in (AuthType.PASSKEY, AuthType.FIDO2):
-        return jsonify(
-            {
-                "error": "User does not use passkey authentication",
-                "auth_type": user.auth_type.value,
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": "User does not use passkey authentication",
+                    "auth_type": user.auth_type.value,
+                }
+            ),
+            400,
+        )
 
     # Parse stored credential
     try:
@@ -2199,9 +2252,10 @@ def login_webauthn_complete():
     challenge_b64 = data.get("challenge", "").strip()
 
     if not username or not credential or not challenge_b64:
-        return jsonify(
-            {"error": "Username, credential, and challenge are required"}
-        ), 400
+        return (
+            jsonify({"error": "Username, credential, and challenge are required"}),
+            400,
+        )
 
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -3271,13 +3325,16 @@ def auth_health():
             }
         )
     except Exception as e:
-        return jsonify(
-            {
-                "status": "error",
-                "auth_db": False,
-                "error": str(e),
-            }
-        ), 500
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "auth_db": False,
+                    "error": str(e),
+                }
+            ),
+            500,
+        )
 
 
 # =============================================================================
@@ -3637,13 +3694,13 @@ def get_inbox_message(message_id: int):
                 "reply_via": message.reply_via.value,
                 "reply_email": message.reply_email,
                 "status": message.status.value,
-                "created_at": message.created_at.isoformat()
-                if message.created_at
-                else None,
+                "created_at": (
+                    message.created_at.isoformat() if message.created_at else None
+                ),
                 "read_at": message.read_at.isoformat() if message.read_at else None,
-                "replied_at": message.replied_at.isoformat()
-                if message.replied_at
-                else None,
+                "replied_at": (
+                    message.replied_at.isoformat() if message.replied_at else None
+                ),
             }
         }
     )
@@ -4024,9 +4081,12 @@ def invite_user():
 
     # Validate auth_method
     if auth_method not in ("totp", "magic_link", "passkey"):
-        return jsonify(
-            {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
-        ), 400
+        return (
+            jsonify(
+                {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
+            ),
+            400,
+        )
 
     # Validate username
     if not username:
@@ -4040,9 +4100,10 @@ def invite_user():
         return jsonify({"error": "Username contains invalid characters"}), 400
     # No leading/trailing whitespace
     if username != username.strip():
-        return jsonify(
-            {"error": "Username cannot have leading or trailing spaces"}
-        ), 400
+        return (
+            jsonify({"error": "Username cannot have leading or trailing spaces"}),
+            400,
+        )
 
     # Validate email (required for invitations)
     if not email:
@@ -4648,9 +4709,10 @@ def update_user(user_id: int):
             return jsonify({"error": "Username contains invalid characters"}), 400
         # No leading/trailing whitespace
         if new_username != new_username.strip():
-            return jsonify(
-                {"error": "Username cannot have leading or trailing spaces"}
-            ), 400
+            return (
+                jsonify({"error": "Username cannot have leading or trailing spaces"}),
+                400,
+            )
 
         # Update username
         if not user_repo.update_username(user_id, new_username):

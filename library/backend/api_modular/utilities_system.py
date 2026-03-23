@@ -436,9 +436,10 @@ def init_system_routes(project_root):
             # SECURITY: Validate project_path is a real project directory
             project_path_obj = Path(project_path)
             if not project_path_obj.is_dir():
-                return jsonify(
-                    {"error": "Project path not found or not a directory"}
-                ), 400
+                return (
+                    jsonify({"error": "Project path not found or not a directory"}),
+                    400,
+                )
             if not (project_path_obj / "VERSION").exists():
                 return (
                     jsonify({"error": "Invalid project: no VERSION file found"}),
@@ -448,11 +449,7 @@ def init_system_routes(project_root):
         # version field is only valid with github source
         if version and source != "github":
             return (
-                jsonify(
-                    {
-                        "error": "version field is only valid with source 'github'"
-                    }
-                ),
+                jsonify({"error": "version field is only valid with source 'github'"}),
                 400,
             )
 
@@ -513,9 +510,10 @@ def init_system_routes(project_root):
             # CodeQL: Path is validated via is_dir() and VERSION file check before use
             project_path_obj = Path(project_path)
             if not project_path_obj.is_dir():  # lgtm[py/path-injection]
-                return jsonify(
-                    {"error": "Project path not found or not a directory"}
-                ), 400
+                return (
+                    jsonify({"error": "Project path not found or not a directory"}),
+                    400,
+                )
             # Verify it's an actual audiobooks project (has VERSION file)
             if not (project_path_obj / "VERSION").exists():  # lgtm[py/path-injection]
                 return (
@@ -526,11 +524,7 @@ def init_system_routes(project_root):
         # version field is only valid with github source
         if version and source != "github":
             return (
-                jsonify(
-                    {
-                        "error": "version field is only valid with source 'github'"
-                    }
-                ),
+                jsonify({"error": "version field is only valid with source 'github'"}),
                 400,
             )
 

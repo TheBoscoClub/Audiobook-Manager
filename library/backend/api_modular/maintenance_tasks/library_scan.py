@@ -1,4 +1,5 @@
 """Library scan task -- triggers a rescan for new/changed audiobook files."""
+
 import logging
 import subprocess
 
@@ -26,7 +27,9 @@ class LibraryScanTask(MaintenanceTask):
             # The scanner runs in-process via the utilities blueprint
             result = subprocess.run(
                 ["curl", "-s", "-X", "POST", "http://127.0.0.1:5001/api/admin/scan"],
-                capture_output=True, text=True, timeout=600,
+                capture_output=True,
+                text=True,
+                timeout=600,
             )
 
             if progress_callback:

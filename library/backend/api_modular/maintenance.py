@@ -4,6 +4,7 @@ Maintenance scheduling API blueprint.
 Provides CRUD endpoints for maintenance windows, manual announcements,
 task registry listing, and execution history.
 """
+
 import json
 import logging
 import sqlite3
@@ -44,6 +45,7 @@ def _get_username():
 
 
 # ---------- Maintenance Windows ----------
+
 
 @maintenance_bp.route("/api/admin/maintenance/windows", methods=["GET"])
 @admin_if_enabled
@@ -90,6 +92,7 @@ def create_window():
     elif schedule_type == "recurring" and cron_expression:
         try:
             from croniter import croniter
+
             cron = croniter(cron_expression, datetime.now(timezone.utc))
             next_run_at = cron.get_next(datetime).isoformat() + "Z"
         except (ValueError, KeyError):
@@ -98,12 +101,18 @@ def create_window():
     # Validate task type against registry (if available)
     try:
         from .maintenance_tasks import registry
+
         if not registry.get(task_type):
             available = [t["name"] for t in registry.list_all()]
-            return jsonify({
-                "error": f"Unknown task_type '{task_type}'",
-                "available": available,
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": f"Unknown task_type '{task_type}'",
+                        "available": available,
+                    }
+                ),
+                400,
+            )
     except ImportError:
         pass  # Registry not yet available (during early development)
 
@@ -115,9 +124,18 @@ def create_window():
                 cron_expression, scheduled_at, next_run_at,
                 duration_minutes, lead_time_hours)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, description, task_type, task_params, schedule_type,
-             cron_expression, scheduled_at, next_run_at,
-             duration_minutes, lead_time_hours),
+            (
+                name,
+                description,
+                task_type,
+                task_params,
+                schedule_type,
+                cron_expression,
+                scheduled_at,
+                next_run_at,
+                duration_minutes,
+                lead_time_hours,
+            ),
         )
         conn.commit()
         row = conn.execute(
@@ -146,9 +164,15 @@ def update_window(wid):
 
         # Build dynamic update
         allowed = {
-            "name", "description", "task_type", "task_params",
-            "cron_expression", "scheduled_at", "duration_minutes",
-            "lead_time_hours", "status",
+            "name",
+            "description",
+            "task_type",
+            "task_params",
+            "cron_expression",
+            "scheduled_at",
+            "duration_minutes",
+            "lead_time_hours",
+            "status",
         }
         updates = {k: v for k, v in data.items() if k in allowed}
         if "task_params" in updates and isinstance(updates["task_params"], dict):
@@ -159,9 +183,8 @@ def update_window(wid):
             stype = data.get("schedule_type", existing["schedule_type"])
             if stype == "recurring" and updates.get("cron_expression"):
                 from croniter import croniter
-                cron = croniter(
-                    updates["cron_expression"], datetime.now(timezone.utc)
-                )
+
+                cron = croniter(updates["cron_expression"], datetime.now(timezone.utc))
                 updates["next_run_at"] = cron.get_next(datetime).isoformat() + "Z"
             elif stype == "once" and updates.get("scheduled_at"):
                 updates["next_run_at"] = updates["scheduled_at"]
@@ -171,9 +194,16 @@ def update_window(wid):
 
         # Keys are validated against `allowed` set of known column names
         safe_columns = {
-            "name", "description", "task_type", "task_params",
-            "cron_expression", "scheduled_at", "duration_minutes",
-            "lead_time_hours", "status", "next_run_at",
+            "name",
+            "description",
+            "task_type",
+            "task_params",
+            "cron_expression",
+            "scheduled_at",
+            "duration_minutes",
+            "lead_time_hours",
+            "status",
+            "next_run_at",
         }
         sanitized = {k: v for k, v in updates.items() if k in safe_columns}
         set_clause = ", ".join(f'"{k}" = ?' for k in sanitized)
@@ -218,6 +248,7 @@ def delete_window(wid):
 
 # ---------- Manual Messages ----------
 
+
 @maintenance_bp.route("/api/admin/maintenance/messages", methods=["GET"])
 @admin_if_enabled
 def list_messages():
@@ -256,10 +287,13 @@ def create_message():
         # Push immediately via WebSocket (in-process, no DB round-trip)
         try:
             from .websocket import connection_manager
-            connection_manager.broadcast({
-                "type": "maintenance_announce",
-                "messages": [result],
-            })
+
+            connection_manager.broadcast(
+                {
+                    "type": "maintenance_announce",
+                    "messages": [result],
+                }
+            )
         except Exception as e:
             logger.warning("WebSocket broadcast failed: %s", e)
 
@@ -286,10 +320,13 @@ def dismiss_message(mid):
         # Push dismiss notification
         try:
             from .websocket import connection_manager
-            connection_manager.broadcast({
-                "type": "maintenance_dismiss",
-                "message_id": mid,
-            })
+
+            connection_manager.broadcast(
+                {
+                    "type": "maintenance_dismiss",
+                    "message_id": mid,
+                }
+            )
         except Exception as e:
             logger.warning("WebSocket broadcast failed: %s", e)
 
@@ -299,6 +336,7 @@ def dismiss_message(mid):
 
 
 # ---------- Public Announcements ----------
+
 
 @maintenance_bp.route("/api/maintenance/announcements", methods=["GET"])
 @guest_allowed
@@ -311,34 +349,33 @@ def get_announcements():
     conn = _get_db()
     try:
         # Active manual messages
-        messages = conn.execute(
-            """SELECT id, message, created_by, created_at
+        messages = conn.execute("""SELECT id, message, created_by, created_at
                FROM maintenance_messages
                WHERE dismissed_at IS NULL
-               ORDER BY created_at DESC"""
-        ).fetchall()
+               ORDER BY created_at DESC""").fetchall()
 
         # Upcoming windows within lead time
-        windows = conn.execute(
-            """SELECT id, name, description, task_type, next_run_at,
+        windows = conn.execute("""SELECT id, name, description, task_type, next_run_at,
                       duration_minutes, lead_time_hours
                FROM maintenance_windows
                WHERE status = 'active'
                  AND next_run_at IS NOT NULL
                  AND datetime(next_run_at, '-' || lead_time_hours || ' hours')
                      <= datetime('now')
-               ORDER BY next_run_at ASC"""
-        ).fetchall()
+               ORDER BY next_run_at ASC""").fetchall()
 
-        return jsonify({
-            "messages": [dict(r) for r in messages],
-            "windows": [dict(r) for r in windows],
-        })
+        return jsonify(
+            {
+                "messages": [dict(r) for r in messages],
+                "windows": [dict(r) for r in windows],
+            }
+        )
     finally:
         conn.close()
 
 
 # ---------- Task Registry ----------
+
 
 @maintenance_bp.route("/api/admin/maintenance/tasks", methods=["GET"])
 @admin_if_enabled
@@ -346,6 +383,7 @@ def list_tasks():
     """List registered maintenance task types."""
     try:
         from .maintenance_tasks import registry
+
         return jsonify(registry.list_all())
     except ImportError:
         return jsonify([])
@@ -353,19 +391,18 @@ def list_tasks():
 
 # ---------- Execution History ----------
 
+
 @maintenance_bp.route("/api/admin/maintenance/history", methods=["GET"])
 @admin_if_enabled
 def get_history():
     """Execution history for all maintenance windows."""
     conn = _get_db()
     try:
-        rows = conn.execute(
-            """SELECT h.*, w.name as window_name, w.task_type
+        rows = conn.execute("""SELECT h.*, w.name as window_name, w.task_type
                FROM maintenance_history h
                JOIN maintenance_windows w ON h.window_id = w.id
                ORDER BY h.started_at DESC
-               LIMIT 100"""
-        ).fetchall()
+               LIMIT 100""").fetchall()
         return jsonify([dict(r) for r in rows])
     finally:
         conn.close()

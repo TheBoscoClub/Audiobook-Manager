@@ -42,8 +42,7 @@ def get_db():
 
 def ensure_supplements_table(cursor):
     """Ensure supplements table exists"""
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS supplements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             audiobook_id INTEGER,
@@ -55,8 +54,7 @@ def ensure_supplements_table(cursor):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE SET NULL
         )
-    """
-    )
+    """)
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_supplements_audiobook_id"
         " ON supplements(audiobook_id)"

@@ -1,4 +1,5 @@
 """Tests for WebSocket connection manager."""
+
 import time
 from unittest.mock import MagicMock
 

@@ -312,15 +312,13 @@ def init_crud_routes(db_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE narrator IS NULL OR narrator = '' OR narrator = 'Unknown Narrator'
             ORDER BY title
             LIMIT 200
-        """
-        )
+        """)
 
         audiobooks = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -334,15 +332,13 @@ def init_crud_routes(db_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE sha256_hash IS NULL OR sha256_hash = ''
             ORDER BY title
             LIMIT 200
-        """
-        )
+        """)
 
         audiobooks = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -356,15 +352,13 @@ def init_crud_routes(db_path):
         conn = get_db(db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT g.id, g.name, COUNT(ag.audiobook_id) as book_count
             FROM genres g
             LEFT JOIN audiobook_genres ag ON g.id = ag.genre_id
             GROUP BY g.id, g.name
             ORDER BY g.name
-        """
-        )
+        """)
 
         genres = [dict(row) for row in cursor.fetchall()]
         conn.close()

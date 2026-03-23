@@ -6,6 +6,7 @@ Provides real-time bidirectional communication for:
 - Maintenance announcement push
 - Live connection tracking for admin dashboard
 """
+
 import json
 import logging
 import sqlite3
@@ -79,7 +80,8 @@ class ConnectionManager:
         now = time.time()
         with self._lock:
             return [
-                sid for sid, conn in self._connections.items()
+                sid
+                for sid, conn in self._connections.items()
                 if now - conn["last_seen"] > timeout
             ]
 
@@ -136,12 +138,10 @@ def init_notification_poller(db_path):
             try:
                 conn = sqlite3.connect(str(_db_path_for_poller))
                 conn.row_factory = sqlite3.Row
-                rows = conn.execute(
-                    """SELECT id, notification_type, payload
+                rows = conn.execute("""SELECT id, notification_type, payload
                        FROM maintenance_notifications
                        WHERE delivered = 0
-                       ORDER BY created_at ASC"""
-                ).fetchall()
+                       ORDER BY created_at ASC""").fetchall()
 
                 for row in rows:
                     try:
@@ -153,7 +153,9 @@ def init_notification_poller(db_path):
                             (row["id"],),
                         )
                     except Exception as e:
-                        logger.error("Failed to deliver notification %d: %s", row["id"], e)
+                        logger.error(
+                            "Failed to deliver notification %d: %s", row["id"], e
+                        )
 
                 conn.commit()
                 conn.close()

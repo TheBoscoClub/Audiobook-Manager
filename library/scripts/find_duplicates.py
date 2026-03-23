@@ -36,16 +36,14 @@ def format_size(size_bytes: float) -> str:
 def find_duplicates(conn: sqlite3.Connection) -> list:
     """Find all duplicate groups"""
     cursor = conn.cursor()
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT sha256_hash, COUNT(*) as count
         FROM audiobooks
         WHERE sha256_hash IS NOT NULL
         GROUP BY sha256_hash
         HAVING count > 1
         ORDER BY count DESC
-    """
-    )
+    """)
     return cursor.fetchall()
 
 

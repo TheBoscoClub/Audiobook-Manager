@@ -197,6 +197,7 @@ def create_app(
 
     # Maintenance scheduling
     from .maintenance import maintenance_bp, init_maintenance_routes
+
     init_maintenance_routes(database_path)
     flask_app.register_blueprint(maintenance_bp)
 
@@ -211,9 +212,7 @@ def create_app(
     def ws_handler(ws):
         """WebSocket handler for heartbeat and push notifications."""
         auth_enabled = flask_app.config.get("AUTH_ENABLED", False)
-        session_id = request.cookies.get(
-            "audiobooks_session", "anon-" + str(id(ws))
-        )
+        session_id = request.cookies.get("audiobooks_session", "anon-" + str(id(ws)))
         username = "anonymous"
 
         if auth_enabled:
@@ -226,6 +225,7 @@ def create_app(
 
         connection_manager.register(session_id, ws, username=username)
         from .websocket import init_notification_poller
+
         init_notification_poller(database_path)
         try:
             while True:

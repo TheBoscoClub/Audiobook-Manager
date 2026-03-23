@@ -260,9 +260,9 @@ class TestGroupedByAuthor:
 
         for group in data["groups"]:
             titles = [b["title"] for b in group["books"]]
-            assert titles == sorted(titles, key=str.lower), (
-                f"Books in group '{group['key']['name']}' not sorted by title: {titles}"
-            )
+            assert titles == sorted(
+                titles, key=str.lower
+            ), f"Books in group '{group['key']['name']}' not sorted by title: {titles}"
 
     def test_orphan_books_in_unknown_author_group(self, app_client, grouped_db):
         """Books with no junction rows appear in 'Unknown Author' group."""
@@ -368,14 +368,12 @@ class TestGroupedContentTypeFilter:
         cursor = conn.cursor()
 
         # Insert a podcast
-        cursor.execute(
-            """
+        cursor.execute("""
             INSERT INTO audiobooks (title, author, narrator, file_path, format,
                                     duration_hours, content_type, file_size_mb)
             VALUES ('Test Podcast', 'Host', 'Host', '/test/podcast.opus',
                     'opus', 1.0, 'Podcast', 10.0)
-            """
-        )
+            """)
         podcast_id = cursor.lastrowid
 
         # Add to an author group

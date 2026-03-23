@@ -7,7 +7,6 @@ step definitions, and CSS overlay/tooltip styling.
 
 from pathlib import Path
 
-
 LIBRARY_DIR = Path(__file__).parent.parent
 WEB_DIR = LIBRARY_DIR / "web-v2"
 CSS_DIR = WEB_DIR / "css"
@@ -26,16 +25,16 @@ class TestTutorialJS:
         content = (JS_DIR / "tutorial.js").read_text()
         # Check for property access pattern, not just the word in comments
         unsafe_prop = ".inner" + "HTML"
-        assert unsafe_prop not in content, (
-            "tutorial.js must not use unsafe HTML property — use safe DOM methods"
-        )
+        assert (
+            unsafe_prop not in content
+        ), "tutorial.js must not use unsafe HTML property — use safe DOM methods"
 
     def test_class_defined(self):
         """tutorial.js must define a LibraryTutorial class."""
         content = (JS_DIR / "tutorial.js").read_text()
-        assert "class LibraryTutorial" in content, (
-            "tutorial.js should define class LibraryTutorial"
-        )
+        assert (
+            "class LibraryTutorial" in content
+        ), "tutorial.js should define class LibraryTutorial"
 
     def test_has_start_method(self):
         """LibraryTutorial must have a start() method."""
@@ -56,9 +55,9 @@ class TestTutorialJS:
         """Tutorial must define at least 10 steps."""
         content = (JS_DIR / "tutorial.js").read_text()
         target_count = content.count("target:")
-        assert target_count >= 10, (
-            f"Tutorial should have at least 10 steps, found {target_count}"
-        )
+        assert (
+            target_count >= 10
+        ), f"Tutorial should have at least 10 steps, found {target_count}"
 
     def test_auto_start_on_url_param(self):
         """Tutorial must check for ?tutorial=1 URL parameter."""
@@ -75,16 +74,16 @@ class TestTutorialJS:
     def test_optional_steps_supported(self):
         """Tutorial must support optional steps (skipped if target not found)."""
         content = (JS_DIR / "tutorial.js").read_text()
-        assert "optional:" in content or "optional :" in content, (
-            "Should support optional: true pattern for skippable steps"
-        )
+        assert (
+            "optional:" in content or "optional :" in content
+        ), "Should support optional: true pattern for skippable steps"
 
     def test_fallback_text_supported(self):
         """Tutorial must support fallback text for hidden elements."""
         content = (JS_DIR / "tutorial.js").read_text()
-        assert "fallback:" in content or "fallback :" in content, (
-            "Should support fallback: text for elements not visible"
-        )
+        assert (
+            "fallback:" in content or "fallback :" in content
+        ), "Should support fallback: text for elements not visible"
 
 
 class TestTutorialCSS:
@@ -97,23 +96,23 @@ class TestTutorialCSS:
     def test_overlay_class(self):
         """.tutorial-overlay must be defined."""
         content = (CSS_DIR / "tutorial.css").read_text()
-        assert ".tutorial-overlay" in content, (
-            "tutorial.css should define .tutorial-overlay"
-        )
+        assert (
+            ".tutorial-overlay" in content
+        ), "tutorial.css should define .tutorial-overlay"
 
     def test_tooltip_class(self):
         """.tutorial-tooltip must be defined."""
         content = (CSS_DIR / "tutorial.css").read_text()
-        assert ".tutorial-tooltip" in content, (
-            "tutorial.css should define .tutorial-tooltip"
-        )
+        assert (
+            ".tutorial-tooltip" in content
+        ), "tutorial.css should define .tutorial-tooltip"
 
     def test_highlight_class(self):
         """.tutorial-highlight must be defined."""
         content = (CSS_DIR / "tutorial.css").read_text()
-        assert ".tutorial-highlight" in content, (
-            "tutorial.css should define .tutorial-highlight"
-        )
+        assert (
+            ".tutorial-highlight" in content
+        ), "tutorial.css should define .tutorial-highlight"
 
     def test_z_index_ordering(self):
         """Overlay z-index 9998, tooltip z-index 9999 (tooltip above overlay)."""

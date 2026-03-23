@@ -25,11 +25,14 @@ def test_maintenance_html_has_health_polling():
 def test_maintenance_html_no_innerhtml():
     """Maintenance page must not use innerHTML."""
     content = (CADDY_DIR / "maintenance.html").read_text()
-    assert "innerHTML" not in content, "Must not use innerHTML — use textContent or static HTML"
+    assert (
+        "innerHTML" not in content
+    ), "Must not use innerHTML — use textContent or static HTML"
 
 
 def test_maintenance_html_has_noscript_fallback():
     """Maintenance page must have meta refresh for no-JS browsers."""
     content = (CADDY_DIR / "maintenance.html").read_text()
-    assert "meta http-equiv" in content.lower() or "noscript" in content.lower(), \
-        "Must have no-JS fallback (meta refresh or noscript)"
+    assert (
+        "meta http-equiv" in content.lower() or "noscript" in content.lower()
+    ), "Must have no-JS fallback (meta refresh or noscript)"

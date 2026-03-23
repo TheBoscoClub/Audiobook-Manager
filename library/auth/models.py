@@ -857,9 +857,11 @@ class UserPreferences:
                 """,
                 (
                     self.user_id,
-                    self.new_books_seen_at.isoformat()
-                    if self.new_books_seen_at
-                    else None,
+                    (
+                        self.new_books_seen_at.isoformat()
+                        if self.new_books_seen_at
+                        else None
+                    ),
                     self.created_at.isoformat() if self.created_at else None,
                     self.updated_at.isoformat(),
                 ),
@@ -1453,9 +1455,11 @@ class AccessRequest:
                 id=row[0],
                 username=row[1],
                 requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
-                status=AccessRequestStatus(row[3])
-                if row[3]
-                else AccessRequestStatus.PENDING,
+                status=(
+                    AccessRequestStatus(row[3])
+                    if row[3]
+                    else AccessRequestStatus.PENDING
+                ),
                 reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
                 reviewed_by=row[5],
                 deny_reason=row[6],
@@ -1485,9 +1489,11 @@ class AccessRequest:
                 id=row[0],
                 username=row[1],
                 requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
-                status=AccessRequestStatus(row[3])
-                if row[3]
-                else AccessRequestStatus.PENDING,
+                status=(
+                    AccessRequestStatus(row[3])
+                    if row[3]
+                    else AccessRequestStatus.PENDING
+                ),
                 reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
                 reviewed_by=row[5],
                 deny_reason=row[6],
@@ -1498,18 +1504,18 @@ class AccessRequest:
         return {
             "id": self.id,
             "username": self.username,
-            "requested_at": self.requested_at.isoformat()
-            if self.requested_at
-            else None,
+            "requested_at": (
+                self.requested_at.isoformat() if self.requested_at else None
+            ),
             "status": self.status.value,
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
             "reviewed_by": self.reviewed_by,
             "deny_reason": self.deny_reason,
             "has_email": bool(self.contact_email),
             "credentials_claimed": self.credentials_claimed,
-            "claim_expires_at": self.claim_expires_at.isoformat()
-            if self.claim_expires_at
-            else None,
+            "claim_expires_at": (
+                self.claim_expires_at.isoformat() if self.claim_expires_at else None
+            ),
         }
 
     def is_claim_expired(self) -> bool:

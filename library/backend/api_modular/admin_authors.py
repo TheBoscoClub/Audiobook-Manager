@@ -328,12 +328,15 @@ def merge_authors():
             "SELECT * FROM authors WHERE id = ?", (target_id,)
         ).fetchone()
 
-        return jsonify(
-            {
-                "author": _author_to_dict(updated_target),
-                "books_reassigned": books_reassigned,
-            }
-        ), 200
+        return (
+            jsonify(
+                {
+                    "author": _author_to_dict(updated_target),
+                    "books_reassigned": books_reassigned,
+                }
+            ),
+            200,
+        )
     finally:
         conn.close()
 
@@ -545,12 +548,15 @@ def merge_narrators():
             "SELECT * FROM narrators WHERE id = ?", (target_id,)
         ).fetchone()
 
-        return jsonify(
-            {
-                "narrator": _narrator_to_dict(updated_target),
-                "books_reassigned": books_reassigned,
-            }
-        ), 200
+        return (
+            jsonify(
+                {
+                    "narrator": _narrator_to_dict(updated_target),
+                    "books_reassigned": books_reassigned,
+                }
+            ),
+            200,
+        )
     finally:
         conn.close()
 

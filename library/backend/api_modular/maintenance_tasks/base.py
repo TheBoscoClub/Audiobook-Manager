@@ -4,6 +4,7 @@ Base class and data types for maintenance task handlers.
 Each handler implements validate() and execute() and is registered
 via the @registry.register decorator in its module.
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Callable, Optional
@@ -12,6 +13,7 @@ from typing import Callable, Optional
 @dataclass
 class ValidationResult:
     """Result of a task validation check."""
+
     ok: bool
     message: str = ""
 
@@ -19,6 +21,7 @@ class ValidationResult:
 @dataclass
 class ExecutionResult:
     """Result of a task execution."""
+
     success: bool
     message: str = ""
     data: dict = field(default_factory=dict)

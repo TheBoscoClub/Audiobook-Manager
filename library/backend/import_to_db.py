@@ -65,15 +65,13 @@ def import_audiobooks(conn):
 
     # Save genre data (keyed by file_path)
     preserved_genres = {}
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT a.file_path, GROUP_CONCAT(g.name, '|||')
         FROM audiobooks a
         JOIN audiobook_genres ag ON a.id = ag.audiobook_id
         JOIN genres g ON ag.genre_id = g.id
         GROUP BY a.file_path
-    """
-    )
+    """)
     for row in cursor.fetchall():
         if row[1]:
             preserved_genres[row[0]] = row[1].split("|||")

@@ -1,4 +1,5 @@
 """Database vacuum and optimize task."""
+
 import logging
 import sqlite3
 from pathlib import Path
@@ -20,6 +21,7 @@ def _resolve_db_path(params):
         return Path(params["db_path"])
     try:
         from flask import current_app
+
         return current_app.config["DATABASE_PATH"]
     except (RuntimeError, ImportError):
         return None

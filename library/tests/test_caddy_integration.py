@@ -16,8 +16,9 @@ def test_install_references_caddy_files():
 def test_upgrade_syncs_caddy_files():
     """upgrade.sh must sync Caddy files during upgrade."""
     content = UPGRADE_SH.read_text()
-    assert "audiobooks.conf" in content or "caddy" in content.lower(), \
-        "upgrade.sh must sync Caddy config"
+    assert (
+        "audiobooks.conf" in content or "caddy" in content.lower()
+    ), "upgrade.sh must sync Caddy config"
 
 
 def test_caddy_conditional_on_install():
