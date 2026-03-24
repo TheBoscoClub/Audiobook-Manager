@@ -45,7 +45,7 @@ class AuthDatabase:
             cursor = conn.execute("SELECT * FROM users")
     """
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 7
     KEY_LENGTH = 32  # 256 bits
 
     def __init__(

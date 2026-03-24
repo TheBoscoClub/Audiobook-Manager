@@ -3055,7 +3055,9 @@ function formatAction(action) {
     switch_auth_method: "Auth Method Switched",
     reset_credentials: "Credentials Reset",
     toggle_roles: "Roles Changed",
+    change_download: "Download Permission Changed",
     delete_account: "Account Deleted",
+    delete_user: "User Deleted",
   };
   return map[action] || action;
 }
@@ -3522,7 +3524,7 @@ function confirmDeleteUser(user) {
     `Are you sure you want to delete user "${user.username}"? This action cannot be undone.`,
     async () => {
       try {
-        const res = await fetch(`${API_BASE}/auth/admin/users/${user.id}`, {
+        const res = await fetch(`${API_BASE}/auth/admin/users/${user.id}/delete`, {
           method: "DELETE",
           credentials: "include",
         });
@@ -3581,8 +3583,8 @@ function showEditUserModal(user, isProfile = false) {
       showToast("Username must be at least 3 characters", "error");
       return;
     }
-    if (newUsername.length > 32) {
-      showToast("Username must be at most 32 characters", "error");
+    if (newUsername.length > 24) {
+      showToast("Username must be at most 24 characters", "error");
       return;
     }
     // Check for invalid characters
@@ -3601,34 +3603,52 @@ function showEditUserModal(user, isProfile = false) {
     }
 
     try {
-      // Use different endpoints for profile vs admin edit
-      const endpoint = isProfile
-        ? `${API_BASE}/auth/me`
+      // Use granular audited endpoints for each changed field
+      var errors = [];
+      var usernameBase = isProfile
+        ? `${API_BASE}/auth/account`
         : `${API_BASE}/auth/admin/users/${user.id}`;
 
-      const res = await fetch(endpoint, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          username: newUsername,
-          email: newEmail || null, // Send null to clear email
-        }),
-      });
+      // Update username if changed
+      if (newUsername !== user.username) {
+        var uRes = await fetch(`${usernameBase}/username`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ username: newUsername }),
+        });
+        if (!uRes.ok) {
+          var uErr = await uRes.json().catch(function () { return {}; });
+          errors.push(uErr.error || "Failed to update username");
+        }
+      }
 
-      if (res.ok) {
+      // Update email if changed
+      var currentEmail = user.email || user.recovery_email || "";
+      if (newEmail !== currentEmail) {
+        var eRes = await fetch(`${usernameBase}/email`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email: newEmail || null }),
+        });
+        if (!eRes.ok) {
+          var eErr = await eRes.json().catch(function () { return {}; });
+          errors.push(eErr.error || "Failed to update email");
+        }
+      }
+
+      if (errors.length === 0) {
         showToast("User updated successfully", "success");
         closeModal();
         if (isProfile) {
-          // Update header display
-          const usernameDisplay = document.getElementById("username-display");
+          var usernameDisplay = document.getElementById("username-display");
           if (usernameDisplay) usernameDisplay.textContent = newUsername;
         } else {
           loadUsers();
         }
       } else {
-        const data = await res.json();
-        showToast(data.error || "Failed to update user", "error");
+        showToast(errors.join("; "), "error");
       }
     } catch (error) {
       showToast("Connection error", "error");
