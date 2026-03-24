@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [7.4.0] - 2026-03-24
+
+### Added
+
 - **Web-based admin user management** (USERS tab in Back Office): create users with TOTP/Magic Link/Passkey auth, change username/email, switch auth method, reset credentials, toggle admin/download roles, delete accounts
 - **Last-admin guard**: prevents deletion or demotion of the last remaining admin account
 - **Audit logging** for all user management actions: actor, target user, action type, details (JSON), timestamp — stored in `audit_log` table (schema version 7)
@@ -16,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Real-time WebSocket push** for audit events to connected admin sessions
 - **Self-service My Account modal** in shell header: authenticated users change username, email, auth method, or credentials without admin involvement
 - **Admin notification helpers**: in-app badge increment and email notification on critical user actions (role changes, deletions)
-- **Granular admin user endpoints** (v7.3+): `PUT /auth/admin/users/<id>/username`, `PUT .../email`, `PUT .../roles`, `PUT .../auth-method`, `POST .../reset-credentials`, `DELETE .../delete`, `GET .../audit-log`
+- **Granular admin user endpoints** (v7.4+): `PUT /auth/admin/users/<id>/username`, `PUT .../email`, `PUT .../roles`, `PUT .../auth-method`, `POST .../reset-credentials`, `DELETE .../delete`, `GET .../audit-log`
 - **Self-service endpoints**: `PUT /auth/user/me/username`, `PUT .../email`, `PUT .../auth-method`, `POST .../reset-credentials` with ownership enforcement
 - **Database schema v7**: `audit_log` table (actor_id, target_user_id ON DELETE SET NULL, action, details JSON, created_at) and `last_audit_seen_id` column on users
 - **Legacy `DELETE /auth/admin/users/<id>`**: now records audit entry and enforces last-admin guard (parity with new endpoint)
@@ -2142,7 +2150,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.0...HEAD
+[7.4.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0.1...v7.4.0
 [7.3.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0...v7.3.0.1
 [7.3.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1.1...v7.3.0
 [7.2.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1...v7.2.1.1
