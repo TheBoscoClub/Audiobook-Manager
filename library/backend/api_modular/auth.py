@@ -1084,9 +1084,9 @@ def start_registration():
 
     if contact_email:
         response_data["email_notification"] = True
-        response_data[
-            "message"
-        ] += f" We'll also notify you at {contact_email} when your request is reviewed."
+        response_data["message"] += (
+            f" We'll also notify you at {contact_email} when your request is reviewed."
+        )
 
     return jsonify(response_data)
 
@@ -3982,6 +3982,168 @@ def deny_access_request(request_id: int):
             "email_sent": email_sent,
             "message": f"Access request for '{access_req.username}' denied.",
         }
+    )
+
+
+@auth_bp.route("/admin/users/create", methods=["POST"])
+@admin_required
+def create_user():
+    """
+    Create a new user directly (admin only).
+
+    JSON body:
+        username: Username (3-24 chars, alphanumeric + hyphens)
+        email: Optional email (required for magic_link)
+        auth_method: "totp", "magic_link", or "passkey"
+        is_admin: Boolean
+        can_download: Boolean
+
+    Returns:
+        201: {"success": true, "user_id": int, "setup_data": {...}}
+        400: {"error": "..."}
+        409: {"error": "Username already taken"}
+    """
+    import re as re_mod
+
+    from auth.audit import AuditLogRepository
+
+    data = request.get_json() or {}
+
+    username = data.get("username", "").strip()
+    email = data.get("email", "").strip() if data.get("email") else ""
+    auth_method = data.get("auth_method", "").strip()
+    is_admin = bool(data.get("is_admin", False))
+    can_download = bool(data.get("can_download", True))
+
+    # Validate auth_method
+    if auth_method not in ("totp", "magic_link", "passkey"):
+        return (
+            jsonify(
+                {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
+            ),
+            400,
+        )
+
+    # Validate username: 3-24 chars, alphanumeric + hyphens only
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+    if len(username) < 3:
+        return jsonify({"error": "Username must be at least 3 characters"}), 400
+    if len(username) > 24:
+        return jsonify({"error": "Username must be at most 24 characters"}), 400
+    if not re_mod.match(r"^[a-zA-Z0-9-]+$", username):
+        return (
+            jsonify(
+                {"error": "Username must contain only letters, numbers, and hyphens"}
+            ),
+            400,
+        )
+
+    # Magic link requires email
+    if auth_method == "magic_link" and not email:
+        return jsonify({"error": "Email is required for magic_link auth method"}), 400
+
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    # Check for duplicate username
+    if user_repo.username_exists(username):
+        return jsonify({"error": "Username already taken"}), 409
+
+    admin_user = get_current_user()
+    setup_data = {}
+
+    if auth_method == "totp":
+        # Generate TOTP secret
+        secret_bytes, base32_secret, provisioning_uri = setup_totp(username)
+        new_user = User(
+            username=username,
+            auth_type=AuthType.TOTP,
+            auth_credential=secret_bytes,
+            is_admin=is_admin,
+            can_download=can_download,
+        )
+        if email:
+            new_user.recovery_email = email
+        new_user.save(db)
+        setup_data = {
+            "secret": base32_secret,
+            "qr_uri": provisioning_uri,
+            "manual_key": base32_secret,
+        }
+
+    elif auth_method == "magic_link":
+        # Create user with empty credential, set recovery email
+        new_user = User(
+            username=username,
+            auth_type=AuthType.MAGIC_LINK,
+            auth_credential=b"",
+            is_admin=is_admin,
+            can_download=can_download,
+            recovery_email=email,
+        )
+        new_user.save(db)
+        setup_data = {}
+
+    elif auth_method == "passkey":
+        # Create user with pending credential
+        new_user = User(
+            username=username,
+            auth_type=AuthType.PASSKEY,
+            auth_credential=b"pending",
+            is_admin=is_admin,
+            can_download=can_download,
+        )
+        if email:
+            new_user.recovery_email = email
+        new_user.save(db)
+
+        # Create PendingRegistration with claim token
+        from auth.models import PendingRegistration
+
+        pending_reg, raw_token = PendingRegistration.create(
+            db, username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
+        )
+
+        # Format token as XXXX-XXXX-XXXX-XXXX
+        truncated = raw_token[:16]
+        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
+
+        # Build claim URL
+        claim_url = f"/auth/register/claim?token={formatted_token}"
+
+        setup_data = {
+            "claim_token": formatted_token,
+            "claim_url": claim_url,
+            "expires_at": pending_reg.expires_at.isoformat()
+            if pending_reg.expires_at
+            else None,
+        }
+
+    # Audit log
+    audit_repo = AuditLogRepository(db)
+    audit_repo.log(
+        actor_id=admin_user.id,
+        target_id=new_user.id,
+        action="create_user",
+        details={
+            "auth_method": auth_method,
+            "is_admin": is_admin,
+            "can_download": can_download,
+            "actor_username": admin_user.username,
+            "target_username": username,
+        },
+    )
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "user_id": new_user.id,
+                "setup_data": setup_data,
+            }
+        ),
+        201,
     )
 
 
