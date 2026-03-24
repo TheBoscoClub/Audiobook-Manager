@@ -4795,6 +4795,22 @@ def toggle_user_admin(user_id: int):
     new_admin_status = not target_user.is_admin
     user_repo.set_admin(user_id, new_admin_status)
 
+    # Audit log
+    from auth.audit import AuditLogRepository
+    audit_repo = AuditLogRepository(db)
+    audit_repo.log(
+        actor_id=current_user.id,
+        target_id=user_id,
+        action="toggle_roles",
+        details={
+            "actor_username": current_user.username,
+            "target_username": target_user.username,
+            "field": "is_admin",
+            "old": target_user.is_admin,
+            "new": new_admin_status,
+        },
+    )
+
     return jsonify(
         {
             "success": True,
@@ -4824,6 +4840,22 @@ def toggle_user_download(user_id: int):
     # Toggle download permission
     new_download_status = not target_user.can_download
     user_repo.set_download_permission(user_id, new_download_status)
+
+    # Audit log
+    from auth.audit import AuditLogRepository
+    current_user = get_current_user()
+    audit_repo = AuditLogRepository(db)
+    audit_repo.log(
+        actor_id=current_user.id if current_user else None,
+        target_id=user_id,
+        action="change_download",
+        details={
+            "actor_username": current_user.username if current_user else "system",
+            "target_username": target_user.username,
+            "old": target_user.can_download,
+            "new": new_download_status,
+        },
+    )
 
     return jsonify(
         {
@@ -4936,12 +4968,31 @@ def delete_user(user_id: int):
     if current_user and current_user.id == user_id:
         return jsonify({"error": "Cannot delete yourself"}), 400
 
+    # Last-admin guard
+    if target_user.is_admin and user_repo.is_last_admin(user_id):
+        return jsonify({"error": "Cannot delete last admin"}), 409
+
     # Delete user (cascades to sessions, positions, etc.)
     user_repo.delete(user_id)
 
     # Clean up any associated access request
     request_repo = AccessRequestRepository(db)
     request_repo.delete_for_username(target_user.username)
+
+    # Audit log
+    from auth.audit import AuditLogRepository, notify_admins
+    audit_repo = AuditLogRepository(db)
+    details = {
+        "actor_username": current_user.username if current_user else "system",
+        "username": target_user.username,
+    }
+    audit_repo.log(
+        actor_id=current_user.id if current_user else None,
+        target_id=None,
+        action="delete_account",
+        details=details,
+    )
+    notify_admins("delete_account", details, db)
 
     return jsonify(
         {
