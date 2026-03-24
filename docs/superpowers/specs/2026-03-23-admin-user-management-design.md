@@ -133,7 +133,7 @@ CREATE TABLE audit_log (
 - `actor_id == target_id` → self-service action
 - `actor_id != target_id` → admin action
 
-**Surfaces in:** Existing Activity tab in Back Office, below Live Connections. Table with timestamp, actor, target, action (human-readable), details (expandable old → new). Filterable by action type and user. Most recent first.
+**Surfaces in:** The new USERS tab in Back Office (consolidates all user-related features in one place). Table with timestamp, actor, target, action (human-readable), details (expandable old → new). Filterable by action type and user. Most recent first.
 
 **Logged actions:**
 
