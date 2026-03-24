@@ -509,3 +509,13 @@ def auth_app(auth_temp_dir):
     app.admin_user_id = admin.id
 
     yield app
+
+
+@pytest.fixture(scope="session")
+def auth_db(auth_app):
+    """Expose the AuthDatabase instance from the session-scoped auth app.
+
+    Used by tests that need direct database access without going through
+    the HTTP layer (e.g., repository unit tests).
+    """
+    return auth_app.auth_db

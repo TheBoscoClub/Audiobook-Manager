@@ -257,6 +257,20 @@ class UserRepository:
             )
             return cursor.rowcount > 0
 
+    def count_admins(self) -> int:
+        """Count the number of admin users."""
+        with self.db.connection() as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM users WHERE is_admin = 1"
+            ).fetchone()[0]
+
+    def is_last_admin(self, user_id: int) -> bool:
+        """Check if this user is the only admin."""
+        user = self.get_by_id(user_id)
+        if not user or not user.is_admin:
+            return False
+        return self.count_admins() == 1
+
     def set_download_permission(self, user_id: int, can_download: bool) -> bool:
         """Set download permission for a user."""
         with self.db.connection() as conn:
