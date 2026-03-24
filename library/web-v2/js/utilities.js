@@ -3058,6 +3058,7 @@ function formatAction(action) {
     change_download: "Download Permission Changed",
     delete_account: "Account Deleted",
     delete_user: "User Deleted",
+    update_profile: "Profile Updated",
   };
   return map[action] || action;
 }

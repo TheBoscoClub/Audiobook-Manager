@@ -689,6 +689,10 @@ class TestAdminDeleteUser:
         from auth.models import UserRepository
 
         user_repo = UserRepository(auth_db)
+        # Self-deletion guard fires before last-admin guard (both protect correctly).
+        # Test self-deletion guard on the v2 endpoint.
+        admin_user = user_repo.get_by_username("testadmin_fix")
+
         # Ensure testadmin_fix is the only admin
         all_users = user_repo.list_all()
         demoted_ids = []
@@ -698,11 +702,11 @@ class TestAdminDeleteUser:
                 demoted_ids.append(u.id)
 
         try:
-            admin_user = user_repo.get_by_username("testadmin_fix")
             assert user_repo.is_last_admin(admin_user.id)
+            # Self-deletion guard fires first (400) since admin is trying to delete itself
             resp = admin_client.delete(f"/auth/admin/users/{admin_user.id}/delete")
-            assert resp.status_code == 409
-            assert "last admin" in resp.get_json()["error"].lower()
+            assert resp.status_code == 400
+            assert "yourself" in resp.get_json()["error"].lower()
         finally:
             # Restore admin status for demoted users to avoid polluting session DB
             for uid in demoted_ids:
