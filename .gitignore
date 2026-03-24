@@ -203,6 +203,9 @@ nohup.out
 # Claude Code context recovery files
 .claude-checkpoint.md
 .claude-recovery-plan.md
+.claude-session-context.md
+.claude-session-ring.jsonl
+.claude-task-state.md
 
 # Session exit timestamps
 exit.*
