@@ -23,7 +23,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Optional, Callable, Any
 
-from flask import Blueprint, Response, jsonify, request, g, current_app
+from flask import Blueprint, Response, jsonify, make_response, request, g, current_app
 
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -5463,3 +5463,326 @@ def admin_setup_info(user_id: int):
         setup_data = {"email": target_user.recovery_email or ""}
 
     return jsonify({"setup_data": setup_data})
+
+
+# ---------------------------------------------------------------------------
+# Self-service account endpoints (/auth/account/*)
+# ---------------------------------------------------------------------------
+
+
+@auth_bp.route("/account", methods=["GET"])
+@login_required
+def account_get():
+    """
+    Get the authenticated user's own profile.
+
+    Returns 200 with profile fields.
+    """
+    user = get_current_user()
+    return jsonify(
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.recovery_email,
+            "auth_type": user.auth_type.value,
+            "can_download": user.can_download,
+            "is_admin": user.is_admin,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "last_login": user.last_login.isoformat() if user.last_login else None,
+        }
+    )
+
+
+@auth_bp.route("/account/username", methods=["PUT"])
+@login_required
+def account_change_username():
+    """
+    Change the authenticated user's own username.
+
+    JSON body: {"username": "newname"}
+    Returns 200 with new username, 400 if empty, 409 if duplicate.
+    """
+    from auth.audit import AuditLogRepository, notify_admins
+
+    data = request.get_json() or {}
+    new_username = data.get("username", "").strip() if data.get("username") else ""
+    if not new_username:
+        return jsonify({"error": "username is required"}), 400
+
+    user = get_current_user()
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    old_username = user.username
+
+    if not user_repo.update_username(user.id, new_username):
+        return jsonify({"error": "Username already taken"}), 409
+
+    # Audit log
+    audit_repo = AuditLogRepository(db)
+    details = {
+        "old": old_username,
+        "new": new_username,
+        "actor_username": old_username,
+        "target_username": new_username,
+    }
+    audit_repo.log(
+        actor_id=user.id,
+        target_id=user.id,
+        action="change_username",
+        details=details,
+    )
+    notify_admins("change_username", details, db)
+
+    return jsonify({"success": True, "username": new_username})
+
+
+@auth_bp.route("/account/email", methods=["PUT"])
+@login_required
+def account_change_email():
+    """
+    Change the authenticated user's own email (or clear it).
+
+    JSON body: {"email": "new@example.com"} (empty string clears)
+    Returns 200.
+    """
+    from auth.audit import AuditLogRepository
+
+    data = request.get_json() or {}
+    new_email = data.get("email", "").strip() if data.get("email") else ""
+
+    user = get_current_user()
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    old_email = user.recovery_email
+    email_val = new_email if new_email else None
+    user_repo.update_email(user.id, email_val)
+
+    # Audit log (no notify_admins for self-service email change per spec)
+    audit_repo = AuditLogRepository(db)
+    audit_repo.log(
+        actor_id=user.id,
+        target_id=user.id,
+        action="change_email",
+        details={
+            "old": old_email,
+            "new": email_val,
+            "actor_username": user.username,
+            "target_username": user.username,
+        },
+    )
+
+    return jsonify({"success": True})
+
+
+@auth_bp.route("/account/auth-method", methods=["PUT"])
+@login_required
+def account_switch_auth_method():
+    """
+    Switch the authenticated user's own authentication method.
+
+    JSON body: {"auth_method": "totp"|"magic_link"|"passkey", "email": "..."}
+    Returns 200 with setup_data.
+    """
+    from auth.audit import AuditLogRepository, notify_admins
+    from auth.models import PendingRegistration
+
+    data = request.get_json() or {}
+    auth_method = data.get("auth_method", "").strip()
+
+    if auth_method not in ("totp", "magic_link", "passkey"):
+        return (
+            jsonify(
+                {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
+            ),
+            400,
+        )
+
+    user = get_current_user()
+    db = get_auth_db()
+
+    old_method = user.auth_type.value
+    setup_data = {}
+
+    if auth_method == "totp":
+        secret_bytes, base32_secret, provisioning_uri = setup_totp(user.username)
+        user.auth_type = AuthType.TOTP
+        user.auth_credential = secret_bytes
+        user.save(db)
+        setup_data = {
+            "secret": base32_secret,
+            "qr_uri": provisioning_uri,
+            "manual_key": base32_secret,
+        }
+
+    elif auth_method == "magic_link":
+        email = data.get("email", "").strip() if data.get("email") else ""
+        user_email = user.recovery_email or ""
+        effective_email = email or user_email
+        if not effective_email:
+            return jsonify(
+                {"error": "Email is required for magic_link auth method"}
+            ), 400
+        user.auth_type = AuthType.MAGIC_LINK
+        user.auth_credential = b""
+        if email:
+            user.recovery_email = email
+        user.save(db)
+        setup_data = {}
+
+    elif auth_method == "passkey":
+        user.auth_type = AuthType.PASSKEY
+        user.auth_credential = b"pending"
+        user.save(db)
+
+        pending_reg, raw_token = PendingRegistration.create(
+            db, user.username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
+        )
+        truncated = raw_token[:16]
+        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
+        claim_url = f"/auth/register/claim?token={formatted_token}"
+
+        setup_data = {
+            "claim_token": formatted_token,
+            "claim_url": claim_url,
+            "expires_at": pending_reg.expires_at.isoformat()
+            if pending_reg.expires_at
+            else None,
+        }
+
+    # Audit log
+    details = {
+        "old": old_method,
+        "new": auth_method,
+        "actor_username": user.username,
+        "target_username": user.username,
+    }
+    audit_repo = AuditLogRepository(db)
+    audit_repo.log(
+        actor_id=user.id,
+        target_id=user.id,
+        action="switch_auth_method",
+        details=details,
+    )
+    notify_admins("switch_auth_method", details, db)
+
+    return jsonify({"success": True, "setup_data": setup_data})
+
+
+@auth_bp.route("/account/reset-credentials", methods=["POST"])
+@login_required
+def account_reset_credentials():
+    """
+    Reset credentials for the authenticated user's current auth method.
+
+    TOTP: new secret + QR/key
+    Passkey: new claim token
+    Magic Link: confirms email
+    Returns 200 with setup_data.
+    """
+    from auth.audit import AuditLogRepository, notify_admins
+    from auth.models import PendingRegistration
+
+    user = get_current_user()
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    # Re-fetch to get current state
+    current_user = user_repo.get_by_id(user.id)
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+
+    setup_data = {}
+
+    if current_user.auth_type == AuthType.TOTP:
+        secret_bytes, base32_secret, provisioning_uri = setup_totp(current_user.username)
+        current_user.auth_credential = secret_bytes
+        current_user.save(db)
+        setup_data = {
+            "secret": base32_secret,
+            "qr_uri": provisioning_uri,
+            "manual_key": base32_secret,
+        }
+
+    elif current_user.auth_type in (AuthType.PASSKEY, AuthType.FIDO2):
+        current_user.auth_credential = b"pending"
+        current_user.save(db)
+
+        pending_reg, raw_token = PendingRegistration.create(
+            db, current_user.username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
+        )
+        truncated = raw_token[:16]
+        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
+        claim_url = f"/auth/register/claim?token={formatted_token}"
+        setup_data = {
+            "claim_token": formatted_token,
+            "claim_url": claim_url,
+            "expires_at": pending_reg.expires_at.isoformat()
+            if pending_reg.expires_at
+            else None,
+        }
+
+    elif current_user.auth_type == AuthType.MAGIC_LINK:
+        setup_data = {"email": current_user.recovery_email or ""}
+
+    # Audit log
+    details = {
+        "auth_method": current_user.auth_type.value,
+        "actor_username": current_user.username,
+        "target_username": current_user.username,
+    }
+    audit_repo = AuditLogRepository(db)
+    audit_repo.log(
+        actor_id=current_user.id,
+        target_id=current_user.id,
+        action="reset_credentials",
+        details=details,
+    )
+    notify_admins("reset_credentials", details, db)
+
+    return jsonify({"success": True, "setup_data": setup_data})
+
+
+@auth_bp.route("/account", methods=["DELETE"])
+@login_required
+def account_delete():
+    """
+    Delete the authenticated user's own account.
+
+    Checks last-admin guard (cannot delete if sole admin).
+    Logs audit BEFORE deletion. Clears session cookie in response.
+    Returns 200, or 409 if last admin.
+    """
+    from auth.audit import AuditLogRepository, notify_admins
+
+    user = get_current_user()
+    db = get_auth_db()
+    user_repo = UserRepository(db)
+
+    # Last-admin guard
+    if user_repo.is_last_admin(user.id):
+        return jsonify({"error": "Cannot delete last admin"}), 409
+
+    # Audit BEFORE deletion (username is lost after delete)
+    details = {
+        "username": user.username,
+        "actor_username": user.username,
+        "target_username": user.username,
+    }
+    audit_repo = AuditLogRepository(db)
+    audit_repo.log(
+        actor_id=user.id,
+        target_id=user.id,
+        action="delete_account",
+        details=details,
+    )
+    notify_admins("delete_account", details, db)
+
+    # Delete user
+    user_repo.delete(user.id)
+
+    # Clear session cookie so browser logs out
+    resp = make_response(jsonify({"success": True, "message": "Account deleted"}))
+    resp.delete_cookie("audiobooks_session")
+    return resp
