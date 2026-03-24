@@ -1,8 +1,23 @@
 """Audit logging for user management actions."""
 
 import json
+import logging
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from .models import AuditLog
+
+logger = logging.getLogger(__name__)
+
+# Actions that trigger admin notifications
+CRITICAL_ACTIONS = {
+    "change_username",
+    "switch_auth_method",
+    "reset_credentials",
+    "delete_account",
+}
 
 
 class AuditLogRepository:
@@ -64,3 +79,71 @@ class AuditLogRepository:
             return conn.execute(
                 "SELECT COUNT(*) FROM audit_log WHERE id > ?", (last_seen_id,)
             ).fetchone()[0]
+
+
+def notify_admins(action: str, details: dict, db) -> None:
+    """Send notifications to all admins for critical actions.
+
+    In-app: handled by badge count (count_unseen).
+    Email: sent to all admins with a recovery_email set.
+    """
+    if action not in CRITICAL_ACTIONS:
+        return
+
+    from .models import UserRepository
+
+    user_repo = UserRepository(db)
+    admins = [u for u in user_repo.list_all() if u.is_admin and u.recovery_email]
+
+    if not admins:
+        return
+
+    subject, body = _format_notification(action, details)
+    for admin in admins:
+        _send_notification_email(admin.recovery_email, subject, body)
+
+
+def _format_notification(action: str, details: dict) -> tuple:
+    """Format email subject and body for an audit action."""
+    actor = details.get("actor_username", "Unknown")
+    target = details.get("target_username", actor)
+    action_labels = {
+        "change_username": f'{target} changed username to "{details.get("new", "?")}"',
+        "switch_auth_method": f"{target} switched auth method to {details.get('new', '?')}",
+        "reset_credentials": f"{target} reset their credentials",
+        "delete_account": f"{details.get('username', target)} deleted their account",
+    }
+    description = action_labels.get(action, f"{action} on {target}")
+    subject = f"[Audiobook Library] Account change: {description}"
+    body = (
+        f"{description} at {details.get('timestamp', 'unknown time')}.\n\n"
+        f"Actor: {actor}\n"
+        f"Review in Back Office \u2192 Users \u2192 Audit Log."
+    )
+    return subject, body
+
+
+def _send_notification_email(to_email: str, subject: str, body: str) -> bool:
+    """Send a notification email via configured SMTP."""
+    smtp_host = os.environ.get("SMTP_HOST", "localhost")
+    smtp_port = int(os.environ.get("SMTP_PORT", "25"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    from_email = os.environ.get("SMTP_FROM", "noreply@localhost")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = from_email
+    msg["To"] = to_email
+    msg.attach(MIMEText(body, "plain"))
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_pass:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+        return True
+    except Exception as e:
+        logger.error("Failed to send audit notification to %s: %s", to_email, e)
+        return False
