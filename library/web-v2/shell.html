@@ -6,8 +6,18 @@
     <title>The Library - Audiobook Collection</title>
     <link rel="stylesheet" href="css/shell.css?v=1773686866">
     <link rel="stylesheet" href="css/maintenance-banner.css?v=1774403200">
+    <link rel="stylesheet" href="css/theme-art-deco.css?v=1774403200">
+    <link rel="stylesheet" href="css/modals.css?v=1774403200">
 </head>
 <body>
+    <!-- Shell header with account access -->
+    <div id="shell-header">
+        <span class="header-title">Audiobook Library</span>
+        <button id="my-account-btn" class="header-btn" title="My Account settings">
+            <span id="account-username">Account</span>
+        </button>
+    </div>
+
     <!-- Content iframe: loads all authenticated pages -->
     <iframe id="content-frame" src="index.html?v=1773686866" title="Library content"></iframe>
 
@@ -39,9 +49,72 @@
         <audio id="audio-element"></audio>
     </div>
 
+    <!-- My Account Modal -->
+    <div class="modal" id="account-modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>My Account</h2>
+                <button class="modal-close" id="account-modal-close" title="Close My Account">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Profile Section -->
+                <div class="account-section">
+                    <h3>Profile</h3>
+                    <div class="account-field">
+                        <label>Username</label>
+                        <span id="acct-username" class="editable-field" title="Click to edit username"></span>
+                        <input id="acct-username-input" class="edit-input" hidden maxlength="24" title="New username">
+                        <button class="btn-inline" id="acct-username-save" hidden title="Save username change">Save</button>
+                        <button class="btn-inline" id="acct-username-cancel" hidden title="Cancel">Cancel</button>
+                    </div>
+                    <div class="account-field">
+                        <label>Email</label>
+                        <span id="acct-email" class="editable-field" title="Click to edit email"></span>
+                        <input id="acct-email-input" class="edit-input" hidden type="email" title="New email address">
+                        <button class="btn-inline" id="acct-email-save" hidden title="Save email change">Save</button>
+                        <button class="btn-inline" id="acct-email-cancel" hidden title="Cancel">Cancel</button>
+                    </div>
+                    <div class="account-field">
+                        <label>Member since</label>
+                        <span id="acct-created"></span>
+                    </div>
+                </div>
+
+                <!-- Authentication Section -->
+                <div class="account-section">
+                    <h3>Authentication</h3>
+                    <div class="account-field">
+                        <label>Current method</label>
+                        <span id="acct-auth-badge" class="auth-badge"></span>
+                    </div>
+                    <div class="auth-actions">
+                        <button class="btn btn-secondary" id="auth-switch-btn" title="Switch to a different authentication method">Switch Method</button>
+                        <button class="btn btn-secondary" id="auth-reset-btn" title="Reset your authentication credentials">Reset Credentials</button>
+                    </div>
+                    <div id="auth-switch-panel" hidden>
+                        <div class="radio-group">
+                            <label title="Time-based one-time password"><input type="radio" name="switch_auth" value="totp"> TOTP</label>
+                            <label title="Login link via email"><input type="radio" name="switch_auth" value="magic_link"> Magic Link</label>
+                            <label title="FIDO2 hardware key"><input type="radio" name="switch_auth" value="passkey"> Passkey</label>
+                        </div>
+                        <button class="btn btn-primary" id="auth-switch-confirm" title="Confirm auth method switch">Switch</button>
+                    </div>
+                    <div id="auth-setup-result" hidden></div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="account-section danger-zone">
+                    <h3>Danger Zone</h3>
+                    <button class="btn btn-danger" id="delete-account-btn" title="Permanently delete your account">Delete My Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="js/websocket.js?v=1774403200"></script>
     <script src="js/maintenance-banner.js?v=1774403200"></script>
     <script src="js/session-persistence.js?v=1773686866"></script>
     <script src="js/shell.js?v=1773686866"></script>
+    <script src="js/account.js?v=1774403200"></script>
 </body>
 </html>
