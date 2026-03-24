@@ -1,5 +1,4 @@
 """Tests for user self-service account endpoints (/auth/account/*)."""
-import pytest
 
 
 class TestGetAccount:
