@@ -413,6 +413,7 @@ library/auth/
 | `inbox` | User→admin messages | from_user_id, message, status, reply_via |
 | `contact_log` | Audit trail | user_id, sent_at (no content stored) |
 | `webauthn_credentials` | Passkey/FIDO2 credentials | user_id, credential_id, public_key, name, created_at |
+| `audit_log` | User management audit trail | actor_id, target_user_id (ON DELETE SET NULL), action, details (JSON), created_at |
 | `schema_version` | Migration tracking | version, applied_at |
 
 ### Session Management
@@ -458,6 +459,35 @@ Priority chain:
 | Credential protection | WebAuthn credentials stored as encrypted BLOB |
 | CSRF protection | SameSite=Lax cookies prevent cross-origin requests |
 | Claim tokens | One-time use, hash-verified, username-bound |
+
+### Admin User Management API (v7.3+)
+
+Admin endpoints require an authenticated admin session. All actions are recorded in `audit_log`.
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `POST /auth/admin/users/create` | POST | Create user (username, email, auth_method) — returns setup info (QR, link, etc.) |
+| `GET /auth/admin/users/<id>/setup-info` | GET | Re-fetch setup info for incomplete enrollment |
+| `PUT /auth/admin/users/<id>/username` | PUT | Change username |
+| `PUT /auth/admin/users/<id>/email` | PUT | Change email |
+| `PUT /auth/admin/users/<id>/roles` | PUT | Update is_admin, can_download flags |
+| `PUT /auth/admin/users/<id>/auth-method` | PUT | Switch auth method |
+| `POST /auth/admin/users/<id>/reset-credentials` | POST | Reset auth credentials (new TOTP secret, new magic link token, or clear passkey) |
+| `DELETE /auth/admin/users/<id>/delete` | DELETE | Delete user (last-admin guard: error if only admin) |
+| `GET /auth/admin/users/audit-log` | GET | Paginated audit log; query params: `page`, `per_page`, `action` filter |
+
+### Self-Service Account API (v7.3+)
+
+All endpoints require the requesting user's own authenticated session.
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `GET /auth/account` | GET | Fetch own profile (username, email, auth_type, created_at) |
+| `PUT /auth/account/username` | PUT | Change own username |
+| `PUT /auth/account/email` | PUT | Change own email |
+| `PUT /auth/account/auth-method` | PUT | Switch own auth method |
+| `POST /auth/account/reset-credentials` | POST | Reset own auth credentials |
+| `DELETE /auth/account` | DELETE | Delete own account (last-admin guard; requires confirmation text in request body) |
 
 ### Related Documentation
 
@@ -582,6 +612,8 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `admin_authors_bp` | `/api/admin` | Author/narrator rename, merge, reassign (v7.0+) |
 | `user_bp` | `/api/user` | Per-user state: history, downloads, library, new books (v6.3+) |
 | `admin_activity_bp` | `/api/admin` | Admin activity log and statistics (v6.3+) |
+| `user_mgmt_bp` | `/auth/admin` | Admin user management: create, edit roles, switch auth, delete, audit log (v7.3+) |
+| `account_bp` | `/auth/account` | Self-service: view profile, edit username/email, switch auth, reset credentials, delete account (v7.3+) |
 
 ### Utilities Operations Submodules
 
@@ -874,6 +906,19 @@ This view ensures the main library displays full-length audiobooks only.
 | **New Books** marquee | Scrolling banner showing recently added books since user's last visit |
 | **About** page | Version info (displayed prominently at top, fetched live from `/api/system/version`), library description, attributions, and links |
 | **Admin Audit** section | Back Office section showing unified activity log and statistics |
+| **USERS tab** (v7.3+) | Back Office tab: create users (TOTP/Magic Link/Passkey), edit username/email/roles, switch auth method, reset credentials, delete users, paginated audit log with action filter, notification badge for new audit entries |
+| **My Account modal** (v7.3+) | Shell header modal: view profile (username, email, auth type, member since), inline-edit username/email, switch auth method (two-step: select → configure), reset credentials, delete own account with custom confirmation text |
+
+### Admin Notification Flow (v7.3+)
+
+Critical user management actions trigger notifications on two channels simultaneously:
+
+1. **In-app badge**: The Back Office USERS tab shows an unread-count badge pushed via WebSocket to all connected admin clients. The badge clears when the admin opens the audit log.
+2. **Email alerts**: All admins with an email address on file receive an email summarizing the action (actor, target, action type). Delivery requires `SMTP_*` configuration in `/etc/audiobooks/audiobooks.conf`.
+
+**Critical actions that trigger notifications**: username change, auth method switch, credential reset, account deletion (self or admin-initiated).
+
+Non-critical actions (email update, role change) are recorded in the audit log but do not trigger notifications.
 
 ### Book Card UI (v7.1.3)
 

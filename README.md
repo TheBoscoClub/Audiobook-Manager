@@ -178,6 +178,10 @@ Web-based audiobook library browser with:
 - **Admin activity audit** with filterable log and usage statistics (v6.3+)
 - **Genre management** with bulk add/remove in Back Office (v6.3+)
 - **Maintenance scheduling** with cron-based task automation, real-time WebSocket announcements, and admin dashboard
+- **Web-based user management** — admins create, edit, and delete users with TOTP, Magic Link, or Passkey auth directly from the Back Office USERS tab (v7.3+)
+- **Self-service My Account** — authenticated users change their username, email, auth method, or credentials from the shell header without admin involvement (v7.3+)
+- **Audit logging** for all user management actions with paginated, filterable log in the Back Office (v7.3+)
+- **Admin notifications** — in-app badge and email alerts to all admins for critical account changes (v7.3+)
 
 ## Quick Start
 

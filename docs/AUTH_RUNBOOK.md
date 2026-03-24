@@ -16,8 +16,8 @@ Practical guide for operating and maintaining the secure remote access authentic
 | Check API status | `systemctl status audiobook-api` |
 | View recent logs | `journalctl -u audiobook-api -n 100` |
 | Check user count | `./library/tools/auth_admin.py --list-users` |
-| Create admin | `./library/tools/auth_admin.py --create-admin USERNAME` |
-| Reset user auth | `./library/tools/auth_admin.py --reset-auth USERNAME` |
+| Create admin | `./library/tools/auth_admin.py --create-admin USERNAME` (or Back Office → USERS → Create User) |
+| Reset user auth | `./library/tools/auth_admin.py --reset-auth USERNAME` (or Back Office → USERS → Reset Credentials) |
 | Force logout user | `./library/tools/auth_admin.py --logout USERNAME` |
 | Backup database | `./scripts/backup-auth.sh` |
 | Check inbox | `./library/tools/inbox_cli.py --list` |
@@ -170,6 +170,94 @@ When user loses access to their authenticator:
 # Logout all users (emergency)
 ./library/tools/auth_admin.py --logout-all
 ```
+
+## Web-Based User Management (v7.3+)
+
+The Back Office **USERS** tab provides full user lifecycle management without the command line.
+
+### Creating a User (Admin)
+
+Navigate to **Back Office → USERS → Create User**.
+
+1. Enter username and (optionally) email address.
+2. Select the auth method:
+
+   | Auth Method | What happens at creation |
+   |-------------|--------------------------|
+   | **TOTP** | Server generates a secret; admin is shown a QR code and backup codes to hand to the new user |
+   | **Magic Link** | Server generates a one-time enrollment link; admin copies it and sends it to the user out-of-band |
+   | **Passkey** | A pending slot is created; user completes passkey enrollment on first login |
+
+3. Click **Create**. The user is active immediately.
+4. The action is recorded in the audit log and a notification badge appears for other connected admins.
+
+### Editing a User (Admin)
+
+Click the **pencil icon** on any user row to open the edit panel.
+
+- **Username / Email**: Edit inline and click Save.
+- **Roles**: Toggle "Admin" and "Can Download" checkboxes.
+- **Auth Method**: Select a new method from the dropdown and click Switch. The old credentials are replaced and the user must re-authenticate.
+- **Reset Credentials**: Click Reset to generate fresh TOTP secret, magic link, or clear passkeys (depending on current auth type).
+
+### Deleting a User (Admin)
+
+Click the **trash icon** on the user row and confirm. The system rejects deletion if the target is the only admin account (last-admin guard). Audit log rows referencing the deleted user are preserved with a NULL `actor_id` or `target_user_id`.
+
+### Audit Log
+
+The USERS tab bottom panel shows a paginated audit log of all user management actions.
+
+- **Filter by action**: Use the Action dropdown to narrow to a specific event type.
+- **Columns**: Timestamp, actor (admin who performed the action), target user, action, details.
+- **New entries**: A badge on the USERS tab indicates unread audit entries since the admin last viewed the log. The badge is pushed in real time via WebSocket to all connected admins.
+- **Direct query**: `sqlite3 /var/lib/audiobooks/auth.db "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 20;"`
+
+## Self-Service Account Management (v7.3+)
+
+Authenticated users can manage their own account from the **My Account** button in the shell header (person icon, top right).
+
+| What users can do | Notes |
+|-------------------|-------|
+| View profile | Username, email, auth type, member-since date |
+| Change username | Takes effect immediately; all existing sessions remain valid |
+| Change email | Used for magic link and admin notification delivery |
+| Switch auth method | Two-step flow: (1) select new method, (2) complete enrollment (scan QR / copy link / register passkey) |
+| Reset credentials | Generates fresh credentials for current auth method |
+| Delete own account | Requires typing a confirmation phrase; blocked if user is the only admin |
+
+All self-service changes are recorded in the audit log and trigger admin email notifications for critical actions (see below).
+
+## Admin Notifications (v7.3+)
+
+### What triggers a notification
+
+| Action | In-app badge | Admin email |
+|--------|-------------|-------------|
+| Username change | Yes | Yes |
+| Auth method switch | Yes | Yes |
+| Credential reset | Yes | Yes |
+| Account deletion (self or admin) | Yes | Yes |
+| Email update | Audit log only | No |
+| Role change | Audit log only | No |
+
+### Email delivery requirements
+
+Admin email alerts are sent to every admin account that has an email address set. Delivery requires valid SMTP configuration in `/etc/audiobooks/audiobooks.conf`:
+
+```
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USER=resend
+SMTP_PASS=<api-key>
+SMTP_FROM=library@thebosco.club
+```
+
+If SMTP is not configured, the action still succeeds and is logged — only the email delivery is skipped (no error raised).
+
+### Clearing the notification badge
+
+Open Back Office → USERS → scroll to the Audit Log panel. Viewing the audit log marks all current entries as read for your session, clearing the badge.
 
 ## Notification Management
 
