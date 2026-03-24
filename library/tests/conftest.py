@@ -556,15 +556,18 @@ def _make_session_cookie(auth_db_instance, user_id: int) -> str:
 @pytest.fixture
 def admin_client(auth_app, auth_db):
     """Test client authenticated as an admin user."""
-    from auth.models import User, AuthType
+    from auth.models import User, AuthType, UserRepository
 
-    admin = User(
-        username="testadmin_fix",
-        auth_type=AuthType.TOTP,
-        auth_credential=b"testsecret",
-        is_admin=True,
-        can_download=True,
-    ).save(auth_db)
+    user_repo = UserRepository(auth_db)
+    admin = user_repo.get_by_username("testadmin_fix")
+    if admin is None:
+        admin = User(
+            username="testadmin_fix",
+            auth_type=AuthType.TOTP,
+            auth_credential=b"testsecret",
+            is_admin=True,
+            can_download=True,
+        ).save(auth_db)
     raw_token = _make_session_cookie(auth_db, admin.id)
     client = auth_app.test_client()
     client.set_cookie("audiobooks_session", raw_token)
@@ -575,8 +578,12 @@ def admin_client(auth_app, auth_db):
 @pytest.fixture
 def test_user(auth_db):
     """A regular (non-admin) TOTP user."""
-    from auth.models import User, AuthType
+    from auth.models import User, AuthType, UserRepository
 
+    user_repo = UserRepository(auth_db)
+    existing = user_repo.get_by_username("regularuser_fix")
+    if existing is not None:
+        return existing
     return User(
         username="regularuser_fix",
         auth_type=AuthType.TOTP,
