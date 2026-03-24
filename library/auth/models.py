@@ -1737,6 +1737,32 @@ class AccessRequestRepository:
             )
             return cursor.fetchone() is not None
 
+
+@dataclass
+class AuditLog:
+    """Audit log entry for user management actions."""
+
+    id: Optional[int] = None
+    timestamp: Optional[str] = None
+    actor_id: Optional[int] = None
+    target_id: Optional[int] = None
+    action: str = ""
+    details: Optional[str] = None
+
+    @classmethod
+    def from_row(cls, row) -> "AuditLog":
+        """Create AuditLog from database row (positional tuple indexing)."""
+        if row is None:
+            return None
+        return cls(
+            id=row[0],
+            timestamp=row[1],
+            actor_id=row[2],
+            target_id=row[3],
+            action=row[4],
+            details=row[5],
+        )
+
     def has_any_request(self, username: str) -> bool:
         """Check if username has any request (pending, approved, or denied)."""
         with self.db.connection() as conn:
