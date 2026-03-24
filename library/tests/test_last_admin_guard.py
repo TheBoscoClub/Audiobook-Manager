@@ -1,5 +1,4 @@
 """Tests for last-admin deletion guard."""
-import pytest
 from auth.models import User, AuthType, UserRepository
 
 
