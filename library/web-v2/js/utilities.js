@@ -61,6 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initBulkSection();
   initActivitySection();
   initSystemSection();
+  initUsersSection();
   initModals();
   initOperationStatus();
 
@@ -2813,12 +2814,309 @@ function initSystemSection() {
     ?.addEventListener("click", () => {
       loadServicesStatus();
       loadVersionInfo();
+    });
+}
+
+// ============================================
+// Users Tab (Create User, Audit Log, Badge)
+// ============================================
+
+function initUsersSection() {
+  initCreateUserForm();
+  initAuditLogFilter();
+  // Existing user management init (tabs, refresh, invite)
+  initUserManagement();
+
+  // Load data when users tab is shown
+  document
+    .querySelector('.cabinet-tab[data-section="users"]')
+    ?.addEventListener("click", function() {
       loadUsers();
       loadAccessRequests();
+      loadAuditLog();
+      loadUnseenBadge();
+    });
+}
+
+function initCreateUserForm() {
+  var form = document.getElementById("create-user-form");
+  if (!form) return;
+
+  // Show/hide email field based on auth method
+  form.querySelectorAll('input[name="auth_method"]').forEach(function(radio) {
+    radio.addEventListener("change", function() {
+      var emailInput = document.getElementById("new-email");
+      if (this.value === "magic_link") {
+        emailInput.required = true;
+        emailInput.placeholder = "Required for Magic Link auth";
+      } else {
+        emailInput.required = false;
+        emailInput.placeholder = "Optional email address";
+      }
+    });
+  });
+
+  form.addEventListener("submit", async function(e) {
+    e.preventDefault();
+    var formData = new FormData(form);
+    var body = {
+      username: formData.get("username"),
+      email: formData.get("email") || undefined,
+      auth_method: formData.get("auth_method"),
+      is_admin: form.querySelector('[name="is_admin"]').checked,
+      can_download: form.querySelector('[name="can_download"]').checked,
+    };
+
+    try {
+      var resp = await fetch("/auth/admin/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      });
+      var data = await resp.json();
+      if (!resp.ok) {
+        alert("Error: " + (data.error || "Failed to create user"));
+        return;
+      }
+
+      // Show setup data
+      renderSetupData(data.setup_data, body.username, body.auth_method);
+      form.reset();
+      loadUsers();
+      loadAuditLog();
+    } catch (err) {
+      alert("Network error: " + err.message);
+    }
+  });
+}
+
+function renderSetupData(setupData, username, authMethod) {
+  var panel = document.getElementById("setup-data-panel");
+  var qrContainer = document.getElementById("setup-qr-container");
+  var manualKey = document.getElementById("setup-manual-key");
+  var claimUrl = document.getElementById("setup-claim-url");
+  var downloadBtn = document.getElementById("download-setup-btn");
+
+  panel.hidden = false;
+  qrContainer.innerHTML = "";
+  manualKey.textContent = "";
+  claimUrl.textContent = "";
+  downloadBtn.hidden = true;
+
+  if (authMethod === "totp" && setupData && setupData.qr_uri) {
+    // Generate QR code image from URI
+    var img = document.createElement("img");
+    img.src = "/auth/admin/users/qr?uri=" + encodeURIComponent(setupData.qr_uri);
+    img.alt = "TOTP QR Code";
+    img.style.maxWidth = "200px";
+    img.id = "setup-qr-img";
+    qrContainer.appendChild(img);
+
+    manualKey.textContent = "Manual key: " + setupData.manual_key;
+
+    downloadBtn.hidden = false;
+    downloadBtn.onclick = function() {
+      downloadQrPng(username, img);
+    };
+  } else if (authMethod === "passkey" && setupData && setupData.claim_url) {
+    var claimHtml = document.createElement("span");
+    var strong = document.createElement("strong");
+    strong.textContent = "Claim URL: ";
+    claimHtml.appendChild(strong);
+    var code = document.createElement("code");
+    code.textContent = setupData.claim_url;
+    claimHtml.appendChild(code);
+    claimUrl.appendChild(claimHtml);
+
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "btn btn-secondary";
+    copyBtn.textContent = "Copy URL";
+    copyBtn.title = "Copy claim URL to clipboard";
+    copyBtn.onclick = function() {
+      navigator.clipboard.writeText(window.location.origin + setupData.claim_url);
+      copyBtn.textContent = "Copied!";
+      setTimeout(function() { copyBtn.textContent = "Copy URL"; }, 2000);
+    };
+    claimUrl.appendChild(copyBtn);
+  } else if (authMethod === "magic_link") {
+    claimUrl.textContent = "Magic Link user created. They will receive a login link via email.";
+  }
+}
+
+function downloadQrPng(username, imgElement) {
+  var now = new Date();
+  var mmdd = String(now.getMonth() + 1).padStart(2, "0") +
+             String(now.getDate()).padStart(2, "0");
+  var hms = String(now.getHours()).padStart(2, "0") +
+            String(now.getMinutes()).padStart(2, "0") +
+            String(now.getSeconds()).padStart(2, "0");
+  var filename = username + "_" + mmdd + "-" + hms + ".png";
+
+  var canvas = document.createElement("canvas");
+  canvas.width = imgElement.naturalWidth || 200;
+  canvas.height = imgElement.naturalHeight || 200;
+  var ctx = canvas.getContext("2d");
+  ctx.drawImage(imgElement, 0, 0);
+
+  var link = document.createElement("a");
+  link.download = filename;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
+function initAuditLogFilter() {
+  var filter = document.getElementById("audit-action-filter");
+  if (!filter) return;
+  filter.addEventListener("change", function() {
+    loadAuditLog(this.value, 0);
+  });
+}
+
+var auditPageSize = 25;
+
+async function loadAuditLog(actionFilter, offset) {
+  actionFilter = actionFilter || "";
+  offset = offset || 0;
+
+  var params = new URLSearchParams({ limit: auditPageSize, offset: offset });
+  if (actionFilter) params.set("action", actionFilter);
+
+  try {
+    var resp = await fetch("/auth/admin/audit-log?" + params.toString(), {
+      credentials: "same-origin",
+    });
+    if (!resp.ok) return;
+    var data = await resp.json();
+
+    var tbody = document.getElementById("audit-table-body");
+    tbody.innerHTML = "";
+
+    if (!data.entries || data.entries.length === 0) {
+      var emptyRow = document.createElement("tr");
+      var emptyCell = document.createElement("td");
+      emptyCell.colSpan = 5;
+      emptyCell.className = "placeholder-text";
+      emptyCell.textContent = "No audit log entries";
+      emptyRow.appendChild(emptyCell);
+      tbody.appendChild(emptyRow);
+      return;
+    }
+
+    data.entries.forEach(function(entry) {
+      var tr = document.createElement("tr");
+      var details = typeof entry.details === "string" ? JSON.parse(entry.details) : entry.details;
+      var isCritical = ["change_username", "switch_auth_method", "reset_credentials", "delete_account"].indexOf(entry.action) >= 0;
+
+      if (isCritical) tr.classList.add("audit-critical");
+
+      var tdTime = document.createElement("td");
+      tdTime.textContent = formatTimestamp(entry.timestamp);
+      tr.appendChild(tdTime);
+
+      var tdActor = document.createElement("td");
+      tdActor.textContent = (details && details.actor_username) ? details.actor_username : "System";
+      tr.appendChild(tdActor);
+
+      var tdTarget = document.createElement("td");
+      tdTarget.textContent = (details && details.target_username) ? details.target_username : "-";
+      tr.appendChild(tdTarget);
+
+      var tdAction = document.createElement("td");
+      tdAction.textContent = formatAction(entry.action);
+      tr.appendChild(tdAction);
+
+      var tdDetails = document.createElement("td");
+      tdDetails.textContent = formatAuditDetailsText(entry.action, details);
+      tr.appendChild(tdDetails);
+
+      tbody.appendChild(tr);
     });
 
-  // User Management
-  initUserManagement();
+    renderAuditPagination(data.total, offset, actionFilter);
+  } catch (err) {
+    console.error("Failed to load audit log:", err);
+  }
+}
+
+function formatAction(action) {
+  var map = {
+    create_user: "Created User",
+    change_username: "Username Changed",
+    change_email: "Email Changed",
+    switch_auth_method: "Auth Method Switched",
+    reset_credentials: "Credentials Reset",
+    toggle_roles: "Roles Changed",
+    delete_account: "Account Deleted",
+  };
+  return map[action] || action;
+}
+
+function formatAuditDetailsText(action, details) {
+  if (!details) return "-";
+  if (details.old !== undefined && details.new !== undefined) {
+    return String(details.old) + " \u2192 " + String(details.new);
+  }
+  if (details.auth_method) return details.auth_method;
+  if (details.username) return details.username;
+  return "-";
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return "-";
+  try {
+    var d = new Date(ts);
+    return d.toLocaleString();
+  } catch (e) {
+    return ts;
+  }
+}
+
+function renderAuditPagination(total, currentOffset, actionFilter) {
+  var container = document.getElementById("audit-pagination");
+  if (!container) return;
+  container.innerHTML = "";
+
+  var totalPages = Math.ceil(total / auditPageSize);
+  var currentPage = Math.floor(currentOffset / auditPageSize);
+
+  if (totalPages <= 1) return;
+
+  for (var i = 0; i < totalPages && i < 10; i++) {
+    var btn = document.createElement("button");
+    btn.className = "pagination-btn" + (i === currentPage ? " active" : "");
+    btn.textContent = i + 1;
+    btn.title = "Page " + (i + 1);
+    (function(pageIdx) {
+      btn.onclick = function() {
+        loadAuditLog(actionFilter, pageIdx * auditPageSize);
+      };
+    })(i);
+    container.appendChild(btn);
+  }
+}
+
+async function loadUnseenBadge() {
+  try {
+    var resp = await fetch("/auth/admin/audit-log?limit=1&offset=0", {
+      credentials: "same-origin",
+    });
+    if (!resp.ok) return;
+    var data = await resp.json();
+    var badge = document.getElementById("users-badge");
+    if (!badge) return;
+
+    // For now show total count; unseen tracking requires last_audit_seen_id
+    // which is a future enhancement
+    if (data.total > 0) {
+      badge.textContent = data.total;
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  } catch (err) {
+    // Ignore
+  }
 }
 
 // ============================================
