@@ -2836,6 +2836,14 @@ function initUsersSection() {
       loadAuditLog();
       loadUnseenBadge();
     });
+
+  // Real-time audit notifications via WebSocket
+  document.addEventListener("audit-notify", function () {
+    loadUnseenBadge();
+    if (currentSection === "users") {
+      loadAuditLog();
+    }
+  });
 }
 
 function initCreateUserForm() {

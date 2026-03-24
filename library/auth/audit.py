@@ -35,7 +35,16 @@ class AuditLogRepository:
                 (actor_id, target_id, action, details_json),
             )
             conn.commit()
-            return self.get_by_id(cursor.lastrowid)
+            entry = self.get_by_id(cursor.lastrowid)
+
+        # Push real-time notification to connected admin clients
+        try:
+            from backend.api_modular.websocket import connection_manager
+            connection_manager.broadcast({"type": "audit_notify", "action": action})
+        except Exception:
+            pass  # WebSocket broadcast is best-effort
+
+        return entry
 
     def get_by_id(self, entry_id):
         """Get a single audit log entry by ID."""
