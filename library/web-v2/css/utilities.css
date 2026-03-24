@@ -3296,3 +3296,174 @@ body.back-office {
     background: var(--brass-dark, #B8860B);
     color: #fff;
 }
+
+/* ============================================
+   Users Tab — Notification Badge, Audit Log,
+   Create User Form, Pagination
+   ============================================ */
+
+/* Notification Badge (Users tab) */
+.notification-badge {
+    background: var(--accent-gold, #d4a843);
+    color: var(--bg-dark, #1a1a2e);
+    border-radius: 50%;
+    padding: 0.1em 0.45em;
+    font-size: 0.7em;
+    font-weight: bold;
+    margin-left: 0.3em;
+    vertical-align: super;
+}
+
+/* Audit Log */
+.audit-critical {
+    border-left: 3px solid var(--accent-gold, #d4a843);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.5em 0.75em;
+    text-align: left;
+    border-bottom: 1px solid rgba(212, 168, 67, 0.15);
+}
+
+.data-table th {
+    color: var(--accent-gold, #d4a843);
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.data-table td {
+    color: var(--text-light, #e0d6c8);
+    font-size: 0.9em;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(212, 168, 67, 0.05);
+}
+
+/* Filter select */
+.filter-select {
+    background: var(--bg-dark, #1a1a2e);
+    color: var(--text-light, #e0d6c8);
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    padding: 0.3em 0.6em;
+    font-size: 0.85em;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    gap: 0.3em;
+    margin-top: 0.75em;
+    justify-content: center;
+}
+
+.pagination-btn {
+    background: transparent;
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    color: var(--text-light, #e0d6c8);
+    padding: 0.3em 0.6em;
+    cursor: pointer;
+    min-width: 2em;
+    text-align: center;
+}
+
+.pagination-btn.active {
+    background: var(--accent-gold, #d4a843);
+    color: var(--bg-dark, #1a1a2e);
+}
+
+.pagination-btn:hover:not(.active) {
+    background: rgba(212, 168, 67, 0.15);
+}
+
+/* Create User Form */
+.admin-form .form-row {
+    margin-bottom: 1em;
+}
+
+.admin-form .form-row label {
+    display: block;
+    margin-bottom: 0.3em;
+    color: var(--accent-gold, #d4a843);
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.admin-form input[type="text"],
+.admin-form input[type="email"] {
+    width: 100%;
+    max-width: 300px;
+    padding: 0.4em 0.6em;
+    background: var(--bg-dark, #1a1a2e);
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    color: var(--text-light, #e0d6c8);
+}
+
+.admin-form input[type="text"]:focus,
+.admin-form input[type="email"]:focus {
+    border-color: var(--accent-gold, #d4a843);
+    outline: none;
+}
+
+.radio-group,
+.checkbox-group {
+    display: flex;
+    gap: 1.2em;
+    flex-wrap: wrap;
+}
+
+.radio-group label,
+.checkbox-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    cursor: pointer;
+    color: var(--text-light, #e0d6c8);
+    font-weight: normal;
+}
+
+.btn-primary {
+    background: var(--accent-gold, #d4a843);
+    color: var(--bg-dark, #1a1a2e);
+    border: none;
+    padding: 0.5em 1.2em;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background: #e0b84d;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid var(--accent-gold, #d4a843);
+    color: var(--text-light, #e0d6c8);
+    padding: 0.4em 1em;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: rgba(212, 168, 67, 0.15);
+}
+
+#setup-data-panel {
+    margin-top: 1em;
+    padding: 1em;
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    background: rgba(212, 168, 67, 0.05);
+}
+
+#setup-manual-key {
+    margin: 0.5em 0;
+    font-family: monospace;
+    color: var(--accent-gold, #d4a843);
+}

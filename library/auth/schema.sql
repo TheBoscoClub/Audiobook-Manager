@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     recovery_email TEXT,           -- Optional, stored encrypted in SQLCipher
     recovery_phone TEXT,           -- Optional, stored encrypted in SQLCipher
     recovery_enabled BOOLEAN DEFAULT FALSE,
+    last_audit_seen_id INTEGER DEFAULT 0,
 
     CHECK (length(username) >= 3 AND length(username) <= 24)
 );
@@ -211,3 +212,15 @@ CREATE TABLE IF NOT EXISTS schema_version (
 );
 
 INSERT OR IGNORE INTO schema_version (version) VALUES (7);
+
+-- Audit log for user management actions (nullable FKs survive user deletion)
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    target_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    details TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);

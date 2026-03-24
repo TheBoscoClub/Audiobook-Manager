@@ -209,6 +209,36 @@ class AuthDatabase:
         with self.connection() as conn:
             conn.executescript(schema_sql)
 
+        # Apply additive migrations for columns/tables not covered by schema.sql
+        # (ALTER TABLE is not idempotent; schema.sql only handles CREATE TABLE IF NOT EXISTS)
+        with self.connection() as conn:
+            # Migration: add audit_log table if not exists
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                    actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    target_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    action TEXT NOT NULL,
+                    details TEXT
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp"
+                " ON audit_log(timestamp DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)"
+            )
+
+            # Migration: add last_audit_seen_id to users if not exists
+            try:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN last_audit_seen_id INTEGER DEFAULT 0"
+                )
+            except Exception:
+                pass  # Column already exists
+
         return created
 
     def _apply_migrations(self) -> None:
