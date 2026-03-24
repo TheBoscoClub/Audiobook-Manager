@@ -9,7 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Web-based admin user management** (USERS tab in Back Office): create users with TOTP/Magic Link/Passkey auth, change username/email, switch auth method, reset credentials, toggle admin/download roles, delete accounts
+- **Last-admin guard**: prevents deletion or demotion of the last remaining admin account
+- **Audit logging** for all user management actions: actor, target user, action type, details (JSON), timestamp — stored in `audit_log` table (schema version 7)
+- **Paginated, filterable audit log** in Back Office USERS tab with notification badge for new entries
+- **Real-time WebSocket push** for audit events to connected admin sessions
+- **Self-service My Account modal** in shell header: authenticated users change username, email, auth method, or credentials without admin involvement
+- **Admin notification helpers**: in-app badge increment and email notification on critical user actions (role changes, deletions)
+- **Granular admin user endpoints** (v7.3+): `PUT /auth/admin/users/<id>/username`, `PUT .../email`, `PUT .../roles`, `PUT .../auth-method`, `POST .../reset-credentials`, `DELETE .../delete`, `GET .../audit-log`
+- **Self-service endpoints**: `PUT /auth/user/me/username`, `PUT .../email`, `PUT .../auth-method`, `POST .../reset-credentials` with ownership enforcement
+- **Database schema v7**: `audit_log` table (actor_id, target_user_id ON DELETE SET NULL, action, details JSON, created_at) and `last_audit_seen_id` column on users
+- **Legacy `DELETE /auth/admin/users/<id>`**: now records audit entry and enforces last-admin guard (parity with new endpoint)
+- **Auth fixture helpers** (`conftest.py`): `make_admin_client()`, `make_user_client()`, `create_test_user()` for user management test isolation
+
 ### Changed
+
+- **`PATCH /auth/admin/users/<id>`** (legacy edit-profile): now records `update_profile` audit log entry and validates username max-length 24 chars
+- **USERS tab JS**: edit modal now calls granular endpoints (`/username`, `/email`) instead of the legacy combined PATCH, producing per-field audit entries
+- **Username validation**: max length enforced as 24 characters (ASCII printable, 3–24 chars) consistently across backend schema, API validation, and client-side guards in `admin.js` and `account.js`
+- **`SCHEMA_VERSION`** bumped to 7 for `audit_log` table and `last_audit_seen_id` column
 
 ### Fixed
 
@@ -18,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SSL buffer starvation in proxy WebSocket tunnel**: Added `ssl.SSLSocket.pending()` check before `select.select()` — heartbeats arriving through TLS were stuck in the SSL decryption buffer, invisible to `select()`, causing server-side receive timeouts
 - **Live Connections always showing 0**: Fixed race condition where `/api/admin/connections` was fetched before WebSocket had time to register; now uses delayed initial fetch, event-driven refresh on WebSocket open, 30-second polling, and refresh on Activity tab click
 - **upgrade.sh backup cleanup**: Root-owned `.pyc` files in old backups caused `rm -rf` to fail under `set -e`, silently aborting the upgrade before file sync; added sudo fallback
+- **Admin delete endpoint**: JS `usersTab.js` was calling the wrong path (`/delete` missing); now targets the audited `/delete` route correctly
+- **Toggle admin/download endpoints**: `toggle_user_admin` and `toggle_user_download` now record audit entries for each role change
+- **Legacy `AccessRequestRepository` methods**: relocated from `UserRepository` to correct class; fixed test isolation for `access_requests` table
+- **Self-deletion guard**: `admin_delete_user_v2` now checks if actor is deleting their own account and rejects with 400 before last-admin check
+- **Access request cleanup**: deleting a user now also removes their pending access requests to prevent orphaned entries
+- **Stale docstrings**: `3-32 chars` corrected to `3-24 chars, ASCII printable` in username constraint documentation
 
 ## [7.3.0.1] - 2026-03-23
 

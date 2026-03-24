@@ -323,13 +323,14 @@ library/auth/
 ├── __init__.py       # Module entry point, exports public API
 ├── database.py       # SQLCipher encryption wrapper, key management
 ├── models.py         # ORM-like repositories (User, Session, AccessRequest, etc.)
+├── audit.py          # AuditLog model and AuditLogRepository (v7.3+)
 ├── passkey.py        # WebAuthn/FIDO2 registration & authentication ceremonies
 ├── totp.py           # TOTP (RFC 6238) with QR code generation
 ├── backup_codes.py   # Single-use recovery codes (8 per user)
 ├── cli.py            # Admin CLI tool (audiobook-user)
 ├── inbox_cli.py      # Admin inbox management CLI
 ├── notify_cli.py     # Notification management CLI
-└── schema.sql        # Auth database schema (16 tables, v6)
+└── schema.sql        # Auth database schema (17 tables, v7)
 ```
 
 ### Authentication Flow
