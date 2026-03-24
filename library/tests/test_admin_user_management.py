@@ -444,18 +444,25 @@ class TestAdminChangeRoles:
         user_repo = UserRepository(auth_db)
         # Demote all admins except testadmin_fix to ensure it's the only one
         all_users = user_repo.list_all()
+        demoted_ids = []
         for u in all_users:
             if u.is_admin and u.username != "testadmin_fix":
                 user_repo.set_admin(u.id, False)
+                demoted_ids.append(u.id)
 
-        admin_user = user_repo.get_by_username("testadmin_fix")
-        assert user_repo.is_last_admin(admin_user.id)
-        resp = admin_client.put(
-            f"/auth/admin/users/{admin_user.id}/roles",
-            json={"is_admin": False},
-        )
-        assert resp.status_code == 409
-        assert "last admin" in resp.get_json()["error"].lower()
+        try:
+            admin_user = user_repo.get_by_username("testadmin_fix")
+            assert user_repo.is_last_admin(admin_user.id)
+            resp = admin_client.put(
+                f"/auth/admin/users/{admin_user.id}/roles",
+                json={"is_admin": False},
+            )
+            assert resp.status_code == 409
+            assert "last admin" in resp.get_json()["error"].lower()
+        finally:
+            # Restore admin status for demoted users to avoid polluting session DB
+            for uid in demoted_ids:
+                user_repo.set_admin(uid, True)
 
     def test_empty_body_returns_400(self, admin_client):
         uid, _ = _create_target_user(admin_client, "roles-empty")
@@ -684,15 +691,22 @@ class TestAdminDeleteUser:
         user_repo = UserRepository(auth_db)
         # Ensure testadmin_fix is the only admin
         all_users = user_repo.list_all()
+        demoted_ids = []
         for u in all_users:
             if u.is_admin and u.username != "testadmin_fix":
                 user_repo.set_admin(u.id, False)
+                demoted_ids.append(u.id)
 
-        admin_user = user_repo.get_by_username("testadmin_fix")
-        assert user_repo.is_last_admin(admin_user.id)
-        resp = admin_client.delete(f"/auth/admin/users/{admin_user.id}/delete")
-        assert resp.status_code == 409
-        assert "last admin" in resp.get_json()["error"].lower()
+        try:
+            admin_user = user_repo.get_by_username("testadmin_fix")
+            assert user_repo.is_last_admin(admin_user.id)
+            resp = admin_client.delete(f"/auth/admin/users/{admin_user.id}/delete")
+            assert resp.status_code == 409
+            assert "last admin" in resp.get_json()["error"].lower()
+        finally:
+            # Restore admin status for demoted users to avoid polluting session DB
+            for uid in demoted_ids:
+                user_repo.set_admin(uid, True)
 
     def test_delete_nonexistent_user(self, admin_client):
         resp = admin_client.delete("/auth/admin/users/99999/delete")
