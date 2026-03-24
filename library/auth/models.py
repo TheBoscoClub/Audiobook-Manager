@@ -82,12 +82,28 @@ class User:
     recovery_email: Optional[str] = None
     recovery_phone: Optional[str] = None
     recovery_enabled: bool = False
+    last_audit_seen_id: int = 0
 
     @classmethod
     def from_row(cls, row: tuple) -> "User":
         """Create User from database row."""
-        # Handle both old (8 columns) and new (11 columns) schema
-        if len(row) >= 11:
+        # Handle old (8 columns), new (11 columns), and current (12 columns) schema
+        if len(row) >= 12:
+            return cls(
+                id=row[0],
+                username=row[1],
+                auth_type=AuthType(row[2]),
+                auth_credential=row[3] if row[3] else b"",
+                can_download=bool(row[4]),
+                is_admin=bool(row[5]),
+                created_at=datetime.fromisoformat(row[6]) if row[6] else None,
+                last_login=datetime.fromisoformat(row[7]) if row[7] else None,
+                recovery_email=row[8],
+                recovery_phone=row[9],
+                recovery_enabled=bool(row[10]) if row[10] is not None else False,
+                last_audit_seen_id=int(row[11]) if row[11] is not None else 0,
+            )
+        elif len(row) >= 11:
             return cls(
                 id=row[0],
                 username=row[1],
@@ -123,9 +139,10 @@ class User:
                     INSERT INTO users (
                         username, auth_type, auth_credential,
                         can_download, is_admin,
-                        recovery_email, recovery_phone, recovery_enabled
+                        recovery_email, recovery_phone, recovery_enabled,
+                        last_audit_seen_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         self.username,
@@ -136,6 +153,7 @@ class User:
                         self.recovery_email,
                         self.recovery_phone,
                         self.recovery_enabled,
+                        self.last_audit_seen_id,
                     ),
                 )
                 self.id = cursor.lastrowid
@@ -150,7 +168,8 @@ class User:
                     UPDATE users SET
                         username = ?, auth_type = ?, auth_credential = ?,
                         can_download = ?, is_admin = ?, last_login = ?,
-                        recovery_email = ?, recovery_phone = ?, recovery_enabled = ?
+                        recovery_email = ?, recovery_phone = ?, recovery_enabled = ?,
+                        last_audit_seen_id = ?
                     WHERE id = ?
                     """,
                     (
@@ -163,6 +182,7 @@ class User:
                         self.recovery_email,
                         self.recovery_phone,
                         self.recovery_enabled,
+                        self.last_audit_seen_id,
                         self.id,
                     ),
                 )
