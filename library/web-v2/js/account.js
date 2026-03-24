@@ -68,7 +68,18 @@
   async function saveUsername() {
     var input = document.getElementById("acct-username-input");
     var newName = input.value.trim();
-    if (!newName) return;
+    if (!newName || newName.length < 3) {
+      alert("Username must be at least 3 characters");
+      return;
+    }
+    if (newName.length > 24) {
+      alert("Username must be at most 24 characters");
+      return;
+    }
+    if (/[<>\\]/.test(newName)) {
+      alert("Username contains invalid characters");
+      return;
+    }
 
     try {
       var resp = await fetch("/auth/account/username", {

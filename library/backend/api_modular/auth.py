@@ -626,7 +626,7 @@ def update_current_user():
     Update the currently authenticated user's profile.
 
     JSON body:
-        username: New username (optional, 3-32 chars, alphanumeric + underscore)
+        username: New username (optional, 3-24 chars, ASCII printable except <>\)
         email: New email (optional, or null to remove)
 
     Returns:
@@ -675,6 +675,29 @@ def update_current_user():
 
     # Fetch updated user data
     updated_user = user_repo.get_by_id(user.id)
+
+    # Audit log for profile changes via /me PUT
+    changes = {}
+    if new_username is not None and new_username != user.username:
+        changes["username"] = {"old": user.username, "new": new_username}
+    if "email" in data:
+        old_email = user.recovery_email
+        new_email_val = data.get("email") or None
+        if new_email_val != old_email:
+            changes["email"] = {"old": old_email, "new": new_email_val}
+    if changes:
+        from auth.audit import AuditLogRepository
+
+        audit_repo = AuditLogRepository(db)
+        audit_repo.log(
+            actor_id=user.id,
+            target_id=user.id,
+            action="update_profile",
+            details={
+                "changes": changes,
+                "actor_username": user.username,
+            },
+        )
 
     return jsonify(
         {
@@ -4873,7 +4896,7 @@ def update_user(user_id: int):
     Update a user's profile (admin only).
 
     JSON body:
-        username: New username (optional, 3-32 chars, alphanumeric + underscore)
+        username: New username (optional, 3-24 chars, ASCII printable except <>\)
         email: New email (optional, or null to remove)
 
     Returns:
@@ -5020,8 +5043,14 @@ def admin_change_username(user_id: int):
 
     data = request.get_json() or {}
     new_username = data.get("username", "").strip() if data.get("username") else ""
-    if not new_username:
-        return jsonify({"error": "username is required"}), 400
+    if not new_username or len(new_username) < 3:
+        return jsonify({"error": "Username must be at least 3 characters"}), 400
+    if len(new_username) > 24:
+        return jsonify({"error": "Username must be at most 24 characters"}), 400
+    if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in new_username):
+        return jsonify({"error": "Username contains invalid characters"}), 400
+    if new_username != new_username.strip():
+        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
 
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -5076,10 +5105,18 @@ def admin_change_email(user_id: int):
     JSON body: {"email": "new@example.com"} (empty string clears)
     Returns 200 with updated user.
     """
+    import re
+
     from auth.audit import AuditLogRepository
 
     data = request.get_json() or {}
     new_email = data.get("email", "").strip() if data.get("email") else ""
+
+    # Validate email format if non-empty
+    if new_email:
+        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        if not re.match(email_pattern, new_email):
+            return jsonify({"error": "Invalid email format"}), 400
 
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -5382,12 +5419,16 @@ def admin_delete_user_v2(user_id: int):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
+    # Prevent self-deletion
+    admin_user = get_current_user()
+    if admin_user and admin_user.id == user_id:
+        return jsonify({"error": "Cannot delete yourself"}), 400
+
     # Last-admin guard
-    if user_repo.is_last_admin(user_id):
+    if target_user.is_admin and user_repo.is_last_admin(user_id):
         return jsonify({"error": "Cannot delete last admin"}), 409
 
     # Audit BEFORE deletion (capture username)
-    admin_user = get_current_user()
     details = {
         "username": target_user.username,
         "actor_username": admin_user.username,
@@ -5402,10 +5443,14 @@ def admin_delete_user_v2(user_id: int):
     )
     notify_admins("delete_account", details, db)
 
-    # Delete user
+    # Delete user (cascades to sessions, positions, etc.)
     user_repo.delete(user_id)
 
-    return jsonify({"success": True, "message": "User deleted"})
+    # Clean up any associated access request
+    request_repo = AccessRequestRepository(db)
+    request_repo.delete_for_username(target_user.username)
+
+    return jsonify({"success": True, "message": f"User '{target_user.username}' deleted."})
 
 
 @auth_bp.route("/admin/audit-log", methods=["GET"])
@@ -5557,8 +5602,14 @@ def account_change_username():
 
     data = request.get_json() or {}
     new_username = data.get("username", "").strip() if data.get("username") else ""
-    if not new_username:
-        return jsonify({"error": "username is required"}), 400
+    if not new_username or len(new_username) < 3:
+        return jsonify({"error": "Username must be at least 3 characters"}), 400
+    if len(new_username) > 24:
+        return jsonify({"error": "Username must be at most 24 characters"}), 400
+    if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in new_username):
+        return jsonify({"error": "Username contains invalid characters"}), 400
+    if new_username != new_username.strip():
+        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
 
     user = get_current_user()
     db = get_auth_db()
@@ -5597,10 +5648,18 @@ def account_change_email():
     JSON body: {"email": "new@example.com"} (empty string clears)
     Returns 200.
     """
+    import re
+
     from auth.audit import AuditLogRepository
 
     data = request.get_json() or {}
     new_email = data.get("email", "").strip() if data.get("email") else ""
+
+    # Validate email format if non-empty
+    if new_email:
+        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        if not re.match(email_pattern, new_email):
+            return jsonify({"error": "Invalid email format"}), 400
 
     user = get_current_user()
     db = get_auth_db()
