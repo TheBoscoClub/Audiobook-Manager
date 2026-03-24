@@ -40,7 +40,10 @@ from .models import (
     AccessRequestStatus,
     AccessRequest,
     AccessRequestRepository,
+    AuditLog,
 )
+
+from .audit import AuditLogRepository
 
 from .totp import (
     generate_secret as generate_totp_secret,
@@ -112,6 +115,9 @@ __all__ = [
     "AccessRequestStatus",
     "AccessRequest",
     "AccessRequestRepository",
+    # Audit Log
+    "AuditLog",
+    "AuditLogRepository",
     # TOTP
     "generate_totp_secret",
     "secret_to_base32",
