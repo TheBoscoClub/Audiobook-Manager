@@ -82,12 +82,28 @@ class User:
     recovery_email: Optional[str] = None
     recovery_phone: Optional[str] = None
     recovery_enabled: bool = False
+    last_audit_seen_id: int = 0
 
     @classmethod
     def from_row(cls, row: tuple) -> "User":
         """Create User from database row."""
-        # Handle both old (8 columns) and new (11 columns) schema
-        if len(row) >= 11:
+        # Handle old (8 columns), new (11 columns), and current (12 columns) schema
+        if len(row) >= 12:
+            return cls(
+                id=row[0],
+                username=row[1],
+                auth_type=AuthType(row[2]),
+                auth_credential=row[3] if row[3] else b"",
+                can_download=bool(row[4]),
+                is_admin=bool(row[5]),
+                created_at=datetime.fromisoformat(row[6]) if row[6] else None,
+                last_login=datetime.fromisoformat(row[7]) if row[7] else None,
+                recovery_email=row[8],
+                recovery_phone=row[9],
+                recovery_enabled=bool(row[10]) if row[10] is not None else False,
+                last_audit_seen_id=int(row[11]) if row[11] is not None else 0,
+            )
+        elif len(row) >= 11:
             return cls(
                 id=row[0],
                 username=row[1],
@@ -123,9 +139,10 @@ class User:
                     INSERT INTO users (
                         username, auth_type, auth_credential,
                         can_download, is_admin,
-                        recovery_email, recovery_phone, recovery_enabled
+                        recovery_email, recovery_phone, recovery_enabled,
+                        last_audit_seen_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         self.username,
@@ -136,6 +153,7 @@ class User:
                         self.recovery_email,
                         self.recovery_phone,
                         self.recovery_enabled,
+                        self.last_audit_seen_id,
                     ),
                 )
                 self.id = cursor.lastrowid
@@ -150,7 +168,8 @@ class User:
                     UPDATE users SET
                         username = ?, auth_type = ?, auth_credential = ?,
                         can_download = ?, is_admin = ?, last_login = ?,
-                        recovery_email = ?, recovery_phone = ?, recovery_enabled = ?
+                        recovery_email = ?, recovery_phone = ?, recovery_enabled = ?,
+                        last_audit_seen_id = ?
                     WHERE id = ?
                     """,
                     (
@@ -163,6 +182,7 @@ class User:
                         self.recovery_email,
                         self.recovery_phone,
                         self.recovery_enabled,
+                        self.last_audit_seen_id,
                         self.id,
                     ),
                 )
@@ -236,6 +256,20 @@ class UserRepository:
                 "UPDATE users SET is_admin = ? WHERE id = ?", (is_admin, user_id)
             )
             return cursor.rowcount > 0
+
+    def count_admins(self) -> int:
+        """Count the number of admin users."""
+        with self.db.connection() as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM users WHERE is_admin = 1"
+            ).fetchone()[0]
+
+    def is_last_admin(self, user_id: int) -> bool:
+        """Check if this user is the only admin."""
+        user = self.get_by_id(user_id)
+        if not user or not user.is_admin:
+            return False
+        return self.count_admins() == 1
 
     def set_download_permission(self, user_id: int, can_download: bool) -> bool:
         """Set download permission for a user."""
@@ -1795,3 +1829,29 @@ class AccessRequestRepository:
             )
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None
+
+
+@dataclass
+class AuditLog:
+    """Audit log entry for user management actions."""
+
+    id: Optional[int] = None
+    timestamp: Optional[str] = None
+    actor_id: Optional[int] = None
+    target_id: Optional[int] = None
+    action: str = ""
+    details: Optional[str] = None
+
+    @classmethod
+    def from_row(cls, row) -> "AuditLog":
+        """Create AuditLog from database row (positional tuple indexing)."""
+        if row is None:
+            return None
+        return cls(
+            id=row[0],
+            timestamp=row[1],
+            actor_id=row[2],
+            target_id=row[3],
+            action=row[4],
+            details=row[5],
+        )
