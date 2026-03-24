@@ -654,10 +654,11 @@ Audiobooks/
 │   │   ├── passkey.py           # WebAuthn/FIDO2 registration & auth
 │   │   ├── totp.py              # TOTP (authenticator app) support
 │   │   ├── backup_codes.py      # Single-use recovery codes
+│   │   ├── audit.py             # Audit log model and repository (v7.3+)
 │   │   ├── cli.py               # Admin CLI tool (audiobook-user)
 │   │   ├── inbox_cli.py         # Admin inbox management CLI
 │   │   ├── notify_cli.py        # Notification management CLI
-│   │   └── schema.sql           # Auth database schema (16 tables, v6)
+│   │   └── schema.sql           # Auth database schema (17 tables, v7)
 │   ├── backend/
 │   │   ├── api_server.py        # Flask server launcher
 │   │   ├── api_modular/         # Modular Flask Blueprints
@@ -718,7 +719,16 @@ Audiobooks/
 │       ├── 403.html             # Forbidden error page
 │       ├── js/
 │       │   ├── library.js       # Library frontend (search, sort, player)
-│       │   └── shell.js         # Shell frame (viewport fix, player controls)
+│       │   ├── shell.js         # Shell frame (viewport fix, player controls)
+│       │   ├── account.js       # Self-service My Account modal (v7.3+)
+│       │   ├── utilities.js     # Back Office utilities tab logic
+│       │   ├── websocket.js     # WebSocket client for live connections/audit events
+│       │   ├── webauthn.js      # WebAuthn registration and authentication helpers
+│       │   ├── marquee.js       # New books marquee logic (v6.3+)
+│       │   ├── tutorial.js      # Help/tutorial overlay
+│       │   ├── session-persistence.js # Playback position persistence
+│       │   ├── maint-sched.js   # Maintenance scheduler UI (v7.0+)
+│       │   └── maintenance-banner.js  # Maintenance banner display
 │       ├── css/
 │       │   ├── library.css      # Main library styling
 │       │   ├── shell.css        # Shell frame and player bar layout
@@ -1186,6 +1196,10 @@ The library exposes a REST API on port 5001:
 | `/auth/register/claim/webauthn/begin` | POST | Start WebAuthn registration for claim |
 | `/auth/register/claim/webauthn/complete` | POST | Complete WebAuthn claim registration |
 | `/auth/me` | GET/PUT | Get or update current user info |
+| `/auth/user/me/username` | PUT | Self-service: change own username (v7.3+) |
+| `/auth/user/me/email` | PUT | Self-service: change own email (v7.3+) |
+| `/auth/user/me/auth-method` | PUT | Self-service: switch auth method (v7.3+) |
+| `/auth/user/me/reset-credentials` | POST | Self-service: reset own credentials (v7.3+) |
 | `/auth/recover/backup-code` | POST | Use backup code for recovery |
 | `/auth/recover/regenerate-codes` | POST | Generate new backup codes |
 | `/auth/health` | GET | Auth system health check |
@@ -1195,10 +1209,19 @@ The library exposes a REST API on port 5001:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/auth/admin/users` | GET | List all users |
+| `/auth/admin/users/create` | POST | Create user (TOTP/Magic Link/Passkey) — returns setup info |
 | `/auth/admin/users/invite` | POST | Invite new user (pre-approved) |
-| `/auth/admin/users/<id>` | PUT/DELETE | Update or delete user |
-| `/auth/admin/users/<id>/toggle-admin` | POST | Grant/revoke admin |
-| `/auth/admin/users/<id>/toggle-download` | POST | Grant/revoke download permission |
+| `/auth/admin/users/<id>` | PUT/DELETE | Update or delete user (legacy) |
+| `/auth/admin/users/<id>/username` | PUT | Change username (v7.3+) |
+| `/auth/admin/users/<id>/email` | PUT | Change email (v7.3+) |
+| `/auth/admin/users/<id>/roles` | PUT | Update admin/download flags (v7.3+) |
+| `/auth/admin/users/<id>/auth-method` | PUT | Switch auth method (v7.3+) |
+| `/auth/admin/users/<id>/reset-credentials` | POST | Reset TOTP/magic link/passkey credentials (v7.3+) |
+| `/auth/admin/users/<id>/setup-info` | GET | Re-fetch setup info for incomplete enrollment (v7.3+) |
+| `/auth/admin/users/<id>/delete` | DELETE | Delete user with audit log + last-admin guard (v7.3+) |
+| `/auth/admin/users/<id>/toggle-admin` | POST | Grant/revoke admin (legacy) |
+| `/auth/admin/users/<id>/toggle-download` | POST | Grant/revoke download permission (legacy) |
+| `/auth/admin/users/audit-log` | GET | Paginated audit log with action filter (v7.3+) |
 | `/auth/admin/access-requests` | GET | List pending access requests |
 | `/auth/admin/access-requests/<id>/approve` | POST | Approve access request |
 | `/auth/admin/access-requests/<id>/deny` | POST | Deny access request |
