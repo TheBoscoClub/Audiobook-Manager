@@ -138,6 +138,11 @@
                     <span class="tab-icon">&#128209;</span>
                     <span class="tab-label">Activity</span>
                 </button>
+                <button class="cabinet-tab" data-section="users" title="Manage user accounts, permissions, and authentication">
+                    <span class="tab-icon">&#128101;</span>
+                    <span class="tab-label">Users</span>
+                    <span class="notification-badge" id="users-badge" hidden>0</span>
+                </button>
                 <button class="cabinet-tab" data-section="system" title="Manage services and application upgrades">
                     <span class="tab-icon">&#9881;</span>
                     <span class="tab-label">System</span>
@@ -854,6 +859,148 @@
                 </div>
             </section>
 
+            <!-- Users Section -->
+            <section class="drawer-content" id="users-section">
+                <div class="section-header">
+                    <h2>User Management</h2>
+                    <p class="section-desc">Create, manage, and audit user accounts</p>
+                </div>
+
+                <div class="card-catalog">
+                    <!-- Create User Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Create New User</span>
+                        </div>
+                        <div class="card-body">
+                            <form id="create-user-form" class="admin-form">
+                                <div class="form-row">
+                                    <label for="new-username">Username</label>
+                                    <input type="text" id="new-username" name="username"
+                                           minlength="3" maxlength="24" pattern="[a-zA-Z0-9-]+"
+                                           required placeholder="3-24 chars, alphanumeric or hyphens"
+                                           title="Username: 3-24 characters, letters, numbers, and hyphens">
+                                </div>
+                                <div class="form-row">
+                                    <label for="new-email">Email (optional)</label>
+                                    <input type="email" id="new-email" name="email"
+                                           placeholder="Required for Magic Link auth"
+                                           title="Email address for Magic Link authentication or recovery">
+                                </div>
+                                <div class="form-row">
+                                    <label>Auth Method</label>
+                                    <div class="radio-group">
+                                        <label title="Time-based one-time password (authenticator app)">
+                                            <input type="radio" name="auth_method" value="totp" checked> TOTP
+                                        </label>
+                                        <label title="Login link sent via email">
+                                            <input type="radio" name="auth_method" value="magic_link"> Magic Link
+                                        </label>
+                                        <label title="FIDO2 hardware key or biometric">
+                                            <input type="radio" name="auth_method" value="passkey"> Passkey
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label>Roles</label>
+                                    <div class="checkbox-group">
+                                        <label title="Grant administrative access to Back Office">
+                                            <input type="checkbox" name="is_admin"> Admin
+                                        </label>
+                                        <label title="Allow downloading audiobook files">
+                                            <input type="checkbox" name="can_download"> Download
+                                        </label>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary"
+                                        title="Create the user account">Create User</button>
+                            </form>
+                            <!-- Setup data panel (shown after creation) -->
+                            <div id="setup-data-panel" hidden>
+                                <div id="setup-qr-container"></div>
+                                <div id="setup-manual-key"></div>
+                                <div id="setup-claim-url"></div>
+                                <button id="download-setup-btn" class="btn btn-secondary" hidden
+                                        title="Download QR code as PNG image">Download QR</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User List Card (moved from System tab) -->
+                    <div class="catalog-card wide" id="user-management-card">
+                        <div class="card-header">
+                            <span>All Users</span>
+                            <span class="badge" id="users-count-badge">-</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="user-management-tabs">
+                                <button class="user-tab active" data-tab="users" title="Manage existing users">Users</button>
+                                <button class="user-tab" data-tab="requests" title="Review access requests">
+                                    Requests
+                                    <span class="pending-badge" id="pending-requests-count" hidden>0</span>
+                                </button>
+                                <button class="office-btn primary invite-user-btn" id="invite-user-btn" title="Invite a new user via email">
+                                    + Invite User
+                                </button>
+                            </div>
+
+                            <!-- Users List Tab -->
+                            <div class="user-tab-content active" id="users-tab">
+                                <div class="user-list" id="user-list">
+                                    <p class="placeholder-text">Loading users...</p>
+                                </div>
+                            </div>
+
+                            <!-- Access Requests Tab -->
+                            <div class="user-tab-content" id="requests-tab" hidden>
+                                <div class="requests-list" id="requests-list">
+                                    <p class="placeholder-text">Loading requests...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="office-btn" id="refresh-users" title="Reload user list">
+                                <span class="btn-icon">&#8635;</span> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Audit Log Card -->
+                    <div class="catalog-card wide">
+                        <div class="card-header">
+                            <span>Audit Log</span>
+                            <select id="audit-action-filter" class="filter-select" title="Filter audit log by action type">
+                                <option value="">All Actions</option>
+                                <option value="create_user">Create User</option>
+                                <option value="change_username">Username Change</option>
+                                <option value="change_email">Email Change</option>
+                                <option value="switch_auth_method">Auth Method Switch</option>
+                                <option value="reset_credentials">Credential Reset</option>
+                                <option value="toggle_roles">Role Change</option>
+                                <option value="delete_account">Account Deletion</option>
+                            </select>
+                        </div>
+                        <div class="card-body">
+                            <table class="data-table" id="audit-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Actor</th>
+                                        <th>Target</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-table-body">
+                                    <tr><td colspan="5" class="placeholder-text">Loading audit log...</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="pagination" id="audit-pagination"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- System Administration Section -->
             <section class="drawer-content" id="system-section">
                 <div class="section-header">
@@ -904,45 +1051,6 @@
                                     <span class="stat-value path" id="install-path">-</span>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- User Management Card -->
-                    <div class="catalog-card wide" id="user-management-card">
-                        <div class="card-header">
-                            <span>User Management</span>
-                            <span class="badge" id="users-count-badge">-</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="user-management-tabs">
-                                <button class="user-tab active" data-tab="users" title="Manage existing users">Users</button>
-                                <button class="user-tab" data-tab="requests" title="Review access requests">
-                                    Requests
-                                    <span class="pending-badge" id="pending-requests-count" hidden>0</span>
-                                </button>
-                                <button class="office-btn primary invite-user-btn" id="invite-user-btn" title="Invite a new user via email">
-                                    + Invite User
-                                </button>
-                            </div>
-
-                            <!-- Users List Tab -->
-                            <div class="user-tab-content active" id="users-tab">
-                                <div class="user-list" id="user-list">
-                                    <p class="placeholder-text">Loading users...</p>
-                                </div>
-                            </div>
-
-                            <!-- Access Requests Tab -->
-                            <div class="user-tab-content" id="requests-tab" hidden>
-                                <div class="requests-list" id="requests-list">
-                                    <p class="placeholder-text">Loading requests...</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="office-btn" id="refresh-users" title="Reload user list">
-                                <span class="btn-icon">&#8635;</span> Refresh
-                            </button>
                         </div>
                     </div>
 
