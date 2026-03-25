@@ -1,18 +1,40 @@
 /**
  * My Account modal — self-service account management.
  * Loaded in shell.html, operates via /auth/account/* endpoints.
+ *
+ * INVARIANT: The account button (#my-account-btn) is ALWAYS visible.
+ * Authenticated → shows username + avatar initial, opens modal.
+ * Unauthenticated → shows "Sign In", navigates to login page.
+ * The button is NEVER hidden regardless of API state.
  */
 (function () {
   "use strict";
 
   // ── State ──
   var accountData = null;
-  var loadRetries = 0;
-  var MAX_LOAD_RETRIES = 3;
+  var authenticated = false;
+
+  // ── Safety net: prevent anything from hiding the button ──
+  // A MutationObserver watches for hidden attribute changes and reverts them.
+  var btn = document.getElementById("my-account-btn");
+  if (btn) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        if (m.attributeName === "hidden" && btn.hidden) {
+          console.warn("[account] Something tried to hide the account button — blocked");
+          btn.hidden = false;
+        }
+      });
+    }).observe(btn, { attributes: true });
+  }
 
   // ── Modal open/close ──
   function openAccountModal() {
-    loadAccountData();
+    if (!authenticated) {
+      window.location.href = "/auth/login";
+      return;
+    }
+    refreshAccountData();
     document.getElementById("account-modal").classList.add("show");
   }
 
@@ -25,61 +47,83 @@
     document.getElementById("auth-setup-result").hidden = true;
   }
 
-  // ── Load profile data ──
-  async function loadAccountData() {
+  // ── Update button to show authenticated state ──
+  function showAuthenticatedState(data) {
+    authenticated = true;
+    var btn = document.getElementById("my-account-btn");
+    btn.onclick = null; // clear any sign-in handler; uses addEventListener
+    document.getElementById("account-username").textContent = data.username;
+    var initialEl = document.getElementById("account-initial");
+    if (initialEl && data.username) {
+      initialEl.textContent = data.username.charAt(0).toUpperCase();
+    }
+  }
+
+  // ── Update button to show unauthenticated state ──
+  function showSignInState() {
+    authenticated = false;
+    document.getElementById("account-initial").textContent = "\u2192";
+    document.getElementById("account-username").textContent = "Sign In";
+  }
+
+  // ── Initial auth probe on page load ──
+  async function initAccountButton() {
     try {
       var resp = await fetch("/auth/account", { credentials: "same-origin" });
-      if (!resp.ok) throw new Error("Not authenticated");
-      accountData = await resp.json();
-      loadRetries = 0; // Reset retry counter on success
-
-      // Ensure button is visible (may have been hidden by a prior failed attempt)
-      document.getElementById("my-account-btn").hidden = false;
-
-      document.getElementById("acct-username").textContent = accountData.username;
-      document.getElementById("acct-email").textContent = accountData.email || "(none)";
-      document.getElementById("acct-created").textContent =
-        accountData.created_at ? new Date(accountData.created_at).toLocaleDateString() : "Unknown";
-      document.getElementById("acct-auth-badge").textContent =
-        (accountData.auth_type || "").toUpperCase();
-      document.getElementById("account-username").textContent = accountData.username;
-      // Update avatar initial
-      var initialEl = document.getElementById("account-initial");
-      if (initialEl && accountData.username) {
-        initialEl.textContent = accountData.username.charAt(0).toUpperCase();
-      }
-    } catch (e) {
-      // API may not be ready yet (e.g., after upgrade restart).
-      // Retry a few times with backoff before hiding the button.
-      if (loadRetries < MAX_LOAD_RETRIES) {
-        loadRetries++;
-        setTimeout(loadAccountData, loadRetries * 2000);
+      if (resp.ok) {
+        accountData = await resp.json();
+        showAuthenticatedState(accountData);
+        populateModal(accountData);
         return;
       }
-      // After retries exhausted, check if auth is even enabled.
-      // If auth is disabled, hiding is correct. If auth is enabled
-      // but the session expired, show a "Sign In" state instead.
-      try {
-        var statusResp = await fetch("/auth/status", { credentials: "same-origin" });
-        if (statusResp.ok) {
-          var statusData = await statusResp.json();
-          if (!statusData.auth_enabled) {
-            // Auth disabled — no account button needed
-            document.getElementById("my-account-btn").hidden = true;
-            return;
-          }
-          if (statusData.guest || !statusData.user) {
-            // Auth enabled but not logged in — hide account button
-            document.getElementById("my-account-btn").hidden = true;
-            return;
-          }
-        }
-      } catch (_ignored) {
-        // /auth/status also failed — API is truly down
-      }
-      // Default: hide the button (genuinely not authenticated)
-      document.getElementById("my-account-btn").hidden = true;
+    } catch (_e) {
+      // Network error — fall through to status check
     }
+
+    // /auth/account failed — check if auth is even enabled
+    try {
+      var statusResp = await fetch("/auth/status", { credentials: "same-origin" });
+      if (statusResp.ok) {
+        var statusData = await statusResp.json();
+        if (!statusData.auth_enabled) {
+          // Auth disabled — show generic "Account" (button stays visible)
+          return;
+        }
+        if (statusData.user) {
+          // Authenticated but /auth/account failed — show username from status
+          showAuthenticatedState(statusData.user);
+          return;
+        }
+      }
+    } catch (_e2) {
+      // Both endpoints failed — API is down, keep default button state
+    }
+
+    // Auth enabled but not logged in (or API down) — show "Sign In"
+    showSignInState();
+  }
+
+  // ── Refresh account data (for modal open, not initial load) ──
+  async function refreshAccountData() {
+    try {
+      var resp = await fetch("/auth/account", { credentials: "same-origin" });
+      if (!resp.ok) return; // keep existing modal data
+      accountData = await resp.json();
+      populateModal(accountData);
+    } catch (_e) {
+      // keep existing modal data
+    }
+  }
+
+  // ── Populate modal fields from account data ──
+  function populateModal(data) {
+    if (!data) return;
+    document.getElementById("acct-username").textContent = data.username;
+    document.getElementById("acct-email").textContent = data.email || "(none)";
+    document.getElementById("acct-created").textContent =
+      data.created_at ? new Date(data.created_at).toLocaleDateString() : "Unknown";
+    document.getElementById("acct-auth-badge").textContent =
+      (data.auth_type || "").toUpperCase();
   }
 
   // ── Username inline edit ──
@@ -133,7 +177,9 @@
         return;
       }
       hideUsernameEdit();
-      loadAccountData();
+      refreshAccountData();
+      // Update header button with new username
+      showAuthenticatedState({ username: newName });
     } catch (err) {
       alert("Network error: " + err.message);
     }
@@ -178,7 +224,7 @@
         return;
       }
       hideEmailEdit();
-      loadAccountData();
+      refreshAccountData();
     } catch (err) {
       alert("Network error: " + err.message);
     }
@@ -213,7 +259,7 @@
 
       document.getElementById("auth-switch-panel").hidden = true;
       showSetupResult(data.setup_data, selected.value);
-      loadAccountData();
+      refreshAccountData();
     } catch (err) {
       alert("Network error: " + err.message);
     }
@@ -362,7 +408,7 @@
       });
     }
 
-    // Load account data to populate header username
-    loadAccountData();
+    // Populate account button — never hides it
+    initAccountButton();
   });
 })();
