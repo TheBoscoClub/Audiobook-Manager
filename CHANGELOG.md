@@ -58,6 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tutorial outdated references**: Updated tutorial step targeting removed `#user-menu` element to reference the account button in the header bar
 - **Help page**: Updated "Your Profile" section to reflect the new My Account modal
 - **CodeQL false positive suppression**: Added `lgtm[]` inline comments to prevent recurring alerts for test code (verify=False, chmod 777) and known-safe production patterns (flask-debug, path-injection)
+- **Account panel QR code rendering**: `showSetupResult()` in account.js now displays the QR code image when changing auth method to TOTP (was previously text-only)
+- **Dead code cleanup**: Removed ~135 lines of orphaned `.user-menu` CSS from auth.css and dead `getElementById("user-menu")` calls from library.js after v7.4.0 UI migration
+- **Exception information exposure**: Duplicate checksum endpoints in duplicates.py no longer return raw `str(e)` in error responses
 
 ## [7.3.0.1] - 2026-03-23
 

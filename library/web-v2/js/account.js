@@ -217,8 +217,21 @@
     }
 
     if (setupData.manual_key) {
-      result.textContent = "New TOTP secret: " + setupData.manual_key +
-        "\nScan the QR code in your authenticator app or enter the key manually.";
+      if (setupData.qr_base64) {
+        var img = document.createElement("img");
+        img.src = "data:image/png;base64," + setupData.qr_base64;
+        img.alt = "TOTP QR Code";
+        img.style.cssText = "display:block;margin:0.75rem auto;max-width:200px;";
+        result.appendChild(img);
+      }
+      var keyText = document.createElement("p");
+      keyText.style.cssText = "margin-top:0.5rem;word-break:break-all;";
+      keyText.textContent = "Manual key: " + setupData.manual_key;
+      result.appendChild(keyText);
+      var hint = document.createElement("p");
+      hint.style.cssText = "font-size:0.85em;opacity:0.8;";
+      hint.textContent = "Scan the QR code in your authenticator app or enter the key manually.";
+      result.appendChild(hint);
     } else if (setupData.claim_url) {
       result.textContent = "Claim URL: " + window.location.origin + setupData.claim_url +
         "\nVisit this URL on your device to register your passkey.";
