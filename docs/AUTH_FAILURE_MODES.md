@@ -103,7 +103,7 @@ chown audiobooks:audiobooks /var/lib/audiobooks/auth.*
 
 **Cause:**
 
-- Session exceeded configured timeout (default 30 min inactivity)
+- Non-persistent session exceeded inactivity timeout (default 30 min); persistent ("stay logged in") sessions never expire from inactivity
 - Session explicitly logged out
 - Server restarted
 
