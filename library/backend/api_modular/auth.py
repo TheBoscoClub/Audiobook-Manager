@@ -627,7 +627,7 @@ def update_current_user():
     Update the currently authenticated user's profile.
 
     JSON body:
-        username: New username (optional, 3-24 chars, ASCII printable except <>\)
+        username: New username (optional, 3-24 chars, ASCII printable except <>\\)
         email: New email (optional, or null to remove)
 
     Returns:
@@ -3350,13 +3350,13 @@ def auth_health():
                 "user_count": status["user_count"],
             }
         )
-    except Exception as e:
+    except Exception:
         return (
             jsonify(
                 {
                     "status": "error",
                     "auth_db": False,
-                    "error": str(e),
+                    "error": "Auth database health check failed",
                 }
             ),
             500,
@@ -4900,7 +4900,7 @@ def update_user(user_id: int):
     Update a user's profile (admin only).
 
     JSON body:
-        username: New username (optional, 3-24 chars, ASCII printable except <>\)
+        username: New username (optional, 3-24 chars, ASCII printable except <>\\)
         email: New email (optional, or null to remove)
 
     Returns:

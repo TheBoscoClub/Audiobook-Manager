@@ -91,10 +91,10 @@ class LibraryTutorial {
         optional: true,
       },
       {
-        target: "#user-menu, #login-link",
-        title: "User Menu",
+        target: "#login-link",
+        title: "Sign In & Account",
         description:
-          "When signed in, click your name to edit your profile, change your authentication method, contact the admin, or sign out. If not signed in, you'll see a Sign In link.",
+          "If not signed in, use this link to sign in. Once logged in, your account button appears in the header bar above \u2014 click it to edit your profile, change your authentication method, contact the admin, or sign out.",
         optional: true,
       },
       {
