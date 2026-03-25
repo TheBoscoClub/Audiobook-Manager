@@ -394,7 +394,7 @@ class Session:
             user_id: User to create session for
             user_agent: Client user agent string
             ip_address: Client IP address
-            remember_me: If True, create a persistent session (30-day timeout)
+            remember_me: If True, create a persistent session (no inactivity timeout)
 
         Returns:
             Tuple of (Session, raw_token)
@@ -447,12 +447,13 @@ class Session:
     def is_stale(self, grace_minutes: int = 30) -> bool:
         """Check if session is stale (no activity within grace period).
 
-        Persistent sessions use 30-day timeout instead of the default 30 minutes.
+        Persistent sessions never expire from inactivity — they last
+        until the user signs out.
         """
         if self.last_seen is None:
             return True
         if self.is_persistent:
-            grace_minutes = 30 * 24 * 60  # 30 days
+            return False
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
         return self.last_seen < threshold
 
@@ -491,20 +492,17 @@ class SessionRepository:
     def cleanup_stale(self, grace_minutes: int = 30) -> int:
         """Remove stale sessions. Returns count of deleted sessions.
 
-        Persistent sessions use 30-day timeout instead of the default grace period.
+        Persistent sessions never expire from inactivity — only
+        non-persistent sessions are cleaned up based on the grace period.
         """
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
-        persistent_threshold = datetime.now() - timedelta(days=30)
         # Use SQLite-compatible format (space separator) to match
         # DEFAULT CURRENT_TIMESTAMP
         threshold_str = threshold.strftime("%Y-%m-%d %H:%M:%S")
-        persistent_str = persistent_threshold.strftime("%Y-%m-%d %H:%M:%S")
         with self.db.connection() as conn:
             cursor = conn.execute(
-                """DELETE FROM sessions WHERE
-                   (is_persistent = 0 AND last_seen < ?) OR
-                   (is_persistent = 1 AND last_seen < ?)""",
-                (threshold_str, persistent_str),
+                "DELETE FROM sessions WHERE is_persistent = 0 AND last_seen < ?",
+                (threshold_str,),
             )
             return cursor.rowcount
 

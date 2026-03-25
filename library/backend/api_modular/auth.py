@@ -382,9 +382,7 @@ def admin_or_localhost(f: Callable) -> Callable:
 
 # Session duration constants
 SESSION_DURATION_DEFAULT = None  # Session cookie (cleared on browser close)
-SESSION_DURATION_REMEMBER = (
-    365 * 24 * 60 * 60
-)  # 1 year in seconds (effectively permanent)
+SESSION_DURATION_REMEMBER = 10 * 365 * 24 * 60 * 60  # ~10 years (until sign-out)
 
 
 def set_session_cookie(
@@ -424,7 +422,7 @@ def login():
         {
             "username": "string",
             "code": "123456",  // TOTP code
-            "remember_me": false  // Optional: keep session for 30 days
+            "remember_me": false  // Optional: keep session indefinitely
         }
 
     Returns:
