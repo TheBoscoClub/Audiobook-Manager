@@ -34,3 +34,4 @@ pynacl>=1.6.2       # CVE-2025-69277
 werkzeug>=3.1.6     # CVE-2025-66221, CVE-2026-21860, GHSA-29vq-49wr-vm6x
 pillow>=12.1.1      # GHSA-cfh3-3jmp-rvhc (OOB write on PSD)
 pyopenssl>=26.0.0   # CVE-2026-27448, CVE-2026-27459
+cbor2>=5.9.0        # CVE-2026-26209 (DoS via CBOR recursion, used by webauthn)
