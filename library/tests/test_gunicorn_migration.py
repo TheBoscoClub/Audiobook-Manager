@@ -1,9 +1,14 @@
 """Tests to verify Gunicorn migration doesn't break existing functionality."""
 
+from pathlib import Path
+
+# Resolve project root from test file location (library/tests/ -> project root)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
 
 def test_monkey_patch_is_first():
     """Verify gevent monkey-patching happens before other imports."""
-    with open("library/backend/api_server.py") as f:
+    with open(_PROJECT_ROOT / "library/backend/api_server.py") as f:
         lines = f.readlines()
     in_docstring = False
     for line in lines:
@@ -21,14 +26,14 @@ def test_monkey_patch_is_first():
 
 def test_requirements_no_waitress():
     """Verify waitress is removed from requirements."""
-    with open("library/requirements.txt") as f:
+    with open(_PROJECT_ROOT / "library/requirements.txt") as f:
         content = f.read().lower()
     assert "waitress" not in content, "waitress should be removed from requirements.txt"
 
 
 def test_requirements_has_gunicorn_deps():
     """Verify all Gunicorn dependencies are listed."""
-    with open("library/requirements.txt") as f:
+    with open(_PROJECT_ROOT / "library/requirements.txt") as f:
         content = f.read().lower()
     for dep in ["gunicorn", "gevent", "gevent-websocket", "flask-sock", "croniter"]:
         assert dep in content, f"{dep} missing from requirements.txt"
@@ -36,7 +41,7 @@ def test_requirements_has_gunicorn_deps():
 
 def test_systemd_uses_gunicorn():
     """Verify systemd service uses Gunicorn, not waitress."""
-    with open("systemd/audiobook-api.service") as f:
+    with open(_PROJECT_ROOT / "systemd/audiobook-api.service") as f:
         content = f.read()
     assert "gunicorn" in content, "Service should use gunicorn"
     assert "geventwebsocket" in content, "Service should use geventwebsocket worker"
@@ -45,7 +50,7 @@ def test_systemd_uses_gunicorn():
 
 def test_api_server_has_module_level_app():
     """Verify api_server.py exposes module-level app for Gunicorn."""
-    with open("library/backend/api_server.py") as f:
+    with open(_PROJECT_ROOT / "library/backend/api_server.py") as f:
         content = f.read()
     assert (
         "app = _create_configured_app()" in content
@@ -54,7 +59,7 @@ def test_api_server_has_module_level_app():
 
 def test_api_modular_no_run_server():
     """Verify run_server was removed from api_modular."""
-    with open("library/backend/api_modular/__init__.py") as f:
+    with open(_PROJECT_ROOT / "library/backend/api_modular/__init__.py") as f:
         content = f.read()
     assert "def run_server(" not in content, "run_server should be removed"
     assert "from waitress" not in content, "waitress import should be removed"

@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.4.1.2] - 2026-03-25
+
+### Fixed
+
+- **Disappearing account button (root cause: Cloudflare Rocket Loader)**: Rocket Loader was rewriting `<script>` tags in shell.html, deferring `account.js` execution and causing the account button to fail initialization. Disabled Rocket Loader at the Cloudflare zone level. Added `data-cfasync="false"` to all script tags across 7 HTML files as defense in depth. Rewrote `account.js` so the button is NEVER hidden — shows username when authenticated, "Sign In" when not. Added MutationObserver guard against external DOM manipulation.
+- **Persistent sessions expiring after 30 days**: "Stay logged in" sessions were silently killed after 30 days of server-side inactivity timeout despite having a 1-year cookie. Persistent sessions now never expire from inactivity — they last until the user explicitly signs out. Session cookie extended to ~10 years.
+- **Test assertion for table count**: Updated `test_auth.py` table count from 18 to 19 to account for `user_hidden_books` table added in v7.4.1.1.
+- **Test path resolution**: Fixed `test_gunicorn_migration.py` and `test_maintenance_banner.py` to use `Path(__file__).resolve()` instead of hardcoded relative paths that broke when pytest ran from `library/` subdirectory.
+
 ## [7.4.1.1] - 2026-03-24
 
 ### Added
@@ -23,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Upgrade preflight gate lost on page refresh**: `preflightData` was stored only in JS memory — a page refresh forced re-running "Check for Updates" even though the backend still had a valid preflight file. Now hydrates from `/api/system/upgrade/preflight` on page load. Also aligned frontend staleness timeout to match backend (10 min → 30 min).
 - **Upgrade maintenance page showed no progress**: Static `maintenance.html` (served by Caddy when API is down) only polled `/api/system/health` — no stage updates during upgrade. Now the upgrade-helper mirrors status to `/etc/caddy/upgrade-status.json` and `maintenance.html` renders live stage progress with checkmarks.
-- **Account button permanently hidden after upgrade restart**: `account.js` hid the user profile button on any single `/auth/account` failure with no retry. After API restart, the brief unavailability caused the button to vanish. Now retries 3 times with backoff and falls back to `/auth/status` check before hiding.
+- **Account button permanently hidden after upgrade restart**: `account.js` hid the user profile button on any single `/auth/account` failure with no retry. After API restart, the brief unavailability caused the button to vanish. Added retry logic with backoff (superseded by full rewrite in v7.4.1.2).
 
 ## [7.4.1] - 2026-03-24
 
