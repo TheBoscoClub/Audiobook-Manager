@@ -621,14 +621,14 @@ apply_schema_migrations() {
         if [[ "$author_count" == "0" ]]; then
             echo -e "${BLUE}Running author/narrator data migration...${NC}"
             if [[ -n "$use_sudo" ]]; then
-                (cd "$target" && sudo -u audiobooks PYTHONPATH="$target" \
-                    "$venv_python" -m library.backend.migrations.migrate_to_normalized_authors \
+                (cd "$target" && sudo -u audiobooks PYTHONPATH="$target/library" \
+                    "$venv_python" -m backend.migrations.migrate_to_normalized_authors \
                     --db-path "$db_path" 2>&1) || {
                     echo -e "${YELLOW}Warning: Author migration failed (non-critical, grouped sort unavailable)${NC}"
                 }
             else
-                (cd "$target" && PYTHONPATH="$target" \
-                    "$venv_python" -m library.backend.migrations.migrate_to_normalized_authors \
+                (cd "$target" && PYTHONPATH="$target/library" \
+                    "$venv_python" -m backend.migrations.migrate_to_normalized_authors \
                     --db-path "$db_path" 2>&1) || {
                     echo -e "${YELLOW}Warning: Author migration failed (non-critical, grouped sort unavailable)${NC}"
                 }
