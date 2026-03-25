@@ -366,20 +366,44 @@
 /* Checkbox on My Library cards */
 .library-card-checkbox {
     position: absolute;
-    top: 8px;
-    left: 8px;
-    width: 20px;
-    height: 20px;
+    top: 10px;
+    left: 10px;
+    width: 22px;
+    height: 22px;
     cursor: pointer;
-    accent-color: var(--gold);
-    opacity: 0.5;
-    transition: opacity 0.2s ease;
     z-index: 2;
+    /* Replace native checkbox with styled appearance */
+    appearance: none;
+    -webkit-appearance: none;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid var(--gold-dark);
+    border-radius: 4px;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-.book-card:hover .library-card-checkbox,
 .library-card-checkbox:checked {
+    background: var(--gold);
+    border-color: var(--gold-bright);
     opacity: 1;
+    box-shadow: 0 0 6px rgba(218, 165, 32, 0.5);
+}
+
+/* Gold checkmark via pseudo-element */
+.library-card-checkbox:checked::after {
+    content: '✓';
+    display: block;
+    color: var(--deco-charcoal);
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 18px;
+}
+
+.book-card:hover .library-card-checkbox {
+    opacity: 1;
+    border-color: var(--gold);
 }
 
 /* Ensure book-card is positioned for absolute checkbox */
