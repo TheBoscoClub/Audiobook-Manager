@@ -87,12 +87,12 @@ class TestHeaderStructure:
             "admin-backoffice-link" in right_section
         ), "Back Office link should be inside header-nav-right"
 
-    def test_user_menu_in_left_nav(self):
-        """User menu must be inside the left nav section."""
-        content = (WEB_DIR / "index.html").read_text()
-        left_start = content.index("header-nav-left")
-        left_section = content[left_start : left_start + 600]
-        assert "user-menu" in left_section, "User menu should be inside header-nav-left"
+    def test_account_button_in_shell_header(self):
+        """Account button must be in shell.html header (moved from index.html in v7.4.0)."""
+        content = (WEB_DIR / "shell.html").read_text()
+        header_start = content.index("shell-header")
+        header_section = content[header_start : header_start + 600]
+        assert "my-account-btn" in header_section, "Account button should be inside shell-header"
 
     def test_login_link_in_right_nav(self):
         """Login link must be inside the right nav section."""

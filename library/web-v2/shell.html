@@ -12,10 +12,11 @@
 <body>
     <!-- Shell header with account access -->
     <div id="shell-header">
-        <span class="header-title">Audiobook Library</span>
-        <button id="my-account-btn" class="header-btn" title="My Account settings">
+        <button id="my-account-btn" class="header-btn account-btn" title="My Account settings">
+            <span class="account-icon" id="account-initial">?</span>
             <span id="account-username">Account</span>
         </button>
+        <span class="header-title">Audiobook Library</span>
     </div>
 
     <!-- Content iframe: loads all authenticated pages -->
@@ -100,6 +101,14 @@
                         <button class="btn btn-primary" id="auth-switch-confirm" title="Confirm auth method switch">Switch</button>
                     </div>
                     <div id="auth-setup-result" hidden></div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="account-section">
+                    <div class="auth-actions">
+                        <a href="contact.html" class="btn btn-secondary" id="contact-admin-btn" title="Send a message to the admin">Contact Admin</a>
+                        <button class="btn btn-secondary" id="sign-out-btn" title="Sign out of your account">Sign Out</button>
+                    </div>
                 </div>
 
                 <!-- Danger Zone -->

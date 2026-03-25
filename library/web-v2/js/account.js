@@ -37,6 +37,11 @@
       document.getElementById("acct-auth-badge").textContent =
         (accountData.auth_type || "").toUpperCase();
       document.getElementById("account-username").textContent = accountData.username;
+      // Update avatar initial
+      var initialEl = document.getElementById("account-initial");
+      if (initialEl && accountData.username) {
+        initialEl.textContent = accountData.username.charAt(0).toUpperCase();
+      }
     } catch (e) {
       // Not logged in — hide the account button
       document.getElementById("my-account-btn").hidden = true;
@@ -284,6 +289,31 @@
 
     // Delete account
     document.getElementById("delete-account-btn").addEventListener("click", deleteOwnAccount);
+
+    // Sign out
+    document.getElementById("sign-out-btn").addEventListener("click", function () {
+      closeAccountModal();
+      // Use the iframe's library logout if available, otherwise direct API call
+      var frame = document.getElementById("content-frame");
+      if (frame && frame.contentWindow && frame.contentWindow.library) {
+        frame.contentWindow.library.logout();
+      } else {
+        fetch("/auth/logout", { method: "POST", credentials: "same-origin" })
+          .then(function () { window.location.href = "/auth/login"; })
+          .catch(function () { window.location.href = "/auth/login"; });
+      }
+    });
+
+    // Contact admin — navigate the iframe
+    var contactBtn = document.getElementById("contact-admin-btn");
+    if (contactBtn) {
+      contactBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        closeAccountModal();
+        var frame = document.getElementById("content-frame");
+        if (frame) frame.src = "contact.html";
+      });
+    }
 
     // Load account data to populate header username
     loadAccountData();

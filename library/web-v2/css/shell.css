@@ -229,6 +229,55 @@ body {
     color: var(--gold);
 }
 
+/* Account button with avatar circle */
+.account-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.3em 0.8em;
+    border: 2px solid var(--gold-dark, #8B7532);
+    background: linear-gradient(180deg,
+        rgba(139, 117, 50, 0.4) 0%,
+        rgba(80, 60, 20, 0.6) 100%);
+}
+
+.account-btn:hover {
+    background: linear-gradient(180deg,
+        rgba(201, 168, 76, 0.4) 0%,
+        rgba(139, 117, 50, 0.5) 100%);
+    border-color: var(--gold);
+    transform: translateY(-1px);
+}
+
+.account-btn:active {
+    transform: translateY(1px);
+}
+
+.account-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--gold-dark, #8B7532);
+    color: var(--deep-burgundy, #1a0a0a);
+    font-size: 0.75em;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* Mobile: hide username text, enlarge icon, stack account fields */
+@media (max-width: 480px) {
+    #account-username { display: none; }
+    .account-icon { width: 26px; height: 26px; font-size: 0.85em; }
+    .account-btn { padding: 0.25em 0.5em; }
+    .header-title { font-size: 0.8em; }
+    .account-field { flex-direction: column; align-items: flex-start; gap: 0.2em; }
+    .account-field label { min-width: unset; }
+    .auth-actions { flex-direction: column; }
+}
+
 /* Account Modal Overrides */
 .modal-small {
     width: 90%;

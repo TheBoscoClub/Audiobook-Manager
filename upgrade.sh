@@ -1724,9 +1724,14 @@ stop_services() {
         # System-level services
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl stop audiobook.target 2>/dev/null || true
-            # Also stop individual services in case target doesn't exist
             for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
                 sudo systemctl stop "$svc" 2>/dev/null || true
+            done
+        elif [[ $(id -u) -eq 0 ]]; then
+            # Already running as root (e.g., via sudo upgrade.sh) — no sudo prefix needed
+            systemctl stop audiobook.target 2>/dev/null || true
+            for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+                systemctl stop "$svc" 2>/dev/null || true
             done
         fi
         echo -e "${GREEN}  Services stopped${NC}"
@@ -1756,6 +1761,8 @@ start_services() {
     # Reload systemd to pick up any service file changes
     if [[ -n "$use_sudo" ]]; then
         sudo systemctl daemon-reload
+    elif [[ $(id -u) -eq 0 ]]; then
+        systemctl daemon-reload
     else
         systemctl --user daemon-reload 2>/dev/null || true
     fi
@@ -1768,6 +1775,13 @@ start_services() {
                 # Fallback: start individual services
                 for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
                     sudo systemctl start "$svc" 2>/dev/null || true
+                done
+            }
+        elif [[ $(id -u) -eq 0 ]]; then
+            # Already running as root — no sudo prefix needed
+            systemctl start audiobook.target 2>/dev/null || {
+                for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+                    systemctl start "$svc" 2>/dev/null || true
                 done
             }
         fi

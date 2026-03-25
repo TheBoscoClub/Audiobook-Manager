@@ -10,6 +10,7 @@ Provides endpoints for:
 All authentication data is stored in the encrypted auth.db (SQLCipher).
 """
 
+import base64
 import json
 import logging
 import os
@@ -4091,10 +4092,13 @@ def create_user():
         if email:
             new_user.recovery_email = email
         new_user.save(db)
+        qr_png = generate_qr_code(secret_bytes, username)
+        qr_b64 = base64.b64encode(qr_png).decode("ascii")
         setup_data = {
             "secret": base32_secret,
             "qr_uri": provisioning_uri,
             "manual_key": base32_secret,
+            "qr_base64": qr_b64,
         }
 
     elif auth_method == "magic_link":
@@ -5269,10 +5273,13 @@ def admin_change_auth_method(user_id: int):
         target_user.auth_type = AuthType.TOTP
         target_user.auth_credential = secret_bytes
         target_user.save(db)
+        qr_png = generate_qr_code(secret_bytes, target_user.username)
+        qr_b64 = base64.b64encode(qr_png).decode("ascii")
         setup_data = {
             "secret": base32_secret,
             "qr_uri": provisioning_uri,
             "manual_key": base32_secret,
+            "qr_base64": qr_b64,
         }
 
     elif auth_method == "magic_link":
@@ -5357,10 +5364,13 @@ def admin_reset_credentials(user_id: int):
         secret_bytes, base32_secret, provisioning_uri = setup_totp(target_user.username)
         target_user.auth_credential = secret_bytes
         target_user.save(db)
+        qr_png = generate_qr_code(secret_bytes, target_user.username)
+        qr_b64 = base64.b64encode(qr_png).decode("ascii")
         setup_data = {
             "secret": base32_secret,
             "qr_uri": provisioning_uri,
             "manual_key": base32_secret,
+            "qr_base64": qr_b64,
         }
 
     elif target_user.auth_type in (AuthType.PASSKEY, AuthType.FIDO2):
@@ -5529,10 +5539,15 @@ def admin_setup_info(user_id: int):
             qr_uri = get_provisioning_uri(
                 target_user.auth_credential, target_user.username
             )
+            qr_png = generate_qr_code(
+                target_user.auth_credential, target_user.username
+            )
+            qr_b64 = base64.b64encode(qr_png).decode("ascii")
             setup_data = {
                 "secret": base32,
                 "qr_uri": qr_uri,
                 "manual_key": base32,
+                "qr_base64": qr_b64,
             }
 
     elif target_user.auth_type in (AuthType.PASSKEY, AuthType.FIDO2):
@@ -5720,10 +5735,13 @@ def account_switch_auth_method():
         user.auth_type = AuthType.TOTP
         user.auth_credential = secret_bytes
         user.save(db)
+        qr_png = generate_qr_code(secret_bytes, user.username)
+        qr_b64 = base64.b64encode(qr_png).decode("ascii")
         setup_data = {
             "secret": base32_secret,
             "qr_uri": provisioning_uri,
             "manual_key": base32_secret,
+            "qr_base64": qr_b64,
         }
 
     elif auth_method == "magic_link":
@@ -5809,10 +5827,13 @@ def account_reset_credentials():
         secret_bytes, base32_secret, provisioning_uri = setup_totp(current_user.username)
         current_user.auth_credential = secret_bytes
         current_user.save(db)
+        qr_png = generate_qr_code(secret_bytes, current_user.username)
+        qr_b64 = base64.b64encode(qr_png).decode("ascii")
         setup_data = {
             "secret": base32_secret,
             "qr_uri": provisioning_uri,
             "manual_key": base32_secret,
+            "qr_base64": qr_b64,
         }
 
     elif current_user.auth_type in (AuthType.PASSKEY, AuthType.FIDO2):

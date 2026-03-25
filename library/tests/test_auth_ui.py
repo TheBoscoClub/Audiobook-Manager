@@ -359,12 +359,13 @@ class TestIndexPageAuthIntegration:
 
         assert "css/auth.css" in index_content, "Index should include auth.css"
 
-    def test_index_page_has_user_menu(self):
-        """Verify index.html has user menu container."""
-        index_content = (WEB_DIR / "index.html").read_text()
+    def test_shell_page_has_account_button(self):
+        """Verify shell.html has unified account button."""
+        shell_content = (WEB_DIR / "shell.html").read_text()
 
-        assert 'id="user-menu"' in index_content, "Should have user menu container"
-        assert 'id="user-menu-button"' in index_content, "Should have user menu button"
+        assert 'id="my-account-btn"' in shell_content, "Should have account button"
+        assert 'id="account-username"' in shell_content, "Should have account username display"
+        assert 'id="account-initial"' in shell_content, "Should have account avatar initial"
 
     def test_index_page_has_login_link(self):
         """Verify index.html has login link for unauthenticated users."""
@@ -375,11 +376,11 @@ class TestIndexPageAuthIntegration:
             'href="login.html"' in index_content
         ), "Login link should point to login.html"
 
-    def test_index_page_has_logout_button(self):
-        """Verify index.html has logout button in user menu."""
-        index_content = (WEB_DIR / "index.html").read_text()
+    def test_shell_page_has_sign_out(self):
+        """Verify shell.html has sign out button in account modal."""
+        shell_content = (WEB_DIR / "shell.html").read_text()
 
-        assert 'id="logout-button"' in index_content, "Should have logout button"
+        assert 'id="sign-out-btn"' in shell_content, "Should have sign out button"
 
 
 class TestDownloadButtonIntegration:

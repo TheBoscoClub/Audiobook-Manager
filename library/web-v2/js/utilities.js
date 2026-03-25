@@ -2912,10 +2912,14 @@ function renderSetupData(setupData, username, authMethod) {
   claimUrl.textContent = "";
   downloadBtn.hidden = true;
 
-  if (authMethod === "totp" && setupData && setupData.qr_uri) {
-    // Generate QR code image from URI
+  if (authMethod === "totp" && setupData && (setupData.qr_base64 || setupData.qr_uri)) {
+    // Display QR code from base64 PNG data
     var img = document.createElement("img");
-    img.src = "/auth/admin/users/qr?uri=" + encodeURIComponent(setupData.qr_uri);
+    if (setupData.qr_base64) {
+      img.src = "data:image/png;base64," + setupData.qr_base64;
+    } else {
+      img.src = "/auth/admin/users/qr?uri=" + encodeURIComponent(setupData.qr_uri);
+    }
     img.alt = "TOTP QR Code";
     img.style.maxWidth = "200px";
     img.id = "setup-qr-img";
@@ -2961,15 +2965,19 @@ function downloadQrPng(username, imgElement) {
             String(now.getSeconds()).padStart(2, "0");
   var filename = username + "_" + mmdd + "-" + hms + ".png";
 
-  var canvas = document.createElement("canvas");
-  canvas.width = imgElement.naturalWidth || 200;
-  canvas.height = imgElement.naturalHeight || 200;
-  var ctx = canvas.getContext("2d");
-  ctx.drawImage(imgElement, 0, 0);
-
   var link = document.createElement("a");
   link.download = filename;
-  link.href = canvas.toDataURL("image/png");
+  // Use img src directly if it's a data: URI, otherwise fall back to canvas
+  if (imgElement.src && imgElement.src.startsWith("data:")) {
+    link.href = imgElement.src;
+  } else {
+    var canvas = document.createElement("canvas");
+    canvas.width = imgElement.naturalWidth || 200;
+    canvas.height = imgElement.naturalHeight || 200;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(imgElement, 0, 0);
+    link.href = canvas.toDataURL("image/png");
+  }
   link.click();
 }
 
@@ -3440,6 +3448,16 @@ function createUserItem(user) {
   );
   actions.appendChild(toggleBtn);
 
+  // View Setup (for users who haven't logged in yet)
+  if (!user.last_login) {
+    const setupBtn = document.createElement("button");
+    setupBtn.className = "user-action-btn edit";
+    setupBtn.textContent = "View Setup";
+    setupBtn.title = `View setup credentials for ${user.username}`;
+    setupBtn.addEventListener("click", () => viewUserSetup(user));
+    actions.appendChild(setupBtn);
+  }
+
   // Delete user (not for admins)
   if (!user.is_admin) {
     const deleteBtn = document.createElement("button");
@@ -3452,6 +3470,30 @@ function createUserItem(user) {
 
   item.appendChild(actions);
   return item;
+}
+
+async function viewUserSetup(user) {
+  try {
+    const res = await fetch(
+      `${API_BASE}/auth/admin/users/${user.id}/setup-info`,
+      { credentials: "include" }
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || "Cannot retrieve setup info", "error");
+      return;
+    }
+    if (data.setup_data) {
+      renderSetupData(data.setup_data, user.username, user.auth_type || "totp");
+      // Scroll to setup panel
+      var panel = document.getElementById("setup-data-panel");
+      if (panel) panel.scrollIntoView({ behavior: "smooth" });
+    } else {
+      showToast("No setup data available", "error");
+    }
+  } catch (err) {
+    showToast("Network error: " + err.message, "error");
+  }
 }
 
 async function toggleUserDownload(userId, canDownload) {
