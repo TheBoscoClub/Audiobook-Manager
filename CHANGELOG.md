@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [7.4.1.1] - 2026-03-24
 
+### Added
+
+- **My Library hide/unhide**: Users can hide finished or unwanted books from the My Library view using card checkboxes + Hide/Unhide button. Hidden books are preserved (positions, history, downloads intact) and can be restored from the Hidden view.
+
 ### Fixed
 
 - **Upgrade preflight gate lost on page refresh**: `preflightData` was stored only in JS memory — a page refresh forced re-running "Check for Updates" even though the backend still had a valid preflight file. Now hydrates from `/api/system/upgrade/preflight` on page load. Also aligned frontend staleness timeout to match backend (10 min → 30 min).

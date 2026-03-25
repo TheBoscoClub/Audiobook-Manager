@@ -46,7 +46,7 @@ class LibraryTutorial {
         target: '.tab-btn[data-tab="my-library"]',
         title: "My Library",
         description:
-          "Switch to My Library to see books you've listened to, downloaded, or have in progress. Your personal collection is tracked per-user across devices.",
+          "Switch to My Library to see books you've listened to, downloaded, or have in progress. You can hide finished books using the checkboxes and Hide button, and restore them from the Hidden view. Your personal collection is tracked per-user across devices.",
       },
       {
         target: "#new-books-marquee",

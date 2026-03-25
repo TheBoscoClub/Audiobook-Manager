@@ -87,6 +87,15 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- User hidden books table (soft-hide from My Library view)
+CREATE TABLE IF NOT EXISTS user_hidden_books (
+    user_id INTEGER NOT NULL,
+    audiobook_id INTEGER NOT NULL,
+    hidden_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, audiobook_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Pending registrations table
 CREATE TABLE IF NOT EXISTS pending_registrations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

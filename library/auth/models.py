@@ -937,6 +937,51 @@ class PreferencesRepository:
             return UserPreferences.from_row(row)
 
 
+class HiddenBookRepository:
+    """Repository for managing books hidden from My Library view."""
+
+    def __init__(self, db: AuthDatabase):
+        self.db = db
+
+    def get_hidden_ids(self, user_id: int) -> set[str]:
+        """Get set of audiobook IDs hidden by this user."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT audiobook_id FROM user_hidden_books WHERE user_id = ?",
+                (user_id,),
+            )
+            return {str(row[0]) for row in cursor.fetchall()}
+
+    def hide(self, user_id: int, audiobook_ids: list[int]) -> int:
+        """Hide one or more books. Returns count of newly hidden books."""
+        count = 0
+        with self.db.connection() as conn:
+            for aid in audiobook_ids:
+                try:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO user_hidden_books"
+                        " (user_id, audiobook_id) VALUES (?, ?)",
+                        (user_id, aid),
+                    )
+                    count += conn.total_changes  # will be 1 if inserted, 0 if ignored
+                except Exception:
+                    pass
+        return count
+
+    def unhide(self, user_id: int, audiobook_ids: list[int]) -> int:
+        """Unhide one or more books. Returns count of unhidden books."""
+        if not audiobook_ids:
+            return 0
+        with self.db.connection() as conn:
+            placeholders = ",".join("?" * len(audiobook_ids))
+            cursor = conn.execute(
+                "DELETE FROM user_hidden_books WHERE user_id = ?"  # nosec B608
+                f" AND audiobook_id IN ({placeholders})",
+                [user_id] + list(audiobook_ids),
+            )
+            return cursor.rowcount
+
+
 @dataclass
 class Notification:
     """

@@ -45,6 +45,10 @@ class AudiobookLibraryV2 {
     this.myLibraryBooks = [];
     this.browseBooks = [];
 
+    // Hide/unhide state
+    this.selectedBookIds = new Set();
+    this.viewingHidden = false;
+
     // Compact viewport: card tap opens detail modal
     this.setupCompactCardTap();
 
@@ -2094,12 +2098,28 @@ class AudiobookLibraryV2 {
       if (searchSection) searchSection.style.display = "none";
       if (resultsInfo) resultsInfo.style.display = "none";
       if (paginationSection) paginationSection.style.display = "none";
+
+      // Show hide/unhide controls
+      const hideBtn = document.getElementById("hide-selected-btn");
+      const hiddenPill = document.getElementById("hidden-books-btn");
+      if (hideBtn) hideBtn.style.display = "";
+      if (hiddenPill) hiddenPill.style.display = "";
+
       this.loadMyLibrary();
     } else {
       // Restore browse UI
       if (searchSection) searchSection.style.display = "";
       if (resultsInfo) resultsInfo.style.display = "";
       if (paginationSection) paginationSection.style.display = "";
+
+      // Hide hide/unhide controls
+      const hideBtn = document.getElementById("hide-selected-btn");
+      const hiddenPill = document.getElementById("hidden-books-btn");
+      if (hideBtn) hideBtn.style.display = "none";
+      if (hiddenPill) hiddenPill.style.display = "none";
+      this.viewingHidden = false;
+      this.selectedBookIds.clear();
+
       this.loadAudiobooks();
     }
   }
@@ -2113,8 +2133,11 @@ class AudiobookLibraryV2 {
     const grid = document.getElementById("books-grid");
 
     try {
-      // Fetch user's library
-      const response = await fetch(`${API_BASE}/user/library`, {
+      // Fetch user's library (active or hidden books)
+      const url = this.viewingHidden
+        ? `${API_BASE}/user/library?hidden=true`
+        : `${API_BASE}/user/library`;
+      const response = await fetch(url, {
         credentials: "include",
       });
 
@@ -2130,8 +2153,9 @@ class AudiobookLibraryV2 {
         const emptyMsg = document.createElement("p");
         emptyMsg.style.cssText =
           "color: var(--parchment); text-align: center; grid-column: 1/-1;";
-        emptyMsg.textContent =
-          "Your library is empty. Start listening to build your collection!";
+        emptyMsg.textContent = this.viewingHidden
+          ? "No hidden books."
+          : "Your library is empty. Start listening to build your collection!";
         while (grid.firstChild) grid.removeChild(grid.firstChild);
         grid.appendChild(emptyMsg);
         return;
@@ -2164,6 +2188,11 @@ class AudiobookLibraryV2 {
 
       // Update download button visibility
       this.updateDownloadButtons();
+
+      // Fetch hidden count (when viewing active books)
+      if (!this.viewingHidden) {
+        this.updateHiddenCountPill();
+      }
     } catch (error) {
       console.error("Error loading My Library:", error);
       const errMsg = document.createElement("p");
@@ -2229,6 +2258,23 @@ class AudiobookLibraryV2 {
     const card = document.createElement("div");
     card.className = "book-card";
     card.dataset.id = book.id;
+
+    // Checkbox for hide/unhide selection
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "library-card-checkbox";
+    checkbox.dataset.bookId = book.id;
+    checkbox.title = "Select this book";
+    checkbox.checked = this.selectedBookIds.has(book.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        this.selectedBookIds.add(book.id);
+      } else {
+        this.selectedBookIds.delete(book.id);
+      }
+      this.updateHideButtonState();
+    });
+    card.appendChild(checkbox);
 
     // Cover section
     const coverDiv = document.createElement("div");
@@ -2365,6 +2411,112 @@ class AudiobookLibraryV2 {
     return `${h}h ${m}m`;
   }
 
+  /** Update the hide/unhide button to appear raised (active) when books are selected */
+  updateHideButtonState() {
+    const btn = document.getElementById("hide-selected-btn");
+    if (!btn) return;
+    if (this.selectedBookIds.size > 0) {
+      btn.classList.remove("depressed");
+      btn.classList.add("raised");
+      btn.textContent = this.viewingHidden
+        ? `Unhide Selected (${this.selectedBookIds.size})`
+        : `Hide Selected (${this.selectedBookIds.size})`;
+    } else {
+      btn.classList.add("depressed");
+      btn.classList.remove("raised");
+      btn.textContent = this.viewingHidden ? "Unhide Selected" : "Hide Selected";
+    }
+  }
+
+  /** Fetch hidden count and update the pill badge */
+  async updateHiddenCountPill() {
+    const pill = document.getElementById("hidden-books-btn");
+    if (!pill) return;
+    try {
+      const resp = await fetch(`${API_BASE}/user/library?hidden=true`, {
+        credentials: "include",
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const count = (data.books || []).length;
+      if (count > 0) {
+        pill.textContent = this.viewingHidden
+          ? "My Library"
+          : `Hidden (${count})`;
+        pill.style.display = "";
+      } else {
+        pill.style.display = "none";
+      }
+    } catch (e) {
+      // Silently fail — pill just stays hidden
+    }
+  }
+
+  /** Hide or unhide selected books */
+  async hideUnhideSelected() {
+    if (this.selectedBookIds.size === 0) return;
+
+    const ids = Array.from(this.selectedBookIds);
+    const endpoint = this.viewingHidden ? "unhide" : "hide";
+
+    try {
+      const resp = await fetch(`${API_BASE}/user/library/${endpoint}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audiobook_ids: ids }),
+      });
+
+      if (!resp.ok) {
+        console.error(`Failed to ${endpoint} books:`, resp.status);
+        return;
+      }
+
+      // Animate removal: fade out selected cards, then reload
+      const grid = document.getElementById("books-grid");
+      ids.forEach((id) => {
+        const card = grid.querySelector(`.book-card[data-id="${id}"]`);
+        if (card) {
+          card.style.transition = "opacity 0.25s ease, transform 0.25s ease";
+          card.style.opacity = "0";
+          card.style.transform = "scale(0.95)";
+        }
+      });
+
+      // Wait for animation, then reload
+      setTimeout(() => {
+        this.selectedBookIds.clear();
+        this.loadMyLibrary();
+      }, 300);
+    } catch (e) {
+      console.error(`Error during ${endpoint}:`, e);
+    }
+  }
+
+  /** Toggle between active and hidden views */
+  toggleHiddenView() {
+    this.viewingHidden = !this.viewingHidden;
+    this.selectedBookIds.clear();
+
+    // Update button labels
+    const hideBtn = document.getElementById("hide-selected-btn");
+    if (hideBtn) {
+      hideBtn.textContent = this.viewingHidden
+        ? "Unhide Selected"
+        : "Hide Selected";
+      hideBtn.classList.add("depressed");
+      hideBtn.classList.remove("raised");
+    }
+
+    // Update pill text
+    const pill = document.getElementById("hidden-books-btn");
+    if (pill) {
+      pill.textContent = this.viewingHidden ? "My Library" : "Hidden";
+    }
+
+    this.loadMyLibrary();
+  }
+
   setupEventListeners() {
     // Search input with debounce
     let searchTimeout;
@@ -2461,6 +2613,14 @@ document.addEventListener("DOMContentLoaded", () => {
   library = new AudiobookLibraryV2();
   // Expose to window for inline scripts (logout, etc.)
   window.library = library;
+
+  // Wire up hide/unhide controls
+  document
+    .getElementById("hide-selected-btn")
+    ?.addEventListener("click", () => library.hideUnhideSelected());
+  document
+    .getElementById("hidden-books-btn")
+    ?.addEventListener("click", () => library.toggleHiddenView());
 });
 
 // AudioPlayer class removed — now in shell.js (ShellPlayer)

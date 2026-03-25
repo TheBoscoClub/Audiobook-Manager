@@ -231,6 +231,17 @@ class AuthDatabase:
                 "CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)"
             )
 
+            # Migration: add user_hidden_books table if not exists
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_hidden_books (
+                    user_id INTEGER NOT NULL,
+                    audiobook_id INTEGER NOT NULL,
+                    hidden_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, audiobook_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
+
             # Migration: add last_audit_seen_id to users if not exists
             try:
                 conn.execute(
