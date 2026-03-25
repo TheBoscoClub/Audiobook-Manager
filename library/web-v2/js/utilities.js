@@ -2815,6 +2815,9 @@ function initSystemSection() {
       loadServicesStatus();
       loadVersionInfo();
     });
+
+  // Hydrate preflight state from backend (survives page refresh)
+  hydratePreflightState();
 }
 
 // ============================================
@@ -4309,6 +4312,40 @@ async function loadProjectsList() {
 let preflightData = null;
 let preflightTimestamp = null;
 
+/**
+ * Hydrate preflight state from the backend on page load.
+ * The backend persists preflight results to disk with a 30-minute TTL.
+ * Without this, a page refresh loses the in-memory JS state and forces
+ * the user to re-run "Check for Updates" even though the backend still
+ * has a valid, non-stale preflight report.
+ */
+async function hydratePreflightState() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/system/upgrade/preflight`);
+    if (!resp.ok) return;
+    const json = await resp.json();
+    const pf = json.preflight;
+    if (!pf || pf.stale) return;
+
+    // Backend has a valid, non-stale preflight — hydrate JS state
+    preflightData = pf;
+    // Reconstruct approximate timestamp from the backend's report
+    if (pf.timestamp) {
+      const reportTime = new Date(pf.timestamp).getTime();
+      if (!isNaN(reportTime)) {
+        preflightTimestamp = reportTime;
+      } else {
+        preflightTimestamp = Date.now();
+      }
+    } else {
+      preflightTimestamp = Date.now();
+    }
+    updateUpgradeButtonState();
+  } catch {
+    // API not available — leave button in its default disabled state
+  }
+}
+
 function updateUpgradeButtonState() {
   const startBtn = document.getElementById("start-upgrade-btn");
   const forceCheckbox = document.getElementById("upgrade-force");
@@ -4327,7 +4364,7 @@ function updateUpgradeButtonState() {
   }
 
   const ageMinutes = (Date.now() - preflightTimestamp) / 60000;
-  if (ageMinutes > 10) {
+  if (ageMinutes > 30) {
     startBtn.disabled = true;
     startBtn.title = "Preflight check is stale \u2014 run Check for Updates again";
     return;
