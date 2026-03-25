@@ -176,7 +176,7 @@ Web-based audiobook library browser with:
 - **Multi-user authentication** with TOTP, Passkey, and FIDO2 support (v5.0+)
 - **Admin approval flow** for new user registration with secure claim tokens
 - **Per-user playback positions** with encrypted auth database (SQLCipher)
-- **My Library tab** with progress bars, listening history, and download tracking (v6.3+)
+- **My Library tab** with progress bars, listening history, download tracking, and hide/unhide books (v6.3+)
 - **New books marquee** highlighting recently added audiobooks (v6.3+)
 - **Admin activity audit** with filterable log and usage statistics (v6.3+)
 - **Genre management** with bulk add/remove in Back Office (v6.3+)
@@ -871,6 +871,7 @@ Personalized view of your audiobook activity (requires authentication):
 - **Recently Listened**: Quick access to books you've been listening to, sorted by last played
 - **Listening History**: Complete log of your listening sessions with timestamps and durations
 - **Download History**: Track which books you've downloaded
+- **Hide/Unhide**: Remove finished or unwanted books from view while preserving all data; restore from the Hidden view
 
 ### New Books Marquee
 

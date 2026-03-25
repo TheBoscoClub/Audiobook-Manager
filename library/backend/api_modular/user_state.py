@@ -11,6 +11,9 @@ Endpoints:
     GET  /api/user/downloads            - Paginated download history
     POST /api/user/downloads/<id>/complete - Record completed download
     GET  /api/user/library              - Distinct books user has interacted with
+    GET  /api/user/library?hidden=true  - Only hidden books from My Library
+    POST /api/user/library/hide         - Hide books from My Library view
+    POST /api/user/library/unhide       - Unhide books (restore to My Library)
     GET  /api/user/new-books            - Books added after user's last seen timestamp
     POST /api/user/new-books/dismiss    - Update new_books_seen_at preference
 """
@@ -25,6 +28,7 @@ from .auth import get_auth_db, get_current_user, login_required
 # Import auth models for per-user state
 from auth import (
     DownloadRepository,
+    HiddenBookRepository,
     ListeningHistoryRepository,
     PositionRepository,
     PreferencesRepository,
@@ -222,6 +226,11 @@ def get_user_library():
     user = get_current_user()
     auth_db = get_auth_db()
 
+    # Hidden books filtering
+    hidden_repo = HiddenBookRepository(auth_db)
+    hidden_ids = hidden_repo.get_hidden_ids(user.id)
+    show_hidden = request.args.get("hidden", "").lower() == "true"
+
     # Collect unique audiobook IDs from all user activity sources
     history_repo = ListeningHistoryRepository(auth_db)
     download_repo = DownloadRepository(auth_db)
@@ -239,8 +248,15 @@ def get_user_library():
     # Merge all IDs
     all_ids = history_ids | download_book_ids | position_ids
 
+    # Apply hidden books filter
+    hidden_count = len(all_ids & hidden_ids)
+    if show_hidden:
+        all_ids = all_ids & hidden_ids  # intersection: only hidden ones
+    else:
+        all_ids = all_ids - hidden_ids  # exclude hidden ones
+
     if not all_ids:
-        return jsonify({"books": [], "total": 0})
+        return jsonify({"books": [], "total": 0, "hidden_count": hidden_count})
 
     # Build timestamp lookup dicts for history and downloads
     # last_listened_at: most recent ended_at (or started_at) per audiobook
@@ -310,9 +326,61 @@ def get_user_library():
                 }
             )
 
-        return jsonify({"books": books, "total": len(books)})
+        return jsonify(
+            {"books": books, "total": len(books), "hidden_count": hidden_count}
+        )
     finally:
         conn.close()
+
+
+# ============================================================
+# POST /api/user/library/hide — Hide books from My Library
+# ============================================================
+
+
+@user_bp.route("/library/hide", methods=["POST"])
+@login_required
+def hide_books():
+    """Hide one or more books from the user's My Library view."""
+    user = get_current_user()
+    auth_db = get_auth_db()
+
+    data = request.get_json(silent=True)
+    if not data or "audiobook_ids" not in data:
+        return jsonify({"error": "audiobook_ids required"}), 400
+
+    ids = data["audiobook_ids"]
+    if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+        return jsonify({"error": "audiobook_ids must be a list of integers"}), 400
+
+    repo = HiddenBookRepository(auth_db)
+    count = repo.hide(user.id, ids)
+    return jsonify({"success": True, "hidden_count": count})
+
+
+# ============================================================
+# POST /api/user/library/unhide — Unhide books
+# ============================================================
+
+
+@user_bp.route("/library/unhide", methods=["POST"])
+@login_required
+def unhide_books():
+    """Unhide one or more books, restoring them to My Library view."""
+    user = get_current_user()
+    auth_db = get_auth_db()
+
+    data = request.get_json(silent=True)
+    if not data or "audiobook_ids" not in data:
+        return jsonify({"error": "audiobook_ids required"}), 400
+
+    ids = data["audiobook_ids"]
+    if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+        return jsonify({"error": "audiobook_ids must be a list of integers"}), 400
+
+    repo = HiddenBookRepository(auth_db)
+    count = repo.unhide(user.id, ids)
+    return jsonify({"success": True, "unhidden_count": count})
 
 
 # ============================================================

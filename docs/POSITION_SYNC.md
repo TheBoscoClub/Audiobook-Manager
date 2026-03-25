@@ -251,7 +251,9 @@ When you click Play on an audiobook:
 | `/api/user/history` | GET | Paginated personal listening history |
 | `/api/user/downloads` | GET | Paginated personal download history |
 | `/api/user/downloads/<id>/complete` | POST | Record a completed download |
-| `/api/user/library` | GET | Books the user has interacted with |
+| `/api/user/library` | GET | Books the user has interacted with (accepts `?hidden=true`; returns `hidden_count`) |
+| `/api/user/library/hide` | POST | Hide selected books from My Library view |
+| `/api/user/library/unhide` | POST | Unhide/restore hidden books to My Library view |
 | `/api/user/new-books` | GET | Books added since user's last visit |
 | `/api/user/new-books/dismiss` | POST | Mark current books as seen |
 
@@ -363,6 +365,15 @@ CREATE TABLE user_preferences (
     new_books_seen_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User hidden books (soft-hide from My Library view, preserves all data)
+CREATE TABLE user_hidden_books (
+    user_id INTEGER NOT NULL,
+    audiobook_id INTEGER NOT NULL,
+    hidden_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, audiobook_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 

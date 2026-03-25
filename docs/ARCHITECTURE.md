@@ -415,6 +415,7 @@ library/auth/
 | `contact_log` | Audit trail | user_id, sent_at (no content stored) |
 | `webauthn_credentials` | Passkey/FIDO2 credentials | user_id, credential_id, public_key, name, created_at |
 | `audit_log` | User management audit trail | actor_id, target_user_id (ON DELETE SET NULL), action, details (JSON), created_at |
+| `user_hidden_books` | My Library hidden books | user_id + audiobook_id composite PK, hidden_at |
 | `schema_version` | Migration tracking | version, applied_at |
 
 ### Session Management
@@ -853,6 +854,15 @@ CREATE TABLE user_preferences (
     new_books_seen_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User hidden books (soft-hide from My Library view, preserves all data)
+CREATE TABLE user_hidden_books (
+    user_id INTEGER NOT NULL,
+    audiobook_id INTEGER NOT NULL,
+    hidden_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, audiobook_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 
