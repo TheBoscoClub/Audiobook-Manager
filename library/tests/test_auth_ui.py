@@ -231,13 +231,13 @@ class TestAuthCSS:
         assert "@media" in help_css_content, "Should have media queries"
         assert "480px" in help_css_content, "Should have mobile breakpoint"
 
-    def test_auth_css_has_user_menu_styles(self):
-        """Verify auth.css has user menu component styles."""
-        auth_css_content = (CSS_DIR / "auth.css").read_text()
+    def test_shell_css_has_account_button_styles(self):
+        """Verify shell.css has account button styles (replaced old user-menu)."""
+        shell_css_content = (CSS_DIR / "shell.css").read_text()
 
-        assert ".user-menu" in auth_css_content, "Should have user-menu class"
-        assert ".user-button" in auth_css_content, "Should have user-button class"
-        assert ".user-dropdown" in auth_css_content, "Should have user-dropdown class"
+        assert ".account-btn" in shell_css_content, "Should have account-btn class"
+        assert ".account-icon" in shell_css_content, "Should have account-icon class"
+        assert ".account-section" in shell_css_content, "Should have account-section styles"
 
     def test_help_tooltips_css_has_icon_styles(self):
         """Verify help tooltips CSS styles the help icons."""

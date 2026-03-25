@@ -128,7 +128,6 @@ class AudiobookLibraryV2 {
    * Update UI elements based on user auth state.
    */
   updateUserUI() {
-    const userMenu = document.getElementById("user-menu");
     const loginLink = document.getElementById("login-link");
     const backOfficeLink = document.getElementById("admin-backoffice-link");
 
@@ -139,18 +138,6 @@ class AudiobookLibraryV2 {
     }
 
     if (this.user) {
-      // Show user menu, hide login link
-      if (userMenu) {
-        userMenu.hidden = false;
-        const usernameEl = document.getElementById("username-display");
-        if (usernameEl) {
-          usernameEl.textContent = this.user.username;
-        }
-        const userInitial = document.getElementById("user-initial");
-        if (userInitial) {
-          userInitial.textContent = this.user.username.charAt(0).toUpperCase();
-        }
-      }
       if (loginLink) {
         loginLink.hidden = true;
       }
@@ -159,11 +146,9 @@ class AudiobookLibraryV2 {
       this.updateDownloadButtons();
     } else if (this.authEnabled) {
       // Auth enabled but no user - show login link
-      if (userMenu) userMenu.hidden = true;
       if (loginLink) loginLink.hidden = false;
     } else {
-      // Auth not enabled or unknown state - hide both user elements
-      if (userMenu) userMenu.hidden = true;
+      // Auth not enabled or unknown state - hide login
       if (loginLink) loginLink.hidden = true;
     }
   }
@@ -172,7 +157,6 @@ class AudiobookLibraryV2 {
    * Update UI for guest mode — show sign in / request access, hide user elements.
    */
   updateGuestUI() {
-    const userMenu = document.getElementById("user-menu");
     const loginLink = document.getElementById("login-link");
     const requestAccessLink = document.getElementById("request-access-link");
     const backOfficeLink = document.getElementById("admin-backoffice-link");
@@ -180,7 +164,6 @@ class AudiobookLibraryV2 {
       '.tab-btn[data-tab="my-library"]',
     );
 
-    if (userMenu) userMenu.hidden = true;
     if (loginLink) loginLink.hidden = false;
     if (requestAccessLink) requestAccessLink.hidden = false;
     if (backOfficeLink) backOfficeLink.hidden = true;

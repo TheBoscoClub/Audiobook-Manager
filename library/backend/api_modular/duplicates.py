@@ -592,10 +592,10 @@ def init_duplicates_routes(db_path):
                             if checksum not in checksums:
                                 checksums[checksum] = []
                             checksums[checksum].append(filepath)
-            except Exception as e:
+            except Exception:
                 return {
                     "exists": True,
-                    "error": str(e),
+                    "error": "Failed to parse checksum index",
                     "duplicate_groups": [],
                 }
 
@@ -740,8 +740,8 @@ def init_duplicates_routes(db_path):
                 return {"success": True, "count": count, "file": output_file}
             except subprocess.TimeoutExpired:
                 return {"success": False, "error": "Timeout after 10 minutes"}
-            except Exception as e:
-                return {"success": False, "error": str(e)}
+            except Exception:
+                return {"success": False, "error": "Checksum generation failed"}
 
         if check_type in ("sources", "both"):
             results["sources"] = generate_checksums(
