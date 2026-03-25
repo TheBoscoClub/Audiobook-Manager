@@ -95,10 +95,16 @@ write_status() {
     output_json+="]"
 
     # Use echo with explicit file write (more reliable than heredoc in some environments)
-    echo "{\"running\": $running, \"stage\": \"$stage\", \"message\": \"$message\", \"success\": $success, \"output\": $output_json, \"result\": $result}" >"$STATUS_FILE"
+    local status_json="{\"running\": $running, \"stage\": \"$stage\", \"message\": \"$message\", \"success\": $success, \"output\": $output_json, \"result\": $result}"
+    echo "$status_json" >"$STATUS_FILE"
     # Make status file readable/writable by audiobooks group (API needs to read/delete it)
     chown root:audiobooks "$STATUS_FILE" 2>/dev/null || true
     chmod 660 "$STATUS_FILE" 2>/dev/null || true
+
+    # Mirror to Caddy's static dir so maintenance.html can show live progress
+    # even while the API is down (Caddy serves /etc/caddy/ during 502/503)
+    echo "$status_json" >"/etc/caddy/upgrade-status.json" 2>/dev/null || true
+    chmod 644 "/etc/caddy/upgrade-status.json" 2>/dev/null || true
 }
 
 # Check if service is valid
@@ -607,6 +613,11 @@ do_upgrade() {
         OUTPUT_LINES+=("WARNING: API health check did not pass within ${max_wait}s (may still be starting)")
         write_status "false" "complete" "Upgrade completed — API may need a moment to start" "true" "$result_json" "${OUTPUT_LINES[@]}"
     fi
+
+    # Clean up Caddy status file after a brief delay (maintenance.html will have
+    # already reloaded by now since the API is back up)
+    sleep 5
+    rm -f "/etc/caddy/upgrade-status.json" 2>/dev/null || true
 }
 
 # =============================================================================

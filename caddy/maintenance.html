@@ -332,6 +332,36 @@
             color: var(--brass);
             margin-top: 0.75rem;
         }
+
+        /* Upgrade stage progress */
+        .stage-list {
+            list-style: none;
+            padding: 0;
+            margin: 1.2rem auto 0;
+            max-width: 300px;
+            text-align: left;
+        }
+        .stage-item {
+            padding: 0.3rem 0;
+            font-size: 0.95rem;
+            color: var(--parchment);
+            opacity: 0.45;
+            transition: opacity 0.3s, color 0.3s;
+        }
+        .stage-item.complete {
+            opacity: 1;
+            color: #4caf50;
+        }
+        .stage-item.active {
+            opacity: 1;
+            color: var(--gold-bright);
+            font-weight: bold;
+        }
+        .stage-item .icon {
+            display: inline-block;
+            width: 1.4em;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -389,16 +419,76 @@
 
         <div class="gold-bar"></div>
         <p class="subtitle">We're adding new shelves. This won't take long.</p>
+
+        <ul class="stage-list" id="stage-list"></ul>
+
         <div class="progress-wrap"><div class="progress-bar"></div></div>
-        <p class="status-line">Upgrade in progress&hellip;</p>
+        <p class="status-line" id="status-line">Upgrade in progress&hellip;</p>
     </div>
 
     <script>
+        var STAGES = [
+            { key: 'preflight_recheck', label: 'Preflight re-validated' },
+            { key: 'backing_up',        label: 'Installation backed up' },
+            { key: 'stopping_services', label: 'Services stopped' },
+            { key: 'upgrading',         label: 'Upgrading files' },
+            { key: 'starting_services', label: 'Starting services' },
+            { key: 'verifying',         label: 'Verifying upgrade' }
+        ];
+
+        function renderStages(data) {
+            var list = document.getElementById('stage-list');
+            if (!list || !data || !data.stage) return;
+
+            // Clear existing children safely
+            while (list.firstChild) list.removeChild(list.firstChild);
+
+            var currentIdx = -1;
+            for (var i = 0; i < STAGES.length; i++) {
+                if (STAGES[i].key === data.stage) { currentIdx = i; break; }
+            }
+
+            for (var j = 0; j < STAGES.length; j++) {
+                var li = document.createElement('li');
+                li.className = 'stage-item';
+
+                var iconSpan = document.createElement('span');
+                iconSpan.className = 'icon';
+
+                if (j < currentIdx) {
+                    li.className += ' complete';
+                    iconSpan.textContent = '\u2713 ';
+                } else if (j === currentIdx) {
+                    li.className += ' active';
+                    iconSpan.textContent = '\u25CF ';
+                } else {
+                    iconSpan.textContent = '\u25CB ';
+                }
+
+                li.appendChild(iconSpan);
+                li.appendChild(document.createTextNode(STAGES[j].label));
+                list.appendChild(li);
+            }
+
+            var statusLine = document.getElementById('status-line');
+            if (statusLine && data.message) {
+                statusLine.textContent = data.message;
+            }
+        }
+
         (function poll() {
+            // Try the live status file first (written by upgrade-helper)
+            fetch('/upgrade-status.json', { signal: AbortSignal.timeout(3000) })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) { if (data) renderStages(data); })
+                .catch(function() {});
+
+            // Also check if API is back up
             fetch('/api/system/health', { signal: AbortSignal.timeout(3000) })
                 .then(function(r) { if (r.ok) location.reload(); })
                 .catch(function() {});
-            setTimeout(poll, 5000);
+
+            setTimeout(poll, 3000);
         })();
     </script>
     <noscript><p>JavaScript is disabled. This page will auto-refresh every 30 seconds.</p></noscript>

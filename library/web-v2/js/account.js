@@ -7,6 +7,8 @@
 
   // ── State ──
   var accountData = null;
+  var loadRetries = 0;
+  var MAX_LOAD_RETRIES = 3;
 
   // ── Modal open/close ──
   function openAccountModal() {
@@ -29,6 +31,10 @@
       var resp = await fetch("/auth/account", { credentials: "same-origin" });
       if (!resp.ok) throw new Error("Not authenticated");
       accountData = await resp.json();
+      loadRetries = 0; // Reset retry counter on success
+
+      // Ensure button is visible (may have been hidden by a prior failed attempt)
+      document.getElementById("my-account-btn").hidden = false;
 
       document.getElementById("acct-username").textContent = accountData.username;
       document.getElementById("acct-email").textContent = accountData.email || "(none)";
@@ -43,7 +49,35 @@
         initialEl.textContent = accountData.username.charAt(0).toUpperCase();
       }
     } catch (e) {
-      // Not logged in — hide the account button
+      // API may not be ready yet (e.g., after upgrade restart).
+      // Retry a few times with backoff before hiding the button.
+      if (loadRetries < MAX_LOAD_RETRIES) {
+        loadRetries++;
+        setTimeout(loadAccountData, loadRetries * 2000);
+        return;
+      }
+      // After retries exhausted, check if auth is even enabled.
+      // If auth is disabled, hiding is correct. If auth is enabled
+      // but the session expired, show a "Sign In" state instead.
+      try {
+        var statusResp = await fetch("/auth/status", { credentials: "same-origin" });
+        if (statusResp.ok) {
+          var statusData = await statusResp.json();
+          if (!statusData.auth_enabled) {
+            // Auth disabled — no account button needed
+            document.getElementById("my-account-btn").hidden = true;
+            return;
+          }
+          if (statusData.guest || !statusData.user) {
+            // Auth enabled but not logged in — hide account button
+            document.getElementById("my-account-btn").hidden = true;
+            return;
+          }
+        }
+      } catch (_ignored) {
+        // /auth/status also failed — API is truly down
+      }
+      // Default: hide the button (genuinely not authenticated)
       document.getElementById("my-account-btn").hidden = true;
     }
   }
