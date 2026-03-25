@@ -160,7 +160,7 @@ class TestHelpTooltipSystem:
         assert (
             "Google Authenticator" in register_content
         ), "Should mention Google Authenticator"
-        assert "Authy" in register_content, "Should mention Authy"
+        assert "2FAS" in register_content, "Should mention 2FAS"
 
     def test_register_page_has_backup_codes_help(self):
         """Verify register page explains backup codes."""

@@ -928,7 +928,7 @@ Audiobook-Manager supports multi-user authentication with three methods:
 
 | Method | How It Works | Best For |
 |--------|-------------|----------|
-| **TOTP** | Time-based codes via authenticator app (Authy, Google Authenticator) | Most users |
+| **TOTP** | Time-based codes via authenticator app ([2FAS](https://2fas.com), Google Authenticator, Aegis) | Most users |
 | **Passkey** | Biometrics, phone, or password manager (Bitwarden, 1Password) | Convenience |
 | **FIDO2** | Hardware security key (YubiKey, Titan) | Maximum security |
 

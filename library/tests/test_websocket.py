@@ -4,7 +4,7 @@ import time
 from unittest.mock import MagicMock
 
 
-from library.backend.api_modular.websocket import ConnectionManager
+from backend.api_modular.websocket import ConnectionManager
 
 
 class TestConnectionManager:
