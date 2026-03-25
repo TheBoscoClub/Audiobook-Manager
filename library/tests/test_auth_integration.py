@@ -445,9 +445,9 @@ class TestFIDO2UserLifecycle:
     Uses hardware YubiKey if detected, otherwise falls back to software authenticator.
     """
 
-    @pytest.mark.hardware
+    @pytest.mark.fido2
     def test_full_fido2_lifecycle(self, admin_session):
-        """End-to-end FIDO2 user lifecycle (requires --hardware flag)."""
+        """End-to-end FIDO2 user lifecycle (--fido2 hardware|software)."""
         if _FIDO2_HARDWARE:
             self._run_hardware_fido2(admin_session)
         else:
@@ -588,8 +588,14 @@ class TestFIDO2UserLifecycle:
 
         # Build the creation options that Fido2Client expects
         # The py_webauthn options are JSON-serialized; we need to pass them
-        # to the FIDO2 client in the correct format
-        creation_result = client.make_credential(_parse_creation_options(options))
+        # to the FIDO2 client in the correct format.
+        # hardware_touch_attempt retries on device timeout, giving the user
+        # up to 90s total across multiple device-level timeout cycles.
+        from conftest import hardware_touch_attempt
+
+        creation_result = hardware_touch_attempt(
+            client.make_credential, _parse_creation_options(options)
+        )
 
         # Build credential response matching the server's expected format
         credential_response = _fido2_creation_to_dict(creation_result)
@@ -622,8 +628,11 @@ class TestFIDO2UserLifecycle:
             login_options = json.loads(login_options)
         login_challenge = login_begin["challenge"]
 
-        # Step 6: Authenticate with YubiKey
-        assertion_result = client.get_assertion(_parse_request_options(login_options))
+        # Step 6: Authenticate with YubiKey (retries on device timeout,
+        # up to 90s total via hardware_touch_attempt)
+        assertion_result = hardware_touch_attempt(
+            client.get_assertion, _parse_request_options(login_options)
+        )
 
         # Build assertion response
         assertion_response = _fido2_assertion_to_dict(assertion_result)

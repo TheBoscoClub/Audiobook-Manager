@@ -12,19 +12,38 @@ from pathlib import Path
 
 import pytest
 
+HARDWARE_TOUCH_TIMEOUT = 90  # total seconds for up to 3 hardware touch attempts
+HARDWARE_TOUCH_MAX_ATTEMPTS = 3  # max touch opportunities within the timeout
+
 
 def pytest_addoption(parser):
+    parser.addoption(
+        "--fido2",
+        action="store_true",
+        default=False,
+        help=(
+            "Run FIDO2 auth tests with a physical hardware key (e.g., YubiKey). "
+            "If omitted, FIDO2 tests run automatically with a software "
+            "authenticator — no prompt, no hardware needed."
+        ),
+    )
     parser.addoption(
         "--hardware",
         action="store_true",
         default=False,
-        help="Run tests that require physical hardware (e.g., YubiKey touch)",
+        help=(
+            "Run tests that require non-FIDO2 physical hardware. "
+            "FIDO2 auth tests are controlled exclusively by --fido2."
+        ),
     )
     parser.addoption(
         "--vm",
         action="store_true",
         default=False,
-        help="Run integration tests that require the test VM (test-audiobook-cachyos)",
+        help=(
+            "Run integration tests that require the test VM "
+            "(test-audiobook-cachyos). Does NOT include FIDO2 auth tests."
+        ),
     )
     parser.addoption(
         "--docker",
@@ -42,18 +61,29 @@ def pytest_configure(config):
     if config.getoption("--vm", default=False):
         os.environ["VM_TESTS"] = "1"
 
+    # FIDO2 mode: --fido2 means hardware key, omitted means software.
+    # No prompt — software is the automatic default.
+    if not config.getoption("--fido2", default=False):
+        os.environ["FIDO2_SOFTWARE"] = "1"
+
 
 def pytest_collection_modifyitems(config, items):
+    # --hardware gates non-FIDO2 hardware tests only
     if not config.getoption("--hardware"):
-        skip_hw = pytest.mark.skip(reason="needs --hardware flag to run")
+        skip_hw = pytest.mark.skip(
+            reason="needs --hardware flag to run (non-FIDO2 hardware)"
+        )
         for item in items:
             if "hardware" in item.keywords:
                 item.add_marker(skip_hw)
+
+    # --vm gates integration tests (NOT FIDO2 auth tests)
     if not config.getoption("--vm"):
         skip_vm = pytest.mark.skip(reason="needs --vm flag to run (test VM)")
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(skip_vm)
+
     if not config.getoption("--docker"):
         skip_docker = pytest.mark.skip(
             reason="needs --docker flag to run (Docker daemon)"
@@ -61,6 +91,73 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "docker" in item.keywords:
                 item.add_marker(skip_docker)
+
+
+HARDWARE_SKIP_MSG = (
+    "hardware authentication skipped; "
+    "user not present or did not respond to the prompt."
+)
+
+
+def hardware_touch_attempt(fido2_callable, *args, **kwargs):
+    """Call a FIDO2 operation with up to 3 touch attempts within 90 seconds.
+
+    FIDO2 hardware keys (e.g., YubiKey) have a built-in touch timeout,
+    typically ~30 seconds.  This wrapper gives the user up to 3 attempts
+    to touch the key, constrained by a 90-second overall deadline.
+
+    If the user touches the key on any attempt and no other hardware
+    errors occur, the result is returned immediately (test passes).
+    If all 3 attempts expire or 90 seconds elapse without a successful
+    touch, the test is skipped and remaining tests continue.
+
+    Args:
+        fido2_callable: A function that triggers a FIDO2 touch
+            (e.g., ``client.make_credential`` or ``client.get_assertion``).
+        *args, **kwargs: Forwarded to *fido2_callable*.
+
+    Returns:
+        The result of the FIDO2 operation on success.
+
+    Raises:
+        pytest.skip: If the user never touches the key within the budget.
+        Exception: Any non-timeout FIDO2/CTAP error is re-raised immediately.
+    """
+    from fido2.client import ClientError
+    from fido2.ctap import CtapError
+
+    deadline = time.monotonic() + HARDWARE_TOUCH_TIMEOUT
+
+    for attempt in range(1, HARDWARE_TOUCH_MAX_ATTEMPTS + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+
+        print(
+            f"\n  >>> Attempt {attempt}/{HARDWARE_TOUCH_MAX_ATTEMPTS}: "
+            f"Touch your hardware key now "
+            f"({int(remaining)}s remaining)... <<<"
+        )
+
+        try:
+            return fido2_callable(*args, **kwargs)
+        except ClientError as exc:
+            if exc.code == ClientError.ERR.TIMEOUT:
+                continue
+            raise
+        except CtapError as exc:
+            if exc.code in (
+                CtapError.ERR.USER_ACTION_TIMEOUT,
+                CtapError.ERR.ACTION_TIMEOUT,
+                CtapError.ERR.KEEPALIVE_CANCEL,
+            ):
+                continue
+            raise
+        except OSError:
+            # Device communication failure (USB disconnect, etc.)
+            continue
+
+    pytest.skip(HARDWARE_SKIP_MSG)
 
 
 # Add library directory to path for imports
