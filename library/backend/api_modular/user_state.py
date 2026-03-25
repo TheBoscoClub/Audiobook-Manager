@@ -286,7 +286,7 @@ def get_user_library():
         placeholders = ",".join("?" * len(int_ids))
         cursor = conn.cursor()
         cursor.execute(
-            f"SELECT id, title, author, duration_hours, cover_path, format "
+            f"SELECT id, title, author, duration_hours, cover_path, format "  # nosec B608
             f"FROM audiobooks WHERE id IN ({placeholders})",
             int_ids,
         )

@@ -266,7 +266,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         path = path.replace("\x00", "")
         # Construct URL to local backend only (never external)
         # CodeQL: SSRF safe - path validated above, connects to localhost only
-        api_url = f"http://127.0.0.1:{API_PORT}{path}"  # lgtm[py/ssrf]
+        api_url = f"http://127.0.0.1:{API_PORT}{path}"
 
         try:
             # Prepare headers - forward client headers to Flask
@@ -302,7 +302,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 api_url, data=body, headers=headers, method=method
             )
 
-            with urllib.request.urlopen(req, timeout=30) as response:
+            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310 — connects to hardcoded 127.0.0.1 only
                 # Send response status
                 self.send_response(response.status)
 

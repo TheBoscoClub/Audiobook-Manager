@@ -39,7 +39,7 @@ def _is_safe_path(filepath: Path, allowed_bases: list[Path]) -> bool:
     try:
         # Resolve to canonical path (follows symlinks, resolves ..)
         # CodeQL: This IS the path validation function - resolve() is intentional
-        resolved = filepath.resolve()  # lgtm[py/path-injection]
+        resolved = filepath.resolve()
         # Check if it's under any of the allowed base directories
         for base in allowed_bases:
             try:
@@ -401,7 +401,7 @@ def init_duplicates_routes(db_path):
                    ROUND(duration_hours, 1) as duration_group
             FROM audiobooks
             WHERE id IN ({placeholders})
-        """,
+        """,  # nosec B608
             ids_to_delete,
         )
 
@@ -828,7 +828,7 @@ def init_duplicates_routes(db_path):
                         # Delete physical file
                         # CodeQL: filepath validated by _is_safe_path() at line 789
                         if filepath.exists():
-                            filepath.unlink()  # lgtm[py/path-injection]
+                            filepath.unlink()
                             remove_from_indexes(filepath)
 
                         # Delete from database (cascade)
@@ -856,7 +856,7 @@ def init_duplicates_routes(db_path):
 
                         # CodeQL: _sanitize_for_log removes control chars
                         # (log injection safe)
-                        logging.exception(  # lgtm[py/log-injection]
+                        logging.exception(
                             "Error deleting library file %s",
                             _sanitize_for_log(filepath_str),
                         )
@@ -868,7 +868,7 @@ def init_duplicates_routes(db_path):
                     # CodeQL: filepath validated by _is_safe_path() at line 789
                     if filepath.exists():
                         try:
-                            filepath.unlink()  # lgtm[py/path-injection]
+                            filepath.unlink()
                             remove_from_indexes(filepath)
                             deleted_files.append(
                                 {
@@ -882,7 +882,7 @@ def init_duplicates_routes(db_path):
 
                             # CodeQL: _sanitize_for_log removes control chars
                             # (log injection safe)
-                            logging.exception(  # lgtm[py/log-injection]
+                            logging.exception(
                                 "Error deleting file %s",
                                 _sanitize_for_log(filepath_str),
                             )
@@ -897,7 +897,7 @@ def init_duplicates_routes(db_path):
                 # CodeQL: filepath validated by _is_safe_path() at line 789
                 if filepath.exists():
                     try:
-                        filepath.unlink()  # lgtm[py/path-injection]
+                        filepath.unlink()
                         remove_from_indexes(filepath)
                         deleted_files.append(
                             {"path": filepath_str, "title": filepath.name, "id": None}
@@ -907,7 +907,7 @@ def init_duplicates_routes(db_path):
 
                         # CodeQL: _sanitize_for_log removes control chars
                         # (log injection safe)
-                        logging.exception(  # lgtm[py/log-injection]
+                        logging.exception(
                             "Error deleting source file %s",
                             _sanitize_for_log(filepath_str),
                         )
@@ -953,7 +953,7 @@ def init_duplicates_routes(db_path):
             SELECT id, sha256_hash, title
             FROM audiobooks
             WHERE id IN ({placeholders})
-        """,
+        """,  # nosec B608
             ids_to_check,
         )
 

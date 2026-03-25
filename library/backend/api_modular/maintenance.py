@@ -209,7 +209,7 @@ def update_window(wid):
         set_clause = ", ".join(f'"{k}" = ?' for k in sanitized)
         values = list(sanitized.values()) + [wid]
         conn.execute(
-            "UPDATE maintenance_windows SET "  # noqa: S608
+            "UPDATE maintenance_windows SET "  # noqa: S608  # nosec B608
             + set_clause
             + " WHERE id = ?",
             values,

@@ -190,10 +190,10 @@ def _seed_empty_database(data_dir: str) -> None:
     # from host UID — e.g. host claude=1001 vs container appuser=1000).
     os.chmod(
         data_dir, 0o777
-    )  # noqa: S103 # nosec B103 # lgtm[py/overly-permissive-file] — test container needs cross-UID access
+    )  # noqa: S103 # nosec B103 — test container needs cross-UID access
     os.chmod(
         str(db_path), 0o666
-    )  # noqa: S103 # nosec B103 # lgtm[py/overly-permissive-file] — test container needs cross-UID access
+    )  # noqa: S103 # nosec B103 — test container needs cross-UID access
 
 
 @pytest.fixture
@@ -216,7 +216,7 @@ def docker_container(docker_image):
     # Ensure covers dir is accessible by container user (may have different UID)
     os.chmod(
         covers_dir, 0o777
-    )  # noqa: S103 # nosec B103 # lgtm[py/overly-permissive-file] — test container needs cross-UID access
+    )  # noqa: S103 # nosec B103 — test container needs cross-UID access
 
     # Use --publish with port 0 on host to let Docker pick free ports
     # Override AUDIOBOOKS_BIND_ADDRESS to 0.0.0.0 so ports are reachable
@@ -380,7 +380,7 @@ class TestAPIIntegration:
         url = self._https_url(healthy_container, "/api/stats")
         resp = requests.get(
             url, verify=False, timeout=10
-        )  # noqa: S501 # nosec B501 # lgtm[py/request-without-cert-validation] — self-signed cert on local test container
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200, f"Unexpected status {resp.status_code}"
         data = resp.json()
         assert isinstance(data, dict)
@@ -390,7 +390,7 @@ class TestAPIIntegration:
         url = self._https_url(healthy_container, "/api/system/version")
         resp = requests.get(
             url, verify=False, timeout=10
-        )  # noqa: S501 # nosec B501 # lgtm[py/request-without-cert-validation] — self-signed cert on local test container
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         data = resp.json()
         assert "version" in data or "app_version" in data
@@ -400,7 +400,7 @@ class TestAPIIntegration:
         url = self._https_url(healthy_container, "/")
         resp = requests.get(
             url, verify=False, timeout=10
-        )  # noqa: S501 # nosec B501 # lgtm[py/request-without-cert-validation] — self-signed cert on local test container
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         assert "text/html" in resp.headers.get("Content-Type", "")
 
@@ -409,7 +409,7 @@ class TestAPIIntegration:
         url = self._http_url(healthy_container, "/")
         resp = requests.get(
             url, verify=False, timeout=10, allow_redirects=False
-        )  # noqa: S501 # nosec B501 # lgtm[py/request-without-cert-validation] — self-signed cert on local test container
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code in (
             301,
             302,
@@ -426,7 +426,7 @@ class TestAPIIntegration:
         url = self._https_url(healthy_container, "/api/audiobooks")
         resp = requests.get(
             url, verify=False, timeout=10
-        )  # noqa: S501 # nosec B501 # lgtm[py/request-without-cert-validation] — self-signed cert on local test container
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         data = resp.json()
         # Response is a list of audiobooks (possibly empty)
@@ -536,7 +536,7 @@ class TestEnvironmentVariables:
                 try:
                     resp = requests.get(
                         url, verify=False, timeout=10
-                    )  # noqa: S501 # nosec B501 # lgtm[py/request-without-cert-validation] — self-signed cert on local test container
+                    )  # noqa: S501 # nosec B501 — self-signed cert on local test container
                     assert resp.status_code == 200
                 except RequestsConnectionError:
                     # Port bound but HTTPS proxy may still be starting

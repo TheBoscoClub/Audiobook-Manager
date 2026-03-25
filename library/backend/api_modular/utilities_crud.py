@@ -61,7 +61,7 @@ def init_crud_routes(db_path):
             )
 
         values.append(id)
-        query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"
+        query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
 
         try:
             cursor.execute(query, values)
@@ -180,7 +180,7 @@ def init_crud_routes(db_path):
         try:
             placeholders = ",".join("?" * len(ids))
             # CodeQL: field is validated against allowed_fields allowlist (line 156)
-            query = f"UPDATE audiobooks SET {field} = ? WHERE id IN ({placeholders})"
+            query = f"UPDATE audiobooks SET {field} = ? WHERE id IN ({placeholders})"  # nosec B608
             cursor.execute(query, [value] + ids)
             conn.commit()
             updated_count = cursor.rowcount
@@ -230,7 +230,7 @@ def init_crud_routes(db_path):
             files_to_delete = []
             if delete_files:
                 cursor.execute(
-                    "SELECT id, file_path FROM audiobooks"
+                    "SELECT id, file_path FROM audiobooks"  # nosec B608
                     f" WHERE id IN ({placeholders})",
                     ids,
                 )
@@ -245,23 +245,23 @@ def init_crud_routes(db_path):
 
             # Delete related records
             cursor.execute(
-                f"DELETE FROM audiobook_genres WHERE audiobook_id IN ({placeholders})",
+                f"DELETE FROM audiobook_genres WHERE audiobook_id IN ({placeholders})",  # nosec B608
                 ids,
             )
             cursor.execute(
-                f"DELETE FROM audiobook_topics WHERE audiobook_id IN ({placeholders})",
+                f"DELETE FROM audiobook_topics WHERE audiobook_id IN ({placeholders})",  # nosec B608
                 ids,
             )
             cursor.execute(
-                f"DELETE FROM audiobook_eras WHERE audiobook_id IN ({placeholders})",
+                f"DELETE FROM audiobook_eras WHERE audiobook_id IN ({placeholders})",  # nosec B608
                 ids,
             )
             cursor.execute(
-                f"DELETE FROM supplements WHERE audiobook_id IN ({placeholders})", ids
+                f"DELETE FROM supplements WHERE audiobook_id IN ({placeholders})", ids  # nosec B608
             )
 
             # Delete audiobooks
-            cursor.execute(f"DELETE FROM audiobooks WHERE id IN ({placeholders})", ids)
+            cursor.execute(f"DELETE FROM audiobooks WHERE id IN ({placeholders})", ids)  # nosec B608
             deleted_count = cursor.rowcount
 
             # Commit database changes first
@@ -506,7 +506,7 @@ def init_crud_routes(db_path):
 
                     placeholders = ",".join("?" * len(ids))
                     cursor.execute(
-                        "DELETE FROM audiobook_genres"
+                        "DELETE FROM audiobook_genres"  # nosec B608
                         f" WHERE genre_id = ? AND audiobook_id IN ({placeholders})",
                         [genre_id] + list(ids),
                     )

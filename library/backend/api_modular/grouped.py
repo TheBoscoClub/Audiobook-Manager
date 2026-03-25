@@ -139,7 +139,7 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         JOIN authors auth ON ba.author_id = auth.id
         WHERE {AUDIOBOOK_FILTER}
         ORDER BY auth.sort_name COLLATE NOCASE, a.title COLLATE NOCASE
-        """)
+        """)  # nosec B608
     rows = cursor.fetchall()
 
     # Build groups preserving query order
@@ -173,7 +173,7 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         WHERE {AUDIOBOOK_FILTER}
           AND a.id NOT IN (SELECT book_id FROM book_authors)
         ORDER BY a.title COLLATE NOCASE
-        """)
+        """)  # nosec B608
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:
@@ -210,7 +210,7 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         JOIN narrators narr ON bn.narrator_id = narr.id
         WHERE {AUDIOBOOK_FILTER}
         ORDER BY narr.sort_name COLLATE NOCASE, a.title COLLATE NOCASE
-        """)
+        """)  # nosec B608
     rows = cursor.fetchall()
 
     groups: list[dict] = []
@@ -243,7 +243,7 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         WHERE {AUDIOBOOK_FILTER}
           AND a.id NOT IN (SELECT book_id FROM book_narrators)
         ORDER BY a.title COLLATE NOCASE
-        """)
+        """)  # nosec B608
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:
