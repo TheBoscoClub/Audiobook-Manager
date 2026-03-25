@@ -50,7 +50,7 @@ class HTTPToHTTPSRedirectHandler(http.server.BaseHTTPRequestHandler):
 
         https_url = f"https://{safe_host}:{HTTPS_PORT}{safe_path}"
         self.send_response(301)
-        self.send_header("Location", https_url)  # lgtm[py/http-response-splitting]
+        self.send_header("Location", https_url)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
         body = f"""<!DOCTYPE html>

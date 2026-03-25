@@ -158,7 +158,7 @@ def get_system_stats() -> dict:
             load_avg = f.read().strip().split()[0]
 
         # tmpfs usage
-        df_result = subprocess.run(["df", "-h", "/tmp"], capture_output=True, text=True)
+        df_result = subprocess.run(["df", "-h", "/tmp"], capture_output=True, text=True)  # nosec B108 — reading tmpfs stats, not creating temp files
         if df_result.returncode == 0:
             lines = df_result.stdout.strip().split("\n")
             if len(lines) > 1:

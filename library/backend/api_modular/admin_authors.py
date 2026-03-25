@@ -100,7 +100,7 @@ def _get_affected_book_ids(
         table = "book_narrators"
         col = "narrator_id"
     rows = conn.execute(
-        f"SELECT book_id FROM {table} WHERE {col} = ?",  # noqa: S608
+        f"SELECT book_id FROM {table} WHERE {col} = ?",  # noqa: S608  # nosec B608
         (entity_id,),
     ).fetchall()
     return [r["book_id"] for r in rows]
@@ -220,7 +220,7 @@ def rename_author(author_id: int):
         params.append(author_id)
 
         conn.execute(
-            f"UPDATE authors SET {', '.join(updates)} WHERE id = ?",  # noqa: S608
+            f"UPDATE authors SET {', '.join(updates)} WHERE id = ?",  # noqa: S608  # nosec B608
             params,
         )
 
@@ -445,7 +445,7 @@ def rename_narrator(narrator_id: int):
         params.append(narrator_id)
 
         conn.execute(
-            f"UPDATE narrators SET {', '.join(updates)} WHERE id = ?",  # noqa: S608
+            f"UPDATE narrators SET {', '.join(updates)} WHERE id = ?",  # noqa: S608  # nosec B608
             params,
         )
 

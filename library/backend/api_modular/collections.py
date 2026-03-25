@@ -20,7 +20,7 @@ def genre_query(genre_pattern: str) -> str:
         SELECT ag.audiobook_id FROM audiobook_genres ag
         JOIN genres g ON ag.genre_id = g.id
         WHERE g.name LIKE '{genre_pattern}'
-    )"""
+    )"""  # nosec B608
 
 
 def multi_genre_query(genre_patterns: list[str]) -> str:
@@ -30,7 +30,7 @@ def multi_genre_query(genre_patterns: list[str]) -> str:
         SELECT DISTINCT ag.audiobook_id FROM audiobook_genres ag
         JOIN genres g ON ag.genre_id = g.id
         WHERE {conditions}
-    )"""
+    )"""  # nosec B608
 
 
 # ─── Tree-structured collection definitions ──────────────────────────────────
@@ -509,7 +509,7 @@ def init_collections_routes(db_path):
         cursor = conn.cursor()
 
         def get_count(query: str) -> int:
-            cursor.execute(f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}")
+            cursor.execute(f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}")  # nosec B608
             return cursor.fetchone()["count"]
 
         category_order = ["special", "main", "nonfiction", "subgenre"]

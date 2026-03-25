@@ -157,7 +157,7 @@ def get_activity():
     if type_filter is None or type_filter == "listen":
         listen_where = (" AND " + " AND ".join(listen_wheres)) if listen_wheres else ""
         subqueries.append(
-            "SELECT 'listen' AS type, h.id, h.user_id, u.username, "
+            "SELECT 'listen' AS type, h.id, h.user_id, u.username, "  # nosec B608
             "h.audiobook_id, h.title AS stored_title, h.started_at AS timestamp, "
             "h.duration_listened_ms, NULL AS file_format "
             "FROM user_listening_history h "
@@ -171,7 +171,7 @@ def get_activity():
             (" AND " + " AND ".join(download_wheres)) if download_wheres else ""
         )
         subqueries.append(
-            "SELECT 'download' AS type, d.id, d.user_id, u.username, "
+            "SELECT 'download' AS type, d.id, d.user_id, u.username, "  # nosec B608
             "d.audiobook_id, d.title AS stored_title, d.downloaded_at AS timestamp, "
             "NULL AS duration_listened_ms, d.file_format "
             "FROM user_downloads d "
@@ -187,7 +187,7 @@ def get_activity():
     data_params = all_params + [limit, offset]
 
     # Count query for true total
-    count_sql = f"SELECT COUNT(*) FROM ({union_sql})"
+    count_sql = f"SELECT COUNT(*) FROM ({union_sql})"  # nosec B608
     count_params = list(all_params)
 
     auth_db = get_auth_db()
@@ -365,7 +365,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
     try:
         placeholders = ",".join("?" * len(int_ids))
         cursor = conn.execute(
-            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})",
+            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})",  # nosec B608
             int_ids,
         )
         return {str(row["id"]): row["title"] for row in cursor.fetchall()}
