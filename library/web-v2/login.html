@@ -321,10 +321,29 @@
         const usernameInput = document.getElementById('username');
 
         // Edit username - click on readonly input or edit button to enable editing
+        // CRITICAL: must clear currentUsername and reset to step 1, otherwise
+        // the form submits the OLD username even though the field shows the new one.
         function enableUsernameEdit() {
             if (usernameInput.readOnly) {
+                const preservedValue = usernameInput.value;
+                // Reset form state back to step 1 (clears currentUsername)
+                currentAuthType = null;
+                currentUsername = null;
                 usernameInput.readOnly = false;
-                if (editUsernameBtn) editUsernameBtn.classList.add('hidden');
+                updateEditButtonVisibility();
+                document.getElementById('code').value = '';
+                document.getElementById('code').required = false;
+                totpGroup.hidden = true;
+                rememberMeGroup.hidden = true;
+                webauthnGroup.hidden = true;
+                changeUsernameLink.hidden = true;
+                document.getElementById('magic-link-sent-group').hidden = true;
+                document.getElementById('auth-options-fallback').hidden = true;
+                continueButton.hidden = false;
+                loginButton.hidden = true;
+                clearError(errorMessage);
+                // Restore the text so the user can edit it (not blank it)
+                usernameInput.value = preservedValue;
                 usernameInput.focus();
                 usernameInput.select();
             }
