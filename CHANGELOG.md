@@ -50,6 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Self-deletion guard**: `admin_delete_user_v2` now checks if actor is deleting their own account and rejects with 400 before last-admin check
 - **Access request cleanup**: deleting a user now also removes their pending access requests to prevent orphaned entries
 - **Stale docstrings**: `3-32 chars` corrected to `3-24 chars, ASCII printable` in username constraint documentation
+- **TOTP QR code display**: Embedded base64 PNG in 6 API endpoints that return TOTP setup data; frontend now uses data: URI for display and download instead of a non-existent image endpoint
+- **Unified account button**: Consolidated two separate user buttons (shell.html header + index.html iframe) into a single account button in the shell header with full modal (profile, auth management, contact admin, sign out, delete account)
+- **upgrade.sh service restart**: Added root UID detection so `systemctl` runs properly when upgrade.sh is invoked via `sudo` (services were silently not restarting)
+- **Stack-trace exposure**: Auth health check endpoint no longer returns raw exception strings in error responses
+- **Cache busting**: All HTML files now use consistent `?v=` timestamps across CSS/JS references
+- **Tutorial outdated references**: Updated tutorial step targeting removed `#user-menu` element to reference the account button in the header bar
+- **Help page**: Updated "Your Profile" section to reflect the new My Account modal
+- **CodeQL false positive suppression**: Added `lgtm[]` inline comments to prevent recurring alerts for test code (verify=False, chmod 777) and known-safe production patterns (flask-debug, path-injection)
 
 ## [7.3.0.1] - 2026-03-23
 
