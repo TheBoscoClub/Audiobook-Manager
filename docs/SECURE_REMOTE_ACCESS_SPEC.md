@@ -413,7 +413,7 @@ User visits /register
 │      Use a YubiKey or similar FIDO2 device                      │
 │                                                                  │
 │    ○ Authenticator App                                          │
-│      Use Google Authenticator, Authy, etc.                      │
+│      Use 2FAS, Google Authenticator, Aegis, etc.                │
 │                                                                  │
 │  [ Set Up ]                                                      │
 └─────────────────────────────────────────────────────────────────┘
