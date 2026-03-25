@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.4.1.1] - 2026-03-24
+
+### Fixed
+
+- **Upgrade preflight gate lost on page refresh**: `preflightData` was stored only in JS memory — a page refresh forced re-running "Check for Updates" even though the backend still had a valid preflight file. Now hydrates from `/api/system/upgrade/preflight` on page load. Also aligned frontend staleness timeout to match backend (10 min → 30 min).
+- **Upgrade maintenance page showed no progress**: Static `maintenance.html` (served by Caddy when API is down) only polled `/api/system/health` — no stage updates during upgrade. Now the upgrade-helper mirrors status to `/etc/caddy/upgrade-status.json` and `maintenance.html` renders live stage progress with checkmarks.
+- **Account button permanently hidden after upgrade restart**: `account.js` hid the user profile button on any single `/auth/account` failure with no retry. After API restart, the brief unavailability caused the button to vanish. Now retries 3 times with backoff and falls back to `/auth/status` check before hiding.
+
 ## [7.4.1] - 2026-03-24
 
 ### Added
@@ -2161,7 +2169,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.1...HEAD
+[7.4.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1...v7.4.1.1
 [7.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0.1...v7.4.1
 [7.3.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0...v7.3.0.1
 [7.3.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.2.1.1...v7.3.0
