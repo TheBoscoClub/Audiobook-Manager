@@ -1,0 +1,173 @@
+/* Account button and modal styles — shared between shell.html and index.html */
+
+/* Account Sections (inside modal) */
+.account-section {
+    margin-bottom: 1.5em;
+}
+
+.account-section h3 {
+    color: var(--gold, #DAA520);
+    font-size: 0.95em;
+    margin-bottom: 0.6em;
+    letter-spacing: 0.03em;
+}
+
+.account-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin: 0.5em 0;
+    flex-wrap: wrap;
+}
+
+.account-field label {
+    min-width: 7em;
+    color: rgba(240, 230, 211, 0.6);
+    font-size: 0.85em;
+}
+
+.editable-field {
+    cursor: pointer;
+    color: var(--parchment, #f0e6d3);
+    border-bottom: 1px dashed rgba(240, 230, 211, 0.3);
+    padding-bottom: 1px;
+}
+
+.editable-field:hover {
+    color: var(--gold, #DAA520);
+    border-bottom-color: var(--gold, #DAA520);
+}
+
+.edit-input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--gold, #DAA520);
+    color: var(--parchment, #f0e6d3);
+    padding: 0.25em 0.5em;
+    font-family: inherit;
+    font-size: 0.9em;
+    max-width: 200px;
+}
+
+.edit-input:focus {
+    outline: none;
+    border-color: #FFD700;
+}
+
+.btn-inline {
+    background: transparent;
+    border: 1px solid var(--gold, #DAA520);
+    color: var(--gold, #DAA520);
+    padding: 0.15em 0.5em;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-family: inherit;
+}
+
+.btn-inline:hover {
+    background: rgba(201, 168, 76, 0.15);
+}
+
+.auth-badge {
+    background: rgba(201, 168, 76, 0.2);
+    color: var(--gold, #DAA520);
+    padding: 0.15em 0.6em;
+    font-size: 0.8em;
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    letter-spacing: 0.05em;
+}
+
+.auth-actions {
+    display: flex;
+    gap: 0.5em;
+    margin: 0.8em 0;
+}
+
+.btn {
+    padding: 0.4em 1em;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85em;
+    border: none;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid var(--gold, #DAA520);
+    color: var(--parchment, #f0e6d3);
+}
+
+.btn-secondary:hover {
+    background: rgba(201, 168, 76, 0.15);
+    color: var(--gold, #DAA520);
+}
+
+.btn-primary {
+    background: var(--gold, #DAA520);
+    color: var(--deco-black, #080808);
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background: #d4b34e;
+}
+
+.radio-group {
+    display: flex;
+    gap: 1em;
+    margin: 0.5em 0;
+    flex-wrap: wrap;
+}
+
+.radio-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    cursor: pointer;
+    color: var(--parchment, #f0e6d3);
+    font-size: 0.85em;
+}
+
+.danger-zone {
+    border-top: 1px solid #8b0000;
+    padding-top: 1em;
+    margin-top: 2em;
+}
+
+.btn-danger {
+    background: #8b0000;
+    color: white;
+    border: none;
+    padding: 0.4em 1em;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85em;
+}
+
+.btn-danger:hover {
+    background: #a50000;
+}
+
+#auth-switch-panel {
+    margin-top: 0.8em;
+    padding: 0.8em;
+    border: 1px solid rgba(201, 168, 76, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+#auth-setup-result {
+    margin-top: 0.8em;
+    padding: 0.8em;
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    background: rgba(201, 168, 76, 0.05);
+    font-family: monospace;
+    font-size: 0.85em;
+    word-break: break-all;
+}
+
+/* Mobile: stack account fields */
+@media (max-width: 480px) {
+    #account-username { display: none; }
+    .account-field { flex-direction: column; align-items: flex-start; gap: 0.2em; }
+    .account-field label { min-width: unset; }
+    .auth-actions { flex-direction: column; }
+}

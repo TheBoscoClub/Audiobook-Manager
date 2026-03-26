@@ -134,6 +134,7 @@ class AudiobookLibraryV2 {
   updateUserUI() {
     const loginLink = document.getElementById("login-link");
     const backOfficeLink = document.getElementById("admin-backoffice-link");
+    const accountBtn = document.getElementById("my-account-btn");
 
     // Back Office is ONLY shown when we positively confirm user is admin
     // In all other cases (not logged in, not admin, error, unknown), keep it hidden
@@ -145,15 +146,21 @@ class AudiobookLibraryV2 {
       if (loginLink) {
         loginLink.hidden = true;
       }
+      // Show account button (account.js populates username/initial)
+      if (accountBtn) {
+        accountBtn.hidden = false;
+      }
 
       // Show/hide download buttons based on permission
       this.updateDownloadButtons();
     } else if (this.authEnabled) {
-      // Auth enabled but no user - show login link
+      // Auth enabled but no user - show login link, hide account
       if (loginLink) loginLink.hidden = false;
+      if (accountBtn) accountBtn.hidden = true;
     } else {
-      // Auth not enabled or unknown state - hide login
+      // Auth not enabled or unknown state - hide login and account
       if (loginLink) loginLink.hidden = true;
+      if (accountBtn) accountBtn.hidden = true;
     }
   }
 
@@ -164,6 +171,7 @@ class AudiobookLibraryV2 {
     const loginLink = document.getElementById("login-link");
     const requestAccessLink = document.getElementById("request-access-link");
     const backOfficeLink = document.getElementById("admin-backoffice-link");
+    const accountBtn = document.getElementById("my-account-btn");
     const myLibraryTab = document.querySelector(
       '.tab-btn[data-tab="my-library"]',
     );
@@ -171,6 +179,7 @@ class AudiobookLibraryV2 {
     if (loginLink) loginLink.hidden = false;
     if (requestAccessLink) requestAccessLink.hidden = false;
     if (backOfficeLink) backOfficeLink.hidden = true;
+    if (accountBtn) accountBtn.hidden = true;
     if (myLibraryTab) myLibraryTab.style.display = "none";
   }
 
