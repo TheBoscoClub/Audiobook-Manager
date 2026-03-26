@@ -509,9 +509,7 @@ def init_collections_routes(db_path):
         cursor = conn.cursor()
 
         def get_count(query: str) -> int:
-            cursor.execute(
-                f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}"
-            )  # nosec B608
+            cursor.execute(f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}")  # nosec B608
             return cursor.fetchone()["count"]
 
         category_order = ["special", "main", "nonfiction", "subgenre"]

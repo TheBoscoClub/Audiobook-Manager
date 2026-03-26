@@ -7,11 +7,8 @@ Covers uncovered lines: 21, 49, 54-56, 92-97, 118, 174, 319, 335-338, 385,
 
 import os
 import sqlite3
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 class TestSanitizeForLog:
@@ -162,9 +159,7 @@ class TestDeleteDuplicates:
     def test_empty_audiobook_ids_returns_400(self, flask_app):
         """Empty ids list returns 400 (line 385)."""
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/duplicates/delete", json={"audiobook_ids": []}
-            )
+            response = client.post("/api/duplicates/delete", json={"audiobook_ids": []})
         assert response.status_code == 400
         assert "No audiobook IDs" in response.get_json()["error"]
 
@@ -350,7 +345,7 @@ class TestDuplicatesByChecksumFileError:
         index_dir.mkdir(exist_ok=True)
         idx_file = index_dir / "library_checksums.idx"
         idx_file.write_text(
-            "xyz789|/nonexistent/path1.opus\n" "xyz789|/nonexistent/path2.opus\n"
+            "xyz789|/nonexistent/path1.opus\nxyz789|/nonexistent/path2.opus\n"
         )
 
         with patch.dict(os.environ, {"AUDIOBOOKS_DATA": str(session_temp_dir)}):

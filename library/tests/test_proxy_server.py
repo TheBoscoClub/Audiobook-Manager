@@ -22,7 +22,7 @@ import sys
 import urllib.error
 from email.message import Message
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -56,6 +56,7 @@ def _import_proxy_server():
     if web_v2_dir not in sys.path:
         sys.path.insert(0, web_v2_dir)
     import proxy_server as ps
+
     return ps
 
 
@@ -97,7 +98,7 @@ def _make_handler(path="/", method="GET", headers=None, body=None):
     handler._response_code = None
     handler._headers_finished = False
 
-    original_send_header = http.server.BaseHTTPRequestHandler.send_header
+    _original_send_header = http.server.BaseHTTPRequestHandler.send_header
 
     def mock_send_header(self, keyword, value):
         self._sent_headers.append((keyword, value))
@@ -128,7 +129,9 @@ class TestIsWebsocketUpgrade:
         assert proxy_server.is_websocket_upgrade(headers) is True
 
     def test_case_insensitive(self):
-        headers = _make_headers({"Upgrade": "WebSocket", "Connection": "keep-alive, Upgrade"})
+        headers = _make_headers(
+            {"Upgrade": "WebSocket", "Connection": "keep-alive, Upgrade"}
+        )
         assert proxy_server.is_websocket_upgrade(headers) is True
 
     def test_missing_upgrade_header(self):
@@ -169,7 +172,9 @@ class TestEndHeadersCacheControl:
         handler = _make_handler(path=path)
         # Replace end_headers' parent call to avoid writing to wfile
         with patch.object(http.server.SimpleHTTPRequestHandler, "end_headers"):
-            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(handler)
+            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(
+                handler
+            )
             handler.end_headers()
         for k, v in handler._sent_headers:
             if k == "Cache-Control":
@@ -350,7 +355,9 @@ class TestDoOptions:
         handler = _make_handler(path="/api/books")
         # end_headers needs to work but not write to socket
         with patch.object(http.server.SimpleHTTPRequestHandler, "end_headers"):
-            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(handler)
+            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(
+                handler
+            )
             handler.do_OPTIONS()
 
         assert handler._response_code == 204
@@ -510,8 +517,12 @@ class TestProxyToApi:
 
     def test_post_body_forwarded(self):
         body = json.dumps({"title": "Test"}).encode()
-        headers = _make_headers({"Content-Length": str(len(body)), "Content-Type": "application/json"})
-        handler = _make_handler(path="/api/books", method="POST", headers=headers, body=body)
+        headers = _make_headers(
+            {"Content-Length": str(len(body)), "Content-Type": "application/json"}
+        )
+        handler = _make_handler(
+            path="/api/books", method="POST", headers=headers, body=body
+        )
         handler.end_headers = MagicMock()
 
         mock_response = MagicMock()
@@ -552,13 +563,15 @@ class TestProxyToApi:
         assert "Connection" not in forwarded_keys
 
     def test_proxy_headers_forwarded(self):
-        headers = _make_headers({
-            "X-Forwarded-For": "1.2.3.4",
-            "X-Forwarded-Proto": "https",
-            "X-Real-IP": "1.2.3.4",
-            "Host": "library.thebosco.club",
-            "Cookie": "session=abc",
-        })
+        headers = _make_headers(
+            {
+                "X-Forwarded-For": "1.2.3.4",
+                "X-Forwarded-Proto": "https",
+                "X-Real-IP": "1.2.3.4",
+                "Host": "library.thebosco.club",
+                "Cookie": "session=abc",
+            }
+        )
         handler = _make_handler(path="/api/books", headers=headers)
         handler.end_headers = MagicMock()
 
@@ -731,12 +744,13 @@ class TestMain:
         mock_context = MagicMock(spec=ssl.SSLContext)
         mock_server = MagicMock()
 
-        with patch.object(proxy_server, "CERT_FILE", cert), \
-             patch.object(proxy_server, "KEY_FILE", key), \
-             patch("ssl.SSLContext", return_value=mock_context), \
-             patch.object(proxy_server, "ReuseHTTPServer", return_value=mock_server), \
-             patch("os.chdir"):
-
+        with (
+            patch.object(proxy_server, "CERT_FILE", cert),
+            patch.object(proxy_server, "KEY_FILE", key),
+            patch("ssl.SSLContext", return_value=mock_context),
+            patch.object(proxy_server, "ReuseHTTPServer", return_value=mock_server),
+            patch("os.chdir"),
+        ):
             # Make serve_forever raise to exit the function
             mock_server.serve_forever.side_effect = KeyboardInterrupt()
 
@@ -744,9 +758,7 @@ class TestMain:
 
             # Verify TLS 1.2 minimum was set
             assert mock_context.minimum_version == ssl.TLSVersion.TLSv1_2
-            mock_context.load_cert_chain.assert_called_once_with(
-                str(cert), str(key)
-            )
+            mock_context.load_cert_chain.assert_called_once_with(str(cert), str(key))
             mock_context.wrap_socket.assert_called_once()
 
 
@@ -756,17 +768,20 @@ class TestMain:
 
 
 class TestIsProxyPath:
-    @pytest.mark.parametrize("path,expected", [
-        ("/api/books", True),
-        ("/api/system/version", True),
-        ("/auth/login", True),
-        ("/covers/abc.jpg", True),
-        ("/", False),
-        ("/shell.html", False),
-        ("/css/style.css", False),
-        ("/js/app.js", False),
-        ("/apinotreally", False),
-    ])
+    @pytest.mark.parametrize(
+        "path,expected",
+        [
+            ("/api/books", True),
+            ("/api/system/version", True),
+            ("/auth/login", True),
+            ("/covers/abc.jpg", True),
+            ("/", False),
+            ("/shell.html", False),
+            ("/css/style.css", False),
+            ("/js/app.js", False),
+            ("/apinotreally", False),
+        ],
+    )
     def test_proxy_path_detection(self, path, expected):
         handler = _make_handler(path=path)
         assert handler._is_proxy_path() is expected
@@ -800,9 +815,14 @@ class TestModuleConstants:
     def test_hop_by_hop_headers_complete(self):
         """Verify all RFC 2616 hop-by-hop headers are listed."""
         expected = {
-            "connection", "keep-alive", "proxy-authenticate",
-            "proxy-authorization", "te", "trailers",
-            "transfer-encoding", "upgrade",
+            "connection",
+            "keep-alive",
+            "proxy-authenticate",
+            "proxy-authorization",
+            "te",
+            "trailers",
+            "transfer-encoding",
+            "upgrade",
         }
         assert proxy_server.HOP_BY_HOP_HEADERS == expected
 

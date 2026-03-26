@@ -98,9 +98,7 @@ class TestLocalhostOnlyDecorator:
 
     def test_remote_with_forwarded_localhost(self, auth_app):
         """X-Forwarded-For with localhost should pass the decorator."""
-        with auth_app.test_request_context(
-            headers={"X-Forwarded-For": "127.0.0.1"}
-        ):
+        with auth_app.test_request_context(headers={"X-Forwarded-For": "127.0.0.1"}):
             from flask import request
 
             assert request.headers.get("X-Forwarded-For") == "127.0.0.1"
@@ -132,7 +130,10 @@ class TestSessionRestoreEdgeCases:
         # Session should either be stale (401) or succeed depending on staleness check
         assert r.status_code in (200, 401)
         if r.status_code == 401:
-            assert "expired" in r.get_json()["error"].lower() or "invalid" in r.get_json()["error"].lower()
+            assert (
+                "expired" in r.get_json()["error"].lower()
+                or "invalid" in r.get_json()["error"].lower()
+            )
 
     def test_restore_deleted_user(self, auth_app, auth_db):
         """Restore for a user who was deleted after session creation."""
@@ -239,9 +240,7 @@ class TestAuthMethodSwitchAdvanced:
         user = UserRepository(auth_db).get_by_id(user.id)
         client = _authed_client(auth_app, auth_db, user)
 
-        r = client.put(
-            "/auth/me/auth-method", json={"auth_method": "magic_link"}
-        )
+        r = client.put("/auth/me/auth-method", json={"auth_method": "magic_link"})
         assert r.status_code == 200
         assert r.get_json()["auth_type"] == "magic_link"
 
@@ -250,9 +249,7 @@ class TestAuthMethodSwitchAdvanced:
         user = _make_user(auth_db, "webauthn_begin_cov")
         client = _authed_client(auth_app, auth_db, user)
 
-        r = client.post(
-            "/auth/me/webauthn/begin", json={"auth_type": "passkey"}
-        )
+        r = client.post("/auth/me/webauthn/begin", json={"auth_type": "passkey"})
         assert r.status_code == 200
         data = r.get_json()
         assert "options" in data
@@ -263,9 +260,7 @@ class TestAuthMethodSwitchAdvanced:
         user = _make_user(auth_db, "webauthn_bad_type_cov")
         client = _authed_client(auth_app, auth_db, user)
 
-        r = client.post(
-            "/auth/me/webauthn/begin", json={"auth_type": "invalid"}
-        )
+        r = client.post("/auth/me/webauthn/begin", json={"auth_type": "invalid"})
         assert r.status_code == 400
 
     def test_webauthn_begin_fido2(self, auth_app, auth_db):
@@ -273,9 +268,7 @@ class TestAuthMethodSwitchAdvanced:
         user = _make_user(auth_db, "webauthn_fido2_cov")
         client = _authed_client(auth_app, auth_db, user)
 
-        r = client.post(
-            "/auth/me/webauthn/begin", json={"auth_type": "fido2"}
-        )
+        r = client.post("/auth/me/webauthn/begin", json={"auth_type": "fido2"})
         assert r.status_code == 200
         assert "challenge" in r.get_json()
 
@@ -349,9 +342,7 @@ class TestRegistrationStartEdgeCases:
         request_repo = AccessRequestRepository(auth_db)
         raw, _ = generate_verification_token()
         trunc = raw[:16]
-        access_req = request_repo.create(
-            "prev_req_cov_user", hash_token(trunc), None
-        )
+        access_req = request_repo.create("prev_req_cov_user", hash_token(trunc), None)
         request_repo.deny(access_req.id, "admin", "denied")
 
         client = auth_app.test_client()
@@ -377,9 +368,7 @@ class TestClaimFlowEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            "claim_meta_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("claim_meta_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
         # Store invite metadata
         request_repo.store_invite_metadata(access_req.id, False)
@@ -402,9 +391,7 @@ class TestClaimFlowEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            "claim_ml_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("claim_ml_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -430,9 +417,7 @@ class TestClaimFlowEdgeCases:
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         # Create user first, then try to claim with same username
         _make_user(auth_db, "claim_exist_cov")
-        access_req = request_repo.create(
-            "claim_exist_cov2", hash_token(trunc), None
-        )
+        access_req = request_repo.create("claim_exist_cov2", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -454,9 +439,7 @@ class TestClaimFlowEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            "claim_rec_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("claim_rec_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -497,9 +480,7 @@ class TestClaimFlowEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            "cv_denied_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("cv_denied_cov", hash_token(trunc), None)
         request_repo.deny(access_req.id, "admin", "test reason")
 
         client = auth_app.test_client()
@@ -520,9 +501,7 @@ class TestClaimFlowEdgeCases:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         # Create access request, approve, then create user with same name
-        access_req = request_repo.create(
-            "cv_exists_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("cv_exists_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
         # Create a user with same username so username_exists() returns True
         _make_user(auth_db, "cv_exists_cov")
@@ -545,9 +524,7 @@ class TestClaimFlowEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            "cv_approved_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("cv_approved_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -575,9 +552,7 @@ class TestClaimWebAuthnFlows:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            username, hash_token(trunc), None
-        )
+        access_req = request_repo.create(username, hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
         return access_req, formatted
 
@@ -607,9 +582,7 @@ class TestClaimWebAuthnFlows:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            "cwb_claimed_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("cwb_claimed_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
         request_repo.mark_credentials_claimed(access_req.id)
 
@@ -683,9 +656,7 @@ class TestClaimWebAuthnFlows:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
-        access_req = request_repo.create(
-            "cwc_exist_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("cwc_exist_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
         # Create a user with same username so username_exists() returns True
         _make_user(auth_db, "cwc_exist_cov")
@@ -721,9 +692,7 @@ class TestRegistrationStatusEdgeCases:
         request_repo.create("stat_pend_cov", hash_token(trunc), None)
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/status", json={"username": "stat_pend_cov"}
-        )
+        r = client.post("/auth/register/status", json={"username": "stat_pend_cov"})
         assert r.status_code == 200
         assert r.get_json()["status"] == "pending"
 
@@ -732,15 +701,11 @@ class TestRegistrationStatusEdgeCases:
         request_repo = AccessRequestRepository(auth_db)
         raw, _ = generate_verification_token()
         trunc = raw[:16]
-        access_req = request_repo.create(
-            "stat_deny_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("stat_deny_cov", hash_token(trunc), None)
         request_repo.deny(access_req.id, "admin", "not allowed")
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/status", json={"username": "stat_deny_cov"}
-        )
+        r = client.post("/auth/register/status", json={"username": "stat_deny_cov"})
         assert r.status_code == 200
         assert r.get_json()["status"] == "denied"
         assert "not allowed" in r.get_json()["message"]
@@ -750,15 +715,11 @@ class TestRegistrationStatusEdgeCases:
         request_repo = AccessRequestRepository(auth_db)
         raw, _ = generate_verification_token()
         trunc = raw[:16]
-        access_req = request_repo.create(
-            "stat_appr_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("stat_appr_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/status", json={"username": "stat_appr_cov"}
-        )
+        r = client.post("/auth/register/status", json={"username": "stat_appr_cov"})
         assert r.status_code == 200
 
     def test_status_empty_username(self, auth_app):
@@ -796,7 +757,9 @@ class TestRegistrationVerifyLegacy:
         data = r.get_json()
         assert data["recovery_enabled"] is True
         assert "warning" in data
-        assert "email" in data["warning"].lower() or "recover" in data["warning"].lower()
+        assert (
+            "email" in data["warning"].lower() or "recover" in data["warning"].lower()
+        )
 
     def test_verify_without_recovery(self, auth_app, auth_db):
         """Verify registration without recovery info sets backup-only warning."""
@@ -996,7 +959,9 @@ class TestMagicLinkLoginFlow:
     def test_magic_link_login_no_email_on_user(self, auth_app, auth_db):
         """Magic link user without email gets generic message."""
         _make_user(
-            auth_db, "ml_noemail_cov", auth_type=AuthType.MAGIC_LINK,
+            auth_db,
+            "ml_noemail_cov",
+            auth_type=AuthType.MAGIC_LINK,
             auth_credential=b"",
         )
         client = auth_app.test_client()
@@ -1015,7 +980,9 @@ class TestMagicLinkLoginFlow:
         mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
 
         user = _make_user(
-            auth_db, "ml_send_cov", auth_type=AuthType.MAGIC_LINK,
+            auth_db,
+            "ml_send_cov",
+            auth_type=AuthType.MAGIC_LINK,
             auth_credential=b"",
         )
         UserRepository(auth_db).update_email(user.id, "ml@send.com")
@@ -1035,7 +1002,9 @@ class TestMagicLinkLoginFlow:
         mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
 
         user = _make_user(
-            auth_db, "ml_byemail_cov", auth_type=AuthType.MAGIC_LINK,
+            auth_db,
+            "ml_byemail_cov",
+            auth_type=AuthType.MAGIC_LINK,
             auth_credential=b"",
         )
         UserRepository(auth_db).update_email(user.id, "byemail@test.com")
@@ -1082,9 +1051,7 @@ class TestMagicLinkLoginFlow:
             json={"username": "adminuser", "code": admin_auth.current_code()},
         )
 
-        r = admin_client.post(
-            f"/auth/admin/access-requests/{access_req.id}/approve"
-        )
+        r = admin_client.post(f"/auth/admin/access-requests/{access_req.id}/approve")
         assert r.status_code == 200
 
 
@@ -1158,14 +1125,10 @@ class TestSecurityFeatures:
         request_repo = AccessRequestRepository(auth_db)
         raw, _ = generate_verification_token()
         trunc = raw[:16]
-        access_req = request_repo.create(
-            "approve_proc_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("approve_proc_cov", hash_token(trunc), None)
         request_repo.deny(access_req.id, "admin", "denied")
 
-        r = admin_client.post(
-            f"/auth/admin/access-requests/{access_req.id}/approve"
-        )
+        r = admin_client.post(f"/auth/admin/access-requests/{access_req.id}/approve")
         assert r.status_code == 400
 
     def test_approve_username_taken(self, admin_client, auth_db):
@@ -1174,15 +1137,11 @@ class TestSecurityFeatures:
         request_repo = AccessRequestRepository(auth_db)
         raw, _ = generate_verification_token()
         trunc = raw[:16]
-        access_req = request_repo.create(
-            "adminuser_dup_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("adminuser_dup_cov", hash_token(trunc), None)
         # Create user with that name first
         _make_user(auth_db, "adminuser_dup_cov")
 
-        r = admin_client.post(
-            f"/auth/admin/access-requests/{access_req.id}/approve"
-        )
+        r = admin_client.post(f"/auth/admin/access-requests/{access_req.id}/approve")
         assert r.status_code == 400
 
     @patch("smtplib.SMTP")
@@ -1212,9 +1171,7 @@ class TestSecurityFeatures:
         request_repo = AccessRequestRepository(auth_db)
         raw, _ = generate_verification_token()
         trunc = raw[:16]
-        access_req = request_repo.create(
-            "deny_proc_cov", hash_token(trunc), None
-        )
+        access_req = request_repo.create("deny_proc_cov", hash_token(trunc), None)
         request_repo.approve(access_req.id, "admin")
 
         r = admin_client.post(
@@ -1427,44 +1384,38 @@ class TestAdminGranularManagementExtended:
     def test_reset_credentials_magic_link(self, admin_client, auth_db):
         """Admin reset credentials for magic_link user."""
         user = _make_user(
-            auth_db, "adm_reset_ml_cov",
+            auth_db,
+            "adm_reset_ml_cov",
             auth_type=AuthType.MAGIC_LINK,
             auth_credential=b"",
         )
         UserRepository(auth_db).update_email(user.id, "reset_ml@test.com")
 
-        r = admin_client.post(
-            f"/auth/admin/users/{user.id}/reset-credentials"
-        )
+        r = admin_client.post(f"/auth/admin/users/{user.id}/reset-credentials")
         assert r.status_code == 200
 
     def test_reset_credentials_passkey(self, admin_client, auth_db):
         """Admin reset credentials for passkey user."""
         user = _make_user(
-            auth_db, "adm_reset_pk_cov",
+            auth_db,
+            "adm_reset_pk_cov",
             auth_type=AuthType.PASSKEY,
             auth_credential=b"pending",
         )
-        r = admin_client.post(
-            f"/auth/admin/users/{user.id}/reset-credentials"
-        )
+        r = admin_client.post(f"/auth/admin/users/{user.id}/reset-credentials")
         assert r.status_code == 200
 
     def test_toggle_admin_promote(self, admin_client, auth_db):
         """Admin can promote a regular user to admin."""
         user = _make_user(auth_db, "promote_cov", is_admin=False)
-        r = admin_client.post(
-            f"/auth/admin/users/{user.id}/toggle-admin"
-        )
+        r = admin_client.post(f"/auth/admin/users/{user.id}/toggle-admin")
         assert r.status_code == 200
         assert r.get_json()["is_admin"] is True
 
     def test_toggle_download_enable(self, admin_client, auth_db):
         """Admin can toggle download permission."""
         user = _make_user(auth_db, "dl_toggle_cov", can_download=False)
-        r = admin_client.post(
-            f"/auth/admin/users/{user.id}/toggle-download"
-        )
+        r = admin_client.post(f"/auth/admin/users/{user.id}/toggle-download")
         assert r.status_code == 200
         assert r.get_json()["can_download"] is True
 
@@ -1508,7 +1459,8 @@ class TestSelfServiceAccountExtended:
     def test_account_reset_passkey(self, auth_app, auth_db):
         """Self-service reset for passkey user."""
         user = _make_user(
-            auth_db, "acct_reset_pk_cov",
+            auth_db,
+            "acct_reset_pk_cov",
             auth_type=AuthType.PASSKEY,
             auth_credential=b"pending",
         )
@@ -1522,7 +1474,8 @@ class TestSelfServiceAccountExtended:
     def test_account_reset_magic_link(self, auth_app, auth_db):
         """Self-service reset for magic_link user."""
         user = _make_user(
-            auth_db, "acct_reset_ml_cov",
+            auth_db,
+            "acct_reset_ml_cov",
             auth_type=AuthType.MAGIC_LINK,
             auth_credential=b"",
         )
@@ -1700,9 +1653,7 @@ class TestContactEndpointExtended:
 class TestWebAuthnLoginFlowExtended:
     """Cover WebAuthn login begin with stored credential parsing."""
 
-    def test_login_webauthn_begin_stored_credential_error(
-        self, auth_app, auth_db
-    ):
+    def test_login_webauthn_begin_stored_credential_error(self, auth_app, auth_db):
         """WebAuthn login begin with corrupt stored credential returns 500."""
         _make_user(
             auth_db,

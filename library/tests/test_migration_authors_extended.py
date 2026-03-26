@@ -13,12 +13,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
 
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from backend.migrations.migrate_to_normalized_authors import (
+from backend.migrations.migrate_to_normalized_authors import (  # noqa: E402
     _normalize_group_case,
     _find_canonical,
     _name_quality,
@@ -234,7 +233,7 @@ class TestNarratorExclusions:
         )
         self.conn.commit()
 
-        stats = migrate(self.db_path)
+        migrate(self.db_path)
         narrators = self.conn.execute("SELECT COUNT(*) FROM narrators").fetchone()[0]
         assert narrators == 0
 
@@ -296,9 +295,11 @@ class TestEmptySortNameSkip:
         self.conn.commit()
 
         # Patch generate_sort_name to return empty for narrator
-        with patch("backend.migrations.migrate_to_normalized_authors.generate_sort_name") as mock_sort:
+        with patch(
+            "backend.migrations.migrate_to_normalized_authors.generate_sort_name"
+        ) as mock_sort:
             mock_sort.return_value = ""
-            stats = migrate(self.db_path)
+            migrate(self.db_path)
 
         # No authors or narrators created since sort_name is empty
         authors = self.conn.execute("SELECT COUNT(*) FROM authors").fetchone()[0]
@@ -324,6 +325,7 @@ class TestMainBlock:
         conn.close()
 
         import subprocess
+
         result = subprocess.run(
             [
                 sys.executable,
@@ -356,6 +358,7 @@ class TestMainBlock:
         conn.close()
 
         import subprocess
+
         result = subprocess.run(
             [
                 sys.executable,

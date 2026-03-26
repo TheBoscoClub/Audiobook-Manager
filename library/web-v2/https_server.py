@@ -219,9 +219,7 @@ def main():
     context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
     # Create HTTPS server
-    server = http.server.HTTPServer(
-        ("0.0.0.0", HTTPS_PORT), handler
-    )  # nosec B104 — HTTPS server, intentional
+    server = http.server.HTTPServer(("0.0.0.0", HTTPS_PORT), handler)  # nosec B104 — HTTPS server, intentional
     server.socket = context.wrap_socket(server.socket, server_side=True)
 
     print(f"Serving HTTPS on https://0.0.0.0:{HTTPS_PORT}/ ...")

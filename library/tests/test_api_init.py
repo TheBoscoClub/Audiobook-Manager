@@ -10,9 +10,7 @@ import sys
 import sqlite3
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
@@ -24,7 +22,7 @@ class TestGetDb:
 
     def test_get_db_returns_connection(self, flask_app):
         """Line 76: get_db returns a database connection."""
-        from backend.api_modular import get_db, DB_PATH
+        from backend.api_modular import get_db
 
         with flask_app.app_context():
             conn = get_db()
@@ -128,11 +126,13 @@ class TestWebSocketHandler:
     def test_connection_manager_exists(self):
         """Line 206: connection_manager is imported from websocket module."""
         from backend.api_modular.websocket import connection_manager
+
         assert connection_manager is not None
 
     def test_connection_manager_admin_list(self):
         """Line 252: admin_connections_list returns a dict or list."""
         from backend.api_modular.websocket import connection_manager
+
         result = connection_manager.admin_connections_list()
         assert isinstance(result, (list, dict))
 
@@ -172,11 +172,13 @@ class TestModuleExports:
         from backend.api_modular import __all__
 
         import backend.api_modular as mod
+
         for name in __all__:
             assert hasattr(mod, name), f"{name} in __all__ but not importable"
 
     def test_backward_compat_constants(self):
         """DB_PATH and PROJECT_ROOT are exported."""
         from backend.api_modular import DB_PATH, PROJECT_ROOT
+
         assert DB_PATH is not None
         assert PROJECT_ROOT is not None

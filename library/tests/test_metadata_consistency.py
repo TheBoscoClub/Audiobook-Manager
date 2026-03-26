@@ -253,9 +253,9 @@ class TestFtsIndexConsistency:
         cursor.execute("SELECT COUNT(*) FROM audiobooks_fts")
         fts_count = cursor.fetchone()[0]
 
-        assert (
-            fts_count == main_count
-        ), f"FTS index count ({fts_count}) doesn't match main table ({main_count})"
+        assert fts_count == main_count, (
+            f"FTS index count ({fts_count}) doesn't match main table ({main_count})"
+        )
 
     def test_fts_title_searchable(self, prod_db, sample_audiobooks):
         """Verify titles are searchable in FTS index."""
@@ -508,9 +508,7 @@ class TestHashConsistency:
             b
             for b in sample_audiobooks
             if b["sha256_hash"] and Path(b["file_path"]).exists()
-        ][
-            :10
-        ]  # Limit to 10 for performance
+        ][:10]  # Limit to 10 for performance
 
         for book in files_to_check:
             filepath = Path(book["file_path"])

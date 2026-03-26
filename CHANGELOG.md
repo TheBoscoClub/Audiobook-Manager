@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-
 ## [7.4.2] - 2026-03-25
 
 ### Added
@@ -32,12 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI: `test_websocket.py` import error**: Fixed broken import `from library.backend.api_modular.websocket import ConnectionManager` → `from backend.api_modular.websocket import ConnectionManager`, resolving 95-commit CI failure.
 - **Security dependency updates** (`requirements.txt`): Added `qrcode[pil]>=8.2` (required for TOTP QR code generation), pinned `requests>=2.32.3` (CVE-2024-47081 path traversal fix). Added corresponding path traversal guard in `utilities_system.py`.
 
-
 ## [7.4.1.2] - 2026-03-25
 
 ### Fixed
 
-- **Disappearing account button (root cause: Cloudflare Rocket Loader)**: Rocket Loader was rewriting `<script>` tags in shell.html, deferring `account.js` execution and causing the account button to fail initialization. Disabled Rocket Loader at the Cloudflare zone level. Added `data-cfasync="false"` to all script tags across 7 HTML files as defense in depth. Rewrote `account.js` so the button is NEVER hidden — shows username when authenticated, "Sign In" when not. Added MutationObserver guard against external DOM manipulation.
+- **Disappearing account button (root cause: Cloudflare Rocket Loader)**: Rocket Loader was rewriting `<script>` tags in shell.html, deferring `account.js` execution and causing the account button to fail initialization. Disabled Rocket Loader at the Cloudflare zone level. Added `data-cfasync="false"` to all script tags across 7 HTML files as defense in depth.
+  Rewrote `account.js` so the button is NEVER hidden -- shows username when authenticated, "Sign In" when not. Added MutationObserver guard against external DOM manipulation.
 - **Persistent sessions expiring after 30 days**: "Stay logged in" sessions were silently killed after 30 days of server-side inactivity timeout despite having a 1-year cookie. Persistent sessions now never expire from inactivity — they last until the user explicitly signs out. Session cookie extended to ~10 years.
 - **Test assertion for table count**: Updated `test_auth.py` table count from 18 to 19 to account for `user_hidden_books` table added in v7.4.1.1.
 - **Test path resolution**: Fixed `test_gunicorn_migration.py` and `test_maintenance_banner.py` to use `Path(__file__).resolve()` instead of hardcoded relative paths that broke when pytest ran from `library/` subdirectory.

@@ -8,13 +8,11 @@ Covers:
 - main() argument parsing dispatch
 """
 
-import argparse
 import base64
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from auth.cli import (
     validate_username,
@@ -37,12 +35,14 @@ from auth.cli import (
 # Import AuthType from the same module that cli.py resolved it to,
 # so enum identity comparisons work correctly in the code under test.
 import auth.cli as _cli_mod
+
 AuthType = _cli_mod.AuthType
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_args(**overrides):
     """Build a minimal args namespace for cmd_* functions."""
@@ -98,6 +98,7 @@ def _make_session(**overrides):
 # validate_username
 # ---------------------------------------------------------------------------
 
+
 class TestValidateUsername:
     def test_valid_username(self):
         ok, msg = validate_username("alice")
@@ -142,6 +143,7 @@ class TestValidateUsername:
 # TOTP utility functions
 # ---------------------------------------------------------------------------
 
+
 class TestTotpUtilities:
     def test_generate_totp_secret_length(self):
         secret = generate_totp_secret()
@@ -183,6 +185,7 @@ class TestTotpUtilities:
 # get_db
 # ---------------------------------------------------------------------------
 
+
 class TestGetDb:
     @patch("auth.cli.AuthDatabase")
     def test_passes_args(self, mock_db_cls):
@@ -196,6 +199,7 @@ class TestGetDb:
 # ---------------------------------------------------------------------------
 # cmd_init
 # ---------------------------------------------------------------------------
+
 
 class TestCmdInit:
     @patch("auth.cli.get_db")
@@ -252,6 +256,7 @@ class TestCmdInit:
 # ---------------------------------------------------------------------------
 # cmd_list
 # ---------------------------------------------------------------------------
+
 
 class TestCmdList:
     @patch("auth.cli.UserRepository")
@@ -312,6 +317,7 @@ class TestCmdList:
 # cmd_add
 # ---------------------------------------------------------------------------
 
+
 class TestCmdAdd:
     @patch("auth.cli.User")
     @patch("auth.cli.UserRepository")
@@ -347,8 +353,9 @@ class TestCmdAdd:
     def test_add_invalid_username(self, mock_get_db, mock_repo_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
-        args = _make_args(username="ab", passkey=False, fido2=False,
-                          download=True, admin=False)
+        args = _make_args(
+            username="ab", passkey=False, fido2=False, download=True, admin=False
+        )
         result = cmd_add(args)
 
         assert result == 1
@@ -363,8 +370,9 @@ class TestCmdAdd:
         repo.username_exists.return_value = True
         mock_repo_cls.return_value = repo
 
-        args = _make_args(username="existing", passkey=False, fido2=False,
-                          download=True, admin=False)
+        args = _make_args(
+            username="existing", passkey=False, fido2=False, download=True, admin=False
+        )
         result = cmd_add(args)
 
         assert result == 1
@@ -384,8 +392,9 @@ class TestCmdAdd:
         user_inst.id = 6
         mock_user_cls.return_value = user_inst
 
-        args = _make_args(username="passuser", passkey=True, fido2=False,
-                          download=True, admin=False)
+        args = _make_args(
+            username="passuser", passkey=True, fido2=False, download=True, admin=False
+        )
         result = cmd_add(args)
 
         assert result == 0
@@ -407,8 +416,9 @@ class TestCmdAdd:
         user_inst.id = 7
         mock_user_cls.return_value = user_inst
 
-        args = _make_args(username="fidouser", passkey=False, fido2=True,
-                          download=True, admin=False)
+        args = _make_args(
+            username="fidouser", passkey=False, fido2=True, download=True, admin=False
+        )
         result = cmd_add(args)
 
         assert result == 0
@@ -421,8 +431,9 @@ class TestCmdAdd:
         db.initialize.side_effect = RuntimeError("permission denied")
         mock_get_db.return_value = db
 
-        args = _make_args(username="newuser", passkey=False, fido2=False,
-                          download=True, admin=False)
+        args = _make_args(
+            username="newuser", passkey=False, fido2=False, download=True, admin=False
+        )
         result = cmd_add(args)
 
         assert result == 1
@@ -433,12 +444,14 @@ class TestCmdAdd:
 # cmd_delete
 # ---------------------------------------------------------------------------
 
+
 class TestCmdDelete:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_delete_user_confirmed(self, mock_get_db, mock_user_cls,
-                                   mock_sess_cls, capsys):
+    def test_delete_user_confirmed(
+        self, mock_get_db, mock_user_cls, mock_sess_cls, capsys
+    ):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user(is_admin=False)
@@ -510,6 +523,7 @@ class TestCmdDelete:
 # ---------------------------------------------------------------------------
 # cmd_grant / cmd_revoke
 # ---------------------------------------------------------------------------
+
 
 class TestCmdGrant:
     @patch("auth.cli.UserRepository")
@@ -588,12 +602,14 @@ class TestCmdRevoke:
 # cmd_kick
 # ---------------------------------------------------------------------------
 
+
 class TestCmdKick:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_kick_with_sessions(self, mock_get_db, mock_user_cls,
-                                mock_sess_cls, capsys):
+    def test_kick_with_sessions(
+        self, mock_get_db, mock_user_cls, mock_sess_cls, capsys
+    ):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user()
@@ -611,8 +627,7 @@ class TestCmdKick:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_kick_no_sessions(self, mock_get_db, mock_user_cls,
-                              mock_sess_cls, capsys):
+    def test_kick_no_sessions(self, mock_get_db, mock_user_cls, mock_sess_cls, capsys):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user()
@@ -645,12 +660,12 @@ class TestCmdKick:
 # cmd_info
 # ---------------------------------------------------------------------------
 
+
 class TestCmdInfo:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_info_with_session(self, mock_get_db, mock_user_cls,
-                               mock_sess_cls, capsys):
+    def test_info_with_session(self, mock_get_db, mock_user_cls, mock_sess_cls, capsys):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user()
@@ -673,8 +688,7 @@ class TestCmdInfo:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_info_no_session(self, mock_get_db, mock_user_cls,
-                             mock_sess_cls, capsys):
+    def test_info_no_session(self, mock_get_db, mock_user_cls, mock_sess_cls, capsys):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user(last_login=None, created_at=None)
@@ -711,12 +725,14 @@ class TestCmdInfo:
 # cmd_totp_reset
 # ---------------------------------------------------------------------------
 
+
 class TestCmdTotpReset:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_totp_reset_success(self, mock_get_db, mock_user_cls,
-                                mock_sess_cls, capsys):
+    def test_totp_reset_success(
+        self, mock_get_db, mock_user_cls, mock_sess_cls, capsys
+    ):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user(auth_type=AuthType.TOTP)
@@ -781,6 +797,7 @@ class TestCmdTotpReset:
 # ---------------------------------------------------------------------------
 # main() - argument parsing
 # ---------------------------------------------------------------------------
+
 
 class TestMain:
     @patch("auth.cli.cmd_list")

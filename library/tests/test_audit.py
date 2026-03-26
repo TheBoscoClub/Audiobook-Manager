@@ -6,9 +6,8 @@ for the notification/email subsystem and edge cases not covered there.
 """
 
 import os
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from auth.audit import (
     CRITICAL_ACTIONS,
@@ -108,17 +107,23 @@ class TestFormatNotification:
         assert "?" in subject  # new username defaults to "?"
 
     def test_subject_prefix(self):
-        subject, _ = _format_notification("reset_credentials", {
-            "actor_username": "x",
-            "target_username": "x",
-        })
+        subject, _ = _format_notification(
+            "reset_credentials",
+            {
+                "actor_username": "x",
+                "target_username": "x",
+            },
+        )
         assert subject.startswith("[Audiobook Library]")
 
     def test_body_contains_review_instruction(self):
-        _, body = _format_notification("reset_credentials", {
-            "actor_username": "x",
-            "target_username": "x",
-        })
+        _, body = _format_notification(
+            "reset_credentials",
+            {
+                "actor_username": "x",
+                "target_username": "x",
+            },
+        )
         assert "Audit Log" in body
 
     def test_actor_defaults_to_unknown(self):
@@ -128,9 +133,12 @@ class TestFormatNotification:
 
     def test_target_defaults_to_actor(self):
         """If target_username missing, defaults to actor_username."""
-        subject, _ = _format_notification("reset_credentials", {
-            "actor_username": "self_user",
-        })
+        subject, _ = _format_notification(
+            "reset_credentials",
+            {
+                "actor_username": "self_user",
+            },
+        )
         assert "self_user" in subject
 
 
@@ -195,10 +203,7 @@ class TestSendNotificationEmail:
         mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         # Remove all SMTP env vars to test defaults
-        env_clear = {
-            k: v for k, v in os.environ.items()
-            if not k.startswith("SMTP_")
-        }
+        env_clear = {k: v for k, v in os.environ.items() if not k.startswith("SMTP_")}
         with patch.dict(os.environ, env_clear, clear=True):
             result = _send_notification_email("admin@test.com", "Subject", "Body")
 
@@ -239,17 +244,21 @@ class TestNotifyAdmins:
 
         with patch("auth.models.UserRepository", mock_user_repo.__class__):
             # Patch where it's imported: inside notify_admins via from .models import UserRepository
-            with patch("auth.audit.UserRepository", mock_user_repo.__class__, create=True):
+            with patch(
+                "auth.audit.UserRepository", mock_user_repo.__class__, create=True
+            ):
                 # Simpler: patch the function's local import directly
                 pass
 
         # Use a different approach - patch the models module
         import auth.models as models_mod
+
         original_ur = models_mod.UserRepository
 
         class FakeUserRepo:
             def __init__(self, db):
                 pass
+
             def list_all(self):
                 return [mock_admin, mock_user]
 
@@ -276,11 +285,13 @@ class TestNotifyAdmins:
         mock_admin.recovery_email = None  # No email
 
         import auth.models as models_mod
+
         original_ur = models_mod.UserRepository
 
         class FakeUserRepo:
             def __init__(self, db):
                 pass
+
             def list_all(self):
                 return [mock_admin]
 
@@ -305,11 +316,13 @@ class TestNotifyAdmins:
             admins.append(a)
 
         import auth.models as models_mod
+
         original_ur = models_mod.UserRepository
 
         class FakeUserRepo:
             def __init__(self, db):
                 pass
+
             def list_all(self):
                 return admins
 
@@ -325,6 +338,7 @@ class TestNotifyAdmins:
     def test_each_critical_action_triggers(self, mock_send):
         """Every action in CRITICAL_ACTIONS should trigger notification."""
         import auth.models as models_mod
+
         original_ur = models_mod.UserRepository
 
         for action in CRITICAL_ACTIONS:
@@ -337,6 +351,7 @@ class TestNotifyAdmins:
             class FakeUserRepo:
                 def __init__(self, db):
                     pass
+
                 def list_all(self_inner):
                     return [mock_admin]
 
@@ -361,6 +376,7 @@ class TestAuditLogWebsocketBroadcast:
 
         # Patch the singleton that gets imported inside log()
         import backend.api_modular.websocket as ws_mod
+
         original_cm = ws_mod.connection_manager
         mock_cm = MagicMock()
         ws_mod.connection_manager = mock_cm
@@ -384,6 +400,7 @@ class TestAuditLogWebsocketBroadcast:
         repo = AuditLogRepository(auth_app.auth_db)
 
         import backend.api_modular.websocket as ws_mod
+
         original_cm = ws_mod.connection_manager
         mock_cm = MagicMock()
         mock_cm.broadcast.side_effect = Exception("ws down")

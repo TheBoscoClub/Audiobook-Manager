@@ -7,7 +7,6 @@ verify_authentication exception path (lines 336-358).
 
 import json
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,9 +15,8 @@ import pytest
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth.passkey import (
+from auth.passkey import (  # noqa: E402
     WebAuthnCredential,
-    WebAuthnChallenge,
     create_registration_options,
     verify_registration,
     create_authentication_options,
@@ -26,7 +24,6 @@ from auth.passkey import (
     get_pending_challenge,
     _pending_challenges,
 )
-from webauthn.helpers import bytes_to_base64url
 
 
 @pytest.fixture(autouse=True)
@@ -66,15 +63,17 @@ class TestVerifyRegistrationExceptionPath:
         _, challenge = create_registration_options(username="testuser")
 
         # Structurally looks like a credential but has invalid data
-        fake_credential = json.dumps({
-            "id": "AQID",
-            "rawId": "AQID",
-            "type": "public-key",
-            "response": {
-                "attestationObject": "AAAA",
-                "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiQUFBQSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTAwMSJ9",
-            },
-        })
+        fake_credential = json.dumps(
+            {
+                "id": "AQID",
+                "rawId": "AQID",
+                "type": "public-key",
+                "response": {
+                    "attestationObject": "AAAA",
+                    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiQUFBQSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTAwMSJ9",
+                },
+            }
+        )
 
         result = verify_registration(
             credential_json=fake_credential,
@@ -121,8 +120,16 @@ class TestVerifyRegistrationExceptionPath:
         mock_credential = MagicMock()
         mock_credential.response.transports = ["internal", "hybrid"]
 
-        with patch("auth.passkey.parse_registration_credential_json", return_value=mock_credential), \
-             patch("auth.passkey.verify_registration_response", return_value=mock_verification):
+        with (
+            patch(
+                "auth.passkey.parse_registration_credential_json",
+                return_value=mock_credential,
+            ),
+            patch(
+                "auth.passkey.verify_registration_response",
+                return_value=mock_verification,
+            ),
+        ):
             result = verify_registration(
                 credential_json="{}",
                 expected_challenge=challenge,
@@ -147,8 +154,16 @@ class TestVerifyRegistrationExceptionPath:
         mock_credential = MagicMock()
         mock_credential.response.transports = None
 
-        with patch("auth.passkey.parse_registration_credential_json", return_value=mock_credential), \
-             patch("auth.passkey.verify_registration_response", return_value=mock_verification):
+        with (
+            patch(
+                "auth.passkey.parse_registration_credential_json",
+                return_value=mock_credential,
+            ),
+            patch(
+                "auth.passkey.verify_registration_response",
+                return_value=mock_verification,
+            ),
+        ):
             result = verify_registration(
                 credential_json="{}",
                 expected_challenge=challenge,
@@ -167,8 +182,16 @@ class TestVerifyRegistrationExceptionPath:
         mock_credential = MagicMock()
         mock_credential.response.transports = []
 
-        with patch("auth.passkey.parse_registration_credential_json", return_value=mock_credential), \
-             patch("auth.passkey.verify_registration_response", return_value=mock_verification):
+        with (
+            patch(
+                "auth.passkey.parse_registration_credential_json",
+                return_value=mock_credential,
+            ),
+            patch(
+                "auth.passkey.verify_registration_response",
+                return_value=mock_verification,
+            ),
+        ):
             verify_registration(credential_json="{}", expected_challenge=challenge)
 
         # Challenge should be consumed
@@ -232,8 +255,16 @@ class TestVerifyAuthenticationExceptionPath:
 
         mock_credential = MagicMock()
 
-        with patch("auth.passkey.parse_authentication_credential_json", return_value=mock_credential), \
-             patch("auth.passkey.verify_authentication_response", return_value=mock_verification):
+        with (
+            patch(
+                "auth.passkey.parse_authentication_credential_json",
+                return_value=mock_credential,
+            ),
+            patch(
+                "auth.passkey.verify_authentication_response",
+                return_value=mock_verification,
+            ),
+        ):
             result = verify_authentication(
                 credential_json="{}",
                 expected_challenge=challenge,
@@ -252,8 +283,16 @@ class TestVerifyAuthenticationExceptionPath:
         mock_verification.new_sign_count = 1
         mock_credential = MagicMock()
 
-        with patch("auth.passkey.parse_authentication_credential_json", return_value=mock_credential), \
-             patch("auth.passkey.verify_authentication_response", return_value=mock_verification):
+        with (
+            patch(
+                "auth.passkey.parse_authentication_credential_json",
+                return_value=mock_credential,
+            ),
+            patch(
+                "auth.passkey.verify_authentication_response",
+                return_value=mock_verification,
+            ),
+        ):
             verify_authentication(
                 credential_json="{}",
                 expected_challenge=challenge,
@@ -269,16 +308,18 @@ class TestVerifyAuthenticationExceptionPath:
             user_id=1, credential_id=b"\x01\x02", username="user1"
         )
 
-        fake = json.dumps({
-            "id": "AQID",
-            "rawId": "AQID",
-            "type": "public-key",
-            "response": {
-                "authenticatorData": "AAAA",
-                "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiQUFBQSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTAwMSJ9",
-                "signature": "AAAA",
-            },
-        })
+        fake = json.dumps(
+            {
+                "id": "AQID",
+                "rawId": "AQID",
+                "type": "public-key",
+                "response": {
+                    "authenticatorData": "AAAA",
+                    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiQUFBQSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTAwMSJ9",
+                    "signature": "AAAA",
+                },
+            }
+        )
 
         result = verify_authentication(
             credential_json=fake,

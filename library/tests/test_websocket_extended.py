@@ -318,7 +318,11 @@ class TestInitNotificationPoller:
             # Simulate gevent not available
             with patch.dict("sys.modules", {"gevent": None}):
                 # Need to make import fail
-                original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+                original_import = (
+                    __builtins__.__import__
+                    if hasattr(__builtins__, "__import__")
+                    else __import__
+                )
 
                 def fake_import(name, *args, **kwargs):
                     if name == "gevent":

@@ -6,11 +6,9 @@ regex-based progress parsing, and error handling paths.
 """
 
 import subprocess
-import threading
 import time
 from io import StringIO
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, call, patch
+from unittest.mock import MagicMock, patch
 
 
 MODULE = "backend.api_modular.utilities_ops.maintenance"
@@ -33,10 +31,7 @@ def _wait_for_thread_completion(tracker_mock, timeout=2.0):
     """Wait until tracker's complete_operation or fail_operation is called."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if (
-            tracker_mock.complete_operation.called
-            or tracker_mock.fail_operation.called
-        ):
+        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
             return True
         time.sleep(0.02)
     return False
@@ -218,8 +213,12 @@ class TestCleanupIndexesWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen(
-            ["[10/100] Checking entry...", "[50/100] Checking entry...",
-             "[100/100] Checking entry...", "removed 5 stale entries"],
+            [
+                "[10/100] Checking entry...",
+                "[50/100] Checking entry...",
+                "[100/100] Checking entry...",
+                "removed 5 stale entries",
+            ],
             returncode=0,
         )
         mock_popen_cls.return_value = mock_proc
@@ -313,14 +312,20 @@ class TestPopulateSortFieldsWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen(
-            ["Loading 500 audiobooks", "[100/500] Processing...",
-             "[500/500] Processing...", "updated 42"],
+            [
+                "Loading 500 audiobooks",
+                "[100/500] Processing...",
+                "[500/500] Processing...",
+                "updated 42",
+            ],
             returncode=0,
         )
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
-            client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": False})
+            client.post(
+                "/api/utilities/populate-sort-fields-async", json={"dry_run": False}
+            )
 
         _wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
@@ -345,7 +350,9 @@ class TestPopulateSortFieldsWorkerThread:
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
-            client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": True})
+            client.post(
+                "/api/utilities/populate-sort-fields-async", json={"dry_run": True}
+            )
 
         _wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
@@ -379,7 +386,9 @@ class TestPopulateSortFieldsWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen([], returncode=0)
-        mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=300)
+        mock_proc.wait.side_effect = subprocess.TimeoutExpired(
+            cmd="python", timeout=300
+        )
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -404,7 +413,9 @@ class TestPopulateSortFieldsWorkerThread:
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
-            client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": False})
+            client.post(
+                "/api/utilities/populate-sort-fields-async", json={"dry_run": False}
+            )
 
         _wait_for_thread_completion(mock_tracker)
         cmd_args = mock_popen_cls.call_args[0][0]
@@ -466,7 +477,9 @@ class TestPopulateAsinsWorkerThread:
 
         with flask_app.test_client() as client:
             with patch(f"{MODULE}.Path.exists", return_value=True):
-                with patch(f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")):
+                with patch(
+                    f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")
+                ):
                     with patch(f"{MODULE}.os.close"):
                         resp = client.post(
                             "/api/utilities/populate-asins-async",
@@ -492,7 +505,9 @@ class TestPopulateAsinsWorkerThread:
         mock_sub_run.side_effect = subprocess.TimeoutExpired(cmd="audible", timeout=300)
 
         with flask_app.test_client() as client:
-            with patch(f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")):
+            with patch(
+                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")
+            ):
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
@@ -516,7 +531,9 @@ class TestPopulateAsinsWorkerThread:
         mock_sub_run.return_value = mock_export
 
         with flask_app.test_client() as client:
-            with patch(f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")):
+            with patch(
+                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")
+            ):
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
@@ -542,7 +559,9 @@ class TestPopulateAsinsWorkerThread:
         mock_sub_run.return_value = mock_export
 
         with flask_app.test_client() as client:
-            with patch(f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/nonexist.json")):
+            with patch(
+                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/nonexist.json")
+            ):
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
@@ -586,7 +605,9 @@ class TestFindSourceDuplicatesWorkerThread:
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
-            client.post("/api/utilities/find-source-duplicates-async", json={"dry_run": True})
+            client.post(
+                "/api/utilities/find-source-duplicates-async", json={"dry_run": True}
+            )
 
         _wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
@@ -695,7 +716,9 @@ class TestFindSourceDuplicatesWorkerThread:
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
-            client.post("/api/utilities/find-source-duplicates-async", json={"dry_run": True})
+            client.post(
+                "/api/utilities/find-source-duplicates-async", json={"dry_run": True}
+            )
 
         _wait_for_thread_completion(mock_tracker)
         cmd_args = mock_popen_cls.call_args[0][0]

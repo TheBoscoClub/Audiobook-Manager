@@ -10,8 +10,7 @@ import os
 import subprocess
 import time
 from io import StringIO
-from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 
 MODULE = "backend.api_modular.utilities_ops.hashing"
@@ -34,10 +33,7 @@ def _wait_for_thread_completion(tracker_mock, timeout=2.0):
     """Wait until tracker's complete_operation or fail_operation is called."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if (
-            tracker_mock.complete_operation.called
-            or tracker_mock.fail_operation.called
-        ):
+        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
             return True
         time.sleep(0.02)
     return False
@@ -58,8 +54,12 @@ class TestGenerateHashesWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen(
-            ["[10/100] Hashing file...", "[50/100] Hashing file...",
-             "[100/100] Hashing file...", "Generated 100 hashes"],
+            [
+                "[10/100] Hashing file...",
+                "[50/100] Hashing file...",
+                "[100/100] Hashing file...",
+                "Generated 100 hashes",
+            ],
             returncode=0,
         )
         mock_popen_cls.return_value = mock_proc
@@ -94,9 +94,7 @@ class TestGenerateHashesWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         # Check update_progress was called with filename info
         progress_calls = mock_tracker.update_progress.call_args_list
-        found_hashing_update = any(
-            "Hashing:" in str(c) for c in progress_calls
-        )
+        found_hashing_update = any("Hashing:" in str(c) for c in progress_calls)
         assert found_hashing_update
 
     @patch(f"{MODULE}.subprocess.Popen")
@@ -132,9 +130,7 @@ class TestGenerateHashesWorkerThread:
         mock_tracker.create_operation.return_value = "hash-w-004"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            [], returncode=1, stderr_text="Permission denied"
-        )
+        mock_proc = _make_mock_popen([], returncode=1, stderr_text="Permission denied")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -345,9 +341,7 @@ class TestGenerateChecksumsWorkerThread:
         assert result["source_checksums"] == 0
 
     @patch(f"{MODULE}.get_tracker")
-    def test_checksum_writes_index_files(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_writes_index_files(self, mock_get_tracker, flask_app, tmp_path):
         """Index files are written to .index directory."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -424,9 +418,7 @@ class TestGenerateChecksumsWorkerThread:
         assert result["source_checksums"] == 0
 
     @patch(f"{MODULE}.get_tracker")
-    def test_checksum_generic_exception(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_generic_exception(self, mock_get_tracker, flask_app, tmp_path):
         """Generic exception in checksum gen calls fail_operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -487,9 +479,7 @@ class TestGenerateChecksumsWorkerThread:
         assert mock_tracker.update_progress.call_count >= 3
 
     @patch(f"{MODULE}.get_tracker")
-    def test_checksum_nonexistent_dirs(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_nonexistent_dirs(self, mock_get_tracker, flask_app, tmp_path):
         """Non-existent Sources/Library dirs result in empty file lists."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -582,9 +572,7 @@ class TestHashParsingLogic:
         """Test parsing 'Generated X hashes' from output."""
         import re as regex
 
-        generated_pattern = regex.compile(
-            r"(?:Generated|Completed)\s*(\d+)", regex.I
-        )
+        generated_pattern = regex.compile(r"(?:Generated|Completed)\s*(\d+)", regex.I)
         line = "Generated 150 hashes successfully"
         match = generated_pattern.search(line)
         assert match is not None
@@ -594,9 +582,7 @@ class TestHashParsingLogic:
         """Test parsing 'Completed X' variant."""
         import re as regex
 
-        generated_pattern = regex.compile(
-            r"(?:Generated|Completed)\s*(\d+)", regex.I
-        )
+        generated_pattern = regex.compile(r"(?:Generated|Completed)\s*(\d+)", regex.I)
         line = "Completed 42 hash operations"
         match = generated_pattern.search(line)
         assert match is not None

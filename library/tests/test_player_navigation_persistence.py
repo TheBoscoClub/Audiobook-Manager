@@ -238,9 +238,9 @@ class TestPlayerNavigationPlaywright:
             page.wait_for_load_state("networkidle")
             current_url = page.url
 
-        assert (
-            "utilities" in current_url.lower()
-        ), f"Should navigate to utilities, got: {current_url}"
+        assert "utilities" in current_url.lower(), (
+            f"Should navigate to utilities, got: {current_url}"
+        )
         print("  ✓ Navigated to Back Office")
 
         # Note: In a traditional multi-page app, audio stops on navigation
@@ -509,9 +509,9 @@ class TestPlayerSummary:
         for feature, note in features:
             print(f"    - {feature} ({note})")
 
-        assert (
-            len(features) == 6
-        ), "All 6 player persistence features should be documented"
+        assert len(features) == 6, (
+            "All 6 player persistence features should be documented"
+        )
         print("  ✓ Player test infrastructure documented")
 
 

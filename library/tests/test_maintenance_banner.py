@@ -38,6 +38,6 @@ def test_banner_js_no_innerhtml():
     """Verify banner JS uses safe DOM methods exclusively."""
     with open(_PROJECT_ROOT / "library/web-v2/js/maintenance-banner.js") as f:
         content = f.read()
-    assert (
-        "innerHTML" not in content
-    ), "Must use createElement/textContent, not innerHTML"
+    assert "innerHTML" not in content, (
+        "Must use createElement/textContent, not innerHTML"
+    )

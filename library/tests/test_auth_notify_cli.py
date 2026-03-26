@@ -12,7 +12,6 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from auth import NotificationType
 
@@ -20,6 +19,7 @@ from auth import NotificationType
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_args(**overrides):
     defaults = {}
@@ -51,6 +51,7 @@ def _make_notification(**overrides):
 # cmd_list
 # ---------------------------------------------------------------------------
 
+
 class TestCmdList:
     @patch("auth.notify_cli.NotificationRepository")
     @patch("auth.notify_cli.get_db")
@@ -61,6 +62,7 @@ class TestCmdList:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_list
+
         result = cmd_list(_make_args())
 
         assert result == 0
@@ -76,6 +78,7 @@ class TestCmdList:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_list
+
         result = cmd_list(_make_args())
 
         assert result == 0
@@ -97,6 +100,7 @@ class TestCmdList:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_list
+
         result = cmd_list(_make_args())
 
         assert result == 0
@@ -113,6 +117,7 @@ class TestCmdList:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_list
+
         result = cmd_list(_make_args())
 
         assert result == 0
@@ -128,6 +133,7 @@ class TestCmdList:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_list
+
         result = cmd_list(_make_args())
 
         assert result == 0
@@ -139,13 +145,15 @@ class TestCmdList:
     def test_list_multiple(self, mock_get_db, mock_repo_cls, capsys):
         mock_get_db.return_value = MagicMock()
         n1 = _make_notification(id=1, type=NotificationType.INFO)
-        n2 = _make_notification(id=2, type=NotificationType.OUTAGE,
-                                message="System outage")
+        n2 = _make_notification(
+            id=2, type=NotificationType.OUTAGE, message="System outage"
+        )
         repo = MagicMock()
         repo.list_all.return_value = [n1, n2]
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_list
+
         result = cmd_list(_make_args())
 
         assert result == 0
@@ -156,6 +164,7 @@ class TestCmdList:
 # ---------------------------------------------------------------------------
 # cmd_create
 # ---------------------------------------------------------------------------
+
 
 class TestCmdCreate:
     @patch("auth.notify_cli.Notification")
@@ -168,6 +177,7 @@ class TestCmdCreate:
         mock_notif_cls.return_value = notif_inst
 
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="New books added!",
             type="info",
@@ -192,6 +202,7 @@ class TestCmdCreate:
         mock_notif_cls.return_value = notif_inst
 
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Maintenance Saturday",
             type="maintenance",
@@ -209,6 +220,7 @@ class TestCmdCreate:
 
     def test_create_invalid_type(self, capsys):
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Test",
             type="bogus",
@@ -226,6 +238,7 @@ class TestCmdCreate:
 
     def test_create_personal_without_user(self, capsys):
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Hey user!",
             type="personal",
@@ -250,6 +263,7 @@ class TestCmdCreate:
         mock_notif_cls.return_value = notif_inst
 
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Just for you!",
             type="personal",
@@ -275,6 +289,7 @@ class TestCmdCreate:
         mock_notif_cls.return_value = notif_inst
 
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Expires soon",
             type="info",
@@ -291,6 +306,7 @@ class TestCmdCreate:
 
     def test_create_with_invalid_expiry(self, capsys):
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Bad date",
             type="info",
@@ -315,6 +331,7 @@ class TestCmdCreate:
         mock_notif_cls.return_value = notif_inst
 
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Cannot dismiss",
             type="outage",
@@ -340,6 +357,7 @@ class TestCmdCreate:
         mock_notif_cls.return_value = notif_inst
 
         from auth.notify_cli import cmd_create
+
         args = _make_args(
             message="Uppercase type",
             type="INFO",
@@ -357,6 +375,7 @@ class TestCmdCreate:
 # cmd_delete
 # ---------------------------------------------------------------------------
 
+
 class TestCmdDelete:
     @patch("auth.notify_cli.NotificationRepository")
     @patch("auth.notify_cli.get_db")
@@ -369,6 +388,7 @@ class TestCmdDelete:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_delete
+
         result = cmd_delete(_make_args(id=3))
 
         assert result == 0
@@ -384,6 +404,7 @@ class TestCmdDelete:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_delete
+
         result = cmd_delete(_make_args(id=999))
 
         assert result == 1
@@ -399,6 +420,7 @@ class TestCmdDelete:
         mock_repo_cls.return_value = repo
 
         from auth.notify_cli import cmd_delete
+
         result = cmd_delete(_make_args(id=2))
 
         assert result == 1
@@ -409,12 +431,14 @@ class TestCmdDelete:
 # main() - argument parsing
 # ---------------------------------------------------------------------------
 
+
 class TestMain:
     @patch("auth.notify_cli.cmd_list")
     @patch("auth.notify_cli.get_db")
     def test_dispatch_list(self, mock_get_db, mock_cmd):
         mock_cmd.return_value = 0
         from auth.notify_cli import main
+
         with patch("sys.argv", ["audiobook-notify", "list"]):
             result = main()
         assert result == 0
@@ -424,6 +448,7 @@ class TestMain:
     def test_dispatch_create(self, mock_get_db, mock_cmd):
         mock_cmd.return_value = 0
         from auth.notify_cli import main
+
         with patch("sys.argv", ["audiobook-notify", "create", "Hello!"]):
             result = main()
         assert result == 0
@@ -433,12 +458,14 @@ class TestMain:
     def test_dispatch_delete(self, mock_get_db, mock_cmd):
         mock_cmd.return_value = 0
         from auth.notify_cli import main
+
         with patch("sys.argv", ["audiobook-notify", "delete", "3"]):
             result = main()
         assert result == 0
 
     def test_no_command_returns_1(self):
         from auth.notify_cli import main
+
         with patch("sys.argv", ["audiobook-notify"]):
             result = main()
         assert result == 1
@@ -448,14 +475,24 @@ class TestMain:
     def test_create_with_all_options(self, mock_get_db, mock_cmd):
         mock_cmd.return_value = 0
         from auth.notify_cli import main
-        with patch("sys.argv", [
-            "audiobook-notify", "create", "Outage!",
-            "--type", "outage",
-            "--user", "5",
-            "--expires", "2026-04-01T00:00:00",
-            "--no-dismiss",
-            "--priority", "10",
-        ]):
+
+        with patch(
+            "sys.argv",
+            [
+                "audiobook-notify",
+                "create",
+                "Outage!",
+                "--type",
+                "outage",
+                "--user",
+                "5",
+                "--expires",
+                "2026-04-01T00:00:00",
+                "--no-dismiss",
+                "--priority",
+                "10",
+            ],
+        ):
             result = main()
         assert result == 0
         # Verify args were parsed correctly

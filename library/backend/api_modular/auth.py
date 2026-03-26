@@ -1109,9 +1109,9 @@ def start_registration():
 
     if contact_email:
         response_data["email_notification"] = True
-        response_data[
-            "message"
-        ] += f" We'll also notify you at {contact_email} when your request is reviewed."
+        response_data["message"] += (
+            f" We'll also notify you at {contact_email} when your request is reviewed."
+        )
 
     return jsonify(response_data)
 

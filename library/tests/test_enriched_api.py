@@ -225,9 +225,9 @@ class TestEnrichedNarratorsArray:
         resp = client.get("/api/audiobooks")
         data = resp.get_json()
         for book in data["audiobooks"]:
-            assert (
-                "narrators" in book
-            ), f"Book '{book['title']}' missing 'narrators' array"
+            assert "narrators" in book, (
+                f"Book '{book['title']}' missing 'narrators' array"
+            )
             assert isinstance(book["narrators"], list)
 
     def test_narrator_entry_has_required_fields(self, client):

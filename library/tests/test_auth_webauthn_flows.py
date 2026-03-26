@@ -33,6 +33,7 @@ from webauthn.helpers import bytes_to_base64url  # noqa: E402
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_fake_webauthn_cred():
     """Create a mock WebAuthnCredential returned by verify_registration."""
     cred = MagicMock(spec=WebAuthnCredential)
@@ -41,13 +42,15 @@ def _make_fake_webauthn_cred():
     cred.sign_count = 0
     cred.transports = ["internal"]
     cred.created_at = datetime.now()
-    cred.to_json.return_value = json.dumps({
-        "credential_id": bytes_to_base64url(b"\x01\x02\x03\x04"),
-        "public_key": bytes_to_base64url(b"\x05\x06\x07\x08"),
-        "sign_count": 0,
-        "transports": ["internal"],
-        "created_at": datetime.now().isoformat(),
-    })
+    cred.to_json.return_value = json.dumps(
+        {
+            "credential_id": bytes_to_base64url(b"\x01\x02\x03\x04"),
+            "public_key": bytes_to_base64url(b"\x05\x06\x07\x08"),
+            "sign_count": 0,
+            "transports": ["internal"],
+            "created_at": datetime.now().isoformat(),
+        }
+    )
     return cred
 
 
@@ -103,9 +106,9 @@ def _make_fido2_user(auth_db):
     return user
 
 
-def _create_approved_access_request(auth_db, username, raw_token,
-                                     claim_expires_at=None,
-                                     contact_email=None):
+def _create_approved_access_request(
+    auth_db, username, raw_token, claim_expires_at=None, contact_email=None
+):
     """Create an approved access request using the repository methods."""
     from auth import hash_token
     from auth.models import AccessRequestRepository
@@ -129,14 +132,13 @@ def _create_approved_access_request(auth_db, username, raw_token,
 # 1. Auth-method switch: begin + complete (/auth/me/webauthn/*)
 # ---------------------------------------------------------------------------
 
+
 class TestWebAuthnSwitchBegin:
     """Tests for /auth/me/webauthn/begin — start switching auth method."""
 
     @patch("api_modular.auth.webauthn_registration_options")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_begin_passkey_success(
-        self, mock_config, mock_reg_opts, user_client
-    ):
+    def test_begin_passkey_success(self, mock_config, mock_reg_opts, user_client):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_reg_opts.return_value = ('{"rp": {}}', b"\xab\xcd")
 
@@ -155,9 +157,7 @@ class TestWebAuthnSwitchBegin:
 
     @patch("api_modular.auth.webauthn_registration_options")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_begin_fido2_success(
-        self, mock_config, mock_reg_opts, user_client
-    ):
+    def test_begin_fido2_success(self, mock_config, mock_reg_opts, user_client):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_reg_opts.return_value = ('{"rp": {}}', b"\xab\xcd")
 
@@ -197,6 +197,7 @@ class TestWebAuthnSwitchComplete:
 
         # Set up pending challenge
         from api_modular.auth import _pending_webauthn_challenges
+
         challenge_b64 = bytes_to_base64url(b"\xde\xad\xbe\xef")
         _pending_webauthn_challenges[test_user.id] = challenge_b64
 
@@ -235,6 +236,7 @@ class TestWebAuthnSwitchComplete:
         mock_verify.return_value = fake_cred
 
         from api_modular.auth import _pending_webauthn_challenges
+
         challenge_b64 = bytes_to_base64url(b"\xca\xfe\xba\xbe")
         _pending_webauthn_challenges[test_user.id] = challenge_b64
 
@@ -279,6 +281,7 @@ class TestWebAuthnSwitchComplete:
 
     def test_complete_invalid_auth_type(self, user_client, test_user):
         from api_modular.auth import _pending_webauthn_challenges
+
         challenge_b64 = bytes_to_base64url(b"\x01\x02")
         _pending_webauthn_challenges[test_user.id] = challenge_b64
 
@@ -294,6 +297,7 @@ class TestWebAuthnSwitchComplete:
 
     def test_complete_wrong_challenge(self, user_client, test_user):
         from api_modular.auth import _pending_webauthn_challenges
+
         _pending_webauthn_challenges[test_user.id] = bytes_to_base64url(b"\x01")
 
         resp = user_client.post(
@@ -316,6 +320,7 @@ class TestWebAuthnSwitchComplete:
         mock_verify.return_value = None  # Verification failure
 
         from api_modular.auth import _pending_webauthn_challenges
+
         challenge_b64 = bytes_to_base64url(b"\xfe\xed")
         _pending_webauthn_challenges[test_user.id] = challenge_b64
 
@@ -346,6 +351,7 @@ class TestWebAuthnSwitchComplete:
 # 2. Claim WebAuthn complete (/auth/register/claim/webauthn/complete)
 # ---------------------------------------------------------------------------
 
+
 class TestClaimWebAuthnComplete:
     """Tests for /auth/register/claim/webauthn/complete — claim flow."""
 
@@ -358,7 +364,9 @@ class TestClaimWebAuthnComplete:
         mock_verify.return_value = fake_cred
 
         _create_approved_access_request(
-            auth_db, "claimuser_wn", "AAAA1111BBBB2222",
+            auth_db,
+            "claimuser_wn",
+            "AAAA1111BBBB2222",
             contact_email="claim@test.com",
         )
 
@@ -403,7 +411,9 @@ class TestClaimWebAuthnComplete:
         mock_verify.return_value = fake_cred
 
         _create_approved_access_request(
-            auth_db, "claimfido2_wn", "CCCC3333DDDD4444",
+            auth_db,
+            "claimfido2_wn",
+            "CCCC3333DDDD4444",
             contact_email="fido2@test.com",
         )
 
@@ -474,7 +484,9 @@ class TestClaimWebAuthnComplete:
         mock_verify.return_value = None  # Verification failure
 
         _create_approved_access_request(
-            auth_db, "claimfail_wn", "FAIL1111FAIL2222",
+            auth_db,
+            "claimfail_wn",
+            "FAIL1111FAIL2222",
             contact_email="fail@test.com",
         )
 
@@ -502,7 +514,9 @@ class TestClaimWebAuthnComplete:
     def test_claim_expired_invitation(self, auth_app, auth_db):
         """Expired claim token returns appropriate error."""
         _create_approved_access_request(
-            auth_db, "claimexpired_wn", "EXPD1111EXPD2222",
+            auth_db,
+            "claimexpired_wn",
+            "EXPD1111EXPD2222",
             claim_expires_at=datetime.now() - timedelta(hours=1),
             contact_email="expired@test.com",
         )
@@ -526,6 +540,7 @@ class TestClaimWebAuthnComplete:
 # 3. Register WebAuthn begin (/auth/register/webauthn/begin)
 # ---------------------------------------------------------------------------
 
+
 class TestRegisterWebAuthnBegin:
     """Tests for /auth/register/webauthn/begin — self-registration start."""
 
@@ -536,7 +551,7 @@ class TestRegisterWebAuthnBegin:
         mock_reg_opts.return_value = ('{"rp": {"id": "localhost"}}', b"\xab\xcd\xef")
 
         # Create a pending registration
-        from auth import hash_token, PendingRegistrationRepository
+        from auth import hash_token
 
         raw_token = "reg_webauthn_token_1"
         with auth_db.connection() as conn:
@@ -622,6 +637,7 @@ class TestRegisterWebAuthnBegin:
 # 4. Register WebAuthn complete (/auth/register/webauthn/complete)
 # ---------------------------------------------------------------------------
 
+
 class TestRegisterWebAuthnComplete:
     """Tests for /auth/register/webauthn/complete — self-registration complete."""
 
@@ -673,9 +689,7 @@ class TestRegisterWebAuthnComplete:
 
     @patch("api_modular.auth.webauthn_verify_registration")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_fido2_success(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_complete_fido2_success(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         fake_cred = _make_fake_webauthn_cred()
         mock_verify.return_value = fake_cred
@@ -815,6 +829,7 @@ class TestRegisterWebAuthnComplete:
 # 5. Login WebAuthn begin (/auth/login/webauthn/begin)
 # ---------------------------------------------------------------------------
 
+
 class TestLoginWebAuthnBegin:
     """Tests for /auth/login/webauthn/begin — start WebAuthn login."""
 
@@ -840,9 +855,7 @@ class TestLoginWebAuthnBegin:
 
     @patch("api_modular.auth.webauthn_authentication_options")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_begin_fido2_success(
-        self, mock_config, mock_auth_opts, auth_app, auth_db
-    ):
+    def test_begin_fido2_success(self, mock_config, mock_auth_opts, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_auth_opts.return_value = ('{"rpId": "localhost"}', b"\xef\x01")
 
@@ -898,14 +911,13 @@ class TestLoginWebAuthnBegin:
 # 6. Login WebAuthn complete (/auth/login/webauthn/complete)
 # ---------------------------------------------------------------------------
 
+
 class TestLoginWebAuthnComplete:
     """Tests for /auth/login/webauthn/complete — complete WebAuthn login."""
 
     @patch("api_modular.auth.webauthn_verify_authentication")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_success(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_complete_success(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_verify.return_value = 6  # new sign_count
 
@@ -935,9 +947,7 @@ class TestLoginWebAuthnComplete:
         # Verify sign_count updated in DB
         repo = UserRepository(auth_db)
         user = repo.get_by_username("passkeylogin_fix")
-        stored_cred = WebAuthnCredential.from_json(
-            user.auth_credential.decode("utf-8")
-        )
+        stored_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
         assert stored_cred.sign_count == 6
 
     @patch("api_modular.auth.webauthn_verify_authentication")
@@ -965,9 +975,7 @@ class TestLoginWebAuthnComplete:
 
     @patch("api_modular.auth.webauthn_verify_authentication")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_fido2_user(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_complete_fido2_user(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_verify.return_value = 4
 

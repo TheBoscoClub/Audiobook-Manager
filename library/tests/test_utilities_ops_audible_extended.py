@@ -9,7 +9,7 @@ parsing via char-by-char reading, and error handling paths.
 import subprocess
 import time
 from io import StringIO
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 
 MODULE = "backend.api_modular.utilities_ops.audible"
@@ -48,10 +48,7 @@ def _wait_for_thread_completion(tracker_mock, timeout=2.0):
     """Wait until tracker's complete_operation or fail_operation is called."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if (
-            tracker_mock.complete_operation.called
-            or tracker_mock.fail_operation.called
-        ):
+        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
             return True
         time.sleep(0.02)
     return False
@@ -166,9 +163,7 @@ class TestDownloadAudiobooksWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen_charread("", returncode=0)
-        mock_proc.wait.side_effect = subprocess.TimeoutExpired(
-            cmd="bash", timeout=3600
-        )
+        mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="bash", timeout=3600)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -283,8 +278,12 @@ class TestSyncGenresWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen(
-            ["Loading 200 audiobooks", "[100/200] Processing...",
-             "[200/200] Processing...", "updated 45"],
+            [
+                "Loading 200 audiobooks",
+                "[100/200] Processing...",
+                "[200/200] Processing...",
+                "updated 45",
+            ],
             returncode=0,
         )
         mock_popen_cls.return_value = mock_proc
@@ -386,9 +385,7 @@ class TestSyncGenresWorkerThread:
 
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_genre_sync_execute_flag(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_genre_sync_execute_flag(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Execute mode appends --execute flag."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -430,9 +427,7 @@ class TestSyncNarratorsWorkerThread:
 
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_success(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_narrator_sync_success(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Successful narrator sync parses update count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -440,8 +435,12 @@ class TestSyncNarratorsWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen(
-            ["Loading 300 audiobooks", "[150/300] Processing...",
-             "[300/300] Processing...", "updated 80"],
+            [
+                "Loading 300 audiobooks",
+                "[150/300] Processing...",
+                "[300/300] Processing...",
+                "updated 80",
+            ],
             returncode=0,
         )
         mock_popen_cls.return_value = mock_proc
@@ -456,9 +455,7 @@ class TestSyncNarratorsWorkerThread:
 
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_dry_run(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_narrator_sync_dry_run(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Dry run parses 'would update' count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -480,9 +477,7 @@ class TestSyncNarratorsWorkerThread:
 
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_failure(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_narrator_sync_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Non-zero rc fails operation with stderr."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -522,9 +517,7 @@ class TestSyncNarratorsWorkerThread:
 
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_timeout(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_narrator_sync_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Timeout kills process."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -637,9 +630,7 @@ class TestCheckAudiblePrereqsExtended:
 
     @patch(f"{MODULE}.os.path.isfile")
     @patch(f"{MODULE}.os.environ.get")
-    def test_returns_data_dir_in_response(
-        self, mock_env_get, mock_isfile, flask_app
-    ):
+    def test_returns_data_dir_in_response(self, mock_env_get, mock_isfile, flask_app):
         """Response includes data_dir regardless of metadata existence."""
         mock_env_get.return_value = "/custom/data/path"
         mock_isfile.return_value = False
@@ -674,6 +665,7 @@ class TestCheckAudiblePrereqsExtended:
             with patch.dict("os.environ", {}, clear=False):
                 # Remove AUDIOBOOKS_DATA if present to test default
                 import os
+
                 old_val = os.environ.pop("AUDIOBOOKS_DATA", None)
                 try:
                     resp = client.get("/api/utilities/check-audible-prereqs")

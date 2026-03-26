@@ -245,7 +245,7 @@ All self-service changes are recorded in the audit log and trigger admin email n
 
 Admin email alerts are sent to every admin account that has an email address set. Delivery requires valid SMTP configuration in `/etc/audiobooks/audiobooks.conf`:
 
-```
+```ini
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USER=resend
