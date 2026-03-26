@@ -32,7 +32,8 @@ class HashVerifyTask(MaintenanceTask):
         try:
             conn = sqlite3.connect(str(db_path))
             rows = conn.execute(
-                "SELECT id, file_path, sha256_hash FROM audiobooks WHERE sha256_hash IS NOT NULL"
+                "SELECT id, file_path, sha256_hash "
+                "FROM audiobooks WHERE sha256_hash IS NOT NULL"
             ).fetchall()
             conn.close()
 

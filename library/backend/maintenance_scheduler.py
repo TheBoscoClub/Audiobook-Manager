@@ -83,7 +83,8 @@ def record_history(window_id, started_at, status, message, data=None):
     try:
         conn.execute(
             """INSERT INTO maintenance_history
-               (window_id, started_at, completed_at, status, result_message, result_data)
+               (window_id, started_at, completed_at,
+                status, result_message, result_data)
                VALUES (?, ?, datetime('now'), ?, ?, ?)""",
             (window_id, started_at, status, message, json.dumps(data or {})),
         )
@@ -97,7 +98,8 @@ def write_notification(ntype, payload):
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO maintenance_notifications (notification_type, payload) VALUES (?, ?)",
+            "INSERT INTO maintenance_notifications "
+            "(notification_type, payload) VALUES (?, ?)",
             (ntype, json.dumps(payload)),
         )
         conn.commit()
@@ -237,7 +239,7 @@ def check_announcements():
         ).fetchall()
 
         for window in upcoming:
-            # Only announce if not already announced recently (within last poll interval)
+            # Only announce if not already announced recently
             existing = conn.execute(
                 """SELECT COUNT(*) FROM maintenance_notifications
                    WHERE notification_type = 'announce'

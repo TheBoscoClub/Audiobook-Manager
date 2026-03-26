@@ -149,7 +149,8 @@ def init_notification_poller(db_path):
                         payload["type"] = "maintenance_" + row["notification_type"]
                         connection_manager.broadcast(payload)
                         conn.execute(
-                            "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?",
+                            "UPDATE maintenance_notifications "
+                            "SET delivered = 1 WHERE id = ?",
                             (row["id"],),
                         )
                     except Exception as e:
