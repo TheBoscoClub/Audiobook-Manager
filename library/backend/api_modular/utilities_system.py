@@ -646,56 +646,62 @@ def init_system_routes(project_root):
     @admin_or_localhost
     def list_projects() -> FlaskResponse:
         """List available project directories for upgrade source."""
+        # Allowlisted base directories — only these may be scanned
+        allowed_bases = [
+            os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
+            os.path.expanduser("~/projects"),
+            "/opt/projects",
+        ]
+        allowed_bases = [
+            os.path.realpath(p) for p in allowed_bases if p
+        ]
+
         # Accept user-specified base path via query parameter
         user_path = request.args.get("base_path", "").strip()
 
         # Build search paths: user-specified first, then defaults
-        search_paths = []
+        search_paths: list[str] = []
         if user_path:
-            # SECURITY: Resolve to absolute, block path traversal
+            # SECURITY: Resolve and verify path is under an allowed base
             resolved = os.path.realpath(user_path)
-            if os.path.isdir(resolved):
+            if any(
+                resolved == ab or resolved.startswith(ab + os.sep)
+                for ab in allowed_bases
+            ):
                 search_paths.append(resolved)
-        search_paths.extend(
-            [
-                os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
-                os.path.expanduser("~/projects"),
-                "/opt/projects",
-            ]
-        )
+            # Reject paths outside allowed directories silently
+        search_paths.extend(allowed_bases)
 
         projects = []
-        seen_paths = set()
+        seen_paths: set[str] = set()
 
         for projects_base in search_paths:
-            if not projects_base or not os.path.isdir(projects_base):
+            if not projects_base or not os.path.isdir(projects_base):  # noqa: PTH112
                 continue
 
             try:
-                for name in sorted(os.listdir(projects_base)):
-                    project_path = os.path.join(projects_base, name)
-                    if project_path in seen_paths:
+                for name in sorted(os.listdir(projects_base)):  # noqa: PTH208
+                    proj_path = os.path.join(projects_base, name)  # noqa: PTH118
+                    if proj_path in seen_paths:
                         continue
-                    # Match directories containing a VERSION file or
-                    # starting with "Audiobook" (legacy heuristic)
-                    if not os.path.isdir(project_path):
+                    if not os.path.isdir(proj_path):  # noqa: PTH112
                         continue
-                    version_file = os.path.join(project_path, "VERSION")
-                    has_version = os.path.exists(version_file)
+                    ver_file = os.path.join(proj_path, "VERSION")  # noqa: PTH118
+                    has_version = os.path.exists(ver_file)  # noqa: PTH110
                     if not has_version and not name.startswith("Audiobook"):
                         continue
-                    seen_paths.add(project_path)
+                    seen_paths.add(proj_path)
                     version = None
                     if has_version:
                         try:
-                            with open(version_file) as f:
+                            with open(ver_file) as f:  # noqa: PTH123
                                 version = f.read().strip()
                         except Exception:
                             pass  # Non-critical: version stays None
                     projects.append(
                         {
                             "name": name,
-                            "path": project_path,
+                            "path": proj_path,
                             "version": version,
                         }
                     )
