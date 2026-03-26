@@ -324,14 +324,14 @@ library/auth/
 ├── __init__.py       # Module entry point, exports public API
 ├── database.py       # SQLCipher encryption wrapper, key management
 ├── models.py         # ORM-like repositories (User, Session, AccessRequest, etc.)
-├── audit.py          # AuditLog model and AuditLogRepository (v7.3+)
+├── audit.py          # AuditLog model and AuditLogRepository (v7.4.1+)
 ├── passkey.py        # WebAuthn/FIDO2 registration & authentication ceremonies
 ├── totp.py           # TOTP (RFC 6238) with QR code generation
 ├── backup_codes.py   # Single-use recovery codes (8 per user)
 ├── cli.py            # Admin CLI tool (audiobook-user)
 ├── inbox_cli.py      # Admin inbox management CLI
 ├── notify_cli.py     # Notification management CLI
-└── schema.sql        # Auth database schema (17 tables, v7)
+└── schema.sql        # Auth database schema (18 tables, v7)
 ```
 
 ### Authentication Flow
@@ -463,7 +463,7 @@ Priority chain:
 | CSRF protection | SameSite=Lax cookies prevent cross-origin requests |
 | Claim tokens | One-time use, hash-verified, username-bound |
 
-### Admin User Management API (v7.3+)
+### Admin User Management API (v7.4.1+)
 
 Admin endpoints require an authenticated admin session. All actions are recorded in `audit_log`.
 
@@ -479,7 +479,7 @@ Admin endpoints require an authenticated admin session. All actions are recorded
 | `DELETE /auth/admin/users/<id>/delete` | DELETE | Delete user (last-admin guard: error if only admin) |
 | `GET /auth/admin/users/audit-log` | GET | Paginated audit log; query params: `page`, `per_page`, `action` filter |
 
-### Self-Service Account API (v7.3+)
+### Self-Service Account API (v7.4.1+)
 
 All endpoints require the requesting user's own authenticated session.
 
@@ -615,8 +615,8 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `admin_authors_bp` | `/api/admin` | Author/narrator rename, merge, reassign (v7.0+) |
 | `user_bp` | `/api/user` | Per-user state: history, downloads, library, new books (v6.3+) |
 | `admin_activity_bp` | `/api/admin` | Admin activity log and statistics (v6.3+) |
-| `user_mgmt_bp` | `/auth/admin` | Admin user management: create, edit roles, switch auth, delete, audit log (v7.3+) |
-| `account_bp` | `/auth/account` | Self-service: view profile, edit username/email, switch auth, reset credentials, delete account (v7.3+) |
+| `user_mgmt_bp` | `/auth/admin` | Admin user management: create, edit roles, switch auth, delete, audit log (v7.4.1+) |
+| `account_bp` | `/auth/account` | Self-service: view profile, edit username/email, switch auth, reset credentials, delete account (v7.4.1+) |
 
 ### Utilities Operations Submodules
 
@@ -918,10 +918,10 @@ This view ensures the main library displays full-length audiobooks only.
 | **New Books** marquee | Scrolling banner showing recently added books since user's last visit |
 | **About** page | Version info (displayed prominently at top, fetched live from `/api/system/version`), library description, attributions, and links |
 | **Admin Audit** section | Back Office section showing unified activity log and statistics |
-| **USERS tab** (v7.3+) | Back Office tab: create users (TOTP/Magic Link/Passkey), edit username/email/roles, switch auth method, reset credentials, delete users, paginated audit log with action filter, notification badge for new audit entries |
-| **My Account modal** (v7.3+) | Shell header modal: view profile (username, email, auth type, member since), inline-edit username/email, switch auth method (two-step: select → configure), reset credentials, delete own account with custom confirmation text |
+| **USERS tab** (v7.4.1+) | Back Office tab: create users (TOTP/Magic Link/Passkey), edit username/email/roles, switch auth method, reset credentials, delete users, paginated audit log with action filter, notification badge for new audit entries |
+| **My Account modal** (v7.4.1+) | Shell header modal: view profile (username, email, auth type, member since), inline-edit username/email, switch auth method (two-step: select → configure), reset credentials, delete own account with custom confirmation text |
 
-### Admin Notification Flow (v7.3+)
+### Admin Notification Flow (v7.4.1+)
 
 Critical user management actions trigger notifications on two channels simultaneously:
 
