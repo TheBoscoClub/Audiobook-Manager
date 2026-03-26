@@ -2140,9 +2140,69 @@ do_github_upgrade() {
 
     echo ""
 
-    # Check only mode
+    # Check only mode — write preflight report and return
     if [[ "$CHECK_ONLY" == "true" ]]; then
         echo -e "${GREEN}Update available: $current_version → $install_version${NC}"
+
+        # Write preflight report so the web UI upgrade gate is satisfied.
+        # In GitHub --check mode we haven't downloaded the tarball yet, so we
+        # can't diff files.  Write the fields we DO know; the rest get safe
+        # defaults that won't block the subsequent upgrade.
+        local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+        local control_dir="${var_dir}/.control"
+        local preflight_file="${control_dir}/upgrade-preflight.json"
+
+        if [[ ! -d "$control_dir" ]]; then
+            if [[ ! -w "$var_dir" ]]; then
+                sudo mkdir -p "$control_dir"
+                sudo chown audiobooks:audiobooks "$control_dir" 2>/dev/null || true
+            else
+                mkdir -p "$control_dir"
+            fi
+        fi
+
+        local is_major="false"
+        local cur_major new_major
+        cur_major=$(echo "$current_version" | cut -d. -f1)
+        new_major=$(echo "$install_version" | cut -d. -f1)
+        if [[ "$cur_major" != "$new_major" ]] && [[ "$cur_major" != "unknown" ]] && [[ "$new_major" != "unknown" ]]; then
+            is_major="true"
+        fi
+
+        local timestamp
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+        local tmp_file
+        tmp_file=$(mktemp)
+        printf '{
+  "timestamp": "%s",
+  "source": "github:%s",
+  "current_version": "%s",
+  "target_version": "%s",
+  "is_major": %s,
+  "venv_rebuild_needed": %s,
+  "config_changes": false,
+  "new_services": [],
+  "files_changed": -1,
+  "warnings": []
+}\n' \
+            "$timestamp" \
+            "$install_version" \
+            "$current_version" \
+            "$install_version" \
+            "$is_major" \
+            "$is_major" > "$tmp_file"
+
+        if [[ ! -w "$control_dir" ]]; then
+            sudo mv "$tmp_file" "$preflight_file"
+            sudo chown audiobooks:audiobooks "$preflight_file" 2>/dev/null || true
+            sudo chmod 644 "$preflight_file"
+        else
+            mv "$tmp_file" "$preflight_file"
+            chmod 644 "$preflight_file"
+        fi
+
+        echo -e "${BLUE}Preflight report written: $preflight_file${NC}"
         return 0
     fi
 

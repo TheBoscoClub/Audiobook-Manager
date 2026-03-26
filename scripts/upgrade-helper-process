@@ -410,7 +410,7 @@ do_upgrade() {
     write_status "true" "preflight_recheck" "Rechecking preflight conditions..." "null" "null" "${OUTPUT_LINES[@]}"
 
     if [[ "$force" != "true" ]]; then
-        local preflight_file="${CONTROL_DIR}/upgrade-preflight"
+        local preflight_file="${CONTROL_DIR}/upgrade-preflight.json"
         if [[ ! -f "$preflight_file" ]]; then
             OUTPUT_LINES+=("WARNING: Preflight file missing — proceeding anyway (may have expired)")
         else

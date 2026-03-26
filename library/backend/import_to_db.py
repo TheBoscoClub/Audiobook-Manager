@@ -108,8 +108,9 @@ def import_audiobooks(conn):
                 title, author, narrator, publisher, series,
                 duration_hours, duration_formatted, file_size_mb,
                 file_path, cover_path, format, quality, description,
-                sha256_hash, hash_verified_at, asin
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sha256_hash, hash_verified_at, asin,
+                published_year, published_date, acquired_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 book.get("title"),
@@ -128,6 +129,9 @@ def import_audiobooks(conn):
                 book.get("sha256_hash"),
                 book.get("hash_verified_at"),
                 book.get("asin"),
+                book.get("published_year"),
+                book.get("published_date"),
+                book.get("acquired_date"),
             ),
         )
 
