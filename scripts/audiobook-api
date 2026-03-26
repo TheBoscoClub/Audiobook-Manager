@@ -3,5 +3,5 @@
 # Wrapper script — sources config and launches the Flask API
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
-cd "${AUDIOBOOKS_HOME}/library/backend"
+cd "${AUDIOBOOKS_HOME}/library/backend" || exit 1
 exec "$(audiobooks_python)" api_server.py "$@"

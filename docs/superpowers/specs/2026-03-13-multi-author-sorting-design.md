@@ -84,6 +84,7 @@ The existing `audiobooks_full` view will NOT be modified in this phase. It conti
 **Tier 1 — Structured metadata tags**: When ffprobe returns multiple separate tag entries for artist/composer/narrator, each becomes its own record. Highest fidelity.
 
 **Tier 2 — Delimiter-based splitting**: Single string with multiple names. Split on recognized delimiters in order:
+
 1. Semicolons (`;`)
 2. `" and "` (with spaces, avoids matching "Anderson", "Rand")
 3. `" & "` (with spaces)
@@ -164,6 +165,7 @@ The grouped endpoint returns all groups in a single response (no pagination). At
 ### Back-Office Correction Endpoints
 
 **Rename**: `PUT /api/admin/authors/{id}`
+
 ```json
 // Request
 {"name": "Stephen King", "sort_name": "King, Stephen"}
@@ -171,6 +173,7 @@ The grouped endpoint returns all groups in a single response (no pagination). At
 ```
 
 **Merge duplicates**: `POST /api/admin/authors/merge`
+
 ```json
 // Request — merge source(s) into target, reassign all books, delete sources
 {"source_ids": [3, 7], "target_id": 1}
@@ -178,6 +181,7 @@ The grouped endpoint returns all groups in a single response (no pagination). At
 ```
 
 **Reassign book authors**: `PUT /api/admin/books/{id}/authors`
+
 ```json
 // Request — full replacement of the book's author list
 {"author_ids": [1, 2], "positions": [0, 1]}

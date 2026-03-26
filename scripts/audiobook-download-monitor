@@ -24,7 +24,7 @@ DBUS_REF=""
 
 cleanup() {
     if [ -n "$DBUS_REF" ]; then
-        qdbus $DBUS_REF close 2>/dev/null
+        qdbus "$DBUS_REF" close 2>/dev/null
     fi
     exit 0
 }
@@ -50,7 +50,7 @@ if [ ! -f "$LOG_FILE" ]; then
 fi
 
 # Follow the log file
-tail -f "$LOG_FILE" 2>/dev/null | while read line; do
+tail -f "$LOG_FILE" 2>/dev/null | while read -r line; do
     # Colorize output
     if echo "$line" | grep -q "✓"; then
         echo -e "${GREEN}${line}${NC}"

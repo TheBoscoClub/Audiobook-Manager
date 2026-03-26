@@ -12,9 +12,10 @@
 
 ---
 
-### Task 1: Fix Service Name Bug in upgrade-helper-process
+## Task 1: Fix Service Name Bug in upgrade-helper-process
 
 **Files:**
+
 - Modify: `scripts/upgrade-helper-process` (all lines containing `audiobooks-`)
 
 - [ ] **Step 1: Write the failing test**
@@ -95,6 +96,7 @@ Expected: FAIL — plural service names found throughout the file
 In `scripts/upgrade-helper-process`, replace every `audiobooks-` with `audiobook-` using a targeted approach:
 
 Replace in VALID_SERVICES array (lines 31-37):
+
 - `"audiobooks-api"` → `"audiobook-api"`
 - `"audiobooks-proxy"` → `"audiobook-proxy"`
 - `"audiobooks-converter"` → `"audiobook-converter"`
@@ -102,10 +104,12 @@ Replace in VALID_SERVICES array (lines 31-37):
 - `"audiobooks-downloader.timer"` → `"audiobook-downloader.timer"`
 
 Replace in header comments (lines 13-15):
+
 - `"audiobooks-converter"` → `"audiobook-converter"`
 - `"audiobooks-api"` → `"audiobook-api"`
 
 Replace in all function bodies:
+
 - `do_services_stop_all()` stop_order arrays
 - `do_upgrade()` services_to_stop array
 - `do_upgrade()` API restart line
@@ -141,6 +145,7 @@ EOF
 ### Task 2: Add --skip-service-lifecycle Flag to upgrade.sh
 
 **Files:**
+
 - Modify: `upgrade.sh` (argument parser, main block, do_github_upgrade, cleanup trap)
 
 - [ ] **Step 1: Write the failing test**
@@ -190,6 +195,7 @@ Expected: FAIL — SKIP_SERVICE_LIFECYCLE not yet in source
 Add `SKIP_SERVICE_LIFECYCLE=false` to the variable declarations section near the top of upgrade.sh.
 
 Add to the argument parser case statement:
+
 ```bash
 --skip-service-lifecycle)
     SKIP_SERVICE_LIFECYCLE=true
@@ -202,6 +208,7 @@ Do NOT add it to the `--help` output.
 - [ ] **Step 4: Guard service lifecycle calls**
 
 Wrap `stop_services` and `start_services` calls in the main block and `do_github_upgrade()` with:
+
 ```bash
 if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
     stop_services
@@ -213,6 +220,7 @@ Similarly for `start_services` and the `_cleanup_on_exit` trap's service restart
 - [ ] **Step 5: Make backup always-on**
 
 In upgrade.sh:
+
 - Make `create_backup()` run unconditionally (remove any conditional on `--backup` flag)
 - Keep `--backup` in the arg parser but make it a no-op
 - Add rolling retention to `create_backup()`:
@@ -253,6 +261,7 @@ EOF
 ### Task 3: Preflight Check System in upgrade.sh
 
 **Files:**
+
 - Modify: `upgrade.sh` (new functions: generate_preflight, validate_preflight)
 
 - [ ] **Step 1: Write the failing test**
@@ -295,6 +304,7 @@ Expected: FAIL on generate_preflight/validate_preflight not found
 - [ ] **Step 3: Implement generate_preflight()**
 
 Add function to upgrade.sh that:
+
 - Runs dry-run analysis (reuses existing check logic)
 - Writes JSON to `${AUDIOBOOKS_VAR_DIR}/.control/upgrade-preflight.json`
 - Includes: timestamp, source, current_version, target_version, is_major, venv_rebuild_needed, config_changes, new_services, files_changed, warnings
@@ -302,6 +312,7 @@ Add function to upgrade.sh that:
 - [ ] **Step 4: Implement validate_preflight()**
 
 Add function that:
+
 - Checks preflight file exists
 - Checks timestamp is < 30 minutes old
 - Checks source matches current request
@@ -337,6 +348,7 @@ EOF
 ### Task 4: Rewrite upgrade-helper-process Lifecycle
 
 **Files:**
+
 - Modify: `scripts/upgrade-helper-process` (rewrite do_upgrade with 9-step lifecycle)
 
 - [ ] **Step 1: Write the failing test**
@@ -484,6 +496,7 @@ EOF
 ### Task 5: API Endpoint Updates (utilities_system.py)
 
 **Files:**
+
 - Modify: `library/backend/api_modular/utilities_system.py`
 - Test: `library/tests/test_upgrade_api.py`
 
@@ -545,6 +558,7 @@ Expected: FAIL on missing preflight endpoint and fields
 - [ ] **Step 3: Add GET /api/system/upgrade/preflight endpoint**
 
 In `utilities_system.py`, add new endpoint:
+
 - Route: `GET /api/system/upgrade/preflight`
 - Auth: `@admin_or_localhost`
 - Reads preflight JSON from control dir
@@ -587,6 +601,7 @@ EOF
 ### Task 6: Caddy Maintenance Page (Create Files)
 
 **Files:**
+
 - Create: `caddy/audiobooks.conf`
 - Create: `caddy/maintenance.html`
 
@@ -726,6 +741,7 @@ EOF
 ### Task 7: Install/Upgrade Integration for Caddy Files
 
 **Files:**
+
 - Modify: `install.sh` (add Caddy file installation)
 - Modify: `upgrade.sh` (add Caddy file sync)
 
@@ -821,6 +837,7 @@ EOF
 ### Task 8: Web UI — Upgrade Options and Button State
 
 **Files:**
+
 - Modify: `library/web-v2/utilities.html` (add options, overlay markup)
 - Modify: `library/web-v2/css/utilities.css` (new styles)
 
@@ -928,6 +945,7 @@ EOF
 ### Task 9: Browser-Side Upgrade Overlay and Resilient Polling
 
 **Files:**
+
 - Modify: `library/web-v2/js/utilities.js`
 
 **IMPORTANT — Pattern break from existing codebase:** The existing utilities.js uses `innerHTML` extensively. All NEW code in this task MUST use `textContent` and DOM APIs (`createElement`, `appendChild`, `replaceChildren`) instead. This is a deliberate security improvement. Do NOT copy the existing innerHTML pattern.
@@ -986,6 +1004,7 @@ updateUpgradeButtonState();
 - [ ] **Step 4: Update startUpgrade() with new fields and overlay**
 
 Modify `startUpgrade()` to:
+
 1. Collect force, major_version, version from UI inputs
 2. If force checked: show danger confirmation modal, require explicit confirm
 3. POST with all new fields:
@@ -1010,9 +1029,9 @@ const resp = await fetch('/api/system/upgrade', {
 });
 ```
 
-4. Show the full-screen overlay
-5. Set `window.onbeforeunload` warning
-6. Start resilient polling
+1. Show the full-screen overlay
+2. Set `window.onbeforeunload` warning
+3. Start resilient polling
 
 - [ ] **Step 5: Implement resilient polling**
 
@@ -1242,6 +1261,7 @@ EOF
 ### Task 10: Consistency Enforcement Rule
 
 **Files:**
+
 - Create: `.claude/rules/upgrade-consistency.md`
 
 - [ ] **Step 1: Create the enforcement rule**
@@ -1296,6 +1316,7 @@ EOF
 ### Task 11: Documentation Updates
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 - Modify: `docs/ARCHITECTURE.md`
 - Modify: `README.md` (if upgrade section exists)
@@ -1307,6 +1328,7 @@ Read first 30 lines of CHANGELOG.md to understand format.
 - [ ] **Step 2: Add changelog entry**
 
 Add a new version entry (or Unreleased section) documenting:
+
 - Fixed: Service name bug in upgrade-helper-process (audiobooks- → audiobook-)
 - Added: Mandatory preflight check system (LEAPP-inspired)
 - Added: Always-on backup with rolling retention
@@ -1319,6 +1341,7 @@ Add a new version entry (or Unreleased section) documenting:
 - [ ] **Step 3: Update ARCHITECTURE.md**
 
 Add or update the "Upgrade System" section in docs/ARCHITECTURE.md:
+
 - Privilege-separated helper pattern
 - Preflight check flow
 - Three-tier maintenance strategy (browser overlay, Caddy, Cloudflare)
@@ -1378,6 +1401,7 @@ ruff check library/ && shellcheck upgrade.sh scripts/upgrade-helper-process inst
 ```
 
 Then on the VM:
+
 1. Verify service names: `systemctl status audiobook-api audiobook-proxy`
 2. Test web upgrade check: hit the UI, run Check for Updates
 3. Test preflight gate: try upgrade without check (should fail)

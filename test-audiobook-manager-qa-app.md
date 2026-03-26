@@ -102,7 +102,7 @@ VM_STATE=$(sudo virsh domstate "$QA_VM" 2>/dev/null)
 echo "VM state: $VM_STATE"
 ```
 
-2. If not running, start it:
+1. If not running, start it:
 
 ```bash
 if [[ "$VM_STATE" != "running" ]]; then
@@ -113,7 +113,7 @@ if [[ "$VM_STATE" != "running" ]]; then
 fi
 ```
 
-3. Wait for SSH (poll with timeout, max 120 seconds):
+1. Wait for SSH (poll with timeout, max 120 seconds):
 
 ```bash
 MAX_WAIT=120
@@ -133,7 +133,7 @@ while ! $SSH_CMD "echo ok" >/dev/null 2>&1; do
 done
 ```
 
-4. Verify connectivity:
+1. Verify connectivity:
 
 ```bash
 $SSH_CMD "hostname && uname -r && uptime"
@@ -155,7 +155,7 @@ GH_VERSION=$(gh release view --repo "$GITHUB_REPO" --json tagName -q .tagName 2>
 echo "GitHub release: $GH_VERSION"
 ```
 
-2. Check for staged release (local `.staged-release` file):
+1. Check for staged release (local `.staged-release` file):
 
 ```bash
 STAGED_VERSION=""
@@ -167,7 +167,7 @@ else
 fi
 ```
 
-3. Determine target version (max of GitHub release and staged release):
+1. Determine target version (max of GitHub release and staged release):
 
 ```bash
 python3 -c "
@@ -185,7 +185,7 @@ except Exception as e:
 
 Store the result as `TARGET_VERSION`.
 
-4. Get current QA version:
+1. Get current QA version:
 
 ```bash
 QA_VERSION=$($SSH_CMD "cat $APP_PATH/VERSION 2>/dev/null" | tr -d '[:space:]')
@@ -193,7 +193,7 @@ echo "QA version: $QA_VERSION"
 echo "Target version: $TARGET_VERSION"
 ```
 
-5. Compare versions to decide if upgrade is needed:
+1. Compare versions to decide if upgrade is needed:
 
 ```bash
 NEEDS_UPGRADE=$(python3 -c "
@@ -231,7 +231,7 @@ else
 fi
 ```
 
-2. Run upgrade:
+1. Run upgrade:
 
 ```bash
 ./upgrade.sh --from-project . --remote "$QA_IP" --yes
@@ -239,7 +239,7 @@ fi
 
 If upgrade.sh exits non-zero, set `OVERALL=FAIL` and ABORT with error message. Do NOT continue.
 
-3. Verify upgrade:
+1. Verify upgrade:
 
 ```bash
 NEW_QA_VERSION=$($SSH_CMD "cat $APP_PATH/VERSION" | tr -d '[:space:]')
@@ -253,7 +253,7 @@ UPGRADE_PERFORMED="yes"
 QA_VERSION="$NEW_QA_VERSION"
 ```
 
-4. If you checked out a tag in step 3.1, return to the original branch:
+1. If you checked out a tag in step 3.1, return to the original branch:
 
 ```bash
 if [[ -n "$STAGED_VERSION" ]] && [[ "$TARGET_VERSION" == "$STAGED_VERSION" ]]; then
@@ -289,14 +289,14 @@ if [[ -z "$PROD_SCHEMA" ]]; then
 fi
 ```
 
-2. Get QA schema version:
+1. Get QA schema version:
 
 ```bash
 QA_SCHEMA=$($SSH_CMD "sqlite3 $DB_PATH 'SELECT MAX(version) FROM schema_version'" 2>/dev/null)
 echo "QA schema version: $QA_SCHEMA"
 ```
 
-3. Compare schemas — sync is safe only if production schema version is less than or equal to QA schema version:
+1. Compare schemas — sync is safe only if production schema version is less than or equal to QA schema version:
 
 ```bash
 if [[ -n "$PROD_SCHEMA" ]] && [[ -n "$QA_SCHEMA" ]]; then
@@ -311,7 +311,7 @@ if [[ -n "$PROD_SCHEMA" ]] && [[ -n "$QA_SCHEMA" ]]; then
 fi
 ```
 
-4. If compatible, perform the sync:
+1. If compatible, perform the sync:
 
 ```bash
 # Stop services
@@ -697,7 +697,7 @@ Generate the final structured report. Print it to stdout for the parent session 
 
 Determine `OVERALL` status: if any critical check has `FAIL`, set `OVERALL=FAIL`. If all critical checks pass but there are warnings, set `OVERALL=PASS (with warnings)`.
 
-```
+```bash
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "  QA NATIVE APP REGRESSION RESULTS"
@@ -757,11 +757,11 @@ After the report is generated:
 $SSH_CMD "rm -f /tmp/audiobooks-prod.db /tmp/qa-api-resp" 2>/dev/null || true
 ```
 
-2. Remove local temp files:
+1. Remove local temp files:
 
 ```bash
 rm -f /tmp/qa-api-resp /tmp/qa-cookies.txt
 ```
 
-3. Do NOT shut down the QA VM (it stays running for Docker QA tests or manual inspection).
-4. Do NOT revert to snapshot (QA VM is persistent, unlike the test VM).
+1. Do NOT shut down the QA VM (it stays running for Docker QA tests or manual inspection).
+2. Do NOT revert to snapshot (QA VM is persistent, unlike the test VM).

@@ -62,6 +62,8 @@ echo ""
 echo "Timers:"
 
 # Check scheduled timers
+# Single timer currently; loop retained for future additions
+# shellcheck disable=SC2043
 for TIMER in audiobook-downloader; do
     if systemctl is-active "$TIMER.timer" &>/dev/null; then
         STATUS=$(systemctl is-active "$TIMER.timer")

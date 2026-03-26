@@ -42,7 +42,7 @@ ETA_MINS="calculating..."
 
 cleanup() {
     if [ -n "$DBUS_REF" ]; then
-        qdbus $DBUS_REF close 2>/dev/null
+        qdbus "$DBUS_REF" close 2>/dev/null
     fi
     tput cnorm # Restore cursor
     echo ""
@@ -71,7 +71,7 @@ get_counts() {
 
 get_system_stats() {
     FFMPEG_COUNT=$(pgrep -c -f "ffmpeg.*libopus" 2>/dev/null || echo 0)
-    FFMPEG_NICE=$(ps -eo ni,comm 2>/dev/null | grep ffmpeg | head -1 | awk '{print $1}')
+    FFMPEG_NICE=$(ps -o ni= -p "$(pgrep -f ffmpeg | head -1)" 2>/dev/null)
     CPU_IDLE=$(top -b -n 1 2>/dev/null | grep "Cpu(s)" | awk '{print $8}' | cut -d'.' -f1)
     LOAD=$(cat /proc/loadavg 2>/dev/null | awk '{print $1}')
     TMPFS_USAGE=$(df /tmp 2>/dev/null | tail -1 | awk '{print $5}')
@@ -128,9 +128,9 @@ while true; do
     echo ""
 
     # Progress bar
-    printf "  ${BOLD}Progress:${NC} [${GREEN}"
-    draw_progress_bar $PERCENT
-    printf "${NC}] ${BOLD}%d%%${NC}\n" "$PERCENT"
+    printf "  %sProgress:%s [%s" "${BOLD}" "${NC}" "${GREEN}"
+    draw_progress_bar "$PERCENT"
+    printf "%s] %s%d%%%s\n" "${NC}" "${BOLD}" "$PERCENT" "${NC}"
     echo ""
 
     # File counts
@@ -150,7 +150,7 @@ while true; do
     # Active conversions
     if [ "$FFMPEG_COUNT" -gt 0 ]; then
         echo -e "  ${GREEN}${BOLD}Active Conversions:${NC}"
-        ps aux 2>/dev/null | grep "ffmpeg.*libopus" | grep -v grep | while read line; do
+        pgrep -a -f "ffmpeg.*libopus" 2>/dev/null | while read -r line; do
             OUTPUT=$(echo "$line" | grep -oP '(?<=-f ogg ")[^"]+' | xargs -r basename 2>/dev/null | head -c 45)
             [ -n "$OUTPUT" ] && echo "    • $OUTPUT"
         done | head -6

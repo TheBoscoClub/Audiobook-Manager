@@ -18,7 +18,7 @@ PORT="8443"
 DRY_RUN=false
 
 usage() {
-  cat <<EOF
+    cat <<EOF
 Usage: $(basename "$0") --host <ip> [--keep user1,user2,...] [--dry-run]
 
 Options:
@@ -29,43 +29,43 @@ Options:
   --dry-run    Show what would be deleted without deleting
   -h, --help   Show this help
 EOF
-  exit 0
+    exit 0
 }
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --host)
-      HOST="$2"
-      shift 2
-      ;;
-    --keep)
-      KEEP_LIST="$2"
-      shift 2
-      ;;
-    --port)
-      PORT="$2"
-      shift 2
-      ;;
-    --protocol)
-      PROTOCOL="$2"
-      shift 2
-      ;;
-    --dry-run)
-      DRY_RUN=true
-      shift
-      ;;
-    -h | --help) usage ;;
-    *)
-      echo "Unknown option: $1"
-      usage
-      ;;
-  esac
+    case "$1" in
+        --host)
+            HOST="$2"
+            shift 2
+            ;;
+        --keep)
+            KEEP_LIST="$2"
+            shift 2
+            ;;
+        --port)
+            PORT="$2"
+            shift 2
+            ;;
+        --protocol)
+            PROTOCOL="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -h | --help) usage ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
 done
 
 if [[ -z "$HOST" ]]; then
-  echo "Error: --host is required"
-  usage
+    echo "Error: --host is required"
+    usage
 fi
 
 BASE_URL="${PROTOCOL}://${HOST}:${PORT}"
@@ -76,17 +76,17 @@ trap 'rm -f "$COOKIE_JAR"' EXIT
 IFS=',' read -ra KEEP_USERS <<<"$KEEP_LIST"
 
 is_kept() {
-  local username="$1"
-  for kept in "${KEEP_USERS[@]}"; do
-    [[ "$username" == "$kept" ]] && return 0
-  done
-  return 1
+    local username="$1"
+    for kept in "${KEEP_USERS[@]}"; do
+        [[ "$username" == "$kept" ]] && return 0
+    done
+    return 1
 }
 
 # Step 1: Login as claudecode admin via TOTP
 if [[ ! -f "$TOTP_SECRET_FILE" ]]; then
-  echo "Error: TOTP secret not found at $TOTP_SECRET_FILE"
-  exit 1
+    echo "Error: TOTP secret not found at $TOTP_SECRET_FILE"
+    exit 1
 fi
 
 TOTP_SECRET=$(cat "$TOTP_SECRET_FILE")
@@ -94,12 +94,12 @@ TOTP_CODE=$(python3 -c "import pyotp; print(pyotp.TOTP('${TOTP_SECRET}').now())"
 
 echo "Logging in as ${ADMIN_USER}..."
 LOGIN_RESP=$(curl -sk -c "$COOKIE_JAR" -X POST "${BASE_URL}/auth/login" \
-  -H 'Content-Type: application/json' \
-  -d "{\"username\":\"${ADMIN_USER}\",\"code\":\"${TOTP_CODE}\"}" 2>&1)
+    -H 'Content-Type: application/json' \
+    -d "{\"username\":\"${ADMIN_USER}\",\"code\":\"${TOTP_CODE}\"}" 2>&1)
 
 if ! echo "$LOGIN_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('success') else 1)" 2>/dev/null; then
-  echo "Login failed: $LOGIN_RESP"
-  exit 1
+    echo "Login failed: $LOGIN_RESP"
+    exit 1
 fi
 echo "Login successful."
 
@@ -119,18 +119,18 @@ data = json.load(sys.stdin)
 for u in data['users']:
     print(f\"{u['id']}|{u['username']}\")
 " | while IFS='|' read -r uid uname; do
-  if is_kept "$uname"; then
-    echo "  KEEP: ${uname} (id=${uid})"
-    ((KEPT++)) || true
-  else
-    if $DRY_RUN; then
-      echo "  WOULD DELETE: ${uname} (id=${uid})"
+    if is_kept "$uname"; then
+        echo "  KEEP: ${uname} (id=${uid})"
+        ((KEPT++)) || true
     else
-      DEL_RESP=$(curl -sk -b "$COOKIE_JAR" -X DELETE "${BASE_URL}/auth/admin/users/${uid}" 2>&1)
-      echo "  DELETED: ${uname} (id=${uid}) — ${DEL_RESP}"
+        if $DRY_RUN; then
+            echo "  WOULD DELETE: ${uname} (id=${uid})"
+        else
+            DEL_RESP=$(curl -sk -b "$COOKIE_JAR" -X DELETE "${BASE_URL}/auth/admin/users/${uid}" 2>&1)
+            echo "  DELETED: ${uname} (id=${uid}) — ${DEL_RESP}"
+        fi
+        ((DELETED++)) || true
     fi
-    ((DELETED++)) || true
-  fi
 done
 
 # Step 4: List and purge access requests for non-kept users
@@ -141,30 +141,30 @@ AR_COUNT=$(echo "$AR_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin)
 echo "Found ${AR_COUNT} access requests."
 
 if [[ "$AR_COUNT" -gt 0 ]]; then
-  echo "$AR_RESP" | python3 -c "
+    echo "$AR_RESP" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 for r in data.get('requests', []):
     print(f\"{r['id']}|{r['username']}\")
 " | while IFS='|' read -r rid rname; do
-    if is_kept "$rname"; then
-      echo "  KEEP REQUEST: ${rname} (id=${rid})"
-    else
-      if $DRY_RUN; then
-        echo "  WOULD DELETE REQUEST: ${rname} (id=${rid})"
-      else
-        DEL_RESP=$(curl -sk -b "$COOKIE_JAR" -X DELETE "${BASE_URL}/auth/admin/access-requests/${rid}" 2>&1)
-        echo "  DELETED REQUEST: ${rname} (id=${rid}) — ${DEL_RESP}"
-      fi
-    fi
-  done
+        if is_kept "$rname"; then
+            echo "  KEEP REQUEST: ${rname} (id=${rid})"
+        else
+            if $DRY_RUN; then
+                echo "  WOULD DELETE REQUEST: ${rname} (id=${rid})"
+            else
+                DEL_RESP=$(curl -sk -b "$COOKIE_JAR" -X DELETE "${BASE_URL}/auth/admin/access-requests/${rid}" 2>&1)
+                echo "  DELETED REQUEST: ${rname} (id=${rid}) — ${DEL_RESP}"
+            fi
+        fi
+    done
 fi
 
 # Step 5: Verify
 echo ""
 if ! $DRY_RUN; then
-  echo "Verification — remaining users:"
-  curl -sk -b "$COOKIE_JAR" "${BASE_URL}/auth/admin/users" 2>&1 | python3 -c "
+    echo "Verification — remaining users:"
+    curl -sk -b "$COOKIE_JAR" "${BASE_URL}/auth/admin/users" 2>&1 | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 for u in data['users']:

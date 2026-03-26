@@ -34,7 +34,7 @@ Add project-specific test modules that provide `qaapp`, `qadocker`, and `qaall` 
 
 ### File Layout
 
-```
+```text
 Audiobook-Manager/
 ├── test-audiobook-manager-qa-app.md      # Native QA module
 ├── test-audiobook-manager-qa-docker.md   # Docker QA module
@@ -48,7 +48,7 @@ claude-test-skill/
 
 ### Dispatcher Changes (test.md)
 
-```
+```text
 argument-hint: "[help] [prodapp] [docker] [qaapp] [qadocker] [qaall] [security] ..."
 
 Shortcuts:
@@ -63,7 +63,7 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
 
 ### Execution Flow
 
-```
+```text
 1. VERSION RESOLUTION
    - Get latest GitHub release tag: gh release view --json tagName
    - Check for .staged-release breadcrumb (staged version)
@@ -112,7 +112,7 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
 
 ### Execution Flow
 
-```
+```text
 1. VERSION RESOLUTION
    - Same logic as qa-app: target = max(github_release, staged_release)
    - Get QA Docker container version:
@@ -166,7 +166,7 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
 
 ### Execution Flow
 
-```
+```text
 1. Run qa-app module (native first)
 2. Run qa-docker module (Docker second)
 3. Cross-validation: compare native and Docker results
@@ -215,7 +215,7 @@ Add a `qa_vm` section alongside existing `vm_testing`:
 
 ### Shortcut Routing (test.md changes)
 
-```
+```text
 3. Handle shortcuts:
    - prodapp   → --phase=P
    - docker    → --phase=D
@@ -229,7 +229,7 @@ Add a `qa_vm` section alongside existing `vm_testing`:
 
 ### QA Module Loading Logic
 
-```
+```text
 IF shortcut in [qaapp, qadocker, qaall]:
     suffix = {qaapp: "app", qadocker: "docker", qaall: "all"}[shortcut]
     pattern = "test-*-qa-${suffix}.md"
@@ -267,7 +267,8 @@ This is intentional: QA testing is a separate concern from project code auditing
 ## Gitignore
 
 Add to `.gitignore`:
-```
+
+```text
 # QA test modules (project-specific, not tracked)
 test-audiobook-manager-qa-*.md
 ```

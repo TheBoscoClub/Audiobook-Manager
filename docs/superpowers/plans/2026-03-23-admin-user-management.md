@@ -37,6 +37,7 @@
 ## Task 1: Create Branch + Schema Migration
 
 **Files:**
+
 - Modify: `library/auth/schema.sql` (after line ~213)
 - Modify: `library/auth/models.py` (User dataclass, ~line 54)
 
@@ -127,6 +128,7 @@ git commit -m "feat(auth): add audit_log schema and user last_audit_seen_id"
 ## Task 2: Audit Log Model + Repository (TDD)
 
 **Files:**
+
 - Create: `library/auth/audit.py`
 - Create: `library/tests/test_audit_log.py`
 - Modify: `library/auth/models.py` (add AuditLog dataclass)
@@ -389,6 +391,7 @@ git commit -m "feat(auth): add audit log model and repository with tests"
 ## Task 3: Admin Notification Helper
 
 **Files:**
+
 - Modify: `library/auth/audit.py` (add notification functions)
 
 - [ ] **Step 1: Add notification helper to audit.py**
@@ -492,6 +495,7 @@ git commit -m "feat(auth): add admin notification helpers for critical actions"
 ## Task 4: Last-Admin Guard (TDD)
 
 **Files:**
+
 - Create: `library/tests/test_last_admin_guard.py`
 - Modify: `library/auth/models.py` (add `count_admins()` to UserRepository)
 
@@ -591,6 +595,7 @@ git commit -m "feat(auth): add last-admin guard with tests"
 ## Task 4b: Test Fixtures for Auth Endpoint Tests
 
 **Files:**
+
 - Modify: `library/tests/conftest.py`
 
 The existing `conftest.py` has `auth_app` (session-scoped Flask app with auth DB) and generic `app_client`, but no pre-authenticated client fixtures. All endpoint tests in Tasks 5-7 depend on these.
@@ -725,6 +730,7 @@ git commit -m "test: add auth client fixtures for user management tests"
 ## Task 5: Admin Create User Endpoint (TDD)
 
 **Files:**
+
 - Create: `library/tests/test_admin_user_management.py`
 - Modify: `library/backend/api_modular/auth.py`
 
@@ -937,6 +943,7 @@ def admin_create_user():
 ```
 
 **Existing patterns to reuse:**
+
 - `get_current_user()` is at `auth.py:135` — returns the authenticated User from session
 - Claim tokens: The existing invite flow at `auth.py:1062-1081` shows the pattern — `generate_verification_token()` creates the token, `hash_token()` hashes it, and `request_repo.create()` stores it via `PendingRegistrationRepository`. For passkey creation, reuse this same flow — create a `PendingRegistration` entry with the claim token hash.
 - `_get_claim_expiry()`: Check `PendingRegistration.create()` in `models.py:1218` for the default expiry (likely 72h). Reuse the same duration.
@@ -961,6 +968,7 @@ git commit -m "feat(auth): add admin create user endpoint with tests"
 ## Task 6: Admin User Management Endpoints (TDD)
 
 **Files:**
+
 - Modify: `library/tests/test_admin_user_management.py` (add tests)
 - Modify: `library/backend/api_modular/auth.py` (add endpoints)
 
@@ -1101,6 +1109,7 @@ python -m pytest library/tests/test_admin_user_management.py -v
 - [ ] **Step 10: Implement all admin endpoints**
 
 Add each endpoint to `auth.py`, following the same pattern as Task 5's create endpoint. Each endpoint:
+
 1. Validates input
 2. Performs the action via `UserRepository`
 3. Logs to `AuditLogRepository`
@@ -1127,6 +1136,7 @@ git commit -m "feat(auth): add admin user management endpoints with tests"
 ## Task 7: Self-Service Endpoints (TDD)
 
 **Files:**
+
 - Create: `library/tests/test_self_service.py`
 - Modify: `library/backend/api_modular/auth.py`
 
@@ -1296,6 +1306,7 @@ git commit -m "feat(auth): add self-service account endpoints with tests"
 ## Task 8: Back Office USERS Tab (UI)
 
 **Files:**
+
 - Modify: `library/web-v2/utilities.html` (add USERS tab + markup)
 - Modify: `library/web-v2/js/utilities.js` (add USERS tab logic)
 - Modify: `library/web-v2/css/utilities.css` (styles for new tab content)
@@ -1515,6 +1526,7 @@ git commit -m "feat(ui): add USERS tab to Back Office with user management and a
 ## Task 9: Shell "My Account" Modal
 
 **Files:**
+
 - Modify: `library/web-v2/shell.html` (add header bar + modal markup)
 - Modify: `library/web-v2/shell.css` (header + modal styles)
 - Create: `library/web-v2/js/account.js` (modal logic)
@@ -1740,6 +1752,7 @@ git commit -m "feat(ui): add My Account modal to shell header for self-service"
 ## Task 10: WebSocket Notification Push
 
 **Files:**
+
 - Modify: `library/backend/api_modular/auth.py` (emit WS event on audit log write)
 - Modify: `library/web-v2/js/websocket.js` (handle `audit_notify` message type)
 - Modify: `library/web-v2/js/utilities.js` (listen for event, update badge)
@@ -1792,6 +1805,7 @@ git commit -m "feat(ws): push audit notifications to connected admins via WebSoc
 ## Task 11: Documentation Updates
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `docs/ARCHITECTURE.md`
 - Modify: `docs/AUTH_RUNBOOK.md`
@@ -1799,6 +1813,7 @@ git commit -m "feat(ws): push audit notifications to connected admins via WebSoc
 - [ ] **Step 1: Update README.md**
 
 Add to feature list:
+
 - Web-based user management (admin create/edit/delete users)
 - Self-service My Account (change username, email, auth method, credentials)
 - Audit logging for all user management actions
@@ -1807,6 +1822,7 @@ Add to feature list:
 - [ ] **Step 2: Update ARCHITECTURE.md**
 
 Add:
+
 - USERS tab component in Back Office section
 - My Account modal in Shell section
 - audit_log table in Database section
@@ -1816,6 +1832,7 @@ Add:
 - [ ] **Step 3: Update AUTH_RUNBOOK.md**
 
 Add sections:
+
 - "Creating a user (admin)" — step-by-step for each auth method
 - "Self-service account management" — what users can do from My Account
 - "Audit log" — where to find it, what's logged

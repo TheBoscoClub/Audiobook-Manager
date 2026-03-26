@@ -113,7 +113,7 @@ VM_STATE=$(sudo virsh domstate "$QA_VM" 2>/dev/null)
 echo "VM state: $VM_STATE"
 ```
 
-2. If not running, start it:
+1. If not running, start it:
 
 ```bash
 if [[ "$VM_STATE" != "running" ]]; then
@@ -124,7 +124,7 @@ if [[ "$VM_STATE" != "running" ]]; then
 fi
 ```
 
-3. Wait for SSH (poll with timeout, max 120 seconds):
+1. Wait for SSH (poll with timeout, max 120 seconds):
 
 ```bash
 MAX_WAIT=120
@@ -142,20 +142,20 @@ while ! $SSH_CMD "echo ok" >/dev/null 2>&1; do
 done
 ```
 
-4. Verify connectivity:
+1. Verify connectivity:
 
 ```bash
 $SSH_CMD "hostname && uname -r && uptime"
 ```
 
-5. Start Docker daemon (preset is disabled on QA VM):
+1. Start Docker daemon (preset is disabled on QA VM):
 
 ```bash
 echo "Starting Docker daemon..."
 $SSH_CMD "sudo systemctl start docker"
 ```
 
-6. Wait for Docker to be ready (retry with timeout, max 60 seconds):
+1. Wait for Docker to be ready (retry with timeout, max 60 seconds):
 
 ```bash
 DOCKER_WAIT=60
@@ -174,7 +174,7 @@ done
 echo "Docker daemon is ready."
 ```
 
-7. Check container status:
+1. Check container status:
 
 ```bash
 CONTAINER_STATUS=$($SSH_CMD "sudo docker ps -a --filter name=$CONTAINER_NAME --format '{{.Status}}'" 2>/dev/null)
@@ -197,7 +197,7 @@ GH_VERSION=$(gh release view --repo "$GITHUB_REPO" --json tagName -q .tagName 2>
 echo "GitHub release: $GH_VERSION"
 ```
 
-2. Check for staged release (local `.staged-release` file):
+1. Check for staged release (local `.staged-release` file):
 
 ```bash
 STAGED_VERSION=""
@@ -209,7 +209,7 @@ else
 fi
 ```
 
-3. Determine target version (max of GitHub release and staged release):
+1. Determine target version (max of GitHub release and staged release):
 
 ```bash
 TARGET_VERSION=$(python3 -c "
@@ -226,7 +226,7 @@ except Exception as e:
 echo "Target version: $TARGET_VERSION"
 ```
 
-4. Get current Docker container version (try multiple methods):
+1. Get current Docker container version (try multiple methods):
 
 ```bash
 # Method 1: Read VERSION file from running container
@@ -248,7 +248,7 @@ echo "Docker container version: $DOCKER_VERSION"
 echo "Target version: $TARGET_VERSION"
 ```
 
-5. Compare versions to decide if upgrade is needed:
+1. Compare versions to decide if upgrade is needed:
 
 ```bash
 NEEDS_UPGRADE=$(python3 -c "
@@ -453,7 +453,7 @@ if [[ -z "$PROD_SCHEMA" ]]; then
 fi
 ```
 
-2. Get Docker DB schema version:
+1. Get Docker DB schema version:
 
 ```bash
 DOCKER_SCHEMA=$($SSH_CMD "sqlite3 $DOCKER_DB_PATH 'SELECT MAX(version) FROM schema_version'" 2>/dev/null)
@@ -469,7 +469,7 @@ if [[ -z "$DOCKER_SCHEMA" ]]; then
 fi
 ```
 
-3. Compare schemas — sync is safe only if production schema version is less than or equal to what the Docker app supports:
+1. Compare schemas — sync is safe only if production schema version is less than or equal to what the Docker app supports:
 
 ```bash
 if [[ -n "$PROD_SCHEMA" ]]; then
@@ -503,7 +503,7 @@ except:
 fi
 ```
 
-4. If compatible, perform the sync:
+1. If compatible, perform the sync:
 
 ```bash
 # Stop container (so DB is not in use)
@@ -894,7 +894,7 @@ Generate the final structured report. Print it to stdout for the parent session 
 
 Determine `OVERALL` status: if any critical check has `FAIL`, set `OVERALL=FAIL`. If all critical checks pass but there are warnings, set `OVERALL=PASS (with warnings)`.
 
-```
+```bash
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "  QA DOCKER REGRESSION RESULTS"
@@ -959,13 +959,13 @@ After the report is generated:
 $SSH_CMD "rm -f /tmp/audiobooks-prod-docker.db" 2>/dev/null || true
 ```
 
-2. Remove local temp files:
+1. Remove local temp files:
 
 ```bash
 rm -f /tmp/qa-docker-resp
 ```
 
-3. Do NOT stop the Docker container (persistent QA environment).
-4. Do NOT shut down the QA VM (it stays running for native QA tests or manual inspection).
-5. Do NOT revert to snapshot (QA VM is persistent, unlike the test VM).
-6. Do NOT stop the Docker daemon (leave it running for subsequent testing).
+1. Do NOT stop the Docker container (persistent QA environment).
+2. Do NOT shut down the QA VM (it stays running for native QA tests or manual inspection).
+3. Do NOT revert to snapshot (QA VM is persistent, unlike the test VM).
+4. Do NOT stop the Docker daemon (leave it running for subsequent testing).

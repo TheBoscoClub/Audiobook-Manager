@@ -13,18 +13,21 @@ trigger: /test qaall
 Run complete QA regression for **both** the native app and Docker container on the QA VM sequentially. Native runs first (establishes baseline), Docker runs second (includes consistency check against native).
 
 This module orchestrates the two individual QA modules:
+
 - `test-audiobook-manager-qa-app.md` — Native app regression
 - `test-audiobook-manager-qa-docker.md` — Docker container regression
 
 ## Prerequisites
 
 Both module files must exist in the project root:
+
 ```bash
 ls test-audiobook-manager-qa-app.md test-audiobook-manager-qa-docker.md
 ```
 
 If either is missing, ABORT with:
-```
+
+```text
 ERROR: Missing QA module file(s). Expected both:
   - test-audiobook-manager-qa-app.md
   - test-audiobook-manager-qa-docker.md
@@ -49,6 +52,7 @@ ERROR: Missing QA module file(s). Expected both:
    - `native_author_count` — number of distinct authors in native DB
 
 **If native module ABORTS** (VM connectivity, upgrade failure):
+
 - Record the failure reason
 - **Still attempt Docker testing** — Docker may be independently functional
 - Note the native abort in the combined report
@@ -153,7 +157,7 @@ fi
 
 ### Phase 4: Combined Report
 
-```
+```text
 ╔═══════════════════════════════════════════════════════════════╗
 ║              QA COMBINED REGRESSION RESULTS                   ║
 ╠═══════════════════════════════════════════════════════════════╣
@@ -193,6 +197,7 @@ fi
 ```
 
 **Overall QA Status determination:**
+
 - **PASS**: Both native and Docker passed AND all cross-validation checks passed
 - **FAIL**: Any of the following:
   - Native overall FAIL (unless ABORTED — see below)

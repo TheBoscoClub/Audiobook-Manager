@@ -17,6 +17,7 @@
 Remove dead Audible sync code from `library.js`. Backend was already cleaned up. This is a standalone cleanup with no dependencies.
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js`
 - Create: `library/tests/test_audible_sync_cleanup.py`
 
@@ -73,6 +74,7 @@ In `library/web-v2/js/library.js`, make these removals:
 4. **Lines 2418-2419**: Remove `this.stopAudibleSyncTimer();` call and its comment from `close()`.
 
 5. **Lines 2430-2433**: Remove the Audible sync block from `close()`:
+
    ```js
    // Final Audible sync on close
    if (this.currentBook.asin) {
@@ -113,6 +115,7 @@ related properties."
 Add `credentials: 'include'` to `savePositionToAPI()` and `getPositionFromAPI()` in `PlaybackManager`. Without this, session cookies aren't sent, so the server sees unauthenticated requests, never creates per-user listening history, and My Library stays empty.
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js`
 - Create: `library/tests/test_playback_credentials.py`
 
@@ -192,6 +195,7 @@ In `library/web-v2/js/library.js`:
 1. **`savePositionToAPI()`** — add `credentials: 'include'` to the fetch options:
 
    Change:
+
    ```js
    const response = await fetch(`${API_BASE}/position/${fileId}`, {
        method: 'PUT',
@@ -199,7 +203,9 @@ In `library/web-v2/js/library.js`:
        body: JSON.stringify({ position_ms: positionMs })
    });
    ```
+
    To:
+
    ```js
    const response = await fetch(`${API_BASE}/position/${fileId}`, {
        method: 'PUT',
@@ -212,10 +218,13 @@ In `library/web-v2/js/library.js`:
 2. **`getPositionFromAPI()`** — add `credentials: 'include'`:
 
    Change:
+
    ```js
    const response = await fetch(`${API_BASE}/position/${fileId}`);
    ```
+
    To:
+
    ```js
    const response = await fetch(`${API_BASE}/position/${fileId}`, {
        credentials: 'include'
@@ -251,6 +260,7 @@ and My Library appeared empty for all users."
 Change `X-Frame-Options` from `DENY` to `SAMEORIGIN` and CSP `frame-ancestors` from `'none'` to `'self'` to allow same-origin iframe embedding. Add `frame-src 'self'` to permit the iframe element.
 
 **Files:**
+
 - Modify: `library/backend/api_modular/core.py:45-58`
 - Create: `library/tests/test_security_headers_iframe.py`
 
@@ -315,17 +325,20 @@ Expected: First 3 tests FAIL (DENY still present, frame-ancestors 'none' still p
 In `library/backend/api_modular/core.py`, modify `add_security_headers()`:
 
 1. **Line 48**: Change `"DENY"` to `"SAMEORIGIN"`:
+
    ```python
    response.headers["X-Frame-Options"] = "SAMEORIGIN"
    ```
 
 2. **Line 57**: Change `"frame-ancestors 'none'"` to `"frame-ancestors 'self'; frame-src 'self'"`:
+
    ```python
    "frame-ancestors 'self'; "
    "frame-src 'self'"
    ```
 
 The full CSP string becomes:
+
 ```python
 response.headers["Content-Security-Policy"] = (
     "default-src 'self'; "
@@ -368,6 +381,7 @@ maintained (cross-origin framing still blocked)."
 Create `shell.html` — the outer page that holds the iframe and player bar. This is the container that keeps `<audio>` alive across navigation.
 
 **Files:**
+
 - Create: `library/web-v2/shell.html`
 - Create: `library/tests/test_shell_page.py`
 
@@ -514,6 +528,7 @@ navigation. Player bar is hidden until a book is played."
 Create `shell.css` — layout styles for the shell page (iframe sizing, player bar at bottom).
 
 **Files:**
+
 - Create: `library/web-v2/css/shell.css`
 - Create: `library/tests/test_shell_css.py`
 
@@ -744,6 +759,7 @@ Responsive layout stacks on mobile."
 Create `shell.js` — the shell-side JavaScript that manages the `<audio>` element, player controls, and postMessage communication with iframe content.
 
 **Files:**
+
 - Create: `library/web-v2/js/shell.js`
 - Create: `library/tests/test_shell_js.py`
 
@@ -827,6 +843,7 @@ Expected: FAIL — file doesn't exist.
 Create `library/web-v2/js/shell.js`. This file contains the `ShellPlayer` class that manages the `<audio>` element, all player controls, position persistence (both localStorage and API), and postMessage communication with the iframe.
 
 The `ShellPlayer` class must:
+
 - Initialize audio element and all control listeners (play/pause, rewind, forward, volume, speed, progress bar, close)
 - Listen for `message` events from the iframe (play, pause, resume, seek, getPlayerState)
 - Validate message origin (`event.origin === window.location.origin`)
@@ -839,6 +856,7 @@ The `ShellPlayer` class must:
 - Support playback speed cycling (0.5x through 2.5x)
 
 Key implementation points (carry over from existing `AudioPlayer` + `PlaybackManager` classes in library.js):
+
 - API base URL: Use relative `/api` (same as content pages)
 - Position save debounce: 15 seconds (`apiSaveDelay`)
 - Position storage key format: `audiobook_position_${fileId}`
@@ -871,6 +889,7 @@ Includes Media Session API for lockscreen controls."
 Modify `library.js` to detect when running inside the shell iframe and delegate play commands to the shell via `postMessage` instead of controlling the `<audio>` element directly. Remove the `AudioPlayer` class and `<audio>` element from `index.html` (they now live in `shell.html`).
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js`
 - Modify: `library/web-v2/index.html`
 - Create: `library/tests/test_iframe_bridge.py`
@@ -946,9 +965,11 @@ Expected: Multiple tests FAIL (AudioPlayer still in library.js, audio-element st
 This is the largest single change. The modifications are:
 
 **In `library/web-v2/index.html`:**
+
 1. Remove the entire `<!-- Audio Player -->` block (lines 250-288) — the `<div class="audio-player" id="audio-player">` and the `<audio id="audio-element">` element.
 
 **In `library/web-v2/js/library.js`:**
+
 1. **Remove the `AudioPlayer` class** (lines ~2027-2445) and its initialization (`let audioPlayer; ... audioPlayer = new AudioPlayer();` at lines 2448-2451). This entire class is replaced by `ShellPlayer` in shell.js.
 
 2. **Remove the `PlaybackManager` class** (lines ~2903-3088) and its initialization (`let playbackManager; ... playbackManager = new PlaybackManager();` at lines 3092-3095). This class is replaced by position management in shell.js.
@@ -995,6 +1016,7 @@ to the shell parent frame."
 Update login flow to redirect to `shell.html` instead of `index.html`. Update navigation links that should stay within the iframe. Auth-related links (logout) use `target="_top"`.
 
 **Files:**
+
 - Modify: `library/web-v2/login.html`
 - Modify: `library/web-v2/claim.html`
 - Modify: `library/web-v2/verify.html`
@@ -1094,6 +1116,7 @@ of the iframe for the full-page login/logout flow."
 Ensure navigation links on content pages (utilities, admin, help, about, contact) work correctly inside the iframe. Links between content pages should stay in the iframe. Links to auth pages should target `_top`.
 
 **Files:**
+
 - Modify: `library/web-v2/utilities.html`
 - Modify: `library/web-v2/admin.html`
 - Modify: `library/web-v2/help.html`
@@ -1204,6 +1227,7 @@ instead of loading inside the iframe."
 Final integration: ensure the full flow works end-to-end. This task catches any loose ends and runs the complete test suite.
 
 **Files:**
+
 - Possibly modify: any file needing fixes discovered during integration
 - Run: full test suite
 
@@ -1217,6 +1241,7 @@ Expected: All tests pass with 0 failures.
 If any existing tests reference `AudioPlayer`, `PlaybackManager`, `audio-player`, or `audio-element` in library.js / index.html — update them to reflect the new architecture.
 
 Check specifically:
+
 - `test_player_navigation_persistence.py` — Playwright/Selenium integration test, may need `shell.html` URL
 - `test_my_library_ui.py` — may reference player elements
 - `test_tutorial.py` — tutorial may reference player UI

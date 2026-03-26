@@ -149,8 +149,15 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete converted audiobooks in $library_dir? [y/N]: " answer
             case "${answer,,}" in
-                y|yes) DELETE_LIBRARY=true; echo -e "  ${RED}→ Will delete converted audiobooks${NC}"; break ;;
-                n|no|"") echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"; break ;;
+                y | yes)
+                    DELETE_LIBRARY=true
+                    echo -e "  ${RED}→ Will delete converted audiobooks${NC}"
+                    break
+                    ;;
+                n | no | "")
+                    echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"
+                    break
+                    ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
@@ -161,8 +168,15 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete source files (AAX/AAXC) in $sources_dir? [y/N]: " answer
             case "${answer,,}" in
-                y|yes) DELETE_SOURCES=true; echo -e "  ${RED}→ Will delete source files${NC}"; break ;;
-                n|no|"") echo -e "  ${GREEN}→ Keeping source files${NC}"; break ;;
+                y | yes)
+                    DELETE_SOURCES=true
+                    echo -e "  ${RED}→ Will delete source files${NC}"
+                    break
+                    ;;
+                n | no | "")
+                    echo -e "  ${GREEN}→ Keeping source files${NC}"
+                    break
+                    ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
@@ -173,8 +187,15 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete supplemental PDFs in $supplements_dir? [y/N]: " answer
             case "${answer,,}" in
-                y|yes) DELETE_SUPPLEMENTS=true; echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"; break ;;
-                n|no|"") echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"; break ;;
+                y | yes)
+                    DELETE_SUPPLEMENTS=true
+                    echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"
+                    break
+                    ;;
+                n | no | "")
+                    echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"
+                    break
+                    ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
@@ -185,8 +206,15 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete configuration files? [y/N]: " answer
             case "${answer,,}" in
-                y|yes) DELETE_CONFIG=true; echo -e "  ${RED}→ Will delete configuration${NC}"; break ;;
-                n|no|"") echo -e "  ${GREEN}→ Keeping configuration${NC}"; break ;;
+                y | yes)
+                    DELETE_CONFIG=true
+                    echo -e "  ${RED}→ Will delete configuration${NC}"
+                    break
+                    ;;
+                n | no | "")
+                    echo -e "  ${GREEN}→ Keeping configuration${NC}"
+                    break
+                    ;;
                 *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
@@ -194,8 +222,8 @@ prompt_delete_data() {
     fi
 
     # Confirm if anything is being deleted
-    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] || \
-       [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
+    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] ||
+        [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
         echo ""
         echo -e "${RED}╔═══════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${RED}║                    CONFIRM DELETION                               ║${NC}"
@@ -211,25 +239,25 @@ prompt_delete_data() {
         while true; do
             read -r -p "Are you sure you want to proceed? [y/N]: " confirm
             case "${confirm,,}" in
-                y|yes)
+                y | yes)
                     echo ""
                     echo -e "${YELLOW}Proceeding with deletion...${NC}"
 
-                    [[ "$DELETE_LIBRARY" == "true" ]] && [[ -d "$library_dir" ]] && \
+                    [[ "$DELETE_LIBRARY" == "true" ]] && [[ -d "$library_dir" ]] &&
                         echo "Deleting converted audiobooks..." && rm -rf "$library_dir"
 
-                    [[ "$DELETE_SOURCES" == "true" ]] && [[ -d "$sources_dir" ]] && \
+                    [[ "$DELETE_SOURCES" == "true" ]] && [[ -d "$sources_dir" ]] &&
                         echo "Deleting source files..." && rm -rf "$sources_dir"
 
-                    [[ "$DELETE_SUPPLEMENTS" == "true" ]] && [[ -d "$supplements_dir" ]] && \
+                    [[ "$DELETE_SUPPLEMENTS" == "true" ]] && [[ -d "$supplements_dir" ]] &&
                         echo "Deleting supplemental PDFs..." && rm -rf "$supplements_dir"
 
-                    [[ "$DELETE_CONFIG" == "true" ]] && \
+                    [[ "$DELETE_CONFIG" == "true" ]] &&
                         echo "Deleting configuration..." && rm -rf "$CONFIG_DIR"
 
                     # Remove empty data directory
-                    if [[ -n "$data_dir" ]] && [[ -d "$data_dir" ]] && \
-                       [[ -z "$(ls -A "$data_dir" 2>/dev/null)" ]]; then
+                    if [[ -n "$data_dir" ]] && [[ -d "$data_dir" ]] &&
+                        [[ -z "$(ls -A "$data_dir" 2>/dev/null)" ]]; then
                         echo "Removing empty data directory..."
                         rmdir "$data_dir" 2>/dev/null || true
                     fi
@@ -237,7 +265,7 @@ prompt_delete_data() {
                     echo -e "${GREEN}Data deletion complete.${NC}"
                     break
                     ;;
-                n|no|"")
+                n | no | "")
                     echo -e "${GREEN}Deletion cancelled. All data preserved.${NC}"
                     break
                     ;;
@@ -333,7 +361,7 @@ cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
 # Create config file if it doesn't exist
 if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
     echo -e "${BLUE}Creating configuration file...${NC}"
-    cat > "${CONFIG_DIR}/audiobooks.conf" << EOF
+    cat >"${CONFIG_DIR}/audiobooks.conf" <<EOF
 # Audiobook Library Configuration
 # Generated by install-user.sh on $(date +%Y-%m-%d)
 
@@ -374,7 +402,7 @@ fi
 echo -e "${BLUE}Creating executable wrappers...${NC}"
 
 # API server wrapper
-cat > "${BIN_DIR}/audiobook-api" << EOF
+cat >"${BIN_DIR}/audiobook-api" <<EOF
 #!/bin/bash
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -383,7 +411,7 @@ EOF
 chmod 755 "${BIN_DIR}/audiobook-api"
 
 # Web server wrapper
-cat > "${BIN_DIR}/audiobook-web" << EOF
+cat >"${BIN_DIR}/audiobook-web" <<EOF
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -392,7 +420,7 @@ EOF
 chmod 755 "${BIN_DIR}/audiobook-web"
 
 # Scanner wrapper
-cat > "${BIN_DIR}/audiobook-scan" << EOF
+cat >"${BIN_DIR}/audiobook-scan" <<EOF
 #!/bin/bash
 # Audiobook Library Scanner
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -401,7 +429,7 @@ EOF
 chmod 755 "${BIN_DIR}/audiobook-scan"
 
 # Database import wrapper
-cat > "${BIN_DIR}/audiobook-import" << EOF
+cat >"${BIN_DIR}/audiobook-import" <<EOF
 #!/bin/bash
 # Audiobook Library Database Import
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -410,7 +438,7 @@ EOF
 chmod 755 "${BIN_DIR}/audiobook-import"
 
 # Config viewer
-cat > "${BIN_DIR}/audiobook-config" << EOF
+cat >"${BIN_DIR}/audiobook-config" <<EOF
 #!/bin/bash
 # Show audiobook library configuration
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -439,7 +467,7 @@ if [[ ! -f "$DB_FILE" ]]; then
     echo -e "${BLUE}Initializing database...${NC}"
     SCHEMA_FILE="${LIB_DIR}/library/backend/schema.sql"
     if [[ -f "$SCHEMA_FILE" ]]; then
-        sqlite3 "$DB_FILE" < "$SCHEMA_FILE"
+        sqlite3 "$DB_FILE" <"$SCHEMA_FILE"
         echo "  Created: $DB_FILE"
     else
         echo -e "${YELLOW}  Warning: schema.sql not found, skipping database initialization${NC}"
@@ -467,7 +495,7 @@ if [[ "$INSTALL_SERVICES" == "true" ]]; then
     echo -e "${BLUE}Installing systemd user services...${NC}"
 
     # API service
-    cat > "${SYSTEMD_DIR}/audiobook-api.service" << EOF
+    cat >"${SYSTEMD_DIR}/audiobook-api.service" <<EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -498,7 +526,7 @@ WantedBy=default.target
 EOF
 
     # Web service
-    cat > "${SYSTEMD_DIR}/audiobook-web.service" << EOF
+    cat >"${SYSTEMD_DIR}/audiobook-web.service" <<EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -522,7 +550,7 @@ WantedBy=default.target
 EOF
 
     # Target
-    cat > "${SYSTEMD_DIR}/audiobook.target" << EOF
+    cat >"${SYSTEMD_DIR}/audiobook.target" <<EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
