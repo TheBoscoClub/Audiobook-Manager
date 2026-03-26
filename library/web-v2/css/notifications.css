@@ -163,3 +163,50 @@
         opacity: 0;
     }
 }
+
+/* ============================================
+   Toast Notifications (bottom-right, auto-dismiss)
+   ============================================ */
+
+.toast-container {
+    position: fixed;
+    bottom: calc(2rem + max(env(safe-area-inset-bottom, 0px), var(--browser-chrome-bottom, 0px)));
+    right: calc(2rem + env(safe-area-inset-right, 0px));
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.toast {
+    padding: 1rem 1.5rem;
+    background: var(--deco-slate, #1e1e1e);
+    color: var(--cream, #F5DEB3);
+    border-left: 4px solid var(--gold, #DAA520);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: toastSlideIn 0.3s ease-out;
+    pointer-events: auto;
+    max-width: 400px;
+    font-size: 0.9rem;
+}
+
+.toast.error {
+    border-left-color: var(--ruby, #e53e3e);
+}
+
+.toast.success {
+    border-left-color: var(--emerald, #38a169);
+}
+
+@keyframes toastSlideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}

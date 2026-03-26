@@ -269,7 +269,7 @@ class TestUnhideBooks:
         assert resp.status_code == 400
 
 
-# Re-use the user_state_seeded and client fixtures from conftest and
+# Reuse the user_state_seeded and client fixtures from conftest and
 # test_user_state_api by importing via conftest auto-discovery.
 # The fixtures user_client, test_user, auth_db, auth_app come from conftest.py.
 

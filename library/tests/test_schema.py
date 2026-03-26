@@ -88,12 +88,12 @@ class TestNewTablesExist:
             conn.close()
 
     def test_authors_table_columns(self, fresh_db):
-        """authors table must have id, name, sort_name columns."""
+        """authors table must have id, name, sort_name, asin columns."""
         conn = sqlite3.connect(fresh_db)
         try:
             cursor = conn.execute("PRAGMA table_info(authors)")
             columns = {row[1] for row in cursor.fetchall()}
-            assert columns == {"id", "name", "sort_name"}
+            assert columns == {"id", "name", "sort_name", "asin"}
         finally:
             conn.close()
 

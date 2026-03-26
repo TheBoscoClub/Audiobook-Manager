@@ -178,7 +178,12 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def _tunnel_websocket(self):
-        """Tunnel a WebSocket upgrade request to the API backend via raw TCP."""
+        """Tunnel a WebSocket upgrade request to the API backend via raw TCP.
+
+        Note: All headers are forwarded verbatim (no hop-by-hop filtering).
+        This is intentional per RFC 6455 — WebSocket upgrades require
+        Connection: Upgrade and Upgrade: websocket to pass through intact.
+        """
         import socket
         import select
 

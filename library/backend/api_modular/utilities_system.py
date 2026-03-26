@@ -711,4 +711,92 @@ def init_system_routes(project_root):
 
         return jsonify({"projects": projects})
 
+    # =========================================================================
+    # Cloudflare CDN Cache Purge
+    # =========================================================================
+
+    @utilities_system_bp.route("/api/system/purge-cache", methods=["POST"])
+    @admin_or_localhost
+    def purge_cdn_cache() -> FlaskResponse:
+        """Purge Cloudflare CDN cache for the application domain.
+
+        Reads credentials from CF_TOKEN_FILE (default:
+        /etc/audiobooks/cloudflare-api-token) or falls back to
+        CF_GLOBAL_API_KEY + CF_AUTH_EMAIL environment variables.
+        """
+        import urllib.error
+        import urllib.request
+
+        zone_id = os.environ.get("CF_ZONE_ID", "24558cb1f70c1a803c249d79a56bde7c")
+        api_key = None
+        auth_email = None
+
+        # Try reading from token file first
+        token_file = os.environ.get(
+            "CF_TOKEN_FILE", "/etc/audiobooks/cloudflare-api-token"
+        )
+        if os.path.isfile(token_file):
+            try:
+                with open(token_file) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("#") or "=" not in line:
+                            continue
+                        key, _, val = line.partition("=")
+                        key = key.strip()
+                        val = val.strip().strip("'\"")
+                        if key == "CF_GLOBAL_API_KEY":
+                            api_key = val
+                        elif key == "CF_AUTH_EMAIL":
+                            auth_email = val
+            except (PermissionError, OSError):
+                pass
+
+        # Fall back to env vars
+        if not api_key:
+            api_key = os.environ.get("CF_GLOBAL_API_KEY")
+        if not auth_email:
+            auth_email = os.environ.get("CF_AUTH_EMAIL")
+
+        if not api_key or not auth_email:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Cloudflare credentials not configured",
+                }
+            ), 503
+
+        url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache"
+        data = b'{"purge_everything":true}'
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("X-Auth-Key", api_key)
+        req.add_header("X-Auth-Email", auth_email)
+        req.add_header("Content-Type", "application/json")
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                result = json.loads(resp.read())
+                if result.get("success"):
+                    return jsonify({"success": True})
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "Cloudflare API returned failure",
+                    }
+                ), 502
+        except (urllib.error.HTTPError, urllib.error.URLError) as e:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"Cloudflare API error: {e}",
+                }
+            ), 502
+        except TimeoutError:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Cloudflare API timeout",
+                }
+            ), 504
+
     return utilities_system_bp
