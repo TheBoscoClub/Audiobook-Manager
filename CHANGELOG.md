@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **upgrade.sh author migration PYTHONPATH**: Fixed `PYTHONPATH` passed to `migrate_to_normalized_authors` — changed from `$target` to `$target/library` and module path from `library.backend.migrations.migrate_to_normalized_authors` to `backend.migrations.migrate_to_normalized_authors`, matching the actual package layout inside the install directory.
 - **CI: `test_websocket.py` import error**: Fixed broken import `from library.backend.api_modular.websocket import ConnectionManager` → `from backend.api_modular.websocket import ConnectionManager`, resolving 95-commit CI failure.
 - **Security dependency updates** (`requirements.txt`): Added `qrcode[pil]>=8.2` (required for TOTP QR code generation), pinned `requests>=2.32.3` (CVE-2024-47081 path traversal fix). Added corresponding path traversal guard in `utilities_system.py`.
+- **Security: path injection in project browser** (`utilities_system.py`): Refactored `list_projects()` to validate user-provided `base_path` against an allowlist of configured safe directories, preventing directory enumeration outside permitted paths. Resolved 6 CodeQL `py/path-injection` HIGH alerts.
+- **CI: `test_get_db_returns_connection` failure**: Fixed test to monkeypatch `DB_PATH` to the Flask app's test database, resolving `sqlite3.OperationalError` on GitHub Actions where the default system path doesn't exist.
+- **Test reliability: Playwright VM tests**: Added VM reachability check to `test_player_navigation_persistence.py` so tests skip gracefully when the test VM is stopped instead of producing connection errors.
+- **Test warnings: custom pytest marks**: Registered `integration`, `fido2`, `hardware`, and `docker` custom marks in `conftest.py` to suppress `PytestUnknownMarkWarning`.
 
 ## [7.4.1.2] - 2026-03-25
 
