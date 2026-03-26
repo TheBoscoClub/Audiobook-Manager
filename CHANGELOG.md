@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [7.5.0] - 2026-03-26
+
+### Added
+
 - **Metadata enrichment suite** (`library/scripts/`): Five new scripts for enriching and verifying audiobook metadata:
   - `enrich_from_audible.py` — queries all Audible API response groups (ratings, categories, reviews, series, language, subtitles, publisher summary, cover URLs, 15+ fields)
   - `enrich_from_isbn.py` — Google Books and Open Library fallback enrichment for books without ASINs
@@ -19,8 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto-enrichment at import time**: `import_single.py` and `add_new_audiobooks.py` now automatically enrich and verify each new book at import time
 - **Cache purge endpoint** (`POST /api/system/purge-cache`): Purges Cloudflare CDN cache and browser Cache API on library Refresh. Authenticates via CF token file.
 - **Toast notifications on Refresh**: Library Refresh now shows auto-dismissing toast notifications instead of blocking `alert()` dialogs
-
-### Changed
 
 ### Fixed
 
@@ -2221,7 +2227,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.0...HEAD
+[7.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.2...v7.5.0
 [7.4.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.1...v7.4.1.2
 [7.4.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1...v7.4.1.1
 [7.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0.1...v7.4.1
