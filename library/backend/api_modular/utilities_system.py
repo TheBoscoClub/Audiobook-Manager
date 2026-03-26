@@ -642,6 +642,41 @@ def init_system_routes(project_root):
             }
         )
 
+    def _scan_projects_in_dir(
+        base_dir: str,
+        seen_paths: set[str],
+    ) -> list[dict]:
+        """Scan a single directory for audiobook projects.
+
+        Only called with pre-validated, allowlisted directories — never
+        with raw user input.  This separation satisfies static analysis
+        taint tracking (CodeQL py/path-injection).
+        """
+        results: list[dict] = []
+        if not base_dir or not os.path.isdir(base_dir):
+            return results
+        try:
+            for name in sorted(os.listdir(base_dir)):
+                proj_path = os.path.join(base_dir, name)
+                if proj_path in seen_paths or not os.path.isdir(proj_path):
+                    continue
+                ver_file = os.path.join(proj_path, "VERSION")
+                has_version = os.path.exists(ver_file)
+                if not has_version and not name.startswith("Audiobook"):
+                    continue
+                seen_paths.add(proj_path)
+                version = None
+                if has_version:
+                    try:
+                        with open(ver_file) as f:
+                            version = f.read().strip()
+                    except Exception:
+                        pass
+                results.append({"name": name, "path": proj_path, "version": version})
+        except Exception:
+            pass  # Skip inaccessible directories
+        return results
+
     @utilities_system_bp.route("/api/system/projects", methods=["GET"])
     @admin_or_localhost
     def list_projects() -> FlaskResponse:
@@ -654,57 +689,25 @@ def init_system_routes(project_root):
         ]
         allowed_bases = [os.path.realpath(p) for p in allowed_bases if p]
 
-        # Accept user-specified base path via query parameter
+        # Accept user-specified base path via query parameter.
+        # SECURITY: only accept paths that are under an allowed base.
         user_path = request.args.get("base_path", "").strip()
-
-        # Build search paths: user-specified first, then defaults
-        search_paths: list[str] = []
+        extra_base: str | None = None
         if user_path:
-            # SECURITY: Resolve and verify path is under an allowed base
             resolved = os.path.realpath(user_path)
             if any(
                 resolved == ab or resolved.startswith(ab + os.sep)
                 for ab in allowed_bases
             ):
-                search_paths.append(resolved)
-            # Reject paths outside allowed directories silently
-        search_paths.extend(allowed_bases)
+                extra_base = resolved
 
-        projects = []
-        seen_paths: set[str] = set()
-
-        for projects_base in search_paths:
-            if not projects_base or not os.path.isdir(projects_base):  # noqa: PTH112
-                continue
-
-            try:
-                for name in sorted(os.listdir(projects_base)):  # noqa: PTH208
-                    proj_path = os.path.join(projects_base, name)  # noqa: PTH118
-                    if proj_path in seen_paths:
-                        continue
-                    if not os.path.isdir(proj_path):  # noqa: PTH112
-                        continue
-                    ver_file = os.path.join(proj_path, "VERSION")  # noqa: PTH118
-                    has_version = os.path.exists(ver_file)  # noqa: PTH110
-                    if not has_version and not name.startswith("Audiobook"):
-                        continue
-                    seen_paths.add(proj_path)
-                    version = None
-                    if has_version:
-                        try:
-                            with open(ver_file) as f:  # noqa: PTH123
-                                version = f.read().strip()
-                        except Exception:
-                            pass  # Non-critical: version stays None
-                    projects.append(
-                        {
-                            "name": name,
-                            "path": proj_path,
-                            "version": version,
-                        }
-                    )
-            except Exception:
-                continue  # Skip inaccessible directories
+        # Scan allowed directories (user-validated path first if any)
+        seen: set[str] = set()
+        projects: list[dict] = []
+        if extra_base:
+            projects.extend(_scan_projects_in_dir(extra_base, seen))
+        for base in allowed_bases:
+            projects.extend(_scan_projects_in_dir(base, seen))
 
         return jsonify({"projects": projects})
 
