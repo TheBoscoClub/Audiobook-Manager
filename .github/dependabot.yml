@@ -49,6 +49,10 @@ updates:
       interval: "weekly"
       day: "monday"
       timezone: "America/Chicago"
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     labels: ["dependencies", "ci"]
     commit-message:
       prefix: "ci"
