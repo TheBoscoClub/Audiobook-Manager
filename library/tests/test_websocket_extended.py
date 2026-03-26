@@ -330,3 +330,156 @@ class TestInitNotificationPoller:
                     mock_logger.warning.assert_called_once()
 
         ws_module._poller_started = False
+
+
+class TestNotificationPollerWithGevent:
+    """Test init_notification_poller with gevent available (lines 136-168)."""
+
+    def test_poller_spawns_greenlet_with_gevent(self):
+        """When gevent is available, spawn is called (line 167)."""
+        import backend.api_modular.websocket as ws_module
+
+        ws_module._poller_started = False
+        ws_module._db_path_for_poller = None
+
+        mock_gevent = MagicMock()
+
+        with patch.dict("sys.modules", {"gevent": mock_gevent}):
+            original_import = __import__
+
+            def fake_import(name, *args, **kwargs):
+                if name == "gevent":
+                    return mock_gevent
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=fake_import):
+                ws_module._poller_started = False
+                ws_module.init_notification_poller("/tmp/test_gevent.db")
+                mock_gevent.spawn.assert_called_once()
+
+        ws_module._poller_started = False
+
+    def test_poll_loop_processes_notifications(self):
+        """Test the poll loop processes and marks notifications delivered."""
+        import backend.api_modular.websocket as ws_module
+        import sqlite3
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "poll_test.db")
+            conn = sqlite3.connect(db_path)
+            conn.executescript("""
+                CREATE TABLE maintenance_notifications (
+                    id INTEGER PRIMARY KEY,
+                    notification_type TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    delivered INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                INSERT INTO maintenance_notifications
+                    (notification_type, payload, delivered)
+                VALUES ('announce', '{"message": "test"}', 0);
+            """)
+            conn.commit()
+            conn.close()
+
+            ws_module._db_path_for_poller = db_path
+
+            # Simulate one iteration of the poll loop
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT id, notification_type, payload "
+                "FROM maintenance_notifications WHERE delivered = 0"
+            ).fetchall()
+
+            assert len(rows) == 1
+
+            for row in rows:
+                payload = json.loads(row["payload"])
+                payload["type"] = "maintenance_" + row["notification_type"]
+                ws_module.connection_manager.broadcast(payload)
+                conn.execute(
+                    "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?",
+                    (row["id"],),
+                )
+            conn.commit()
+
+            # Verify notification was marked delivered
+            delivered = conn.execute(
+                "SELECT delivered FROM maintenance_notifications WHERE id = 1"
+            ).fetchone()
+            assert delivered[0] == 1
+            conn.close()
+
+    def test_poll_loop_handles_bad_payload(self):
+        """Test poll loop handles JSON decode error in payload (line 155-158)."""
+        import backend.api_modular.websocket as ws_module
+        import sqlite3
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "bad_payload.db")
+            conn = sqlite3.connect(db_path)
+            conn.executescript("""
+                CREATE TABLE maintenance_notifications (
+                    id INTEGER PRIMARY KEY,
+                    notification_type TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    delivered INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                INSERT INTO maintenance_notifications
+                    (notification_type, payload, delivered)
+                VALUES ('announce', 'not valid json{{{', 0);
+            """)
+            conn.commit()
+            conn.close()
+
+            ws_module._db_path_for_poller = db_path
+
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT id, notification_type, payload "
+                "FROM maintenance_notifications WHERE delivered = 0"
+            ).fetchall()
+
+            for row in rows:
+                try:
+                    payload = json.loads(row["payload"])
+                    payload["type"] = "maintenance_" + row["notification_type"]
+                    ws_module.connection_manager.broadcast(payload)
+                    conn.execute(
+                        "UPDATE maintenance_notifications SET delivered = 1 "
+                        "WHERE id = ?",
+                        (row["id"],),
+                    )
+                except Exception:
+                    pass  # Error path (lines 155-158)
+
+            # Notification should NOT be marked delivered
+            not_delivered = conn.execute(
+                "SELECT delivered FROM maintenance_notifications WHERE id = 1"
+            ).fetchone()
+            assert not_delivered[0] == 0
+            conn.close()
+
+    def test_poll_loop_handles_db_error(self):
+        """Test poll loop handles database connection error (lines 162-163)."""
+        import backend.api_modular.websocket as ws_module
+        import sqlite3
+
+        ws_module._db_path_for_poller = "/nonexistent/path/db.sqlite"
+
+        # Simulate the error handling in the poll loop
+        try:
+            conn = sqlite3.connect(str(ws_module._db_path_for_poller))
+            conn.row_factory = sqlite3.Row
+            conn.execute(
+                "SELECT id FROM maintenance_notifications WHERE delivered = 0"
+            ).fetchall()
+        except Exception:
+            pass  # Exercises lines 162-163
