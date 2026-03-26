@@ -48,8 +48,9 @@ def import_audiobooks(conn):
 
     cursor = conn.cursor()
 
-    # PRESERVE existing narrator and genre data before clearing
-    # These are populated from Audible export and would be lost on reimport
+    # PRESERVE existing metadata that was populated from external sources
+    # (Audible API enrichment, ISBN enrichment, Audible export, etc.)
+    # These would be lost on reimport since the JSON only has scanner data
     print("\nPreserving existing metadata...")
 
     # Save narrator data (keyed by file_path)
@@ -77,10 +78,94 @@ def import_audiobooks(conn):
             preserved_genres[row[0]] = row[1].split("|||")
     print(f"  Preserved genre data for {len(preserved_genres)} audiobooks")
 
+    # Save Audible enrichment data (keyed by file_path)
+    # This captures ALL fields populated by enrich_from_audible.py
+    preserved_enrichment = {}
+    cursor.execute("""
+        SELECT file_path, series, series_sequence, subtitle, language,
+               format_type, runtime_length_min, release_date,
+               publisher_summary, rating_overall, rating_performance,
+               rating_story, num_ratings, num_reviews, audible_image_url,
+               sample_url, audible_sku, is_adult_product,
+               merchandising_summary, audible_enriched_at, isbn_enriched_at,
+               content_type
+        FROM audiobooks
+        WHERE audible_enriched_at IS NOT NULL OR isbn_enriched_at IS NOT NULL
+    """)
+    for row in cursor.fetchall():
+        preserved_enrichment[row[0]] = {
+            "series": row[1],
+            "series_sequence": row[2],
+            "subtitle": row[3],
+            "language": row[4],
+            "format_type": row[5],
+            "runtime_length_min": row[6],
+            "release_date": row[7],
+            "publisher_summary": row[8],
+            "rating_overall": row[9],
+            "rating_performance": row[10],
+            "rating_story": row[11],
+            "num_ratings": row[12],
+            "num_reviews": row[13],
+            "audible_image_url": row[14],
+            "sample_url": row[15],
+            "audible_sku": row[16],
+            "is_adult_product": row[17],
+            "merchandising_summary": row[18],
+            "audible_enriched_at": row[19],
+            "isbn_enriched_at": row[20],
+            "content_type": row[21],
+        }
+    print(f"  Preserved enrichment data for {len(preserved_enrichment)} audiobooks")
+
+    # Save Audible categories (keyed by file_path)
+    preserved_categories = {}
+    cursor.execute("""
+        SELECT a.file_path, ac.category_path, ac.category_name,
+               ac.root_category, ac.depth, ac.audible_category_id
+        FROM audiobooks a
+        JOIN audible_categories ac ON a.id = ac.audiobook_id
+    """)
+    for row in cursor.fetchall():
+        fp = row[0]
+        if fp not in preserved_categories:
+            preserved_categories[fp] = []
+        preserved_categories[fp].append(
+            {
+                "category_path": row[1],
+                "category_name": row[2],
+                "root_category": row[3],
+                "depth": row[4],
+                "audible_category_id": row[5],
+            }
+        )
+    print(f"  Preserved categories for {len(preserved_categories)} audiobooks")
+
+    # Save editorial reviews (keyed by file_path)
+    preserved_reviews = {}
+    cursor.execute("""
+        SELECT a.file_path, er.review_text, er.source
+        FROM audiobooks a
+        JOIN editorial_reviews er ON a.id = er.audiobook_id
+    """)
+    for row in cursor.fetchall():
+        fp = row[0]
+        if fp not in preserved_reviews:
+            preserved_reviews[fp] = []
+        preserved_reviews[fp].append(
+            {
+                "review_text": row[1],
+                "source": row[2],
+            }
+        )
+    print(f"  Preserved editorial reviews for {len(preserved_reviews)} audiobooks")
+
     # Clear existing data
     cursor.execute("DELETE FROM audiobook_topics")
     cursor.execute("DELETE FROM audiobook_eras")
     cursor.execute("DELETE FROM audiobook_genres")
+    cursor.execute("DELETE FROM audible_categories")
+    cursor.execute("DELETE FROM editorial_reviews")
     cursor.execute("DELETE FROM audiobooks")
     cursor.execute("DELETE FROM topics")
     cursor.execute("DELETE FROM eras")
@@ -137,6 +222,50 @@ def import_audiobooks(conn):
 
         audiobook_id = cursor.lastrowid
 
+        # Restore enrichment data if available for this file
+        enrichment = preserved_enrichment.get(file_path)
+        if enrichment:
+            # Use preserved series/content_type if JSON didn't provide them
+            enrich_updates = []
+            enrich_params = []
+            for col, val in enrichment.items():
+                if val is not None:
+                    enrich_updates.append(f"{col} = ?")
+                    enrich_params.append(val)
+            if enrich_updates:
+                enrich_params.append(audiobook_id)
+                cursor.execute(
+                    f"UPDATE audiobooks SET {', '.join(enrich_updates)} WHERE id = ?",
+                    enrich_params,
+                )
+
+        # Restore Audible categories
+        cats = preserved_categories.get(file_path, [])
+        for cat in cats:
+            cursor.execute(
+                "INSERT INTO audible_categories "
+                "(audiobook_id, category_path, category_name, "
+                "root_category, depth, audible_category_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    audiobook_id,
+                    cat["category_path"],
+                    cat["category_name"],
+                    cat["root_category"],
+                    cat["depth"],
+                    cat["audible_category_id"],
+                ),
+            )
+
+        # Restore editorial reviews
+        revs = preserved_reviews.get(file_path, [])
+        for rev in revs:
+            cursor.execute(
+                "INSERT INTO editorial_reviews "
+                "(audiobook_id, review_text, source) VALUES (?, ?, ?)",
+                (audiobook_id, rev["review_text"], rev["source"]),
+            )
+
         # Handle genres - use preserved genres if available, otherwise use JSON
         genre_list = preserved_genres.get(file_path, book.get("genres", []))
         for genre_name in genre_list:
@@ -176,6 +305,9 @@ def import_audiobooks(conn):
     print(f"\n✓ Imported {len(audiobooks)} audiobooks")
     print(f"✓ Restored {len(preserved_narrators)} narrator records")
     print(f"✓ Restored genres for {len(preserved_genres)} audiobooks")
+    print(f"✓ Restored enrichment for {len(preserved_enrichment)} audiobooks")
+    print(f"✓ Restored categories for {len(preserved_categories)} audiobooks")
+    print(f"✓ Restored reviews for {len(preserved_reviews)} audiobooks")
     print(f"✓ Total {len(genres_map)} unique genres")
     print(f"✓ Imported {len(eras_map)} eras")
     print(f"✓ Imported {len(topics_map)} topics")

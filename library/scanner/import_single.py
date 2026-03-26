@@ -26,6 +26,35 @@ from scanner.metadata_utils import (
     get_file_metadata,
 )
 
+# Auto-enrichment and verification (imported lazily to avoid circular deps)
+_enrich_module = None
+_verify_module = None
+
+
+def _get_enrich_module():
+    global _enrich_module
+    if _enrich_module is None:
+        try:
+            from scripts.enrich_single import enrich_book
+
+            _enrich_module = enrich_book
+        except ImportError:
+            _enrich_module = False
+    return _enrich_module if _enrich_module else None
+
+
+def _get_verify_module():
+    global _verify_module
+    if _verify_module is None:
+        try:
+            from scripts.verify_metadata import verify_single_book
+
+            _verify_module = verify_single_book
+        except ImportError:
+            _verify_module = False
+    return _verify_module if _verify_module else None
+
+
 SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 
 # Whitelist of allowed lookup tables for SQL queries - prevents SQL injection
@@ -72,9 +101,9 @@ def insert_audiobook(
             title, author, narrator, publisher, series,
             duration_hours, duration_formatted, file_size_mb,
             file_path, cover_path, format, description,
-            sha256_hash, hash_verified_at,
+            sha256_hash, hash_verified_at, asin,
             published_year, published_date, acquired_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             metadata.get("title"),
@@ -91,6 +120,7 @@ def insert_audiobook(
             metadata.get("description", ""),
             metadata.get("sha256_hash"),
             metadata.get("hash_verified_at"),
+            metadata.get("asin"),
             metadata.get("published_year"),
             metadata.get("published_date"),
             metadata.get("acquired_date"),
@@ -204,12 +234,35 @@ def import_directory(
             cover_path = extract_cover_art(filepath, cover_dir, metadata=metadata)
 
             try:
-                insert_audiobook(conn, metadata, cover_path)
+                audiobook_id = insert_audiobook(conn, metadata, cover_path)
                 conn.commit()
                 added += 1
                 print(
                     f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}"
                 )
+
+                # Auto-enrich from Audible + ISBN sources
+                enrich_fn = _get_enrich_module()
+                if enrich_fn and audiobook_id:
+                    try:
+                        enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=False)
+                    except Exception as e:
+                        print(f"  ⚠ Enrichment error (non-fatal): {e}", file=sys.stderr)
+
+                # Verify metadata consistency
+                verify_fn = _get_verify_module()
+                if verify_fn and audiobook_id:
+                    try:
+                        verify_fn(
+                            book_id=audiobook_id,
+                            db_path=db_path,
+                            auto_fix=True,
+                            quiet=True,
+                        )
+                    except Exception as e:
+                        print(
+                            f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr
+                        )
             except sqlite3.IntegrityError:
                 skipped += 1
                 conn.rollback()
