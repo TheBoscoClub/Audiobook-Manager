@@ -19,6 +19,7 @@
 ## File Structure
 
 ### New Files
+
 | File | Responsibility |
 |------|---------------|
 | `library/backend/name_parser.py` | Name parsing: delimiter splitting, sort name generation, group name detection, comma disambiguation |
@@ -33,6 +34,7 @@
 | `library/tests/conftest_grouped.py` | Test fixtures for grouped/admin API tests (client, populated_db, multi_author_db) |
 
 ### Modified Files
+
 | File | Changes |
 |------|---------|
 | `library/backend/api_modular/core.py:27-33` | Add `PRAGMA foreign_keys = ON` to `get_db()` |
@@ -43,6 +45,7 @@
 | `library/web-v2/css/library.css` (or inline) | CSS for group headers, collapse states |
 
 **Deferred to Phase 3 follow-up (not in this plan):**
+
 - `library/scanner/metadata_utils.py` — Tier 1 structured tag extraction (re-scan)
 - `library/scripts/populate_sort_fields.py` — junction table population (superseded by migration script for existing data; scanner will handle new data once Phase 3 is implemented)
 
@@ -60,6 +63,7 @@
 ### Task 1: Name Parser Module
 
 **Files:**
+
 - Create: `library/backend/name_parser.py`
 - Create: `library/tests/test_name_parser.py`
 
@@ -400,11 +404,12 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 ### Task 2: Schema Migration
 
 **Files:**
+
 - Create: `library/backend/migrations/011_multi_author_narrator.sql`
 - Modify: `library/backend/schema.sql` (append after line 96)
 - Modify: `library/backend/api_modular/core.py:27-33` (add foreign keys pragma)
 
-- [ ] **Step 0: Create migrations __init__.py for test imports**
+- [ ] **Step 0: Create migrations **init**.py for test imports**
 
 ```bash
 touch library/backend/migrations/__init__.py
@@ -506,6 +511,7 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 ### Task 3: Phase 2 Data Migration Script
 
 **Files:**
+
 - Create: `library/backend/migrations/migrate_to_normalized_authors.py`
 - Create: `library/tests/test_migration_authors.py`
 
@@ -831,6 +837,7 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 ### Task 4: Enrich Flat API Endpoint with Author/Narrator Arrays
 
 **Files:**
+
 - Modify: `library/backend/api_modular/audiobooks.py:274-365` (add batch author/narrator loading)
 
 - [ ] **Step 1: Write failing test**
@@ -934,6 +941,7 @@ git commit -m "feat: enrich flat audiobooks endpoint with authors/narrators arra
 ### Task 5: New Grouped Endpoint
 
 **Files:**
+
 - Create: `library/backend/api_modular/grouped.py`
 - Modify: `library/backend/api_modular/__init__.py` (register blueprint)
 - Add to: `library/tests/test_grouped_api.py`
@@ -1165,7 +1173,7 @@ def init_grouped_routes(db_path):
     return grouped_bp
 ```
 
-- [ ] **Step 4: Register blueprint in __init__.py**
+- [ ] **Step 4: Register blueprint in **init**.py**
 
 In `library/backend/api_modular/__init__.py`, import and register:
 
@@ -1200,6 +1208,7 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 ### Task 6: Frontend Grouped Rendering
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js`
 
 - [ ] **Step 1: Add grouped rendering method**
@@ -1207,6 +1216,7 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 Add new method `renderGroupedBooks(data, groupBy)` to the `AudiobookLibraryV2` class. This renders collapsible author/narrator groups instead of the flat grid.
 
 Key implementation points:
+
 - New method `renderGroupedBooks(data, groupBy)` that generates group headers with collapse/expand toggles + book count per group
 - Each group header shows the person's name in "Last, First" format (from `sort_name`)
 - Book cards use existing `createBookCard()` — no changes to card rendering
@@ -1220,6 +1230,7 @@ When `sort_field` is `author_last`, `author_first`, `narrator_last`, or `narrato
 For all other sort fields, continue using the flat endpoint and `renderBooks()`.
 
 Key implementation points:
+
 - In `fetchBooks()` (around line 1440), check if sort requires grouping
 - If grouped: fetch from grouped endpoint, call `renderGroupedBooks()`
 - If flat: existing behavior unchanged
@@ -1228,6 +1239,7 @@ Key implementation points:
 - [ ] **Step 3: Add CSS for group headers**
 
 Add styles for:
+
 - `.author-group` — container for each group
 - `.group-header` — clickable, shows person name + book count + collapse indicator
 - `.group-header:hover` — highlight on hover
@@ -1238,6 +1250,7 @@ Add styles for:
 
 Run dev server: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m library.backend.api_modular`
 Open browser to dev port, sort by author, verify:
+
 - Groups render with headers
 - Collapse/expand works
 - Multi-author books appear in multiple groups
@@ -1264,6 +1277,7 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 ### Task 7: Admin Correction Endpoints
 
 **Files:**
+
 - Create: `library/backend/api_modular/admin_authors.py`
 - Modify: `library/backend/api_modular/__init__.py` (register blueprint)
 
@@ -1274,6 +1288,7 @@ Tests for rename, merge, and reassign operations. Each test verifies the operati
 - [ ] **Step 2: Implement admin_authors.py**
 
 Endpoints:
+
 - `PUT /api/admin/authors/<id>` — rename, update sort_name, regenerate flat columns
 - `POST /api/admin/authors/merge` — merge source_ids into target_id, reassign books, delete sources, regenerate flat columns
 - `PUT /api/admin/books/<id>/authors` — full replacement of book's author list, regenerate flat column
@@ -1297,6 +1312,7 @@ git commit -m "feat: add admin endpoints for author/narrator correction (rename,
 ### Task 8: upgrade.sh Integration
 
 **Files:**
+
 - Modify: `upgrade.sh`
 
 - [ ] **Step 1: Add migration detection to upgrade.sh**
@@ -1354,6 +1370,7 @@ sudo virsh snapshot-revert test-audiobook-cachyos pristine-275g-2026-03-01
 - [ ] **Step 3: Verify migration ran automatically**
 
 SSH to VM, check:
+
 ```bash
 sqlite3 /var/lib/audiobooks/db/audiobooks.db "SELECT COUNT(*) FROM authors"
 sqlite3 /var/lib/audiobooks/db/audiobooks.db "SELECT COUNT(*) FROM book_authors"
@@ -1371,11 +1388,13 @@ curl -s http://192.168.122.104:5001/api/audiobooks/grouped?by=narrator | python3
 ```bash
 curl -s "http://192.168.122.104:5001/api/audiobooks?per_page=1" | python3 -m json.tool
 ```
+
 Verify `authors` and `narrators` arrays present.
 
 - [ ] **Step 6: Playwright UI test**
 
 Run Playwright tests against the test VM for:
+
 - Grouped view renders when sorting by author/narrator
 - Collapsible headers work
 - Multi-author books appear in multiple groups
@@ -1410,6 +1429,7 @@ sudo virsh start sort-fix-validation
 - [ ] **Step 3: Validate migration on 801-book dataset**
 
 Check migration stats:
+
 - Author count should be >= 492 (existing unique authors, may increase with multi-author splitting)
 - Every book should have at least one author junction row
 - No orphaned junction rows
@@ -1417,10 +1437,12 @@ Check migration stats:
 - [ ] **Step 4: Validate grouped endpoint performance**
 
 Measure response time for grouped endpoint with full dataset:
+
 ```bash
 time curl -s "http://<clone-ip>:5001/api/audiobooks/grouped?by=author" > /dev/null
 time curl -s "http://<clone-ip>:5001/api/audiobooks/grouped?by=narrator" > /dev/null
 ```
+
 Acceptable: < 2 seconds.
 
 - [ ] **Step 5: Spot-check known multi-author books**
@@ -1466,6 +1488,7 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 ### Task 11: Version Bump, CHANGELOG, and Final Commit
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 - Modify: `VERSION`
 
@@ -1476,6 +1499,7 @@ Bump to next minor version (this is a feature with breaking backend changes).
 - [ ] **Step 2: Update CHANGELOG.md**
 
 Add entry under new version:
+
 ```markdown
 ## [X.Y.Z] - 2026-03-13
 

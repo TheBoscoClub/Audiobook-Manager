@@ -147,14 +147,14 @@ DRY_RUN=false
 CHECK_ONLY=false
 CREATE_BACKUP=false
 FORCE=false
-SWITCH_ARCHITECTURE=""  # modular or monolithic
-UPGRADE_SOURCE="project"  # "project" or "github"
-REQUESTED_VERSION=""  # Specific version to install, or empty for latest
-REMOTE_HOST=""        # Remote host for SSH-based deployment
-REMOTE_USER="claude"  # SSH username for remote deployment
-AUTO_YES=false        # Skip confirmation prompts (--yes/-y)
-MAJOR_VERSION=false   # Force venv rebuild + config migration + service enablement
-SKIP_SERVICE_LIFECYCLE=false  # Internal: caller (upgrade-helper) manages service start/stop
+SWITCH_ARCHITECTURE=""       # modular or monolithic
+UPGRADE_SOURCE="project"     # "project" or "github"
+REQUESTED_VERSION=""         # Specific version to install, or empty for latest
+REMOTE_HOST=""               # Remote host for SSH-based deployment
+REMOTE_USER="claude"         # SSH username for remote deployment
+AUTO_YES=false               # Skip confirmation prompts (--yes/-y)
+MAJOR_VERSION=false          # Force venv rebuild + config migration + service enablement
+SKIP_SERVICE_LIFECYCLE=false # Internal: caller (upgrade-helper) manages service start/stop
 
 # GitHub configuration (loaded from .release-info or defaults)
 GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
@@ -291,8 +291,8 @@ do_remote_upgrade() {
     echo -e "${BLUE}Running remote upgrade (full lifecycle)...${NC}"
     echo ""
     ssh "${ssh_opts[@]}" "$ssh_target" \
-        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" \
-        || {
+        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" ||
+        {
             local rc=$?
             echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"
             # Cleanup on failure
@@ -363,9 +363,9 @@ compare_versions() {
     # Simple comparison - could be enhanced for semantic versioning
     local sorted=$(printf '%s\n%s\n' "$v1" "$v2" | sort -V | head -n1)
     if [[ "$sorted" == "$v1" ]]; then
-        return 2  # v1 < v2
+        return 2 # v1 < v2
     else
-        return 1  # v1 > v2
+        return 1 # v1 > v2
     fi
 }
 
@@ -527,7 +527,7 @@ create_backup() {
     # Rolling retention: keep last 5 backups, delete older ones
     local -a backups
     mapfile -t backups < <(ls -1dt "${target}.backup."* 2>/dev/null)
-    if (( ${#backups[@]} > 5 )); then
+    if ((${#backups[@]} > 5)); then
         for old_backup in "${backups[@]:5}"; do
             echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
             rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null || true
@@ -604,9 +604,9 @@ apply_schema_migrations() {
         if [[ "$needs_migration" == "0" ]]; then
             echo -e "${BLUE}Applying schema migrations...${NC}"
             if [[ -n "$use_sudo" ]]; then
-                sudo sqlite3 "$db_path" < "$migration_sql"
+                sudo sqlite3 "$db_path" <"$migration_sql"
             else
-                sqlite3 "$db_path" < "$migration_sql"
+                sqlite3 "$db_path" <"$migration_sql"
             fi
             echo "  Applied: 011_multi_author_narrator.sql"
         fi
@@ -752,9 +752,9 @@ enable_new_services() {
 
     # Parse Wants= lines from the target file
     local services
-    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
-        | sed 's/Wants=//' | tr ' ' '\n' \
-        | grep -v 'network-online')
+    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target |
+        sed 's/Wants=//' | tr ' ' '\n' |
+        grep -v 'network-online')
 
     for svc in $services; do
         sudo systemctl enable "$svc" 2>/dev/null || true
@@ -1033,7 +1033,7 @@ generate_preflight() {
             local changed
             changed=$(diff -rq --exclude="*.pyc" --exclude="__pycache__" \
                 "${project}/${check_dir}" "${target}/${check_dir}" 2>/dev/null | wc -l || echo "0")
-            files_changed=$(( files_changed + changed ))
+            files_changed=$((files_changed + changed))
         fi
     done
 
@@ -1092,7 +1092,7 @@ generate_preflight() {
         "$config_changes" \
         "$new_services" \
         "$files_changed" \
-        "$warnings" > "$tmp_file"
+        "$warnings" >"$tmp_file"
 
     if [[ ! -w "$control_dir" ]]; then
         sudo mv "$tmp_file" "$preflight_file"
@@ -1146,8 +1146,8 @@ validate_preflight() {
     file_mtime=$(stat -c %Y "$preflight_file" 2>/dev/null || echo "0")
     local now
     now=$(date +%s)
-    local age_seconds=$(( now - file_mtime ))
-    local max_age=1800  # 30 minutes
+    local age_seconds=$((now - file_mtime))
+    local max_age=1800 # 30 minutes
 
     if [[ "$age_seconds" -gt "$max_age" ]]; then
         echo -e "${RED}Preflight report is stale (${age_seconds}s old, max ${max_age}s).${NC}"
@@ -1210,7 +1210,7 @@ do_upgrade() {
             if [[ -f "$script" ]] && [[ "$(basename "$script")" != "__pycache__" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh|purge-users.sh|setup-email.sh) continue ;;
+                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
                 esac
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would update: $script_name"
@@ -1484,14 +1484,14 @@ do_upgrade() {
                     sudo "$sys_python" -m venv "$target/library/venv"
                     sudo chown -R audiobooks:audiobooks "$target/library/venv"
                     sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null ||
+                        sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
                 else
                     rm -rf "$target/library/venv"
                     "$sys_python" -m venv "$target/library/venv"
                     "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        || "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null ||
+                        "$target/library/venv/bin/pip" install --quiet flask mutagen
                 fi
                 echo -e "${GREEN}  Venv recreated with system Python${NC}"
             fi
@@ -1669,7 +1669,7 @@ validate_auth_post_upgrade() {
     done
 
     if [[ -z "$auth_db" ]]; then
-        return 0  # No auth DB — nothing to validate
+        return 0 # No auth DB — nothing to validate
     fi
 
     echo -e "${BLUE}Validating auth database post-upgrade...${NC}"
@@ -2191,7 +2191,7 @@ do_github_upgrade() {
             "$current_version" \
             "$install_version" \
             "$is_major" \
-            "$is_major" > "$tmp_file"
+            "$is_major" >"$tmp_file"
 
         if [[ ! -w "$control_dir" ]]; then
             sudo mv "$tmp_file" "$preflight_file"
@@ -2332,7 +2332,7 @@ while [[ $# -gt 0 ]]; do
             REMOTE_USER="$2"
             shift 2
             ;;
-        --yes|-y)
+        --yes | -y)
             AUTO_YES=true
             shift
             ;;
@@ -2340,7 +2340,7 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
-        --major-version|--mv)
+        --major-version | --mv)
             MAJOR_VERSION=true
             shift
             ;;
@@ -2354,7 +2354,7 @@ while [[ $# -gt 0 ]]; do
             SKIP_SERVICE_LIFECYCLE=true
             shift
             ;;
-        --help|-h)
+        --help | -h)
             show_usage
             exit 0
             ;;

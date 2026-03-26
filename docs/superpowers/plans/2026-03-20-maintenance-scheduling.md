@@ -31,6 +31,7 @@ Each phase produces a commit (or small set of commits) and can be tested indepen
 ## Task 1: Create Feature Branch
 
 **Files:**
+
 - None (git operations only)
 
 - [ ] **Step 1: Create and switch to feature branch**
@@ -59,6 +60,7 @@ No commit needed -- just branch creation.
 This is the **critical prerequisite**. The existing app must work identically on the new server before any WebSocket code is written.
 
 **Files:**
+
 - Modify: `library/requirements.txt`
 - Modify: `library/requirements-docker.txt`
 - Modify: `library/backend/api_server.py` (complete rewrite)
@@ -69,7 +71,8 @@ This is the **critical prerequisite**. The existing app must work identically on
 - [ ] **Step 1: Update requirements.txt**
 
 Replace `waitress>=2.1.0` with:
-```
+
+```text
 gunicorn>=23.0.0
 gevent>=24.11.1
 gevent-websocket>=0.10.1
@@ -160,7 +163,7 @@ if __name__ == "__main__":
         server.serve_forever()
 ```
 
-- [ ] **Step 4: Remove run_server from api_modular/__init__.py**
+- [ ] **Step 4: Remove run_server from api_modular/**init**.py**
 
 Delete the `run_server()` function (lines 208-275) and remove `"run_server"` from the `__all__` list. Also remove the `app = None` placeholder (line 205) and remove `"app"` from `__all__`. Add `jsonify, request` to the Flask import at line 23:
 
@@ -302,6 +305,7 @@ state. gevent monkey-patching applied at entry point for cooperative I/O."
 ## Task 3: WebSocket Endpoint + Connection Manager
 
 **Files:**
+
 - Create: `library/backend/api_modular/websocket.py`
 - Create: `library/tests/test_websocket.py`
 - Modify: `library/backend/api_modular/__init__.py` (register WebSocket)
@@ -579,6 +583,7 @@ and usernames for the Activity tab dashboard."
 ## Task 4: Proxy WebSocket Tunneling
 
 **Files:**
+
 - Modify: `library/web-v2/proxy_server.py`
 - Create: `library/tests/test_proxy_websocket.py`
 
@@ -741,6 +746,7 @@ through the existing proxy_server.py frontend layer."
 ## Task 5: Database Schema + Maintenance API Blueprint
 
 **Files:**
+
 - Modify: `library/backend/schema.sql`
 - Create: `library/backend/api_modular/maintenance.py`
 - Modify: `library/backend/api_modular/__init__.py` (register blueprint)
@@ -1345,7 +1351,7 @@ def get_history():
         conn.close()
 ```
 
-- [ ] **Step 5: Register blueprint in __init__.py**
+- [ ] **Step 5: Register blueprint in **init**.py**
 
 In `create_app()`, after the existing blueprint registrations:
 
@@ -1383,6 +1389,7 @@ endpoint requires no auth for pre-login visibility."
 ## Task 6: Task Registry + Initial Handlers
 
 **Files:**
+
 - Create: `library/backend/api_modular/maintenance_tasks/__init__.py`
 - Create: `library/backend/api_modular/maintenance_tasks/base.py`
 - Create: `library/backend/api_modular/maintenance_tasks/db_vacuum.py`
@@ -1537,7 +1544,7 @@ class MaintenanceRegistry:
         return [t.to_dict() for t in self._tasks.values()]
 ```
 
-- [ ] **Step 4: Implement registry __init__.py**
+- [ ] **Step 4: Implement registry **init**.py**
 
 Create `library/backend/api_modular/maintenance_tasks/__init__.py`:
 
@@ -1952,6 +1959,7 @@ with @registry.register."
 ## Task 7: Scheduler Daemon
 
 **Files:**
+
 - Create: `library/backend/maintenance_scheduler.py`
 - Create: `systemd/audiobook-scheduler.service`
 - Modify: `systemd/audiobook.target`
@@ -2399,6 +2407,7 @@ in server-local timezone via croniter."
 ## Task 8: Client-Side WebSocket + Polling Fallback
 
 **Files:**
+
 - Create: `library/web-v2/js/websocket.js`
 - Modify: `library/web-v2/shell.html` (add script tag)
 
@@ -2581,6 +2590,7 @@ attempts. Dispatches custom DOM events for maintenance messages."
 ## Task 9: Maint Sched Tab UI
 
 **Files:**
+
 - Modify: `library/web-v2/utilities.html` (add tab button + section)
 - Create: `library/web-v2/js/maint-sched.js`
 - Modify: `library/web-v2/utilities.js` (init new section)
@@ -3172,6 +3182,7 @@ tooltip. Live connection count + usernames at top of Activity tab."
 ## Task 10: Maintenance Banner + Knife Switch
 
 **Files:**
+
 - Create: `library/web-v2/css/maintenance-banner.css`
 - Create: `library/web-v2/js/maintenance-banner.js`
 - Modify: `library/web-v2/shell.html` (add CSS + script)
@@ -3677,11 +3688,13 @@ Create `library/web-v2/js/maintenance-banner.js`:
 - [ ] **Step 3: Add CSS and script to shell.html**
 
 In the `<head>`:
+
 ```html
 <link rel="stylesheet" href="css/maintenance-banner.css">
 ```
 
 Before `</body>`, after `websocket.js`:
+
 ```html
 <script src="js/maintenance-banner.js"></script>
 ```
@@ -3689,6 +3702,7 @@ Before `</body>`, after `websocket.js`:
 - [ ] **Step 4: Manual visual test**
 
 Start the dev server, create a manual announcement via the API, verify:
+
 - Pulsing red indicator appears in bottom-right
 - Click expands panel with message text in neon red with 3D shadow
 - Knife switch animates with bzzzt/clunk sounds
@@ -3716,6 +3730,7 @@ Session-scoped dismissal. Keyboard and ARIA accessible."
 ## Task 11: Notification Queue Polling (WebSocket <- Scheduler)
 
 **Files:**
+
 - Modify: `library/backend/api_modular/websocket.py`
 - Create: `library/tests/test_notification_poller.py`
 
@@ -3875,6 +3890,7 @@ to the in-process WebSocket connection manager."
 ## Task 12: Install/Upgrade Scripts + Packaging
 
 **Files:**
+
 - Modify: `install.sh`
 - Modify: `Dockerfile`
 
@@ -3927,6 +3943,7 @@ Include new Python dependencies."
 ## Task 13: Documentation
 
 **Files:**
+
 - Modify: `docs/ARCHITECTURE.md`
 - Modify: `docs/TROUBLESHOOTING.md`
 - Modify: `README.md`
@@ -3935,6 +3952,7 @@ Include new Python dependencies."
 - [ ] **Step 1: Update ARCHITECTURE.md**
 
 Add sections for:
+
 - **WebSocket Infrastructure**: Gunicorn migration rationale, gevent worker class, single-worker constraint, connection manager design
 - **Maintenance Scheduling**: Scheduler daemon architecture, task registry plugin pattern, notification queue bridge
 - **Announcement System**: Banner indicator, knife switch, Web Audio API sound synthesis, session-scoped dismissal
@@ -3971,6 +3989,7 @@ guide. Update README and changelog."
 ## Task 14: Integration Testing on Test VM
 
 **Files:**
+
 - No new files -- testing only
 
 - [ ] **Step 1: Deploy to test VM**
@@ -4005,6 +4024,7 @@ Use Playwright (on test VM with Brave) to connect to `wss://<vm-ip>:8443/api/ws`
 - [ ] **Step 5: Playwright tests for banner UI**
 
 Test on Brave browser:
+
 - Banner visibility, click to expand, click-outside to collapse
 - Knife switch animation and sound synthesis
 - Keyboard navigation (Tab, Enter/Space)

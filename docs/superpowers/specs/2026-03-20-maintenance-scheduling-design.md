@@ -22,15 +22,18 @@ All three share a WebSocket backbone for real-time bidirectional communication.
 ## 1. Live Connections Dashboard
 
 ### Location
+
 Top of the **Activity tab** in the back office (`utilities.html`, `data-section="activity"`).
 
 ### Display
+
 - **Prominent count** of active connections at top of tab
 - **Username list** of currently connected users
 - **No activity snooping** — no display of what users are doing, what they're listening to, or device info
 - WebSocket internally tracks streaming vs idle state for connection accuracy (false-positive/false-negative reduction), but this state is **not exposed in the UI**
 
 ### Data Source
+
 Admin-only API endpoint backed by the WebSocket connection manager's shared state (see Section 4 for state management architecture).
 
 ---
@@ -38,11 +41,13 @@ Admin-only API endpoint backed by the WebSocket connection manager's shared stat
 ## 2. Maintenance Scheduler
 
 ### Location
+
 New **"Maint Sched" tab** in back office (7th tab, after System).
 
 ### Tab Contents
 
 #### 2a. Maintenance Windows
+
 - **Create window**: Form with fields for name, description, start time, duration, task type (from registry), lead time (default 48h), and schedule (one-time or recurring)
 - **Schedule format**: Preset picker (daily, weekly, biweekly, monthly) with day/time selectors, plus an "Advanced" toggle revealing a raw cron expression input
 - **Cron tooltip**: Hover/focus on the cron input shows: `"Min Hour Day-of-Mth Mth Day-of-Week (0=Sunday)"`
@@ -51,12 +56,14 @@ New **"Maint Sched" tab** in back office (7th tab, after System).
 - **Deletion**: Windows with execution history can be soft-deleted (status → "cancelled") but not hard-deleted. Windows with no history can be hard-deleted.
 
 #### 2b. Manual Announcements
+
 - **Free-form text input** for immediate maintenance messages
 - **Active messages list** with dismiss/delete controls
 - Admin can permanently dismiss manual messages (removes from all clients)
 - Manual messages push to connected clients immediately via WebSocket
 
 #### 2c. Execution Status
+
 - **History view**: Past maintenance windows with execution results (success, failure, skipped)
 - **Active execution**: Progress indicator when a maintenance task is running
 
@@ -82,6 +89,7 @@ class DatabaseVacuumTask(MaintenanceTask):
 ```
 
 **Interface per task handler**:
+
 | Method | Purpose |
 |--------|---------|
 | `name` | Unique identifier (used in DB, API) |
@@ -92,6 +100,7 @@ class DatabaseVacuumTask(MaintenanceTask):
 | `estimate_duration()` | Optional: estimated time for UI display |
 
 **Initial task handlers** (shipped with feature):
+
 | Handler | Purpose |
 |---------|---------|
 | `db_vacuum` | VACUUM and ANALYZE on library DB |
@@ -107,6 +116,7 @@ class DatabaseVacuumTask(MaintenanceTask):
 The scheduler runs announce-first in implementation sequence, but **both announce and execute must be complete before the branch merges to main**. This is a hard gate — no partial-feature merge.
 
 **Execution flow**:
+
 1. Scheduler service checks for upcoming windows on its timer cycle
 2. At configurable lead time (default T-48h): Banner announcement pushed to all connected clients
 3. At scheduled time: Validate task → Execute task → Record result
@@ -118,11 +128,13 @@ The scheduler runs announce-first in implementation sequence, but **both announc
 ### Scheduler Daemon Architecture
 
 The scheduler runs as a **separate systemd service** (`audiobook-scheduler.service`), not as a background thread inside the Flask process. This avoids:
+
 - GIL contention with request handling during long-running tasks (e.g., `hash_verify`)
 - Split-brain in multi-worker deployments
 - Scheduler death being invisible if the Flask process crashes independently
 
 **Design**:
+
 - Standalone Python process that imports the task registry and DB helpers
 - Polls `maintenance_windows` table every 60 seconds for windows where `next_run_at <= now`
 - Communicates execution status to the Flask API via the shared database (not in-memory)
@@ -153,11 +165,13 @@ The scheduler runs as a **separate systemd service** (`audiobook-scheduler.servi
 ### Frankenstein Knife Switch (Dismiss Control)
 
 **Visual Design**:
+
 - Vertical copper blade pivoting into jaw contacts
 - Red bakelite handle
 - Two positions: UP = banner on (circuit closed), DOWN = banner off (circuit open)
 
 **Animation** (~0.6–0.8 seconds total throw):
+
 - Blade pivots through an arc between jaw positions
 - Fast start, slight deceleration at end of travel, subtle bounce at stop position
 - **Bzzzt sound**: Fires during arc travel (~0.1s into motion). Synthesized via Web Audio API — short burst of bandpass-filtered noise (50–100ms) with electrical arc character. ON throw gets slightly longer arc buzz, OFF throw gets a sharper snap.
@@ -165,12 +179,14 @@ The scheduler runs as a **separate systemd service** (`audiobook-scheduler.servi
 - Both sounds synthesized on the fly via Web Audio API — no audio asset files.
 
 **Accessibility**:
+
 - `role="switch"` with `aria-checked="true/false"` reflecting on/off state
 - Keyboard operable: `Enter` or `Space` toggles the switch
 - `title` tooltip: "Dismiss maintenance announcements for this session"
 - Focus outline visible when keyboard-navigated
 
 **Behavior**:
+
 - Throwing the switch to OFF dismisses the banner for the **current session only** (session-scoped, not permanent for scheduled announcements)
 - Admin can permanently dismiss **manual messages** from the Maint Sched tab (removes for all clients)
 - Banner reappears on next session/page load if announcements still active
@@ -185,12 +201,14 @@ The scheduler runs as a **separate systemd service** (`audiobook-scheduler.servi
 **Edge case**: If a window is scheduled less than its lead time from now (e.g., 6 hours out with a 48-hour lead), the announcement appears immediately upon window creation.
 
 ### Content Rules
+
 - Manual and scheduled messages **coexist** with newline separation in the expanded panel
 - Panel dynamically resizes from 1 to 4 lines (scrollable overflow beyond 4)
 - Messages ordered: manual first (urgent), then scheduled by time
 - No content overlap or obscuring of underlying page elements
 
 ### Mobile Specifics
+
 - Same pulsing "!" indicator as desktop (no separate mobile treatment)
 - Tap to expand popup with full message and knife switch
 - Collapse on focus loss (tap outside popup)
@@ -217,25 +235,31 @@ The scheduler runs as a **separate systemd service** (`audiobook-scheduler.servi
 
 **Why geventwebsocket worker**: `flask-sock` requires the `geventwebsocket` worker class — not the plain `-k gevent` worker — to properly handle the WebSocket upgrade handshake. Using plain `-k gevent` causes WebSocket connections to silently fail with a normal HTTP response instead of the `101 Switching Protocols` upgrade.
 
-**Why single worker (`-w 1`)**: The connection manager uses in-memory state. Multiple workers would each see a subset of connections. Single gevent worker handles concurrency via cooperative greenlets, not OS threads/processes. This matches the current deployment model (single Waitress process). If horizontal scaling is ever needed, connection state moves to the database (a future concern, not this feature branch). **HARD CONSTRAINT**: The systemd unit file must include a comment noting that `-w 1` is required for connection manager correctness — do not increase without migrating state to the database.
+**Why single worker (`-w 1`)**: The connection manager uses in-memory state. Multiple workers would each see a subset of connections. Single gevent worker handles concurrency via cooperative greenlets, not OS threads/processes. This matches the current deployment model (single Waitress process). If horizontal scaling is ever needed, connection state moves to the database (a future concern, not this feature branch).
+
+**HARD CONSTRAINT**: The systemd unit file must include a comment noting that `-w 1` is required for connection manager correctness — do not increase without migrating state to the database.
 
 **gevent monkey-patching**: The application entry point must call `gevent.monkey.patch_all()` before any other imports. This patches stdlib I/O (including `sqlite3`) to yield cooperatively to the gevent hub during blocking operations. Without monkey-patching, SQLite queries block the entire greenlet loop, stalling all concurrent WebSocket connections.
 
 **Proxy decision**: Extending `proxy_server.py` to detect `Upgrade: websocket` headers and tunnel the raw TCP connection is feasible but fragile. If Caddy or nginx is already in the deployment path, routing WebSocket through the real reverse proxy is preferable. The implementation plan will evaluate both options and pick the simpler one.
 
 ### Endpoint
+
 - **URL**: `/api/ws` (under the existing `/api/` prefix so the proxy forwards it)
 - **Protocol**: Standard WebSocket (RFC 6455)
 - **Auth**: Session cookie validated on connection upgrade. If `AUTH_ENABLED=false`, unauthenticated clients are allowed (announcements are public-facing). If `AUTH_ENABLED=true`, `get_current_user()` is called before accepting the WebSocket; unauthenticated attempts receive HTTP 401 before upgrade.
 
 ### Server-Side
+
 - **Library**: `flask-sock` (lightweight, works with Gunicorn+geventwebsocket worker)
 - **Connection manager**: In-memory dict of active connections keyed by session ID. Single-worker deployment means all connections are visible to the one process.
 - **Heartbeat**: Server expects client ping every 10 seconds; connection considered stale after 30 seconds of silence
 - **Cleanup**: Stale connections removed from tracking on missed heartbeat or disconnect event
-- **Scheduler notifications**: The scheduler service (separate process) writes to a `maintenance_notifications` queue table in the DB. The WebSocket handler polls this table every 5 seconds (via a gevent greenlet that yields cooperatively thanks to monkey-patching) and pushes new notifications to connected clients, then marks them as delivered. The 0–5 second delivery lag is acceptable for maintenance announcements. For immediate responsiveness on manual message creation, the admin POST endpoint can also directly broadcast via the in-process connection manager (no DB round-trip needed for admin-initiated pushes).
+- **Scheduler notifications**: The scheduler service (separate process) writes to a `maintenance_notifications` queue table in the DB. The WebSocket handler polls this table every 5 seconds (via a gevent greenlet that yields cooperatively thanks to monkey-patching) and pushes new notifications to connected clients, then marks them as delivered. The 0-5 second delivery lag is acceptable for maintenance announcements.
+  For immediate responsiveness on manual message creation, the admin POST endpoint can also directly broadcast via the in-process connection manager (no DB round-trip needed for admin-initiated pushes).
 
 ### Client-Side
+
 - **Native WebSocket API** (vanilla JS, no library)
 - **Auto-reconnect**: Exponential backoff on disconnect (1s, 2s, 4s, 8s, max 30s)
 - **Heartbeat**: Client sends ping message every 10 seconds with connection state
@@ -244,11 +268,13 @@ The scheduler runs as a **separate systemd service** (`audiobook-scheduler.servi
 ### Message Types
 
 **Client → Server**:
+
 | Type | Payload | Purpose |
 |------|---------|---------|
 | `heartbeat` | `{ state: "idle" \| "streaming" \| "paused" }` | Connection liveness + activity state |
 
 **Server → Client**:
+
 | Type | Payload | Purpose |
 |------|---------|---------|
 | `maintenance_announce` | `{ messages: [...], windows: [...] }` | Push announcement to all clients |
@@ -356,6 +382,7 @@ CREATE INDEX IF NOT EXISTS idx_maint_notifications_pending ON maintenance_notifi
 ## 6. File Changes Summary
 
 ### New Files
+
 | File | Purpose |
 |------|---------|
 | `library/backend/api_modular/maintenance.py` | Flask blueprint: maintenance API endpoints |
@@ -374,6 +401,7 @@ CREATE INDEX IF NOT EXISTS idx_maint_notifications_pending ON maintenance_notifi
 | `systemd/audiobook-scheduler.service` | Systemd service for maintenance scheduler |
 
 ### Modified Files
+
 | File | Change |
 |------|--------|
 | `library/backend/schema.sql` | Add 4 new tables + indices + trigger |
@@ -400,6 +428,7 @@ CREATE INDEX IF NOT EXISTS idx_maint_notifications_pending ON maintenance_notifi
 ## 7. CSS Specifications
 
 ### Pulsing Indicator
+
 ```css
 .maintenance-indicator {
     position: fixed;
@@ -428,6 +457,7 @@ CREATE INDEX IF NOT EXISTS idx_maint_notifications_pending ON maintenance_notifi
 ```
 
 ### Expanded Panel Message Text
+
 - **Font size**: 0.95rem (matches marquee `.marquee-item`)
 - **Color**: Neon red (#FF0040) with dark red drop shadow (`text-shadow: 2px 2px 0 #8B0000, 4px 4px 8px rgba(139,0,0,0.5)`) for 3D depth
 - **Animation**: Slow pulse on text opacity (1.0 → 0.85 → 1.0, ~3s cycle) — not the same as indicator pulse
@@ -436,6 +466,7 @@ CREATE INDEX IF NOT EXISTS idx_maint_notifications_pending ON maintenance_notifi
 - **Overflow**: `max-height` set to 4 lines (~5.6rem), `overflow-y: auto` for scrollable content beyond
 
 ### Knife Switch
+
 - Rendered as SVG or CSS-drawn element inside the expanded panel
 - Copper blade: `#B87333` (copper) with metallic gradient
 - Red bakelite handle: `#8B1A1A` with subtle sheen

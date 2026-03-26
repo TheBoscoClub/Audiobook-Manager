@@ -22,7 +22,7 @@
 # =============================================================================
 
 set -e
-shopt -s nullglob  # Empty arrays when globs match nothing (replaces zsh )
+shopt -s nullglob # Empty arrays when globs match nothing (replaces zsh )
 
 # Ensure essential commands are in PATH (sudo may strip PATH)
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
@@ -42,7 +42,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Defaults
 INSTALL_MODE=""
-DATA_MODE=""       # "keep", "delete", or "" (interactive)
+DATA_MODE="" # "keep", "delete", or "" (interactive)
 DRY_RUN=false
 FORCE=false
 REMOVED_COUNT=0
@@ -223,9 +223,9 @@ confirm_uninstall() {
     fi
 
     case "$DATA_MODE" in
-        keep)   echo -e "\n  ${GREEN}Data directories will be KEPT${NC}" ;;
+        keep) echo -e "\n  ${GREEN}Data directories will be KEPT${NC}" ;;
         delete) echo -e "\n  ${RED}Data directories will be DELETED${NC}" ;;
-        *)      echo -e "\n  Data directories: will prompt individually" ;;
+        *) echo -e "\n  Data directories: will prompt individually" ;;
     esac
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -239,7 +239,7 @@ confirm_uninstall() {
             yes)
                 return 0
                 ;;
-            no|n|"")
+            no | n | "")
                 echo -e "${GREEN}Uninstall cancelled.${NC}"
                 exit 0
                 ;;
@@ -628,8 +628,8 @@ _prompt_delete() {
     while true; do
         read -r -p "${prompt_text} [y/N]: " answer
         case "${answer,,}" in
-            y|yes) return 0 ;;
-            n|no|"") return 1 ;;
+            y | yes) return 0 ;;
+            n | no | "") return 1 ;;
             *) echo "  Please answer y(es) or n(o)" ;;
         esac
     done
@@ -809,16 +809,16 @@ do_system_uninstall() {
     _UNINSTALL_SOURCES_DIR="${AUDIOBOOKS_SOURCES:-${_UNINSTALL_DATA_DIR}/Sources}"
     _UNINSTALL_SUPPLEMENTS_DIR="${AUDIOBOOKS_SUPPLEMENTS:-${_UNINSTALL_DATA_DIR}/Supplements}"
 
-    remove_systemd_units "sudo"         # Steps 1-3
-    remove_bin_symlinks "/usr/local/bin" "sudo"  # Step 4
-    remove_system_configs "sudo"        # Steps 5-6
-    remove_app_directory "/opt/audiobooks" "sudo"  # Steps 7-8
-    remove_config_and_state "/etc/audiobooks" "/var/lib/audiobooks" "/var/log/audiobooks" "sudo"  # Steps 9-10
-    remove_runtime_files "sudo"         # Step 11
-    handle_data_directories "sudo" "/etc/audiobooks"  # Step 12
-    remove_system_user                  # Step 13
-    scan_for_orphans "sudo"             # Step 14
-    check_shell_rc_files                # Step 15
+    remove_systemd_units "sudo"                                                                  # Steps 1-3
+    remove_bin_symlinks "/usr/local/bin" "sudo"                                                  # Step 4
+    remove_system_configs "sudo"                                                                 # Steps 5-6
+    remove_app_directory "/opt/audiobooks" "sudo"                                                # Steps 7-8
+    remove_config_and_state "/etc/audiobooks" "/var/lib/audiobooks" "/var/log/audiobooks" "sudo" # Steps 9-10
+    remove_runtime_files "sudo"                                                                  # Step 11
+    handle_data_directories "sudo" "/etc/audiobooks"                                             # Step 12
+    remove_system_user                                                                           # Step 13
+    scan_for_orphans "sudo"                                                                      # Step 14
+    check_shell_rc_files                                                                         # Step 15
 
     echo ""
     echo -e "${BOLD}=== Summary ===${NC}"
@@ -853,14 +853,14 @@ do_user_uninstall() {
     _UNINSTALL_SOURCES_DIR="${AUDIOBOOKS_SOURCES:-${_UNINSTALL_DATA_DIR}/Sources}"
     _UNINSTALL_SUPPLEMENTS_DIR="${AUDIOBOOKS_SUPPLEMENTS:-${_UNINSTALL_DATA_DIR}/Supplements}"
 
-    remove_systemd_units ""              # Steps 1-3 (user systemd)
-    remove_bin_symlinks "$HOME/.local/bin" ""  # Step 4
-    remove_app_directory "$HOME/.local/lib/audiobooks" ""  # Steps 7-8
-    remove_config_and_state "$HOME/.config/audiobooks" "$HOME/.local/var/lib/audiobooks" "$HOME/.local/var/log/audiobooks" ""  # Steps 9-10
-    remove_runtime_files ""              # Step 11
-    handle_data_directories "" "$HOME/.config/audiobooks"  # Step 12
-    scan_for_orphans ""                  # Step 14
-    check_shell_rc_files                 # Step 15
+    remove_systemd_units ""                                                                                                   # Steps 1-3 (user systemd)
+    remove_bin_symlinks "$HOME/.local/bin" ""                                                                                 # Step 4
+    remove_app_directory "$HOME/.local/lib/audiobooks" ""                                                                     # Steps 7-8
+    remove_config_and_state "$HOME/.config/audiobooks" "$HOME/.local/var/lib/audiobooks" "$HOME/.local/var/log/audiobooks" "" # Steps 9-10
+    remove_runtime_files ""                                                                                                   # Step 11
+    handle_data_directories "" "$HOME/.config/audiobooks"                                                                     # Step 12
+    scan_for_orphans ""                                                                                                       # Step 14
+    check_shell_rc_files                                                                                                      # Step 15
 
     echo ""
     echo -e "${BOLD}=== Summary ===${NC}"
@@ -907,7 +907,7 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
-        --help|-h)
+        --help | -h)
             show_help
             exit 0
             ;;
@@ -940,15 +940,15 @@ if [[ -z "$INSTALL_MODE" ]]; then
             while true; do
                 read -r -p "Uninstall [s]ystem, [u]ser, or [b]oth? " answer
                 case "${answer,,}" in
-                    s|system)
+                    s | system)
                         INSTALL_MODE="system"
                         break
                         ;;
-                    u|user)
+                    u | user)
                         INSTALL_MODE="user"
                         break
                         ;;
-                    b|both)
+                    b | both)
                         INSTALL_MODE="both"
                         break
                         ;;

@@ -15,6 +15,7 @@ Three UI/UX issues reported by test users and verified by maintainer:
 **File**: `dev/Caddyfile`
 
 Two line changes:
+
 - `try_files {path} /index.html` → `try_files {path} /shell.html`
 - `X-Frame-Options "DENY"` → `X-Frame-Options "SAMEORIGIN"`
 
@@ -25,11 +26,13 @@ Two line changes:
 **File**: `library/web-v2/js/library.js`
 
 Current behavior when `!inIframe`:
+
 ```javascript
 window.location.href = 'shell.html';  // loses play intent
 ```
 
 New behavior:
+
 ```javascript
 sessionStorage.setItem('pendingPlay', JSON.stringify(book));
 window.location.href = `shell.html?autoplay=${encodeURIComponent(book.bookId || book.id)}`;
@@ -38,6 +41,7 @@ window.location.href = `shell.html?autoplay=${encodeURIComponent(book.bookId || 
 **File**: `library/web-v2/js/shell.js`
 
 In `DOMContentLoaded` handler, after creating `shellPlayer`:
+
 ```javascript
 const params = new URLSearchParams(window.location.search);
 const autoplayId = params.get('autoplay');
@@ -56,6 +60,7 @@ if (autoplayId) {
 **File**: `library/web-v2/css/shell.css`
 
 Remove the iframe resize rule:
+
 ```css
 /* REMOVE */
 body.player-active #content-frame {
@@ -72,6 +77,7 @@ The iframe stays at `height: 100%` always. The player bar (already `position: fi
 **File**: `library/web-v2/js/library.js`
 
 Add `showBookDetail(bookId)` function that creates a bottom-sheet modal with:
+
 - Larger cover art (~120px)
 - Title, author, narrator
 - Format, quality, duration
@@ -87,6 +93,7 @@ Add `showBookDetail(bookId)` function that creates a bottom-sheet modal with:
 **File**: `library/web-v2/css/modals.css` (or `library.css`)
 
 Bottom-sheet modal styles:
+
 - Slides up from bottom on mobile
 - Semi-transparent backdrop
 - Art Deco styling consistent with existing modals

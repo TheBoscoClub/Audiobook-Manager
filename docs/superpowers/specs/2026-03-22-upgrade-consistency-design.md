@@ -33,17 +33,20 @@ Backup is not an option — it always happens. The `--backup` flag is accepted b
 Modeled after Red Hat's LEAPP upgrade process. Upgrades require a completed preflight check before execution.
 
 **Phase 1 — Preflight check:**
+
 - Runs full dry-run analysis
 - Writes durable report to `/var/lib/audiobooks/.control/upgrade-preflight.json`
 - Report contains: timestamp, source, current version, target version, major/minor determination, config keys that will be added/changed/removed, files that will change, venv rebuild needed (yes/no), new services to be enabled, disk space check, warnings
 - For major version upgrades: explicitly lists config impacts and expected additional downtime (~60s for venv rebuild)
 
 **Phase 2 — Upgrade execution:**
+
 - Verifies preflight file exists, is recent (< 30 minutes), and matches current request (same source, same target version)
 - Re-runs preflight checks internally as first step — if conditions changed since preflight (config modified, new version appeared, disk space changed), aborts with explanation of what drifted
 - If preflight missing or stale: refuses to proceed, tells admin to run check first
 
 **Exception — `--force`:**
+
 - Bypasses: preflight requirement, version-match check, major version confirmation, staleness window
 - Does NOT bypass: backup, actual upgrade mechanics, status reporting
 - Both CLI and web: prominent warning listing everything being bypassed, requires explicit confirmation ("Type YES" on CLI, danger-styled confirmation modal on web)
@@ -101,6 +104,7 @@ Replace every occurrence of `audiobooks-*` (plural) with `audiobook-*` (singular
 | `audiobooks-downloader.timer` | `audiobook-downloader.timer` |
 
 This is a global find-and-replace across the entire file — every instance of `audiobooks-` becomes `audiobook-`. Key locations include:
+
 - `VALID_SERVICES` array (line 31-37)
 - `do_services_stop_all()` stop_order array (lines 210-213)
 - `do_services_stop_all()` include_api stop_order (line 217)
@@ -113,6 +117,7 @@ This is a global find-and-replace across the entire file — every instance of `
 ### Verification
 
 After fix, from the web UI:
+
 - Service start/stop/restart actually affects the real systemd units
 - Upgrade check runs and returns results
 - Upgrade execution stops real services, upgrades, restarts real services
@@ -124,6 +129,7 @@ After fix, from the web UI:
 New flag `SKIP_SERVICE_LIFECYCLE=false`, set by `--skip-service-lifecycle` in argument parser.
 
 When `SKIP_SERVICE_LIFECYCLE=true`:
+
 - Main block (lines 2127-2139): skip `stop_services`, `start_services`, and the `_SERVICES_STOPPED` tracking
 - `do_github_upgrade()`: skip `stop_services`, `start_services`, auth validation (helper handles these)
 - `_cleanup_on_exit` trap: skip service restart (helper owns lifecycle)
@@ -143,12 +149,14 @@ Flag is NOT shown in `--help` output — it's internal plumbing for the helper.
 ### Backup always-on
 
 In upgrade.sh:
+
 - `create_backup()` runs unconditionally in both the project-based main block and `do_github_upgrade()`
 - `backup_auth_db()` already runs unconditionally — no change needed
 - `--backup` flag is accepted but ignored (no-op for backward compat)
 - `create_backup()` implements rolling retention: keep last 5 backups matching `${target}.backup.*`, delete older
 
 In helper:
+
 - Backup stage is part of the lifecycle, reported via status updates
 - No flag needed — backup always happens
 
@@ -179,12 +187,14 @@ In helper:
 ```
 
 Validation:
+
 - `version` only valid with `source: "github"`
 - `major_version` is a boolean, passed through to helper
 - `force` is a boolean, bypasses preflight gate
 - If `force` is false and no valid preflight file exists: return 400 with "Preflight check required. Run 'Check for Updates' first."
 
 **`GET /api/system/upgrade/preflight`** — new endpoint:
+
 - Requires `@admin_or_localhost` authentication (consistent with all other upgrade endpoints)
 - Returns the current preflight report if it exists, or `{"preflight": null}` if no report exists (HTTP 200 in both cases — absence of a report is not an error)
 - Used by the browser to read check results and determine if upgrade button should be enabled
@@ -212,6 +222,7 @@ Validation:
 - Browser uses `stale` to decide whether to re-enable or re-disable the upgrade button
 
 **`GET /api/system/health`** — existing endpoint (already implemented in `utilities_system.py`):
+
 - No authentication required (monitoring tools need unauthenticated access)
 - Returns `{"status": "ok", "version": "X.Y.Z", "database": true/false}`
 - Used by: Caddy maintenance page auto-reload, browser overlay recovery polling, and remote upgrade health checks
@@ -220,11 +231,13 @@ Validation:
 ### Helper changes (`upgrade-helper-process`)
 
 New JSON field parsing:
+
 - `force` → append `--force` to upgrade command
 - `major_version` → append `--major-version` to upgrade command
 - `version` → append `--version <value>` to upgrade command
 
 Preflight file management:
+
 - `do_upgrade_check()` writes preflight report to `/var/lib/audiobooks/.control/upgrade-preflight.json`
 - `do_upgrade()` reads and validates preflight before proceeding (unless `force` is true)
 
@@ -234,7 +247,7 @@ New elements in the Upgrade Application card:
 
 **Options area (below source selection):**
 
-```
+```text
 [ ] Force upgrade (skip preflight check, reinstall even if versions match)
     ⚠ Bypasses all safety checks. Use only when you have a specific technical reason.
 
@@ -246,6 +259,7 @@ Version: [________] (GitHub only, blank = latest)
 ```
 
 **Button state logic:**
+
 - "Start Upgrade" is disabled by default with tooltip "Run 'Check for Updates' first"
 - After successful check: button enables
 - If check detected major version: major version checkbox appears highlighted, must be checked to enable button
@@ -258,6 +272,7 @@ When "Start Upgrade" is clicked with Force checked, the confirmation modal uses 
 > **Force Upgrade — Safety Checks Bypassed**
 >
 > You are bypassing preflight verification. This skips safety checks designed to prevent failed upgrades, including:
+>
 > - Version comparison and compatibility check
 > - Configuration impact analysis
 > - Major version detection
@@ -322,17 +337,20 @@ Caddy (port 8084) is the tunnel ingress target and stays running throughout audi
 ### Install/Upgrade Integration
 
 **`install.sh`:**
+
 - Creates `/etc/caddy/conf.d/audiobooks.conf` and `/etc/caddy/maintenance.html`
 - Reloads Caddy: `systemctl reload caddy`
 - Only if Caddy is installed (graceful skip otherwise)
 - Also ensures `/var/lib/audiobooks/.control/` directory exists with correct ownership (`audiobooks:audiobooks`, mode 755) — this directory is used for the upgrade request/status/preflight files. `install.sh` already creates `$AUDIOBOOKS_VAR_DIR` but the `.control/` subdirectory may not exist on fresh installs.
 
 **`upgrade.sh`:**
+
 - Updates both files if they differ from the project source
 - Reloads Caddy after update
 - Part of the systemd templates sync stage (already handles files in `/etc/`)
 
 **Project source location:**
+
 - `caddy/audiobooks.conf` — Caddyfile snippet
 - `caddy/maintenance.html` — maintenance page
 
@@ -343,6 +361,7 @@ Caddy (port 8084) is the tunnel ingress target and stays running throughout audi
 When "Start Upgrade" is confirmed, the JS creates a full-viewport overlay that replaces the entire page content. This overlay cannot be dismissed — the admin committed to the upgrade.
 
 **Visual design:**
+
 - Full-screen dark background matching the app's dark theme
 - Centered content area, max-width 600px
 - Large, high-contrast status text (minimum 24px, white on dark)
@@ -350,7 +369,7 @@ When "Start Upgrade" is confirmed, the JS creates a full-viewport overlay that r
 
 **Progress stages displayed:**
 
-```
+```text
 ✓ Preflight re-validated
 ✓ Installation backed up
 ✓ Services stopped
@@ -362,6 +381,7 @@ When "Start Upgrade" is confirmed, the JS creates a full-viewport overlay that r
 ```
 
 **Polling behavior:**
+
 1. Normal polling (API is up): fetch `/api/system/upgrade/status` every 2 seconds, update progress stages
 2. API goes down (fetch error): shift to "Services restarting — waiting for API..." message with spinner. NO error toast. This is expected.
 3. Recovery polling: fetch `/api/system/health` every 2 seconds

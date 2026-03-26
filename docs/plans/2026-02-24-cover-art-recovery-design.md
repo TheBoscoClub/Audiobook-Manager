@@ -12,6 +12,7 @@
 **File**: `library/scanner/metadata_utils.py`
 
 After ffprobe finds no embedded art, look for standalone cover files in the same directory as the audio file:
+
 1. `{stem}.jpg` — AAXtoMP3's naming convention
 2. `{stem}.png`
 3. `cover.jpg` — common convention
@@ -26,6 +27,7 @@ No caller changes needed — `scan_audiobooks.py`, `add_new_audiobooks.py`, and 
 **File**: `converter/AAXtoMP3`
 
 Use `AUDIOBOOKS_VENV_PYTHON` variable (default: `/opt/audiobooks/venv/bin/python`, fallback: `python3`) in three locations:
+
 1. Mutagen availability check (~line 351)
 2. `embed_ogg_cover()` heredoc (~line 147)
 3. Guard before calling `embed_ogg_cover` (~line 1041)

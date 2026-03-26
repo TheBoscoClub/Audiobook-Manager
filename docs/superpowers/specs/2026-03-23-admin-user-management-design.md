@@ -61,7 +61,8 @@ Administering user accounts currently requires direct access to the encrypted SQ
 - **Passkey**: Server creates user in "pending passkey" state with a one-time claim token. Admin sees/copies the claim URL (also downloadable). Reuses existing `claim.html` flow since passkeys can only be registered on the user's own device.
 
 **API:**
-```
+
+```text
 POST /auth/admin/users/create
 Body: { username, email?, auth_method, is_admin, can_download }
 Response: { user_id, setup_data }
@@ -71,7 +72,8 @@ Response: { user_id, setup_data }
 ```
 
 **Setup info retrieval** (for admins returning to the USERS tab later):
-```
+
+```text
 GET /auth/admin/users/<id>/setup-info
 Returns: same setup_data structure
 404 after first successful login (secret/claim redacted)

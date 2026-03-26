@@ -27,7 +27,7 @@ Three issues to address:
 
 A new `shell.html` serves as the outer page for all authenticated content. It contains:
 
-```
+```text
 ┌──────────────────────────────────────────────────┐
 │  shell.html (parent)                             │
 │                                                  │
@@ -47,6 +47,7 @@ A new `shell.html` serves as the outer page for all authenticated content. It co
 ```
 
 **Key decisions:**
+
 - Player bar is fixed at the bottom of the viewport, hidden until a book is played
 - When no player is active, iframe takes 100% of the viewport
 - When player is visible, iframe shrinks to make room (no overlap)
@@ -64,6 +65,7 @@ A new `shell.html` serves as the outer page for all authenticated content. It co
 The shell and iframe content communicate via `postMessage` API (same-origin).
 
 **Components that move to shell.html:**
+
 - `AudioPlayer` class (currently in library.js)
 - `PlaybackManager` class (currently in library.js)
 - `<audio>` HTML element
@@ -86,6 +88,7 @@ The shell and iframe content communicate via `postMessage` API (same-origin).
 | `playerClosed` | `{}` | Player was closed |
 
 **Implementation notes:**
+
 - Shell listens for messages with `window.addEventListener('message', ...)`
 - Iframe content posts via `window.parent.postMessage(...)`
 - Origin validation on all messages (same-origin check)
@@ -148,11 +151,13 @@ These changes allow same-origin iframe embedding while preventing cross-origin f
 ## File Change Summary
 
 **New files:**
+
 - `library/web-v2/shell.html` — shell page with iframe + player bar
 - `library/web-v2/js/shell.js` — shell-side player logic, postMessage handling
 - `library/web-v2/css/shell.css` — shell layout styles
 
 **Modified files:**
+
 - `library/web-v2/js/library.js` — remove AudioPlayer/PlaybackManager (move to shell), remove Audible sync dead code, add postMessage bridge for play commands, fix credentials
 - `library/backend/api_modular/core.py` — security header changes (lines 48, 57)
 - `library/backend/api_modular/auth_routes.py` — login redirect: `index.html` → `shell.html`

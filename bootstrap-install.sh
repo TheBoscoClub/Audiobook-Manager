@@ -96,12 +96,12 @@ main() {
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
-        --version | -v)
-            version="$2"
-            shift 2
-            ;;
-        --help | -h)
-            cat <<EOF
+            --version | -v)
+                version="$2"
+                shift 2
+                ;;
+            --help | -h)
+                cat <<EOF
 Bootstrap installer for Audiobook-Manager
 
 Usage:
@@ -122,13 +122,13 @@ Examples:
   # Install specific version for current user
   curl -sSL .../bootstrap-install.sh | bash -s -- --user --version 3.1.0
 EOF
-            exit 0
-            ;;
-        *)
-            # Pass through to install.sh
-            install_args+=("$1")
-            shift
-            ;;
+                exit 0
+                ;;
+            *)
+                # Pass through to install.sh
+                install_args+=("$1")
+                shift
+                ;;
         esac
     done
 

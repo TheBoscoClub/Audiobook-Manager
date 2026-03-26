@@ -93,26 +93,26 @@ refresh_bin_symlinks() {
 # -----------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --data-dir)
-        DATA_DIR="$2"
-        shift 2
-        ;;
-    --uninstall)
-        UNINSTALL=true
-        shift
-        ;;
-    --no-services)
-        INSTALL_SERVICES=false
-        shift
-        ;;
-    --help)
-        head -30 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
-        exit 0
-        ;;
-    *)
-        echo -e "${RED}Unknown option: $1${NC}"
-        exit 1
-        ;;
+        --data-dir)
+            DATA_DIR="$2"
+            shift 2
+            ;;
+        --uninstall)
+            UNINSTALL=true
+            shift
+            ;;
+        --no-services)
+            INSTALL_SERVICES=false
+            shift
+            ;;
+        --help)
+            head -30 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            exit 1
+            ;;
     esac
 done
 

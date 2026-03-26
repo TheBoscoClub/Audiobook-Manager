@@ -12,9 +12,10 @@
 
 ---
 
-### Task 1: Fix Dev Caddyfile (try_files + X-Frame-Options)
+## Task 1: Fix Dev Caddyfile (try_files + X-Frame-Options)
 
 **Files:**
+
 - Modify: `dev/Caddyfile:23` (X-Frame-Options)
 - Modify: `dev/Caddyfile:61` (try_files)
 
@@ -22,7 +23,7 @@
 
 In `dev/Caddyfile` line 23, change `"DENY"` to `"SAMEORIGIN"`:
 
-```
+```text
 X-Frame-Options "SAMEORIGIN"
 ```
 
@@ -32,7 +33,7 @@ X-Frame-Options "SAMEORIGIN"
 
 In `dev/Caddyfile` line 61, change `/index.html` to `/shell.html`:
 
-```
+```text
 try_files {path} /shell.html
 ```
 
@@ -53,6 +54,7 @@ DENY blocked same-origin framing; SAMEORIGIN allows it safely."
 ### Task 2: Fix shellPlay() Intent Preservation (library.js)
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js:2555-2561` (shellPlay function)
 
 **Step 1: Update shellPlay() to preserve play intent on redirect**
@@ -91,6 +93,7 @@ starts automatically after redirect instead of requiring a second click."
 ### Task 3: Add Autoplay Handling in shell.js
 
 **Files:**
+
 - Modify: `library/web-v2/js/shell.js:470-476` (DOMContentLoaded handler)
 
 **Step 1: Add autoplay param check after shellPlayer creation**
@@ -140,6 +143,7 @@ automatically, then cleans the URL. Completes the double-click fix."
 ### Task 4: Overlay Player Bar (No Layout Shift)
 
 **Files:**
+
 - Modify: `library/web-v2/css/shell.css:21-34` (iframe + player-active rules)
 - Modify: `library/web-v2/js/shell.js` (playBook method, line 175-176)
 - Modify: `library/web-v2/js/library.js:2581-2603` (message listener)
@@ -209,6 +213,7 @@ behind the bar."
 ### Task 5: Add Landscape Media Query Width Constraints (responsive.css)
 
 **Files:**
+
 - Modify: `library/web-v2/css/responsive.css:233` (Section D)
 - Modify: `library/web-v2/css/responsive.css:373` (Section D2)
 
@@ -259,6 +264,7 @@ with short viewport heights."
 ### Task 6: Add Book Data Cache for Detail Modal (library.js)
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js:45` (constructor — add property)
 - Modify: `library/web-v2/js/library.js:1363` (loadAudiobooks — cache books)
 
@@ -303,6 +309,7 @@ this.myLibraryBooks pattern."
 ### Task 7: Add showBookDetail() Function (library.js)
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js` (add method after `showSupplements`, ~line 1537)
 
 **Step 1: Add showBookDetail method to AudiobookLibraryV2 class**
@@ -501,6 +508,7 @@ user-supplied strings (XSS safe). Closes on backdrop tap or X button."
 ### Task 8: Wire Card Tap Handler for Compact Viewports (library.js)
 
 **Files:**
+
 - Modify: `library/web-v2/js/library.js` (constructor, after browseBooks init)
 
 **Step 1: Add setupCompactCardTap() call in constructor**
@@ -557,6 +565,7 @@ event delegation on the grid container, attached once in constructor."
 ### Task 9: Add Bottom-Sheet Modal CSS (modals.css)
 
 **Files:**
+
 - Modify: `library/web-v2/css/modals.css` (insert before the responsive `@media` block at line 382)
 
 **Step 1: Add bottom-sheet modal styles**
@@ -696,6 +705,7 @@ modal design system. Animates with slideUp keyframe."
 ### Task 10: Update CSS Version Cache-Busters
 
 **Files:**
+
 - Modify: `library/web-v2/shell.html:7` (shell.css version)
 - Modify: `library/web-v2/shell.html:42` (shell.js version)
 - Check: `library/web-v2/css/library.css` for `@import` version params on `responsive.css` and `modals.css`
@@ -718,6 +728,7 @@ git commit -m "chore: bump CSS/JS cache-buster versions for UI/UX fixes"
 ### Task 11: Manual Verification
 
 **Desktop browser (any of the three monitors):**
+
 1. Open `https://localhost:9443/` (dev Caddy) — should load `shell.html` with iframe
 2. Verify books show full Art Deco cards (not compact icons) on desktop
 3. Click Play on any book — should play immediately on first click, no layout shift
@@ -726,6 +737,7 @@ git commit -m "chore: bump CSS/JS cache-buster versions for UI/UX fixes"
 6. Close player — bottom padding should disappear
 
 **Mobile simulation (DevTools responsive mode, 375x667):**
+
 1. Verify compact grid with small icons
 2. Tap a book card (not the Play button) — detail bottom-sheet should slide up
 3. Detail sheet should show: cover, title, author, narrator, format, duration, progress, actions
@@ -733,10 +745,12 @@ git commit -m "chore: bump CSS/JS cache-buster versions for UI/UX fixes"
 5. Tap the Play button directly on a compact card (not the card body) — should play without opening modal
 
 **Direct index.html access:**
+
 1. Navigate directly to `https://localhost:9443/index.html`
 2. Click Play — should redirect to `shell.html?autoplay=ID` and start playing automatically
 
 **Landscape phone simulation (DevTools, 667x375 landscape):**
+
 1. Verify compact grid appears only at narrow widths (under 960px)
 2. At desktop width (over 1024px), landscape with short height should NOT trigger compact
 

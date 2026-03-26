@@ -55,7 +55,7 @@ DATA_DIR=""
 INSTALL_SERVICES=true
 UNINSTALL=false
 FRESH_INSTALL=false
-API_ARCHITECTURE="monolithic"  # monolithic (api.py) or modular (api_modular/)
+API_ARCHITECTURE="monolithic" # monolithic (api.py) or modular (api_modular/)
 
 # -----------------------------------------------------------------------------
 # Script-to-CLI Name Aliases (shared with upgrade.sh)
@@ -420,11 +420,11 @@ detect_storage_tier() {
 storage_tier_name() {
     local tier="$1"
     case "$tier" in
-        nvme)  echo "NVMe SSD" ;;
-        ssd)   echo "SATA SSD" ;;
-        hdd)   echo "HDD" ;;
+        nvme) echo "NVMe SSD" ;;
+        ssd) echo "SATA SSD" ;;
+        hdd) echo "HDD" ;;
         tmpfs) echo "RAM (tmpfs)" ;;
-        *)     echo "Unknown" ;;
+        *) echo "Unknown" ;;
     esac
 }
 
@@ -432,11 +432,11 @@ storage_tier_name() {
 storage_tier_color() {
     local tier="$1"
     case "$tier" in
-        nvme)  echo "${GREEN}" ;;
-        ssd)   echo "${BLUE}" ;;
+        nvme) echo "${GREEN}" ;;
+        ssd) echo "${BLUE}" ;;
         tmpfs) echo "${GREEN}" ;;
-        hdd)   echo "${YELLOW}" ;;
-        *)     echo "${NC}" ;;
+        hdd) echo "${YELLOW}" ;;
+        *) echo "${NC}" ;;
     esac
 }
 
@@ -470,9 +470,9 @@ find_fastest_mount() {
     tier_score() {
         case "$1" in
             nvme) echo 3 ;;
-            ssd)  echo 2 ;;
-            hdd)  echo 1 ;;
-            *)    echo 0 ;;
+            ssd) echo 2 ;;
+            hdd) echo 1 ;;
+            *) echo 0 ;;
         esac
     }
 
@@ -528,7 +528,7 @@ warn_storage_tier() {
     local warning=""
 
     case "$component" in
-        database|index)
+        database | index)
             if [[ "$tier" == "hdd" ]]; then
                 recommended="NVMe or SSD"
                 warning="Database on HDD will significantly impact query performance"
@@ -540,7 +540,7 @@ warn_storage_tier() {
                 warning="Cover art on HDD may slow down UI loading"
             fi
             ;;
-        library|sources)
+        library | sources)
             # HDD is acceptable for bulk audio files
             ;;
     esac
@@ -660,12 +660,12 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete converted audiobooks in $library_dir? [y/N]: " answer
             case "${answer,,}" in
-                y|yes)
+                y | yes)
                     DELETE_LIBRARY=true
                     echo -e "  ${RED}→ Will delete converted audiobooks${NC}"
                     break
                     ;;
-                n|no|"")
+                n | no | "")
                     echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"
                     break
                     ;;
@@ -681,12 +681,12 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete source files (AAX/AAXC) in $sources_dir? [y/N]: " answer
             case "${answer,,}" in
-                y|yes)
+                y | yes)
                     DELETE_SOURCES=true
                     echo -e "  ${RED}→ Will delete source files${NC}"
                     break
                     ;;
-                n|no|"")
+                n | no | "")
                     echo -e "  ${GREEN}→ Keeping source files${NC}"
                     break
                     ;;
@@ -702,12 +702,12 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete supplemental PDFs in $supplements_dir? [y/N]: " answer
             case "${answer,,}" in
-                y|yes)
+                y | yes)
                     DELETE_SUPPLEMENTS=true
                     echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"
                     break
                     ;;
-                n|no|"")
+                n | no | "")
                     echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"
                     break
                     ;;
@@ -723,12 +723,12 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete configuration files? [y/N]: " answer
             case "${answer,,}" in
-                y|yes)
+                y | yes)
                     DELETE_CONFIG=true
                     echo -e "  ${RED}→ Will delete configuration${NC}"
                     break
                     ;;
-                n|no|"")
+                n | no | "")
                     echo -e "  ${GREEN}→ Keeping configuration${NC}"
                     break
                     ;;
@@ -741,8 +741,8 @@ prompt_delete_data() {
     fi
 
     # Confirm if anything is being deleted
-    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] || \
-       [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
+    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] ||
+        [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
         echo ""
         echo -e "${RED}╔═══════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${RED}║                    CONFIRM DELETION                               ║${NC}"
@@ -758,7 +758,7 @@ prompt_delete_data() {
         while true; do
             read -r -p "Are you sure you want to proceed? [y/N]: " confirm
             case "${confirm,,}" in
-                y|yes)
+                y | yes)
                     echo ""
                     echo -e "${YELLOW}Proceeding with deletion...${NC}"
 
@@ -815,7 +815,7 @@ prompt_delete_data() {
                     echo -e "${GREEN}Data deletion complete.${NC}"
                     break
                     ;;
-                n|no|"")
+                n | no | "")
                     echo -e "${GREEN}Deletion cancelled. All data preserved.${NC}"
                     break
                     ;;
@@ -836,7 +836,7 @@ prompt_delete_data() {
 verify_installation_permissions() {
     # Verify that installed files have correct permissions and ownership
     # for the audiobooks service user to access them
-    local install_type="$1"  # "system" or "user"
+    local install_type="$1" # "system" or "user"
     local issues_found=0
 
     echo ""
@@ -968,25 +968,25 @@ check_port_available() {
     # Try lsof first (most reliable)
     if command -v lsof >/dev/null 2>&1; then
         if lsof -i ":$port" >/dev/null 2>&1; then
-            return 1  # Port in use
+            return 1 # Port in use
         fi
-        return 0  # Port available
+        return 0 # Port available
     fi
 
     # Fallback to ss
     if command -v ss >/dev/null 2>&1; then
         if ss -tlnH "sport = :$port" 2>/dev/null | grep -q .; then
-            return 1  # Port in use
+            return 1 # Port in use
         fi
-        return 0  # Port available
+        return 0 # Port available
     fi
 
     # Fallback to netstat
     if command -v netstat >/dev/null 2>&1; then
         if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
-            return 1  # Port in use
+            return 1 # Port in use
         fi
-        return 0  # Port available
+        return 0 # Port available
     fi
 
     # Cannot check - assume available
@@ -1161,7 +1161,7 @@ do_system_install() {
     # Paths for system installation
     local INSTALL_PREFIX="/usr/local"
     local CONFIG_DIR="/etc/audiobooks"
-    local APP_DIR="/opt/audiobooks"        # Canonical application location
+    local APP_DIR="/opt/audiobooks" # Canonical application location
     local BIN_DIR="${INSTALL_PREFIX}/bin"
     local SYSTEMD_DIR="/etc/systemd/system"
 
@@ -1292,7 +1292,7 @@ do_system_install() {
     # Create config file if it doesn't exist
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
         echo -e "${BLUE}Creating configuration file...${NC}"
-        sudo tee "${CONFIG_DIR}/audiobooks.conf" > /dev/null << EOF
+        sudo tee "${CONFIG_DIR}/audiobooks.conf" >/dev/null <<EOF
 # Audiobook Library Configuration
 # Generated by install.sh on $(date +%Y-%m-%d)
 
@@ -1357,7 +1357,7 @@ EOF
     local cf_token_file="${CONFIG_DIR}/cloudflare-api-token"
     if [[ ! -f "$cf_token_file" ]]; then
         echo "  Creating Cloudflare token placeholder..."
-        sudo tee "$cf_token_file" > /dev/null << 'CFEOF'
+        sudo tee "$cf_token_file" >/dev/null <<'CFEOF'
 # Cloudflare credentials for CDN cache purge
 # Used by audiobook-api service (POST /api/system/purge-cache)
 # Fill in your credentials to enable CDN cache purging from the web UI.
@@ -1379,7 +1379,7 @@ CFEOF
         echo -e "${BLUE}Initializing database...${NC}"
         local schema_file="${APP_DIR}/library/backend/schema.sql"
         if [[ -f "$schema_file" ]]; then
-            sudo -u audiobooks sqlite3 "$db_file" < "$schema_file"
+            sudo -u audiobooks sqlite3 "$db_file" <"$schema_file"
             echo "  Created: $db_file"
         else
             echo -e "${YELLOW}  Warning: schema.sql not found, skipping database initialization${NC}"
@@ -1401,7 +1401,7 @@ CFEOF
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh|purge-users.sh|setup-email.sh) continue ;;
+                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
                 esac
                 sudo cp "$script" "${APP_SCRIPTS_DIR}/"
                 sudo chmod 755 "${APP_SCRIPTS_DIR}/${script_name}"
@@ -1428,7 +1428,7 @@ CFEOF
         sudo cp "${SCRIPT_DIR}/.release-info" "/opt/audiobooks/"
     else
         # Create default release info
-        sudo tee "/opt/audiobooks/.release-info" > /dev/null << EOF
+        sudo tee "/opt/audiobooks/.release-info" >/dev/null <<EOF
 {
   "github_repo": "TheBoscoClub/Audiobook-Manager",
   "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
@@ -1481,7 +1481,7 @@ EOF
         echo -e "${BLUE}Installing systemd services...${NC}"
 
         # API service
-        sudo tee "${SYSTEMD_DIR}/audiobook-api.service" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/audiobook-api.service" >/dev/null <<EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -1500,7 +1500,7 @@ WantedBy=multi-user.target
 EOF
 
         # Web service
-        sudo tee "${SYSTEMD_DIR}/audiobook-web.service" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/audiobook-web.service" >/dev/null <<EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -1587,7 +1587,7 @@ EOF
         fi
 
         # Target (includes all services)
-        sudo tee "${SYSTEMD_DIR}/audiobook.target" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/audiobook.target" >/dev/null <<EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -1650,7 +1650,7 @@ EOF
 
     # Create /etc/profile.d script
     echo -e "${BLUE}Creating environment profile...${NC}"
-    sudo tee /etc/profile.d/audiobooks.sh > /dev/null << 'EOF'
+    sudo tee /etc/profile.d/audiobooks.sh >/dev/null <<'EOF'
 # Audiobook Library Environment
 if [[ -f /opt/audiobooks/lib/audiobook-config.sh ]]; then
     source /opt/audiobooks/lib/audiobook-config.sh
@@ -1800,7 +1800,7 @@ do_user_install() {
     # Create config file if it doesn't exist
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
         echo -e "${BLUE}Creating configuration file...${NC}"
-        cat > "${CONFIG_DIR}/audiobooks.conf" << EOF
+        cat >"${CONFIG_DIR}/audiobooks.conf" <<EOF
 # Audiobook Library Configuration
 # Generated by install.sh on $(date +%Y-%m-%d)
 
@@ -1847,7 +1847,7 @@ EOF
     echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
 
     # API server wrapper
-    cat > "${BIN_DIR}/audiobook-api" << EOF
+    cat >"${BIN_DIR}/audiobook-api" <<EOF
 #!/bin/bash
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -1856,7 +1856,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-api"
 
     # Web server wrapper
-    cat > "${BIN_DIR}/audiobook-web" << EOF
+    cat >"${BIN_DIR}/audiobook-web" <<EOF
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -1865,7 +1865,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-web"
 
     # Scanner wrapper
-    cat > "${BIN_DIR}/audiobook-scan" << EOF
+    cat >"${BIN_DIR}/audiobook-scan" <<EOF
 #!/bin/bash
 # Audiobook Library Scanner
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -1874,7 +1874,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-scan"
 
     # Database import wrapper
-    cat > "${BIN_DIR}/audiobook-import" << EOF
+    cat >"${BIN_DIR}/audiobook-import" <<EOF
 #!/bin/bash
 # Audiobook Library Database Import
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -1883,7 +1883,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-import"
 
     # Config viewer
-    cat > "${BIN_DIR}/audiobook-config" << EOF
+    cat >"${BIN_DIR}/audiobook-config" <<EOF
 #!/bin/bash
 # Show audiobook library configuration
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -1899,7 +1899,7 @@ EOF
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh|purge-users.sh|setup-email.sh) continue ;;
+                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
                 esac
                 # Map script names to consistent audiobook- prefix
                 local target_name
@@ -1948,7 +1948,7 @@ EOF
                         ;;
                     embed-cover-art.py)
                         # Python script needs venv wrapper — create bash wrapper instead of raw copy
-                        cat > "${BIN_DIR}/audiobook-embed-cover" << PYEOF
+                        cat >"${BIN_DIR}/audiobook-embed-cover" <<PYEOF
 #!/bin/bash
 # Audiobook Library Cover Art Embedder
 # Wrapper — uses venv Python for mutagen dependency
@@ -1989,7 +1989,7 @@ PYEOF
         cp "${SCRIPT_DIR}/.release-info" "${LIB_DIR}/"
     else
         # Create default release info
-        cat > "${LIB_DIR}/.release-info" << EOF
+        cat >"${LIB_DIR}/.release-info" <<EOF
 {
   "github_repo": "TheBoscoClub/Audiobook-Manager",
   "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
@@ -2002,7 +2002,7 @@ EOF
     chmod 644 "${LIB_DIR}/.release-info"
 
     # Create upgrade wrapper
-    cat > "${BIN_DIR}/audiobook-upgrade" << EOF
+    cat >"${BIN_DIR}/audiobook-upgrade" <<EOF
 #!/bin/bash
 # Audiobook Toolkit Upgrade Script
 # Fetches and applies updates from GitHub releases
@@ -2012,7 +2012,7 @@ EOF
     echo "  Installed: audiobook-upgrade"
 
     # Create migrate wrapper
-    cat > "${BIN_DIR}/audiobook-migrate" << EOF
+    cat >"${BIN_DIR}/audiobook-migrate" <<EOF
 #!/bin/bash
 # Audiobook Toolkit API Migration Script
 # Switch between monolithic and modular API architectures
@@ -2061,7 +2061,7 @@ EOF
         echo -e "${BLUE}Installing systemd user services...${NC}"
 
         # API service
-        cat > "${SYSTEMD_DIR}/audiobook-api.service" << EOF
+        cat >"${SYSTEMD_DIR}/audiobook-api.service" <<EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -2093,7 +2093,7 @@ WantedBy=default.target
 EOF
 
         # Web service
-        cat > "${SYSTEMD_DIR}/audiobook-web.service" << EOF
+        cat >"${SYSTEMD_DIR}/audiobook-web.service" <<EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -2118,7 +2118,7 @@ WantedBy=default.target
 EOF
 
         # Target
-        cat > "${SYSTEMD_DIR}/audiobook.target" << EOF
+        cat >"${SYSTEMD_DIR}/audiobook.target" <<EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -2216,7 +2216,7 @@ do_user_uninstall() {
 # -----------------------------------------------------------------------------
 
 do_fresh_install() {
-    local install_type="$1"  # "system" or "user"
+    local install_type="$1" # "system" or "user"
 
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -2287,44 +2287,44 @@ do_fresh_install() {
             key=$(echo "$key" | xargs)
             value=$(echo "$value" | sed 's/^["'"'"']//; s/["'"'"']$//' | xargs)
             case "$key" in
-                AUDIOBOOKS_DATA)              saved_AUDIOBOOKS_DATA="$value" ;;
-                AUDIOBOOKS_LIBRARY)           saved_AUDIOBOOKS_LIBRARY="$value" ;;
-                AUDIOBOOKS_SOURCES)           saved_AUDIOBOOKS_SOURCES="$value" ;;
-                AUDIOBOOKS_SUPPLEMENTS)       saved_AUDIOBOOKS_SUPPLEMENTS="$value" ;;
-                AUDIOBOOKS_DATABASE)          saved_AUDIOBOOKS_DATABASE="$value" ;;
-                AUDIOBOOKS_API_PORT)          saved_AUDIOBOOKS_API_PORT="$value" ;;
-                AUDIOBOOKS_WEB_PORT)          saved_AUDIOBOOKS_WEB_PORT="$value" ;;
+                AUDIOBOOKS_DATA) saved_AUDIOBOOKS_DATA="$value" ;;
+                AUDIOBOOKS_LIBRARY) saved_AUDIOBOOKS_LIBRARY="$value" ;;
+                AUDIOBOOKS_SOURCES) saved_AUDIOBOOKS_SOURCES="$value" ;;
+                AUDIOBOOKS_SUPPLEMENTS) saved_AUDIOBOOKS_SUPPLEMENTS="$value" ;;
+                AUDIOBOOKS_DATABASE) saved_AUDIOBOOKS_DATABASE="$value" ;;
+                AUDIOBOOKS_API_PORT) saved_AUDIOBOOKS_API_PORT="$value" ;;
+                AUDIOBOOKS_WEB_PORT) saved_AUDIOBOOKS_WEB_PORT="$value" ;;
                 AUDIOBOOKS_HTTP_REDIRECT_PORT) saved_AUDIOBOOKS_HTTP_REDIRECT_PORT="$value" ;;
-                AUDIOBOOKS_BIND_ADDRESS)      saved_AUDIOBOOKS_BIND_ADDRESS="$value" ;;
-                AUDIOBOOKS_HTTPS_ENABLED)     saved_AUDIOBOOKS_HTTPS_ENABLED="$value" ;;
-                AUTH_ENABLED)                 saved_AUTH_ENABLED="$value" ;;
-                AUTH_DATABASE)                saved_AUTH_DATABASE="$value" ;;
-                AUTH_KEY_FILE)                saved_AUTH_KEY_FILE="$value" ;;
+                AUDIOBOOKS_BIND_ADDRESS) saved_AUDIOBOOKS_BIND_ADDRESS="$value" ;;
+                AUDIOBOOKS_HTTPS_ENABLED) saved_AUDIOBOOKS_HTTPS_ENABLED="$value" ;;
+                AUTH_ENABLED) saved_AUTH_ENABLED="$value" ;;
+                AUTH_DATABASE) saved_AUTH_DATABASE="$value" ;;
+                AUTH_KEY_FILE) saved_AUTH_KEY_FILE="$value" ;;
             esac
-        done < "$config_file"
+        done <"$config_file"
     fi
 
     # Display what we captured
     echo ""
     echo -e "${BOLD}Preserved settings:${NC}"
-    [[ -n "$saved_AUDIOBOOKS_DATA" ]]              && echo -e "  AUDIOBOOKS_DATA              = ${CYAN}${saved_AUDIOBOOKS_DATA}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_LIBRARY" ]]           && echo -e "  AUDIOBOOKS_LIBRARY           = ${CYAN}${saved_AUDIOBOOKS_LIBRARY}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_SOURCES" ]]           && echo -e "  AUDIOBOOKS_SOURCES           = ${CYAN}${saved_AUDIOBOOKS_SOURCES}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_SUPPLEMENTS" ]]       && echo -e "  AUDIOBOOKS_SUPPLEMENTS       = ${CYAN}${saved_AUDIOBOOKS_SUPPLEMENTS}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_DATABASE" ]]          && echo -e "  AUDIOBOOKS_DATABASE          = ${CYAN}${saved_AUDIOBOOKS_DATABASE}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_API_PORT" ]]          && echo -e "  AUDIOBOOKS_API_PORT          = ${CYAN}${saved_AUDIOBOOKS_API_PORT}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_WEB_PORT" ]]          && echo -e "  AUDIOBOOKS_WEB_PORT          = ${CYAN}${saved_AUDIOBOOKS_WEB_PORT}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_DATA" ]] && echo -e "  AUDIOBOOKS_DATA              = ${CYAN}${saved_AUDIOBOOKS_DATA}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_LIBRARY" ]] && echo -e "  AUDIOBOOKS_LIBRARY           = ${CYAN}${saved_AUDIOBOOKS_LIBRARY}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_SOURCES" ]] && echo -e "  AUDIOBOOKS_SOURCES           = ${CYAN}${saved_AUDIOBOOKS_SOURCES}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_SUPPLEMENTS" ]] && echo -e "  AUDIOBOOKS_SUPPLEMENTS       = ${CYAN}${saved_AUDIOBOOKS_SUPPLEMENTS}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_DATABASE" ]] && echo -e "  AUDIOBOOKS_DATABASE          = ${CYAN}${saved_AUDIOBOOKS_DATABASE}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_API_PORT" ]] && echo -e "  AUDIOBOOKS_API_PORT          = ${CYAN}${saved_AUDIOBOOKS_API_PORT}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_WEB_PORT" ]] && echo -e "  AUDIOBOOKS_WEB_PORT          = ${CYAN}${saved_AUDIOBOOKS_WEB_PORT}${NC}"
     [[ -n "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT" ]] && echo -e "  AUDIOBOOKS_HTTP_REDIRECT_PORT= ${CYAN}${saved_AUDIOBOOKS_HTTP_REDIRECT_PORT}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_BIND_ADDRESS" ]]      && echo -e "  AUDIOBOOKS_BIND_ADDRESS      = ${CYAN}${saved_AUDIOBOOKS_BIND_ADDRESS}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_HTTPS_ENABLED" ]]     && echo -e "  AUDIOBOOKS_HTTPS_ENABLED     = ${CYAN}${saved_AUDIOBOOKS_HTTPS_ENABLED}${NC}"
-    [[ -n "$saved_AUTH_ENABLED" ]]                 && echo -e "  AUTH_ENABLED                 = ${CYAN}${saved_AUTH_ENABLED}${NC}"
-    [[ -n "$saved_AUTH_DATABASE" ]]                && echo -e "  AUTH_DATABASE                 = ${CYAN}${saved_AUTH_DATABASE}${NC}"
-    [[ -n "$saved_AUTH_KEY_FILE" ]]                && echo -e "  AUTH_KEY_FILE                 = ${CYAN}${saved_AUTH_KEY_FILE}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_BIND_ADDRESS" ]] && echo -e "  AUDIOBOOKS_BIND_ADDRESS      = ${CYAN}${saved_AUDIOBOOKS_BIND_ADDRESS}${NC}"
+    [[ -n "$saved_AUDIOBOOKS_HTTPS_ENABLED" ]] && echo -e "  AUDIOBOOKS_HTTPS_ENABLED     = ${CYAN}${saved_AUDIOBOOKS_HTTPS_ENABLED}${NC}"
+    [[ -n "$saved_AUTH_ENABLED" ]] && echo -e "  AUTH_ENABLED                 = ${CYAN}${saved_AUTH_ENABLED}${NC}"
+    [[ -n "$saved_AUTH_DATABASE" ]] && echo -e "  AUTH_DATABASE                 = ${CYAN}${saved_AUTH_DATABASE}${NC}"
+    [[ -n "$saved_AUTH_KEY_FILE" ]] && echo -e "  AUTH_KEY_FILE                 = ${CYAN}${saved_AUTH_KEY_FILE}${NC}"
     echo ""
 
     # Apply captured ports to global variables so the fresh install uses them
-    [[ -n "$saved_AUDIOBOOKS_API_PORT" ]]          && API_PORT="$saved_AUDIOBOOKS_API_PORT"
-    [[ -n "$saved_AUDIOBOOKS_WEB_PORT" ]]          && WEB_PORT="$saved_AUDIOBOOKS_WEB_PORT"
+    [[ -n "$saved_AUDIOBOOKS_API_PORT" ]] && API_PORT="$saved_AUDIOBOOKS_API_PORT"
+    [[ -n "$saved_AUDIOBOOKS_WEB_PORT" ]] && WEB_PORT="$saved_AUDIOBOOKS_WEB_PORT"
     [[ -n "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT" ]] && HTTP_REDIRECT_PORT="$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT"
 
     # Apply captured data dir so the fresh install uses it
@@ -2402,24 +2402,24 @@ do_fresh_install() {
                 echo -e "  Applied (uncommented): ${key}=${CYAN}${value}${NC}"
             else
                 # Append to config
-                echo "${key}=\"${value}\"" | $use_sudo tee -a "$config_file" > /dev/null
+                echo "${key}=\"${value}\"" | $use_sudo tee -a "$config_file" >/dev/null
                 echo -e "  Applied (appended): ${key}=${CYAN}${value}${NC}"
             fi
         }
 
-        _apply_setting "AUDIOBOOKS_DATA"               "$saved_AUDIOBOOKS_DATA"
-        _apply_setting "AUDIOBOOKS_LIBRARY"            "$saved_AUDIOBOOKS_LIBRARY"
-        _apply_setting "AUDIOBOOKS_SOURCES"            "$saved_AUDIOBOOKS_SOURCES"
-        _apply_setting "AUDIOBOOKS_SUPPLEMENTS"        "$saved_AUDIOBOOKS_SUPPLEMENTS"
-        _apply_setting "AUDIOBOOKS_DATABASE"           "$saved_AUDIOBOOKS_DATABASE"
-        _apply_setting "AUDIOBOOKS_API_PORT"           "$saved_AUDIOBOOKS_API_PORT"
-        _apply_setting "AUDIOBOOKS_WEB_PORT"           "$saved_AUDIOBOOKS_WEB_PORT"
+        _apply_setting "AUDIOBOOKS_DATA" "$saved_AUDIOBOOKS_DATA"
+        _apply_setting "AUDIOBOOKS_LIBRARY" "$saved_AUDIOBOOKS_LIBRARY"
+        _apply_setting "AUDIOBOOKS_SOURCES" "$saved_AUDIOBOOKS_SOURCES"
+        _apply_setting "AUDIOBOOKS_SUPPLEMENTS" "$saved_AUDIOBOOKS_SUPPLEMENTS"
+        _apply_setting "AUDIOBOOKS_DATABASE" "$saved_AUDIOBOOKS_DATABASE"
+        _apply_setting "AUDIOBOOKS_API_PORT" "$saved_AUDIOBOOKS_API_PORT"
+        _apply_setting "AUDIOBOOKS_WEB_PORT" "$saved_AUDIOBOOKS_WEB_PORT"
         _apply_setting "AUDIOBOOKS_HTTP_REDIRECT_PORT" "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT"
-        _apply_setting "AUDIOBOOKS_BIND_ADDRESS"       "$saved_AUDIOBOOKS_BIND_ADDRESS"
-        _apply_setting "AUDIOBOOKS_HTTPS_ENABLED"      "$saved_AUDIOBOOKS_HTTPS_ENABLED"
-        _apply_setting "AUTH_ENABLED"                  "$saved_AUTH_ENABLED"
-        _apply_setting "AUTH_DATABASE"                 "$saved_AUTH_DATABASE"
-        _apply_setting "AUTH_KEY_FILE"                 "$saved_AUTH_KEY_FILE"
+        _apply_setting "AUDIOBOOKS_BIND_ADDRESS" "$saved_AUDIOBOOKS_BIND_ADDRESS"
+        _apply_setting "AUDIOBOOKS_HTTPS_ENABLED" "$saved_AUDIOBOOKS_HTTPS_ENABLED"
+        _apply_setting "AUTH_ENABLED" "$saved_AUTH_ENABLED"
+        _apply_setting "AUTH_DATABASE" "$saved_AUTH_DATABASE"
+        _apply_setting "AUTH_KEY_FILE" "$saved_AUTH_KEY_FILE"
 
         unset -f _apply_setting
     fi
@@ -2498,11 +2498,11 @@ while [[ $# -gt 0 ]]; do
             INSTALL_SERVICES=false
             shift
             ;;
-        --fresh-install|-fi)
+        --fresh-install | -fi)
             FRESH_INSTALL=true
             shift
             ;;
-        --help|-h)
+        --help | -h)
             show_usage
             exit 0
             ;;

@@ -91,7 +91,11 @@ if command -v xdg-open &>/dev/null; then
 fi
 
 # Wait for Ctrl+C
-cleanup() { echo 'Shutting down...'; kill $API_PID $WEB_PID 2>/dev/null; exit 0; }
+cleanup() {
+    echo 'Shutting down...'
+    kill $API_PID $WEB_PID 2>/dev/null
+    exit 0
+}
 trap cleanup INT TERM
 
 wait

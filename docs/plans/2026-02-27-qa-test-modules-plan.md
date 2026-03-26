@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Extend vm-test-manifest.json with QA VM Configuration
+## Task 1: Extend vm-test-manifest.json with QA VM Configuration
 
 **Files:**
+
 - Modify: `vm-test-manifest.json` (add `qa_vm` section after `ssh_config`)
 
 **Step 1: Add qa_vm section to manifest**
@@ -81,6 +82,7 @@ git commit -m "feat: add QA VM configuration to vm-test-manifest.json"
 ### Task 2: Create Native QA Test Module
 
 **Files:**
+
 - Create: `test-audiobook-manager-qa-app.md` (project root)
 
 **Step 1: Write the QA native app test module**
@@ -166,6 +168,7 @@ git commit -m "feat: add QA native app test module for /test qaapp"
 ### Task 3: Create Docker QA Test Module
 
 **Files:**
+
 - Create: `test-audiobook-manager-qa-docker.md` (project root)
 
 **Step 1: Write the QA Docker test module**
@@ -180,7 +183,8 @@ Same pattern as Task 2, but targeting the Docker container. Key differences:
 - HTTP redirect: `http://192.168.122.63:8080/` → 8443
 - Container restart: `sudo docker restart audiobooks-docker`
 - Docker run command:
-  ```
+
+  ```bash
   sudo docker run -d --name audiobooks-docker \
     -p 8443:8443 -p 8080:8080 \
     -v /srv/audiobooks/Library:/audiobooks:ro \
@@ -196,6 +200,7 @@ Same pattern as Task 2, but targeting the Docker container. Key differences:
     --restart unless-stopped \
     audiobook-manager:{version}
   ```
+
 - Consistency check: compare native vs Docker for same VERSION, same library count
 
 **Step 2: Validate file exists**
@@ -214,6 +219,7 @@ git commit -m "feat: add QA Docker test module for /test qadocker"
 ### Task 4: Create QA All Orchestrator Module
 
 **Files:**
+
 - Create: `test-audiobook-manager-qa-all.md` (project root)
 
 **Step 1: Write the orchestrator module**
@@ -271,6 +277,7 @@ git commit -m "feat: add QA orchestrator module for /test qaall"
 ### Task 5: Add QA Shortcuts to /test Dispatcher
 
 **Files:**
+
 - Modify: `/hddRaid1/ClaudeCodeProjects/claude-test-skill/commands/test.md`
 
 This is the critical integration point. Changes needed in 5 locations:
@@ -278,18 +285,22 @@ This is the critical integration point. Changes needed in 5 locations:
 **Step 1: Update argument-hint (line 21)**
 
 Change:
-```
+
+```text
 argument-hint: "[help] [prodapp] [docker] [security] [github] [holistic] [--phase=X] [--list-phases] [--skip-snapshot] [--interactive]"
 ```
+
 To:
-```
+
+```text
 argument-hint: "[help] [prodapp] [docker] [qaapp] [qadocker] [qaall] [security] [github] [holistic] [--phase=X] [--list-phases] [--skip-snapshot] [--interactive]"
 ```
 
 **Step 2: Add QA shortcuts to Quick Reference section (~line 60)**
 
 After the existing `/test docker` line, add:
-```
+
+```text
 /test qaapp              # QA VM: regression test native app (auto-upgrade + DB sync)
 /test qadocker           # QA VM: regression test Docker container (auto-upgrade + DB sync)
 /test qaall              # QA VM: regression test both native and Docker sequentially
@@ -298,7 +309,8 @@ After the existing `/test docker` line, add:
 **Step 3: Add QA shortcut routing to "Handle shortcuts" section (~line 882)**
 
 After `- docker → --phase=D (Docker validation)`, add:
-```
+
+```text
    - `qaapp` → load project QA app module (test-*-qa-app.md)
    - `qadocker` → load project QA docker module (test-*-qa-docker.md)
    - `qaall` → load project QA all module (test-*-qa-all.md)
@@ -308,7 +320,7 @@ After `- docker → --phase=D (Docker validation)`, add:
 
 After the existing shortcut routing section, add a new subsection:
 
-```markdown
+````markdown
 ### QA Module Loading (Project-Specific)
 
 When the argument is `qaapp`, `qadocker`, or `qaall`:
@@ -324,26 +336,27 @@ When the argument is `qaapp`, `qadocker`, or `qaall`:
    MODULE_FILE=$(ls ${PROJECT_DIR}/test-*-qa-${SUFFIX}.md 2>/dev/null | head -1)
    ```
 
-3. **Validate:**
+1. **Validate:**
    - If no file found: ERROR and abort with helpful message
    - If found: Read the module file contents
 
-4. **Execute as standalone subagent:**
+2. **Execute as standalone subagent:**
    - Spawn a single Task subagent with model=opus
    - Pass the module file contents as instructions
    - Pass context: PROJECT_DIR, vm-test-manifest.json qa_vm section, SSH config
    - QA modules are STANDALONE — no tier system, no S/M/0/1 prerequisites
    - The module handles its own VM connectivity, version checks, upgrades
 
-5. **Report results:**
+3. **Report results:**
    - Collect subagent output
    - Display QA test summary to user
-```
+````
 
 **Step 5: Add QA shortcuts to help text (~line 814)**
 
 In the help box, after the Docker shortcut line, add:
-```
+
+```text
 │  /test qaapp                    QA native app regression (upgrade+sync) │
 │  /test qadocker                 QA Docker regression (upgrade+sync)    │
 │  /test qaall                    QA both native+Docker regression        │
@@ -352,6 +365,7 @@ In the help box, after the Docker shortcut line, add:
 **Step 6: Add QA section to Recommended Execution docs (~line 1133)**
 
 After the Docker validation section, add:
+
 ```markdown
 For QA native app regression:
 \`\`\`
@@ -390,6 +404,7 @@ git commit -m "feat: add qaapp/qadocker/qaall shortcuts for project-specific QA 
 ### Task 6: Update design.md Status
 
 **Files:**
+
 - Modify: `/hddRaid1/ClaudeCodeProjects/claude-test-skill/.claude/rules/design.md`
 
 **Step 1: Update project-specific modules section**
@@ -397,6 +412,7 @@ git commit -m "feat: add qaapp/qadocker/qaall shortcuts for project-specific QA 
 Change `**Status**: Design phase` to `**Status**: Partially implemented (QA modules)`.
 
 Add below the existing content:
+
 ```markdown
 **Implemented**: QA module discovery for `qaapp`, `qadocker`, `qaall` shortcuts.
 Dispatcher looks for `test-*-qa-{app,docker,all}.md` in project root.
@@ -418,9 +434,11 @@ git commit -m "docs: update project-specific test module status"
 **Step 1: Verify module discovery works**
 
 From the Audiobook-Manager project root:
+
 ```bash
 ls test-*-qa-*.md
 ```
+
 Expected: Three files listed (app, docker, all)
 
 **Step 2: Verify manifest is valid**
@@ -437,6 +455,7 @@ print(f'Expected books: ~{qa[\"expected\"][\"library_count_approx\"]}')
 print('OK')
 "
 ```
+
 Expected: Shows QA VM config, ends with `OK`
 
 **Step 3: Verify dispatcher recognizes shortcuts**
@@ -444,11 +463,13 @@ Expected: Shows QA VM config, ends with `OK`
 ```bash
 grep -c 'qaapp\|qadocker\|qaall' /hddRaid1/ClaudeCodeProjects/claude-test-skill/commands/test.md
 ```
+
 Expected: 10+ matches
 
 **Step 4: Quick smoke test with `/test qaapp`**
 
 Run `/test qaapp` to verify the full flow:
+
 1. Dispatcher parses `qaapp` shortcut
 2. Finds `test-audiobook-manager-qa-app.md` in project root
 3. Spawns subagent with module instructions
