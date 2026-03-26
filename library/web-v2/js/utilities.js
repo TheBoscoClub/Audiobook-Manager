@@ -4247,7 +4247,9 @@ async function loadProjectsList() {
   if (!projectsList) return;
 
   try {
-    const res = await fetch(`${API_BASE}/api/system/projects`);
+    const basePath = pathInput?.value?.trim() || "";
+    const params = basePath ? `?base_path=${encodeURIComponent(basePath)}` : "";
+    const res = await fetch(`${API_BASE}/api/system/projects${params}`);
     const data = await res.json();
 
     // Clear existing content
