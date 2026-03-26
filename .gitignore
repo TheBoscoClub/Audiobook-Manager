@@ -390,3 +390,4 @@ sandbox-*
 
 # Git worktrees
 .worktrees/
+quality-issues.txt
