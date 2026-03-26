@@ -7,6 +7,7 @@ incremental adders to extract and categorize audiobook metadata.
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -327,6 +328,22 @@ def get_file_metadata(
         format_data = data.get("format", {})
         tags = format_data.get("tags", {})
 
+        # Opus/Ogg stores metadata in streams[0].tags, not format.tags.
+        # Check both locations — stream tags take precedence when format
+        # tags are empty (common for all Opus files in this library).
+        if not tags:
+            streams = data.get("streams", [])
+            if streams:
+                tags = streams[0].get("tags", {})
+        else:
+            # Merge stream tags for fields missing from format tags
+            streams = data.get("streams", [])
+            if streams:
+                stream_tags = streams[0].get("tags", {})
+                for k, v in stream_tags.items():
+                    if k not in tags:
+                        tags[k] = v
+
         # Normalize tag keys (handle case variations)
         tags_normalized = {k.lower(): v for k, v in tags.items()}
 
@@ -352,6 +369,22 @@ def get_file_metadata(
         # Extract ASIN from chapters.json if present
         asin = extract_asin_from_chapters_json(filepath)
 
+        # Parse publication date from tags (may be "2015", "2015-03-17", etc.)
+        raw_date = tags_normalized.get("date", tags_normalized.get("year", ""))
+        published_year = None
+        published_date = None
+        if raw_date:
+            year_match = re.search(r"\d{4}", str(raw_date))
+            if year_match:
+                published_year = int(year_match.group())
+            # Try to extract full date (YYYY-MM-DD)
+            full_date_match = re.search(r"(\d{4}-\d{2}-\d{2})", str(raw_date))
+            if full_date_match:
+                published_date = full_date_match.group(1)
+
+        # acquired_date = now (the moment this book enters the library)
+        acquired_date = datetime.now().strftime("%Y-%m-%d")
+
         # Build metadata dict
         metadata = {
             "title": tags_normalized.get(
@@ -363,7 +396,10 @@ def get_file_metadata(
                 "publisher", tags_normalized.get("label", "Unknown Publisher")
             ),
             "genre": tags_normalized.get("genre", "Uncategorized"),
-            "year": tags_normalized.get("date", tags_normalized.get("year", "")),
+            "year": raw_date,
+            "published_year": published_year,
+            "published_date": published_date,
+            "acquired_date": acquired_date,
             "description": tags_normalized.get(
                 "comment", tags_normalized.get("description", "")
             ),

@@ -72,8 +72,9 @@ def insert_audiobook(
             title, author, narrator, publisher, series,
             duration_hours, duration_formatted, file_size_mb,
             file_path, cover_path, format, description,
-            sha256_hash, hash_verified_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            sha256_hash, hash_verified_at,
+            published_year, published_date, acquired_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             metadata.get("title"),
@@ -90,6 +91,9 @@ def insert_audiobook(
             metadata.get("description", ""),
             metadata.get("sha256_hash"),
             metadata.get("hash_verified_at"),
+            metadata.get("published_year"),
+            metadata.get("published_date"),
+            metadata.get("acquired_date"),
         ),
     )
 
