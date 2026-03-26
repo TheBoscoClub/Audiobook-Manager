@@ -1605,7 +1605,7 @@ EOF
 
         # Enable the target and all individual services
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
 
