@@ -27,7 +27,7 @@ VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"
 ADMIN_TOTP_SECRET = os.environ.get(
-    "ADMIN_TOTP_SECRET", "W2GGPH7KH2WL2PN22SGW62WQMJOABGZS"
+    "ADMIN_TOTP_SECRET", "5DJSOED2NSA22QGXIF6VHTUV6VQHIQH4"
 )
 ASYNC_TIMEOUT = 300  # 5 minutes max for async operations
 POLL_INTERVAL = 2  # Poll every 2 seconds
