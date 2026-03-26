@@ -232,7 +232,9 @@ def populate_series(
         if delay > 0:
             time.sleep(delay)
 
-    print(f"\n  API results: {api_hits} with series, {api_misses} without, {api_errors} errors")
+    print(
+        f"\n  API results: {api_hits} with series, {api_misses} without, {api_errors} errors"
+    )
     print(f"  Unique series found: {len(series_counter)}")
 
     # Show top series by count

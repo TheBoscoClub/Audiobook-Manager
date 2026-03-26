@@ -2598,21 +2598,50 @@ class AudiobookLibraryV2 {
     refreshBtn.textContent = "↻ Refreshing...";
 
     try {
-      // Reload stats and filters
+      // Purge browser caches (CSS/JS/image cache and service worker)
+      if ("caches" in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      }
+
+      // Purge Cloudflare CDN cache (non-fatal — best-effort)
+      try {
+        await fetch("/api/system/purge-cache", { method: "POST" });
+      } catch {
+        // CDN purge is non-fatal; log but don't block refresh
+        console.warn("CDN cache purge unavailable");
+      }
+
+      // Reload stats, filters, and current page
       await this.loadStats();
       await this.loadFilters();
-
-      // Reload current page
       await this.loadAudiobooks();
 
-      alert("Library refreshed successfully!");
+      // Silent on success — no notification needed
     } catch (error) {
       console.error("Error refreshing library:", error);
-      alert("Failed to refresh library. Please check the console for details.");
+      this.showToast(
+        "Failed to refresh library. Please try again.",
+        "error",
+      );
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.textContent = "↻ Refresh";
     }
+  }
+
+  showToast(message, type = "info") {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity 0.3s ease";
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
   }
 }
 

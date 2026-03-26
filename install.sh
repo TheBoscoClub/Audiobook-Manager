@@ -1353,6 +1353,22 @@ EOF
         echo "  Auth key file already exists"
     fi
 
+    # Create Cloudflare CDN cache purge token file (placeholder)
+    local cf_token_file="${CONFIG_DIR}/cloudflare-api-token"
+    if [[ ! -f "$cf_token_file" ]]; then
+        echo "  Creating Cloudflare token placeholder..."
+        sudo tee "$cf_token_file" > /dev/null << 'CFEOF'
+# Cloudflare credentials for CDN cache purge
+# Used by audiobook-api service (POST /api/system/purge-cache)
+# Fill in your credentials to enable CDN cache purging from the web UI.
+#CF_GLOBAL_API_KEY=your-global-api-key
+#CF_AUTH_EMAIL=your-cloudflare-email
+CFEOF
+        sudo chown audiobooks:audiobooks "$cf_token_file"
+        sudo chmod 640 "$cf_token_file"
+        echo "  Created: $cf_token_file (edit to enable CDN cache purge)"
+    fi
+
     # Initialize auth database directory
     sudo mkdir -p "/var/lib/audiobooks"
     sudo chown audiobooks:audiobooks "/var/lib/audiobooks"
