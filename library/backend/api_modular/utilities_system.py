@@ -652,9 +652,7 @@ def init_system_routes(project_root):
             os.path.expanduser("~/projects"),
             "/opt/projects",
         ]
-        allowed_bases = [
-            os.path.realpath(p) for p in allowed_bases if p
-        ]
+        allowed_bases = [os.path.realpath(p) for p in allowed_bases if p]
 
         # Accept user-specified base path via query parameter
         user_path = request.args.get("base_path", "").strip()
