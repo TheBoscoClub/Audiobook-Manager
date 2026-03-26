@@ -692,6 +692,11 @@ Audiobooks/
 │   │   ├── librivox_downloader.py       # Download free Librivox audiobooks
 │   │   ├── cleanup_audiobook_duplicates.py   # Database cleanup
 │   │   ├── fix_audiobook_authors.py     # Author metadata repair
+│   │   ├── enrich_from_audible.py       # Enrich metadata from Audible API
+│   │   ├── enrich_from_isbn.py          # Enrich from Google Books / Open Library
+│   │   ├── enrich_single.py             # Inline enrichment for single book
+│   │   ├── populate_series_from_audible.py  # Bulk series data from Audible
+│   │   ├── verify_metadata.py           # Cross-reference & auto-correct metadata
 │   │   └── utils/
 │   │       └── openlibrary_client.py    # OpenLibrary API client
 │   └── web-v2/
@@ -723,6 +728,7 @@ Audiobooks/
 │       ├── css/
 │       │   ├── library.css      # Main library styling
 │       │   ├── shell.css        # Shell frame and player bar layout
+│       │   ├── account.css      # My Account modal (extracted from shell.css, v7.4.2)
 │       │   ├── theme-art-deco.css # Art Deco visual theme
 │       │   ├── responsive.css   # Mobile/tablet breakpoints
 │       │   ├── modals.css       # Modal dialogs

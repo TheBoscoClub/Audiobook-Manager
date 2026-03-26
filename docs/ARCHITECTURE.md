@@ -518,6 +518,18 @@ The scanner subsystem handles metadata extraction, library scanning, and databas
   ├── import_single.py       # Single-directory inline importer
   ├── find_missing_audiobooks.py  # Detect missing/moved files
   └── create_priority_list.py     # Conversion queue prioritization
+
+  library/scripts/           # Standalone utility and enrichment scripts
+  ├── enrich_from_audible.py      # Audible API enrichment (ratings, categories, reviews, series, 15+ fields)
+  ├── enrich_from_isbn.py         # Google Books / Open Library fallback for non-Audible books
+  ├── enrich_single.py            # Inline enrichment for a single book (called at import time)
+  ├── populate_series_from_audible.py  # Bulk series population from Audible API
+  ├── verify_metadata.py          # Cross-reference embedded tags vs API data, auto-correct conflicts
+  ├── generate_hashes.py          # SHA-256 hash generation (parallel)
+  ├── find_duplicates.py          # Duplicate detection and removal
+  ├── populate_sort_fields.py     # Extract name/series/edition sort fields
+  ├── populate_genres.py          # Sync genres from Audible export
+  └── ...                         # Additional maintenance and repair scripts
 ```
 
 ### Data Pipeline Flow
@@ -1462,6 +1474,11 @@ POST /api/system/upgrade
   → Reads preflight JSON, validates freshness (< 30 min server-side, < 10 min browser-side)
   → Rejects if stale or missing (unless force=true)
   → Writes upgrade request JSON → triggers helper
+
+POST /api/system/purge-cache
+  → Purges Cloudflare CDN edge cache (requires CF_TOKEN_FILE config)
+  → Called by library Refresh flow to push cache invalidation
+  → Auth: CF token read from file path in config (never hardcoded)
 ```
 
 ### Traffic Flow During Maintenance
@@ -2261,4 +2278,4 @@ systemctl status audiobook.target --no-pager
 ---
 
 *Document Version: 7.4.2*
-*Last Updated: 2026-03-25*
+*Last Updated: 2026-03-26*
