@@ -183,10 +183,10 @@ Web-based audiobook library browser with:
 - **Admin activity audit** with filterable log and usage statistics (v6.3+)
 - **Genre management** with bulk add/remove in Back Office (v6.3+)
 - **Maintenance scheduling** with cron-based task automation, real-time WebSocket announcements, and admin dashboard
-- **Web-based user management** — admins create, edit, and delete users with TOTP, Magic Link, or Passkey auth directly from the Back Office USERS tab (v7.3+)
-- **Self-service My Account** — authenticated users change their username, email, auth method, or credentials from the shell header without admin involvement (v7.3+)
-- **Audit logging** for all user management actions with paginated, filterable log in the Back Office (v7.3+)
-- **Admin notifications** — in-app badge and email alerts to all admins for critical account changes (v7.3+)
+- **Web-based user management** — admins create, edit, and delete users with TOTP, Magic Link, or Passkey auth directly from the Back Office USERS tab (v7.4.1+)
+- **Self-service My Account** — authenticated users change their username, email, auth method, or credentials from the shell header without admin involvement (v7.4.1+)
+- **Audit logging** for all user management actions with paginated, filterable log in the Back Office (v7.4.1+)
+- **Admin notifications** — in-app badge and email alerts to all admins for critical account changes (v7.4.1+)
 
 ## Quick Start
 
@@ -501,20 +501,6 @@ audiobook-config   # Show configuration
 
 ## Upgrading
 
-> ⚠️ **IMPORTANT: v3.5.x End of Life**
->
-> **v3.5.x has reached end-of-life** and is no longer supported. All users must upgrade to v3.7.0 or later.
->
-> - **v3.5.x**: ⛔ **END OF LIFE** - No security patches or updates
-> - **v3.6.x**: Modular Flask Blueprint architecture required
-> - **v3.7.0+**: Current supported release
->
-> If upgrading from v3.5.x with the legacy monolithic API, migrate first:
->
-> ```bash
-> ./migrate-api.sh --to-modular --target /opt/audiobooks
-> ```
-
 ### Docker
 
 Docker installations upgrade by pulling a new image:
@@ -544,7 +530,7 @@ Upgrade your installation directly from GitHub releases:
 audiobook-upgrade
 
 # Upgrade to specific version
-audiobook-upgrade --version 3.2.0
+audiobook-upgrade --version 7.4.0
 
 # Check for updates without installing
 audiobook-upgrade --check
@@ -659,11 +645,11 @@ Audiobooks/
 │   │   ├── passkey.py           # WebAuthn/FIDO2 registration & auth
 │   │   ├── totp.py              # TOTP (authenticator app) support
 │   │   ├── backup_codes.py      # Single-use recovery codes
-│   │   ├── audit.py             # Audit log model and repository (v7.3+)
+│   │   ├── audit.py             # Audit log model and repository (v7.4.1+)
 │   │   ├── cli.py               # Admin CLI tool (audiobook-user)
 │   │   ├── inbox_cli.py         # Admin inbox management CLI
 │   │   ├── notify_cli.py        # Notification management CLI
-│   │   └── schema.sql           # Auth database schema (17 tables, v7)
+│   │   └── schema.sql           # Auth database schema (18 tables, v7)
 │   ├── backend/
 │   │   ├── api_server.py        # Flask server launcher
 │   │   ├── api_modular/         # Modular Flask Blueprints
@@ -725,7 +711,7 @@ Audiobooks/
 │       ├── js/
 │       │   ├── library.js       # Library frontend (search, sort, player)
 │       │   ├── shell.js         # Shell frame (viewport fix, player controls)
-│       │   ├── account.js       # Self-service My Account modal (v7.3+)
+│       │   ├── account.js       # Self-service My Account modal (v7.4.1+)
 │       │   ├── utilities.js     # Back Office utilities tab logic
 │       │   ├── websocket.js     # WebSocket client for live connections/audit events
 │       │   ├── webauthn.js      # WebAuthn registration and authentication helpers
@@ -1202,10 +1188,10 @@ The library exposes a REST API on port 5001:
 | `/auth/register/claim/webauthn/begin` | POST | Start WebAuthn registration for claim |
 | `/auth/register/claim/webauthn/complete` | POST | Complete WebAuthn claim registration |
 | `/auth/me` | GET/PUT | Get or update current user info |
-| `/auth/user/me/username` | PUT | Self-service: change own username (v7.3+) |
-| `/auth/user/me/email` | PUT | Self-service: change own email (v7.3+) |
-| `/auth/user/me/auth-method` | PUT | Self-service: switch auth method (v7.3+) |
-| `/auth/user/me/reset-credentials` | POST | Self-service: reset own credentials (v7.3+) |
+| `/auth/user/me/username` | PUT | Self-service: change own username (v7.4.1+) |
+| `/auth/user/me/email` | PUT | Self-service: change own email (v7.4.1+) |
+| `/auth/user/me/auth-method` | PUT | Self-service: switch auth method (v7.4.1+) |
+| `/auth/user/me/reset-credentials` | POST | Self-service: reset own credentials (v7.4.1+) |
 | `/auth/recover/backup-code` | POST | Use backup code for recovery |
 | `/auth/recover/regenerate-codes` | POST | Generate new backup codes |
 | `/auth/health` | GET | Auth system health check |
@@ -1218,16 +1204,16 @@ The library exposes a REST API on port 5001:
 | `/auth/admin/users/create` | POST | Create user (TOTP/Magic Link/Passkey) — returns setup info |
 | `/auth/admin/users/invite` | POST | Invite new user (pre-approved) |
 | `/auth/admin/users/<id>` | PUT/DELETE | Update or delete user (legacy) |
-| `/auth/admin/users/<id>/username` | PUT | Change username (v7.3+) |
-| `/auth/admin/users/<id>/email` | PUT | Change email (v7.3+) |
-| `/auth/admin/users/<id>/roles` | PUT | Update admin/download flags (v7.3+) |
-| `/auth/admin/users/<id>/auth-method` | PUT | Switch auth method (v7.3+) |
-| `/auth/admin/users/<id>/reset-credentials` | POST | Reset TOTP/magic link/passkey credentials (v7.3+) |
-| `/auth/admin/users/<id>/setup-info` | GET | Re-fetch setup info for incomplete enrollment (v7.3+) |
-| `/auth/admin/users/<id>/delete` | DELETE | Delete user with audit log + last-admin guard (v7.3+) |
+| `/auth/admin/users/<id>/username` | PUT | Change username (v7.4.1+) |
+| `/auth/admin/users/<id>/email` | PUT | Change email (v7.4.1+) |
+| `/auth/admin/users/<id>/roles` | PUT | Update admin/download flags (v7.4.1+) |
+| `/auth/admin/users/<id>/auth-method` | PUT | Switch auth method (v7.4.1+) |
+| `/auth/admin/users/<id>/reset-credentials` | POST | Reset TOTP/magic link/passkey credentials (v7.4.1+) |
+| `/auth/admin/users/<id>/setup-info` | GET | Re-fetch setup info for incomplete enrollment (v7.4.1+) |
+| `/auth/admin/users/<id>/delete` | DELETE | Delete user with audit log + last-admin guard (v7.4.1+) |
 | `/auth/admin/users/<id>/toggle-admin` | POST | Grant/revoke admin (legacy) |
 | `/auth/admin/users/<id>/toggle-download` | POST | Grant/revoke download permission (legacy) |
-| `/auth/admin/users/audit-log` | GET | Paginated audit log with action filter (v7.3+) |
+| `/auth/admin/users/audit-log` | GET | Paginated audit log with action filter (v7.4.1+) |
 | `/auth/admin/access-requests` | GET | List pending access requests |
 | `/auth/admin/access-requests/<id>/approve` | POST | Approve access request |
 | `/auth/admin/access-requests/<id>/deny` | POST | Deny access request |
