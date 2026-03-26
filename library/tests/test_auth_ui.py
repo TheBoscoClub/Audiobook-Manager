@@ -237,7 +237,9 @@ class TestAuthCSS:
 
         assert ".account-btn" in shell_css_content, "Should have account-btn class"
         assert ".account-icon" in shell_css_content, "Should have account-icon class"
-        assert ".account-section" in shell_css_content, "Should have account-section styles"
+        assert (
+            ".account-section" in shell_css_content
+        ), "Should have account-section styles"
 
     def test_help_tooltips_css_has_icon_styles(self):
         """Verify help tooltips CSS styles the help icons."""
@@ -364,8 +366,12 @@ class TestIndexPageAuthIntegration:
         shell_content = (WEB_DIR / "shell.html").read_text()
 
         assert 'id="my-account-btn"' in shell_content, "Should have account button"
-        assert 'id="account-username"' in shell_content, "Should have account username display"
-        assert 'id="account-initial"' in shell_content, "Should have account avatar initial"
+        assert (
+            'id="account-username"' in shell_content
+        ), "Should have account username display"
+        assert (
+            'id="account-initial"' in shell_content
+        ), "Should have account avatar initial"
 
     def test_index_page_has_login_link(self):
         """Verify index.html has login link for unauthenticated users."""

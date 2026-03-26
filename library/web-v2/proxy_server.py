@@ -302,7 +302,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 api_url, data=body, headers=headers, method=method
             )
 
-            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310 — connects to hardcoded 127.0.0.1 only
+            with urllib.request.urlopen(
+                req, timeout=30
+            ) as response:  # nosec B310 — connects to hardcoded 127.0.0.1 only
                 # Send response status
                 self.send_response(response.status)
 

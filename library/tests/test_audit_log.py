@@ -24,7 +24,6 @@ sys.path.insert(0, str(LIBRARY_DIR))
 from auth.audit import AuditLogRepository  # noqa: E402
 from auth.models import AuditLog  # noqa: E402
 
-
 # ============================================================
 # Fixtures
 # ============================================================

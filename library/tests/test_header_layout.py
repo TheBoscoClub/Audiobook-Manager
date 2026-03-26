@@ -92,7 +92,9 @@ class TestHeaderStructure:
         content = (WEB_DIR / "shell.html").read_text()
         header_start = content.index("shell-header")
         header_section = content[header_start : header_start + 600]
-        assert "my-account-btn" in header_section, "Account button should be inside shell-header"
+        assert (
+            "my-account-btn" in header_section
+        ), "Account button should be inside shell-header"
 
     def test_login_link_in_right_nav(self):
         """Login link must be inside the right nav section."""

@@ -175,13 +175,12 @@ app = create_app(
 app.run(debug=True)
 ```
 
-### Production with Waitress
+### Production with Gunicorn
 
-```python
-from api_modular import create_app, run_server
-
-app = create_app(...)
-run_server(app, port=5001, debug=False, use_waitress=True)
+```bash
+# Production: Gunicorn with GeventWebSocketWorker (supports WebSocket)
+gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker \
+    -w 1 -b 127.0.0.1:5001 api_server:app
 ```
 
 ### Entry Point Script

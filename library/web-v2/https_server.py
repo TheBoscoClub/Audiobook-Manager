@@ -184,7 +184,8 @@ def run_http_redirect_server():
     """Run HTTP server that redirects to HTTPS."""
     try:
         server = http.server.HTTPServer(
-            ("0.0.0.0", HTTP_PORT), HTTPToHTTPSRedirectHandler  # nosec B104 — HTTP redirect server, intentional
+            ("0.0.0.0", HTTP_PORT),
+            HTTPToHTTPSRedirectHandler,  # nosec B104 — HTTP redirect server, intentional
         )
         print(
             f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/"
@@ -218,7 +219,9 @@ def main():
     context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
     # Create HTTPS server
-    server = http.server.HTTPServer(("0.0.0.0", HTTPS_PORT), handler)  # nosec B104 — HTTPS server, intentional
+    server = http.server.HTTPServer(
+        ("0.0.0.0", HTTPS_PORT), handler
+    )  # nosec B104 — HTTPS server, intentional
     server.socket = context.wrap_socket(server.socket, server_side=True)
 
     print(f"Serving HTTPS on https://0.0.0.0:{HTTPS_PORT}/ ...")

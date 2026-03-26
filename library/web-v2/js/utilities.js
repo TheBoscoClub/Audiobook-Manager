@@ -3188,7 +3188,7 @@ function showInviteUserModal() {
   const authHints = {
     magic_link:
       "User clicks a link in their email to sign in \u2014 no codes or apps needed",
-    totp: "User sets up an authenticator app (Google Authenticator, Authy, etc.) on their phone",
+    totp: "User sets up an authenticator app (2FAS, Google Authenticator, Aegis, etc.) on their phone",
     passkey:
       "User registers a passkey or physical security key in their browser",
   };
