@@ -585,6 +585,39 @@ class TestListProjects:
         if matching:
             assert matching[0]["version"] == "2.0.0"
 
+    def test_finds_projects_via_base_path_param(self, flask_app, temp_dir, monkeypatch):
+        """Test finds projects when base_path query parameter is provided."""
+        monkeypatch.delenv("AUDIOBOOKS_PROJECT_DIR", raising=False)
+
+        # Create a project with a VERSION file (non-Audiobook prefix)
+        project_dir = temp_dir / "MyProject"
+        project_dir.mkdir()
+        (project_dir / "VERSION").write_text("3.0.0")
+
+        with flask_app.test_client() as client:
+            response = client.get(
+                f"/api/system/projects?base_path={temp_dir}"
+            )
+
+        data = response.get_json()
+        assert response.status_code == 200
+        matching = [p for p in data["projects"] if p["name"] == "MyProject"]
+        assert len(matching) == 1
+        assert matching[0]["version"] == "3.0.0"
+
+    def test_base_path_ignores_nonexistent_dir(self, flask_app, monkeypatch):
+        """Test gracefully handles non-existent base_path."""
+        monkeypatch.delenv("AUDIOBOOKS_PROJECT_DIR", raising=False)
+
+        with flask_app.test_client() as client:
+            response = client.get(
+                "/api/system/projects?base_path=/nonexistent/fake/path"
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert isinstance(data["projects"], list)
+
 
 class TestEnvironmentVariables:
     """Test environment variable handling."""

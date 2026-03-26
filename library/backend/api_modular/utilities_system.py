@@ -646,13 +646,22 @@ def init_system_routes(project_root):
     @admin_or_localhost
     def list_projects() -> FlaskResponse:
         """List available project directories for upgrade source."""
-        # Check common development project locations
-        # AUDIOBOOKS_PROJECT_DIR is the primary way to specify the project path
-        search_paths = [
+        # Accept user-specified base path via query parameter
+        user_path = request.args.get("base_path", "").strip()
+
+        # Build search paths: user-specified first, then defaults
+        search_paths = []
+        if user_path:
+            # SECURITY: Resolve to absolute, block path traversal
+            resolved = os.path.realpath(user_path)
+            if os.path.isdir(resolved):
+                search_paths.append(resolved)
+        search_paths.extend([
             os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
             os.path.expanduser("~/projects"),
             "/opt/projects",
-        ]
+        ])
+
         projects = []
         seen_paths = set()
 
@@ -665,23 +674,29 @@ def init_system_routes(project_root):
                     project_path = os.path.join(projects_base, name)
                     if project_path in seen_paths:
                         continue
-                    if os.path.isdir(project_path) and name.startswith("Audiobook"):
-                        seen_paths.add(project_path)
-                        version_file = os.path.join(project_path, "VERSION")
-                        version = None
-                        if os.path.exists(version_file):
-                            try:
-                                with open(version_file) as f:
-                                    version = f.read().strip()
-                            except Exception:
-                                pass  # Non-critical: version stays None
-                        projects.append(
-                            {
-                                "name": name,
-                                "path": project_path,
-                                "version": version,
-                            }
-                        )
+                    # Match directories containing a VERSION file or
+                    # starting with "Audiobook" (legacy heuristic)
+                    if not os.path.isdir(project_path):
+                        continue
+                    version_file = os.path.join(project_path, "VERSION")
+                    has_version = os.path.exists(version_file)
+                    if not has_version and not name.startswith("Audiobook"):
+                        continue
+                    seen_paths.add(project_path)
+                    version = None
+                    if has_version:
+                        try:
+                            with open(version_file) as f:
+                                version = f.read().strip()
+                        except Exception:
+                            pass  # Non-critical: version stays None
+                    projects.append(
+                        {
+                            "name": name,
+                            "path": project_path,
+                            "version": version,
+                        }
+                    )
             except Exception:
                 continue  # Skip inaccessible directories
 
