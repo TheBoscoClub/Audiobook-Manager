@@ -8,7 +8,7 @@ operations including subprocess.Popen mocking, progress parsing, and error paths
 import subprocess
 import time
 from io import StringIO
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 
 MODULE = "backend.api_modular.utilities_ops.library"
@@ -47,10 +47,7 @@ def _wait_for_thread_completion(tracker_mock, timeout=2.0):
     """Wait until tracker's complete_operation or fail_operation is called."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if (
-            tracker_mock.complete_operation.called
-            or tracker_mock.fail_operation.called
-        ):
+        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
             return True
         time.sleep(0.02)
     return False
@@ -211,7 +208,9 @@ class TestRescanLibraryWorkerThread:
         mock_tracker.create_operation.return_value = "rescan-w-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen_charread("", returncode=1, stderr_text="Scanner crashed")
+        mock_proc = _make_mock_popen_charread(
+            "", returncode=1, stderr_text="Scanner crashed"
+        )
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -403,9 +402,7 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            [], returncode=1, stderr_text="Database error"
-        )
+        mock_proc = _make_mock_popen([], returncode=1, stderr_text="Database error")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:

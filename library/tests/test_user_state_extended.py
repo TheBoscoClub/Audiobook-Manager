@@ -8,7 +8,6 @@ Covers uncovered lines: 54, 86-87, 132-133, 136-137, 254, 259, 269, 280,
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -128,8 +127,10 @@ class TestUserLibraryHiddenBooks:
         ).save(auth_db)
 
         _session, raw_token = Session.create_for_user(
-            db=auth_db, user_id=user.id,
-            user_agent="pytest", ip_address="127.0.0.1",
+            db=auth_db,
+            user_id=user.id,
+            user_agent="pytest",
+            ip_address="127.0.0.1",
         )
         client = auth_app.test_client()
         client.set_cookie("audiobooks_session", raw_token)
@@ -169,7 +170,6 @@ class TestUserLibraryNonIntegerIds:
 
     def test_non_integer_ids_filtered(self, user_client, auth_db, test_user):
         """Non-integer audiobook IDs are filtered out (lines 296-297)."""
-        from auth import ListeningHistoryRepository
 
         # Create a listening history entry with a non-integer audiobook_id
         h = UserListeningHistory(

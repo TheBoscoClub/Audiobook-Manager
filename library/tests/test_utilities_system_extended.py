@@ -9,9 +9,7 @@ Covers uncovered lines: 63-65, 73-74, 105-126, 265, 285, 295, 312, 315, 340,
 import json
 import pathlib
 from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 
 class TestWriteRequestEdgeCases:
@@ -89,9 +87,7 @@ class TestReadPreflight:
 
         now = datetime.now(timezone.utc)
         preflight = temp_dir / "preflight.json"
-        preflight.write_text(
-            json.dumps({"timestamp": now.isoformat(), "status": "ok"})
-        )
+        preflight.write_text(json.dumps({"timestamp": now.isoformat(), "status": "ok"}))
         module.PREFLIGHT_FILE = preflight
 
         result = module._read_preflight()
@@ -130,9 +126,7 @@ class TestReadPreflight:
         from backend.api_modular import utilities_system as module
 
         preflight = temp_dir / "preflight.json"
-        preflight.write_text(
-            json.dumps({"timestamp": "not-a-date", "status": "ok"})
-        )
+        preflight.write_text(json.dumps({"timestamp": "not-a-date", "status": "ok"}))
         module.PREFLIGHT_FILE = preflight
 
         result = module._read_preflight()
@@ -313,8 +307,11 @@ class TestCheckUpgradeExtended:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade/check",
-                json={"source": "project", "project_path": "/some/path",
-                      "version": "1.0.0"},
+                json={
+                    "source": "project",
+                    "project_path": "/some/path",
+                    "version": "1.0.0",
+                },
             )
 
         # Should get 400 for either project_path or version error
@@ -402,7 +399,9 @@ class TestStartUpgradeExtended:
 
     @patch("backend.api_modular.utilities_system._read_preflight")
     @patch("backend.api_modular.utilities_system._read_status")
-    def test_upgrade_rejects_stale_preflight(self, mock_read, mock_preflight, flask_app):
+    def test_upgrade_rejects_stale_preflight(
+        self, mock_read, mock_preflight, flask_app
+    ):
         """Stale preflight report returns 400 (lines 561-562)."""
         mock_read.return_value = {"running": False}
         mock_preflight.return_value = {"stale": True, "status": "ok"}
@@ -502,7 +501,6 @@ class TestListProjectsExtended:
 
     def test_inaccessible_directory_skipped(self, flask_app, monkeypatch):
         """Inaccessible directory is silently skipped (lines 685-686)."""
-        import os
 
         monkeypatch.setenv("AUDIOBOOKS_PROJECT_DIR", "/nonexistent/dir")
 

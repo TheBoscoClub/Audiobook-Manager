@@ -19,9 +19,9 @@ def test_preflight_file_path_defined():
     import re
 
     hardcoded = re.findall(r"/var/lib/audiobooks/\.control/upgrade-preflight", content)
-    assert (
-        len(hardcoded) == 0
-    ), "Preflight path must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
+    assert len(hardcoded) == 0, (
+        "Preflight path must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
+    )
 
 
 def test_force_bypasses_preflight():

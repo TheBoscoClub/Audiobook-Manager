@@ -39,9 +39,9 @@ def test_valid_services_array_correct():
             if svc:
                 services.append(svc)
     for svc in services:
-        assert svc.startswith(
-            "audiobook-"
-        ), f"Service '{svc}' should start with 'audiobook-' (singular)"
-        assert not svc.startswith(
-            "audiobooks-"
-        ), f"Service '{svc}' uses plural 'audiobooks-' — must be singular"
+        assert svc.startswith("audiobook-"), (
+            f"Service '{svc}' should start with 'audiobook-' (singular)"
+        )
+        assert not svc.startswith("audiobooks-"), (
+            f"Service '{svc}' uses plural 'audiobooks-' — must be singular"
+        )

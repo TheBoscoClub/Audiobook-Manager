@@ -27,9 +27,9 @@ def test_all_lifecycle_stages_present():
 def test_skip_service_lifecycle_flag_passed():
     """Helper must pass --skip-service-lifecycle --yes to upgrade.sh."""
     content = HELPER_PATH.read_text()
-    assert (
-        "--skip-service-lifecycle" in content
-    ), "Must pass --skip-service-lifecycle to upgrade.sh"
+    assert "--skip-service-lifecycle" in content, (
+        "Must pass --skip-service-lifecycle to upgrade.sh"
+    )
     assert "--yes" in content, "Must pass --yes to upgrade.sh"
 
 
@@ -53,12 +53,12 @@ def test_new_request_fields_parsed():
 def test_force_and_major_version_forwarded_to_upgrade_sh():
     """--force and --major-version must be forwarded to upgrade.sh command."""
     content = HELPER_PATH.read_text()
-    assert (
-        '"--force"' in content
-    ), "Must pass --force flag to upgrade.sh when force=true"
-    assert (
-        '"--major-version"' in content
-    ), "Must pass --major-version flag to upgrade.sh when major_version=true"
+    assert '"--force"' in content, (
+        "Must pass --force flag to upgrade.sh when force=true"
+    )
+    assert '"--major-version"' in content, (
+        "Must pass --major-version flag to upgrade.sh when major_version=true"
+    )
 
 
 def test_all_services_in_stop_order():
@@ -81,16 +81,16 @@ def test_all_services_in_stop_order():
 def test_no_hardcoded_paths():
     """Helper must source audiobook-config.sh and use config variables for paths."""
     content = HELPER_PATH.read_text()
-    assert (
-        "audiobook-config.sh" in content
-    ), "Helper must source audiobook-config.sh for path variables"
+    assert "audiobook-config.sh" in content, (
+        "Helper must source audiobook-config.sh for path variables"
+    )
     for line in content.splitlines():
         if line.startswith("CONTROL_DIR=") and "/var/lib/audiobooks" in line:
             assert False, "CONTROL_DIR must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
         if line.startswith("INSTALL_DIR=") and "/opt/audiobooks" in line:
-            assert (
-                False
-            ), "INSTALL_DIR must use config variable, not hardcoded /opt/audiobooks"
+            assert False, (
+                "INSTALL_DIR must use config variable, not hardcoded /opt/audiobooks"
+            )
 
 
 def test_final_status_written_before_service_start():

@@ -168,6 +168,11 @@
       "name": "audiobook-embed-covers",
       "paths": ["/usr/local/bin/audiobook-embed-covers"],
       "description": "Embed cover art into Opus files (alias: embed-cover-art.py)"
+    },
+    {
+      "name": "audiobook-purge-cache",
+      "paths": ["/usr/local/bin/audiobook-purge-cache"],
+      "description": "Purge cover art and metadata cache"
     }
   ],
 

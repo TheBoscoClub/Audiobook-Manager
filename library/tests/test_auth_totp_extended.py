@@ -9,22 +9,20 @@ TOTPAuthenticator.current_code (line 207*), TOTPAuthenticator.provisioning_uri (
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth.totp import (
+from auth.totp import (  # noqa: E402
     generate_secret,
     secret_to_base32,
     base32_to_secret,
-    get_provisioning_uri,
     generate_qr_code,
     get_current_code,
     verify_code,
-    setup_totp,
     TOTPAuthenticator,
     DEFAULT_ISSUER,
 )
@@ -37,7 +35,7 @@ class TestSecretToBase32StringInput:
         """Line 43: String input is encoded to UTF-8 bytes before base32."""
         result = secret_to_base32("hello")
         # "hello" -> bytes -> base32
-        expected = secret_to_base32(b"hello")
+        _expected = secret_to_base32(b"hello")
         # Both should produce the same result when given same content
         # But str path encodes to UTF-8 first
         assert isinstance(result, str)
@@ -69,6 +67,7 @@ class TestBase32ToSecretPadding:
     def test_already_padded_input(self):
         """Line 58: Input already padded (len % 8 == 0) skips padding."""
         import base64
+
         # Create a secret whose base32 IS a multiple of 8
         secret = b"\x00" * 5  # 5 bytes = 8 base32 chars exactly
         base32 = base64.b32encode(secret).decode("ascii")  # With padding
@@ -87,16 +86,23 @@ class TestGenerateQrCodeImportError:
 
         with patch.dict(sys.modules, {"qrcode": None}):
             # Force reimport to trigger ImportError
-            import importlib
             # Use a mock that raises ImportError
-            with patch("builtins.__import__", side_effect=ImportError("qrcode not found")):
+            with patch(
+                "builtins.__import__", side_effect=ImportError("qrcode not found")
+            ):
                 # The function does `import qrcode` inside the try block
                 # We need to make that specific import fail
-                original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+                original_import = (
+                    __builtins__.__import__
+                    if hasattr(__builtins__, "__import__")
+                    else __import__
+                )
 
                 def selective_import(name, *args, **kwargs):
                     if name == "qrcode":
-                        raise ImportError("qrcode[pil] package required for QR code generation")
+                        raise ImportError(
+                            "qrcode[pil] package required for QR code generation"
+                        )
                     return original_import(name, *args, **kwargs)
 
                 with patch("builtins.__import__", side_effect=selective_import):
@@ -155,7 +161,10 @@ class TestVerifyCodeEdgeCases:
     def test_wrong_code_returns_false(self):
         """Verify that an incorrect 6-digit code fails."""
         secret = generate_secret()
-        assert verify_code(secret, "000000") is False or verify_code(secret, "000000") is True
+        assert (
+            verify_code(secret, "000000") is False
+            or verify_code(secret, "000000") is True
+        )
         # More deterministic: use a code we know is wrong
         code = get_current_code(secret)
         wrong = str((int(code) + 1) % 1000000).zfill(6)

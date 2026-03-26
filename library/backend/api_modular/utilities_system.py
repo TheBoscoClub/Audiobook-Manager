@@ -656,11 +656,13 @@ def init_system_routes(project_root):
             resolved = os.path.realpath(user_path)
             if os.path.isdir(resolved):
                 search_paths.append(resolved)
-        search_paths.extend([
-            os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
-            os.path.expanduser("~/projects"),
-            "/opt/projects",
-        ])
+        search_paths.extend(
+            [
+                os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
+                os.path.expanduser("~/projects"),
+                "/opt/projects",
+            ]
+        )
 
         projects = []
         seen_paths = set()

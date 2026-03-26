@@ -260,8 +260,7 @@ class TestResponsiveLayout:
         # Verify no horizontal overflow (page body fits viewport)
         body_width = pg.evaluate("document.body.scrollWidth")
         assert body_width <= width + 20, (
-            f"Login page overflows at {label} ({width}px): "
-            f"body is {body_width}px wide"
+            f"Login page overflows at {label} ({width}px): body is {body_width}px wide"
         )
 
         # Verify the main form container is visible

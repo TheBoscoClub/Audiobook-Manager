@@ -93,9 +93,9 @@ class TestSessionTokenManipulation:
         ]
 
         for modified in modified_tokens:
-            assert (
-                repo.get_by_token(modified) is None
-            ), f"Modified token accepted: {modified}"
+            assert repo.get_by_token(modified) is None, (
+                f"Modified token accepted: {modified}"
+            )
 
     def test_reject_forged_token_hash(self, temp_db, test_user):
         """Test that forged token hashes are rejected."""
@@ -116,9 +116,9 @@ class TestSessionTokenManipulation:
 
         for forged in forged_tokens:
             if forged != real_token:  # Only test if actually different
-                assert (
-                    repo.get_by_token(forged) is None
-                ), f"Forged token accepted: {repr(forged)}"
+                assert repo.get_by_token(forged) is None, (
+                    f"Forged token accepted: {repr(forged)}"
+                )
 
 
 class TestSQLInjection:
@@ -147,9 +147,9 @@ class TestSQLInjection:
 
             # Database should still be intact
             original = repo.get_by_username("sectest")
-            assert (
-                original is not None
-            ), f"Database corrupted after injection attempt: {payload}"
+            assert original is not None, (
+                f"Database corrupted after injection attempt: {payload}"
+            )
 
     def test_token_sql_injection(self, temp_db, test_user):
         """Test SQL injection in token field is prevented."""
@@ -343,9 +343,9 @@ class TestDatabaseEncryption:
 
         # Sensitive data should not appear in plaintext
         assert b"encrypted" not in raw_content, "Username found in plaintext in DB file"
-        assert (
-            b"supersecret" not in raw_content
-        ), "Credential found in plaintext in DB file"
+        assert b"supersecret" not in raw_content, (
+            "Credential found in plaintext in DB file"
+        )
 
     def test_wrong_key_fails(self):
         """Test that database cannot be opened with wrong key."""
@@ -467,6 +467,6 @@ class TestBoundaryConditions:
         for payload, description in edge_case_payloads:
             # Should not crash — either reject or return None for nonexistent user
             result = repo.get_by_username(payload)
-            assert (
-                result is None
-            ), f"Unicode edge case matched unexpectedly ({description}): {repr(payload)}"
+            assert result is None, (
+                f"Unicode edge case matched unexpectedly ({description}): {repr(payload)}"
+            )

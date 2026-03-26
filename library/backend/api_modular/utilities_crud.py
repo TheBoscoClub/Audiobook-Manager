@@ -257,14 +257,12 @@ def init_crud_routes(db_path):
                 ids,
             )
             cursor.execute(
-                f"DELETE FROM supplements WHERE audiobook_id IN ({placeholders})",
-                ids,  # nosec B608
+                f"DELETE FROM supplements WHERE audiobook_id IN ({placeholders})",  # nosec B608
+                ids,
             )
 
             # Delete audiobooks
-            cursor.execute(
-                f"DELETE FROM audiobooks WHERE id IN ({placeholders})", ids
-            )  # nosec B608
+            cursor.execute(f"DELETE FROM audiobooks WHERE id IN ({placeholders})", ids)  # nosec B608
             deleted_count = cursor.rowcount
 
             # Commit database changes first

@@ -10,22 +10,20 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth.database import (
+from auth.database import (  # noqa: E402
     AuthDatabase,
     AuthDatabaseError,
     EncryptionKeyError,
     get_auth_db,
     hash_token,
-    generate_session_token,
     generate_verification_token,
-    _auth_db,
 )
 
 
@@ -44,6 +42,7 @@ def temp_db():
 def reset_singleton():
     """Reset the module-level singleton between tests."""
     import auth.database as db_mod
+
     db_mod._auth_db = None
     yield
     db_mod._auth_db = None
@@ -179,7 +178,9 @@ class TestCreateConnection:
             ]
 
             with patch("auth.database.sqlcipher.connect", return_value=mock_conn):
-                with pytest.raises(sqlcipher.DatabaseError, match="some other database error"):
+                with pytest.raises(
+                    sqlcipher.DatabaseError, match="some other database error"
+                ):
                     db._create_connection()
             mock_conn.close.assert_called_once()
 
@@ -195,8 +196,7 @@ class TestApplyMigrations:
             db = AuthDatabase(db_path=db_path, key_path=key_path, is_dev=True)
             db.initialize()
             # Remove the migrations directory
-            import shutil
-            migrations_dir = Path(db.__class__.__module__.replace(".", "/")).parent
+            _migrations_dir = Path(db.__class__.__module__.replace(".", "/")).parent
             # Patch the path to a nonexistent dir
             with patch("pathlib.Path.exists", return_value=False):
                 db._apply_migrations()  # Should return without error
@@ -265,7 +265,8 @@ class TestMigrateV4ToV5:
             # Mock the post-migration count to differ
             original_execute = conn.execute
 
-            call_count = [0]
+            _call_count = [0]
+
             def count_interceptor(sql, *args, **kwargs):
                 result = original_execute(sql, *args, **kwargs)
                 return result
@@ -333,30 +334,37 @@ class TestGetAuthDb:
     def test_get_auth_db_dev_mode(self):
         """Lines 529-530: Dev mode default path."""
         import auth.database as db_mod
+
         db_mod._auth_db = None
 
         with patch("auth.database.AuthDatabase") as MockDB:
             MockDB.return_value = MagicMock()
-            result = get_auth_db(is_dev=True)
+            get_auth_db(is_dev=True)
             call_args = MockDB.call_args
-            assert "auth-dev.db" in call_args.kwargs.get("db_path", call_args.args[0] if call_args.args else "")
+            assert "auth-dev.db" in call_args.kwargs.get(
+                "db_path", call_args.args[0] if call_args.args else ""
+            )
 
     def test_get_auth_db_production_mode(self):
         """Lines 531-533: Production mode uses AUDIOBOOKS_VAR_DIR."""
         import auth.database as db_mod
+
         db_mod._auth_db = None
 
         with patch("auth.database.AuthDatabase") as MockDB:
             MockDB.return_value = MagicMock()
             with patch.dict(os.environ, {"AUDIOBOOKS_VAR_DIR": "/custom/var"}):
-                result = get_auth_db(is_dev=False)
+                get_auth_db(is_dev=False)
                 call_args = MockDB.call_args
-                db_path = call_args.kwargs.get("db_path", call_args.args[0] if call_args.args else "")
+                db_path = call_args.kwargs.get(
+                    "db_path", call_args.args[0] if call_args.args else ""
+                )
                 assert "/custom/var/auth.db" in db_path
 
     def test_get_auth_db_singleton(self):
         """Lines 526, 535: Returns same instance on second call."""
         import auth.database as db_mod
+
         db_mod._auth_db = None
 
         with patch("auth.database.AuthDatabase") as MockDB:
@@ -370,6 +378,7 @@ class TestGetAuthDb:
     def test_get_auth_db_explicit_paths(self):
         """Line 535: Explicit db_path and key_path are passed through."""
         import auth.database as db_mod
+
         db_mod._auth_db = None
 
         with patch("auth.database.AuthDatabase") as MockDB:

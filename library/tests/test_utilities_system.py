@@ -595,9 +595,7 @@ class TestListProjects:
         (project_dir / "VERSION").write_text("3.0.0")
 
         with flask_app.test_client() as client:
-            response = client.get(
-                f"/api/system/projects?base_path={temp_dir}"
-            )
+            response = client.get(f"/api/system/projects?base_path={temp_dir}")
 
         data = response.get_json()
         assert response.status_code == 200

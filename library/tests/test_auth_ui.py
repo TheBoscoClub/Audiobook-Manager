@@ -47,17 +47,17 @@ class TestAuthHTMLPages:
     def test_login_page_has_viewport_meta(self):
         """Verify login page has mobile viewport meta tag."""
         login_content = (WEB_DIR / "login.html").read_text()
-        assert (
-            'name="viewport"' in login_content
-        ), "Login page should have viewport meta tag"
+        assert 'name="viewport"' in login_content, (
+            "Login page should have viewport meta tag"
+        )
         assert "width=device-width" in login_content, "Viewport should set device-width"
 
     def test_register_page_has_viewport_meta(self):
         """Verify register page has mobile viewport meta tag."""
         register_content = (WEB_DIR / "register.html").read_text()
-        assert (
-            'name="viewport"' in register_content
-        ), "Register page should have viewport meta tag"
+        assert 'name="viewport"' in register_content, (
+            "Register page should have viewport meta tag"
+        )
 
     def test_login_page_has_required_form_elements(self):
         """Verify login page has required form inputs."""
@@ -69,9 +69,9 @@ class TestAuthHTMLPages:
 
         # Check for TOTP code field
         assert 'id="code"' in login_content, "Login should have code input"
-        assert (
-            'inputmode="numeric"' in login_content
-        ), "Code field should have numeric inputmode"
+        assert 'inputmode="numeric"' in login_content, (
+            "Code field should have numeric inputmode"
+        )
 
         # Check for submit button
         assert 'type="submit"' in login_content, "Login should have submit button"
@@ -99,9 +99,9 @@ class TestAuthHTMLPages:
 
         assert 'id="qr-code"' in register_content, "Should have QR code img element"
         assert 'id="totp-secret"' in register_content, "Should have TOTP secret display"
-        assert (
-            'id="backup-codes-list"' in register_content
-        ), "Should have backup codes list"
+        assert 'id="backup-codes-list"' in register_content, (
+            "Should have backup codes list"
+        )
 
     def test_error_pages_have_return_links(self):
         """Verify error pages have navigation links."""
@@ -122,9 +122,9 @@ class TestHelpTooltipSystem:
 
         # Count help icons
         help_icon_count = login_content.count('class="help-icon"')
-        assert (
-            help_icon_count >= 3
-        ), f"Login should have at least 3 help icons, found {help_icon_count}"
+        assert help_icon_count >= 3, (
+            f"Login should have at least 3 help icons, found {help_icon_count}"
+        )
 
     def test_login_page_has_help_tooltips(self):
         """Verify login page has help tooltip content."""
@@ -132,9 +132,9 @@ class TestHelpTooltipSystem:
 
         # Check for tooltip containers
         assert 'class="help-tooltip"' in login_content, "Should have help tooltips"
-        assert (
-            'class="help-content"' in login_content
-        ), "Should have help content sections"
+        assert 'class="help-content"' in login_content, (
+            "Should have help content sections"
+        )
 
         # Check for specific help IDs
         assert 'id="username-help"' in login_content, "Should have username help"
@@ -145,30 +145,30 @@ class TestHelpTooltipSystem:
         register_content = (WEB_DIR / "register.html").read_text()
 
         help_icon_count = register_content.count('class="help-icon"')
-        assert (
-            help_icon_count >= 5
-        ), f"Register should have at least 5 help icons, found {help_icon_count}"
+        assert help_icon_count >= 5, (
+            f"Register should have at least 5 help icons, found {help_icon_count}"
+        )
 
     def test_register_page_has_authenticator_help(self):
         """Verify register page explains authenticator apps."""
         register_content = (WEB_DIR / "register.html").read_text()
 
         # Check for authenticator explanation
-        assert (
-            'id="authenticator-help"' in register_content
-        ), "Should have authenticator help"
-        assert (
-            "Google Authenticator" in register_content
-        ), "Should mention Google Authenticator"
+        assert 'id="authenticator-help"' in register_content, (
+            "Should have authenticator help"
+        )
+        assert "Google Authenticator" in register_content, (
+            "Should mention Google Authenticator"
+        )
         assert "2FAS" in register_content, "Should mention 2FAS"
 
     def test_register_page_has_backup_codes_help(self):
         """Verify register page explains backup codes."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert (
-            'id="backup-codes-help"' in register_content
-        ), "Should have backup codes help"
+        assert 'id="backup-codes-help"' in register_content, (
+            "Should have backup codes help"
+        )
 
     def test_help_tooltips_have_layperson_language(self):
         """Verify help text uses simple, accessible language."""
@@ -177,9 +177,9 @@ class TestHelpTooltipSystem:
 
         # Check for simple explanatory phrases
         assert "What is" in login_content, "Should use 'What is' explanations"
-        assert (
-            "How do I" in register_content or "How to" in register_content
-        ), "Should have how-to guidance"
+        assert "How do I" in register_content or "How to" in register_content, (
+            "Should have how-to guidance"
+        )
 
         # Check login help uses simple language
         assert "nickname" in login_content.lower(), "Should explain username simply"
@@ -195,12 +195,12 @@ class TestHelpTooltipSystem:
         login_content = (WEB_DIR / "login.html").read_text()
 
         # Check for data-help attributes linking icons to tooltips
-        assert (
-            'data-help="username-help"' in login_content
-        ), "Username icon should link to tooltip"
-        assert (
-            'data-help="code-help"' in login_content
-        ), "Code icon should link to tooltip"
+        assert 'data-help="username-help"' in login_content, (
+            "Username icon should link to tooltip"
+        )
+        assert 'data-help="code-help"' in login_content, (
+            "Code icon should link to tooltip"
+        )
 
 
 class TestAuthCSS:
@@ -260,12 +260,12 @@ class TestAuthCSS:
         login_content = (WEB_DIR / "login.html").read_text()
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert (
-            "css/help-tooltips.css" in login_content
-        ), "Login should include help-tooltips.css"
-        assert (
-            "css/help-tooltips.css" in register_content
-        ), "Register should include help-tooltips.css"
+        assert "css/help-tooltips.css" in login_content, (
+            "Login should include help-tooltips.css"
+        )
+        assert "css/help-tooltips.css" in register_content, (
+            "Register should include help-tooltips.css"
+        )
 
 
 class TestAuthJavaScript:
@@ -282,9 +282,9 @@ class TestAuthJavaScript:
 
         # Check for auth-related properties
         assert "this.user" in library_js_content, "Should track user state"
-        assert (
-            "this.authEnabled" in library_js_content
-        ), "Should track auth enabled state"
+        assert "this.authEnabled" in library_js_content, (
+            "Should track auth enabled state"
+        )
 
     def test_library_js_has_check_auth_function(self):
         """Verify library.js has session checking function."""
@@ -297,18 +297,18 @@ class TestAuthJavaScript:
         """Verify library.js has logout functionality."""
         library_js_content = (JS_DIR / "library.js").read_text()
 
-        assert (
-            "logout" in library_js_content.lower()
-        ), "Should have logout functionality"
+        assert "logout" in library_js_content.lower(), (
+            "Should have logout functionality"
+        )
         assert "/auth/logout" in library_js_content, "Should call logout endpoint"
 
     def test_library_js_has_download_function(self):
         """Verify library.js has download functionality."""
         library_js_content = (JS_DIR / "library.js").read_text()
 
-        assert (
-            "downloadAudiobook" in library_js_content
-        ), "Should have download function"
+        assert "downloadAudiobook" in library_js_content, (
+            "Should have download function"
+        )
         assert "/download/" in library_js_content, "Should call download endpoint"
 
     def test_library_js_has_user_ui_update(self):
@@ -339,9 +339,9 @@ class TestAuthJavaScript:
 
         # Check for basic validation
         assert "required" in login_content, "Form inputs should be required"
-        assert (
-            "pattern" in login_content or "maxlength" in login_content
-        ), "Should have input constraints"
+        assert "pattern" in login_content or "maxlength" in login_content, (
+            "Should have input constraints"
+        )
 
     def test_register_page_has_step_navigation(self):
         """Verify register page has step navigation logic."""
@@ -364,21 +364,21 @@ class TestIndexPageAuthIntegration:
         shell_content = (WEB_DIR / "shell.html").read_text()
 
         assert 'id="my-account-btn"' in shell_content, "Should have account button"
-        assert (
-            'id="account-username"' in shell_content
-        ), "Should have account username display"
-        assert (
-            'id="account-initial"' in shell_content
-        ), "Should have account avatar initial"
+        assert 'id="account-username"' in shell_content, (
+            "Should have account username display"
+        )
+        assert 'id="account-initial"' in shell_content, (
+            "Should have account avatar initial"
+        )
 
     def test_index_page_has_login_link(self):
         """Verify index.html has login link for unauthenticated users."""
         index_content = (WEB_DIR / "index.html").read_text()
 
         assert 'id="login-link"' in index_content, "Should have login link"
-        assert (
-            'href="login.html"' in index_content
-        ), "Login link should point to login.html"
+        assert 'href="login.html"' in index_content, (
+            "Login link should point to login.html"
+        )
 
     def test_shell_page_has_sign_out(self):
         """Verify shell.html has sign out button in account modal."""
@@ -394,9 +394,9 @@ class TestDownloadButtonIntegration:
         """Verify library.css has download button styles."""
         library_css_content = (CSS_DIR / "library.css").read_text()
 
-        assert (
-            ".btn-download" in library_css_content
-        ), "Should have download button styles"
+        assert ".btn-download" in library_css_content, (
+            "Should have download button styles"
+        )
 
     def test_library_css_download_button_mobile_styles(self):
         """Verify download button has mobile responsive styles."""
@@ -404,9 +404,9 @@ class TestDownloadButtonIntegration:
 
         # Check that download button is included in mobile styles
         mobile_section = library_css_content[library_css_content.find("@media") :]
-        assert (
-            ".btn-download" in mobile_section
-        ), "Download button should have mobile styles"
+        assert ".btn-download" in mobile_section, (
+            "Download button should have mobile styles"
+        )
 
 
 class TestVerifyPage:
@@ -420,18 +420,18 @@ class TestVerifyPage:
     def test_verify_page_has_viewport_meta(self):
         """Verify verify page has mobile viewport meta tag."""
         verify_content = (WEB_DIR / "verify.html").read_text()
-        assert (
-            'name="viewport"' in verify_content
-        ), "Verify page should have viewport meta tag"
+        assert 'name="viewport"' in verify_content, (
+            "Verify page should have viewport meta tag"
+        )
 
     def test_verify_page_has_token_form(self):
         """Verify page has manual token entry form."""
         verify_content = (WEB_DIR / "verify.html").read_text()
 
         assert 'id="manual-form"' in verify_content, "Should have manual entry form"
-        assert (
-            'id="manual-token"' in verify_content
-        ), "Should have manual token input field"
+        assert 'id="manual-token"' in verify_content, (
+            "Should have manual token input field"
+        )
         assert 'type="submit"' in verify_content, "Should have submit button"
 
     def test_verify_page_has_state_containers(self):
@@ -448,17 +448,17 @@ class TestVerifyPage:
         verify_content = (WEB_DIR / "verify.html").read_text()
 
         assert "URLSearchParams" in verify_content, "Should parse URL parameters"
-        assert (
-            ".get('token')" in verify_content or 'get("token")' in verify_content
-        ), "Should get token param"
+        assert ".get('token')" in verify_content or 'get("token")' in verify_content, (
+            "Should get token param"
+        )
 
     def test_verify_page_calls_correct_endpoint(self):
         """Verify page calls magic-link/verify endpoint."""
         verify_content = (WEB_DIR / "verify.html").read_text()
 
-        assert (
-            "/auth/magic-link/verify" in verify_content
-        ), "Should call verify endpoint"
+        assert "/auth/magic-link/verify" in verify_content, (
+            "Should call verify endpoint"
+        )
 
     def test_verify_page_includes_auth_css(self):
         """Verify page includes auth.css."""
@@ -471,9 +471,9 @@ class TestVerifyPage:
         verify_content = (WEB_DIR / "verify.html").read_text()
 
         assert 'class="auth-page"' in verify_content, "Should use auth-page class"
-        assert (
-            'class="auth-container"' in verify_content
-        ), "Should use auth-container class"
+        assert 'class="auth-container"' in verify_content, (
+            "Should use auth-container class"
+        )
 
 
 class TestMagicLinkOption:
@@ -491,9 +491,9 @@ class TestMagicLinkOption:
         login_content = (WEB_DIR / "login.html").read_text()
 
         assert 'id="magic-link-form"' in login_content, "Should have magic link form"
-        assert (
-            'id="magic-username"' in login_content
-        ), "Should have magic link username input"
+        assert 'id="magic-username"' in login_content, (
+            "Should have magic link username input"
+        )
 
     def test_magic_link_form_calls_correct_endpoint(self):
         """Verify magic link form calls correct endpoint."""
@@ -527,9 +527,9 @@ class TestAuthMethodSelection:
         """Verify register page has auth method selection step."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert (
-            'id="step-auth-method"' in register_content
-        ), "Should have auth method step"
+        assert 'id="step-auth-method"' in register_content, (
+            "Should have auth method step"
+        )
 
     def test_register_page_has_totp_option(self):
         """Verify register page has TOTP authenticator option."""
@@ -544,14 +544,14 @@ class TestAuthMethodSelection:
         """Verify register page shows passkey option as enabled."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert (
-            "Passkey" in register_content or "passkey" in register_content
-        ), "Should mention passkey option"
+        assert "Passkey" in register_content or "passkey" in register_content, (
+            "Should mention passkey option"
+        )
         # Passkey is now enabled with WebAuthn support
         assert "webauthn.js" in register_content, "Should include WebAuthn JavaScript"
-        assert (
-            "WebAuthn.register" in register_content
-        ), "Should have WebAuthn registration handler"
+        assert "WebAuthn.register" in register_content, (
+            "Should have WebAuthn registration handler"
+        )
 
     def test_register_page_auth_method_selection_javascript(self):
         """Verify register page handles auth method selection."""
@@ -566,9 +566,9 @@ class TestAuthMethodSelection:
         """Verify register page tracks pending verification between steps."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert (
-            "pendingVerification" in register_content
-        ), "Should track pending verification state"
+        assert "pendingVerification" in register_content, (
+            "Should track pending verification state"
+        )
 
 
 class TestSecurityAttributes:
@@ -578,20 +578,20 @@ class TestSecurityAttributes:
         """Verify login form has proper autocomplete hints."""
         login_content = (WEB_DIR / "login.html").read_text()
 
-        assert (
-            'autocomplete="username"' in login_content
-        ), "Username should have autocomplete"
-        assert (
-            'autocomplete="one-time-code"' in login_content
-        ), "TOTP code should have one-time-code autocomplete"
+        assert 'autocomplete="username"' in login_content, (
+            "Username should have autocomplete"
+        )
+        assert 'autocomplete="one-time-code"' in login_content, (
+            "TOTP code should have one-time-code autocomplete"
+        )
 
     def test_register_page_disables_autocomplete_for_token(self):
         """Verify sensitive fields disable autocomplete."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert (
-            'autocomplete="off"' in register_content
-        ), "Verification token should disable autocomplete"
+        assert 'autocomplete="off"' in register_content, (
+            "Verification token should disable autocomplete"
+        )
 
     def test_credentials_use_include(self):
         """Verify fetch calls include credentials for cookies."""

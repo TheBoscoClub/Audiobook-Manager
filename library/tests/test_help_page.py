@@ -22,16 +22,16 @@ class TestHelpPageStructure:
     def test_has_doctype(self):
         """help.html must start with <!DOCTYPE html>."""
         content = (WEB_DIR / "help.html").read_text()
-        assert content.strip().startswith(
-            "<!DOCTYPE html>"
-        ), "help.html should start with DOCTYPE"
+        assert content.strip().startswith("<!DOCTYPE html>"), (
+            "help.html should start with DOCTYPE"
+        )
 
     def test_includes_theme_css(self):
         """help.html must reference the Art Deco theme stylesheet."""
         content = (WEB_DIR / "help.html").read_text()
-        assert (
-            "theme-art-deco.css" in content
-        ), "help.html should include theme-art-deco.css"
+        assert "theme-art-deco.css" in content, (
+            "help.html should include theme-art-deco.css"
+        )
 
     def test_includes_help_css(self):
         """help.html must reference help.css."""
@@ -60,9 +60,9 @@ class TestHelpPageStructure:
     def test_start_tutorial_link(self):
         """help.html must contain a link to start the tutorial."""
         content = (WEB_DIR / "help.html").read_text()
-        assert (
-            "index.html?tutorial=1" in content
-        ), "help.html should link to index.html?tutorial=1"
+        assert "index.html?tutorial=1" in content, (
+            "help.html should link to index.html?tutorial=1"
+        )
 
     def test_anchor_links_match_ids(self):
         """Every href='#section-*' in the TOC must have a matching id in the page."""
@@ -72,9 +72,9 @@ class TestHelpPageStructure:
         # Find all anchor hrefs like href="#some-id"
         anchors = re.findall(r'href="#([a-z][\w-]*)"', content)
         for anchor in anchors:
-            assert (
-                f'id="{anchor}"' in content
-            ), f"Anchor href='#{anchor}' has no matching id='{anchor}'"
+            assert f'id="{anchor}"' in content, (
+                f"Anchor href='#{anchor}' has no matching id='{anchor}'"
+            )
 
     def test_accessibility_lang_attr(self):
         """help.html must have lang='en' on the html element."""
@@ -99,9 +99,9 @@ class TestHelpCSS:
         """help.css must reference Art Deco theme CSS variables."""
         content = (CSS_DIR / "help.css").read_text()
         assert "--gold" in content, "help.css should use --gold variable"
-        assert (
-            "--deco-charcoal" in content
-        ), "help.css should use --deco-charcoal variable"
+        assert "--deco-charcoal" in content, (
+            "help.css should use --deco-charcoal variable"
+        )
 
 
 class TestHelpNewFeatures:

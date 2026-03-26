@@ -9,19 +9,16 @@ extract_cover_art ffmpeg success but no file (line 443), standalone cover fallba
 _find_standalone_cover (line 509), and build_genres_list fallback (line 528).
 """
 
-import hashlib
 import json
-import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from scanner.metadata_utils import (
+from scanner.metadata_utils import (  # noqa: E402
     categorize_genre,
     is_content_type,
     extract_asin_from_chapters_json,
@@ -30,7 +27,6 @@ from scanner.metadata_utils import (
     _find_standalone_cover,
     build_genres_list,
     determine_literary_era,
-    GENRE_DISPLAY_NAMES,
 )
 
 
@@ -80,13 +76,7 @@ class TestExtractAsinFromChaptersJson:
         audio_file = tmp_path / "book.opus"
         audio_file.touch()
 
-        chapters = {
-            "content_metadata": {
-                "content_reference": {
-                    "asin": "B01ABCDEFG"
-                }
-            }
-        }
+        chapters = {"content_metadata": {"content_reference": {"asin": "B01ABCDEFG"}}}
         chapters_path = tmp_path / "chapters.json"
         chapters_path.write_text(json.dumps(chapters))
 
@@ -293,10 +283,18 @@ class TestExtractCoverArtEdgeCases:
 
         # Simpler approach: patch at module level
         mock_resolve = MagicMock(return_value="resolved.jpg")
-        with patch("scanner.metadata_utils.subprocess.run", return_value=MagicMock(returncode=1)):
-            with patch("scanner.metadata_utils._find_standalone_cover", return_value=None):
-                with patch.dict("sys.modules", {"utils.cover_resolver": MagicMock(resolve_cover=mock_resolve)}):
-                    result = extract_cover_art(test_file, cover_dir, metadata=metadata)
+        with patch(
+            "scanner.metadata_utils.subprocess.run",
+            return_value=MagicMock(returncode=1),
+        ):
+            with patch(
+                "scanner.metadata_utils._find_standalone_cover", return_value=None
+            ):
+                with patch.dict(
+                    "sys.modules",
+                    {"utils.cover_resolver": MagicMock(resolve_cover=mock_resolve)},
+                ):
+                    extract_cover_art(test_file, cover_dir, metadata=metadata)
                     # The import happens inside the function; with mocked module
                     # it should try to use it
 
@@ -345,7 +343,9 @@ class TestExtractCoverArtEdgeCases:
         cover_dir = tmp_path / "covers"
         cover_dir.mkdir()
 
-        with patch("scanner.metadata_utils.hashlib.md5", side_effect=Exception("hash error")):
+        with patch(
+            "scanner.metadata_utils.hashlib.md5", side_effect=Exception("hash error")
+        ):
             result = extract_cover_art(test_file, cover_dir)
             captured = capsys.readouterr()
             assert "Error extracting cover" in captured.err
@@ -421,17 +421,23 @@ class TestBuildGenresList:
 
     def test_uncategorized_returns_empty(self):
         """Line 519-520: Uncategorized genre returns empty list."""
-        result = build_genres_list({"main": "uncategorized", "sub": "general", "original": "Audiobook"})
+        result = build_genres_list(
+            {"main": "uncategorized", "sub": "general", "original": "Audiobook"}
+        )
         assert result == []
 
     def test_known_subcat_returns_display_name(self):
         """Lines 523-525: Known subcategory returns display name."""
-        result = build_genres_list({"main": "fiction", "sub": "science fiction", "original": "Sci-Fi"})
+        result = build_genres_list(
+            {"main": "fiction", "sub": "science fiction", "original": "Sci-Fi"}
+        )
         assert result == ["Science Fiction"]
 
     def test_unknown_subcat_fallback_title_case(self):
         """Line 528: Unknown subcategory uses title-cased name."""
-        result = build_genres_list({"main": "fiction", "sub": "weird tales", "original": "Weird Tales"})
+        result = build_genres_list(
+            {"main": "fiction", "sub": "weird tales", "original": "Weird Tales"}
+        )
         assert result == ["Weird Tales"]
 
 

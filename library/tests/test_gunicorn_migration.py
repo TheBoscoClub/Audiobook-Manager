@@ -18,9 +18,9 @@ def test_monkey_patch_is_first():
             continue
         if in_docstring or not stripped or stripped.startswith("#"):
             continue
-        assert (
-            "gevent" in stripped or "monkey" in stripped
-        ), f"First executable line must be gevent monkey patch, got: {stripped}"
+        assert "gevent" in stripped or "monkey" in stripped, (
+            f"First executable line must be gevent monkey patch, got: {stripped}"
+        )
         break
 
 
@@ -52,9 +52,9 @@ def test_api_server_has_module_level_app():
     """Verify api_server.py exposes module-level app for Gunicorn."""
     with open(_PROJECT_ROOT / "library/backend/api_server.py") as f:
         content = f.read()
-    assert (
-        "app = _create_configured_app()" in content
-    ), "api_server.py must have module-level app for gunicorn api_server:app"
+    assert "app = _create_configured_app()" in content, (
+        "api_server.py must have module-level app for gunicorn api_server:app"
+    )
 
 
 def test_api_modular_no_run_server():

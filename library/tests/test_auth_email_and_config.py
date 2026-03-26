@@ -11,8 +11,6 @@ import os
 import smtplib
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # 1. localhost_only() decorator (lines 234-252)
@@ -167,9 +165,7 @@ class TestFirstUserBootstrap:
 
         with (
             patch.object(auth_mod, "UserRepository") as MockUserRepo,
-            patch.object(
-                auth_mod, "AccessRequestRepository"
-            ) as MockReqRepo,
+            patch.object(auth_mod, "AccessRequestRepository") as MockReqRepo,
             patch.object(
                 auth_mod,
                 "setup_totp",
@@ -189,9 +185,7 @@ class TestFirstUserBootstrap:
                 "base32_to_secret",
                 return_value=b"decoded_secret",
             ),
-            patch.object(
-                auth_mod, "BackupCodeRepository"
-            ) as MockBackupRepo,
+            patch.object(auth_mod, "BackupCodeRepository") as MockBackupRepo,
             patch.object(auth_mod, "User") as MockUser,
         ):
             mock_user_repo = MockUserRepo.return_value
@@ -243,9 +237,7 @@ class TestFirstUserBootstrap:
 
         with (
             patch.object(auth_mod, "UserRepository") as MockUserRepo,
-            patch.object(
-                auth_mod, "AccessRequestRepository"
-            ) as MockReqRepo,
+            patch.object(auth_mod, "AccessRequestRepository") as MockReqRepo,
             patch.object(
                 auth_mod,
                 "setup_totp",
@@ -261,9 +253,7 @@ class TestFirstUserBootstrap:
                 "base32_to_secret",
                 return_value=b"decoded",
             ),
-            patch.object(
-                auth_mod, "BackupCodeRepository"
-            ) as MockBackupRepo,
+            patch.object(auth_mod, "BackupCodeRepository") as MockBackupRepo,
             patch.object(auth_mod, "User") as MockUser,
         ):
             mock_user_repo = MockUserRepo.return_value
@@ -519,9 +509,7 @@ class TestSendApprovalEmail:
         """Approval email sends successfully and returns True."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_approval_email
 
                 result = _send_approval_email("user@example.com", "alice")
@@ -536,9 +524,7 @@ class TestSendApprovalEmail:
         """Approval email body should contain the username."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_approval_email
 
                 _send_approval_email("user@example.com", "bob")
@@ -552,9 +538,7 @@ class TestSendApprovalEmail:
         """Approval email should contain the claim URL."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_approval_email
 
                 _send_approval_email("user@example.com", "carol")
@@ -569,9 +553,7 @@ class TestSendApprovalEmail:
         """Approval email should be multipart with HTML and plain text."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_approval_email
 
                 _send_approval_email("user@example.com", "dave")
@@ -586,9 +568,7 @@ class TestSendApprovalEmail:
         """Approval email should contain app store links for authenticators."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_approval_email
 
                 _send_approval_email("user@example.com", "eve")
@@ -604,10 +584,10 @@ class TestSendApprovalEmail:
         """SMTP failure should return False and log the error."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            mock_server.sendmail.side_effect = smtplib.SMTPException("Connection refused")
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            mock_server.sendmail.side_effect = smtplib.SMTPException(
+                "Connection refused"
+            )
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_approval_email
 
                 result = _send_approval_email("user@example.com", "frank")
@@ -645,9 +625,7 @@ class TestSendDenialEmail:
         """Denial email with a specific reason."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_denial_email
 
                 result = _send_denial_email(
@@ -663,9 +641,7 @@ class TestSendDenialEmail:
         """Denial email without a reason uses default text."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_denial_email
 
                 result = _send_denial_email("user@example.com", "bob")
@@ -679,9 +655,7 @@ class TestSendDenialEmail:
         """Denial email should have both HTML and plain text parts."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_denial_email
 
                 _send_denial_email("user@example.com", "carol")
@@ -695,9 +669,7 @@ class TestSendDenialEmail:
         """Denial email should contain the username."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_denial_email
 
                 _send_denial_email("user@example.com", "uniquename123")
@@ -711,9 +683,7 @@ class TestSendDenialEmail:
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
             mock_server.sendmail.side_effect = OSError("Network unreachable")
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_denial_email
 
                 result = _send_denial_email("user@example.com", "dave")
@@ -734,9 +704,7 @@ class TestSendAdminAlert:
         """Admin alert sends successfully."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_admin_alert
 
                 result = _send_admin_alert("alice", "Hello, I need help")
@@ -749,9 +717,7 @@ class TestSendAdminAlert:
         """Alert body should contain the message preview."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_admin_alert
 
                 _send_admin_alert("bob", "My specific message")
@@ -764,9 +730,7 @@ class TestSendAdminAlert:
         """Messages >= 100 chars should have '...' appended."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_admin_alert
 
                 long_msg = "A" * 100
@@ -780,9 +744,7 @@ class TestSendAdminAlert:
         """Messages < 100 chars should NOT have '...' in the preview line."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_admin_alert
 
                 short_msg = "Short"
@@ -809,9 +771,7 @@ class TestSendAdminAlert:
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
             mock_server.sendmail.side_effect = ConnectionRefusedError()
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_admin_alert
 
                 result = _send_admin_alert("frank", "test")
@@ -847,9 +807,7 @@ class TestSendReplyEmail:
         """Reply email sends successfully."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_reply_email
 
                 result = _send_reply_email(
@@ -864,9 +822,7 @@ class TestSendReplyEmail:
         """Reply email body should contain the reply text."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_reply_email
 
                 _send_reply_email(
@@ -881,9 +837,7 @@ class TestSendReplyEmail:
         """Reply email should greet the user by name."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_reply_email
 
                 _send_reply_email("user@example.com", "carol", "test reply")
@@ -897,9 +851,7 @@ class TestSendReplyEmail:
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
             mock_server.sendmail.side_effect = smtplib.SMTPException("Auth failed")
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_reply_email
 
                 result = _send_reply_email("user@example.com", "dave", "test")
@@ -920,9 +872,7 @@ class TestSendInvitationEmail:
         """Invitation email sends successfully."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
                 result = _send_invitation_email(
@@ -936,14 +886,10 @@ class TestSendInvitationEmail:
         """Invitation email should contain the claim token."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
-                _send_invitation_email(
-                    "user@example.com", "bob", "WXYZ-1234-ABCD-5678"
-                )
+                _send_invitation_email("user@example.com", "bob", "WXYZ-1234-ABCD-5678")
                 msg_body = mock_server.sendmail.call_args[0][2]
                 assert "WXYZ-1234-ABCD-5678" in msg_body
         finally:
@@ -953,9 +899,7 @@ class TestSendInvitationEmail:
         """Invitation email should contain the claim URL."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
                 _send_invitation_email(
@@ -971,9 +915,7 @@ class TestSendInvitationEmail:
         """Invitation email should have both HTML and text parts."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
                 _send_invitation_email(
@@ -990,9 +932,7 @@ class TestSendInvitationEmail:
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
             mock_server.sendmail.side_effect = TimeoutError("Connection timed out")
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
                 result = _send_invitation_email(
@@ -1034,9 +974,7 @@ class TestSendActivationEmail:
         """Activation email sends successfully."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_activation_email
 
                 result = _send_activation_email(
@@ -1050,9 +988,7 @@ class TestSendActivationEmail:
         """Activation email should contain the activation URL."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_activation_email
 
                 _send_activation_email("user@example.com", "bob", "mytoken456")
@@ -1067,9 +1003,7 @@ class TestSendActivationEmail:
         """Activation email should have both HTML and text parts."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_activation_email
 
                 _send_activation_email("user@example.com", "carol", "tok789")
@@ -1083,9 +1017,7 @@ class TestSendActivationEmail:
         """Activation email should contain the username."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_activation_email
 
                 _send_activation_email("user@example.com", "uniqueuser99", "tok")
@@ -1101,14 +1033,10 @@ class TestSendActivationEmail:
             mock_server.sendmail.side_effect = smtplib.SMTPAuthenticationError(
                 535, b"Bad credentials"
             )
-            with auth_app.test_request_context(), patch.dict(
-                os.environ, _email_env()
-            ):
+            with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_activation_email
 
-                result = _send_activation_email(
-                    "user@example.com", "dave", "tok"
-                )
+                result = _send_activation_email("user@example.com", "dave", "tok")
                 assert result is False
         finally:
             patcher.stop()
@@ -1123,9 +1051,7 @@ class TestSendActivationEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, env):
                 from backend.api_modular.auth import _send_activation_email
 
-                result = _send_activation_email(
-                    "user@example.com", "eve", "tok"
-                )
+                result = _send_activation_email("user@example.com", "eve", "tok")
                 assert result is True
                 mock_server.starttls.assert_not_called()
                 mock_server.login.assert_not_called()

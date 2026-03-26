@@ -24,6 +24,7 @@ from backend.api_modular.maintenance_tasks.base import (
 # Helper: create a minimal SQLite DB for task tests
 # ============================================================
 
+
 def _create_test_db(db_path: Path) -> Path:
     """Create a minimal audiobook database at db_path."""
     conn = sqlite3.connect(str(db_path))
@@ -155,7 +156,13 @@ class TestRegistryAutoDiscovery:
     def test_registry_has_known_tasks(self):
         from backend.api_modular.maintenance_tasks import registry
 
-        known = ["db_vacuum", "db_backup", "db_integrity", "hash_verify", "library_scan"]
+        known = [
+            "db_vacuum",
+            "db_backup",
+            "db_integrity",
+            "hash_verify",
+            "library_scan",
+        ]
         for name in known:
             assert registry.get(name) is not None, f"Task '{name}' not registered"
 
@@ -529,7 +536,10 @@ class TestHashVerifyTask:
         conn = sqlite3.connect(str(db))
         conn.execute(
             "INSERT INTO audiobooks (id, file_path, sha256_hash) VALUES (1, ?, ?)",
-            (str(f1), "0000000000000000000000000000000000000000000000000000000000000000"),
+            (
+                str(f1),
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            ),
         )
         conn.commit()
         conn.close()
@@ -642,7 +652,9 @@ class TestLibraryScanTask:
     def test_execute_success(self, mock_run):
         from backend.api_modular.maintenance_tasks.library_scan import LibraryScanTask
 
-        mock_run.return_value = MagicMock(returncode=0, stdout='{"status":"ok"}', stderr="")
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout='{"status":"ok"}', stderr=""
+        )
         task = LibraryScanTask()
         cb = MagicMock()
         result = task.execute({}, progress_callback=cb)

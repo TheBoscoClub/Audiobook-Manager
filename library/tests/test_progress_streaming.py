@@ -241,9 +241,9 @@ class TestProgressTrackerIntegration:
 
         # Verify monotonically increasing
         for i in range(1, len(updates)):
-            assert (
-                updates[i] >= updates[i - 1]
-            ), f"Progress decreased: {updates[i - 1]} -> {updates[i]}"
+            assert updates[i] >= updates[i - 1], (
+                f"Progress decreased: {updates[i - 1]} -> {updates[i]}"
+            )
 
     def test_skip_redundant_updates(self):
         """Test that redundant progress updates are skipped."""
@@ -282,9 +282,7 @@ class TestOutputParsing:
 ✓ Downloaded: Book Five
 Download complete: 4 succeeded, 1 failed
 """
-        _item_pattern = re.compile(
-            r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)"
-        )  # noqa: F841
+        _item_pattern = re.compile(r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)")  # noqa: F841
         success_pattern = re.compile(r"[✓✔]\s*Downloaded.*:\s*(.+)")
         fail_pattern = re.compile(r"[✗✘]\s*Failed.*:\s*(.+)")
         complete_pattern = re.compile(
@@ -517,6 +515,6 @@ class TestModuleImports:
         for module in [audible, maintenance, hashing, library]:
             source = inspect.getsource(module)
             # Should have Popen (streaming)
-            assert (
-                "subprocess.Popen" in source
-            ), f"{module.__name__} missing subprocess.Popen"
+            assert "subprocess.Popen" in source, (
+                f"{module.__name__} missing subprocess.Popen"
+            )

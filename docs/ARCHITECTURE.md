@@ -227,7 +227,8 @@ def some_admin_endpoint():
 
 The HTTPS reverse proxy (`proxy_server.py`) terminates SSL and forwards requests to the Flask API.
 
-**Shell + iframe Architecture** (v7.1.3+): The web UI uses a shell + iframe design. `shell.html` is the persistent outer frame containing the audio player bar, navigation, and search. `index.html` (the library) loads inside an iframe. The proxy serves shell content at the clean URL `/` — navigating to `/shell.html` returns a 301 redirect to `/`. Query strings (e.g., `/?autoplay=...`) are preserved using `urlparse` to separate path from parameters. Auth pages (`login.html`, `verify.html`, etc.) navigate to `/` rather than `shell.html`.
+**Shell + iframe Architecture** (v7.1.3+): The web UI uses a shell + iframe design. `shell.html` is the persistent outer frame containing the audio player bar, navigation, and search. `index.html` (the library) loads inside an iframe. The proxy serves shell content at the clean URL `/` -- navigating to `/shell.html` returns a 301 redirect to `/`. Query strings (e.g., `/?autoplay=...`) are preserved using `urlparse` to separate path from parameters.
+Auth pages (`login.html`, `verify.html`, etc.) navigate to `/` rather than `shell.html`.
 
 **Mobile Viewport Handling** (v7.1.3+): The shell uses the `window.visualViewport` API to dynamically calculate actual visible height, compensating for mobile browser chrome (address bar, toolbar). The measured height is communicated to the iframe via `postMessage` and applied as the CSS custom property `--app-height`, preventing the player bar from being obscured by mobile browser UI.
 
@@ -987,7 +988,7 @@ Automated and manual maintenance with real-time user notification.
 
 ### Architecture Overview
 
-```
+```text
 Scheduler Daemon ──writes──> maintenance_notifications table
                                        │
                           (5s poll by gevent greenlet)

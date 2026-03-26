@@ -359,9 +359,7 @@ class TestCreateMessageWebSocketBroadcast:
         mock_cm = MagicMock()
         mock_cm.broadcast.side_effect = Exception("ws error")
 
-        with patch(
-            "backend.api_modular.websocket.connection_manager", mock_cm
-        ):
+        with patch("backend.api_modular.websocket.connection_manager", mock_cm):
             resp = mclient.post(
                 "/api/admin/maintenance/messages",
                 json={"message": "Broadcast fail test"},
@@ -384,9 +382,7 @@ class TestDismissMessageWebSocketBroadcast:
         mock_cm = MagicMock()
         mock_cm.broadcast.side_effect = Exception("ws error")
 
-        with patch(
-            "backend.api_modular.websocket.connection_manager", mock_cm
-        ):
+        with patch("backend.api_modular.websocket.connection_manager", mock_cm):
             resp = mclient.delete(f"/api/admin/maintenance/messages/{mid}")
 
         assert resp.status_code == 200

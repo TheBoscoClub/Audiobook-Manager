@@ -67,9 +67,7 @@ def get_stats() -> Response:
     cursor = conn.cursor()
 
     # Total audiobooks (audiobooks only)
-    cursor.execute(
-        f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
-    )  # nosec B608
+    cursor.execute(f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}")  # nosec B608
     total_books = cursor.fetchone()["total"]
 
     # Total hours (audiobooks only)
