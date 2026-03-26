@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [7.4.2] - 2026-03-25
+
+### Added
+
 - **FIDO2 test flag** (`--fido2`): New pytest flag in `conftest.py` controlling hardware vs. software FIDO2 authenticator. Without `--fido2`, FIDO2 tests run automatically with a software authenticator (sets `FIDO2_SOFTWARE=1`). With `--fido2`, tests require a physical hardware key (e.g., YubiKey). The `--hardware` flag now explicitly excludes FIDO2 tests. Added `hardware_touch_attempt()` helper for hardware key touch retries (up to 3 attempts within 90 seconds).
+- **Account button on index.html**: Added My Account button and modal directly to `index.html` so users can manage their account regardless of whether they access the page through the shell wrapper or directly. Account modal CSS extracted from `shell.css` into shared `account.css`.
 
 ### Changed
 
@@ -17,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Upgrade filepicker "No projects found"**: The project browser in Back Office → System → Upgrade was showing "No projects found" because the API only searched hardcoded paths (`~/projects`, `/opt/projects`) and ignored the directory typed in the input field. Backend now accepts `base_path` query parameter; frontend passes the input value. Also broadened matching to include any directory with a `VERSION` file.
 - **upgrade.sh author migration PYTHONPATH**: Fixed `PYTHONPATH` passed to `migrate_to_normalized_authors` — changed from `$target` to `$target/library` and module path from `library.backend.migrations.migrate_to_normalized_authors` to `backend.migrations.migrate_to_normalized_authors`, matching the actual package layout inside the install directory.
 - **CI: `test_websocket.py` import error**: Fixed broken import `from library.backend.api_modular.websocket import ConnectionManager` → `from backend.api_modular.websocket import ConnectionManager`, resolving 95-commit CI failure.
 - **Security dependency updates** (`requirements.txt`): Added `qrcode[pil]>=8.2` (required for TOTP QR code generation), pinned `requests>=2.32.3` (CVE-2024-47081 path traversal fix). Added corresponding path traversal guard in `utilities_system.py`.
