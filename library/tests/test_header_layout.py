@@ -82,13 +82,13 @@ class TestHeaderStructure:
         """Back Office link must be inside the right nav section."""
         content = (WEB_DIR / "index.html").read_text()
         right_start = content.index("header-nav-right")
-        right_section = content[right_start : right_start + 1200]
+        right_section = content[right_start : right_start + 1600]
         assert (
             "admin-backoffice-link" in right_section
         ), "Back Office link should be inside header-nav-right"
 
     def test_account_button_in_shell_header(self):
-        """Account button must be in shell.html header (moved from index.html in v7.4.0)."""
+        """Account button must be in shell.html header."""
         content = (WEB_DIR / "shell.html").read_text()
         header_start = content.index("shell-header")
         header_section = content[header_start : header_start + 600]
@@ -96,11 +96,20 @@ class TestHeaderStructure:
             "my-account-btn" in header_section
         ), "Account button should be inside shell-header"
 
+    def test_account_button_in_index_header(self):
+        """Account button must be in index.html right nav (v7.4.2+)."""
+        content = (WEB_DIR / "index.html").read_text()
+        right_start = content.index("header-nav-right")
+        right_section = content[right_start : right_start + 1600]
+        assert (
+            "my-account-btn" in right_section
+        ), "Account button should be inside header-nav-right in index.html"
+
     def test_login_link_in_right_nav(self):
         """Login link must be inside the right nav section."""
         content = (WEB_DIR / "index.html").read_text()
         right_start = content.index("header-nav-right")
-        right_section = content[right_start : right_start + 400]
+        right_section = content[right_start : right_start + 800]
         assert (
             "login-link" in right_section
         ), "Login link should be inside header-nav-right"
