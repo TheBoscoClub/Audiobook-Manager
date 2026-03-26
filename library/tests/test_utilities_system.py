@@ -634,16 +634,12 @@ class TestListProjects:
             (project_dir / "VERSION").write_text("1.0.0")
 
             with flask_app.test_client() as client:
-                response = client.get(
-                    f"/api/system/projects?base_path={outside_dir}"
-                )
+                response = client.get(f"/api/system/projects?base_path={outside_dir}")
 
             data = response.get_json()
             assert response.status_code == 200
             # The outside_dir should NOT be scanned — project must not appear
-            matching = [
-                p for p in data["projects"] if p["name"] == "SecretProject"
-            ]
+            matching = [p for p in data["projects"] if p["name"] == "SecretProject"]
             assert len(matching) == 0
 
 
