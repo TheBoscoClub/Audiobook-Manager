@@ -20,12 +20,16 @@ sys.path.insert(0, str(LIBRARY_DIR / "backend"))
 class TestGetDb:
     """Test line 76: get_db backward-compatible wrapper."""
 
-    def test_get_db_returns_connection(self, flask_app):
+    def test_get_db_returns_connection(self, flask_app, monkeypatch):
         """Line 76: get_db returns a database connection."""
-        from backend.api_modular import get_db
+        import backend.api_modular as api_mod
+
+        # Monkeypatch DB_PATH to use the flask_app's test database,
+        # so this test works in CI where the default path doesn't exist.
+        monkeypatch.setattr(api_mod, "DB_PATH", flask_app.config["DATABASE_PATH"])
 
         with flask_app.app_context():
-            conn = get_db()
+            conn = api_mod.get_db()
             assert conn is not None
             # Should be a sqlite3 connection
             cursor = conn.execute("SELECT 1")

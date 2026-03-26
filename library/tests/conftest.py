@@ -57,6 +57,12 @@ def pytest_configure(config):
     """Early configuration - runs before test collection."""
     import os
 
+    # Register custom markers to suppress PytestUnknownMarkWarning
+    config.addinivalue_line("markers", "integration: tests requiring the test VM")
+    config.addinivalue_line("markers", "fido2: tests requiring a FIDO2 hardware key")
+    config.addinivalue_line("markers", "hardware: tests requiring non-FIDO2 hardware")
+    config.addinivalue_line("markers", "docker: tests requiring Docker daemon")
+
     # Set VM_TESTS env var early so modules can check it at import time
     if config.getoption("--vm", default=False):
         os.environ["VM_TESTS"] = "1"

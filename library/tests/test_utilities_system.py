@@ -6,6 +6,7 @@ using a privilege-separated helper service pattern.
 """
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
@@ -587,7 +588,8 @@ class TestListProjects:
 
     def test_finds_projects_via_base_path_param(self, flask_app, temp_dir, monkeypatch):
         """Test finds projects when base_path query parameter is provided."""
-        monkeypatch.delenv("AUDIOBOOKS_PROJECT_DIR", raising=False)
+        # Set AUDIOBOOKS_PROJECT_DIR to the temp dir so the allowlist accepts it
+        monkeypatch.setenv("AUDIOBOOKS_PROJECT_DIR", str(temp_dir))
 
         # Create a project with a VERSION file (non-Audiobook prefix)
         project_dir = temp_dir / "MyProject"
@@ -615,6 +617,34 @@ class TestListProjects:
         assert response.status_code == 200
         data = response.get_json()
         assert isinstance(data["projects"], list)
+
+    def test_base_path_rejects_path_outside_allowlist(
+        self, flask_app, temp_dir, monkeypatch
+    ):
+        """Test that base_path outside allowed directories is rejected."""
+        import tempfile
+
+        # Set AUDIOBOOKS_PROJECT_DIR to a specific directory
+        monkeypatch.setenv("AUDIOBOOKS_PROJECT_DIR", str(temp_dir))
+
+        # Create a project in a DIFFERENT temp directory (outside allowlist)
+        with tempfile.TemporaryDirectory() as outside_dir:
+            project_dir = Path(outside_dir) / "SecretProject"
+            project_dir.mkdir()
+            (project_dir / "VERSION").write_text("1.0.0")
+
+            with flask_app.test_client() as client:
+                response = client.get(
+                    f"/api/system/projects?base_path={outside_dir}"
+                )
+
+            data = response.get_json()
+            assert response.status_code == 200
+            # The outside_dir should NOT be scanned — project must not appear
+            matching = [
+                p for p in data["projects"] if p["name"] == "SecretProject"
+            ]
+            assert len(matching) == 0
 
 
 class TestEnvironmentVariables:

@@ -19,6 +19,7 @@ Note: Use --headed flag to see browser for visual verification.
 """
 
 import os
+import socket
 import time
 
 import pyotp
@@ -26,6 +27,21 @@ import pytest
 import requests as req_lib
 
 pytestmark = pytest.mark.integration
+
+# Check VM reachability before running — skip entire module if unreachable
+VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
+_vm_reachable = False
+try:
+    sock = socket.create_connection((VM_HOST, 5001), timeout=3)
+    sock.close()
+    _vm_reachable = True
+except (OSError, ConnectionRefusedError):
+    pass
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(not _vm_reachable, reason=f"VM {VM_HOST}:5001 unreachable"),
+]
 
 # Try playwright first, fall back to selenium
 try:
@@ -47,9 +63,8 @@ except ImportError:
     SELENIUM_AVAILABLE = False
 
 
-# Configuration — defaults to test-audiobook-cachyos VM;
-# override with env var for local dev
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
+# Configuration — VM_HOST defined above (reachability check);
+# URL defaults use it
 WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"
