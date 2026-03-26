@@ -747,7 +747,8 @@ def update_auth_method():
             return (
                 jsonify(
                     {
-                        "error": "Email address required. Add an email in your profile first."
+                        "error": "Email address required. "
+                        "Add an email in your profile first."
                     }
                 ),
                 400,
@@ -1586,7 +1587,8 @@ def claim_webauthn_complete():
         return (
             jsonify(
                 {
-                    "error": "Username, claim_token, credential, and challenge are required"
+                    "error": "Username, claim_token, "
+                    "credential, and challenge are required"
                 }
             ),
             400,
