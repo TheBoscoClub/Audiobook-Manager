@@ -9,9 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **FIDO2 test flag** (`--fido2`): New pytest flag in `conftest.py` controlling hardware vs. software FIDO2 authenticator. Without `--fido2`, FIDO2 tests run automatically with a software authenticator (sets `FIDO2_SOFTWARE=1`). With `--fido2`, tests require a physical hardware key (e.g., YubiKey). The `--hardware` flag now explicitly excludes FIDO2 tests. Added `hardware_touch_attempt()` helper for hardware key touch retries (up to 3 attempts within 90 seconds).
+
 ### Changed
 
+- **TOTP authenticator recommendations**: Updated from Authy to 2FAS (free, open source, multi-platform) across README.md, help.html, register.html, SECURE_REMOTE_ACCESS_SPEC.md, and utilities.js. Authy has ended free multi-device sync; 2FAS is the recommended replacement.
+
 ### Fixed
+
+- **upgrade.sh author migration PYTHONPATH**: Fixed `PYTHONPATH` passed to `migrate_to_normalized_authors` — changed from `$target` to `$target/library` and module path from `library.backend.migrations.migrate_to_normalized_authors` to `backend.migrations.migrate_to_normalized_authors`, matching the actual package layout inside the install directory.
+- **CI: `test_websocket.py` import error**: Fixed broken import `from library.backend.api_modular.websocket import ConnectionManager` → `from backend.api_modular.websocket import ConnectionManager`, resolving 95-commit CI failure.
+- **Security dependency updates** (`requirements.txt`): Added `qrcode[pil]>=8.2` (required for TOTP QR code generation), pinned `requests>=2.32.3` (CVE-2024-47081 path traversal fix). Added corresponding path traversal guard in `utilities_system.py`.
+
 
 ## [7.4.1.2] - 2026-03-25
 
@@ -2182,7 +2191,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.2...HEAD
+[7.4.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.1...v7.4.1.2
 [7.4.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1...v7.4.1.1
 [7.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0.1...v7.4.1
 [7.3.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0...v7.3.0.1

@@ -332,6 +332,7 @@ config.dev.env
 .bandit
 .coveragerc
 pyproject.toml
+mypy.ini
 .ruff.toml
 .prettierrc
 .prettierrc.*

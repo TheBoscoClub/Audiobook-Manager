@@ -23,6 +23,7 @@ class TestChangeOwnUsername:
     def test_change_username_triggers_audit(self, user_client, auth_db):
         user_client.put("/auth/account/username", json={"username": "audited"})
         from auth.audit import AuditLogRepository
+
         entries = AuditLogRepository(auth_db).list(action_filter="change_username")
         assert len(entries) >= 1
 
@@ -32,7 +33,9 @@ class TestChangeOwnUsername:
 
     def test_change_username_duplicate_rejected(self, user_client, admin_client):
         # admin user is "testadmin_fix"
-        resp = user_client.put("/auth/account/username", json={"username": "testadmin_fix"})
+        resp = user_client.put(
+            "/auth/account/username", json={"username": "testadmin_fix"}
+        )
         assert resp.status_code == 409
 
     def test_unauthenticated_gets_401(self, anon_client):
@@ -91,6 +94,7 @@ class TestDeleteOwnAccount:
         resp = user_client.delete("/auth/account")
         assert resp.status_code == 200
         from auth.models import UserRepository
+
         assert UserRepository(auth_db).get_by_id(test_user.id) is None
 
     def test_delete_clears_session_cookie(self, user_client):

@@ -1108,9 +1108,9 @@ def start_registration():
 
     if contact_email:
         response_data["email_notification"] = True
-        response_data["message"] += (
-            f" We'll also notify you at {contact_email} when your request is reviewed."
-        )
+        response_data[
+            "message"
+        ] += f" We'll also notify you at {contact_email} when your request is reviewed."
 
     return jsonify(response_data)
 
@@ -4142,9 +4142,9 @@ def create_user():
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
-            "expires_at": pending_reg.expires_at.isoformat()
-            if pending_reg.expires_at
-            else None,
+            "expires_at": (
+                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
+            ),
         }
 
     # Audit log
@@ -4822,6 +4822,7 @@ def toggle_user_admin(user_id: int):
 
     # Audit log
     from auth.audit import AuditLogRepository
+
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
         actor_id=current_user.id,
@@ -4868,6 +4869,7 @@ def toggle_user_download(user_id: int):
 
     # Audit log
     from auth.audit import AuditLogRepository
+
     current_user = get_current_user()
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
@@ -5006,6 +5008,7 @@ def delete_user(user_id: int):
 
     # Audit log
     from auth.audit import AuditLogRepository, notify_admins
+
     audit_repo = AuditLogRepository(db)
     details = {
         "actor_username": current_user.username if current_user else "system",
@@ -5052,7 +5055,10 @@ def admin_change_username(user_id: int):
     if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in new_username):
         return jsonify({"error": "Username contains invalid characters"}), 400
     if new_username != new_username.strip():
-        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+        return (
+            jsonify({"error": "Username cannot have leading or trailing spaces"}),
+            400,
+        )
 
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -5286,9 +5292,10 @@ def admin_change_auth_method(user_id: int):
         user_email = target_user.recovery_email or ""
         effective_email = email or user_email
         if not effective_email:
-            return jsonify(
-                {"error": "Email is required for magic_link auth method"}
-            ), 400
+            return (
+                jsonify({"error": "Email is required for magic_link auth method"}),
+                400,
+            )
         target_user.auth_type = AuthType.MAGIC_LINK
         target_user.auth_credential = b""
         if email:
@@ -5311,9 +5318,9 @@ def admin_change_auth_method(user_id: int):
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
-            "expires_at": pending_reg.expires_at.isoformat()
-            if pending_reg.expires_at
-            else None,
+            "expires_at": (
+                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
+            ),
         }
 
     # Audit log
@@ -5384,9 +5391,9 @@ def admin_reset_credentials(user_id: int):
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
-            "expires_at": pending_reg.expires_at.isoformat()
-            if pending_reg.expires_at
-            else None,
+            "expires_at": (
+                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
+            ),
         }
 
     elif target_user.auth_type == AuthType.MAGIC_LINK:
@@ -5458,7 +5465,9 @@ def admin_delete_user_v2(user_id: int):
     request_repo = AccessRequestRepository(db)
     request_repo.delete_for_username(target_user.username)
 
-    return jsonify({"success": True, "message": f"User '{target_user.username}' deleted."})
+    return jsonify(
+        {"success": True, "message": f"User '{target_user.username}' deleted."}
+    )
 
 
 @auth_bp.route("/admin/audit-log", methods=["GET"])
@@ -5499,9 +5508,11 @@ def admin_audit_log():
                     "actor_id": e.actor_id,
                     "target_id": e.target_id,
                     "action": e.action,
-                    "details": json.loads(e.details)
-                    if isinstance(e.details, str)
-                    else e.details,
+                    "details": (
+                        json.loads(e.details)
+                        if isinstance(e.details, str)
+                        else e.details
+                    ),
                 }
                 for e in entries
             ],
@@ -5537,9 +5548,7 @@ def admin_setup_info(user_id: int):
             qr_uri = get_provisioning_uri(
                 target_user.auth_credential, target_user.username
             )
-            qr_png = generate_qr_code(
-                target_user.auth_credential, target_user.username
-            )
+            qr_png = generate_qr_code(target_user.auth_credential, target_user.username)
             qr_b64 = base64.b64encode(qr_png).decode("ascii")
             setup_data = {
                 "secret": base32,
@@ -5563,9 +5572,9 @@ def admin_setup_info(user_id: int):
                 pending = PR.from_row(row)
                 setup_data = {
                     "claim_token": "pending",
-                    "expires_at": pending.expires_at.isoformat()
-                    if pending.expires_at
-                    else None,
+                    "expires_at": (
+                        pending.expires_at.isoformat() if pending.expires_at else None
+                    ),
                 }
 
     elif target_user.auth_type == AuthType.MAGIC_LINK:
@@ -5622,7 +5631,10 @@ def account_change_username():
     if not all(32 <= ord(c) <= 126 and c not in "<>\\" for c in new_username):
         return jsonify({"error": "Username contains invalid characters"}), 400
     if new_username != new_username.strip():
-        return jsonify({"error": "Username cannot have leading or trailing spaces"}), 400
+        return (
+            jsonify({"error": "Username cannot have leading or trailing spaces"}),
+            400,
+        )
 
     user = get_current_user()
     db = get_auth_db()
@@ -5747,9 +5759,10 @@ def account_switch_auth_method():
         user_email = user.recovery_email or ""
         effective_email = email or user_email
         if not effective_email:
-            return jsonify(
-                {"error": "Email is required for magic_link auth method"}
-            ), 400
+            return (
+                jsonify({"error": "Email is required for magic_link auth method"}),
+                400,
+            )
         user.auth_type = AuthType.MAGIC_LINK
         user.auth_credential = b""
         if email:
@@ -5772,9 +5785,9 @@ def account_switch_auth_method():
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
-            "expires_at": pending_reg.expires_at.isoformat()
-            if pending_reg.expires_at
-            else None,
+            "expires_at": (
+                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
+            ),
         }
 
     # Audit log
@@ -5822,7 +5835,9 @@ def account_reset_credentials():
     setup_data = {}
 
     if current_user.auth_type == AuthType.TOTP:
-        secret_bytes, base32_secret, provisioning_uri = setup_totp(current_user.username)
+        secret_bytes, base32_secret, provisioning_uri = setup_totp(
+            current_user.username
+        )
         current_user.auth_credential = secret_bytes
         current_user.save(db)
         qr_png = generate_qr_code(secret_bytes, current_user.username)
@@ -5847,9 +5862,9 @@ def account_reset_credentials():
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
-            "expires_at": pending_reg.expires_at.isoformat()
-            if pending_reg.expires_at
-            else None,
+            "expires_at": (
+                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
+            ),
         }
 
     elif current_user.auth_type == AuthType.MAGIC_LINK:

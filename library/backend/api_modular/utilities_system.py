@@ -507,20 +507,33 @@ def init_system_routes(project_root):
 
         if source == "project" and project_path:
             # SECURITY: Validate project_path is a real project directory
-            # Must exist, be a directory, and contain a VERSION file (valid marker)
-            # CodeQL: Path is validated via is_dir() and VERSION file check before use
-            project_path_obj = Path(project_path)
+            # Resolve symlinks and normalize to prevent path traversal attacks
+            project_path_obj = Path(project_path).resolve()
+            # Block null bytes and relative path components in the original input
+            if "\0" in project_path or ".." in Path(project_path).parts:
+                return (
+                    jsonify({"error": "Invalid project path"}),
+                    400,
+                )
             if not project_path_obj.is_dir():
                 return (
                     jsonify({"error": "Project path not found or not a directory"}),
                     400,
                 )
             # Verify it's an actual audiobooks project (has VERSION file)
-            if not (project_path_obj / "VERSION").exists():
+            version_file = project_path_obj / "VERSION"
+            if not version_file.resolve().parent == project_path_obj:
+                return (
+                    jsonify({"error": "Invalid project path"}),
+                    400,
+                )
+            if not version_file.exists():
                 return (
                     jsonify({"error": "Invalid project: no VERSION file found"}),
                     400,
                 )
+            # Use the resolved path from here on
+            project_path = str(project_path_obj)
 
         # version field is only valid with github source
         if version and source != "github":
