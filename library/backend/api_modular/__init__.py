@@ -201,6 +201,12 @@ def create_app(
     init_maintenance_routes(database_path)
     flask_app.register_blueprint(maintenance_bp)
 
+    # Roadmap
+    from .roadmap import roadmap_bp, init_roadmap_routes
+
+    init_roadmap_routes(database_path)
+    flask_app.register_blueprint(roadmap_bp)
+
     # WebSocket endpoint (requires geventwebsocket worker)
     from flask_sock import Sock
     from .websocket import connection_manager

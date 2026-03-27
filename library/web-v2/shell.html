@@ -9,6 +9,27 @@
     <link rel="stylesheet" href="css/theme-art-deco.css?v=1774616000">
     <link rel="stylesheet" href="css/modals.css?v=1774616000">
     <link rel="stylesheet" href="css/account.css?v=1774616000">
+    <style>
+        .instance-badge {
+            display: inline-block;
+            background: #cc0000;
+            color: #fff;
+            font-weight: 900;
+            font-size: 0.85rem;
+            letter-spacing: 0.15em;
+            padding: 3px 12px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            vertical-align: middle;
+            margin-left: 8px;
+            border: 2px solid #ff4444;
+            animation: badge-pulse 2s ease-in-out infinite;
+        }
+        @keyframes badge-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
 </head>
 <body>
     <!-- Shell header with account access -->
@@ -17,6 +38,7 @@
             <span class="account-icon" id="account-initial">?</span>
             <span id="account-username">Account</span>
         </button>
+        <span id="instance-badge" class="instance-badge" hidden></span>
         <span class="header-title">Audiobook Library</span>
     </div>
 
@@ -121,6 +143,15 @@
         </div>
     </div>
 
+    <script data-cfasync="false">
+        fetch('/api/system/version').then(r => r.json()).then(d => {
+            if (d.instance_badge) {
+                var el = document.getElementById('instance-badge');
+                el.textContent = d.instance_badge;
+                el.hidden = false;
+            }
+        }).catch(function(){});
+    </script>
     <script data-cfasync="false" src="js/websocket.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/maintenance-banner.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/session-persistence.js?v=1774616000"></script>

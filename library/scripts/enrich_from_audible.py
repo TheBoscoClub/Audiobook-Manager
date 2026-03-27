@@ -425,7 +425,15 @@ def enrich_from_audible(
         if updates:
             params.append(book_id)
             sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"
-            cursor.execute(sql, params)
+            try:
+                cursor.execute(sql, params)
+            except sqlite3.DatabaseError as e:
+                print(f"  DB ERROR on book_id={book_id}: {e}")
+                print(f"    SQL: {sql[:200]}")
+                print(f"    Params types: {[type(p).__name__ for p in params]}")
+                # Skip this book but continue enriching others
+                errors += 1
+                continue
 
         # Insert categories (clear existing first if re-enriching)
         if categories:
@@ -474,6 +482,11 @@ def enrich_from_audible(
                 )
 
         enriched += 1
+
+        # Commit in batches to avoid huge transactions
+        if enriched % 50 == 0:
+            conn.commit()
+            print(f"  Committed {enriched} books...")
 
     if not dry_run:
         conn.commit()

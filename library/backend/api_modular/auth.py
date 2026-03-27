@@ -24,7 +24,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Optional, Callable, Any
 
-from flask import Blueprint, Response, jsonify, make_response, request, g, current_app
+from flask import Blueprint, Response, jsonify, make_response, redirect, request, g, current_app
 
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -413,8 +413,10 @@ def clear_session_cookie(response: Response) -> Response:
 # =============================================================================
 
 
-@auth_bp.route("/login", methods=["POST"])
+@auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "GET":
+        return redirect("/login.html", code=302)
     """
     Authenticate user with TOTP code.
 

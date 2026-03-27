@@ -3467,3 +3467,142 @@ body.back-office {
     font-family: monospace;
     color: var(--accent-gold, #d4a843);
 }
+
+/* ============================================
+   Roadmap Admin
+   ============================================ */
+
+.roadmap-admin-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--card-bg);
+    border-left: 3px solid var(--brass-dark);
+    margin-bottom: 0.5rem;
+}
+
+.roadmap-admin-row:hover {
+    background: var(--card-bg-light);
+}
+
+.roadmap-admin-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.roadmap-admin-info strong {
+    color: var(--ledger-cream);
+    font-size: 0.95rem;
+}
+
+.roadmap-admin-desc {
+    font-size: 0.85rem;
+    color: var(--ink-faded);
+    margin-top: 0.25rem;
+}
+
+.roadmap-admin-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.5rem;
+    border: 1px solid var(--brass-dark);
+    color: var(--brass);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.roadmap-admin-completed {
+    border-color: #4CAF50;
+    color: #4CAF50;
+}
+
+.roadmap-admin-in_progress {
+    border-color: var(--brass-light);
+    color: var(--brass-light);
+}
+
+.roadmap-admin-cancelled {
+    border-color: #888;
+    color: #888;
+}
+
+.roadmap-admin-high {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+}
+
+.roadmap-admin-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.roadmap-admin-actions button {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: 1px solid var(--brass-dark);
+    background: var(--office-wood);
+    color: var(--ledger-cream);
+    transition: all 0.2s;
+}
+
+.roadmap-admin-actions button:hover {
+    background: var(--brass-dark);
+    color: var(--office-dark);
+}
+
+.roadmap-admin-actions button:last-child:hover {
+    background: var(--red-ink);
+    border-color: var(--red-ink);
+    color: #fff;
+}
+
+/* Roadmap form */
+.roadmap-form {
+    background: var(--card-bg);
+    border: 1px solid var(--brass-dark);
+    padding: 1.25rem;
+    margin-top: 1rem;
+}
+
+.roadmap-form h3 {
+    font-family: Georgia, serif;
+    color: var(--brass);
+    margin-bottom: 1rem;
+    letter-spacing: 1px;
+}
+
+.roadmap-form .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.roadmap-form .form-row label {
+    font-size: 0.85rem;
+    color: var(--ink-faded);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.roadmap-form .form-row-inline {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.roadmap-form .form-row-inline .form-row {
+    flex: 1;
+    min-width: 120px;
+}
+
+.roadmap-form .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
