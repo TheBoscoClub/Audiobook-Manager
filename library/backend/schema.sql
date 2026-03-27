@@ -389,3 +389,17 @@ CREATE TABLE IF NOT EXISTS roadmap_items (
 
 CREATE INDEX IF NOT EXISTS idx_roadmap_status ON roadmap_items(status);
 CREATE INDEX IF NOT EXISTS idx_roadmap_sort ON roadmap_items(sort_order);
+
+-- ================================================================
+-- User suggestions (comment pad from Help page)
+-- ================================================================
+CREATE TABLE IF NOT EXISTS user_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_suggestions_read ON user_suggestions(is_read);
+CREATE INDEX IF NOT EXISTS idx_suggestions_created ON user_suggestions(created_at);

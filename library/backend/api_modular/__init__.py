@@ -50,6 +50,7 @@ from .supplements import init_supplements_routes, supplements_bp
 from .grouped import grouped_bp, init_grouped_routes
 from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .admin_authors import admin_authors_bp, init_admin_authors_routes
+from .suggestions import suggestions_bp, init_suggestions_routes
 from .user_state import init_user_state_routes, user_bp
 from .utilities import init_utilities_routes, utilities_bp
 from .auth import (
@@ -207,6 +208,10 @@ def create_app(
     init_roadmap_routes(database_path)
     flask_app.register_blueprint(roadmap_bp)
 
+    # User suggestions
+    init_suggestions_routes(database_path)
+    flask_app.register_blueprint(suggestions_bp)
+
     # WebSocket endpoint (requires geventwebsocket worker)
     from flask_sock import Sock
     from .websocket import connection_manager
@@ -288,6 +293,7 @@ __all__ = [
     "grouped_bp",
     "auth_bp",
     "user_bp",
+    "suggestions_bp",
     # Auth decorators
     "login_required",
     "admin_required",

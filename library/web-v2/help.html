@@ -18,8 +18,37 @@
             <a href="index.html" title="Return to the audiobook library">&larr; Back to Library</a>
             <button id="start-tutorial-btn" title="Take a guided tour of the library interface">Start Tutorial</button>
             <a href="about.html" title="About The Library &mdash; credits, attributions, and version info">About</a>
+            <button id="suggestion-btn" class="suggestion-btn" title="Share your thoughts with the librarian">Suggestions? Desires? Likes? Dislikes? <span style="text-decoration:line-through">Un</span>solicited praise?</button>
         </div>
     </header>
+
+    <!-- Hotel Comment Pad Modal -->
+    <div id="suggestion-overlay" class="suggestion-overlay" role="dialog" aria-label="Suggestion pad">
+        <div class="comment-pad">
+            <div id="suggestion-form-area">
+                <div class="comment-pad-header">
+                    ~ The Librarian Shall Cherish Your Suggestions &amp; Comments ~
+                </div>
+                <textarea id="suggestion-text" maxlength="2048" placeholder="Write your thoughts here..."></textarea>
+                <div class="comment-pad-counter"><span id="suggestion-char-count">0</span> / 2048</div>
+                <div class="comment-pad-actions">
+                    <button class="pad-cancel" id="suggestion-cancel" title="Discard and close">Cancel</button>
+                    <button class="pad-submit" id="suggestion-submit" title="Submit your suggestion">Submit</button>
+                </div>
+            </div>
+            <div id="suggestion-thanks" class="comment-pad-thanks">
+                <p>Your words have been received with gratitude.</p>
+            </div>
+            <!-- Fountain pen decoration -->
+            <div class="comment-pad-pen" aria-hidden="true">
+                <div class="pen-nib"></div>
+                <div class="pen-band"></div>
+                <div class="pen-body"></div>
+                <div class="pen-cap"></div>
+                <div class="pen-clip"></div>
+            </div>
+        </div>
+    </div>
 
     <div class="help-content">
 
@@ -539,6 +568,80 @@
                 err.className = 'roadmap-empty';
                 err.textContent = 'Unable to load roadmap.';
                 container.appendChild(err);
+            });
+        })();
+
+        // ── Suggestion Pad ──
+        (function() {
+            var btn = document.getElementById('suggestion-btn');
+            var overlay = document.getElementById('suggestion-overlay');
+            var textarea = document.getElementById('suggestion-text');
+            var counter = document.getElementById('suggestion-char-count');
+            var formArea = document.getElementById('suggestion-form-area');
+            var thanks = document.getElementById('suggestion-thanks');
+            var submitBtn = document.getElementById('suggestion-submit');
+            var cancelBtn = document.getElementById('suggestion-cancel');
+
+            // Show button only for authenticated users
+            fetch('/auth/status', { credentials: 'include' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.user) {
+                        btn.classList.add('visible');
+                    }
+                })
+                .catch(function() {});
+
+            btn.addEventListener('click', function() {
+                overlay.classList.add('open');
+                textarea.value = '';
+                counter.textContent = '0';
+                formArea.style.display = '';
+                thanks.classList.remove('show');
+                textarea.focus();
+            });
+
+            textarea.addEventListener('input', function() {
+                counter.textContent = textarea.value.length;
+            });
+
+            cancelBtn.addEventListener('click', function() {
+                overlay.classList.remove('open');
+            });
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.classList.remove('open');
+            });
+
+            submitBtn.addEventListener('click', function() {
+                var msg = textarea.value.trim();
+                if (!msg) return;
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending...';
+
+                fetch('/api/suggestions', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                }).then(function(r) {
+                    if (r.ok) {
+                        formArea.style.display = 'none';
+                        thanks.classList.add('show');
+                        setTimeout(function() {
+                            overlay.classList.remove('open');
+                        }, 2000);
+                    } else {
+                        return r.json().then(function(d) {
+                            alert(d.error || 'Failed to submit');
+                        });
+                    }
+                }).catch(function() {
+                    alert('Network error — please try again');
+                }).finally(function() {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit';
+                });
             });
         })();
     </script>
