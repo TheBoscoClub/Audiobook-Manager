@@ -771,6 +771,8 @@ def init_system_routes(project_root):
             ), 503
 
         url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache"
+        if not url.startswith("https://"):
+            return jsonify({"success": False, "error": "Invalid URL scheme"}), 400
         data = b'{"purge_everything":true}'
         req = urllib.request.Request(url, data=data, method="POST")
         req.add_header("X-Auth-Key", api_key)
@@ -778,7 +780,7 @@ def init_system_routes(project_root):
         req.add_header("Content-Type", "application/json")
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 — URL scheme validated above
                 result = json.loads(resp.read())
                 if result.get("success"):
                     return jsonify({"success": True})
