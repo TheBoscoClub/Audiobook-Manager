@@ -10,7 +10,7 @@
 FROM python:3.14-slim
 
 # Read version from VERSION file during build
-ARG APP_VERSION=7.5.1
+ARG APP_VERSION=7.5.1.1
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Standalone audiobook library — fully self-contained with all databases and dependencies"
