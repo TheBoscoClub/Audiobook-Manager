@@ -2446,6 +2446,27 @@ fi
 echo "Target:  $TARGET_DIR"
 echo ""
 
+# ─── Production safety gate ─────────────────────────────────────────────────
+# Deploying to local production (/opt/audiobooks) requires the current git
+# HEAD to be a tagged release. This prevents dev/feature code from reaching
+# production accidentally. Remote deploys (QA/test VMs) are unaffected —
+# the --remote path exits before reaching this point.
+if [[ "$TARGET_DIR" == "/opt/audiobooks" ]] && [[ -z "$REMOTE_HOST" ]]; then
+    head_tag=$(git -C "$PROJECT_DIR" tag --points-at HEAD 2>/dev/null | grep -E '^v[0-9]' | head -1)
+    if [[ -z "$head_tag" ]]; then
+        echo -e "${RED}${BOLD}PRODUCTION SAFETY GATE${NC}"
+        echo -e "${RED}Refusing to deploy to /opt/audiobooks — HEAD is not a tagged release.${NC}"
+        echo ""
+        echo -e "  Current HEAD: $(git -C "$PROJECT_DIR" log -1 --format='%h %s' 2>/dev/null)"
+        echo -e "  Latest tag:   $(git -C "$PROJECT_DIR" describe --tags --abbrev=0 2>/dev/null || echo 'none')"
+        echo ""
+        echo -e "${YELLOW}Production only receives tagged releases created via /git-release.${NC}"
+        echo -e "${YELLOW}To deploy to a test/QA VM, use: --remote HOST${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}Production release tag: $head_tag${NC}"
+fi
+
 # Check for updates
 if ! check_for_updates "$PROJECT_DIR" "$TARGET_DIR"; then
     # No upgrade needed — but still ensure schema migrations are applied
