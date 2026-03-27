@@ -4808,9 +4808,7 @@ async function loadRoadmapAdmin() {
   var list = document.getElementById("roadmap-admin-list");
   if (!list) return;
   try {
-    var resp = await safeFetch("/api/admin/roadmap");
-    if (!resp.ok) { list.textContent = "Failed to load roadmap."; return; }
-    var items = await resp.json();
+    var items = await safeFetch("/api/admin/roadmap");
     list.replaceChildren();
     if (!items || items.length === 0) {
       var p = document.createElement("p");
