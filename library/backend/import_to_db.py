@@ -225,17 +225,26 @@ def import_audiobooks(conn):
         # Restore enrichment data if available for this file
         enrichment = preserved_enrichment.get(file_path)
         if enrichment:
-            # Use preserved series/content_type if JSON didn't provide them
+            # Whitelist of valid enrichment columns to prevent SQL injection
+            allowed_columns = {
+                "series", "series_sequence", "subtitle", "language",
+                "format_type", "runtime_length_min", "release_date",
+                "publisher_summary", "rating_overall", "rating_performance",
+                "rating_story", "num_ratings", "num_reviews",
+                "audible_image_url", "sample_url", "audible_sku",
+                "is_adult_product", "merchandising_summary",
+                "audible_enriched_at", "isbn_enriched_at", "content_type",
+            }
             enrich_updates = []
             enrich_params = []
             for col, val in enrichment.items():
-                if val is not None:
+                if val is not None and col in allowed_columns:
                     enrich_updates.append(f"{col} = ?")
                     enrich_params.append(val)
             if enrich_updates:
                 enrich_params.append(audiobook_id)
                 cursor.execute(
-                    f"UPDATE audiobooks SET {', '.join(enrich_updates)} WHERE id = ?",
+                    f"UPDATE audiobooks SET {', '.join(enrich_updates)} WHERE id = ?",  # nosec B608 — column names whitelisted above
                     enrich_params,
                 )
 
