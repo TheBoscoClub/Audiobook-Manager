@@ -69,6 +69,8 @@
           dispatch("maintenance-update", msg);
         } else if (msg.type === "audit_notify") {
           dispatch("audit-notify", msg);
+        } else if (msg.type === "suggestion_new") {
+          dispatch("suggestion-new", msg);
         }
       } catch (e) {
         // ignore malformed messages

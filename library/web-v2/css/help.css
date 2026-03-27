@@ -454,3 +454,296 @@
     color: var(--text-secondary, #aaa);
     font-style: italic;
 }
+
+/* ============================================
+   Suggestion Button (Help header)
+   ============================================ */
+
+.suggestion-btn {
+    display: none; /* hidden by default; JS shows for authenticated users */
+}
+
+.suggestion-btn.visible {
+    display: inline-flex;
+}
+
+/* ============================================
+   Hotel Comment Pad — Suggestion Modal
+   ============================================ */
+
+.suggestion-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9000;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+}
+
+.suggestion-overlay.open {
+    display: flex;
+}
+
+/* The comment pad "paper" — linen-finish, lemon-cream, rhodium-trimmed */
+.comment-pad {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 27px,
+            rgba(180, 160, 120, 0.12) 27px,
+            rgba(180, 160, 120, 0.12) 28px
+        ),
+        /* linen texture */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23faf8e8'/%3E%3Crect x='0' y='0' width='1' height='1' fill='%23f5f0d8' opacity='0.4'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23f5f0d8' opacity='0.3'/%3E%3C/svg%3E");
+    background-color: #faf8e8; /* offwhite, faint lemon-yellow */
+    border: 3px solid #e8e8ec; /* rhodium — cool silvery-white */
+    outline: 1px solid #d0d0d8;
+    padding: 2rem 2rem 5rem;
+    box-shadow:
+        /* 3D drop shadow — deep blue */
+        6px 8px 0 rgba(20, 20, 60, 0.35),
+        8px 12px 24px rgba(10, 10, 40, 0.45),
+        /* inner glow from paper */
+        inset 0 0 40px rgba(255, 252, 230, 0.4);
+    animation: padSlideIn 0.35s ease-out;
+}
+
+@keyframes padSlideIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Embossed header text — deco script, deep purple, deep blue shadow */
+.comment-pad-header {
+    text-align: center;
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Georgia', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    color: #2d1854; /* deep purple */
+    text-shadow:
+        /* emboss: light highlight above, dark shadow below */
+        0 -1px 0 rgba(255, 255, 255, 0.5),
+        0 1px 2px rgba(15, 15, 50, 0.5),
+        1px 2px 3px rgba(15, 15, 60, 0.3); /* deep blue drop */
+    letter-spacing: 0.5px;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(180, 170, 160, 0.3);
+}
+
+/* Textarea — visible lines on the "paper" */
+.comment-pad textarea {
+    width: 100%;
+    height: 180px;
+    border: none;
+    background: transparent;
+    font-family: 'Georgia', serif;
+    font-size: 0.95rem;
+    line-height: 28px; /* matches the faint ruled lines */
+    color: #1a1040; /* dark ink */
+    resize: vertical;
+    padding: 0 0.5rem;
+    outline: none;
+}
+
+.comment-pad textarea::placeholder {
+    color: rgba(100, 80, 60, 0.35);
+    font-style: italic;
+}
+
+/* Character counter */
+.comment-pad-counter {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: rgba(80, 60, 40, 0.5);
+    margin-top: 0.25rem;
+}
+
+/* Submit / Cancel buttons — rhodium-accented */
+.comment-pad-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.comment-pad-actions button {
+    font-family: 'Georgia', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    padding: 0.5rem 1.25rem;
+    border: 1px solid #c0c0c8;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.comment-pad-actions .pad-submit {
+    background: linear-gradient(180deg, #e8e8ec 0%, #d0d0d8 100%);
+    color: #2d1854;
+    font-weight: 600;
+}
+
+.comment-pad-actions .pad-submit:hover {
+    background: linear-gradient(180deg, #f0f0f4 0%, #e0e0e8 100%);
+    box-shadow: 0 2px 8px rgba(45, 24, 84, 0.2);
+}
+
+.comment-pad-actions .pad-cancel {
+    background: transparent;
+    color: rgba(80, 60, 40, 0.6);
+    border-color: rgba(180, 170, 160, 0.4);
+}
+
+.comment-pad-actions .pad-cancel:hover {
+    color: rgba(80, 60, 40, 0.9);
+    border-color: rgba(180, 170, 160, 0.7);
+}
+
+/* Fountain pen — teak body, brass nib, diagonal across bottom-right */
+.comment-pad-pen {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.5rem;
+    width: 220px;
+    height: 50px;
+    pointer-events: none;
+    transform: rotate(-25deg);
+    transform-origin: bottom right;
+    opacity: 0.65;
+}
+
+/* Pen body (teak) */
+.pen-body {
+    position: absolute;
+    bottom: 12px;
+    right: 24px;
+    width: 160px;
+    height: 14px;
+    background: linear-gradient(180deg,
+        #8B6914 0%,    /* teak highlight */
+        #6B4F0A 30%,   /* teak mid */
+        #4A3507 70%,   /* teak shadow */
+        #3D2B05 100%
+    );
+    border-radius: 3px 7px 7px 3px;
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(200, 170, 80, 0.3);
+}
+
+/* Brass band/ring */
+.pen-band {
+    position: absolute;
+    bottom: 11px;
+    right: 180px;
+    width: 10px;
+    height: 16px;
+    background: linear-gradient(180deg, #FFD700, #B8860B, #DAA520);
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Nib (brass, tip up) */
+.pen-nib {
+    position: absolute;
+    bottom: 14px;
+    right: 186px;
+    width: 0;
+    height: 0;
+    border-right: 4px solid #DAA520;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+/* Nib slit */
+.pen-nib::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    width: 4px;
+    height: 12px;
+    border-right: 1px solid rgba(100, 70, 10, 0.5);
+}
+
+/* Cap */
+.pen-cap {
+    position: absolute;
+    bottom: 10px;
+    right: 2px;
+    width: 30px;
+    height: 18px;
+    background: linear-gradient(180deg,
+        #7B5A10 0%,
+        #5A4008 50%,
+        #4A3507 100%
+    );
+    border-radius: 2px 9px 9px 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Cap clip (brass) */
+.pen-clip {
+    position: absolute;
+    bottom: 18px;
+    right: 6px;
+    width: 20px;
+    height: 3px;
+    background: linear-gradient(90deg, #DAA520, #FFD700, #DAA520);
+    border-radius: 1px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+/* Submitted confirmation */
+.comment-pad-thanks {
+    display: none;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+.comment-pad-thanks.show {
+    display: block;
+}
+
+.comment-pad-thanks p {
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: #2d1854;
+    text-shadow: 0 1px 2px rgba(15, 15, 50, 0.3);
+}
+
+/* ============================================
+   Responsive — Comment Pad
+   ============================================ */
+@media (max-width: 480px) {
+    .comment-pad {
+        padding: 1.5rem 1rem 4.5rem;
+    }
+
+    .comment-pad-header {
+        font-size: 0.9rem;
+    }
+
+    .comment-pad textarea {
+        height: 150px;
+    }
+
+    .comment-pad-pen {
+        width: 160px;
+        height: 40px;
+    }
+
+    .pen-body { width: 110px; }
+    .pen-band { right: 130px; }
+    .pen-nib { right: 136px; }
+}
