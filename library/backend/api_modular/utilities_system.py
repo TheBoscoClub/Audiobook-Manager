@@ -791,10 +791,13 @@ def init_system_routes(project_root):
                     }
                 ), 502
         except (urllib.error.HTTPError, urllib.error.URLError) as e:
+            import logging
+
+            logging.error("Cloudflare API error: %s", e)
             return jsonify(
                 {
                     "success": False,
-                    "error": f"Cloudflare API error: {e}",
+                    "error": "Cloudflare API request failed",
                 }
             ), 502
         except TimeoutError:

@@ -633,7 +633,7 @@ function renderDuplicates() {
                         <div class="result-meta">
                             ${escapeHtml(item.author)} |
                             ${item.file_size_mb?.toFixed(1) || "?"} MB |
-                            ${item.file_path ? item.file_path.split("/").pop() : "Unknown file"}
+                            ${item.file_path ? escapeHtml(item.file_path.split("/").pop()) : "Unknown file"}
                         </div>
                     </div>
                 </div>

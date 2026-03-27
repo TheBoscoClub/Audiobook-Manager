@@ -876,6 +876,8 @@ audit_and_cleanup() {
     local legacy_files=(
         "$target/library/launch-v3.sh"
         "$target/install-services.sh"
+        "$target/deploy.sh"
+        "$target/deploy-vm.sh"
     )
     for legacy_file in "${legacy_files[@]}"; do
         if [[ -f "$legacy_file" ]]; then
