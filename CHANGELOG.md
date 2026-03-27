@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.5.1.2] - 2026-03-27
+
+### Fixed
+
+- **Roadmap admin panel** (`utilities.js`): `loadRoadmapAdmin()` always showed "Failed to load roadmap" because `safeFetch()` returns parsed JSON, not a Response object — removed redundant `.ok` check and double `.json()` parse
+
 ## [7.5.1.1] - 2026-03-27
 
 ### Fixed
@@ -2251,7 +2257,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...HEAD
+[7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
 [7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1
 [7.5.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.0...v7.5.1
 [7.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.2...v7.5.0
