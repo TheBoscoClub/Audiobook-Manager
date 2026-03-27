@@ -281,7 +281,7 @@ class AudiobookLibraryV2 {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    window.location.href = "login.html";
+    window.top.location.href = "/auth/login";
   }
 
   /**

@@ -459,11 +459,11 @@
    Suggestion Button (Help header)
    ============================================ */
 
-.suggestion-btn {
+button.suggestion-btn {
     display: none; /* hidden by default; JS shows for authenticated users */
 }
 
-.suggestion-btn.visible {
+button.suggestion-btn.visible {
     display: inline-flex;
 }
 
