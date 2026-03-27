@@ -47,8 +47,8 @@ def sanitize_message(text):
     if not text:
         return ""
 
-    # Strip HTML tags
-    text = re.sub(r"<[^>]*>", "", text)
+    # Strip HTML tags (use lazy quantifier to avoid ReDoS on pathological input)
+    text = re.sub(r"<[^>]*?>", "", text)
 
     # Strip HTML entities
     text = re.sub(r"&[#\w]+;", "", text)
