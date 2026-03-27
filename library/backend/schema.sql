@@ -372,3 +372,20 @@ CREATE INDEX IF NOT EXISTS idx_maint_windows_status ON maintenance_windows(statu
 CREATE INDEX IF NOT EXISTS idx_maint_messages_active ON maintenance_messages(dismissed_at);
 CREATE INDEX IF NOT EXISTS idx_maint_history_window ON maintenance_history(window_id);
 CREATE INDEX IF NOT EXISTS idx_maint_notifications_pending ON maintenance_notifications(delivered, created_at);
+
+-- ================================================================
+-- Roadmap items (admin-editable, publicly visible)
+-- ================================================================
+CREATE TABLE IF NOT EXISTS roadmap_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'planned',  -- planned, in_progress, completed, cancelled
+    priority TEXT NOT NULL DEFAULT 'medium', -- low, medium, high
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_roadmap_status ON roadmap_items(status);
+CREATE INDEX IF NOT EXISTS idx_roadmap_sort ON roadmap_items(sort_order);

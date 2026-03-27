@@ -42,6 +42,7 @@
                 <li><a href="#stay-logged-in">Stay Logged In</a></li>
                 <li><a href="#notifications">Notifications</a></li>
                 <li><a href="#keyboard">Keyboard &amp; Media Keys</a></li>
+                <li><a href="#roadmap">Roadmap</a></li>
                 <li><a href="#faq">Frequently Asked Questions</a></li>
             </ol>
         </nav>
@@ -420,6 +421,16 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
+        <!-- Roadmap -->
+        <section id="roadmap" class="help-section">
+            <h2><span class="section-icon">&#128204;</span> Roadmap</h2>
+            <p>Planned features, improvements, and known issues being worked on.</p>
+            <div id="roadmap-list" class="roadmap-list">
+                <p class="roadmap-loading">Loading roadmap...</p>
+            </div>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
         <!-- 16. FAQ -->
         <section id="faq" class="help-section">
             <h2><span class="section-icon">&#10068;</span> Frequently Asked Questions</h2>
@@ -467,6 +478,69 @@
         document.getElementById('start-tutorial-btn').addEventListener('click', () => {
             window.location.href = 'index.html?tutorial=1';
         });
+
+        // Load roadmap using safe DOM methods
+        (function() {
+            var container = document.getElementById('roadmap-list');
+            if (!container) return;
+            var statusIcons = { planned: '\uD83D\uDD2C', in_progress: '\u2699', completed: '\u2705' };
+            var statusLabels = { planned: 'Planned', in_progress: 'In Progress', completed: 'Completed' };
+
+            fetch('/api/roadmap').then(function(r) { return r.json(); }).then(function(items) {
+                container.textContent = '';
+                if (!items || items.length === 0) {
+                    var empty = document.createElement('p');
+                    empty.className = 'roadmap-empty';
+                    empty.textContent = 'No roadmap items yet. Check back soon!';
+                    container.appendChild(empty);
+                    return;
+                }
+                items.forEach(function(item) {
+                    var div = document.createElement('div');
+                    div.className = 'roadmap-item roadmap-' + item.status;
+
+                    var header = document.createElement('div');
+                    header.className = 'roadmap-item-header';
+
+                    var icon = document.createElement('span');
+                    icon.className = 'roadmap-icon';
+                    icon.textContent = statusIcons[item.status] || '\uD83D\uDD2C';
+                    header.appendChild(icon);
+
+                    var title = document.createElement('strong');
+                    title.textContent = ' ' + item.title;
+                    header.appendChild(title);
+
+                    var badge = document.createElement('span');
+                    badge.className = 'roadmap-badge roadmap-badge-' + item.status;
+                    badge.textContent = statusLabels[item.status] || item.status;
+                    header.appendChild(badge);
+
+                    if (item.priority === 'high') {
+                        var pBadge = document.createElement('span');
+                        pBadge.className = 'roadmap-badge roadmap-badge-priority';
+                        pBadge.textContent = 'High';
+                        header.appendChild(pBadge);
+                    }
+
+                    div.appendChild(header);
+
+                    if (item.description) {
+                        var desc = document.createElement('p');
+                        desc.className = 'roadmap-desc';
+                        desc.textContent = item.description;
+                        div.appendChild(desc);
+                    }
+                    container.appendChild(div);
+                });
+            }).catch(function() {
+                container.textContent = '';
+                var err = document.createElement('p');
+                err.className = 'roadmap-empty';
+                err.textContent = 'Unable to load roadmap.';
+                container.appendChild(err);
+            });
+        })();
     </script>
 </body>
 </html>

@@ -151,6 +151,10 @@
                     <span class="tab-icon">&#x1F527;</span>
                     <span class="tab-label">Maint Sched</span>
                 </button>
+                <button class="cabinet-tab" data-section="roadmap" title="Manage public roadmap items visible in the Help section">
+                    <span class="tab-icon">&#128204;</span>
+                    <span class="tab-label">Roadmap</span>
+                </button>
             </div>
         </nav>
 
@@ -1235,6 +1239,59 @@
                         </thead>
                         <tbody id="maint-history-body"></tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- Roadmap Management -->
+            <section class="drawer-content" id="roadmap-section">
+                <div class="section-header">
+                    <h2>Roadmap</h2>
+                    <p>Manage roadmap items visible to all users in the Help section.</p>
+                </div>
+                <div class="office-actions">
+                    <button class="office-btn primary" id="roadmap-add-btn" title="Add a new roadmap item">+ Add Item</button>
+                </div>
+                <div id="roadmap-admin-list"></div>
+
+                <!-- Add/Edit Form (hidden until needed) -->
+                <div id="roadmap-form" class="roadmap-form" hidden>
+                    <h3 id="roadmap-form-title">Add Roadmap Item</h3>
+                    <div class="form-group">
+                        <label for="roadmap-title">Title</label>
+                        <input type="text" id="roadmap-title" class="office-input" maxlength="200" title="Roadmap item title">
+                    </div>
+                    <div class="form-group">
+                        <label for="roadmap-description">Description</label>
+                        <textarea id="roadmap-description" class="office-input" rows="3" title="Optional description"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="roadmap-status">Status</label>
+                            <select id="roadmap-status" class="office-input" title="Current status">
+                                <option value="planned">Planned</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="roadmap-priority">Priority</label>
+                            <select id="roadmap-priority" class="office-input" title="Priority level">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="roadmap-sort">Sort Order</label>
+                            <input type="number" id="roadmap-sort" class="office-input" value="0" title="Lower numbers appear first">
+                        </div>
+                    </div>
+                    <div class="office-actions">
+                        <button class="office-btn secondary" id="roadmap-cancel-btn" title="Cancel">Cancel</button>
+                        <button class="office-btn primary" id="roadmap-save-btn" title="Save roadmap item">Save</button>
+                    </div>
+                    <input type="hidden" id="roadmap-edit-id">
                 </div>
             </section>
         </div>

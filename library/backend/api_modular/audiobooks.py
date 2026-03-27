@@ -38,9 +38,7 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 # Exclude: Lecture, Podcast, Newspaper / Magazine, Show, Radio/TV Program, Episode
 # content_type IS NULL handles legacy entries before the field was added
 # nosec B608: This constant is safe for SQL - it's hardcoded, not user input
-AUDIOBOOK_FILTER = (
-    "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
-)
+AUDIOBOOK_FILTER = "(content_type = 'Product' OR content_type IS NULL)"
 
 
 def init_audiobooks_routes(db_path, project_root, database_path):
@@ -187,7 +185,7 @@ def get_audiobooks() -> Response:
         "published_year": "published_year",
         "published_date": "published_date",
         "file_size_mb": "file_size_mb",
-        "series": "series, series_sequence",
+        "series": None,  # Special handling below
         "asin": "asin",
         "edition": "edition",
     }
@@ -201,6 +199,20 @@ def get_audiobooks() -> Response:
     # Validate sort order
     if sort_order not in ["asc", "desc"]:
         sort_order = "asc"
+
+    # Series: sort by series name (user's asc/desc), then sequence always ascending
+    # sort_sql=None signals that ORDER BY is fully specified here
+    if sort_field == "series":
+        sort_sql = f"series {sort_order}, series_sequence ASC"
+        sort_order = ""  # Already embedded in sort_sql
+
+    # Sort-specific filters: hide irrelevant books for series/edition views
+    sort_filter_clause = ""
+    if sort_field == "series":
+        sort_filter_clause = "series IS NOT NULL AND series != ''"
+    elif sort_field == "edition":
+        # Edition filtering happens post-query (edition_count is computed in Python)
+        pass
 
     conn = _get_audiobooks_db()
     cursor = conn.cursor()
@@ -257,6 +269,9 @@ def get_audiobooks() -> Response:
     # Collection filter (predefined query from COLLECTIONS)
     if collection_data:
         where_clauses.append(f"({collection_data['query']})")
+
+    if sort_filter_clause:
+        where_clauses.append(sort_filter_clause)
 
     where_sql = ""
     if where_clauses:
@@ -440,8 +455,13 @@ def get_audiobooks() -> Response:
 
     conn.close()
 
+    # Edition sort: filter to only books with multiple editions
+    if sort_field == "edition":
+        audiobooks = [b for b in audiobooks if b.get("edition_count", 1) > 1]
+        total_count = len(audiobooks)
+
     # Calculate pagination metadata
-    total_pages = (total_count + per_page - 1) // per_page
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
 
     return jsonify(
         {

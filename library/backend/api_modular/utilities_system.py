@@ -613,7 +613,11 @@ def init_system_routes(project_root):
         except Exception:
             version = "unknown"
 
-        return jsonify({"version": version})
+        response = {"version": version}
+        instance_badge = os.environ.get("INSTANCE_BADGE", "")
+        if instance_badge:
+            response["instance_badge"] = instance_badge
+        return jsonify(response)
 
     @utilities_system_bp.route("/api/system/health", methods=["GET"])
     def get_health() -> FlaskResponse:

@@ -112,9 +112,24 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     def _is_proxy_path(self):
         return any(self.path.startswith(p) for p in self.PROXY_PREFIXES)
 
+    # Map API-like GET paths to their static HTML pages.
+    # Browsers hitting /auth/login expect a page, not a POST-only API endpoint.
+    _PAGE_REDIRECTS = {
+        "/auth/login": "/login.html",
+        "/auth/register": "/register.html",
+    }
+
     def do_GET(self):
         if self._is_proxy_path() and is_websocket_upgrade(self.headers):
             self._tunnel_websocket()
+            return
+        # Redirect browser GETs for page-like /auth/ paths to static HTML
+        from urllib.parse import urlparse
+        bare = urlparse(self.path).path
+        if bare in self._PAGE_REDIRECTS:
+            self.send_response(302)
+            self.send_header("Location", self._PAGE_REDIRECTS[bare])
+            self.end_headers()
             return
         if self._is_proxy_path():
             self.proxy_to_api("GET")

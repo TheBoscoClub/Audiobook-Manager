@@ -64,6 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initUsersSection();
   initModals();
   initOperationStatus();
+  initRoadmapAdmin();
 
   // Load initial stats
   loadDatabaseStats();
@@ -3120,7 +3121,7 @@ function renderAuditPagination(total, currentOffset, actionFilter) {
 
 async function loadUnseenBadge() {
   try {
-    var resp = await fetch("/auth/admin/audit-log?limit=1&offset=0", {
+    var resp = await fetch("/auth/admin/users", {
       credentials: "same-origin",
     });
     if (!resp.ok) return;
@@ -3128,8 +3129,6 @@ async function loadUnseenBadge() {
     var badge = document.getElementById("users-badge");
     if (!badge) return;
 
-    // For now show total count; unseen tracking requires last_audit_seen_id
-    // which is a future enhancement
     if (data.total > 0) {
       badge.textContent = data.total;
       badge.hidden = false;
@@ -3137,7 +3136,7 @@ async function loadUnseenBadge() {
       badge.hidden = true;
     }
   } catch (err) {
-    // Ignore
+    // Ignore — non-admin users won't have access
   }
 }
 
@@ -4799,4 +4798,160 @@ function showUpgradeTimeout() {
     btn.addEventListener("click", () => location.reload());
     resultEl.appendChild(btn);
   }
+}
+
+/* ============================================
+   Roadmap Admin Management
+   ============================================ */
+
+async function loadRoadmapAdmin() {
+  var list = document.getElementById("roadmap-admin-list");
+  if (!list) return;
+  try {
+    var resp = await safeFetch("/api/admin/roadmap");
+    if (!resp.ok) { list.textContent = "Failed to load roadmap."; return; }
+    var items = await resp.json();
+    list.replaceChildren();
+    if (!items || items.length === 0) {
+      var p = document.createElement("p");
+      p.textContent = "No roadmap items. Click '+ Add Item' to create one.";
+      p.style.color = "#888";
+      list.appendChild(p);
+      return;
+    }
+    var statusLabels = { planned: "Planned", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" };
+    items.forEach(function(item) {
+      var row = document.createElement("div");
+      row.className = "roadmap-admin-row";
+
+      var info = document.createElement("div");
+      info.className = "roadmap-admin-info";
+
+      var title = document.createElement("strong");
+      title.textContent = item.title;
+      info.appendChild(title);
+
+      var badge = document.createElement("span");
+      badge.className = "roadmap-admin-badge roadmap-admin-" + item.status;
+      badge.textContent = statusLabels[item.status] || item.status;
+      info.appendChild(badge);
+
+      if (item.priority === "high") {
+        var pBadge = document.createElement("span");
+        pBadge.className = "roadmap-admin-badge roadmap-admin-high";
+        pBadge.textContent = "High";
+        info.appendChild(pBadge);
+      }
+
+      if (item.description) {
+        var desc = document.createElement("p");
+        desc.className = "roadmap-admin-desc";
+        desc.textContent = item.description;
+        info.appendChild(desc);
+      }
+
+      var actions = document.createElement("div");
+      actions.className = "roadmap-admin-actions";
+
+      var editBtn = document.createElement("button");
+      editBtn.className = "office-btn secondary";
+      editBtn.textContent = "Edit";
+      editBtn.title = "Edit this roadmap item";
+      editBtn.addEventListener("click", function() { editRoadmapItem(item); });
+      actions.appendChild(editBtn);
+
+      var delBtn = document.createElement("button");
+      delBtn.className = "office-btn danger";
+      delBtn.textContent = "Delete";
+      delBtn.title = "Delete this roadmap item";
+      delBtn.addEventListener("click", function() { deleteRoadmapItem(item.id); });
+      actions.appendChild(delBtn);
+
+      row.appendChild(info);
+      row.appendChild(actions);
+      list.appendChild(row);
+    });
+  } catch (e) {
+    list.textContent = "Error loading roadmap.";
+  }
+}
+
+function editRoadmapItem(item) {
+  document.getElementById("roadmap-form").hidden = false;
+  document.getElementById("roadmap-form-title").textContent = "Edit Roadmap Item";
+  document.getElementById("roadmap-edit-id").value = item.id;
+  document.getElementById("roadmap-title").value = item.title;
+  document.getElementById("roadmap-description").value = item.description || "";
+  document.getElementById("roadmap-status").value = item.status;
+  document.getElementById("roadmap-priority").value = item.priority;
+  document.getElementById("roadmap-sort").value = item.sort_order || 0;
+}
+
+async function deleteRoadmapItem(id) {
+  if (!confirm("Delete this roadmap item?")) return;
+  var resp = await safeFetch("/api/admin/roadmap/" + id, { method: "DELETE" });
+  if (resp.ok) {
+    showToast("Roadmap item deleted", "success");
+    loadRoadmapAdmin();
+  } else {
+    showToast("Failed to delete", "error");
+  }
+}
+
+function initRoadmapAdmin() {
+  var addBtn = document.getElementById("roadmap-add-btn");
+  var cancelBtn = document.getElementById("roadmap-cancel-btn");
+  var saveBtn = document.getElementById("roadmap-save-btn");
+  var form = document.getElementById("roadmap-form");
+
+  if (!addBtn) return;
+
+  addBtn.addEventListener("click", function() {
+    form.hidden = false;
+    document.getElementById("roadmap-form-title").textContent = "Add Roadmap Item";
+    document.getElementById("roadmap-edit-id").value = "";
+    document.getElementById("roadmap-title").value = "";
+    document.getElementById("roadmap-description").value = "";
+    document.getElementById("roadmap-status").value = "planned";
+    document.getElementById("roadmap-priority").value = "medium";
+    document.getElementById("roadmap-sort").value = "0";
+  });
+
+  cancelBtn.addEventListener("click", function() {
+    form.hidden = true;
+  });
+
+  saveBtn.addEventListener("click", async function() {
+    var title = document.getElementById("roadmap-title").value.trim();
+    if (!title) { showToast("Title is required", "error"); return; }
+
+    var payload = {
+      title: title,
+      description: document.getElementById("roadmap-description").value.trim(),
+      status: document.getElementById("roadmap-status").value,
+      priority: document.getElementById("roadmap-priority").value,
+      sort_order: parseInt(document.getElementById("roadmap-sort").value) || 0
+    };
+
+    var editId = document.getElementById("roadmap-edit-id").value;
+    var url = editId ? "/api/admin/roadmap/" + editId : "/api/admin/roadmap";
+    var method = editId ? "PUT" : "POST";
+
+    var resp = await safeFetch(url, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (resp.ok) {
+      showToast(editId ? "Updated" : "Created", "success");
+      form.hidden = true;
+      loadRoadmapAdmin();
+    } else {
+      var err = await resp.json().catch(function() { return {}; });
+      showToast(err.error || "Failed to save", "error");
+    }
+  });
+
+  loadRoadmapAdmin();
 }
