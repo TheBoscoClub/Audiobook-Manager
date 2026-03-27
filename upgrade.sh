@@ -1399,14 +1399,25 @@ do_upgrade() {
                 else
                     dst="/etc/caddy/${caddy_file}"
                 fi
-                if [[ -f "$src" ]] && ! diff -q "$src" "$dst" &>/dev/null; then
-                    if [[ "$DRY_RUN" == "true" ]]; then
-                        echo "  [DRY-RUN] Would update: $caddy_file"
+                if [[ -f "$src" ]]; then
+                    # For audiobooks.conf, substitute the actual app port
+                    local src_content
+                    if [[ "$caddy_file" == "audiobooks.conf" ]]; then
+                        local web_port="${AUDIOBOOKS_WEB_PORT:-8443}"
+                        src_content=$(sed "s|https://localhost:8443|https://localhost:${web_port}|" "$src")
                     else
-                        sudo mkdir -p "$(dirname "$dst")"
-                        sudo cp -f "$src" "$dst"
-                        caddy_changed=true
-                        echo "  Updated: $caddy_file"
+                        src_content=$(cat "$src")
+                    fi
+                    # Compare with installed version
+                    if [[ ! -f "$dst" ]] || [[ "$src_content" != "$(cat "$dst" 2>/dev/null)" ]]; then
+                        if [[ "$DRY_RUN" == "true" ]]; then
+                            echo "  [DRY-RUN] Would update: $caddy_file"
+                        else
+                            sudo mkdir -p "$(dirname "$dst")"
+                            echo "$src_content" | sudo tee "$dst" > /dev/null
+                            caddy_changed=true
+                            echo "  Updated: $caddy_file"
+                        fi
                     fi
                 fi
             done
@@ -1494,7 +1505,41 @@ do_upgrade() {
                         "$target/library/venv/bin/pip" install --quiet flask mutagen
                 fi
                 echo -e "${GREEN}  Venv recreated with system Python${NC}"
+            else
+                # Venv exists and works — sync dependencies from requirements.txt
+                # so new packages (added between releases) get installed
+                echo -e "${BLUE}Syncing Python dependencies...${NC}"
+                if [[ -n "$use_sudo" ]]; then
+                    sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
+                        -r "$target/library/requirements.txt" 2>/dev/null &&
+                        echo -e "${GREEN}  Dependencies synced${NC}" ||
+                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                else
+                    "$target/library/venv/bin/pip" install --quiet \
+                        -r "$target/library/requirements.txt" 2>/dev/null &&
+                        echo -e "${GREEN}  Dependencies synced${NC}" ||
+                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                fi
             fi
+        fi
+    fi
+
+    # Sync audible-cli isolated venv
+    if [[ "$DRY_RUN" == "false" ]]; then
+        local audible_venv="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/audible-venv"
+        if [[ -d "$audible_venv" ]]; then
+            echo -e "${BLUE}Syncing audible-cli dependencies...${NC}"
+            if [[ -n "$use_sudo" ]]; then
+                sudo -u audiobooks "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null &&
+                    echo -e "${GREEN}  audible-cli synced${NC}" ||
+                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+            else
+                "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null &&
+                    echo -e "${GREEN}  audible-cli synced${NC}" ||
+                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+            fi
+        else
+            echo -e "${YELLOW}  audible-cli venv not found at $audible_venv — run install.sh to create${NC}"
         fi
     fi
 
@@ -2451,7 +2496,7 @@ echo ""
 # HEAD to be a tagged release. This prevents dev/feature code from reaching
 # production accidentally. Remote deploys (QA/test VMs) are unaffected —
 # the --remote path exits before reaching this point.
-if [[ "$TARGET_DIR" == "/opt/audiobooks" ]] && [[ -z "$REMOTE_HOST" ]]; then
+if [[ "$TARGET_DIR" == "/opt/audiobooks" ]] && [[ -z "$REMOTE_HOST" ]] && [[ "$PROJECT_DIR" != /tmp/audiobook-upgrade-* ]]; then
     head_tag=$(git -C "$PROJECT_DIR" tag --points-at HEAD 2>/dev/null | grep -E '^v[0-9]' | head -1)
     if [[ -z "$head_tag" ]]; then
         echo -e "${RED}${BOLD}PRODUCTION SAFETY GATE${NC}"

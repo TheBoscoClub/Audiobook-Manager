@@ -13,13 +13,8 @@ qrcode[pil]>=8.0
 sqlcipher3>=0.5.0
 # Security: Pin minimum versions for transitive deps with CVEs
 urllib3>=2.6.3      # CVE-2026-21441
-h11>=0.16.0         # CVE-2025-43859
-httpcore>=1.0.9     # Updated to support h11>=0.16
-httpx>=0.28.1       # Updated with httpcore 1.x
 pyasn1>=0.6.3       # CVE-2026-23490, CVE-2026-30922
 pyopenssl>=26.0.0   # CVE-2026-27448, CVE-2026-27459
-aiohttp>=3.13.3     # CVE-2025-69223 through CVE-2025-69230
-brotli>=1.2.0       # CVE-2025-6176
 filelock>=3.20.1    # CVE-2025-68146
 marshmallow>=4.0.0  # CVE-2025-68480 (actual installed: 4.x)
 pynacl>=1.6.2       # CVE-2025-69277
@@ -27,3 +22,5 @@ werkzeug>=3.1.6     # CVE-2025-66221, CVE-2026-21860, GHSA-29vq-49wr-vm6x
 pillow>=12.1.1      # GHSA-cfh3-3jmp-rvhc (OOB write on PSD)
 defusedxml>=0.7.1   # S314: safe XML parsing for external/untrusted content
 cbor2>=5.9.0        # CVE-2026-26209 (DoS via CBOR recursion, used by webauthn)
+# NOTE: audible-cli is installed in a separate venv (AUDIOBOOKS_AUDIBLE_VENV)
+# to avoid httpx version conflicts. See lib/audiobook-config.sh.

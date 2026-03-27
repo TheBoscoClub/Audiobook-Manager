@@ -76,6 +76,49 @@ declare -A SCRIPT_ALIASES=(
 )
 
 # -----------------------------------------------------------------------------
+# Pre-flight: verify required system dependencies
+# -----------------------------------------------------------------------------
+check_system_dependencies() {
+    local missing=()
+
+    # Required commands and what provides them
+    local -A deps=(
+        [python3]="python (3.13+)"
+        [ffmpeg]="ffmpeg (with libopus codec)"
+        [ffprobe]="ffmpeg"
+        [sqlite3]="sqlite"
+        [parallel]="GNU parallel"
+        [jq]="jq"
+        [openssl]="openssl"
+    )
+
+    for cmd in "${!deps[@]}"; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing+=("  - $cmd (${deps[$cmd]})")
+        fi
+    done
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo -e "${RED}${BOLD}Missing required system packages:${NC}"
+        printf '%s\n' "${missing[@]}"
+        echo ""
+        echo -e "${YELLOW}Install them with your package manager before running install.sh:${NC}"
+        echo -e "  ${DIM}Arch/CachyOS: sudo pacman -S python ffmpeg sqlite parallel jq openssl${NC}"
+        echo -e "  ${DIM}Debian/Ubuntu: sudo apt install python3 ffmpeg sqlite3 parallel jq openssl${NC}"
+        echo -e "  ${DIM}Fedora:        sudo dnf install python3 ffmpeg sqlite parallel jq openssl${NC}"
+        exit 1
+    fi
+
+    # Verify ffmpeg has opus support
+    if ! ffmpeg -encoders 2>/dev/null | grep -q "libopus"; then
+        echo -e "${YELLOW}Warning: ffmpeg may lack libopus encoder — Opus conversion will fail${NC}"
+        echo -e "${DIM}Install the opus codec: sudo pacman -S opus libopus (or equivalent)${NC}"
+    fi
+
+    echo -e "${GREEN}  System dependencies verified${NC}"
+}
+
+# -----------------------------------------------------------------------------
 # Helper Functions
 # -----------------------------------------------------------------------------
 
@@ -1461,6 +1504,15 @@ EOF
         sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
 
+    # Isolated venv for audible-cli (avoids httpx version conflict with main app)
+    local audible_venv="/var/lib/audiobooks/audible-venv"
+    echo -e "${BLUE}Setting up audible-cli virtual environment...${NC}"
+    [[ -d "$audible_venv" ]] && sudo rm -rf "$audible_venv"
+    sudo "$sys_python" -m venv "$audible_venv"
+    sudo chown -R audiobooks:audiobooks "$audible_venv"
+    sudo -u audiobooks "$audible_venv/bin/pip" install --quiet 'audible-cli>=0.3.2'
+    echo -e "${GREEN}  audible-cli installed in isolated venv${NC}"
+
     # Generate SSL certificate if needed
     local CERT_DIR="${APP_DIR}/library/certs"
     if [[ ! -f "${CERT_DIR}/server.crt" ]]; then
@@ -1572,10 +1624,13 @@ EOF
         if command -v caddy &>/dev/null; then
             echo -e "${BLUE}Installing Caddy maintenance page configuration...${NC}"
             sudo mkdir -p /etc/caddy/conf.d
-            sudo cp -f "${SCRIPT_DIR}/caddy/audiobooks.conf" /etc/caddy/conf.d/audiobooks.conf
+            # Substitute the actual app port into the Caddy config template
+            local web_port="${AUDIOBOOKS_WEB_PORT:-8443}"
+            sed "s|https://localhost:8443|https://localhost:${web_port}|" \
+                "${SCRIPT_DIR}/caddy/audiobooks.conf" | sudo tee /etc/caddy/conf.d/audiobooks.conf > /dev/null
             sudo cp -f "${SCRIPT_DIR}/caddy/maintenance.html" /etc/caddy/maintenance.html
             sudo systemctl reload caddy 2>/dev/null || true
-            echo "  Installed: Caddy reverse proxy config and maintenance page"
+            echo "  Installed: Caddy reverse proxy config and maintenance page (port ${web_port})"
         fi
 
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
@@ -2039,6 +2094,14 @@ EOF
         echo -e "${YELLOW}Warning: requirements.txt not found, installing Flask only${NC}"
         "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
     fi
+
+    # Isolated venv for audible-cli (avoids httpx version conflict with main app)
+    local audible_venv="${HOME}/.local/share/audiobooks/audible-venv"
+    echo -e "${BLUE}Setting up audible-cli virtual environment...${NC}"
+    [[ -d "$audible_venv" ]] && rm -rf "$audible_venv"
+    "$sys_python" -m venv "$audible_venv"
+    "$audible_venv/bin/pip" install --quiet 'audible-cli>=0.3.2'
+    echo -e "${GREEN}  audible-cli installed in isolated venv${NC}"
 
     # Generate SSL certificate if needed
     local CERT_DIR="${CONFIG_DIR}/certs"
@@ -2517,6 +2580,9 @@ done
 # -----------------------------------------------------------------------------
 # Main Script
 # -----------------------------------------------------------------------------
+
+# Pre-flight: verify system packages are installed
+check_system_dependencies
 
 # Handle command-line mode selection
 if [[ -n "$INSTALL_MODE" ]]; then
