@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
-### Fixed
-
 ## [7.5.1] - 2026-03-27
 
 ### Added
@@ -33,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Production safety gate** (`upgrade.sh`): Added validation that `--from-project` directory is a real project, not production install path
 - **Security: Bandit B310** (`utilities_system.py`): URL scheme validation before `urlopen` for Cloudflare cache purge
 - **Security: Bandit B608** (`import_to_db.py`): Column name whitelist for dynamic SQL in enrichment data restore
+- **Security: CodeQL #372** (`utilities_system.py`): Replace exception text leak with generic error message in Cloudflare API handler to prevent internal detail exposure
+- **Security: CodeQL #373 / ReDoS** (`suggestions.py`): Changed greedy quantifier to lazy in HTML-stripping regex, preventing polynomial backtracking on malicious input
+- **Security: XSS** (`utilities.js`): Escape `file_path` via `textContent` instead of `innerHTML` in duplicate list rendering
+- **Legacy cleanup** (`upgrade.sh`): Added `deploy.sh` and `deploy-vm.sh` to legacy file removal list (deleted from project in v6.6.3 but may linger in existing production installs)
 
 ## [7.5.0] - 2026-03-26
 
