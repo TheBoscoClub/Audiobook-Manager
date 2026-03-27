@@ -342,6 +342,10 @@ body {
    Suggestion Drawer (admin)
    ============================================ */
 
+.suggestion-drawer[hidden] {
+    display: none !important;
+}
+
 .suggestion-drawer {
     position: fixed;
     top: 44px; /* below shell header */
