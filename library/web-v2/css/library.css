@@ -118,6 +118,13 @@
     opacity: 0.9;
 }
 
+.book-series {
+    color: var(--cream-light);
+    font-size: 0.82rem;
+    margin-bottom: 0.3rem;
+    opacity: 0.75;
+}
+
 .book-meta {
     display: flex;
     justify-content: space-between;
