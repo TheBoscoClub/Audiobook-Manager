@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.5.1.1] - 2026-03-27
+
+### Fixed
+
+- **Security: CodeQL #372** (`utilities_system.py`): Replace exception text leak with generic error message in Cloudflare API handler
+- **Security: CodeQL #373 / ReDoS** (`suggestions.py`): Lazy quantifier in HTML-stripping regex to prevent polynomial backtracking
+- **Security: XSS** (`utilities.js`): Escape `file_path` via `escapeHtml()` in duplicate list rendering
+- **Legacy cleanup** (`upgrade.sh`): Added `deploy.sh` and `deploy-vm.sh` to legacy file removal list
+
 ## [7.5.1] - 2026-03-27
 
 ### Added
@@ -27,10 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Production safety gate** (`upgrade.sh`): Added validation that `--from-project` directory is a real project, not production install path
 - **Security: Bandit B310** (`utilities_system.py`): URL scheme validation before `urlopen` for Cloudflare cache purge
 - **Security: Bandit B608** (`import_to_db.py`): Column name whitelist for dynamic SQL in enrichment data restore
-- **Security: CodeQL #372** (`utilities_system.py`): Replace exception text leak with generic error message in Cloudflare API handler to prevent internal detail exposure
-- **Security: CodeQL #373 / ReDoS** (`suggestions.py`): Changed greedy quantifier to lazy in HTML-stripping regex, preventing polynomial backtracking on malicious input
-- **Security: XSS** (`utilities.js`): Escape `file_path` via `textContent` instead of `innerHTML` in duplicate list rendering
-- **Legacy cleanup** (`upgrade.sh`): Added `deploy.sh` and `deploy-vm.sh` to legacy file removal list (deleted from project in v6.6.3 but may linger in existing production installs)
 
 ## [7.5.0] - 2026-03-26
 
@@ -2246,7 +2251,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...HEAD
+[7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1
 [7.5.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.0...v7.5.1
 [7.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.2...v7.5.0
 [7.4.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.2...v7.4.2
