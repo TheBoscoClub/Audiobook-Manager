@@ -13,6 +13,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.5.1] - 2026-03-27
+
+### Added
+
+- **User suggestion comment pad** (`help.html`): Users can submit feature suggestions and comments with an admin notification drawer for reviewing submissions
+- **Admin-editable roadmap** (`roadmap.html`): Back Office roadmap page with admin editing capability, `content_type` filter on library, and login redirect fix
+- **v8 design spec** (`docs/superpowers/specs/`): Collections overhaul and user preferences design specification for future v8 release
+
+### Changed
+
+- **Isolated audible-cli venv**: `audible-cli` now runs in a separate virtualenv (`/var/lib/audiobooks/audible-venv`) to resolve httpx version conflicts. `install.sh` and `upgrade.sh` manage this venv independently.
+- **Art Deco button styling**: Account page buttons (`.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-inline`) redesigned with gradient backgrounds, 3D box-shadows, hover lift effects, and active press effects
+
+### Fixed
+
+- **Iframe logout loop**: Shell iframe now redirects `window.top` on auth failure instead of creating nested login pages. Login page includes iframe breakout guard.
+- **Suggestion drawer visibility**: `.suggestion-drawer[hidden]` now uses `display: none !important` to prevent flash-of-content
+- **Production safety gate** (`upgrade.sh`): Added validation that `--from-project` directory is a real project, not production install path
+- **Security: Bandit B310** (`utilities_system.py`): URL scheme validation before `urlopen` for Cloudflare cache purge
+- **Security: Bandit B608** (`import_to_db.py`): Column name whitelist for dynamic SQL in enrichment data restore
+
 ## [7.5.0] - 2026-03-26
 
 ### Added
@@ -2227,8 +2248,10 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...HEAD
+[7.5.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.0...v7.5.1
 [7.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.2...v7.5.0
+[7.4.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.2...v7.4.2
 [7.4.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1.1...v7.4.1.2
 [7.4.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.4.1...v7.4.1.1
 [7.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.3.0.1...v7.4.1
