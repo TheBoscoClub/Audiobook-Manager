@@ -1527,6 +1527,7 @@ class AudiobookLibraryV2 {
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
                 ${book.author ? `<div class="book-author">by ${this.escapeHtml(book.author)}</div>` : ""}
                 ${book.narrator ? `<div class="book-narrator">Narrated by ${this.escapeHtml(book.narrator)}</div>` : ""}
+                ${book.series ? `<div class="book-series">(${this.escapeHtml(book.series)}${book.series_sequence ? `, Book ${book.series_sequence}` : ""})</div>` : ""}
                 <div class="book-meta">
                     <span class="book-format">${formatQuality}${quality}</span>
                     <span class="book-duration">${book.duration_formatted || `${Math.round(book.duration_hours || 0)}h`}</span>
