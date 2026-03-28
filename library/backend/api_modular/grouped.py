@@ -102,7 +102,8 @@ def _get_book_columns() -> str:
     return (
         "a.id, a.title, a.author, a.narrator, a.publisher, a.series, "
         "a.series_sequence, a.duration_hours, a.duration_formatted, "
-        "a.file_size_mb, a.cover_path, a.format"
+        "a.file_size_mb, a.cover_path, a.format, "
+        "a.published_date, a.published_year, a.release_date"
     )
 
 
@@ -121,6 +122,9 @@ def _row_to_book(row: sqlite3.Row) -> dict:
         "file_size_mb": row["file_size_mb"],
         "cover_path": row["cover_path"],
         "format": row["format"],
+        "published_date": row["published_date"],
+        "published_year": row["published_year"],
+        "release_date": row["release_date"],
     }
 
 
@@ -129,7 +133,9 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
     cursor = conn.cursor()
     book_cols = _get_book_columns()
 
-    # Fetch all books with their authors, sorted by author sort_name then book title
+    # Fetch all books with their authors, sorted by author sort_name then publication date
+    # Publication date sort: prefer published_date (YYYY-MM-DD), fall back to
+    # published_year, then release_date, then title. NULLS LAST via COALESCE.
     # nosec B608: AUDIOBOOK_FILTER and book_cols are hardcoded constants, not user input
     cursor.execute(f"""
         SELECT {book_cols}, auth.id AS group_id, auth.name AS group_name,
@@ -138,7 +144,11 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         JOIN book_authors ba ON a.id = ba.book_id
         JOIN authors auth ON ba.author_id = auth.id
         WHERE {AUDIOBOOK_FILTER}
-        ORDER BY auth.sort_name COLLATE NOCASE, a.title COLLATE NOCASE
+        ORDER BY auth.sort_name COLLATE NOCASE,
+                 COALESCE(a.published_date, a.release_date,
+                          CAST(a.published_year AS TEXT) || '-01-01',
+                          '9999-12-31') ASC,
+                 a.title COLLATE NOCASE
         """)  # nosec B608
     rows = cursor.fetchall()
 
@@ -209,7 +219,11 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         JOIN book_narrators bn ON a.id = bn.book_id
         JOIN narrators narr ON bn.narrator_id = narr.id
         WHERE {AUDIOBOOK_FILTER}
-        ORDER BY narr.sort_name COLLATE NOCASE, a.title COLLATE NOCASE
+        ORDER BY narr.sort_name COLLATE NOCASE,
+                 COALESCE(a.published_date, a.release_date,
+                          CAST(a.published_year AS TEXT) || '-01-01',
+                          '9999-12-31') ASC,
+                 a.title COLLATE NOCASE
         """)  # nosec B608
     rows = cursor.fetchall()
 

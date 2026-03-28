@@ -8,7 +8,7 @@ Tests cover:
 - Multi-author book appears in both author groups
 - total_books is deduplicated count
 - Groups sorted by sort_name (case-insensitive)
-- Books within groups sorted by title (case-insensitive)
+- Books within groups sorted by publication date, then title
 - Orphan books (no junction rows) appear in Unknown group at end
 """
 
@@ -334,6 +334,79 @@ class TestGroupedByNarrator:
 
         last_group = data["groups"][-1]
         assert last_group["key"]["name"] == "Unknown Narrator"
+
+
+class TestGroupedPublicationDateSort:
+    """Test that books within groups are sorted by publication date."""
+
+    def test_books_sorted_by_published_date(self, flask_app, app_client, grouped_db):
+        """Books with published_date sort chronologically, not alphabetically."""
+        db_path = flask_app.config["DATABASE_PATH"]
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA foreign_keys = ON")
+        cursor = conn.cursor()
+
+        king_id = grouped_db["author_ids"]["king"]
+
+        # Add two more King books with dates that differ from alpha order
+        cursor.execute(
+            """INSERT INTO audiobooks (title, author, narrator, file_path, format,
+                duration_hours, content_type, file_size_mb,
+                published_date, published_year)
+            VALUES ('The Stand', 'Stephen King', 'Grover Gardner',
+                    '/test/stand.opus', 'opus', 20.0, 'Product', 200.0,
+                    '1978-10-03', 1978)""",
+        )
+        stand_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO book_authors (book_id, author_id, position) VALUES (?, ?, 0)",
+            (stand_id, king_id),
+        )
+
+        cursor.execute(
+            """INSERT INTO audiobooks (title, author, narrator, file_path, format,
+                duration_hours, content_type, file_size_mb,
+                published_date, published_year)
+            VALUES ('Carrie', 'Stephen King', 'Sissy Spacek',
+                    '/test/carrie.opus', 'opus', 8.0, 'Product', 80.0,
+                    '1974-04-05', 1974)""",
+        )
+        carrie_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO book_authors (book_id, author_id, position) VALUES (?, ?, 0)",
+            (carrie_id, king_id),
+        )
+        conn.commit()
+
+        try:
+            resp = app_client.get("/api/audiobooks/grouped?by=author")
+            data = resp.get_json()
+
+            # Find King's group
+            king_group = None
+            for g in data["groups"]:
+                if g["key"]["name"] == "Stephen King":
+                    king_group = g
+                    break
+            assert king_group is not None
+
+            titles = [b["title"] for b in king_group["books"]]
+            # Carrie (1974) should come before The Stand (1978)
+            # Books without dates (It, The Talisman) sort after dated books via '9999-12-31'
+            assert titles.index("Carrie") < titles.index("The Stand")
+
+            # Verify date fields are present in response
+            first_book = king_group["books"][0]
+            assert "published_date" in first_book
+            assert "published_year" in first_book
+            assert "release_date" in first_book
+        finally:
+            cursor.execute("DELETE FROM book_authors WHERE book_id IN (?, ?)",
+                          (stand_id, carrie_id))
+            cursor.execute("DELETE FROM audiobooks WHERE id IN (?, ?)",
+                          (stand_id, carrie_id))
+            conn.commit()
+            conn.close()
 
 
 class TestGroupedValidation:
