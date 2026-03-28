@@ -24,7 +24,7 @@ from flask import (
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import COVER_DIR, AUDIOBOOKS_WEBM_CACHE
 
-from .collections import COLLECTIONS
+from .collections import get_collections_lookup
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
 from .auth import auth_if_enabled, guest_allowed, download_permission_required
@@ -219,7 +219,9 @@ def get_audiobooks() -> Response:
 
     # Build query - filter to audiobooks only unless collection bypasses it
     # Collections like "Podcasts" set bypasses_filter=True to show non-audiobook content
-    collection_data = COLLECTIONS.get(collection) if collection else None
+    db_path = str(current_app.config.get("DATABASE_PATH", ""))
+    collections = get_collections_lookup(db_path) if collection else {}
+    collection_data = collections.get(collection) if collection else None
     bypasses = collection_data and collection_data.get("bypasses_filter", False)
 
     where_clauses = [] if bypasses else [AUDIOBOOK_FILTER]
