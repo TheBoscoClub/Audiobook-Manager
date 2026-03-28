@@ -961,8 +961,8 @@ The application uses WebSocket for real-time bidirectional communication between
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | WSGI Server | Gunicorn (production) / `gevent.pywsgi.WSGIServer` (direct `__main__`) | Production HTTP server |
-| Worker Class | `geventwebsocket.gunicorn.workers.GeventWebSocketWorker` (Gunicorn only) | Cooperative I/O + WebSocket protocol under Gunicorn |
-| Direct Execution | `gevent.pywsgi.WSGIServer` with no custom handler class | `flask_sock` handles WebSocket upgrades natively — `WebSocketHandler` removed to prevent duplicate 101 responses |
+| Worker Class | `gevent` (standard gevent worker) | Cooperative I/O; `flask_sock` handles WebSocket upgrades natively |
+| Direct Execution | `gevent.pywsgi.WSGIServer` with no custom handler class | `flask_sock` handles WebSocket upgrades natively |
 | Monkey-Patch | `gevent.monkey.patch_all()` | Patches stdlib (including sqlite3) for greenlet scheduling |
 | WebSocket Lib | flask-sock | Flask route decorator for WebSocket endpoints |
 | Worker Count | `-w 1` (HARD CONSTRAINT) | Single worker required for in-memory ConnectionManager |

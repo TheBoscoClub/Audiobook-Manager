@@ -178,9 +178,8 @@ app.run(debug=True)
 ### Production with Gunicorn
 
 ```bash
-# Production: Gunicorn with GeventWebSocketWorker (supports WebSocket)
-gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker \
-    -w 1 -b 127.0.0.1:5001 api_server:app
+# Production: Gunicorn with gevent worker (flask-sock handles WebSocket natively)
+gunicorn -k gevent -w 1 -b 127.0.0.1:5001 api_server:app
 ```
 
 ### Entry Point Script

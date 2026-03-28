@@ -405,7 +405,7 @@ ls -la $AUDIOBOOKS_RUN_DIR/maintenance.lock
 ```bash
 # Verify Gunicorn worker type
 ps aux | grep gunicorn
-# Should show: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+# Should show: -k gevent (NOT GeventWebSocketWorker — that causes double 101)
 
 # Check proxy tunneling
 curl -v -H "Connection: Upgrade" -H "Upgrade: websocket" https://localhost:8443/api/ws
