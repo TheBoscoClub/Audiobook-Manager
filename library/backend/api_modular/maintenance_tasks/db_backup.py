@@ -76,7 +76,9 @@ class DatabaseBackupTask(MaintenanceTask):
 
             msg = f"Backup created: {backup_path.name} ({size_mb:.1f} MB)"
             if pruned:
-                msg += f" — pruned {pruned} old backups ({freed / (1024*1024):.1f} MB)"
+                msg += (
+                    f" — pruned {pruned} old backups ({freed / (1024 * 1024):.1f} MB)"
+                )
 
             return ExecutionResult(
                 success=True,

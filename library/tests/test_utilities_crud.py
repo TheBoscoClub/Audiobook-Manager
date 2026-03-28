@@ -404,7 +404,11 @@ class TestBulkDeleteAudiobooks:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         # Must return dict-like objects (sqlite3.Row behavior)
-        mock_row = {"id": 9023, "file_path": "/nonexistent/path.opus", "cover_path": None}
+        mock_row = {
+            "id": 9023,
+            "file_path": "/nonexistent/path.opus",
+            "cover_path": None,
+        }
         mock_cursor.fetchall.return_value = [mock_row]
         mock_cursor.rowcount = 1
         mock_conn.cursor.return_value = mock_cursor

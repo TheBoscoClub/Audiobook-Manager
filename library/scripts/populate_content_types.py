@@ -270,10 +270,18 @@ def populate_content_types(dry_run: bool = True) -> None:
         import re
 
         # Known podcast/show publishers
-        podcast_publishers = frozenset({
-            "wondery", "movewith", "aaptiv", "higher ground",
-            "panoply", "gimlet", "stitcher", "parcast",
-        })
+        podcast_publishers = frozenset(
+            {
+                "wondery",
+                "movewith",
+                "aaptiv",
+                "higher ground",
+                "panoply",
+                "gimlet",
+                "stitcher",
+                "parcast",
+            }
+        )
         # Title patterns strongly indicating podcast/show episodes
         episode_patterns = [
             re.compile(r"\bEp(?:isode)?\.?\s*\d", re.IGNORECASE),

@@ -30,10 +30,10 @@ echo ""
 NO_PROMPT=false
 for arg in "$@"; do
     case $arg in
-        --no-prompt)
-            NO_PROMPT=true
-            shift
-            ;;
+    --no-prompt)
+        NO_PROMPT=true
+        shift
+        ;;
     esac
 done
 
