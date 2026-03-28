@@ -2299,7 +2299,8 @@ sudo /opt/audiobooks/upgrade.sh
 
 [Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.3...HEAD
 [7.5.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...v7.5.3
-[7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2.1
+[7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2...v7.5.2.1
+[7.5.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2
 [7.5.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...v7.5.1.3
 [7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
 [7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1
