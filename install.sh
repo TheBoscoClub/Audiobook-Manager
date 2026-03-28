@@ -1641,16 +1641,9 @@ EOF
             echo "  Enabled: audiobook-upgrade-helper.path"
         fi
 
-        # Target (includes all services)
-        sudo tee "${SYSTEMD_DIR}/audiobook.target" >/dev/null <<EOF
-[Unit]
-Description=Audiobooks Library Services
-Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
-Wants=audiobook-api.service audiobook-proxy.service audiobook-redirect.service audiobook-converter.service audiobook-mover.service audiobook-downloader.timer audiobook-scheduler.service
-
-[Install]
-WantedBy=multi-user.target
-EOF
+        # Target — copy canonical file from systemd/ directory
+        sudo cp "${SCRIPT_DIR}/systemd/audiobook.target" "${SYSTEMD_DIR}/audiobook.target"
+        sudo chmod 644 "${SYSTEMD_DIR}/audiobook.target"
 
         # Reload systemd
         sudo systemctl daemon-reload
