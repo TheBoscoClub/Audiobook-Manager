@@ -10,8 +10,6 @@ import sqlite3
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
-
 import pytest
 
 # Add library directory to path
