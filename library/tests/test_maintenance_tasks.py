@@ -335,9 +335,10 @@ class TestDatabaseBackupTask:
         cb = MagicMock()
         task = DatabaseBackupTask()
         task.execute({"db_path": str(db)}, progress_callback=cb)
-        # Should call at 0.2 ("Creating backup...") and 1.0 ("Complete")
-        assert cb.call_count == 2
+        # Should call at 0.2 ("Creating..."), 0.8 ("Pruning..."), 1.0 ("Complete")
+        assert cb.call_count == 3
         cb.assert_any_call(0.2, "Creating backup...")
+        cb.assert_any_call(0.8, "Pruning old backups...")
         cb.assert_any_call(1.0, "Complete")
 
     def test_estimate_duration(self):
