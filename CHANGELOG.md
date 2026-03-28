@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.5.2] - 2026-03-27
+
+### Fixed
+
+- **Author deduplication**: Unicode apostrophe/dash variants (curly quotes, en-dashes) now normalize before dedup — eliminates duplicate author entries like "Patrick O'Brian" vs "Patrick O\u2019Brian"
+- **Publication date sort**: Grouped author/narrator views now sort books chronologically using COALESCE chain (published_date → release_date → published_year), with title as tiebreaker
+- **Narrator enrichment gap**: Audible enrichment now persists narrator metadata to both flat columns and normalized tables — fixes "Unknown Narrator" for newly acquired books like "52 Pickup"
+
 ## [7.5.1.3] - 2026-03-27
 
 ### Changed
@@ -2275,7 +2283,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2...HEAD
+[7.5.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2
 [7.5.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...v7.5.1.3
 [7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
 [7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1
