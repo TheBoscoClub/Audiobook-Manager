@@ -170,7 +170,8 @@ def get_audiobooks() -> Response:
     sort_field = request.args.get("sort", "title")
     sort_order = request.args.get("order", "asc").lower()
 
-    # Map user-friendly sort names to SQL expressions
+    # Map user-friendly sort names to SQL column names.
+    # Text columns get COLLATE NOCASE applied in the ORDER BY clause below.
     sort_mappings = {
         "title": "title",
         "author": "author",
@@ -189,6 +190,9 @@ def get_audiobooks() -> Response:
         "asin": "asin",
         "edition": "edition",
     }
+
+    # Text columns that need case-insensitive sorting
+    _text_sorts = {"title", "author", "narrator", "asin", "edition"}
 
     # Get SQL sort expression
     if sort_field in sort_mappings:
@@ -210,13 +214,36 @@ def get_audiobooks() -> Response:
         "acquired_date",
         "published_date",
     }
+
+    # Name-based sorts: use COLLATE NOCASE for case-insensitive ordering
+    # (handles "Le Carré" vs "le Carré", "Del Toro" vs "del Toro")
+    # and add secondary sort by title for deterministic order within same name
+    _name_sorts = {
+        "author_last_name",
+        "author_first_name",
+        "narrator_last_name",
+        "narrator_first_name",
+    }
+
     if sort_sql in _nullable_sorts:
-        sort_sql = f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, {sort_sql}"
+        if sort_sql in _name_sorts:
+            # NULLS LAST + case-insensitive + secondary sort by title
+            sort_sql = (
+                f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, "
+                f"{sort_sql} COLLATE NOCASE {sort_order}, "
+                f"title COLLATE NOCASE ASC"
+            )
+            sort_order = ""  # Already embedded
+        else:
+            sort_sql = f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, {sort_sql}"
+    elif sort_sql in _text_sorts:
+        # Case-insensitive sorting for text columns
+        sort_sql = f"{sort_sql} COLLATE NOCASE"
 
     # Series: sort by series name (user's asc/desc), then sequence always ascending
     # sort_sql=None signals that ORDER BY is fully specified here
     if sort_field == "series":
-        sort_sql = f"series {sort_order}, series_sequence ASC"
+        sort_sql = f"series COLLATE NOCASE {sort_order}, series_sequence ASC"
         sort_order = ""  # Already embedded in sort_sql
 
     # Sort-specific filters: hide irrelevant books for series/edition views
