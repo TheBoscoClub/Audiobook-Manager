@@ -30,11 +30,10 @@ from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
 
 from .audiobooks import audiobooks_bp, init_audiobooks_routes
 from .collections import (
-    COLLECTIONS,
     collections_bp,
-    genre_query,
+    get_collections_lookup,
     init_collections_routes,
-    multi_genre_query,
+    invalidate_collections_cache,
 )
 from .core import add_cors_headers, add_security_headers
 from .core import get_db as _get_db_with_path
@@ -278,10 +277,8 @@ __all__ = [
     # Helper functions (backward compatibility)
     "has_edition_marker",
     "normalize_base_title",
-    "genre_query",
-    "multi_genre_query",
-    # Constants
-    "COLLECTIONS",
+    "get_collections_lookup",
+    "invalidate_collections_cache",
     # Blueprints
     "audiobooks_bp",
     "collections_bp",
