@@ -254,13 +254,89 @@ def populate_content_types(dry_run: bool = True) -> None:
             for ct, count in cat_dist.most_common():
                 print(f"  → {ct}: {count}")
 
+    # Pass 3: Heuristic detection for no-ASIN entries still typed as 'Product'.
+    # These are podcast/show episodes that Audible classified inconsistently
+    # or that were imported without ASIN metadata.
+    heuristic_updates = []
+    cursor.execute(
+        "SELECT id, title, author, duration_hours, file_path, description"
+        " FROM audiobooks"
+        " WHERE content_type = 'Product'"
+        " AND (asin IS NULL OR asin = '')"
+    )
+    no_asin_products = cursor.fetchall()
+
+    if no_asin_products:
+        import re
+
+        # Known podcast/show publishers
+        podcast_publishers = frozenset({
+            "wondery", "movewith", "aaptiv", "higher ground",
+            "panoply", "gimlet", "stitcher", "parcast",
+        })
+        # Title patterns strongly indicating podcast/show episodes
+        episode_patterns = [
+            re.compile(r"\bEp(?:isode)?\.?\s*\d", re.IGNORECASE),
+            re.compile(r"\|\s*\d+\s*(?:\(Ad-free\))?$"),
+            re.compile(r"\bEncore:\s"),
+            re.compile(r"\bFirst Listen\s*\|"),
+            re.compile(r"\bSeason\s+\d+"),
+            re.compile(r"\bDay\s+\d+:.*Meditation", re.IGNORECASE),
+        ]
+        # Album/file path patterns
+        podcast_path_keywords = ["podcast", "show", "episode"]
+
+        for row in no_asin_products:
+            title = row["title"] or ""
+            author = (row["author"] or "").lower()
+            duration = row["duration_hours"] or 0
+            fpath = (row["file_path"] or "").lower()
+            desc = (row["description"] or "").lower()
+
+            detected_type = None
+
+            # Rule 1: Known podcast publisher + short duration
+            if any(pub in author for pub in podcast_publishers) and duration < 1.5:
+                detected_type = "Podcast"
+            # Rule 2: Episode numbering pattern in title + short duration
+            elif duration < 1.5 and any(p.search(title) for p in episode_patterns):
+                detected_type = "Podcast"
+            # Rule 3: "podcast" in file path or description + short duration
+            elif duration < 1.5 and any(
+                kw in fpath or kw in desc for kw in podcast_path_keywords
+            ):
+                detected_type = "Podcast"
+
+            if detected_type:
+                heuristic_updates.append(
+                    {
+                        "id": row["id"],
+                        "title": title,
+                        "old_ct": "Product",
+                        "new_ct": detected_type,
+                    }
+                )
+
+        if heuristic_updates:
+            print(f"\n{'=' * 70}")
+            print(
+                f"PASS 3 — Heuristic detection: {len(heuristic_updates)}"
+                f" of {len(no_asin_products)} no-ASIN entries reclassified"
+            )
+            print("=" * 70)
+            for u in heuristic_updates[:10]:
+                print(f"  {u['title'][:55]:55s}  {u['old_ct']} → {u['new_ct']}")
+            if len(heuristic_updates) > 10:
+                print(f"  ... and {len(heuristic_updates) - 10} more")
+
     # Combined results
-    all_updates = updates + catalog_updates
+    all_updates = updates + catalog_updates + heuristic_updates
     print(f"\n{'=' * 70}")
     print(f"TOTAL UPDATES: {len(all_updates)}")
     print(f"ALREADY CORRECT: {already_correct}")
     print(f"NO ASIN: {no_asin}")
     print(f"CATALOG FAILED: {catalog_failed}")
+    print(f"HEURISTIC RECLASSIFIED: {len(heuristic_updates)}")
     print("=" * 70)
 
     # Apply
