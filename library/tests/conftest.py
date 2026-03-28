@@ -62,6 +62,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "fido2: tests requiring a FIDO2 hardware key")
     config.addinivalue_line("markers", "hardware: tests requiring non-FIDO2 hardware")
     config.addinivalue_line("markers", "docker: tests requiring Docker daemon")
+    config.addinivalue_line(
+        "markers", "v8: tests for v8 features (auto-skipped when VERSION major < 8)"
+    )
 
     # Set VM_TESTS env var early so modules can check it at import time
     if config.getoption("--vm", default=False):
@@ -73,7 +76,27 @@ def pytest_configure(config):
         os.environ["FIDO2_SOFTWARE"] = "1"
 
 
+def _get_project_major_version():
+    """Read major version from VERSION file at project root."""
+    version_file = Path(__file__).resolve().parent.parent.parent / "VERSION"
+    try:
+        version_str = version_file.read_text().strip()
+        return int(version_str.split(".")[0])
+    except (FileNotFoundError, ValueError, IndexError):
+        return 0
+
+
 def pytest_collection_modifyitems(config, items):
+    # Version-gated markers: auto-skip @pytest.mark.v8 tests when major < 8
+    major = _get_project_major_version()
+    if major < 8:
+        skip_v8 = pytest.mark.skip(
+            reason=f"v8 feature (current version major={major})"
+        )
+        for item in items:
+            if "v8" in item.keywords:
+                item.add_marker(skip_v8)
+
     # --hardware gates non-FIDO2 hardware tests only
     if not config.getoption("--hardware"):
         skip_hw = pytest.mark.skip(
