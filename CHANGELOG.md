@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [7.5.1.3] - 2026-03-27
+
+### Changed
+
+- **Roadmap → Forthcoming**: Renamed all user-facing "Roadmap" labels to "Forthcoming" across help and utilities pages
+- **Help header**: Added "Coming soon to your local branch library" link below suggestions button
+
+### Fixed
+
+- **Instance badge** (`shell.html`): Empty red pill visible in production header — CSS `display:inline-block` overrode HTML `hidden` attribute; switched to explicit `style="display:none"`
+- **safeFetch misuse** (`utilities.js`): Fixed `deleteRoadmapItem()` and save handler — `safeFetch()` returns parsed JSON, not a Response object
+
 ## [7.5.1.2] - 2026-03-27
 
 ### Fixed
@@ -2257,7 +2275,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...HEAD
+[7.5.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...v7.5.1.3
 [7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
 [7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1
 [7.5.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.0...v7.5.1
