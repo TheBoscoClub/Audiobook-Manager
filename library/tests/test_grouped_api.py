@@ -401,10 +401,13 @@ class TestGroupedPublicationDateSort:
             assert "published_year" in first_book
             assert "release_date" in first_book
         finally:
-            cursor.execute("DELETE FROM book_authors WHERE book_id IN (?, ?)",
-                          (stand_id, carrie_id))
-            cursor.execute("DELETE FROM audiobooks WHERE id IN (?, ?)",
-                          (stand_id, carrie_id))
+            cursor.execute(
+                "DELETE FROM book_authors WHERE book_id IN (?, ?)",
+                (stand_id, carrie_id),
+            )
+            cursor.execute(
+                "DELETE FROM audiobooks WHERE id IN (?, ?)", (stand_id, carrie_id)
+            )
             conn.commit()
             conn.close()
 

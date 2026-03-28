@@ -203,9 +203,12 @@ def get_audiobooks() -> Response:
     # Nullable columns: push NULLs to end regardless of sort direction
     # SQLite doesn't support NULLS LAST natively; use CASE expression
     _nullable_sorts = {
-        "author_last_name", "author_first_name",
-        "narrator_last_name", "narrator_first_name",
-        "acquired_date", "published_date",
+        "author_last_name",
+        "author_first_name",
+        "narrator_last_name",
+        "narrator_first_name",
+        "acquired_date",
+        "published_date",
     }
     if sort_sql in _nullable_sorts:
         sort_sql = f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, {sort_sql}"

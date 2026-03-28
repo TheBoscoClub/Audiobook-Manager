@@ -90,9 +90,7 @@ def pytest_collection_modifyitems(config, items):
     # Version-gated markers: auto-skip @pytest.mark.v8 tests when major < 8
     major = _get_project_major_version()
     if major < 8:
-        skip_v8 = pytest.mark.skip(
-            reason=f"v8 feature (current version major={major})"
-        )
+        skip_v8 = pytest.mark.skip(reason=f"v8 feature (current version major={major})")
         for item in items:
             if "v8" in item.keywords:
                 item.add_marker(skip_v8)

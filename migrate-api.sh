@@ -202,45 +202,45 @@ show_status() {
     echo ""
 
     case "$install_status" in
-        modular)
-            echo -e "${BOLD}Current Architecture:${NC} ${BLUE}Modular${NC} (api_modular/)"
-            echo ""
-            echo "  The API is running from the modular Flask Blueprint package."
-            echo "  Entry point: api_server.py → api_modular/"
-            echo ""
-            echo "  Modules:"
-            if [[ -d "$target/library/backend/api_modular" ]]; then
-                for module in "$target/library/backend/api_modular"/*.py; do
-                    if [[ -f "$module" ]]; then
-                        local name=$(basename "$module")
-                        local lines=$(wc -l <"$module" 2>/dev/null || echo "?")
-                        echo "    - $name ($lines lines)"
-                    fi
-                done
-            fi
-            ;;
-        monolithic)
-            echo -e "${BOLD}Current Architecture:${NC} ${GREEN}Monolithic${NC} (api.py)"
-            echo ""
-            echo "  The API is running from the single-file implementation."
-            echo "  Entry point: api.py"
-            echo ""
-            if [[ -f "$target/library/backend/api.py" ]]; then
-                local lines=$(wc -l <"$target/library/backend/api.py")
-                echo "  File size: $lines lines"
-            fi
-            ;;
-        not_found)
-            echo -e "${RED}No audiobooks installation found at: $target${NC}"
-            echo ""
-            echo "Use --target to specify the installation directory."
-            return 1
-            ;;
-        *)
-            echo -e "${YELLOW}Unknown architecture state${NC}"
-            echo ""
-            echo "Could not determine current API architecture."
-            ;;
+    modular)
+        echo -e "${BOLD}Current Architecture:${NC} ${BLUE}Modular${NC} (api_modular/)"
+        echo ""
+        echo "  The API is running from the modular Flask Blueprint package."
+        echo "  Entry point: api_server.py → api_modular/"
+        echo ""
+        echo "  Modules:"
+        if [[ -d "$target/library/backend/api_modular" ]]; then
+            for module in "$target/library/backend/api_modular"/*.py; do
+                if [[ -f "$module" ]]; then
+                    local name=$(basename "$module")
+                    local lines=$(wc -l <"$module" 2>/dev/null || echo "?")
+                    echo "    - $name ($lines lines)"
+                fi
+            done
+        fi
+        ;;
+    monolithic)
+        echo -e "${BOLD}Current Architecture:${NC} ${GREEN}Monolithic${NC} (api.py)"
+        echo ""
+        echo "  The API is running from the single-file implementation."
+        echo "  Entry point: api.py"
+        echo ""
+        if [[ -f "$target/library/backend/api.py" ]]; then
+            local lines=$(wc -l <"$target/library/backend/api.py")
+            echo "  File size: $lines lines"
+        fi
+        ;;
+    not_found)
+        echo -e "${RED}No audiobooks installation found at: $target${NC}"
+        echo ""
+        echo "Use --target to specify the installation directory."
+        return 1
+        ;;
+    *)
+        echo -e "${YELLOW}Unknown architecture state${NC}"
+        echo ""
+        echo "Could not determine current API architecture."
+        ;;
     esac
 
     echo ""
@@ -663,39 +663,39 @@ verify_installation_permissions() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --to-modular)
-            ACTION="to-modular"
-            shift
-            ;;
-        --to-monolithic)
-            ACTION="to-monolithic"
-            shift
-            ;;
-        --status)
-            ACTION="status"
-            shift
-            ;;
-        --explain)
-            ACTION="explain"
-            shift
-            ;;
-        --target)
-            TARGET_DIR="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --help | -h)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Use --help for usage information."
-            exit 1
-            ;;
+    --to-modular)
+        ACTION="to-modular"
+        shift
+        ;;
+    --to-monolithic)
+        ACTION="to-monolithic"
+        shift
+        ;;
+    --status)
+        ACTION="status"
+        shift
+        ;;
+    --explain)
+        ACTION="explain"
+        shift
+        ;;
+    --target)
+        TARGET_DIR="$2"
+        shift 2
+        ;;
+    --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+    --help | -h)
+        show_help
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Unknown option: $1${NC}"
+        echo "Use --help for usage information."
+        exit 1
+        ;;
     esac
 done
 
@@ -704,44 +704,44 @@ done
 # -----------------------------------------------------------------------------
 
 case "$ACTION" in
-    to-modular)
-        migrate_to_modular
-        ;;
-    to-monolithic)
-        migrate_to_monolithic
-        ;;
-    status)
-        show_status
-        ;;
-    explain)
-        explain_architectures
-        ;;
-    "")
-        # No action - show interactive menu
-        print_header
-        echo -e "${BOLD}What would you like to do?${NC}"
-        echo ""
-        echo -e "  ${GREEN}1)${NC} Show current architecture status"
-        echo -e "  ${GREEN}2)${NC} Explain the difference between architectures"
-        echo -e "  ${GREEN}3)${NC} Migrate to modular architecture"
-        echo -e "  ${GREEN}4)${NC} Migrate to monolithic architecture"
-        echo -e "  ${GREEN}5)${NC} Exit"
-        echo ""
-        read -r -p "Enter your choice [1-5]: " choice
+to-modular)
+    migrate_to_modular
+    ;;
+to-monolithic)
+    migrate_to_monolithic
+    ;;
+status)
+    show_status
+    ;;
+explain)
+    explain_architectures
+    ;;
+"")
+    # No action - show interactive menu
+    print_header
+    echo -e "${BOLD}What would you like to do?${NC}"
+    echo ""
+    echo -e "  ${GREEN}1)${NC} Show current architecture status"
+    echo -e "  ${GREEN}2)${NC} Explain the difference between architectures"
+    echo -e "  ${GREEN}3)${NC} Migrate to modular architecture"
+    echo -e "  ${GREEN}4)${NC} Migrate to monolithic architecture"
+    echo -e "  ${GREEN}5)${NC} Exit"
+    echo ""
+    read -r -p "Enter your choice [1-5]: " choice
 
-        case "$choice" in
-            1) show_status ;;
-            2) explain_architectures ;;
-            3) migrate_to_modular ;;
-            4) migrate_to_monolithic ;;
-            5)
-                echo "Exiting."
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}Invalid choice.${NC}"
-                exit 1
-                ;;
-        esac
+    case "$choice" in
+    1) show_status ;;
+    2) explain_architectures ;;
+    3) migrate_to_modular ;;
+    4) migrate_to_monolithic ;;
+    5)
+        echo "Exiting."
+        exit 0
         ;;
+    *)
+        echo -e "${RED}Invalid choice.${NC}"
+        exit 1
+        ;;
+    esac
+    ;;
 esac

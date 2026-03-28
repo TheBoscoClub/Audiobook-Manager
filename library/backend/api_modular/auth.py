@@ -24,7 +24,16 @@ from functools import wraps
 from pathlib import Path
 from typing import Optional, Callable, Any
 
-from flask import Blueprint, Response, jsonify, make_response, redirect, request, g, current_app
+from flask import (
+    Blueprint,
+    Response,
+    jsonify,
+    make_response,
+    redirect,
+    request,
+    g,
+    current_app,
+)
 
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
