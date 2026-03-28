@@ -19,6 +19,7 @@
             <button id="start-tutorial-btn" title="Take a guided tour of the library interface">Start Tutorial</button>
             <a href="about.html" title="About The Library &mdash; credits, attributions, and version info">About</a>
             <button id="suggestion-btn" class="suggestion-btn" title="Share your thoughts with the librarian">Suggestions? Desires? Likes? Dislikes? <span class="unsolicited"><s>Un</s>solicited</span> Praise?</button>
+            <a href="#roadmap" class="forthcoming-link" title="See what's coming next">Coming soon to your local branch library</a>
         </div>
     </header>
 
@@ -71,7 +72,7 @@
                 <li><a href="#stay-logged-in">Stay Logged In</a></li>
                 <li><a href="#notifications">Notifications</a></li>
                 <li><a href="#keyboard">Keyboard &amp; Media Keys</a></li>
-                <li><a href="#roadmap">Roadmap</a></li>
+                <li><a href="#roadmap">Forthcoming</a></li>
                 <li><a href="#faq">Frequently Asked Questions</a></li>
             </ol>
         </nav>
@@ -450,12 +451,12 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
-        <!-- Roadmap -->
+        <!-- Forthcoming -->
         <section id="roadmap" class="help-section">
-            <h2><span class="section-icon">&#128204;</span> Roadmap</h2>
-            <p>Planned features, improvements, and known issues being worked on.</p>
+            <h2><span class="section-icon">&#128218;</span> Forthcoming</h2>
+            <p>Features and improvements coming to The Library.</p>
             <div id="roadmap-list" class="roadmap-list">
-                <p class="roadmap-loading">Loading roadmap...</p>
+                <p class="roadmap-loading">Loading forthcoming items...</p>
             </div>
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
@@ -520,7 +521,7 @@
                 if (!items || items.length === 0) {
                     var empty = document.createElement('p');
                     empty.className = 'roadmap-empty';
-                    empty.textContent = 'No roadmap items yet. Check back soon!';
+                    empty.textContent = 'Nothing forthcoming yet. Check back soon!';
                     container.appendChild(empty);
                     return;
                 }
@@ -566,7 +567,7 @@
                 container.textContent = '';
                 var err = document.createElement('p');
                 err.className = 'roadmap-empty';
-                err.textContent = 'Unable to load roadmap.';
+                err.textContent = 'Unable to load forthcoming items.';
                 container.appendChild(err);
             });
         })();
