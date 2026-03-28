@@ -42,6 +42,7 @@ from .models import (
     AccessRequest,
     AccessRequestRepository,
     AuditLog,
+    UserSettingsRepository,
 )
 
 from .audit import AuditLogRepository
@@ -119,6 +120,7 @@ __all__ = [
     "AccessRequestRepository",
     # Audit Log
     "AuditLog",
+    "UserSettingsRepository",
     "AuditLogRepository",
     # TOTP
     "generate_totp_secret",
