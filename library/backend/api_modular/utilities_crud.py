@@ -3,12 +3,17 @@ CRUD operations for audiobook records.
 Handles create, update, delete, and query operations for individual and bulk records.
 """
 
+import sys
 from pathlib import Path
 
 from flask import Blueprint, Response, jsonify, request
 
 from .auth import admin_if_enabled, auth_if_enabled
 from .core import FlaskResponse, get_db
+
+# Import COVER_DIR for cover file cleanup on delete
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config import COVER_DIR
 
 utilities_crud_bp = Blueprint("utilities_crud", __name__)
 
@@ -111,6 +116,13 @@ def init_crud_routes(db_path):
             # Start explicit transaction for atomicity
             cursor.execute("BEGIN TRANSACTION")
 
+            # Collect cover_path before deletion for cleanup
+            cursor.execute(
+                "SELECT cover_path FROM audiobooks WHERE id = ?", (id,)
+            )
+            row = cursor.fetchone()
+            cover_to_delete = row["cover_path"] if row and row["cover_path"] else None
+
             # Delete related records first (all enrichment junction tables)
             cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (id,))
             cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (id,))
@@ -129,6 +141,11 @@ def init_crud_routes(db_path):
             if rows_affected > 0:
                 conn.commit()
                 conn.close()
+                # Clean up orphaned cover file after successful DB commit
+                if cover_to_delete:
+                    cover_file = COVER_DIR / cover_to_delete
+                    if cover_file.is_file():
+                        cover_file.unlink(missing_ok=True)
                 return jsonify({"success": True, "deleted": rows_affected})
             else:
                 # Rollback the related record deletions if audiobook not found
@@ -253,19 +270,19 @@ def init_crud_routes(db_path):
         try:
             placeholders = ",".join("?" * len(ids))
 
-            # STEP 1: Collect file paths BEFORE deletion (if we need to delete files)
+            # STEP 1: Collect file paths and cover paths BEFORE deletion
             files_to_delete = []
-            if delete_files:
-                cursor.execute(
-                    "SELECT id, file_path FROM audiobooks"  # nosec B608
-                    f" WHERE id IN ({placeholders})",
-                    ids,
-                )
-                files_to_delete = [
-                    Path(row["file_path"])
-                    for row in cursor.fetchall()
-                    if row["file_path"]
-                ]
+            covers_to_delete = []
+            cursor.execute(
+                "SELECT id, file_path, cover_path FROM audiobooks"  # nosec B608
+                f" WHERE id IN ({placeholders})",
+                ids,
+            )
+            for row in cursor.fetchall():
+                if delete_files and row["file_path"]:
+                    files_to_delete.append(Path(row["file_path"]))
+                if row["cover_path"]:
+                    covers_to_delete.append(row["cover_path"])
 
             # STEP 2: Delete from database first (in transaction)
             cursor.execute("BEGIN TRANSACTION")
@@ -311,6 +328,12 @@ def init_crud_routes(db_path):
                                     "error": "File deletion failed",
                                 }
                             )
+
+            # STEP 4: Clean up orphaned cover files
+            for cover_name in covers_to_delete:
+                cover_file = COVER_DIR / cover_name
+                if cover_file.is_file():
+                    cover_file.unlink(missing_ok=True)
 
             return jsonify(
                 {

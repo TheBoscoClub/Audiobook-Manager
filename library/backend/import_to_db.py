@@ -11,7 +11,7 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATA_DIR, DATABASE_PATH
+from config import COVER_DIR, DATA_DIR, DATABASE_PATH
 
 from name_parser import (
     clean_name,
@@ -43,6 +43,42 @@ def create_database():
 
     print("✓ Database schema created")
     return conn
+
+
+def _cleanup_orphaned_covers(cursor):
+    """Remove cover files from COVER_DIR that are not referenced by any audiobook.
+
+    After a rescan/reimport, cover filenames change (MD5 of filepath). Old cover
+    files become orphans consuming disk space. This deletes any file in COVER_DIR
+    that no audiobook row references.
+    """
+    if not COVER_DIR.is_dir():
+        return
+
+    cursor.execute(
+        "SELECT cover_path FROM audiobooks "
+        "WHERE cover_path IS NOT NULL AND cover_path != ''"
+    )
+    referenced = {row[0] for row in cursor.fetchall()}
+
+    on_disk = set()
+    for f in COVER_DIR.iterdir():
+        if f.is_file():
+            on_disk.add(f.name)
+
+    orphans = on_disk - referenced
+    if not orphans:
+        print("\n✓ No orphaned cover files")
+        return
+
+    total_bytes = 0
+    for name in orphans:
+        path = COVER_DIR / name
+        total_bytes += path.stat().st_size
+        path.unlink()
+
+    mb = total_bytes / (1024 * 1024)
+    print(f"\n✓ Cleaned up {len(orphans)} orphaned cover files ({mb:.1f} MB)")
 
 
 def _populate_names_and_junctions(cursor):
@@ -497,6 +533,9 @@ def import_audiobooks(conn):
     print(f"Unique genres: {len(genres_map)}")
     print(f"With SHA-256 hashes: {hashed_count:,}")
     print(f"With ASINs: {asin_count:,}")
+
+    # Clean up orphaned cover files
+    _cleanup_orphaned_covers(cursor)
 
     # Optimize database
     print("\nOptimizing database...")

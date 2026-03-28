@@ -80,9 +80,28 @@ def scan_supplements(supplements_dir: Path, verbose: bool = True):
     ensure_supplements_table(cursor)
     conn.commit()
 
-    # Get existing supplements
-    cursor.execute("SELECT file_path FROM supplements")
-    existing_paths = {row["file_path"] for row in cursor.fetchall()}
+    # Get existing supplements and remove orphaned entries (file deleted from disk)
+    cursor.execute("SELECT id, file_path FROM supplements")
+    existing_rows = cursor.fetchall()
+    existing_paths = set()
+    orphaned_ids = []
+    for row in existing_rows:
+        if not Path(row["file_path"]).is_file():
+            orphaned_ids.append(row["id"])
+        else:
+            existing_paths.add(row["file_path"])
+
+    removed = 0
+    if orphaned_ids:
+        placeholders = ",".join("?" * len(orphaned_ids))
+        cursor.execute(
+            f"DELETE FROM supplements WHERE id IN ({placeholders})",  # nosec B608
+            orphaned_ids,
+        )
+        conn.commit()
+        removed = len(orphaned_ids)
+        if verbose:
+            print(f"  Removed {removed} orphaned supplement entries (files no longer on disk)")
 
     added = 0
     updated = 0
@@ -169,7 +188,7 @@ def scan_supplements(supplements_dir: Path, verbose: bool = True):
     conn.commit()
     conn.close()
 
-    return {"added": added, "updated": updated, "skipped": skipped}
+    return {"added": added, "updated": updated, "skipped": skipped, "removed": removed}
 
 
 def main():
@@ -201,6 +220,7 @@ def main():
     print(f"Added: {results['added']}")
     print(f"Updated: {results['updated']}")
     print(f"Skipped: {results['skipped']}")
+    print(f"Removed: {results['removed']}")
     print("=" * 40)
 
 
