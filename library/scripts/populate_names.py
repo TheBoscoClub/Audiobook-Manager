@@ -26,7 +26,6 @@ from name_parser import (
     clean_name,
     generate_sort_name,
     is_brand_name,
-    is_group_name,
     is_junk_name,
     normalize_for_dedup,
     parse_names,

@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.5.3] - 2026-03-28
+
+### Added
+
+- **Test coverage expansion**: 3305 tests (up from ~2282), 95.66% coverage — comprehensive unit tests for all backend modules
+- **v8 version-gated test markers**: `@pytest.mark.v8` auto-skips tests for v8 features when VERSION major < 8, enabling parallel v7/v8 development
+- **Phase ST project validation**: `/test --phase=ST` now validates any project's test suite (discoverability, redundancy, fixture conflicts, isolation) in addition to framework self-test
+
+### Fixed
+
+- **Sort options**: Populate name columns (`author_last_name`, etc.) and rebuild junction tables — fixes all author/narrator sort options
+- **Artifact cleanup**: Systemic cleanup of orphaned covers, backups, sessions, supplements, and staging files
+- **Unused import**: Removed `is_group_name` from `scripts/populate_names.py` (flagged by ruff)
+
 ## [7.5.2.1] - 2026-03-27
 
 ### Fixed
@@ -2283,7 +2297,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.3...HEAD
+[7.5.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...v7.5.3
 [7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2.1
 [7.5.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...v7.5.1.3
 [7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
