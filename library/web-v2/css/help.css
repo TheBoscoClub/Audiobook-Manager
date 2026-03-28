@@ -467,6 +467,36 @@ button.suggestion-btn.visible {
     display: inline-flex;
 }
 
+/* Forthcoming link — italic, smaller, standalone below the action buttons */
+.forthcoming-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 0.5rem;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-transform: none;
+    color: var(--gold);
+    text-decoration: none;
+    border: none;
+    background: none;
+    padding: 0.4rem 0;
+    box-shadow: none;
+    text-shadow: none;
+    opacity: 0.85;
+    transition: opacity 0.3s, color 0.3s;
+}
+
+.forthcoming-link:hover {
+    opacity: 1;
+    color: var(--gold-bright);
+    background: none;
+    transform: none;
+    box-shadow: none;
+}
+
 /* ============================================
    Hotel Comment Pad — Suggestion Modal
    ============================================ */

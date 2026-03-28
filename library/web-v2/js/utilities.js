@@ -4854,14 +4854,14 @@ async function loadRoadmapAdmin() {
       var editBtn = document.createElement("button");
       editBtn.className = "office-btn secondary";
       editBtn.textContent = "Edit";
-      editBtn.title = "Edit this roadmap item";
+      editBtn.title = "Edit this item";
       editBtn.addEventListener("click", function() { editRoadmapItem(item); });
       actions.appendChild(editBtn);
 
       var delBtn = document.createElement("button");
       delBtn.className = "office-btn danger";
       delBtn.textContent = "Delete";
-      delBtn.title = "Delete this roadmap item";
+      delBtn.title = "Delete this item";
       delBtn.addEventListener("click", function() { deleteRoadmapItem(item.id); });
       actions.appendChild(delBtn);
 
@@ -4876,7 +4876,7 @@ async function loadRoadmapAdmin() {
 
 function editRoadmapItem(item) {
   document.getElementById("roadmap-form").hidden = false;
-  document.getElementById("roadmap-form-title").textContent = "Edit Roadmap Item";
+  document.getElementById("roadmap-form-title").textContent = "Edit Forthcoming Item";
   document.getElementById("roadmap-edit-id").value = item.id;
   document.getElementById("roadmap-title").value = item.title;
   document.getElementById("roadmap-description").value = item.description || "";
@@ -4886,12 +4886,12 @@ function editRoadmapItem(item) {
 }
 
 async function deleteRoadmapItem(id) {
-  if (!confirm("Delete this roadmap item?")) return;
-  var resp = await safeFetch("/api/admin/roadmap/" + id, { method: "DELETE" });
-  if (resp.ok) {
-    showToast("Roadmap item deleted", "success");
+  if (!confirm("Delete this item?")) return;
+  try {
+    await safeFetch("/api/admin/roadmap/" + id, { method: "DELETE" });
+    showToast("Item deleted", "success");
     loadRoadmapAdmin();
-  } else {
+  } catch (e) {
     showToast("Failed to delete", "error");
   }
 }
@@ -4906,7 +4906,7 @@ function initRoadmapAdmin() {
 
   addBtn.addEventListener("click", function() {
     form.hidden = false;
-    document.getElementById("roadmap-form-title").textContent = "Add Roadmap Item";
+    document.getElementById("roadmap-form-title").textContent = "Add Forthcoming Item";
     document.getElementById("roadmap-edit-id").value = "";
     document.getElementById("roadmap-title").value = "";
     document.getElementById("roadmap-description").value = "";
@@ -4935,19 +4935,17 @@ function initRoadmapAdmin() {
     var url = editId ? "/api/admin/roadmap/" + editId : "/api/admin/roadmap";
     var method = editId ? "PUT" : "POST";
 
-    var resp = await safeFetch(url, {
-      method: method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (resp.ok) {
+    try {
+      await safeFetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
       showToast(editId ? "Updated" : "Created", "success");
       form.hidden = true;
       loadRoadmapAdmin();
-    } else {
-      var err = await resp.json().catch(function() { return {}; });
-      showToast(err.error || "Failed to save", "error");
+    } catch (e) {
+      showToast(e.message || "Failed to save", "error");
     }
   });
 

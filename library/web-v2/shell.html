@@ -38,7 +38,7 @@
             <span class="account-icon" id="account-initial">?</span>
             <span id="account-username">Account</span>
         </button>
-        <span id="instance-badge" class="instance-badge" hidden></span>
+        <span id="instance-badge" class="instance-badge" style="display:none"></span>
         <!-- Admin suggestion alert — toggles suggestion drawer -->
         <button id="suggestion-alert" class="suggestion-alert" hidden title="New user suggestions">
             <span class="alert-icon">&#9993;</span>
@@ -167,7 +167,8 @@
             if (d.instance_badge) {
                 var el = document.getElementById('instance-badge');
                 el.textContent = d.instance_badge;
-                el.hidden = false;
+                el.title = d.instance_badge + ' instance';
+                el.style.display = '';
             }
         }).catch(function(){});
     </script>
