@@ -21,49 +21,49 @@ _AUDIOBOOKS_CONFIG_LOADED=1
 # Helper: Load config file if it exists
 # -----------------------------------------------------------------------------
 _load_config_file() {
-  local config_file="$1"
-  [[ -f "$config_file" ]] || return 0
+    local config_file="$1"
+    [[ -f "$config_file" ]] || return 0
 
-  while IFS='=' read -r key value; do
-    # Skip comments and empty lines
-    [[ "$key" =~ ^[[:space:]]*# ]] && continue
-    [[ -z "$key" ]] && continue
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
 
-    # Clean up key and value
-    key=$(echo "$key" | xargs)
-    value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+        # Clean up key and value
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
 
-    # Only set if not already set in environment (portable syntax)
-    eval "current_val=\"\${$key:-}\""
-    if [[ -z "$current_val" ]]; then
-      # Expand variables in value
-      value=$(eval echo "$value")
-      export "$key=$value"
-    fi
-  done <"$config_file"
+        # Only set if not already set in environment (portable syntax)
+        eval "current_val=\"\${$key:-}\""
+        if [[ -z "$current_val" ]]; then
+            # Expand variables in value
+            value=$(eval echo "$value")
+            export "$key=$value"
+        fi
+    done <"$config_file"
 }
 
 # -----------------------------------------------------------------------------
 # Detect AUDIOBOOKS_HOME if not set
 # -----------------------------------------------------------------------------
 if [[ -z "${AUDIOBOOKS_HOME:-}" ]]; then
-  # Try to detect from this script's location
-  # Use BASH_SOURCE to find this script's directory
-  if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
-    _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  elif [[ -n "${0:-}" ]]; then
-    _script_dir="$(cd "$(dirname "$0")" && pwd)"
-  fi
-  if [[ -n "${_script_dir:-}" ]]; then
-    # If we're in lib/, go up one level
-    if [[ "$(basename "$_script_dir")" == "lib" ]]; then
-      AUDIOBOOKS_HOME="$(dirname "$_script_dir")"
-    else
-      AUDIOBOOKS_HOME="$_script_dir"
+    # Try to detect from this script's location
+    # Use BASH_SOURCE to find this script's directory
+    if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+        _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    elif [[ -n "${0:-}" ]]; then
+        _script_dir="$(cd "$(dirname "$0")" && pwd)"
     fi
-    export AUDIOBOOKS_HOME
-    unset _script_dir
-  fi
+    if [[ -n "${_script_dir:-}" ]]; then
+        # If we're in lib/, go up one level
+        if [[ "$(basename "$_script_dir")" == "lib" ]]; then
+            AUDIOBOOKS_HOME="$(dirname "$_script_dir")"
+        else
+            AUDIOBOOKS_HOME="$_script_dir"
+        fi
+        export AUDIOBOOKS_HOME
+        unset _script_dir
+    fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -94,17 +94,17 @@ _load_config_file "${HOME}/.config/audiobooks/audiobooks.conf"
 
 # Application directories (use AUDIOBOOKS_HOME if set)
 if [[ -n "${AUDIOBOOKS_HOME:-}" ]]; then
-  : "${AUDIOBOOKS_DATABASE:=${AUDIOBOOKS_HOME}/library/backend/audiobooks.db}"
-  : "${AUDIOBOOKS_COVERS:=${AUDIOBOOKS_HOME}/library/web-v2/covers}"
-  : "${AUDIOBOOKS_CERTS:=${AUDIOBOOKS_HOME}/library/certs}"
-  : "${AUDIOBOOKS_VENV:=${AUDIOBOOKS_HOME}/library/venv}"
-  : "${AUDIOBOOKS_CONVERTER:=${AUDIOBOOKS_HOME}/converter/AAXtoMP3}"
+    : "${AUDIOBOOKS_DATABASE:=${AUDIOBOOKS_HOME}/library/backend/audiobooks.db}"
+    : "${AUDIOBOOKS_COVERS:=${AUDIOBOOKS_HOME}/library/web-v2/covers}"
+    : "${AUDIOBOOKS_CERTS:=${AUDIOBOOKS_HOME}/library/certs}"
+    : "${AUDIOBOOKS_VENV:=${AUDIOBOOKS_HOME}/library/venv}"
+    : "${AUDIOBOOKS_CONVERTER:=${AUDIOBOOKS_HOME}/converter/AAXtoMP3}"
 else
-  : "${AUDIOBOOKS_DATABASE:=/var/lib/audiobooks/db/audiobooks.db}"
-  : "${AUDIOBOOKS_COVERS:=/var/lib/audiobooks/covers}"
-  : "${AUDIOBOOKS_CERTS:=/etc/audiobooks/certs}"
-  : "${AUDIOBOOKS_VENV:=/opt/audiobooks/venv}"
-  : "${AUDIOBOOKS_CONVERTER:=/usr/local/bin/AAXtoMP3}"
+    : "${AUDIOBOOKS_DATABASE:=/var/lib/audiobooks/db/audiobooks.db}"
+    : "${AUDIOBOOKS_COVERS:=/var/lib/audiobooks/covers}"
+    : "${AUDIOBOOKS_CERTS:=/etc/audiobooks/certs}"
+    : "${AUDIOBOOKS_VENV:=/opt/audiobooks/venv}"
+    : "${AUDIOBOOKS_CONVERTER:=/usr/local/bin/AAXtoMP3}"
 fi
 
 # Conversion settings
@@ -174,63 +174,63 @@ export WEB_PORT="${AUDIOBOOKS_WEB_PORT:-}"
 
 # Print current configuration
 audiobooks_print_config() {
-  echo "Audiobook Library Configuration"
-  echo "================================"
-  echo "AUDIOBOOKS_HOME:        ${AUDIOBOOKS_HOME:-<not set>}"
-  echo "AUDIOBOOKS_DATA:        ${AUDIOBOOKS_DATA}"
-  echo "AUDIOBOOKS_LIBRARY:     ${AUDIOBOOKS_LIBRARY}"
-  echo "AUDIOBOOKS_SOURCES:     ${AUDIOBOOKS_SOURCES}"
-  echo "AUDIOBOOKS_SUPPLEMENTS: ${AUDIOBOOKS_SUPPLEMENTS}"
-  echo "AUDIOBOOKS_DATABASE:    ${AUDIOBOOKS_DATABASE}"
-  echo "AUDIOBOOKS_COVERS:      ${AUDIOBOOKS_COVERS}"
-  echo "AUDIOBOOKS_CERTS:       ${AUDIOBOOKS_CERTS}"
-  echo "AUDIOBOOKS_LOGS:        ${AUDIOBOOKS_LOGS}"
-  echo "AUDIOBOOKS_VENV:        ${AUDIOBOOKS_VENV}"
-  echo "AUDIOBOOKS_AUDIBLE_VENV: ${AUDIOBOOKS_AUDIBLE_VENV}"
-  echo "AUDIOBOOKS_CONVERTER:   ${AUDIOBOOKS_CONVERTER}"
-  echo "AUDIOBOOKS_API_PORT:    ${AUDIOBOOKS_API_PORT}"
-  echo "AUDIOBOOKS_WEB_PORT:    ${AUDIOBOOKS_WEB_PORT} (HTTPS)"
-  echo "AUDIOBOOKS_HTTP_REDIRECT_PORT: ${AUDIOBOOKS_HTTP_REDIRECT_PORT}"
-  echo "AUDIOBOOKS_BIND_ADDRESS: ${AUDIOBOOKS_BIND_ADDRESS}"
-  echo "AUDIOBOOKS_HTTPS_ENABLED: ${AUDIOBOOKS_HTTPS_ENABLED}"
-  echo "WSGI_SERVER:              Gunicorn+geventwebsocket"
-  echo "================================"
+    echo "Audiobook Library Configuration"
+    echo "================================"
+    echo "AUDIOBOOKS_HOME:        ${AUDIOBOOKS_HOME:-<not set>}"
+    echo "AUDIOBOOKS_DATA:        ${AUDIOBOOKS_DATA}"
+    echo "AUDIOBOOKS_LIBRARY:     ${AUDIOBOOKS_LIBRARY}"
+    echo "AUDIOBOOKS_SOURCES:     ${AUDIOBOOKS_SOURCES}"
+    echo "AUDIOBOOKS_SUPPLEMENTS: ${AUDIOBOOKS_SUPPLEMENTS}"
+    echo "AUDIOBOOKS_DATABASE:    ${AUDIOBOOKS_DATABASE}"
+    echo "AUDIOBOOKS_COVERS:      ${AUDIOBOOKS_COVERS}"
+    echo "AUDIOBOOKS_CERTS:       ${AUDIOBOOKS_CERTS}"
+    echo "AUDIOBOOKS_LOGS:        ${AUDIOBOOKS_LOGS}"
+    echo "AUDIOBOOKS_VENV:        ${AUDIOBOOKS_VENV}"
+    echo "AUDIOBOOKS_AUDIBLE_VENV: ${AUDIOBOOKS_AUDIBLE_VENV}"
+    echo "AUDIOBOOKS_CONVERTER:   ${AUDIOBOOKS_CONVERTER}"
+    echo "AUDIOBOOKS_API_PORT:    ${AUDIOBOOKS_API_PORT}"
+    echo "AUDIOBOOKS_WEB_PORT:    ${AUDIOBOOKS_WEB_PORT} (HTTPS)"
+    echo "AUDIOBOOKS_HTTP_REDIRECT_PORT: ${AUDIOBOOKS_HTTP_REDIRECT_PORT}"
+    echo "AUDIOBOOKS_BIND_ADDRESS: ${AUDIOBOOKS_BIND_ADDRESS}"
+    echo "AUDIOBOOKS_HTTPS_ENABLED: ${AUDIOBOOKS_HTTPS_ENABLED}"
+    echo "WSGI_SERVER:              Gunicorn+geventwebsocket"
+    echo "================================"
 }
 
 # Verify required directories exist
 audiobooks_check_dirs() {
-  local missing=0
-  local dirs=(
-    "$AUDIOBOOKS_LIBRARY"
-    "$AUDIOBOOKS_SOURCES"
-    "$(dirname "$AUDIOBOOKS_DATABASE")"
-  )
+    local missing=0
+    local dirs=(
+        "$AUDIOBOOKS_LIBRARY"
+        "$AUDIOBOOKS_SOURCES"
+        "$(dirname "$AUDIOBOOKS_DATABASE")"
+    )
 
-  for dir in "${dirs[@]}"; do
-    if [[ ! -d "$dir" ]]; then
-      echo "Warning: Directory does not exist: $dir" >&2
-      ((missing++))
-    fi
-  done
+    for dir in "${dirs[@]}"; do
+        if [[ ! -d "$dir" ]]; then
+            echo "Warning: Directory does not exist: $dir" >&2
+            ((missing++))
+        fi
+    done
 
-  return $missing
+    return $missing
 }
 
 # Get Python interpreter from venv
 audiobooks_python() {
-  if [[ -x "${AUDIOBOOKS_VENV}/bin/python" ]]; then
-    echo "${AUDIOBOOKS_VENV}/bin/python"
-  elif [[ -x "${AUDIOBOOKS_VENV}/bin/python3" ]]; then
-    echo "${AUDIOBOOKS_VENV}/bin/python3"
-  else
-    echo "python3"
-  fi
+    if [[ -x "${AUDIOBOOKS_VENV}/bin/python" ]]; then
+        echo "${AUDIOBOOKS_VENV}/bin/python"
+    elif [[ -x "${AUDIOBOOKS_VENV}/bin/python3" ]]; then
+        echo "${AUDIOBOOKS_VENV}/bin/python3"
+    else
+        echo "python3"
+    fi
 }
 
 # Run if executed directly (for testing), not when sourced
 _sourced=false
 [[ "${BASH_SOURCE[0]:-}" != "$0" ]] && _sourced=true
 if [[ "$_sourced" == false ]]; then
-  audiobooks_print_config
+    audiobooks_print_config
 fi
 unset _sourced
