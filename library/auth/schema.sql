@@ -96,6 +96,17 @@ CREATE TABLE IF NOT EXISTS user_hidden_books (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- User settings table (v8 key-value preferences)
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    setting_key TEXT NOT NULL,
+    setting_value TEXT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, setting_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id);
+
 -- Pending registrations table
 CREATE TABLE IF NOT EXISTS pending_registrations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -220,7 +231,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (7);
+INSERT OR IGNORE INTO schema_version (version) VALUES (8);
 
 -- Audit log for user management actions (nullable FKs survive user deletion)
 CREATE TABLE IF NOT EXISTS audit_log (
