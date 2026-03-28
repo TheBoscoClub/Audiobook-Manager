@@ -265,6 +265,34 @@ def check_announcements():
         conn.close()
 
 
+def run_auth_cleanup():
+    """Lightweight cleanup of stale sessions and expired tokens.
+
+    Runs every poll cycle (cheap single-query operations).
+    """
+    try:
+        auth_dir = str(Path(__file__).parent.parent / "auth")
+        if auth_dir not in sys.path:
+            sys.path.insert(0, auth_dir)
+        from database import AuthDatabase
+        from models import (
+            PendingRecoveryRepository,
+            PendingRegistrationRepository,
+            SessionRepository,
+        )
+
+        db = AuthDatabase()
+        cleaned = 0
+        cleaned += SessionRepository(db).cleanup_stale(grace_minutes=30)
+        cleaned += PendingRegistrationRepository(db).cleanup_expired()
+        cleaned += PendingRecoveryRepository(db).cleanup_expired()
+        db.close()
+        if cleaned:
+            logger.info("Auth cleanup: removed %d stale/expired records", cleaned)
+    except Exception as e:
+        logger.debug("Auth cleanup skipped: %s", e)
+
+
 def main():
     """Main scheduler loop."""
     logger.info("Maintenance scheduler starting (poll every %ds)", POLL_INTERVAL)
@@ -276,6 +304,9 @@ def main():
 
     while not _shutdown:
         try:
+            # Lightweight auth cleanup (stale sessions, expired tokens)
+            run_auth_cleanup()
+
             # Check for announcements (windows within lead time)
             check_announcements()
 
