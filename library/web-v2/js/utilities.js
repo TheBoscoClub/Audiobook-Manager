@@ -920,6 +920,8 @@ function initBulkSection() {
     ?.addEventListener("click", bulkDelete);
   initGenreManagement();
   loadGenresForPicker();
+  initTopicManagement();
+  loadTopicsForPicker();
 }
 
 async function loadBulkAudiobooks() {
@@ -1275,6 +1277,192 @@ async function applyBulkGenres() {
     }
   } catch (error) {
     showToast("Failed to update genres: " + error.message, "error");
+  }
+}
+
+// ============================================
+// Topic Management (Bulk Ops)
+// ============================================
+
+const topicSelection = new Set();
+
+function initTopicManagement() {
+  document
+    .getElementById("bulk-topic-apply")
+    ?.addEventListener("click", applyBulkTopics);
+  document
+    .getElementById("topic-new-btn")
+    ?.addEventListener("click", addNewTopicToList);
+  const newInput = document.getElementById("topic-new-input");
+  newInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addNewTopicToList();
+    }
+  });
+}
+
+async function loadTopicsForPicker() {
+  const picker = document.getElementById("topic-picker");
+  if (!picker) return;
+
+  try {
+    const topics = await safeFetch(`${API_BASE}/api/topics`);
+    topicSelection.clear();
+
+    while (picker.firstChild) picker.removeChild(picker.firstChild);
+
+    if (!topics || topics.length === 0) {
+      const p = document.createElement("p");
+      p.className = "placeholder-text";
+      p.textContent = "No topics found in database";
+      picker.appendChild(p);
+      return;
+    }
+
+    topics.forEach((topic) => {
+      const label = document.createElement("label");
+      label.className = "genre-tag";
+      label.title = `${topic.book_count} book(s)`;
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "topic-checkbox";
+      checkbox.value = topic.name;
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) {
+          topicSelection.add(topic.name);
+          label.classList.add("selected");
+        } else {
+          topicSelection.delete(topic.name);
+          label.classList.remove("selected");
+        }
+      });
+
+      const span = document.createElement("span");
+      span.textContent = topic.name;
+
+      const count = document.createElement("small");
+      count.className = "genre-count";
+      count.textContent = `(${topic.book_count})`;
+
+      label.appendChild(checkbox);
+      label.appendChild(span);
+      label.appendChild(count);
+      picker.appendChild(label);
+    });
+  } catch (error) {
+    const p = document.createElement("p");
+    p.className = "placeholder-text";
+    p.textContent = "Failed to load topics";
+    while (picker.firstChild) picker.removeChild(picker.firstChild);
+    picker.appendChild(p);
+  }
+}
+
+function addNewTopicToList() {
+  const input = document.getElementById("topic-new-input");
+  const name = input.value.trim();
+  if (!name) return;
+
+  const picker = document.getElementById("topic-picker");
+  const existing = picker.querySelector(`input[value="${CSS.escape(name)}"]`);
+  if (existing) {
+    existing.checked = true;
+    existing.dispatchEvent(new Event("change"));
+    input.value = "";
+    return;
+  }
+
+  const label = document.createElement("label");
+  label.className = "genre-tag selected new-genre";
+  label.title = "New topic (will be created)";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "topic-checkbox";
+  checkbox.value = name;
+  checkbox.checked = true;
+  topicSelection.add(name);
+
+  checkbox.addEventListener("change", () => {
+    if (checkbox.checked) {
+      topicSelection.add(name);
+      label.classList.add("selected");
+    } else {
+      topicSelection.delete(name);
+      label.classList.remove("selected");
+    }
+  });
+
+  const span = document.createElement("span");
+  span.textContent = name;
+
+  const count = document.createElement("small");
+  count.className = "genre-count";
+  count.textContent = "(new)";
+
+  label.appendChild(checkbox);
+  label.appendChild(span);
+  label.appendChild(count);
+  picker.appendChild(label);
+
+  input.value = "";
+}
+
+async function applyBulkTopics() {
+  if (bulkSelection.size === 0) {
+    showToast("No audiobooks selected", "error");
+    return;
+  }
+
+  if (topicSelection.size === 0) {
+    showToast("No topics selected", "error");
+    return;
+  }
+
+  const mode =
+    document.querySelector('input[name="topic-mode"]:checked')?.value || "add";
+  const action = mode === "add" ? "add" : "remove";
+  const topicList = Array.from(topicSelection).join(", ");
+
+  const confirmed = await confirmAction(
+    `${mode === "add" ? "Add" : "Remove"} Topics`,
+    `${mode === "add" ? "Add" : "Remove"} ${topicSelection.size} topic(s) ${mode === "add" ? "to" : "from"} ${bulkSelection.size} audiobook(s)?\n\nTopics: ${topicList}`,
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const result = await safeFetch(`${API_BASE}/api/audiobooks/bulk-topics`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ids: Array.from(bulkSelection),
+        topics: Array.from(topicSelection),
+        mode: action,
+      }),
+    });
+
+    if (result.success) {
+      const verb = mode === "add" ? "Added" : "Removed";
+      showToast(
+        `${verb} topics for ${result.affected} association(s)`,
+        "success",
+      );
+      topicSelection.clear();
+      document
+        .querySelectorAll("#topic-picker .genre-tag")
+        .forEach((tag) => tag.classList.remove("selected"));
+      document.querySelectorAll(".topic-checkbox").forEach((cb) => {
+        cb.checked = false;
+      });
+      loadTopicsForPicker();
+    } else {
+      showToast(result.error || "Topic update failed", "error");
+    }
+  } catch (error) {
+    showToast("Failed to update topics: " + error.message, "error");
   }
 }
 

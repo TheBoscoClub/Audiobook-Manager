@@ -11,7 +11,16 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DATA_DIR, DATABASE_PATH
+from config import COVER_DIR, DATA_DIR, DATABASE_PATH
+
+from name_parser import (
+    clean_name,
+    generate_sort_name,
+    is_brand_name,
+    is_junk_name,
+    normalize_for_dedup,
+    parse_names,
+)
 
 DB_PATH = DATABASE_PATH
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
@@ -36,6 +45,146 @@ def create_database():
     return conn
 
 
+def _cleanup_orphaned_covers(cursor):
+    """Remove cover files from COVER_DIR that are not referenced by any audiobook.
+
+    After a rescan/reimport, cover filenames change (MD5 of filepath). Old cover
+    files become orphans consuming disk space. This deletes any file in COVER_DIR
+    that no audiobook row references.
+    """
+    if not COVER_DIR.is_dir():
+        return
+
+    cursor.execute(
+        "SELECT cover_path FROM audiobooks "
+        "WHERE cover_path IS NOT NULL AND cover_path != ''"
+    )
+    referenced = {row[0] for row in cursor.fetchall()}
+
+    on_disk = set()
+    for f in COVER_DIR.iterdir():
+        if f.is_file():
+            on_disk.add(f.name)
+
+    orphans = on_disk - referenced
+    if not orphans:
+        print("\n✓ No orphaned cover files")
+        return
+
+    total_bytes = 0
+    for name in orphans:
+        path = COVER_DIR / name
+        total_bytes += path.stat().st_size
+        path.unlink()
+
+    mb = total_bytes / (1024 * 1024)
+    print(f"\n✓ Cleaned up {len(orphans)} orphaned cover files ({mb:.1f} MB)")
+
+
+def _populate_names_and_junctions(cursor):
+    """Populate author/narrator name columns and rebuild junction tables.
+
+    Parses the flat author/narrator fields into structured data:
+    - Sets author_last_name, author_first_name, narrator_last_name, narrator_first_name
+    - Rebuilds authors/narrators normalized tables
+    - Rebuilds book_authors/book_narrators junction tables
+    """
+    cursor.execute("SELECT id, author, narrator FROM audiobooks")
+    rows = cursor.fetchall()
+
+    authors_map: dict[str, int] = {}  # dedup_key -> author_id
+    narrators_map: dict[str, int] = {}  # dedup_key -> narrator_id
+
+    for row in rows:
+        book_id, author_raw, narrator_raw = row[0], row[1], row[2]
+
+        # Populate name-split columns from primary (first) name
+        author_first = author_last = narrator_first = narrator_last = None
+
+        if author_raw and author_raw.strip():
+            a_names = parse_names(author_raw)
+            if a_names:
+                sort_name = generate_sort_name(a_names[0])
+                if sort_name and ", " in sort_name:
+                    parts = sort_name.split(", ", 1)
+                    author_last, author_first = parts[0], parts[1]
+                elif sort_name:
+                    author_last = sort_name
+
+                # Build junction rows for ALL authors
+                for position, name in enumerate(a_names):
+                    if is_junk_name(name) or is_brand_name(name):
+                        continue
+                    cleaned = clean_name(name)
+                    if not cleaned:
+                        continue
+                    dedup_key = normalize_for_dedup(cleaned)
+                    if dedup_key not in authors_map:
+                        sn = generate_sort_name(cleaned) or cleaned
+                        cursor.execute(
+                            "INSERT INTO authors (name, sort_name) VALUES (?, ?)",
+                            (cleaned, sn),
+                        )
+                        authors_map[dedup_key] = cursor.lastrowid
+                    try:
+                        cursor.execute(
+                            "INSERT INTO book_authors (book_id, author_id, position) "
+                            "VALUES (?, ?, ?)",
+                            (book_id, authors_map[dedup_key], position),
+                        )
+                    except Exception:
+                        pass  # Duplicate junction row
+
+        if narrator_raw and narrator_raw.strip():
+            n_names = parse_names(narrator_raw)
+            if n_names:
+                sort_name = generate_sort_name(n_names[0])
+                if sort_name and ", " in sort_name:
+                    parts = sort_name.split(", ", 1)
+                    narrator_last, narrator_first = parts[0], parts[1]
+                elif sort_name:
+                    narrator_last = sort_name
+
+                for position, name in enumerate(n_names):
+                    if is_junk_name(name) or is_brand_name(name):
+                        continue
+                    cleaned = clean_name(name)
+                    if not cleaned:
+                        continue
+                    dedup_key = normalize_for_dedup(cleaned)
+                    if dedup_key not in narrators_map:
+                        sn = generate_sort_name(cleaned) or cleaned
+                        cursor.execute(
+                            "INSERT INTO narrators (name, sort_name) VALUES (?, ?)",
+                            (cleaned, sn),
+                        )
+                        narrators_map[dedup_key] = cursor.lastrowid
+                    try:
+                        cursor.execute(
+                            "INSERT INTO book_narrators (book_id, narrator_id, position) "
+                            "VALUES (?, ?, ?)",
+                            (book_id, narrators_map[dedup_key], position),
+                        )
+                    except Exception:
+                        pass
+
+        cursor.execute(
+            "UPDATE audiobooks SET author_last_name=?, author_first_name=?, "
+            "narrator_last_name=?, narrator_first_name=? WHERE id=?",
+            (author_last, author_first, narrator_last, narrator_first, book_id),
+        )
+
+    print(f"✓ Populated name columns for {len(rows)} audiobooks")
+    print(f"✓ Created {len(authors_map)} unique authors, {len(narrators_map)} unique narrators")
+
+    # Stats
+    cursor.execute("SELECT COUNT(*) FROM book_authors")
+    ba = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM book_narrators")
+    bn = cursor.fetchone()[0]
+    print(f"✓ book_authors: {ba} rows, book_narrators: {bn} rows")
+
+
 def import_audiobooks(conn):
     """Import audiobooks from JSON, preserving manually-populated metadata"""
     print(f"\nLoading audiobooks from: {JSON_PATH}")
@@ -52,6 +201,18 @@ def import_audiobooks(conn):
     # (Audible API enrichment, ISBN enrichment, Audible export, etc.)
     # These would be lost on reimport since the JSON only has scanner data
     print("\nPreserving existing metadata...")
+
+    # Save content_type for ALL entries where it differs from default 'Product'.
+    # This captures values set by populate_content_types.py (which does NOT set
+    # audible_enriched_at), ensuring they survive reimport.
+    preserved_content_types = {}
+    cursor.execute(
+        "SELECT file_path, content_type FROM audiobooks"
+        " WHERE content_type IS NOT NULL AND content_type != 'Product'"
+    )
+    for row in cursor.fetchall():
+        preserved_content_types[row[0]] = row[1]
+    print(f"  Preserved {len(preserved_content_types)} non-default content_type records")
 
     # Save narrator data (keyed by file_path)
     preserved_narrators = {}
@@ -166,10 +327,14 @@ def import_audiobooks(conn):
     cursor.execute("DELETE FROM audiobook_genres")
     cursor.execute("DELETE FROM audible_categories")
     cursor.execute("DELETE FROM editorial_reviews")
+    cursor.execute("DELETE FROM book_authors")
+    cursor.execute("DELETE FROM book_narrators")
     cursor.execute("DELETE FROM audiobooks")
     cursor.execute("DELETE FROM topics")
     cursor.execute("DELETE FROM eras")
     cursor.execute("DELETE FROM genres")
+    cursor.execute("DELETE FROM authors")
+    cursor.execute("DELETE FROM narrators")
 
     print("\nImporting audiobooks...")
 
@@ -248,6 +413,15 @@ def import_audiobooks(conn):
                     enrich_params,
                 )
 
+        # Restore content_type for non-enriched entries (e.g. set by
+        # populate_content_types.py which doesn't set audible_enriched_at).
+        # Only applies if enrichment didn't already restore content_type.
+        if not enrichment and file_path in preserved_content_types:
+            cursor.execute(
+                "UPDATE audiobooks SET content_type = ? WHERE id = ?",
+                (preserved_content_types[file_path], audiobook_id),
+            )
+
         # Restore Audible categories
         cats = preserved_categories.get(file_path, [])
         for cat in cats:
@@ -321,6 +495,11 @@ def import_audiobooks(conn):
     print(f"✓ Imported {len(eras_map)} eras")
     print(f"✓ Imported {len(topics_map)} topics")
 
+    # Populate name-split columns and rebuild junction tables
+    print("\nPopulating name columns and junction tables...")
+    _populate_names_and_junctions(cursor)
+    conn.commit()
+
     # Show statistics
     cursor.execute("SELECT COUNT(*) FROM audiobooks")
     total = cursor.fetchone()[0]
@@ -354,6 +533,9 @@ def import_audiobooks(conn):
     print(f"Unique genres: {len(genres_map)}")
     print(f"With SHA-256 hashes: {hashed_count:,}")
     print(f"With ASINs: {asin_count:,}")
+
+    # Clean up orphaned cover files
+    _cleanup_orphaned_covers(cursor)
 
     # Optimize database
     print("\nOptimizing database...")
