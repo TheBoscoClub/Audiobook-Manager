@@ -243,7 +243,7 @@ def init_db_routes(db_path, project_root):
             SELECT id, title, author, narrator, publisher, series, series_sequence,
                    duration_hours, file_size_mb, file_path, published_year, asin, isbn
             FROM audiobooks
-            ORDER BY title
+            ORDER BY title COLLATE NOCASE
         """)
 
         audiobooks = [dict(row) for row in cursor.fetchall()]
@@ -284,7 +284,7 @@ def init_db_routes(db_path, project_root):
                    duration_hours, duration_formatted, file_size_mb,
                    published_year, asin, isbn, file_path
             FROM audiobooks
-            ORDER BY title
+            ORDER BY title COLLATE NOCASE
         """)
 
         audiobooks = cursor.fetchall()
