@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [7.5.2] - 2026-03-27
+## [7.5.2.1] - 2026-03-27
 
 ### Fixed
 
@@ -2283,8 +2283,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2...HEAD
-[7.5.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...HEAD
+[7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2.1
 [7.5.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...v7.5.1.3
 [7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
 [7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1
