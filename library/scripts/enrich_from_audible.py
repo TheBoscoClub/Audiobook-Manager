@@ -470,6 +470,22 @@ def enrich_from_audible(
                     (book_id, review["review_text"], review["source"]),
                 )
 
+        # Update author from Audible if current value is missing/unknown
+        if authors:
+            cursor.execute("SELECT author FROM audiobooks WHERE id = ?", (book_id,))
+            current_author = cursor.fetchone()
+            current_author_val = current_author[0] if current_author else None
+            if not current_author_val or current_author_val.strip().lower() in (
+                "unknown author",
+                "",
+            ):
+                author_names = [a["name"] for a in authors if a.get("name")]
+                if author_names:
+                    cursor.execute(
+                        "UPDATE audiobooks SET author = ? WHERE id = ?",
+                        (", ".join(author_names), book_id),
+                    )
+
         # Update author ASINs in the normalized authors table
         for author_info in authors:
             author_asin = author_info.get("asin")
@@ -480,6 +496,55 @@ def enrich_from_audible(
                     "AND (asin IS NULL OR asin = '')",
                     (author_asin, author_name),
                 )
+
+        # Update narrator from Audible if current value is missing/unknown
+        if narrators:
+            cursor.execute("SELECT narrator FROM audiobooks WHERE id = ?", (book_id,))
+            current_narrator = cursor.fetchone()
+            current_val = current_narrator[0] if current_narrator else None
+            needs_narrator_update = not current_val or current_val.strip().lower() in (
+                "unknown narrator",
+                "",
+            )
+
+            if needs_narrator_update:
+                # Build flat narrator string from Audible data
+                narrator_names = [n["name"] for n in narrators if n.get("name")]
+                if narrator_names:
+                    flat_narrator = ", ".join(narrator_names)
+                    cursor.execute(
+                        "UPDATE audiobooks SET narrator = ? WHERE id = ?",
+                        (flat_narrator, book_id),
+                    )
+
+            # Ensure normalized narrator entries exist and are linked
+            for pos, narrator_info in enumerate(narrators):
+                narrator_name = narrator_info.get("name")
+                if not narrator_name:
+                    continue
+
+                # Ensure narrator exists in normalized table and is linked
+                try:
+                    from backend.name_parser import generate_sort_name
+
+                    sort_name = generate_sort_name(narrator_name)
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO narrators (name, sort_name) "
+                        "VALUES (?, ?)",
+                        (narrator_name, sort_name),
+                    )
+                    narrator_id = cursor.execute(
+                        "SELECT id FROM narrators WHERE name = ?",
+                        (narrator_name,),
+                    ).fetchone()
+                    if narrator_id:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO book_narrators "
+                            "(book_id, narrator_id, position) VALUES (?, ?, ?)",
+                            (book_id, narrator_id[0], pos),
+                        )
+                except (ImportError, sqlite3.DatabaseError):
+                    pass  # Normalized tables may not exist yet
 
         enriched += 1
 

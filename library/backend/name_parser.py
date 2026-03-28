@@ -216,16 +216,27 @@ def normalize_for_dedup(name: str) -> str:
     "Miéville" -> "mieville"
     "M. R." -> "m.r."
     "Le Carré" -> "le carre"
+    "O\u2019Brian" -> "o'brian"  (curly quote -> straight)
     """
     if not name:
         return ""
     # Normalize unicode (NFD) then strip combining marks (accents)
     nfkd = unicodedata.normalize("NFKD", name)
     stripped = "".join(c for c in nfkd if not unicodedata.combining(c))
+    # Normalize apostrophe/quote variants to ASCII apostrophe
+    # U+2019 RIGHT SINGLE QUOTATION MARK, U+2018 LEFT SINGLE QUOTATION MARK,
+    # U+02BC MODIFIER LETTER APOSTROPHE, U+02BB MODIFIER LETTER TURNED COMMA,
+    # U+0060 GRAVE ACCENT, U+00B4 ACUTE ACCENT
+    stripped = re.sub(r"[\u2018\u2019\u02bc\u02bb`\u00b4]", "'", stripped)
+    # Normalize dash/hyphen variants to ASCII hyphen
+    # U+2010 HYPHEN, U+2011 NON-BREAKING HYPHEN, U+2013 EN DASH, U+2014 EM DASH
+    stripped = re.sub(r"[\u2010\u2011\u2013\u2014]", "-", stripped)
     # Lowercase and normalize whitespace
     lower = stripped.lower().strip()
     # Remove spaces around periods for initial normalization: "M. R." -> "m.r."
     lower = re.sub(r"\.\s+", ".", lower)
+    # Collapse multiple spaces
+    lower = re.sub(r"\s+", " ", lower)
     return lower
 
 
@@ -440,11 +451,28 @@ def parse_names(raw: str | None) -> list[str]:
     return [text.strip()]
 
 
+def normalize_punctuation(name: str) -> str:
+    """Normalize Unicode punctuation variants to ASCII equivalents.
+
+    Apostrophes: \u2018\u2019\u02bc\u02bb -> '
+    Hyphens: \u2010\u2011\u2013\u2014 -> -
+    """
+    if not name:
+        return name
+    # Apostrophe/quote variants to ASCII apostrophe
+    result = re.sub(r"[\u2018\u2019\u02bc\u02bb`\u00b4]", "'", name)
+    # Dash/hyphen variants to ASCII hyphen
+    result = re.sub(r"[\u2010\u2011\u2013\u2014]", "-", result)
+    return result
+
+
 def clean_name(name: str) -> str:
-    """Clean a single name: strip roles, credentials, whitespace."""
+    """Clean a single name: strip roles, credentials, whitespace, normalize punctuation."""
     if not name:
         return ""
     clean = name.strip()
+    # Normalize Unicode punctuation before any other processing
+    clean = normalize_punctuation(clean)
     # Strip "(role)" suffix
     clean = re.sub(r"\s*\([^)]*\)\s*$", "", clean).strip()
     # Strip "- role" suffix

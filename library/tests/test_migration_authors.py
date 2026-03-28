@@ -145,6 +145,33 @@ class TestMigration:
         narrator_names = {n[0] for n in narrators}
         assert "Full Cast" in narrator_names
 
+    def test_apostrophe_variants_dedup(self):
+        """Curly and straight apostrophes in names must merge to one author."""
+        self._insert_book("Master and Commander", "Patrick O'Brian")  # straight '
+        self._insert_book("Post Captain", "Patrick O\u2019Brian")  # curly '
+        from backend.migrations.migrate_to_normalized_authors import migrate
+
+        migrate(self.db_path)
+
+        authors = self.conn.execute("SELECT name FROM authors").fetchall()
+        assert len(authors) == 1  # Deduplicated despite apostrophe variant
+        assert "Patrick" in authors[0][0]
+        assert "Brian" in authors[0][0]
+
+        links = self.conn.execute("SELECT * FROM book_authors").fetchall()
+        assert len(links) == 2  # Both books linked to same author
+
+    def test_dash_variants_dedup(self):
+        """En-dash and hyphen variants in names must merge to one author."""
+        self._insert_book("Book One", "Mary Higgins-Clark")  # ASCII hyphen
+        self._insert_book("Book Two", "Mary Higgins\u2013Clark")  # en-dash
+        from backend.migrations.migrate_to_normalized_authors import migrate
+
+        migrate(self.db_path)
+
+        authors = self.conn.execute("SELECT name FROM authors").fetchall()
+        assert len(authors) == 1  # Deduplicated
+
     def test_idempotent(self):
         """Running migration twice should not duplicate data."""
         self._insert_book("It", "Stephen King")
