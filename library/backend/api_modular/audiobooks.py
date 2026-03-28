@@ -532,7 +532,7 @@ def get_filters() -> Response:
         JOIN book_authors ba ON ba.author_id = a.id
         JOIN audiobooks ab ON ab.id = ba.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY a.sort_name
+        ORDER BY a.sort_name COLLATE NOCASE
     """)  # nosec B608
     authors = [
         {"name": row["name"], "sort_name": row["sort_name"]}
@@ -545,7 +545,7 @@ def get_filters() -> Response:
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY n.sort_name
+        ORDER BY n.sort_name COLLATE NOCASE
     """)  # nosec B608
     narrators = [row["name"] for row in cursor.fetchall()]
 
@@ -553,27 +553,27 @@ def get_filters() -> Response:
     cursor.execute(f"""
         SELECT DISTINCT publisher FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
-        ORDER BY publisher
+        ORDER BY publisher COLLATE NOCASE
     """)  # nosec B608
     publishers = [row["publisher"] for row in cursor.fetchall()]
 
     # Get genres
-    cursor.execute("SELECT name FROM genres ORDER BY name")
+    cursor.execute("SELECT name FROM genres ORDER BY name COLLATE NOCASE")
     genres = [row["name"] for row in cursor.fetchall()]
 
     # Get eras
-    cursor.execute("SELECT name FROM eras ORDER BY name")
+    cursor.execute("SELECT name FROM eras ORDER BY name COLLATE NOCASE")
     eras = [row["name"] for row in cursor.fetchall()]
 
     # Get topics
-    cursor.execute("SELECT name FROM topics ORDER BY name")
+    cursor.execute("SELECT name FROM topics ORDER BY name COLLATE NOCASE")
     topics = [row["name"] for row in cursor.fetchall()]
 
     # Get formats (audiobooks only)
     cursor.execute(f"""
         SELECT DISTINCT format FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
-        ORDER BY format
+        ORDER BY format COLLATE NOCASE
     """)  # nosec B608
     formats = [row["format"] for row in cursor.fetchall()]
 
@@ -605,7 +605,7 @@ def get_narrator_counts() -> Response:
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY n.sort_name
+        ORDER BY n.sort_name COLLATE NOCASE
     """)  # nosec B608
 
     counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}

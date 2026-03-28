@@ -370,7 +370,7 @@ def init_crud_routes(db_path):
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE narrator IS NULL OR narrator = '' OR narrator = 'Unknown Narrator'
-            ORDER BY title
+            ORDER BY title COLLATE NOCASE
             LIMIT 200
         """)
 
@@ -390,7 +390,7 @@ def init_crud_routes(db_path):
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE sha256_hash IS NULL OR sha256_hash = ''
-            ORDER BY title
+            ORDER BY title COLLATE NOCASE
             LIMIT 200
         """)
 
@@ -411,7 +411,7 @@ def init_crud_routes(db_path):
             FROM genres g
             LEFT JOIN audiobook_genres ag ON g.id = ag.genre_id
             GROUP BY g.id, g.name
-            ORDER BY g.name
+            ORDER BY g.name COLLATE NOCASE
         """)
 
         genres = [dict(row) for row in cursor.fetchall()]
@@ -602,7 +602,7 @@ def init_crud_routes(db_path):
             FROM topics t
             LEFT JOIN audiobook_topics at ON t.id = at.topic_id
             GROUP BY t.id, t.name
-            ORDER BY t.name
+            ORDER BY t.name COLLATE NOCASE
         """)
         topics = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -743,7 +743,7 @@ def init_crud_routes(db_path):
             FROM eras e
             LEFT JOIN audiobook_eras ae ON e.id = ae.era_id
             GROUP BY e.id, e.name
-            ORDER BY e.name
+            ORDER BY e.name COLLATE NOCASE
         """)
         eras = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -866,7 +866,7 @@ def init_crud_routes(db_path):
         cursor.execute(
             "SELECT id, category_path, category_name, root_category, depth,"
             " audible_category_id"
-            " FROM audible_categories WHERE audiobook_id = ? ORDER BY depth, category_name",
+            " FROM audible_categories WHERE audiobook_id = ? ORDER BY depth, category_name COLLATE NOCASE",
             (id,),
         )
         categories = [dict(row) for row in cursor.fetchall()]
