@@ -408,7 +408,104 @@
       });
     }
 
+    // ── Preferences controls ──
+    initPreferencesControls();
+
     // Populate account button — never hides it
     initAccountButton();
   });
+
+  // ── Preferences: load, bind, save ──
+
+  var PREF_DEFAULTS = {
+    sort_order: 'title_asc', view_mode: 'grid', items_per_page: '24',
+    content_filter: 'all', playback_speed: '1', sleep_timer: '0',
+    auto_play_series: 'false'
+  };
+
+  function initPreferencesControls() {
+    // Hide prefs section for unauthenticated users (loaded after auth check)
+    var prefsSection = document.getElementById('prefs-section');
+    if (!prefsSection) return;
+
+    // Auto-save on select change
+    prefsSection.querySelectorAll('.pref-select').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        saveBrowsingPref(sel.dataset.key, sel.value);
+      });
+    });
+
+    // Toggle groups
+    prefsSection.querySelectorAll('.pref-toggle-group').forEach(function (group) {
+      group.addEventListener('click', function (e) {
+        var target = e.target.closest('button');
+        if (!target) return;
+        group.querySelectorAll('button').forEach(function (b) {
+          b.classList.toggle('active', b === target);
+        });
+        saveBrowsingPref(group.dataset.key, target.dataset.value);
+      });
+    });
+
+    // Checkbox
+    var autoPlay = document.getElementById('pref-auto-play');
+    if (autoPlay) {
+      autoPlay.addEventListener('change', function () {
+        saveBrowsingPref('auto_play_series', this.checked ? 'true' : 'false');
+      });
+    }
+  }
+
+  function saveBrowsingPref(key, value) {
+    var body = {};
+    body[key] = value;
+    fetch('/api/user/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body)
+    }).catch(function () {});
+  }
+
+  function loadPreferencesIntoModal() {
+    fetch('/api/user/preferences', { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('not authenticated');
+        return r.json();
+      })
+      .then(function (data) {
+        // Select dropdowns
+        var selects = document.querySelectorAll('#prefs-section .pref-select');
+        selects.forEach(function (sel) {
+          var key = sel.dataset.key;
+          if (data[key] !== undefined) sel.value = data[key];
+        });
+        // Toggle groups
+        document.querySelectorAll('#prefs-section .pref-toggle-group').forEach(function (group) {
+          var key = group.dataset.key;
+          var val = data[key] || PREF_DEFAULTS[key];
+          group.querySelectorAll('button').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.value === val);
+          });
+        });
+        // Checkbox
+        var autoPlay = document.getElementById('pref-auto-play');
+        if (autoPlay) autoPlay.checked = data.auto_play_series === 'true';
+
+        // Show section
+        document.getElementById('prefs-section').style.display = '';
+      })
+      .catch(function () {
+        // Hide preferences section for unauthenticated users
+        var s = document.getElementById('prefs-section');
+        if (s) s.style.display = 'none';
+      });
+  }
+
+  // Override openAccountModal to also load preferences
+  var _origOpenModal = openAccountModal;
+  openAccountModal = function () {
+    _origOpenModal();
+    if (authenticated) loadPreferencesIntoModal();
+  };
 })();

@@ -51,7 +51,7 @@ from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .admin_authors import admin_authors_bp, init_admin_authors_routes
 from .suggestions import suggestions_bp, init_suggestions_routes
 from .user_state import init_user_state_routes, user_bp
-from .preferences import preferences_bp, init_preferences_routes
+from .preferences import preferences_bp
 from .utilities import init_utilities_routes, utilities_bp
 from .auth import (
     auth_bp,

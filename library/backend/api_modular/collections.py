@@ -10,7 +10,7 @@ COLLECTIONS dict for filtering by any collection ID.
 
 import re
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, jsonify
 
 from .core import get_db
 from .auth import guest_allowed
