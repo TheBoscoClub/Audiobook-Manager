@@ -681,6 +681,13 @@
                                                 <option value="acquired_date">Acquired Date (YYYY-MM-DD)</option>
                                                 <option value="asin">ASIN</option>
                                             </optgroup>
+                                            <optgroup label="Enrichment Data">
+                                                <option value="subtitle">Subtitle</option>
+                                                <option value="language">Language</option>
+                                                <option value="format_type">Format Type</option>
+                                                <option value="release_date">Release Date</option>
+                                                <option value="is_adult_product">Adult Content (0/1)</option>
+                                            </optgroup>
                                         </select>
                                         <input type="text" id="bulk-update-value" class="office-input" placeholder="New value..." title="Enter the new value to apply to all selected audiobooks">
                                         <button class="office-btn" id="bulk-update-btn" title="Apply the new value to all selected audiobooks">Apply to Selected</button>
@@ -716,6 +723,34 @@
                                         </div>
                                         <button class="office-btn primary" id="bulk-genre-apply" title="Apply genre changes to all selected audiobooks">
                                             <span class="btn-icon">&#127991;</span> Apply Genres to Selected
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="bulk-action-item" id="bulk-topic-action">
+                                    <div class="action-info">
+                                        <h4>&#128218; Manage Topics</h4>
+                                        <p>Add or remove topic tags for selected audiobooks.</p>
+                                    </div>
+                                    <div class="action-controls genre-controls">
+                                        <div class="genre-mode-selector">
+                                            <label class="radio-option small">
+                                                <input type="radio" name="topic-mode" value="add" checked>
+                                                <span>Add topics</span>
+                                            </label>
+                                            <label class="radio-option small">
+                                                <input type="radio" name="topic-mode" value="remove">
+                                                <span>Remove topics</span>
+                                            </label>
+                                        </div>
+                                        <div class="genre-picker" id="topic-picker">
+                                            <p class="placeholder-text">Loading topics...</p>
+                                        </div>
+                                        <div class="genre-new-group">
+                                            <input type="text" id="topic-new-input" class="office-input" placeholder="Add a new topic..." title="Type a new topic name and press Enter or click Add">
+                                            <button class="office-btn secondary" id="topic-new-btn" title="Add this new topic to the list">Add</button>
+                                        </div>
+                                        <button class="office-btn primary" id="bulk-topic-apply" title="Apply topic changes to all selected audiobooks">
+                                            <span class="btn-icon">&#128218;</span> Apply Topics to Selected
                                         </button>
                                     </div>
                                 </div>
