@@ -50,6 +50,22 @@
             <span class="a11y-icon">&#9881;</span>
         </button>
         <span class="header-title">Audiobook Library</span>
+        <!-- Help link (always visible) -->
+        <a href="help.html" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
+            <span class="help-icon">?</span>
+        </a>
+        <!-- Back Office link (visible to all, actionable by admins only) -->
+        <a href="utilities.html" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
+            <span class="backoffice-icon">
+                <svg viewBox="0 0 24 32" width="14" height="18" aria-hidden="true">
+                    <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <rect x="9" y="16" width="6" height="12" rx="1" fill="currentColor"/>
+                    <ellipse cx="12" cy="10" rx="3" ry="3.5" fill="var(--deco-charcoal, #161616)"/>
+                    <rect x="10.5" y="12" width="3" height="5" fill="var(--deco-charcoal, #161616)"/>
+                </svg>
+            </span>
+            <span class="backoffice-label">Back Office</span>
+        </a>
     </div>
 
     <!-- Accessibility Quick Panel -->
