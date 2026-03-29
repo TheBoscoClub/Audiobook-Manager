@@ -270,14 +270,13 @@
           div.appendChild(meta);
 
           if (!m.dismissed_at) {
-            var btn = document.createElement("button");
-            btn.className = "office-btn office-btn-sm";
-            btn.textContent = "Dismiss";
-            btn.title = "Permanently dismiss this announcement for all users";
-            btn.addEventListener("click", function () {
-              dismissMessage(m.id);
+            var ks = createKnifeSwitch({
+              size: "compact",
+              title: "Permanently dismiss this announcement for all users",
+              label: "Dismiss",
+              onDismiss: function () { dismissMessage(m.id); }
             });
-            div.appendChild(btn);
+            div.appendChild(ks);
           }
 
           container.appendChild(div);

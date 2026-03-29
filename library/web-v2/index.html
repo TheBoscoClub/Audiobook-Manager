@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/notifications.css?v=1774616000">
     <link rel="stylesheet" href="css/tutorial.css?v=1774616000">
     <link rel="stylesheet" href="css/marquee.css?v=1774616000">
+    <link rel="stylesheet" href="css/knife-switch.css?v=1774616000">
     <link rel="stylesheet" href="css/modals.css?v=1774616000">
     <link rel="stylesheet" href="css/account.css?v=1774616000">
 </head>
@@ -18,9 +19,20 @@
         <div class="header-content">
             <!-- Left nav: help link -->
             <div class="header-nav header-nav-left">
-                <!-- Help link (always visible) -->
-                <a href="help.html" class="nav-link" title="Help &amp; User Guide">
-                    <span class="nav-icon">?</span>
+                <!-- Help link — door knocker (always visible) -->
+                <a href="help.html" class="nav-link help-knocker" id="help-knocker-link" title="Knock to enter the Help &amp; User Guide">
+                    <span class="nav-icon knocker-icon">
+                        <svg viewBox="0 0 24 30" width="16" height="20" aria-hidden="true">
+                            <!-- Mounting plate -->
+                            <ellipse cx="12" cy="8" rx="6" ry="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                            <!-- Ring (the knocker) -->
+                            <circle cx="12" cy="18" r="6" fill="none" stroke="currentColor" stroke-width="2.5" class="knocker-ring"/>
+                            <!-- Hinge pin -->
+                            <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                            <!-- Strike plate -->
+                            <rect x="10" y="26" width="4" height="3" rx="1" fill="currentColor" opacity="0.6"/>
+                        </svg>
+                    </span>
                     <span class="utilities-text">Help</span>
                 </a>
             </div>
@@ -51,10 +63,20 @@
                     <span class="utilities-text">Request a User Account</span>
                 </a>
 
-                <!-- Back Office link (admin only - controlled by JavaScript) -->
-                <a href="utilities.html?v=1774616000" id="admin-backoffice-link" class="utilities-link" hidden title="Library Administration">
-                    <span class="utilities-icon">&#9881;</span>
-                    <span class="utilities-text">Back Office</span>
+                <!-- Back Office link (visible to all, actionable by admins only) -->
+                <a href="utilities.html?v=1774616000" id="admin-backoffice-link" class="utilities-link backoffice-link" title="Library Administration — Staff Only">
+                    <span class="utilities-icon backoffice-keyhole">
+                        <svg viewBox="0 0 24 32" width="18" height="24" aria-hidden="true">
+                            <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <rect x="9" y="16" width="6" height="12" rx="1" fill="currentColor"/>
+                            <ellipse cx="12" cy="10" rx="3" ry="3.5" fill="var(--deco-charcoal, #161616)"/>
+                            <rect x="10.5" y="12" width="3" height="5" fill="var(--deco-charcoal, #161616)"/>
+                        </svg>
+                    </span>
+                    <span class="backoffice-text-wrap">
+                        <span class="utilities-text">Back Office</span>
+                        <span class="backoffice-subtext">Staff Only</span>
+                    </span>
                 </a>
             </div>
         </div>
@@ -308,6 +330,7 @@
         </div>
     </div>
 
+    <script data-cfasync="false" src="js/knife-switch.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/webauthn.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/marquee.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/session-persistence.js?v=1774616000"></script>
@@ -328,6 +351,55 @@
                 throw new Error('Unexpected server response');
             }
         }
+    </script>
+
+    <script>
+    // Door knocker sound effect for Help button
+    (function () {
+        var knocker = document.getElementById("help-knocker-link");
+        if (!knocker) return;
+        var audioCtx = null;
+        function getCtx() {
+            if (!audioCtx) {
+                try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+                catch (e) { return null; }
+            }
+            return audioCtx;
+        }
+        function playKnock() {
+            var ctx = getCtx();
+            if (!ctx) return;
+            // Deep wooden knock — short sine burst + filtered noise
+            var osc = ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.value = 120;
+            var g = ctx.createGain();
+            g.gain.setValueAtTime(0.3, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            osc.connect(g);
+            g.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+            // Wood texture (filtered noise)
+            var dur = 0.08;
+            var buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+            var d = buf.getChannelData(0);
+            for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.15;
+            var src = ctx.createBufferSource();
+            src.buffer = buf;
+            var lp = ctx.createBiquadFilter();
+            lp.type = "lowpass";
+            lp.frequency.value = 400;
+            var g2 = ctx.createGain();
+            g2.gain.setValueAtTime(0.2, ctx.currentTime);
+            g2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
+            src.connect(lp);
+            lp.connect(g2);
+            g2.connect(ctx.destination);
+            src.start();
+        }
+        knocker.addEventListener("click", playKnock);
+    })();
     </script>
 
     <!-- Toast notifications (auto-dismiss, bottom-right) -->
