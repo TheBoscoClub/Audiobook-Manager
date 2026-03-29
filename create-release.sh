@@ -258,23 +258,23 @@ EOF
 
 main() {
     case "${1:-}" in
-        --dry-run)
-            dry_run
-            ;;
-        --clean)
-            clean
-            ;;
-        -h | --help)
-            show_help
-            ;;
-        "")
-            build_release
-            ;;
-        *)
-            log_error "Unknown option: $1"
-            show_help
-            exit 1
-            ;;
+    --dry-run)
+        dry_run
+        ;;
+    --clean)
+        clean
+        ;;
+    -h | --help)
+        show_help
+        ;;
+    "")
+        build_release
+        ;;
+    *)
+        log_error "Unknown option: $1"
+        show_help
+        exit 1
+        ;;
     esac
 }
 

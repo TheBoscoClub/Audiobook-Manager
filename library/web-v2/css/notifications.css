@@ -63,37 +63,10 @@
     flex: 1;
 }
 
-/* Dismiss button */
+/* Dismiss control (knife switch) */
 .notification-dismiss {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
-    border: 1px solid currentColor;
-    color: inherit;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s;
     margin-left: 1rem;
     flex-shrink: 0;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-        0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.notification-dismiss:hover {
-    background: rgba(255, 255, 255, 0.2);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.15),
-        0 3px 6px rgba(0, 0, 0, 0.35);
-    transform: translateY(-1px);
-}
-
-.notification-dismiss:active {
-    transform: translateY(1px);
-    box-shadow:
-        inset 0 1px 3px rgba(0, 0, 0, 0.3),
-        0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
 /* Non-dismissable notifications have no button */
@@ -112,10 +85,6 @@
         gap: 0.5rem;
     }
 
-    .notification-dismiss {
-        padding: 0.2rem 0.5rem;
-        font-size: 0.75rem;
-    }
 }
 
 @media (max-width: 480px) {

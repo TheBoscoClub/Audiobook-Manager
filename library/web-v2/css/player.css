@@ -142,12 +142,12 @@
 
 .control-btn:hover {
     background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--btn-3d-hover), 0 0 16px rgba(255, 215, 0, 0.4);
 }
 
 .control-btn:active {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 

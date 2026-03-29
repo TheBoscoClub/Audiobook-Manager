@@ -117,9 +117,7 @@ def init_crud_routes(db_path):
             cursor.execute("BEGIN TRANSACTION")
 
             # Collect cover_path before deletion for cleanup
-            cursor.execute(
-                "SELECT cover_path FROM audiobooks WHERE id = ?", (id,)
-            )
+            cursor.execute("SELECT cover_path FROM audiobooks WHERE id = ?", (id,))
             row = cursor.fetchone()
             cover_to_delete = row["cover_path"] if row and row["cover_path"] else None
 
@@ -127,8 +125,12 @@ def init_crud_routes(db_path):
             cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (id,))
             cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (id,))
             cursor.execute("DELETE FROM audiobook_eras WHERE audiobook_id = ?", (id,))
-            cursor.execute("DELETE FROM editorial_reviews WHERE audiobook_id = ?", (id,))
-            cursor.execute("DELETE FROM audible_categories WHERE audiobook_id = ?", (id,))
+            cursor.execute(
+                "DELETE FROM editorial_reviews WHERE audiobook_id = ?", (id,)
+            )
+            cursor.execute(
+                "DELETE FROM audible_categories WHERE audiobook_id = ?", (id,)
+            )
             cursor.execute("DELETE FROM book_authors WHERE book_id = ?", (id,))
             cursor.execute("DELETE FROM book_narrators WHERE book_id = ?", (id,))
             cursor.execute("DELETE FROM supplements WHERE audiobook_id = ?", (id,))
@@ -291,9 +293,14 @@ def init_crud_routes(db_path):
             # book_authors/book_narrators use book_id; all others use audiobook_id
             fk_column = {"book_authors": "book_id", "book_narrators": "book_id"}
             for table in (
-                "audiobook_genres", "audiobook_topics", "audiobook_eras",
-                "editorial_reviews", "audible_categories",
-                "book_authors", "book_narrators", "supplements",
+                "audiobook_genres",
+                "audiobook_topics",
+                "audiobook_eras",
+                "editorial_reviews",
+                "audible_categories",
+                "book_authors",
+                "book_narrators",
+                "supplements",
             ):
                 col = fk_column.get(table, "audiobook_id")
                 cursor.execute(
@@ -363,7 +370,7 @@ def init_crud_routes(db_path):
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE narrator IS NULL OR narrator = '' OR narrator = 'Unknown Narrator'
-            ORDER BY title
+            ORDER BY title COLLATE NOCASE
             LIMIT 200
         """)
 
@@ -383,7 +390,7 @@ def init_crud_routes(db_path):
             SELECT id, title, author, narrator, series, file_path
             FROM audiobooks
             WHERE sha256_hash IS NULL OR sha256_hash = ''
-            ORDER BY title
+            ORDER BY title COLLATE NOCASE
             LIMIT 200
         """)
 
@@ -404,7 +411,7 @@ def init_crud_routes(db_path):
             FROM genres g
             LEFT JOIN audiobook_genres ag ON g.id = ag.genre_id
             GROUP BY g.id, g.name
-            ORDER BY g.name
+            ORDER BY g.name COLLATE NOCASE
         """)
 
         genres = [dict(row) for row in cursor.fetchall()]
@@ -595,7 +602,7 @@ def init_crud_routes(db_path):
             FROM topics t
             LEFT JOIN audiobook_topics at ON t.id = at.topic_id
             GROUP BY t.id, t.name
-            ORDER BY t.name
+            ORDER BY t.name COLLATE NOCASE
         """)
         topics = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -607,7 +614,9 @@ def init_crud_routes(db_path):
         """Set topics for a single audiobook (replaces all existing topics)."""
         data = request.get_json()
         if not data or "topics" not in data:
-            return jsonify({"success": False, "error": "Missing required field: topics"}), 400
+            return jsonify(
+                {"success": False, "error": "Missing required field: topics"}
+            ), 400
 
         topic_names = data["topics"]
         if not isinstance(topic_names, list):
@@ -627,7 +636,9 @@ def init_crud_routes(db_path):
                 name = name.strip()
                 if not name:
                     continue
-                cursor.execute("INSERT OR IGNORE INTO topics (name) VALUES (?)", (name,))
+                cursor.execute(
+                    "INSERT OR IGNORE INTO topics (name) VALUES (?)", (name,)
+                )
                 cursor.execute("SELECT id FROM topics WHERE name = ?", (name,))
                 topic_id = cursor.fetchone()["id"]
                 cursor.execute(
@@ -639,6 +650,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": True, "topics": topic_names})
         except Exception:
             import logging
+
             logging.exception("Error setting topics for audiobook %d", int(id))
             conn.rollback()
             conn.close()
@@ -657,11 +669,15 @@ def init_crud_routes(db_path):
         mode = data.get("mode", "add")
 
         if not ids:
-            return jsonify({"success": False, "error": "No audiobook IDs provided"}), 400
+            return jsonify(
+                {"success": False, "error": "No audiobook IDs provided"}
+            ), 400
         if not topic_names:
             return jsonify({"success": False, "error": "No topics provided"}), 400
         if mode not in ("add", "remove"):
-            return jsonify({"success": False, "error": "mode must be 'add' or 'remove'"}), 400
+            return jsonify(
+                {"success": False, "error": "mode must be 'add' or 'remove'"}
+            ), 400
 
         conn = get_db(db_path)
         cursor = conn.cursor()
@@ -673,7 +689,9 @@ def init_crud_routes(db_path):
                     name = name.strip()
                     if not name:
                         continue
-                    cursor.execute("INSERT OR IGNORE INTO topics (name) VALUES (?)", (name,))
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO topics (name) VALUES (?)", (name,)
+                    )
                     cursor.execute("SELECT id FROM topics WHERE name = ?", (name,))
                     topic_id = cursor.fetchone()["id"]
                     for book_id in ids:
@@ -704,10 +722,13 @@ def init_crud_routes(db_path):
             return jsonify({"success": True, "mode": mode, "affected": affected})
         except Exception:
             import logging
+
             logging.exception("Error in bulk topic %s", mode)
             conn.rollback()
             conn.close()
-            return jsonify({"success": False, "error": "Bulk topic operation failed"}), 500
+            return jsonify(
+                {"success": False, "error": "Bulk topic operation failed"}
+            ), 500
 
     # ── Era management ────────────────────────────────────────────────────
 
@@ -722,7 +743,7 @@ def init_crud_routes(db_path):
             FROM eras e
             LEFT JOIN audiobook_eras ae ON e.id = ae.era_id
             GROUP BY e.id, e.name
-            ORDER BY e.name
+            ORDER BY e.name COLLATE NOCASE
         """)
         eras = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -734,7 +755,9 @@ def init_crud_routes(db_path):
         """Set eras for a single audiobook (replaces all existing eras)."""
         data = request.get_json()
         if not data or "eras" not in data:
-            return jsonify({"success": False, "error": "Missing required field: eras"}), 400
+            return jsonify(
+                {"success": False, "error": "Missing required field: eras"}
+            ), 400
 
         era_names = data["eras"]
         if not isinstance(era_names, list):
@@ -766,6 +789,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": True, "eras": era_names})
         except Exception:
             import logging
+
             logging.exception("Error setting eras for audiobook %d", int(id))
             conn.rollback()
             conn.close()
@@ -812,6 +836,7 @@ def init_crud_routes(db_path):
             return jsonify({"success": True, "id": review_id})
         except Exception:
             import logging
+
             logging.exception("Error adding review for audiobook %d", int(id))
             conn.close()
             return jsonify({"success": False, "error": "Failed to add review"}), 500
@@ -841,7 +866,7 @@ def init_crud_routes(db_path):
         cursor.execute(
             "SELECT id, category_path, category_name, root_category, depth,"
             " audible_category_id"
-            " FROM audible_categories WHERE audiobook_id = ? ORDER BY depth, category_name",
+            " FROM audible_categories WHERE audiobook_id = ? ORDER BY depth, category_name COLLATE NOCASE",
             (id,),
         )
         categories = [dict(row) for row in cursor.fetchall()]
@@ -861,10 +886,14 @@ def init_crud_routes(db_path):
         cursor.execute("SELECT COUNT(*) FROM audiobooks")
         stats["total"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE audible_enriched_at IS NOT NULL")
+        cursor.execute(
+            "SELECT COUNT(*) FROM audiobooks WHERE audible_enriched_at IS NOT NULL"
+        )
         stats["audible_enriched"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE isbn_enriched_at IS NOT NULL")
+        cursor.execute(
+            "SELECT COUNT(*) FROM audiobooks WHERE isbn_enriched_at IS NOT NULL"
+        )
         stats["isbn_enriched"] = cursor.fetchone()[0]
 
         cursor.execute("""
@@ -884,13 +913,19 @@ def init_crud_routes(db_path):
         cursor.execute("SELECT COUNT(DISTINCT audiobook_id) FROM audible_categories")
         stats["with_categories"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT content_type, COUNT(*) as count FROM audiobooks GROUP BY content_type ORDER BY count DESC")
+        cursor.execute(
+            "SELECT content_type, COUNT(*) as count FROM audiobooks GROUP BY content_type ORDER BY count DESC"
+        )
         stats["content_types"] = {row[0]: row[1] for row in cursor.fetchall()}
 
-        cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE subtitle IS NOT NULL AND subtitle != ''")
+        cursor.execute(
+            "SELECT COUNT(*) FROM audiobooks WHERE subtitle IS NOT NULL AND subtitle != ''"
+        )
         stats["with_subtitle"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE language IS NOT NULL AND language != ''")
+        cursor.execute(
+            "SELECT COUNT(*) FROM audiobooks WHERE language IS NOT NULL AND language != ''"
+        )
         stats["with_language"] = cursor.fetchone()[0]
 
         conn.close()

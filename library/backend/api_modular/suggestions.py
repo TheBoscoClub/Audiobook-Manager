@@ -62,24 +62,49 @@ def sanitize_message(text):
             # But block specific invisible space chars
             cp = ord(ch)
             if cp in (
-                0x00AD,   # Soft hyphen
-                0x034F,   # Combining grapheme joiner
-                0x061C,   # Arabic letter mark
-                0x115F, 0x1160,  # Hangul fillers
-                0x17B4, 0x17B5,  # Khmer invisible chars
-                0x180E,   # Mongolian vowel separator
-                0x200B,   # Zero-width space
-                0x200C, 0x200D,  # Zero-width non-joiner/joiner
-                0x200E, 0x200F,  # LTR/RTL marks
-                0x202A, 0x202B, 0x202C, 0x202D, 0x202E,  # Bidi overrides
-                0x2060,   # Word joiner
-                0x2061, 0x2062, 0x2063, 0x2064,  # Invisible operators
-                0x2066, 0x2067, 0x2068, 0x2069,  # Bidi isolates
-                0x206A, 0x206B, 0x206C, 0x206D, 0x206E, 0x206F,  # Deprecated
-                0xFE00, 0xFE01, 0xFE02, 0xFE03,  # Variation selectors (first 4)
-                0xFEFF,   # BOM / zero-width no-break space
-                0xFFF9, 0xFFFA, 0xFFFB,  # Interlinear annotations
-                0xFFFC, 0xFFFD,  # Object replacement, replacement char
+                0x00AD,  # Soft hyphen
+                0x034F,  # Combining grapheme joiner
+                0x061C,  # Arabic letter mark
+                0x115F,
+                0x1160,  # Hangul fillers
+                0x17B4,
+                0x17B5,  # Khmer invisible chars
+                0x180E,  # Mongolian vowel separator
+                0x200B,  # Zero-width space
+                0x200C,
+                0x200D,  # Zero-width non-joiner/joiner
+                0x200E,
+                0x200F,  # LTR/RTL marks
+                0x202A,
+                0x202B,
+                0x202C,
+                0x202D,
+                0x202E,  # Bidi overrides
+                0x2060,  # Word joiner
+                0x2061,
+                0x2062,
+                0x2063,
+                0x2064,  # Invisible operators
+                0x2066,
+                0x2067,
+                0x2068,
+                0x2069,  # Bidi isolates
+                0x206A,
+                0x206B,
+                0x206C,
+                0x206D,
+                0x206E,
+                0x206F,  # Deprecated
+                0xFE00,
+                0xFE01,
+                0xFE02,
+                0xFE03,  # Variation selectors (first 4)
+                0xFEFF,  # BOM / zero-width no-break space
+                0xFFF9,
+                0xFFFA,
+                0xFFFB,  # Interlinear annotations
+                0xFFFC,
+                0xFFFD,  # Object replacement, replacement char
             ):
                 continue
             # Block variation selectors range
@@ -146,10 +171,13 @@ def submit_suggestion():
     # Broadcast to admins via WebSocket
     try:
         from .websocket import connection_manager
-        connection_manager.broadcast({
-            "type": "suggestion_new",
-            "username": user.username,
-        })
+
+        connection_manager.broadcast(
+            {
+                "type": "suggestion_new",
+                "username": user.username,
+            }
+        )
     except Exception:
         pass  # WebSocket is optional
 

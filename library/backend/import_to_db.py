@@ -175,7 +175,9 @@ def _populate_names_and_junctions(cursor):
         )
 
     print(f"✓ Populated name columns for {len(rows)} audiobooks")
-    print(f"✓ Created {len(authors_map)} unique authors, {len(narrators_map)} unique narrators")
+    print(
+        f"✓ Created {len(authors_map)} unique authors, {len(narrators_map)} unique narrators"
+    )
 
     # Stats
     cursor.execute("SELECT COUNT(*) FROM book_authors")
@@ -212,7 +214,9 @@ def import_audiobooks(conn):
     )
     for row in cursor.fetchall():
         preserved_content_types[row[0]] = row[1]
-    print(f"  Preserved {len(preserved_content_types)} non-default content_type records")
+    print(
+        f"  Preserved {len(preserved_content_types)} non-default content_type records"
+    )
 
     # Save narrator data (keyed by file_path)
     preserved_narrators = {}
@@ -392,13 +396,27 @@ def import_audiobooks(conn):
         if enrichment:
             # Whitelist of valid enrichment columns to prevent SQL injection
             allowed_columns = {
-                "series", "series_sequence", "subtitle", "language",
-                "format_type", "runtime_length_min", "release_date",
-                "publisher_summary", "rating_overall", "rating_performance",
-                "rating_story", "num_ratings", "num_reviews",
-                "audible_image_url", "sample_url", "audible_sku",
-                "is_adult_product", "merchandising_summary",
-                "audible_enriched_at", "isbn_enriched_at", "content_type",
+                "series",
+                "series_sequence",
+                "subtitle",
+                "language",
+                "format_type",
+                "runtime_length_min",
+                "release_date",
+                "publisher_summary",
+                "rating_overall",
+                "rating_performance",
+                "rating_story",
+                "num_ratings",
+                "num_reviews",
+                "audible_image_url",
+                "sample_url",
+                "audible_sku",
+                "is_adult_product",
+                "merchandising_summary",
+                "audible_enriched_at",
+                "isbn_enriched_at",
+                "content_type",
             }
             enrich_updates = []
             enrich_params = []

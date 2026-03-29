@@ -44,7 +44,18 @@ def test_systemd_uses_gunicorn():
     with open(_PROJECT_ROOT / "systemd/audiobook-api.service") as f:
         content = f.read()
     assert "gunicorn" in content, "Service should use gunicorn"
-    assert "geventwebsocket" in content, "Service should use geventwebsocket worker"
+    assert "-k gevent" in content, "Service should use standard gevent worker"
+    # Check ExecStart line specifically — comments may mention GeventWebSocketWorker as a warning
+    exec_lines = [
+        line
+        for line in content.splitlines()
+        if line.strip().startswith(("ExecStart=", "-k "))
+    ]
+    exec_text = " ".join(exec_lines)
+    assert "GeventWebSocketWorker" not in exec_text, (
+        "ExecStart must NOT use GeventWebSocketWorker — it double-handles WebSocket "
+        "upgrades with flask-sock, sending two 101 responses that corrupt the stream"
+    )
     assert "-w 1" in content, "Service must use single worker"
 
 

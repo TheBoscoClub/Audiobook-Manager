@@ -118,7 +118,9 @@ def update_roadmap_item(item_id):
                 return jsonify({"error": f"Invalid status. Use: {VALID_STATUSES}"}), 400
             if col == "priority" and data[col] not in VALID_PRIORITIES:
                 conn.close()
-                return jsonify({"error": f"Invalid priority. Use: {VALID_PRIORITIES}"}), 400
+                return jsonify(
+                    {"error": f"Invalid priority. Use: {VALID_PRIORITIES}"}
+                ), 400
             fields.append(f"{col} = ?")
             params.append(data[col])
 

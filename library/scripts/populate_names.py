@@ -26,7 +26,6 @@ from name_parser import (
     clean_name,
     generate_sort_name,
     is_brand_name,
-    is_group_name,
     is_junk_name,
     normalize_for_dedup,
     parse_names,
@@ -176,7 +175,9 @@ def rebuild_junction_tables(conn: sqlite3.Connection) -> tuple[int, int]:
 
 
 def main():
-    parser = ArgumentParser(description="Populate name columns and rebuild junction tables")
+    parser = ArgumentParser(
+        description="Populate name columns and rebuild junction tables"
+    )
     parser.add_argument(
         "--execute",
         action="store_true",
@@ -206,9 +207,7 @@ def main():
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM audiobooks")
     total = cursor.fetchone()[0]
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE author_last_name IS NOT NULL"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE author_last_name IS NOT NULL")
     has_last = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM book_authors")
     ba_count = cursor.fetchone()[0]
@@ -227,9 +226,7 @@ def main():
         print("=== DRY RUN ===\n")
 
         # Sample name parsing
-        cursor.execute(
-            "SELECT id, author, narrator FROM audiobooks LIMIT 10"
-        )
+        cursor.execute("SELECT id, author, narrator FROM audiobooks LIMIT 10")
         for row in cursor.fetchall():
             author_raw = row["author"] or ""
             narrator_raw = row["narrator"] or ""
@@ -260,9 +257,7 @@ def main():
     ba_new = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM book_narrators")
     bn_new = cursor.fetchone()[0]
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE author_last_name IS NOT NULL"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE author_last_name IS NOT NULL")
     has_last_new = cursor.fetchone()[0]
 
     print(f"\n  book_authors rows: {ba_count} -> {ba_new}")

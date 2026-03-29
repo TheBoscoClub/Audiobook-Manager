@@ -20,11 +20,11 @@ html {
    CSS Custom Properties (Variables)
    ============================================ */
 :root {
-    /* Art Deco Color Palette - Tuned for depth */
-    --deco-black: #080808;
-    --deco-charcoal: #141414;
-    --deco-slate: #1e1e1e;
-    --deco-gray: #333333;
+    /* Art Deco Color Palette - Tuned for depth and separation */
+    --deco-black: #060606;
+    --deco-charcoal: #161616;
+    --deco-slate: #222222;
+    --deco-gray: #383838;
 
     /* Metallic Golds - Primary accent */
     --gold-bright: #FFD700;
@@ -34,18 +34,20 @@ html {
     --brass: #CD853F;
 
     /* Emerald/Teal - Secondary accent (library reading lamps) */
-    --emerald: #1a4a4a;
-    --emerald-light: #2d5a4e;
-    --emerald-glow: rgba(45, 90, 78, 0.4);
+    --emerald: #2a7a6a;
+    --emerald-light: #3d9a85;
+    --emerald-glow: rgba(45, 140, 110, 0.35);
 
     /* Cream/Ivory - Paper and text */
     --cream: #F5DEB3;
-    --cream-light: #FFF8DC;
-    --parchment: #e8dcc8;
+    --cream-light: #FFF8E0;
+    --parchment: #eddcc4;
 
-    /* Accent colors */
-    --ruby: #8b2500;
-    --sapphire: #1a3a5a;
+    /* Accent colors — tuned for visibility on dark backgrounds */
+    --ruby: #c0392b;
+    --sapphire: #4a90c2;
+    --copper: #d4845a;
+    --ivory: #faf3e0;
 
     /* Legacy compatibility (for gradual migration) */
     --wood-dark: var(--deco-charcoal);
@@ -55,33 +57,33 @@ html {
     --shadow: rgba(0, 0, 0, 0.4);
     --text-dark: #1a1410;
 
-    /* Elevation Shadow System - Creates visual depth */
+    /* Elevation Shadow System - Top-left light source for consistent 3D */
     /* Level 1: Subtle lift (buttons, inputs at rest) */
     --shadow-elevation-1:
-        0 2px 4px rgba(0, 0, 0, 0.3),
-        0 1px 2px rgba(0, 0, 0, 0.2);
+        2px 3px 5px rgba(0, 0, 0, 0.4),
+        1px 1px 2px rgba(0, 0, 0, 0.25);
 
     /* Level 2: Moderate lift (cards, panels) */
     --shadow-elevation-2:
-        0 4px 8px rgba(0, 0, 0, 0.35),
-        0 2px 4px rgba(0, 0, 0, 0.25);
+        3px 5px 10px rgba(0, 0, 0, 0.45),
+        1px 2px 4px rgba(0, 0, 0, 0.3);
 
     /* Level 3: Prominent lift (hover states, featured elements) */
     --shadow-elevation-3:
-        0 8px 16px rgba(0, 0, 0, 0.4),
-        0 4px 8px rgba(0, 0, 0, 0.3);
+        5px 10px 20px rgba(0, 0, 0, 0.5),
+        2px 4px 8px rgba(0, 0, 0, 0.35);
 
     /* Level 4: High elevation (modals, dropdowns) */
     --shadow-elevation-4:
-        0 16px 32px rgba(0, 0, 0, 0.45),
-        0 8px 16px rgba(0, 0, 0, 0.35);
+        8px 16px 36px rgba(0, 0, 0, 0.55),
+        4px 8px 16px rgba(0, 0, 0, 0.4);
 
     /* Gold accent glow - Art Deco lamp effect */
-    --shadow-gold-glow: 0 0 20px rgba(218, 165, 32, 0.15);
-    --shadow-gold-glow-strong: 0 0 30px rgba(218, 165, 32, 0.25);
+    --shadow-gold-glow: 0 0 20px rgba(218, 165, 32, 0.2);
+    --shadow-gold-glow-strong: 0 0 35px rgba(218, 165, 32, 0.35);
 
     /* Inset shadow for depth on containers */
-    --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-inset: inset 2px 2px 6px rgba(0, 0, 0, 0.4), inset -1px -1px 0 rgba(255, 215, 0, 0.06);
 
     /* 3D Cuboid Button System - Visible on dark themes
        Uses COLORED shadows instead of black-on-black.
@@ -120,14 +122,14 @@ html {
         inset 0 2px 0 rgba(255, 215, 0, 0.45),
         inset 2px 0 0 rgba(255, 215, 0, 0.20),
         /* Thicker bottom wall */
-        0 7px 0 0 var(--btn-3d-wall-color),
+        0 8px 0 0 var(--btn-3d-wall-color),
         /* Thicker right wall */
-        7px 0 0 0 var(--btn-3d-wall-light),
+        8px 0 0 0 var(--btn-3d-wall-light),
         /* Corner */
-        7px 7px 0 0 var(--btn-3d-wall-corner),
+        8px 8px 0 0 var(--btn-3d-wall-corner),
         /* Higher ground shadow */
-        0 12px 24px rgba(0, 0, 0, 0.6),
-        3px 8px 12px rgba(0, 0, 0, 0.4);
+        0 14px 28px rgba(0, 0, 0, 0.6),
+        3px 10px 14px rgba(0, 0, 0, 0.4);
     /* Embossed text - chiseled into button face */
     --text-3d-gold:
         0 2px 0 rgba(255, 215, 0, 0.6),
@@ -171,6 +173,37 @@ body {
     line-height: 1.6;
     overflow-x: hidden;
     max-width: 100%;
+}
+
+/* Global link styling — warm copper on dark backgrounds */
+a {
+    color: var(--copper, #d4845a);
+    text-decoration: underline;
+    text-decoration-color: rgba(212, 132, 90, 0.4);
+    text-underline-offset: 2px;
+    transition: color 0.2s, text-decoration-color 0.2s;
+}
+
+a:hover {
+    color: var(--gold, #DAA520);
+    text-decoration-color: rgba(218, 165, 32, 0.6);
+}
+
+a:visited {
+    color: var(--brass, #CD853F);
+}
+
+/* Reset link styles for buttons and nav elements that style themselves */
+a.nav-link,
+a.utilities-link,
+a.collection-btn,
+a.back-to-top,
+.help-header-actions a,
+.help-toc a,
+.help-footer a,
+.guest-gate-links a,
+.dropdown-content a {
+    text-decoration: none;
 }
 
 /* ============================================
@@ -259,11 +292,11 @@ body {
 }
 
 .deco-subtitle {
-    color: var(--cream);
+    color: var(--cream-light);
     font-style: normal;
     letter-spacing: 3px;
     text-transform: uppercase;
-    opacity: 0.85;
+    opacity: 0.95;
 }
 
 .deco-heading {

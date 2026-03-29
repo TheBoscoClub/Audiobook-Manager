@@ -136,10 +136,17 @@ class AudiobookLibraryV2 {
     const backOfficeLink = document.getElementById("admin-backoffice-link");
     const accountBtn = document.getElementById("my-account-btn");
 
-    // Back Office is ONLY shown when we positively confirm user is admin
-    // In all other cases (not logged in, not admin, error, unknown), keep it hidden
+    // Back Office is always visible but only actionable by admins.
+    // Non-admins see a locked state and get a guest gate on click.
     if (backOfficeLink) {
-      backOfficeLink.hidden = !(this.user && this.user.is_admin);
+      backOfficeLink.hidden = false;
+      if (this.user && this.user.is_admin) {
+        backOfficeLink.classList.remove("backoffice-locked");
+        backOfficeLink.removeAttribute("data-locked");
+      } else {
+        backOfficeLink.classList.add("backoffice-locked");
+        backOfficeLink.setAttribute("data-locked", "true");
+      }
     }
 
     if (this.user) {
@@ -178,7 +185,11 @@ class AudiobookLibraryV2 {
 
     if (loginLink) loginLink.hidden = false;
     if (requestAccessLink) requestAccessLink.hidden = false;
-    if (backOfficeLink) backOfficeLink.hidden = true;
+    if (backOfficeLink) {
+      backOfficeLink.hidden = false;
+      backOfficeLink.classList.add("backoffice-locked");
+      backOfficeLink.setAttribute("data-locked", "true");
+    }
     if (accountBtn) accountBtn.hidden = true;
     if (myLibraryTab) myLibraryTab.style.display = "none";
   }
@@ -353,16 +364,17 @@ class AudiobookLibraryV2 {
 
       banner.appendChild(content);
 
-      // Create dismiss button if dismissable
+      // Create knife switch dismiss if dismissable
       if (notif.dismissable) {
-        const dismissBtn = document.createElement("button");
-        dismissBtn.className = "notification-dismiss";
-        dismissBtn.title = "Dismiss notification";
-        dismissBtn.textContent = "Dismiss";
-        dismissBtn.addEventListener("click", () =>
-          this.dismissNotification(notif.id, banner),
-        );
-        banner.appendChild(dismissBtn);
+        const notifId = notif.id;
+        const ks = createKnifeSwitch({
+          size: "compact",
+          title: "Dismiss notification",
+          label: "Dismiss",
+          onDismiss: () => this.dismissNotification(notifId, banner),
+        });
+        ks.classList.add("notification-dismiss");
+        banner.appendChild(ks);
       }
 
       container.appendChild(banner);
@@ -414,19 +426,19 @@ class AudiobookLibraryV2 {
     msg.textContent =
       "Your browser supports passkeys. Setting up a passkey means you can sign in instantly without waiting for an email link. You can switch in your profile settings.";
     content.appendChild(msg);
-    const dismiss = document.createElement("button");
-    dismiss.className = "notification-dismiss";
-    dismiss.setAttribute("aria-label", "Dismiss");
-    dismiss.title = "Dismiss this suggestion";
-    dismiss.textContent = "\u00D7";
-    dismiss.addEventListener("click", () => {
-      try {
-        localStorage.setItem("library_passkey_prompt_dismissed", "1");
-      } catch (e) {}
-      banner.classList.add("dismissing");
-      setTimeout(() => banner.remove(), 300);
+    const ks = createKnifeSwitch({
+      size: "compact",
+      title: "Dismiss this suggestion",
+      onDismiss: function () {
+        try {
+          localStorage.setItem("library_passkey_prompt_dismissed", "1");
+        } catch (e) {}
+        banner.classList.add("dismissing");
+        setTimeout(function () { banner.remove(); }, 300);
+      },
     });
-    content.appendChild(dismiss);
+    ks.classList.add("notification-dismiss");
+    content.appendChild(ks);
     banner.appendChild(content);
 
     const container = document.getElementById("notification-container");
@@ -2528,6 +2540,17 @@ class AudiobookLibraryV2 {
   }
 
   setupEventListeners() {
+    // Back Office gate — intercept clicks from non-admins
+    const boLink = document.getElementById("admin-backoffice-link");
+    if (boLink) {
+      boLink.addEventListener("click", (e) => {
+        if (boLink.getAttribute("data-locked") === "true") {
+          e.preventDefault();
+          this.showGuestGate(boLink);
+        }
+      });
+    }
+
     // Search input with debounce
     let searchTimeout;
     document.getElementById("search-input").addEventListener("input", (e) => {

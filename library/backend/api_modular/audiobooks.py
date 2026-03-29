@@ -170,7 +170,8 @@ def get_audiobooks() -> Response:
     sort_field = request.args.get("sort", "title")
     sort_order = request.args.get("order", "asc").lower()
 
-    # Map user-friendly sort names to SQL expressions
+    # Map user-friendly sort names to SQL column names.
+    # Text columns get COLLATE NOCASE applied in the ORDER BY clause below.
     sort_mappings = {
         "title": "title",
         "author": "author",
@@ -190,6 +191,9 @@ def get_audiobooks() -> Response:
         "edition": "edition",
     }
 
+    # Text columns that need case-insensitive sorting
+    _text_sorts = {"title", "author", "narrator", "asin", "edition"}
+
     # Get SQL sort expression
     if sort_field in sort_mappings:
         sort_sql = sort_mappings[sort_field]
@@ -203,17 +207,43 @@ def get_audiobooks() -> Response:
     # Nullable columns: push NULLs to end regardless of sort direction
     # SQLite doesn't support NULLS LAST natively; use CASE expression
     _nullable_sorts = {
-        "author_last_name", "author_first_name",
-        "narrator_last_name", "narrator_first_name",
-        "acquired_date", "published_date",
+        "author_last_name",
+        "author_first_name",
+        "narrator_last_name",
+        "narrator_first_name",
+        "acquired_date",
+        "published_date",
     }
+
+    # Name-based sorts: use COLLATE NOCASE for case-insensitive ordering
+    # (handles "Le Carré" vs "le Carré", "Del Toro" vs "del Toro")
+    # and add secondary sort by title for deterministic order within same name
+    _name_sorts = {
+        "author_last_name",
+        "author_first_name",
+        "narrator_last_name",
+        "narrator_first_name",
+    }
+
     if sort_sql in _nullable_sorts:
-        sort_sql = f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, {sort_sql}"
+        if sort_sql in _name_sorts:
+            # NULLS LAST + case-insensitive + secondary sort by title
+            sort_sql = (
+                f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, "
+                f"{sort_sql} COLLATE NOCASE {sort_order}, "
+                f"title COLLATE NOCASE ASC"
+            )
+            sort_order = ""  # Already embedded
+        else:
+            sort_sql = f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, {sort_sql}"
+    elif sort_sql in _text_sorts:
+        # Case-insensitive sorting for text columns
+        sort_sql = f"{sort_sql} COLLATE NOCASE"
 
     # Series: sort by series name (user's asc/desc), then sequence always ascending
     # sort_sql=None signals that ORDER BY is fully specified here
     if sort_field == "series":
-        sort_sql = f"series {sort_order}, series_sequence ASC"
+        sort_sql = f"series COLLATE NOCASE {sort_order}, series_sequence ASC"
         sort_order = ""  # Already embedded in sort_sql
 
     # Sort-specific filters: hide irrelevant books for series/edition views
@@ -504,7 +534,7 @@ def get_filters() -> Response:
         JOIN book_authors ba ON ba.author_id = a.id
         JOIN audiobooks ab ON ab.id = ba.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY a.sort_name
+        ORDER BY a.sort_name COLLATE NOCASE
     """)  # nosec B608
     authors = [
         {"name": row["name"], "sort_name": row["sort_name"]}
@@ -517,7 +547,7 @@ def get_filters() -> Response:
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY n.sort_name
+        ORDER BY n.sort_name COLLATE NOCASE
     """)  # nosec B608
     narrators = [row["name"] for row in cursor.fetchall()]
 
@@ -525,27 +555,27 @@ def get_filters() -> Response:
     cursor.execute(f"""
         SELECT DISTINCT publisher FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
-        ORDER BY publisher
+        ORDER BY publisher COLLATE NOCASE
     """)  # nosec B608
     publishers = [row["publisher"] for row in cursor.fetchall()]
 
     # Get genres
-    cursor.execute("SELECT name FROM genres ORDER BY name")
+    cursor.execute("SELECT name FROM genres ORDER BY name COLLATE NOCASE")
     genres = [row["name"] for row in cursor.fetchall()]
 
     # Get eras
-    cursor.execute("SELECT name FROM eras ORDER BY name")
+    cursor.execute("SELECT name FROM eras ORDER BY name COLLATE NOCASE")
     eras = [row["name"] for row in cursor.fetchall()]
 
     # Get topics
-    cursor.execute("SELECT name FROM topics ORDER BY name")
+    cursor.execute("SELECT name FROM topics ORDER BY name COLLATE NOCASE")
     topics = [row["name"] for row in cursor.fetchall()]
 
     # Get formats (audiobooks only)
     cursor.execute(f"""
         SELECT DISTINCT format FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
-        ORDER BY format
+        ORDER BY format COLLATE NOCASE
     """)  # nosec B608
     formats = [row["format"] for row in cursor.fetchall()]
 
@@ -577,7 +607,7 @@ def get_narrator_counts() -> Response:
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY n.sort_name
+        ORDER BY n.sort_name COLLATE NOCASE
     """)  # nosec B608
 
     counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}

@@ -326,7 +326,7 @@ body {
 
 .suggestion-alert.has-unread .alert-count {
     background: var(--gold, #DAA520);
-    color: #1a1208;
+    color: #080400;
 }
 
 @keyframes suggestionThrob {
