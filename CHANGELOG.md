@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Credential reset claim flow**: Existing users with reset credentials can now complete the claim process (passkey/TOTP registration). Previously, the claim flow only checked `access_requests` (new users) and rejected existing users from `pending_registrations`
 - **Claim URL generation**: Admin credential-reset endpoints now return `/claim.html?username=...&token=...` (browser page) instead of `/auth/register/claim?token=...` (POST-only API endpoint) — fixes 405 Method Not Allowed when navigating to claim URL
+- **Token hash mismatch**: All 5 passkey/FIDO2 claim flows stored `hash(full_32_char_token)` but displayed truncated 16-char tokens — claim endpoint hash lookups always failed. Consolidated into `_create_claim_token()` helper that updates the DB hash after truncation
 - **CI fix**: Renamed ambiguous single-letter variable `l` to `line` in `test_gunicorn_migration.py` — resolves ruff E741 lint error that caused CI failure in python-security workflow
 
 ## [7.6.0] - 2026-03-28
