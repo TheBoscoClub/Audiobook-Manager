@@ -24,10 +24,25 @@
                 <p class="office-subtitle">Library Administration & Utilities</p>
             </div>
             <div class="header-right">
-                <!-- Admin suggestion alert — toggled by suggestions-admin.js -->
-                <button id="suggestion-alert" class="suggestion-alert" hidden title="New user suggestions">
-                    <span class="alert-icon">&#9993;</span>
-                    <span id="suggestion-badge-count" class="alert-count">0</span>
+                <!-- Edison bulb — glows when unread suggestions exist -->
+                <button id="suggestion-alert" class="edison-bulb-btn" hidden title="New user suggestions to review">
+                    <svg class="edison-bulb" viewBox="0 0 40 70" width="28" height="49" aria-hidden="true">
+                        <!-- Socket / base (brass) -->
+                        <rect x="14" y="0" width="12" height="8" rx="1" fill="#8b6914" stroke="#6b5010" stroke-width="0.5"/>
+                        <line x1="15" y1="2" x2="25" y2="2" stroke="#a67c00" stroke-width="0.5"/>
+                        <line x1="15" y1="4" x2="25" y2="4" stroke="#a67c00" stroke-width="0.5"/>
+                        <line x1="15" y1="6" x2="25" y2="6" stroke="#a67c00" stroke-width="0.5"/>
+                        <!-- Glass bulb (teardrop shape) -->
+                        <path class="bulb-glass" d="M16 8 Q16 8 14 18 Q10 30 12 42 Q14 52 20 54 Q26 52 28 42 Q30 30 26 18 Q24 8 24 8 Z"
+                              fill="rgba(60,50,30,0.3)" stroke="rgba(180,160,100,0.4)" stroke-width="0.8"/>
+                        <!-- Filament (hairpin zigzag) — visible when lit -->
+                        <path class="bulb-filament" d="M18 16 L17 22 L23 26 L17 32 L23 36 L17 40 L20 46"
+                              fill="none" stroke="rgba(120,90,40,0.3)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <!-- Filament support wires -->
+                        <line class="bulb-wire" x1="18" y1="8" x2="18" y2="16" stroke="rgba(120,90,40,0.25)" stroke-width="0.6"/>
+                        <line class="bulb-wire" x1="22" y1="8" x2="20" y2="46" stroke="rgba(120,90,40,0.25)" stroke-width="0.6"/>
+                    </svg>
+                    <span id="suggestion-badge-count" class="edison-count">0</span>
                 </button>
                 <!-- Classic Banker's Lamp SVG -->
                 <svg class="banker-lamp-svg" viewBox="0 0 100 120" width="120" height="144" aria-label="Banker's desk lamp">
