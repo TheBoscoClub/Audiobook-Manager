@@ -271,14 +271,28 @@ body {
 .help-btn {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    padding: 0;
+    gap: 0.4em;
+    padding: 0.25em 0.6em;
     font-weight: 700;
-    font-size: 0.9em;
+    font-size: 0.85em;
     text-decoration: none;
+}
+
+.help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(201, 168, 76, 0.2);
+    font-size: 0.85em;
+    flex-shrink: 0;
+}
+
+.help-label {
+    font-size: 0.8em;
+    letter-spacing: 0.03em;
 }
 
 /* Back Office button */
@@ -315,6 +329,8 @@ body {
     .account-btn { padding: 0.25em 0.5em; }
     .header-title { font-size: 0.8em; }
     .backoffice-label { display: none; }
+    .help-label { display: none; }
+    .a11y-label { display: none; }
     .account-field { flex-direction: column; align-items: flex-start; gap: 0.2em; }
     .account-field label { min-width: unset; }
     .auth-actions { flex-direction: column; }
