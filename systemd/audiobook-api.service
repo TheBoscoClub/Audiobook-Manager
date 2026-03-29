@@ -29,11 +29,13 @@ Environment=HOME=/var/lib/audiobooks
 ExecStartPre=+/bin/sh -c 'mkdir -p /opt/audiobooks/library/data && chown audiobooks:audiobooks /opt/audiobooks/library/data'
 # Only start if port is not already in use (uses ss from iproute2, always available)
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_API_PORT} "'
-# Gunicorn with geventwebsocket worker for WebSocket support.
+# Gunicorn with gevent worker for cooperative I/O + WebSocket support.
+# flask-sock handles WebSocket upgrades natively — do NOT use GeventWebSocketWorker
+# (it double-handles the upgrade, sending two 101 responses that corrupt the stream).
 # HARD CONSTRAINT: -w 1 required for in-memory WebSocket connection manager.
 # Do NOT increase workers without migrating connection state to database.
 ExecStart=/opt/audiobooks/library/venv/bin/gunicorn \
-    -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker \
+    -k gevent \
     -w 1 \
     --bind 0.0.0.0:${AUDIOBOOKS_API_PORT} \
     --timeout 120 \

@@ -273,7 +273,7 @@ def init_duplicates_routes(db_path):
               AND LOWER(TRIM(author)) != 'unknown author'
             GROUP BY norm_title, norm_author, duration_group
             HAVING count > 1
-            ORDER BY count DESC, norm_title
+            ORDER BY count DESC, norm_title COLLATE NOCASE
         """)
         groups = cursor.fetchall()
 

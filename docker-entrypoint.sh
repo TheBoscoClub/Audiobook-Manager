@@ -215,7 +215,7 @@ echo ""
 # Start API server with gunicorn (production WSGI with WebSocket support)
 echo -e "Starting API server (gunicorn) on port ${API_PORT}..."
 cd /app/backend
-gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind "${AUDIOBOOKS_BIND_ADDRESS}:${API_PORT}" --timeout 120 --access-logfile - --error-logfile - api_server:app &
+gunicorn -k gevent -w 1 --bind "${AUDIOBOOKS_BIND_ADDRESS}:${API_PORT}" --timeout 120 --access-logfile - --error-logfile - api_server:app &
 API_PID=$!
 
 # Wait for API to start

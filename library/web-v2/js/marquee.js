@@ -129,16 +129,19 @@ function buildMarquee(container, books) {
     track.style.animation = "marquee-scroll " + duration + "s linear infinite";
   }
 
-  // Dismiss button
-  var dismissBtn = document.createElement("button");
-  dismissBtn.className = "marquee-dismiss";
-  dismissBtn.setAttribute("title", "Dismiss new books notification");
-  dismissBtn.textContent = "\u00D7"; // multiplication sign (x)
-  dismissBtn.addEventListener("click", function (e) {
-    e.stopPropagation();
-    dismissMarquee(container);
+  // Knife switch dismiss (uses shared createKnifeSwitch utility)
+  var switchWrap = document.createElement("div");
+  switchWrap.className = "marquee-knife-wrap";
+
+  var ks = createKnifeSwitch({
+    size: "full",
+    title: "Pull the switch to dismiss new books",
+    onDismiss: function () { dismissMarquee(container); },
+    delay: 400
   });
-  container.appendChild(dismissBtn);
+
+  switchWrap.appendChild(ks);
+  container.appendChild(switchWrap);
 }
 
 /**

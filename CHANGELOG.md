@@ -13,6 +13,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CI fix**: Renamed ambiguous single-letter variable `l` to `line` in `test_gunicorn_migration.py` — resolves ruff E741 lint error that caused CI failure in python-security workflow
+
+## [7.6.0] - 2026-03-28
+
+### Added
+
+- **Art Deco UI polish**: Knife switches for marquee/maintenance dismissal, Back Office brass button, Help section door knocker, warm copper/brass/gold link colors replacing browser-default blue
+- **Toast deduplication**: 10-second cooldown per unique message+type prevents toast spam during long-running operations
+
+### Changed
+
+- **Scan timeout architecture**: Overall timeout check moved inside the stdout read loop (old `process.wait` was unreachable after blocking read loop); increased to 2 hours for large libraries (437GB+)
+- **Operation polling robustness**: `pollOperationStatus` checks `response.ok` before parsing JSON; after 10 consecutive errors, gracefully stops with informational message instead of showing "ID: undefined"
+
+### Fixed
+
+- **Case-insensitive sorting**: Added `COLLATE NOCASE` to all remaining text-column `ORDER BY` clauses — author, narrator, genre, publisher, and series sorts now ignore case
+- **GeventWebSocket crash**: Replaced removed `GeventWebSocketWorker` with standard gevent worker — fixes gunicorn startup failure
+- **Letter-group filter wrapping**: Fixed A-Z filter buttons wrapping at tablet widths (1024px) — `flex-wrap: nowrap` on `.letter-groups`, vertical stacking on `.filters-container` at 769-1024px
+- **Card header truncation**: Added overflow protection (`text-overflow: ellipsis`, `min-width: 0`) to `.card-header` and `.catalog-card` — prevents "SCAN & IMPOR..." truncation
+- **Cabinet tabs overflow**: Fixed Back Office tab bar overflow with `flex: 1 1 0; min-width: 0` and ellipsis on tab text
+
+## [7.5.3] - 2026-03-28
+
+### Added
+
+- **Test coverage expansion**: 3305 tests (up from ~2282), 95.66% coverage — comprehensive unit tests for all backend modules
+- **v8 version-gated test markers**: `@pytest.mark.v8` auto-skips tests for v8 features when VERSION major < 8, enabling parallel v7/v8 development
+- **Phase ST project validation**: `/test --phase=ST` now validates any project's test suite (discoverability, redundancy, fixture conflicts, isolation) in addition to framework self-test
+
+### Fixed
+
+- **Sort options**: Populate name columns (`author_last_name`, etc.) and rebuild junction tables — fixes all author/narrator sort options
+- **Artifact cleanup**: Systemic cleanup of orphaned covers, backups, sessions, supplements, and staging files
+- **Unused import**: Removed `is_group_name` from `scripts/populate_names.py` (flagged by ruff)
+
 ## [7.5.2.1] - 2026-03-27
 
 ### Fixed
@@ -2283,8 +2319,11 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...HEAD
-[7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2.1
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...HEAD
+[7.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.3...v7.6.0
+[7.5.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...v7.5.3
+[7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2...v7.5.2.1
+[7.5.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2
 [7.5.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...v7.5.1.3
 [7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
 [7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1

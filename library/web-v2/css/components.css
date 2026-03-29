@@ -20,7 +20,7 @@
 }
 
 .btn:active:not(:disabled) {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 
@@ -41,7 +41,7 @@
 .btn-primary:hover:not(:disabled) {
     background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
     box-shadow: var(--btn-3d-hover), 0 0 16px rgba(255, 215, 0, 0.4);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
 }
 
 /* Secondary Button */
@@ -55,7 +55,7 @@
     background: linear-gradient(180deg, #444 0%, var(--deco-gray) 40%, var(--deco-slate) 100%);
     border-color: var(--gold);
     box-shadow: var(--btn-3d-hover);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
 }
 
 /* Danger Button */
@@ -69,7 +69,7 @@
 .btn-danger:hover:not(:disabled) {
     background: linear-gradient(180deg, #ff6b5a 0%, #e74c3c 40%, #c0392b 100%);
     box-shadow: var(--btn-3d-hover), 0 0 16px rgba(231, 76, 60, 0.4);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
 }
 
 /* Clear Button */
@@ -91,12 +91,12 @@
     color: var(--deco-black);
     border-color: var(--gold);
     box-shadow: var(--btn-3d-hover), 0 0 12px rgba(255, 215, 0, 0.3);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     text-shadow: var(--text-3d-dark);
 }
 
 .clear-btn:active {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 
@@ -117,12 +117,12 @@
 
 .refresh-btn:hover:not(:disabled) {
     background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--btn-3d-hover), 0 0 16px rgba(255, 215, 0, 0.4);
 }
 
 .refresh-btn:active:not(:disabled) {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 
@@ -150,12 +150,12 @@
     color: var(--deco-black);
     border-color: var(--gold);
     box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     text-shadow: var(--text-3d-dark);
 }
 
 .pagination-btn:active:not(:disabled) {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 
@@ -198,7 +198,11 @@
 .search-input:focus {
     outline: none;
     border-color: var(--gold-bright);
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    box-shadow:
+        0 0 10px rgba(255, 215, 0, 0.3),
+        0 0 20px rgba(218, 165, 32, 0.15),
+        inset 0 0 8px rgba(255, 215, 0, 0.05);
+    background: linear-gradient(180deg, var(--deco-charcoal) 0%, #1a1608 100%);
 }
 
 .filter-select {
@@ -248,7 +252,7 @@
 .letter-groups {
     display: flex;
     gap: 0.2rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .letter-group {
@@ -273,7 +277,7 @@
 }
 
 .letter-group:active {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 
@@ -308,7 +312,7 @@
 }
 
 .sort-toggle:active {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 
@@ -562,12 +566,12 @@
     color: var(--deco-black);
     border-color: var(--gold);
     box-shadow: var(--btn-3d-hover), 0 0 10px rgba(255, 215, 0, 0.3);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     text-shadow: var(--text-3d-dark);
 }
 
 .dropdown-btn:active {
-    transform: translateY(1px);
+    transform: translateY(2px);
     box-shadow: var(--btn-3d-pressed);
 }
 

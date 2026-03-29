@@ -213,7 +213,7 @@ def create_app(
     init_suggestions_routes(database_path)
     flask_app.register_blueprint(suggestions_bp)
 
-    # WebSocket endpoint (requires geventwebsocket worker)
+    # WebSocket endpoint (flask-sock handles upgrades natively with gevent worker)
     from flask_sock import Sock
     from .websocket import connection_manager
     import json as _json

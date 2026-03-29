@@ -81,6 +81,30 @@ Brave is Chromium-based with full Opus/WebM codec support. Also ensure codec lib
 
 For Playwright, use the `chromium` channel pointing to the Brave binary or launch with `--ignore-https-errors` for self-signed cert environments.
 
+## Version-Gated Test Markers (v8 Separation)
+
+Tests for future major versions use version-gated markers that auto-skip based on the `VERSION` file:
+
+```python
+@pytest.mark.v8
+def test_new_v8_feature():
+    """This test only runs when VERSION major >= 8."""
+    ...
+```
+
+**How it works:**
+- `conftest.py::pytest_collection_modifyitems` reads `VERSION`, extracts major version
+- Tests marked `@pytest.mark.v8` auto-skip when major < 8
+- No CLI flag needed — version detection is automatic
+
+**Rules for v8 test separation:**
+- v8 tests go in their own modules (e.g., `test_v8_feature_name.py`) OR use the `@pytest.mark.v8` marker on individual tests
+- v7 test modules carry forward into v8 unchanged — they test foundational behavior
+- Only mark tests as `v8` when they test features that DON'T EXIST in v7
+- If a v8 feature completely replaces a v7 feature, the v7 test stays (for v7 releases) and a new v8 test is written
+
+**Adding future versions:** To add `v9`, `v10`, etc., follow the same pattern — add marker to `pytest.ini`, register in `pytest_configure`, add gating block in `pytest_collection_modifyitems`.
+
 ## Testing & Validation Notes
 
 When running `/test`:

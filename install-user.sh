@@ -53,26 +53,26 @@ UNINSTALL=false
 # -----------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --data-dir)
-            DATA_DIR="$2"
-            shift 2
-            ;;
-        --uninstall)
-            UNINSTALL=true
-            shift
-            ;;
-        --no-services)
-            INSTALL_SERVICES=false
-            shift
-            ;;
-        --help)
-            head -30 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            exit 1
-            ;;
+    --data-dir)
+        DATA_DIR="$2"
+        shift 2
+        ;;
+    --uninstall)
+        UNINSTALL=true
+        shift
+        ;;
+    --no-services)
+        INSTALL_SERVICES=false
+        shift
+        ;;
+    --help)
+        head -30 "$0" | grep -E '^#' | sed 's/^# //' | sed 's/^#//'
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Unknown option: $1${NC}"
+        exit 1
+        ;;
     esac
 done
 
@@ -149,16 +149,16 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete converted audiobooks in $library_dir? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_LIBRARY=true
-                    echo -e "  ${RED}→ Will delete converted audiobooks${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"
-                    break
-                    ;;
-                *) echo "  Please answer y(es) or n(o)" ;;
+            y | yes)
+                DELETE_LIBRARY=true
+                echo -e "  ${RED}→ Will delete converted audiobooks${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"
+                break
+                ;;
+            *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
         echo ""
@@ -168,16 +168,16 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete source files (AAX/AAXC) in $sources_dir? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_SOURCES=true
-                    echo -e "  ${RED}→ Will delete source files${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping source files${NC}"
-                    break
-                    ;;
-                *) echo "  Please answer y(es) or n(o)" ;;
+            y | yes)
+                DELETE_SOURCES=true
+                echo -e "  ${RED}→ Will delete source files${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping source files${NC}"
+                break
+                ;;
+            *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
         echo ""
@@ -187,16 +187,16 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete supplemental PDFs in $supplements_dir? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_SUPPLEMENTS=true
-                    echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"
-                    break
-                    ;;
-                *) echo "  Please answer y(es) or n(o)" ;;
+            y | yes)
+                DELETE_SUPPLEMENTS=true
+                echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"
+                break
+                ;;
+            *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
         echo ""
@@ -206,16 +206,16 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete configuration files? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_CONFIG=true
-                    echo -e "  ${RED}→ Will delete configuration${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping configuration${NC}"
-                    break
-                    ;;
-                *) echo "  Please answer y(es) or n(o)" ;;
+            y | yes)
+                DELETE_CONFIG=true
+                echo -e "  ${RED}→ Will delete configuration${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping configuration${NC}"
+                break
+                ;;
+            *) echo "  Please answer y(es) or n(o)" ;;
             esac
         done
         echo ""
@@ -239,39 +239,39 @@ prompt_delete_data() {
         while true; do
             read -r -p "Are you sure you want to proceed? [y/N]: " confirm
             case "${confirm,,}" in
-                y | yes)
-                    echo ""
-                    echo -e "${YELLOW}Proceeding with deletion...${NC}"
+            y | yes)
+                echo ""
+                echo -e "${YELLOW}Proceeding with deletion...${NC}"
 
-                    [[ "$DELETE_LIBRARY" == "true" ]] && [[ -d "$library_dir" ]] &&
-                        echo "Deleting converted audiobooks..." && rm -rf "$library_dir"
+                [[ "$DELETE_LIBRARY" == "true" ]] && [[ -d "$library_dir" ]] &&
+                    echo "Deleting converted audiobooks..." && rm -rf "$library_dir"
 
-                    [[ "$DELETE_SOURCES" == "true" ]] && [[ -d "$sources_dir" ]] &&
-                        echo "Deleting source files..." && rm -rf "$sources_dir"
+                [[ "$DELETE_SOURCES" == "true" ]] && [[ -d "$sources_dir" ]] &&
+                    echo "Deleting source files..." && rm -rf "$sources_dir"
 
-                    [[ "$DELETE_SUPPLEMENTS" == "true" ]] && [[ -d "$supplements_dir" ]] &&
-                        echo "Deleting supplemental PDFs..." && rm -rf "$supplements_dir"
+                [[ "$DELETE_SUPPLEMENTS" == "true" ]] && [[ -d "$supplements_dir" ]] &&
+                    echo "Deleting supplemental PDFs..." && rm -rf "$supplements_dir"
 
-                    [[ "$DELETE_CONFIG" == "true" ]] &&
-                        echo "Deleting configuration..." && rm -rf "$CONFIG_DIR"
+                [[ "$DELETE_CONFIG" == "true" ]] &&
+                    echo "Deleting configuration..." && rm -rf "$CONFIG_DIR"
 
-                    # Remove empty data directory
-                    if [[ -n "$data_dir" ]] && [[ -d "$data_dir" ]] &&
-                        [[ -z "$(ls -A "$data_dir" 2>/dev/null)" ]]; then
-                        echo "Removing empty data directory..."
-                        rmdir "$data_dir" 2>/dev/null || true
-                    fi
+                # Remove empty data directory
+                if [[ -n "$data_dir" ]] && [[ -d "$data_dir" ]] &&
+                    [[ -z "$(ls -A "$data_dir" 2>/dev/null)" ]]; then
+                    echo "Removing empty data directory..."
+                    rmdir "$data_dir" 2>/dev/null || true
+                fi
 
-                    echo -e "${GREEN}Data deletion complete.${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "${GREEN}Deletion cancelled. All data preserved.${NC}"
-                    break
-                    ;;
-                *)
-                    echo "Please answer y(es) or n(o)"
-                    ;;
+                echo -e "${GREEN}Data deletion complete.${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "${GREEN}Deletion cancelled. All data preserved.${NC}"
+                break
+                ;;
+            *)
+                echo "Please answer y(es) or n(o)"
+                ;;
             esac
         done
     else

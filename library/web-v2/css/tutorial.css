@@ -102,7 +102,7 @@
 .tutorial-btn-next:hover {
     background: linear-gradient(180deg, #ffe44d 0%, var(--gold-bright) 40%, var(--gold) 100%);
     box-shadow: var(--btn-3d-hover), 0 0 12px rgba(218, 165, 32, 0.4);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
 }
 
 .tutorial-btn-back {

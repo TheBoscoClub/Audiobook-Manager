@@ -27,9 +27,7 @@ def _get_auth_db():
 class AuthCleanupTask(MaintenanceTask):
     name = "auth_cleanup"
     display_name = "Auth Data Cleanup"
-    description = (
-        "Remove stale sessions, expired tokens, and old access requests"
-    )
+    description = "Remove stale sessions, expired tokens, and old access requests"
 
     def validate(self, params: dict) -> ValidationResult:
         try:
@@ -43,9 +41,7 @@ class AuthCleanupTask(MaintenanceTask):
         try:
             db = _get_auth_db()
         except Exception as e:
-            return ExecutionResult(
-                success=False, message=f"Cannot open auth DB: {e}"
-            )
+            return ExecutionResult(success=False, message=f"Cannot open auth DB: {e}")
 
         results = {}
         try:
@@ -110,9 +106,7 @@ class AuthCleanupTask(MaintenanceTask):
             if results["expired_recoveries"]:
                 parts.append(f"{results['expired_recoveries']} expired recoveries")
             if results["old_access_requests"]:
-                parts.append(
-                    f"{results['old_access_requests']} old access requests"
-                )
+                parts.append(f"{results['old_access_requests']} old access requests")
 
             message = (
                 f"Cleaned {total} records: {', '.join(parts)}"

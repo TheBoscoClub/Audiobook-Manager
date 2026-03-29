@@ -15,7 +15,7 @@
     );
     border-top: 1px solid var(--gold-dark, #B8860B);
     border-bottom: 2px solid var(--gold, #DAA520);
-    padding: 0.6rem 2.5rem 0.6rem 1rem;
+    padding: 0.6rem 3.2rem 0.6rem 1rem;
     box-shadow:
         inset 0 1px 2px rgba(0, 0, 0, 0.4),
         0 1px 4px rgba(0, 0, 0, 0.3);
@@ -92,35 +92,26 @@
     flex-shrink: 0;
 }
 
-/* Dismiss button at right edge */
-.marquee-dismiss {
+/* Knife switch dismiss — right edge of marquee */
+.marquee-knife-wrap {
     position: absolute;
     right: 0;
     top: 0;
     bottom: 0;
-    width: 2.2rem;
+    width: 3rem;
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(
         90deg,
         transparent 0%,
-        var(--deco-charcoal, #141414) 30%,
+        var(--deco-charcoal, #141414) 20%,
         var(--deco-black, #080808) 100%
     );
-    color: var(--gold-dark, #B8860B);
-    font-size: 1.1rem;
-    border: none;
-    cursor: pointer;
-    padding: 0;
     z-index: 2;
-    transition: color 0.2s ease;
 }
 
-.marquee-dismiss:hover {
-    color: var(--gold-bright, #FFD700);
-    text-shadow: 0 0 8px var(--gold, #DAA520);
-}
+/* Knife switch styling handled by shared knife-switch.css */
 
 /* Scroll animation - smooth infinite horizontal scroll */
 @keyframes marquee-scroll {

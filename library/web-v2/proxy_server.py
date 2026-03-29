@@ -125,6 +125,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             return
         # Redirect browser GETs for page-like /auth/ paths to static HTML
         from urllib.parse import urlparse
+
         bare = urlparse(self.path).path
         if bare in self._PAGE_REDIRECTS:
             self.send_response(302)

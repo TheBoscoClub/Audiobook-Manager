@@ -101,7 +101,9 @@ def scan_supplements(supplements_dir: Path, verbose: bool = True):
         conn.commit()
         removed = len(orphaned_ids)
         if verbose:
-            print(f"  Removed {removed} orphaned supplement entries (files no longer on disk)")
+            print(
+                f"  Removed {removed} orphaned supplement entries (files no longer on disk)"
+            )
 
     added = 0
     updated = 0

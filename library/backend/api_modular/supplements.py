@@ -26,7 +26,7 @@ def init_supplements_routes(db_path, supplements_dir):
             SELECT s.*, a.title as audiobook_title, a.author as audiobook_author
             FROM supplements s
             LEFT JOIN audiobooks a ON s.audiobook_id = a.id
-            ORDER BY s.filename
+            ORDER BY s.filename COLLATE NOCASE
         """)
 
         supplements = [dict(row) for row in cursor.fetchall()]
@@ -79,7 +79,7 @@ def init_supplements_routes(db_path, supplements_dir):
         cursor.execute(
             """
             SELECT * FROM supplements WHERE audiobook_id = ?
-            ORDER BY type, filename
+            ORDER BY type COLLATE NOCASE, filename COLLATE NOCASE
         """,
             (audiobook_id,),
         )

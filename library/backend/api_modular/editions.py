@@ -106,7 +106,7 @@ def init_editions_routes(db_path):
                 file_path, cover_path, format, quality, description
             FROM audiobooks
             WHERE author = ?
-            ORDER BY title ASC, id ASC
+            ORDER BY title COLLATE NOCASE ASC, id ASC
         """,
             (author,),
         )

@@ -478,6 +478,16 @@ body {
     .header-nav {
         flex-wrap: wrap;
     }
+
+    /* Stack filter groups vertically at tablet width */
+    .filters-container {
+        flex-direction: column;
+    }
+
+    .letter-group {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
 }
 
 /* ============================================
