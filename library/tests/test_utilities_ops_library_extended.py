@@ -260,7 +260,7 @@ class TestRescanLibraryWorkerThread:
 
         _wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
-        assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
+        assert "did not exit cleanly" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")

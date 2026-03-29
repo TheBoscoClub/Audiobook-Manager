@@ -1555,7 +1555,27 @@ function hideProgress() {
   document.getElementById("progress-modal").classList.remove("active");
 }
 
+// Toast deduplication — suppress identical messages within cooldown window
+const _toastHistory = new Map(); // message -> timestamp
+const TOAST_DEDUP_MS = 10000; // 10 second cooldown per unique message
+
 function showToast(message, type = "info") {
+  // Suppress duplicate toasts within cooldown window
+  const now = Date.now();
+  const key = `${type}:${message}`;
+  const lastShown = _toastHistory.get(key);
+  if (lastShown && now - lastShown < TOAST_DEDUP_MS) {
+    return; // Suppress duplicate
+  }
+  _toastHistory.set(key, now);
+
+  // Clean old entries to prevent memory leak
+  if (_toastHistory.size > 50) {
+    for (const [k, t] of _toastHistory) {
+      if (now - t > TOAST_DEDUP_MS) _toastHistory.delete(k);
+    }
+  }
+
   const container = document.getElementById("toast-container");
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
@@ -1599,6 +1619,8 @@ function initOperationStatus() {
 async function checkActiveOperations() {
   try {
     const res = await fetch(`${API_BASE}/api/operations/active`);
+    if (!res.ok) return; // Auth required or server error — skip silently
+
     const data = await res.json();
 
     if (data.operations && data.operations.length > 0) {
@@ -1628,6 +1650,9 @@ function stopOperationPolling() {
   }
 }
 
+let _pollErrorCount = 0;
+const MAX_POLL_ERRORS = 10; // Stop polling after 10 consecutive errors
+
 async function pollOperationStatus() {
   if (!activeOperationId) {
     stopOperationPolling();
@@ -1638,6 +1663,32 @@ async function pollOperationStatus() {
     const res = await fetch(
       `${API_BASE}/api/operations/status/${activeOperationId}`,
     );
+
+    // Handle error responses gracefully — don't treat error JSON as status
+    if (!res.ok) {
+      _pollErrorCount++;
+      console.warn(`Poll status ${res.status} (error ${_pollErrorCount}/${MAX_POLL_ERRORS})`);
+
+      if (_pollErrorCount >= MAX_POLL_ERRORS) {
+        // Operation tracking lost — stop polling, show informational state
+        stopOperationPolling();
+        activeOperationId = null;
+        const modal = document.getElementById("progress-modal");
+        if (modal.classList.contains("active")) {
+          document.getElementById("progress-message").textContent =
+            "Lost connection to operation tracker. The operation may still be running in the background.";
+          document.getElementById("progress-spinner")?.classList.add("hidden");
+          document.getElementById("modal-close-progress")
+            ?.style.setProperty("display", "inline-block");
+          document.getElementById("modal-operation-id").textContent = "";
+        }
+        hideStatusBanner();
+        showToast("Operation tracking lost — check back later", "warning");
+      }
+      return; // Don't process error response as status
+    }
+
+    _pollErrorCount = 0; // Reset on success
     const status = await res.json();
 
     updateStatusDisplay(status);
@@ -1648,7 +1699,13 @@ async function pollOperationStatus() {
       handleOperationComplete(status);
     }
   } catch (error) {
+    _pollErrorCount++;
     console.error("Polling error:", error);
+    if (_pollErrorCount >= MAX_POLL_ERRORS) {
+      stopOperationPolling();
+      activeOperationId = null;
+      showToast("Operation tracking lost — check back later", "warning");
+    }
   }
 }
 

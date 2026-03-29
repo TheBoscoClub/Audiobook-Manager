@@ -402,6 +402,7 @@ body.back-office {
     display: flex;
     flex-direction: column;
     position: relative;
+    min-width: 0; /* Prevent grid blowout */
     /* Art Deco stepped corners */
     clip-path: polygon(
         0 8px, 8px 8px, 8px 0,
@@ -427,6 +428,10 @@ body.back-office {
     justify-content: space-between;
     align-items: center;
     border-bottom: 2px solid var(--gold);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .card-body {
