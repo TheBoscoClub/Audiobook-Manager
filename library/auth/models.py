@@ -1882,26 +1882,28 @@ class UserSettingsRepository:
     Unknown keys are rejected at the repository level.
     """
 
-    VALID_KEYS = frozenset({
-        # Browsing
-        "sort_order",
-        "view_mode",
-        "items_per_page",
-        "default_collection",
-        "content_filter",
-        # Playback
-        "playback_speed",
-        "sleep_timer",
-        "auto_play_series",
-        # Accessibility
-        "font_size",
-        "contrast",
-        "bg_opacity",
-        "line_spacing",
-        "reduce_animations",
-        "high_contrast",
-        "color_temperature",
-    })
+    VALID_KEYS = frozenset(
+        {
+            # Browsing
+            "sort_order",
+            "view_mode",
+            "items_per_page",
+            "default_collection",
+            "content_filter",
+            # Playback
+            "playback_speed",
+            "sleep_timer",
+            "auto_play_series",
+            # Accessibility
+            "font_size",
+            "contrast",
+            "bg_opacity",
+            "line_spacing",
+            "reduce_animations",
+            "high_contrast",
+            "color_temperature",
+        }
+    )
 
     DEFAULTS = {
         "sort_order": "title_asc",
@@ -1991,8 +1993,7 @@ class UserSettingsRepository:
         self._validate_key(key)
         with self.db.connection() as conn:
             conn.execute(
-                "DELETE FROM user_settings"
-                " WHERE user_id = ? AND setting_key = ?",
+                "DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?",
                 (user_id, key),
             )
 

@@ -24,15 +24,28 @@ collections_bp = Blueprint("collections", __name__)
 # whichever top-level category they best fit, or are omitted.
 
 # These come from scanner/metadata_utils.py GENRE_DISPLAY_NAMES values
-FICTION_GENRES = frozenset({
-    "Mystery", "Science Fiction", "Fantasy", "Literary Fiction",
-    "Horror", "Romance",
-})
+FICTION_GENRES = frozenset(
+    {
+        "Mystery",
+        "Science Fiction",
+        "Fantasy",
+        "Literary Fiction",
+        "Horror",
+        "Romance",
+    }
+)
 
-NONFICTION_GENRES = frozenset({
-    "Biographies & Memoirs", "History", "Science", "Philosophy",
-    "Personal Development", "Business & Careers", "True Crime",
-})
+NONFICTION_GENRES = frozenset(
+    {
+        "Biographies & Memoirs",
+        "History",
+        "Science",
+        "Philosophy",
+        "Personal Development",
+        "Business & Careers",
+        "True Crime",
+    }
+)
 
 
 def _slugify(name: str) -> str:
@@ -55,7 +68,7 @@ def _genre_query(genre_name: str) -> str:
 def _multi_genre_query(genre_names: list[str]) -> str:
     """SQL WHERE clause for books matching any of the given genre names."""
     conditions = " OR ".join(
-        [f"g.name = '{n.replace(chr(39), chr(39)*2)}'" for n in genre_names]
+        [f"g.name = '{n.replace(chr(39), chr(39) * 2)}'" for n in genre_names]
     )
     return f"""id IN (
         SELECT DISTINCT ag.audiobook_id FROM audiobook_genres ag
@@ -476,7 +489,12 @@ def init_collections_routes(db_path):
             return cursor.fetchone()["count"]
 
         category_order = [
-            "special", "fiction", "nonfiction", "series", "eras", "topics",
+            "special",
+            "fiction",
+            "nonfiction",
+            "series",
+            "eras",
+            "topics",
         ]
         category_labels = {
             "special": "Special Collections",

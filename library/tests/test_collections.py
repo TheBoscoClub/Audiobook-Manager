@@ -16,7 +16,7 @@ import pytest
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from backend.api_modular.collections import (
+from backend.api_modular.collections import (  # noqa: E402
     FICTION_GENRES,
     NONFICTION_GENRES,
     SPECIAL_COLLECTIONS,
@@ -102,9 +102,9 @@ def create_test_library_db(path: str) -> None:
     # Insert genres
     genres = [
         ("Literary Fiction", [1]),  # Gatsby
-        ("Science Fiction", [2]),   # Dune
-        ("Science", [3]),           # Brief History
-        ("Mystery", [4]),           # Murder
+        ("Science Fiction", [2]),  # Dune
+        ("Science", [3]),  # Brief History
+        ("Mystery", [4]),  # Murder
     ]
     for genre_name, book_ids in genres:
         conn.execute("INSERT INTO genres (name) VALUES (?)", (genre_name,))
@@ -119,8 +119,8 @@ def create_test_library_db(path: str) -> None:
 
     # Insert eras
     eras = [
-        ("Jazz Age", [1]),    # Gatsby
-        ("Space Age", [2]),   # Dune
+        ("Jazz Age", [1]),  # Gatsby
+        ("Space Age", [2]),  # Dune
     ]
     for era_name, book_ids in eras:
         conn.execute("INSERT INTO eras (name) VALUES (?)", (era_name,))
@@ -175,7 +175,6 @@ def clear_cache():
 
 
 class TestSlugify:
-
     def test_basic(self):
         assert _slugify("Science Fiction") == "science-fiction"
 
@@ -196,7 +195,6 @@ class TestSlugify:
 
 
 class TestQueryBuilders:
-
     def test_genre_query_produces_valid_sql(self):
         q = _genre_query("Science Fiction")
         assert "g.name = 'Science Fiction'" in q
@@ -232,7 +230,6 @@ class TestQueryBuilders:
 
 
 class TestGenreClassification:
-
     def test_fiction_genres_are_frozenset(self):
         assert isinstance(FICTION_GENRES, frozenset)
 
@@ -257,7 +254,6 @@ class TestGenreClassification:
 
 
 class TestBuildDynamicCollections:
-
     def test_returns_tree_and_flat(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         conn.row_factory = sqlite3.Row
@@ -393,7 +389,6 @@ class TestBuildDynamicCollections:
 
 
 class TestCollectionsCache:
-
     def test_get_collections_lookup_returns_dict(self, test_db_path):
         result = get_collections_lookup(test_db_path)
         assert isinstance(result, dict)
@@ -427,49 +422,38 @@ class TestCollectionsCache:
 
 
 class TestQueryExecution:
-
     def test_genre_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _genre_query("Mystery")
-        rows = conn.execute(
-            f"SELECT id FROM audiobooks WHERE {q}"
-        ).fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
         conn.close()
         assert len(rows) == 1  # Murder on the Orient Express
 
     def test_multi_genre_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _multi_genre_query(["Mystery", "Science Fiction"])
-        rows = conn.execute(
-            f"SELECT id FROM audiobooks WHERE {q}"
-        ).fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
         conn.close()
         assert len(rows) == 2  # Dune + Murder
 
     def test_era_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _era_query("Jazz Age")
-        rows = conn.execute(
-            f"SELECT id FROM audiobooks WHERE {q}"
-        ).fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
         conn.close()
         assert len(rows) == 1  # Gatsby
 
     def test_topic_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _topic_query("Space Exploration")
-        rows = conn.execute(
-            f"SELECT id FROM audiobooks WHERE {q}"
-        ).fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
         conn.close()
         assert len(rows) == 2  # Dune + Brief History
 
     def test_series_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _series_query("Dune Chronicles")
-        rows = conn.execute(
-            f"SELECT id FROM audiobooks WHERE {q}"
-        ).fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
         conn.close()
         assert len(rows) == 1  # Dune
 
@@ -478,7 +462,6 @@ class TestQueryExecution:
 
 
 class TestEmptyDatabase:
-
     def test_empty_enrichment_tables(self):
         """Collections should still work with no enrichment data."""
         fd, path = tempfile.mkstemp(suffix=".db")
