@@ -9,9 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Edison bulb indicator**: Animated Edison bulb in Back Office header lights up when there are unread user suggestions
+- **Reading glasses icon**: Accessibility button in shell header uses reading glasses icon with label; all shell header buttons now have visible labels
+
 ### Changed
 
+- **Shell header restructure**: Shell header reorganized per user feedback — navigation and controls reordered for improved usability
+- **`index.html` redirect**: Direct access to `index.html` now redirects to shell wrapper; all shell navigation links target the iframe
+
 ### Fixed
+
+- **Accessibility font size**: Font size setting now applies to `html` element (not `body`), ensuring changes propagate into iframe content
+- **Accessibility iframe propagation**: Accessibility settings (font size, contrast, reduced motion) now visually affect iframe content via `a11y-consumer.css`
+- **Shell navigation links**: Shell header links now correctly target the iframe instead of the top-level window
+- **Sort preference persistence**: Sort preference now persists correctly in shell header; Help and Back Office buttons restored
+- **Audit fixes**: SC2024 sudo redirect corrections, script permissions, markdown formatting, and Caddy config formatting
 
 ## [8.0.1] - 2026-03-29
 
