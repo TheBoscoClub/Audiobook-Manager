@@ -10,8 +10,8 @@
     --user-bg-opacity: 1;
 }
 
-/* ── Font Size ─────────────────────────────── */
-body {
+/* ── Font Size — set on html so rem units scale ── */
+html {
     font-size: var(--user-font-size);
 }
 
