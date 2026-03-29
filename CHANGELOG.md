@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CI fix**: Renamed ambiguous single-letter variable `l` to `line` in `test_gunicorn_migration.py` — resolves ruff E741 lint error that caused CI failure in python-security workflow
+
 ## [7.6.0] - 2026-03-28
 
 ### Added
