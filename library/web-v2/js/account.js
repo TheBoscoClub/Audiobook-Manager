@@ -57,6 +57,7 @@
     if (initialEl && data.username) {
       initialEl.textContent = data.username.charAt(0).toUpperCase();
     }
+    updateBackOfficeButton(data.is_admin);
   }
 
   // ── Update button to show unauthenticated state ──
@@ -64,6 +65,21 @@
     authenticated = false;
     document.getElementById("account-initial").textContent = "\u2192";
     document.getElementById("account-username").textContent = "Sign In";
+    updateBackOfficeButton(false);
+  }
+
+  // ── Back Office button visibility ──
+  function updateBackOfficeButton(isAdmin) {
+    var boLink = document.getElementById("admin-backoffice-link");
+    if (!boLink) return;
+    boLink.hidden = false;
+    if (isAdmin) {
+      boLink.classList.remove("backoffice-locked");
+      boLink.removeAttribute("data-locked");
+    } else {
+      boLink.classList.add("backoffice-locked");
+      boLink.setAttribute("data-locked", "true");
+    }
   }
 
   // ── Initial auth probe on page load ──
@@ -340,6 +356,17 @@
           .catch(function () { window.location.href = "/auth/login"; });
       }
     });
+
+    // Back Office gate — intercept clicks from non-admins
+    var boLink = document.getElementById("admin-backoffice-link");
+    if (boLink) {
+      boLink.addEventListener("click", function (e) {
+        if (boLink.getAttribute("data-locked") === "true") {
+          e.preventDefault();
+          alert("The Back Office is restricted to admin users.");
+        }
+      });
+    }
 
     // Contact admin — navigate the iframe
     var contactBtn = document.getElementById("contact-admin-btn");
