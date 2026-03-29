@@ -74,7 +74,7 @@
 
 .btn-inline:active {
     transform: translateY(1px);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-soft-inset-deep);
 }
 
 .auth-badge {
@@ -292,7 +292,7 @@ a.btn-secondary:active {
     cursor: pointer;
     font-family: inherit;
     font-size: 0.85em;
-    transition: background 0.15s, color 0.15s;
+    transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .pref-toggle-group button:last-child {

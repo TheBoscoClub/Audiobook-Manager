@@ -69,31 +69,25 @@
   // ── Initial auth probe on page load ──
   async function initAccountButton() {
     try {
-      var resp = await fetch("/auth/account", { credentials: "same-origin" });
-      if (resp.ok) {
-        accountData = await resp.json();
-        showAuthenticatedState(accountData);
-        populateModal(accountData);
-        return;
-      }
+      accountData = await api.get("/auth/account", { toast: false });
+      showAuthenticatedState(accountData);
+      populateModal(accountData);
+      return;
     } catch (_e) {
-      // Network error — fall through to status check
+      // Network error or not authenticated — fall through to status check
     }
 
     // /auth/account failed — check if auth is even enabled
     try {
-      var statusResp = await fetch("/auth/status", { credentials: "same-origin" });
-      if (statusResp.ok) {
-        var statusData = await statusResp.json();
-        if (!statusData.auth_enabled) {
-          // Auth disabled — show generic "Account" (button stays visible)
-          return;
-        }
-        if (statusData.user) {
-          // Authenticated but /auth/account failed — show username from status
-          showAuthenticatedState(statusData.user);
-          return;
-        }
+      var statusData = await checkAuthStatus();
+      if (!statusData.auth_enabled) {
+        // Auth disabled — show generic "Account" (button stays visible)
+        return;
+      }
+      if (statusData.user) {
+        // Authenticated but /auth/account failed — show username from status
+        showAuthenticatedState(statusData.user);
+        return;
       }
     } catch (_e2) {
       // Both endpoints failed — API is down, keep default button state
@@ -106,9 +100,7 @@
   // ── Refresh account data (for modal open, not initial load) ──
   async function refreshAccountData() {
     try {
-      var resp = await fetch("/auth/account", { credentials: "same-origin" });
-      if (!resp.ok) return; // keep existing modal data
-      accountData = await resp.json();
+      accountData = await api.get("/auth/account", { toast: false });
       populateModal(accountData);
     } catch (_e) {
       // keep existing modal data
@@ -121,7 +113,7 @@
     document.getElementById("acct-username").textContent = data.username;
     document.getElementById("acct-email").textContent = data.email || "(none)";
     document.getElementById("acct-created").textContent =
-      data.created_at ? new Date(data.created_at).toLocaleDateString() : "Unknown";
+      data.created_at ? formatDate(data.created_at, "short") : "Unknown";
     document.getElementById("acct-auth-badge").textContent =
       (data.auth_type || "").toUpperCase();
   }
@@ -165,23 +157,13 @@
     }
 
     try {
-      var resp = await fetch("/auth/account/username", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ username: newName }),
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to change username"));
-        return;
-      }
+      await api.put("/auth/account/username", { username: newName }, { toast: false });
       hideUsernameEdit();
       refreshAccountData();
       // Update header button with new username
       showAuthenticatedState({ username: newName });
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -212,21 +194,11 @@
     var newEmail = input.value.trim();
 
     try {
-      var resp = await fetch("/auth/account/email", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ email: newEmail }),
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to change email"));
-        return;
-      }
+      await api.put("/auth/account/email", { email: newEmail }, { toast: false });
       hideEmailEdit();
       refreshAccountData();
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -245,23 +217,12 @@
     }
 
     try {
-      var resp = await fetch("/auth/account/auth-method", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ auth_method: selected.value }),
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to switch auth method"));
-        return;
-      }
-
+      var data = await api.put("/auth/account/auth-method", { auth_method: selected.value }, { toast: false });
       document.getElementById("auth-switch-panel").hidden = true;
       showSetupResult(data.setup_data, selected.value);
       refreshAccountData();
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -270,19 +231,10 @@
     if (!confirm("Reset your authentication credentials? You will need to reconfigure your authenticator.")) return;
 
     try {
-      var resp = await fetch("/auth/account/reset-credentials", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to reset credentials"));
-        return;
-      }
-
+      var data = await api.post("/auth/account/reset-credentials", null, { toast: false });
       showSetupResult(data.setup_data, accountData ? accountData.auth_type : "");
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -329,18 +281,10 @@
     if (!confirm(msg)) return;
 
     try {
-      var resp = await fetch("/auth/account", {
-        method: "DELETE",
-        credentials: "same-origin",
-      });
-      if (resp.ok) {
-        window.location.href = "/auth/login";
-      } else {
-        var data = await resp.json();
-        alert("Error: " + (data.error || "Failed to delete account"));
-      }
+      await api.delete("/auth/account", { toast: false });
+      window.location.href = "/auth/login";
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -391,7 +335,7 @@
       if (frame && frame.contentWindow && frame.contentWindow.library) {
         frame.contentWindow.library.logout();
       } else {
-        fetch("/auth/logout", { method: "POST", credentials: "same-origin" })
+        api.post("/auth/logout", null, { toast: false })
           .then(function () { window.location.href = "/auth/login"; })
           .catch(function () { window.location.href = "/auth/login"; });
       }
@@ -459,20 +403,11 @@
   function saveBrowsingPref(key, value) {
     var body = {};
     body[key] = value;
-    fetch('/api/user/preferences', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(body)
-    }).catch(function () {});
+    api.patch('/api/user/preferences', body, { toast: false }).catch(function () {});
   }
 
   function loadPreferencesIntoModal() {
-    fetch('/api/user/preferences', { credentials: 'same-origin' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('not authenticated');
-        return r.json();
-      })
+    api.get('/api/user/preferences', { toast: false })
       .then(function (data) {
         // Select dropdowns
         var selects = document.querySelectorAll('#prefs-section .pref-select');

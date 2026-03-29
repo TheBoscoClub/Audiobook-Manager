@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 class TestAddNewAudiobooks:
     """Test the add_new_audiobooks_endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_add_operation(self, mock_get_tracker, flask_app):
         """Test starts add operation successfully."""
         mock_tracker = MagicMock()
@@ -33,7 +33,7 @@ class TestAddNewAudiobooks:
         assert "operation_id" in data
         assert data["operation_id"] == "add-new-123"
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when add operation already in progress."""
         mock_tracker = MagicMock()
@@ -49,7 +49,7 @@ class TestAddNewAudiobooks:
         assert "already in progress" in data["error"]
         assert data["operation_id"] == "existing-op"
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_uses_correct_operation_type(self, mock_get_tracker, flask_app):
         """Test add_new operation uses 'add_new' type."""
         mock_tracker = MagicMock()
@@ -69,7 +69,7 @@ class TestAddNewAudiobooks:
 class TestAddNewCalculateHashesOption:
     """Test the calculate_hashes option for add-new endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_accepts_calculate_hashes_true(self, mock_get_tracker, flask_app):
         """Test accepts calculate_hashes=True."""
         mock_tracker = MagicMock()
@@ -85,7 +85,7 @@ class TestAddNewCalculateHashesOption:
 
         assert response.status_code == 200
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_accepts_calculate_hashes_false(self, mock_get_tracker, flask_app):
         """Test accepts calculate_hashes=False."""
         mock_tracker = MagicMock()
@@ -101,7 +101,7 @@ class TestAddNewCalculateHashesOption:
 
         assert response.status_code == 200
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_defaults_calculate_hashes_to_true(self, mock_get_tracker, flask_app):
         """Test calculate_hashes defaults to True when not provided."""
         mock_tracker = MagicMock()
@@ -118,7 +118,7 @@ class TestAddNewCalculateHashesOption:
 class TestRescanLibraryAsync:
     """Test the rescan_library_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_rescan_operation(self, mock_get_tracker, flask_app):
         """Test starts rescan operation successfully."""
         mock_tracker = MagicMock()
@@ -135,7 +135,7 @@ class TestRescanLibraryAsync:
         assert data["operation_id"] == "rescan-123"
         assert "Rescan started" in data["message"]
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when rescan already in progress."""
         mock_tracker = MagicMock()
@@ -149,7 +149,7 @@ class TestRescanLibraryAsync:
         data = response.get_json()
         assert "Rescan already in progress" in data["error"]
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_uses_correct_operation_type(self, mock_get_tracker, flask_app):
         """Test rescan operation uses 'rescan' type."""
         mock_tracker = MagicMock()
@@ -169,7 +169,7 @@ class TestRescanLibraryAsync:
 class TestReimportDatabaseAsync:
     """Test the reimport_database_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_reimport_operation(self, mock_get_tracker, flask_app):
         """Test starts reimport operation successfully."""
         mock_tracker = MagicMock()
@@ -185,7 +185,7 @@ class TestReimportDatabaseAsync:
         assert data["success"] is True
         assert data["operation_id"] == "reimport-123"
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when reimport already in progress."""
         mock_tracker = MagicMock()
@@ -197,7 +197,7 @@ class TestReimportDatabaseAsync:
 
         assert response.status_code == 409
 
-    @patch("backend.api_modular.utilities_ops.library.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_uses_correct_operation_type(self, mock_get_tracker, flask_app):
         """Test reimport operation uses 'reimport' type."""
         mock_tracker = MagicMock()

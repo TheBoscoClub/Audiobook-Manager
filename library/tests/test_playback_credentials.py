@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 LIBRARY_JS = Path(__file__).parent.parent / "web-v2" / "js" / "library.js"
+API_JS = Path(__file__).parent.parent / "web-v2" / "js" / "api.js"
 SHELL_JS = Path(__file__).parent.parent / "web-v2" / "js" / "shell.js"
 
 
@@ -58,7 +59,18 @@ class TestPlaybackManagerCredentials:
         assert "savePositionToAPI" in block
 
     def test_load_my_library_has_credentials(self):
-        """loadMyLibrary should already have credentials (sanity check)."""
+        """loadMyLibrary must send credentials — either directly or via api.js."""
         content = LIBRARY_JS.read_text()
         block = _extract_fetch_block(content, "loadMyLibrary", "library.js")
-        assert "credentials" in block
+        uses_api_client = "api.get" in block or "api.post" in block
+        has_inline_creds = "credentials" in block
+        assert uses_api_client or has_inline_creds, (
+            "loadMyLibrary must either use the shared api client (which includes "
+            "credentials automatically) or include credentials inline"
+        )
+        if uses_api_client:
+            # Verify api.js actually includes credentials
+            api_content = API_JS.read_text()
+            assert "credentials" in api_content, (
+                "api.js must include credentials in fetch options"
+            )

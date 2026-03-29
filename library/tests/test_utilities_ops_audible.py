@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 class TestDownloadAudiobooksAsync:
     """Test the download_audiobooks_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_download_operation(self, mock_get_tracker, flask_app):
         """Test starts download operation successfully."""
         mock_tracker = MagicMock()
@@ -30,7 +30,7 @@ class TestDownloadAudiobooksAsync:
         assert data["success"] is True
         assert data["operation_id"] == "download-123"
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when download already in progress."""
         mock_tracker = MagicMock()
@@ -44,7 +44,7 @@ class TestDownloadAudiobooksAsync:
         data = response.get_json()
         assert "Download already in progress" in data["error"]
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_uses_correct_operation_type(self, mock_get_tracker, flask_app):
         """Test download operation uses 'download' type."""
         mock_tracker = MagicMock()
@@ -61,7 +61,7 @@ class TestDownloadAudiobooksAsync:
 class TestSyncGenresAsync:
     """Test the sync_genres_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_genre_sync_dry_run(self, mock_get_tracker, flask_app):
         """Test starts genre sync in dry run mode."""
         mock_tracker = MagicMock()
@@ -80,7 +80,7 @@ class TestSyncGenresAsync:
         assert data["success"] is True
         assert "dry run" in data["message"]
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_genre_sync_execute(self, mock_get_tracker, flask_app):
         """Test starts genre sync in execute mode."""
         mock_tracker = MagicMock()
@@ -98,7 +98,7 @@ class TestSyncGenresAsync:
         data = response.get_json()
         assert data["success"] is True
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when genre sync already in progress."""
         mock_tracker = MagicMock()
@@ -112,7 +112,7 @@ class TestSyncGenresAsync:
         data = response.get_json()
         assert "Genre sync already in progress" in data["error"]
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_defaults_to_dry_run(self, mock_get_tracker, flask_app):
         """Test sync genres defaults to dry_run=True when not specified."""
         mock_tracker = MagicMock()
@@ -131,7 +131,7 @@ class TestSyncGenresAsync:
 class TestSyncNarratorsAsync:
     """Test the sync_narrators_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_narrator_sync_dry_run(self, mock_get_tracker, flask_app):
         """Test starts narrator sync in dry run mode."""
         mock_tracker = MagicMock()
@@ -150,7 +150,7 @@ class TestSyncNarratorsAsync:
         assert data["success"] is True
         assert "dry run" in data["message"]
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_narrator_sync_execute(self, mock_get_tracker, flask_app):
         """Test starts narrator sync in execute mode."""
         mock_tracker = MagicMock()
@@ -168,7 +168,7 @@ class TestSyncNarratorsAsync:
         data = response.get_json()
         assert data["success"] is True
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when narrator sync already in progress."""
         mock_tracker = MagicMock()
@@ -180,7 +180,7 @@ class TestSyncNarratorsAsync:
 
         assert response.status_code == 409
 
-    @patch("backend.api_modular.utilities_ops.audible.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_defaults_to_dry_run(self, mock_get_tracker, flask_app):
         """Test sync narrators defaults to dry_run=True when not specified."""
         mock_tracker = MagicMock()

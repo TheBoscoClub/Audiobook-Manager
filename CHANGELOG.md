@@ -11,7 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Backend consolidation**: Extracted shared `run_async_operation()` and `handle_result()` into `utilities_ops/_helpers.py`, eliminating ~490 lines of duplicated async endpoint boilerplate across library.py, hashing.py, audible.py, and maintenance.py
+- **Scanner consolidation**: Created `scanner/utils/` package with shared `SUPPORTED_FORMATS`, `is_cover_art_file()`, and `get_or_create_lookup_id()` — previously duplicated across 4 scanner modules
+- **Frontend consolidation**: Extracted shared API client (`js/api.js`) and utility functions (`js/utils.js`) for date formatting, operation polling, and auth checking — removed ~305 lines of duplicated frontend code
+- **CSS variable consolidation**: Extracted repeated transition, shadow, and other values into CSS custom properties in theme-art-deco.css; replaced hardcoded values across 13 CSS files
+- **Test helper consolidation**: Moved shared `wait_for_thread_completion()` into `tests/helpers/` package for reuse across utilities_ops test files
+
 ### Fixed
+
+- **Python 3.14 compatibility**: Added `encodings.idna` import in conftest.py to fix werkzeug hostname resolution under Python 3.14
 
 ## [8.0.0] - 2026-03-28
 

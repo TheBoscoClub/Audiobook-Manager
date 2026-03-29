@@ -135,12 +135,7 @@
         if (isAuthenticated) {
             var body = {};
             body[key] = value;
-            fetch('/api/user/preferences', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify(body)
-            }).catch(function () { /* silent — prefs are non-critical */ });
+            api.patch('/api/user/preferences', body, { toast: false }).catch(function () {});
         }
 
         // Also save to localStorage as fallback
@@ -190,12 +185,7 @@
             // Reset accessibility keys on server
             var resetBody = {};
             Object.keys(DEFAULTS).forEach(function (k) { resetBody[k] = DEFAULTS[k]; });
-            fetch('/api/user/preferences', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify(resetBody)
-            }).catch(function () {});
+            api.patch('/api/user/preferences', resetBody, { toast: false }).catch(function () {});
         }
 
         // Clear localStorage fallbacks
@@ -217,15 +207,9 @@
 
     function init() {
         // Try loading from API first
-        fetch('/api/user/preferences', { credentials: 'same-origin' })
-            .then(function (r) {
-                if (r.ok) {
-                    isAuthenticated = true;
-                    return r.json();
-                }
-                throw new Error('not authenticated');
-            })
+        api.get('/api/user/preferences', { toast: false })
             .then(function (data) {
+                isAuthenticated = true;
                 // Merge API response into prefs (only accessibility keys)
                 Object.keys(DEFAULTS).forEach(function (k) {
                     if (data[k] !== undefined) prefs[k] = data[k];

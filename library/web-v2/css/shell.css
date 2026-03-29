@@ -117,7 +117,7 @@ body {
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
         inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-        0 2px 4px rgba(0, 0, 0, 0.3);
+        var(--shadow-soft-sm);
     text-shadow: 0 1px 0 rgba(255, 215, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
@@ -293,7 +293,7 @@ body {
     padding: 0.25em 0.6em;
     font-size: 0.9rem;
     border-radius: 4px;
-    transition: all 0.3s;
+    transition: all var(--transition-normal);
     margin-left: 0.5em;
 }
 

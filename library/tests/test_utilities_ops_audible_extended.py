@@ -7,13 +7,15 @@ run_with_progress, progress parsing, and error handling paths.
 """
 
 import subprocess
-import time
 from io import StringIO
 from unittest.mock import MagicMock, patch
+
+from tests.helpers import wait_for_thread_completion
 
 
 SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
 MODULE = "backend.api_modular.utilities_ops.audible"
+HELPERS_MODULE = "backend.api_modular.utilities_ops._helpers"
 
 
 def _make_mock_popen(stdout_text, returncode=0, stderr_text=""):
@@ -40,22 +42,13 @@ def _make_mock_popen_from_lines(stdout_lines, returncode=0, stderr_text=""):
     return _make_mock_popen(text, returncode, stderr_text)
 
 
-def _wait_for_thread_completion(tracker_mock, timeout=2.0):
-    """Wait until tracker's complete_operation or fail_operation is called."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
-            return True
-        time.sleep(0.02)
-    return False
-
 
 class TestDownloadAudiobooksWorkerThread:
     """Test the run_download() background thread function."""
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_success_with_items(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -80,7 +73,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["downloaded_count"] == 2
@@ -89,7 +82,7 @@ class TestDownloadAudiobooksWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_success_no_items(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -106,14 +99,14 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["downloaded_count"] == 0
         assert result["failed_count"] == 0
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Non-zero return code fails operation."""
         mock_tracker = MagicMock()
@@ -129,12 +122,12 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Authentication failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -150,12 +143,12 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Download failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Timeout kills process and fails operation."""
         mock_tracker = MagicMock()
@@ -170,14 +163,14 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
         # run_with_progress returns "did not exit cleanly" for wait() TimeoutExpired
         error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
         assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -192,12 +185,12 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Script not found" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_output_truncation(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -214,13 +207,13 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_carriage_return_handling(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -238,12 +231,12 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.complete_operation.assert_called_once()
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_download_title_truncation(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -261,7 +254,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # Verify progress was updated with truncated title
         progress_calls = mock_tracker.update_progress.call_args_list
         title_updates = [c for c in progress_calls if "Downloading:" in str(c)]
@@ -276,7 +269,7 @@ class TestSyncGenresWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_genre_sync_success(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Successful genre sync parses update count."""
         mock_tracker = MagicMock()
@@ -298,14 +291,14 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={"dry_run": False})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["genres_updated"] == 45
         assert result["dry_run"] is False
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_genre_sync_dry_run_would_update(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -324,14 +317,14 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={"dry_run": True})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["genres_updated"] == 12
         assert result["dry_run"] is True
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_genre_sync_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Non-zero rc fails operation."""
         mock_tracker = MagicMock()
@@ -347,12 +340,12 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Metadata file not found" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_genre_sync_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -368,12 +361,12 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Genre sync failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_genre_sync_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Timeout kills process."""
         mock_tracker = MagicMock()
@@ -390,14 +383,14 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
         error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
         assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_genre_sync_execute_flag(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Execute mode appends --execute flag."""
         mock_tracker = MagicMock()
@@ -411,12 +404,12 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={"dry_run": False})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         cmd_args = mock_popen_cls.call_args[0][0]
         assert "--execute" in cmd_args
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_genre_sync_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -431,7 +424,7 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "unexpected" in mock_tracker.fail_operation.call_args[0][1]
 
 
@@ -440,7 +433,7 @@ class TestSyncNarratorsWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_success(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Successful narrator sync parses update count."""
         mock_tracker = MagicMock()
@@ -462,14 +455,14 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={"dry_run": False})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["narrators_updated"] == 80
         assert result["dry_run"] is False
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_dry_run(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Dry run parses 'would update' count."""
         mock_tracker = MagicMock()
@@ -486,13 +479,13 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={"dry_run": True})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["narrators_updated"] == 15
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Non-zero rc fails operation with stderr."""
         mock_tracker = MagicMock()
@@ -508,12 +501,12 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "DB connection error" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -529,12 +522,12 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Narrator sync failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Timeout kills process."""
         mock_tracker = MagicMock()
@@ -551,14 +544,14 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
         error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
         assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_execute_flag(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -574,12 +567,12 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={"dry_run": False})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         cmd_args = mock_popen_cls.call_args[0][0]
         assert "--execute" in cmd_args
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -594,12 +587,12 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "bad args" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_output_truncation(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -616,13 +609,13 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_narrator_sync_loading_count(
         self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
@@ -641,7 +634,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         progress_calls = mock_tracker.update_progress.call_args_list
         percents = [c[0][1] for c in progress_calls]
         assert 10 in percents

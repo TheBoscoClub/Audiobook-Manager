@@ -165,7 +165,7 @@ body.back-office {
 .banker-lamp-svg {
     display: block;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-    transition: filter 0.3s ease;
+    transition: filter var(--transition-normal) ease;
 }
 
 .banker-lamp-svg:hover {
@@ -184,7 +184,7 @@ body.back-office {
     border-radius: 8px;
     padding: 1rem 2rem;
     margin-bottom: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-soft-md);
 }
 
 .remaining-count {
@@ -239,7 +239,7 @@ body.back-office {
     border: 3px solid var(--gold);
     box-shadow:
         inset 0 2px 6px rgba(0, 0, 0, 0.5),
-        0 4px 12px rgba(0, 0, 0, 0.3);
+        var(--shadow-soft-md);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
@@ -1144,7 +1144,7 @@ body.back-office {
     color: var(--ledger-cream);
     border-left: 4px solid var(--brass);
     border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-soft-md);
     animation: toastSlide 0.3s ease-out;
 }
 
@@ -1199,7 +1199,7 @@ body.back-office {
     width: 90%;
     max-height: 80vh;
     overflow: hidden;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-soft-lg);
     color: var(--ledger-cream);
 }
 
@@ -1268,10 +1268,6 @@ body.back-office {
     border-top-color: var(--brass);
     border-radius: 50%;
     animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
 }
 
 .progress-output {
@@ -1401,7 +1397,7 @@ body.back-office {
 .operation-status-banner {
     background: linear-gradient(180deg, var(--banker-green) 0%, #1f3a30 100%);
     border-bottom: 3px solid var(--brass);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-soft-md);
     padding: 0.75rem 2rem;
     position: sticky;
     top: 0;
@@ -1453,14 +1449,14 @@ body.back-office {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 4px;
     overflow: hidden;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-soft-inset);
 }
 
 .progress-bar-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--brass-dark) 0%, var(--brass-light) 100%);
     border-radius: 4px;
-    transition: width 0.3s ease-out;
+    transition: width var(--transition-normal) ease-out;
     box-shadow: 0 0 8px rgba(184, 134, 11, 0.4);
 }
 
@@ -1607,7 +1603,7 @@ body.back-office {
     height: 100%;
     background: linear-gradient(90deg, var(--banker-green) 0%, var(--banker-green-light) 100%);
     border-radius: 2px;
-    transition: width 0.5s ease-out;
+    transition: width var(--transition-slow) ease-out;
     box-shadow:
         0 0 10px var(--banker-green-glow),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -1688,7 +1684,7 @@ body.back-office {
 .stat-row .expand-icon {
     font-size: 0.7rem;
     margin-left: 0.25rem;
-    transition: transform 0.3s;
+    transition: transform var(--transition-normal);
     display: inline-block;
 }
 
@@ -1869,7 +1865,7 @@ body.back-office {
     cursor: pointer;
     color: #555;
     font-weight: 500;
-    transition: all 0.15s ease;
+    transition: all var(--transition-fast) ease;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.5),
         inset 0 -1px 0 rgba(0, 0, 0, 0.1),
@@ -2708,7 +2704,7 @@ body.back-office {
     border: 2px solid var(--brass-dark);
     border-radius: 8px;
     text-align: center;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
 }
 
 .audit-stat-card:hover {

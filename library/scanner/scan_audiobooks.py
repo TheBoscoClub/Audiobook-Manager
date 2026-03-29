@@ -26,6 +26,7 @@ from scanner.metadata_utils import (
 from scanner.metadata_utils import (
     get_file_metadata as _get_file_metadata,
 )  # Re-export for backwards compatibility with tests
+from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
 
 # Re-export for backwards compatibility with tests
 __all__ = [
@@ -34,11 +35,11 @@ __all__ = [
     "extract_topics",
     "get_file_metadata",
     "scan_audiobooks",
+    "SUPPORTED_FORMATS",
 ]
 
 # Configuration
 OUTPUT_FILE = DATA_DIR / "audiobooks.json"
-SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
 
 
 def get_file_metadata(filepath: Path, calculate_hash: bool = True) -> dict | None:
@@ -169,7 +170,7 @@ def find_audiobook_files(base_dir: Path, formats: list[str]) -> list[Path]:
 
     # Filter out cover art files
     original_count = len(all_files)
-    audiobook_files = [f for f in all_files if ".cover." not in f.name.lower()]
+    audiobook_files = [f for f in all_files if not is_cover_art_file(f)]
     filtered_count = original_count - len(audiobook_files)
     if filtered_count > 0:
         print(f"  Filtered out {filtered_count} cover art files")

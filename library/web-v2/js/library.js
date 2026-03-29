@@ -61,42 +61,27 @@ class AudiobookLibraryV2 {
    */
   async checkAuth() {
     try {
-      let response = await fetch("/auth/status", {
-        credentials: "include",
-      });
+      let data = await checkAuthStatus();
+      this.authEnabled = data.auth_enabled;
+      this.user = data.user;
+      this.guestMode = data.guest;
 
-      if (response.ok) {
-        let data = await response.json();
-        this.authEnabled = data.auth_enabled;
-        this.user = data.user;
-        this.guestMode = data.guest;
-
-        // If guest (no session cookie), try to recover from client storage
-        if (this.guestMode && !this.user) {
-          const recovered = await this._trySessionRecover();
-          if (recovered) {
-            // Re-check auth status after session restore
-            const retry = await fetch("/auth/status", {
-              credentials: "include",
-            });
-            if (retry.ok) {
-              data = await retry.json();
-              this.user = data.user;
-              this.guestMode = data.guest;
-            }
-          }
+      // If guest (no session cookie), try to recover from client storage
+      if (this.guestMode && !this.user) {
+        const recovered = await this._trySessionRecover();
+        if (recovered) {
+          // Re-check auth status after session restore
+          data = await checkAuthStatus();
+          this.user = data.user;
+          this.guestMode = data.guest;
         }
-
-        if (this.user) {
-          this.updateUserUI();
-        } else if (this.guestMode) {
-          this.updateGuestUI();
-        }
-        return true;
       }
 
-      // /auth/status not available — auth not configured
-      this.authEnabled = false;
+      if (this.user) {
+        this.updateUserUI();
+      } else if (this.guestMode) {
+        this.updateGuestUI();
+      }
       return true;
     } catch (error) {
       // Network error or auth not configured - allow access
@@ -111,14 +96,8 @@ class AudiobookLibraryV2 {
       const token = await SessionPersistence.recover();
       if (!token) return false;
 
-      const response = await fetch("/auth/session/restore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ token }),
-      });
-
-      if (response.ok) return true;
+      await api.post("/auth/session/restore", { token }, { toast: false });
+      return true;
 
       // Token invalid — clear stale stored token
       await SessionPersistence.clear();
@@ -285,10 +264,7 @@ class AudiobookLibraryV2 {
     // Clear client-side session storage before server logout
     await SessionPersistence.clear();
     try {
-      await fetch("/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await api.post("/auth/logout", null, { toast: false });
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -304,15 +280,7 @@ class AudiobookLibraryV2 {
     }
 
     try {
-      const response = await fetch("/auth/me", {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        return;
-      }
-
-      const data = await response.json();
+      const data = await api.get("/auth/me", { toast: false });
       const notifications = data.notifications || [];
       this.displayNotifications(notifications);
     } catch (error) {
@@ -386,19 +354,10 @@ class AudiobookLibraryV2 {
    */
   async dismissNotification(notificationId, bannerElement) {
     try {
-      const response = await fetch(
-        `/auth/notifications/dismiss/${notificationId}`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
-
-      if (response.ok) {
-        // Animate removal
-        bannerElement.classList.add("dismissing");
-        setTimeout(() => bannerElement.remove(), 300);
-      }
+      await api.post(`/auth/notifications/dismiss/${notificationId}`, null, { toast: false });
+      // Animate removal
+      bannerElement.classList.add("dismissing");
+      setTimeout(() => bannerElement.remove(), 300);
     } catch (error) {
       console.error("Error dismissing notification:", error);
     }
@@ -471,10 +430,7 @@ class AudiobookLibraryV2 {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/download/${bookId}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+      const response = await api.get(`${API_BASE}/download/${bookId}`, { toast: false, raw: true });
 
       const blob = await response.blob();
       const contentDisposition = response.headers.get("Content-Disposition");
@@ -496,12 +452,7 @@ class AudiobookLibraryV2 {
       URL.revokeObjectURL(url);
 
       // Record successful download completion
-      await fetch(`${API_BASE}/user/downloads/${bookId}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ file_format: "opus" }),
-      });
+      await api.post(`${API_BASE}/user/downloads/${bookId}/complete`, { file_format: "opus" }, { toast: false });
     } catch (error) {
       console.error("Download error:", error);
       // Failed/cancelled downloads not recorded — by design
@@ -628,8 +579,7 @@ class AudiobookLibraryV2 {
 
   async loadStats() {
     try {
-      const response = await fetch(`${API_BASE}/stats`);
-      const stats = await response.json();
+      const stats = await api.get(`${API_BASE}/stats`, { toast: false });
 
       document.getElementById("total-books").textContent =
         stats.total_audiobooks.toLocaleString();
@@ -646,8 +596,7 @@ class AudiobookLibraryV2 {
 
   async loadFilters() {
     try {
-      const response = await fetch(`${API_BASE}/filters`);
-      this.filters = await response.json();
+      this.filters = await api.get(`${API_BASE}/filters`, { toast: false });
 
       // Load narrator counts for autocomplete
       await this.loadNarratorCounts();
@@ -664,8 +613,7 @@ class AudiobookLibraryV2 {
 
   async loadCollections() {
     try {
-      const response = await fetch(`${API_BASE}/collections`);
-      this.collections = await response.json();
+      this.collections = await api.get(`${API_BASE}/collections`, { toast: false });
       this.renderCollectionButtons();
     } catch (error) {
       console.error("Error loading collections:", error);
@@ -1139,14 +1087,7 @@ class AudiobookLibraryV2 {
   async loadNarratorCounts() {
     try {
       // Get narrator counts from stats endpoint
-      const response = await fetch(`${API_BASE}/narrator-counts`);
-      if (response.ok) {
-        this.narratorCounts = await response.json();
-      } else {
-        // Fallback: just use narrator list without counts
-        this.narratorCounts = {};
-        this.filters.narrators.forEach((n) => (this.narratorCounts[n] = null));
-      }
+      this.narratorCounts = await api.get(`${API_BASE}/narrator-counts`, { toast: false });
     } catch (error) {
       // Fallback
       this.narratorCounts = {};
@@ -1467,8 +1408,7 @@ class AudiobookLibraryV2 {
       if (this.currentFilters.order)
         params.append("order", this.currentFilters.order);
 
-      const response = await fetch(`${API_BASE}/audiobooks?${params}`);
-      const data = await response.json();
+      const data = await api.get(`${API_BASE}/audiobooks?${params}`, { toast: false });
 
       this.totalPages = data.pagination.total_pages;
       this.totalCount = data.pagination.total_count;
@@ -1577,14 +1517,7 @@ class AudiobookLibraryV2 {
     this.showLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_BASE}/audiobooks/grouped?by=${encodeURIComponent(groupBy)}`,
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to load grouped books");
-      }
+      const data = await api.get(`${API_BASE}/audiobooks/grouped?by=${encodeURIComponent(groupBy)}`, { toast: false });
 
       this.renderGroupedBooks(data, groupBy);
 
@@ -1711,10 +1644,7 @@ class AudiobookLibraryV2 {
       // Show editions - fetch if not already loaded
       if (!editionsContainer.dataset.loaded) {
         try {
-          const response = await fetch(
-            `${API_BASE}/audiobooks/${bookId}/editions`,
-          );
-          const data = await response.json();
+          const data = await api.get(`${API_BASE}/audiobooks/${bookId}/editions`, { toast: false });
 
           if (data.editions && data.editions.length > 0) {
             editionsContainer.innerHTML = this.renderEditions(data.editions);
@@ -1769,10 +1699,7 @@ class AudiobookLibraryV2 {
 
   async showSupplements(audiobookId) {
     try {
-      const response = await fetch(
-        `${API_BASE}/audiobooks/${audiobookId}/supplements`,
-      );
-      const data = await response.json();
+      const data = await api.get(`${API_BASE}/audiobooks/${audiobookId}/supplements`, { toast: false });
 
       if (data.supplements && data.supplements.length > 0) {
         // Open the first supplement (typically PDF)
@@ -2161,15 +2088,7 @@ class AudiobookLibraryV2 {
       const url = this.viewingHidden
         ? `${API_BASE}/user/library?hidden=true`
         : `${API_BASE}/user/library`;
-      const response = await fetch(url, {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load library: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await api.get(url, { toast: false });
       const books = data.books || [];
 
       if (books.length === 0) {
@@ -2244,10 +2163,7 @@ class AudiobookLibraryV2 {
     const results = await Promise.all(
       positionBooks.map(async (book) => {
         try {
-          const res = await fetch(`${API_BASE}/position/${book.id}`, {
-            credentials: "include",
-          });
-          return res.ok ? await res.json() : null;
+          return await api.get(`${API_BASE}/position/${book.id}`, { toast: false });
         } catch (e) {
           console.warn(`Could not fetch position for book ${book.id}:`, e);
           return null;
@@ -2457,11 +2373,7 @@ class AudiobookLibraryV2 {
     const pill = document.getElementById("hidden-books-btn");
     if (!pill) return;
     try {
-      const resp = await fetch(`${API_BASE}/user/library?hidden=true`, {
-        credentials: "include",
-      });
-      if (!resp.ok) return;
-      const data = await resp.json();
+      const data = await api.get(`${API_BASE}/user/library?hidden=true`, { toast: false });
       const count = (data.books || []).length;
       if (count > 0) {
         pill.textContent = this.viewingHidden
@@ -2484,17 +2396,7 @@ class AudiobookLibraryV2 {
     const endpoint = this.viewingHidden ? "unhide" : "hide";
 
     try {
-      const resp = await fetch(`${API_BASE}/user/library/${endpoint}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audiobook_ids: ids }),
-      });
-
-      if (!resp.ok) {
-        console.error(`Failed to ${endpoint} books:`, resp.status);
-        return;
-      }
+      await api.post(`${API_BASE}/user/library/${endpoint}`, { audiobook_ids: ids }, { toast: false });
 
       // Animate removal: fade out selected cards, then reload
       const grid = document.getElementById("books-grid");
@@ -2632,7 +2534,7 @@ class AudiobookLibraryV2 {
 
       // Purge Cloudflare CDN cache (non-fatal — best-effort)
       try {
-        await fetch("/api/system/purge-cache", { method: "POST" });
+        await api.post("/api/system/purge-cache", null, { toast: false });
       } catch {
         // CDN purge is non-fatal; log but don't block refresh
         console.warn("CDN cache purge unavailable");
@@ -2866,8 +2768,7 @@ class DuplicateManager {
       '<div class="loading-spinner"></div><p>Loading statistics...</p>';
 
     try {
-      const response = await fetch(`${API_BASE}/hash-stats`);
-      const stats = await response.json();
+      const stats = await api.get(`${API_BASE}/hash-stats`, { toast: false });
 
       if (!stats.hash_column_exists) {
         content.innerHTML = `
@@ -2942,14 +2843,7 @@ class DuplicateManager {
       // Choose endpoint based on mode
       const endpoint =
         currentMode === "hash" ? "duplicates" : "duplicates/by-title";
-      const response = await fetch(`${API_BASE}/${endpoint}`);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to load duplicates");
-      }
-
-      const data = await response.json();
+      const data = await api.get(`${API_BASE}/${endpoint}`, { toast: false });
       this.duplicateData = data;
 
       if (data.total_groups === 0) {
@@ -3115,16 +3009,10 @@ class DuplicateManager {
     btn.textContent = "Deleting...";
 
     try {
-      const response = await fetch(`${API_BASE}/duplicates/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await api.post(`${API_BASE}/duplicates/delete`, {
           audiobook_ids: Array.from(this.selectedIds),
           mode: this.duplicateMode || "title",
-        }),
-      });
-
-      const result = await response.json();
+        }, { toast: false });
 
       if (result.success) {
         let message = `Successfully deleted ${result.deleted_count} file(s).`;

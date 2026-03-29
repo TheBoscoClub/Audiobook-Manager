@@ -27,7 +27,7 @@
         var(--shadow-gold-glow),
         inset 1px 1px 0 rgba(255, 215, 0, 0.18),
         inset -1px -1px 0 rgba(0, 0, 0, 0.3);
-    transition: all 0.3s;
+    transition: all var(--transition-normal);
     cursor: pointer;
     position: relative;
     /* Art Deco stepped corner effect */
