@@ -46,13 +46,30 @@
             <span id="suggestion-badge-count" class="alert-count">0</span>
         </button>
         <!-- Accessibility quick-panel toggle -->
-        <button id="accessibility-btn" class="header-btn a11y-btn" title="Accessibility settings">
-            <span class="a11y-icon">&#9881;</span>
+        <button id="accessibility-btn" class="header-btn a11y-btn" title="Accessibility &amp; display settings">
+            <span class="a11y-icon">
+                <svg viewBox="0 0 30 22" width="22" height="16" aria-hidden="true">
+                    <!-- Left lens (half-frame) -->
+                    <path d="M3 10 Q3 3 8 3 L12 3 Q14 3 14 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <!-- Right lens (half-frame) -->
+                    <path d="M16 10 Q16 3 18 3 L22 3 Q27 3 27 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <!-- Bridge -->
+                    <path d="M14 5 Q15 1.5 16 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <!-- Left temple arm -->
+                    <line x1="3" y1="5" x2="0" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <!-- Right temple arm -->
+                    <line x1="27" y1="5" x2="30" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <!-- Chain hanging from temples -->
+                    <path d="M0 4 Q5 20 15 18 Q25 16 30 4" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-dasharray="2,2" opacity="0.6"/>
+                </svg>
+            </span>
+            <span class="a11y-label">Display</span>
         </button>
         <span class="header-title">Audiobook Library</span>
         <!-- Help link (always visible, targets iframe) -->
         <a href="help.html" target="content-frame" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
             <span class="help-icon">?</span>
+            <span class="help-label">Help</span>
         </a>
         <!-- Back Office link (visible to all, actionable by admins only, targets iframe) -->
         <a href="utilities.html" target="content-frame" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
