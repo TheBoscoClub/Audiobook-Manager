@@ -33,12 +33,12 @@ local_text="
 AUDIOBOOKS_RUN_DIR=\"${run_dir}\""
 
 if [[ -n "$USE_SUDO" ]]; then
-    echo "$local_text" | sudo tee -a "$CONF_FILE" > /dev/null
+    echo "$local_text" | sudo tee -a "$CONF_FILE" >/dev/null
     # Create the directory if it doesn't exist
     sudo mkdir -p "$run_dir"
     sudo chown audiobooks:audiobooks "$run_dir" 2>/dev/null || true
 else
-    echo "$local_text" >> "$CONF_FILE"
+    echo "$local_text" >>"$CONF_FILE"
     mkdir -p "$run_dir" 2>/dev/null || true
 fi
 

@@ -78,11 +78,14 @@ class TestUserSettingsRepository:
         db, user = settings_db
         repo = UserSettingsRepository(db)
 
-        count = repo.set_many(user.id, {
-            "font_size": "18",
-            "contrast": "high",
-            "reduce_animations": "true",
-        })
+        count = repo.set_many(
+            user.id,
+            {
+                "font_size": "18",
+                "contrast": "high",
+                "reduce_animations": "true",
+            },
+        )
         assert count == 3
 
         settings = repo.get_all(user.id)
@@ -95,11 +98,14 @@ class TestUserSettingsRepository:
         db, user = settings_db
         repo = UserSettingsRepository(db)
 
-        count = repo.set_many(user.id, {
-            "font_size": "18",
-            "invalid_key": "value",
-            "another_bad": "key",
-        })
+        count = repo.set_many(
+            user.id,
+            {
+                "font_size": "18",
+                "invalid_key": "value",
+                "another_bad": "key",
+            },
+        )
         assert count == 1
 
     def test_delete_resets_to_default(self, settings_db):

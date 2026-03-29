@@ -82,11 +82,13 @@ def reset_preference(key: str):
     repo = UserSettingsRepository(auth_db)
     repo.delete(user.id, key)
 
-    return jsonify({
-        "success": True,
-        "key": key,
-        "value": UserSettingsRepository.DEFAULTS[key],
-    })
+    return jsonify(
+        {
+            "success": True,
+            "key": key,
+            "value": UserSettingsRepository.DEFAULTS[key],
+        }
+    )
 
 
 @preferences_bp.route("/reset", methods=["POST"])
@@ -98,11 +100,13 @@ def reset_all_preferences():
     repo = UserSettingsRepository(auth_db)
     count = repo.delete_all(user.id)
 
-    return jsonify({
-        "success": True,
-        "reset_count": count,
-        "preferences": dict(UserSettingsRepository.DEFAULTS),
-    })
+    return jsonify(
+        {
+            "success": True,
+            "reset_count": count,
+            "preferences": dict(UserSettingsRepository.DEFAULTS),
+        }
+    )
 
 
 @preferences_bp.route("/defaults", methods=["GET"])

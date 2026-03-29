@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Per-user preferences**: Key-value preference system with `user_preferences` table, full CRUD API (`/api/preferences`), and 19 unit tests — supports theme, layout, and display customization per user
-- **Dynamic collections**: Auto-generated collections from enrichment data (genres, narrators, decades, ratings, etc.) with `/api/collections` endpoint and 36 unit tests — browseable curated groupings without manual curation
+- **Dynamic collections**: Auto-generated collections from enrichment data (genres, narrators, decades, ratings, etc.) with `/api/collections` endpoint and 36 unit tests — browsable curated groupings without manual curation
 - **Accessibility quick panel**: Slide-out accessibility settings panel with font size, contrast, reduced motion, and dyslexia-friendly font controls — persists via user preferences API
 - **Account preferences UI**: Account settings page for managing display preferences, notification settings, and accessibility options
 - **Series metadata on library cards**: Series name and book order number displayed on library card overlays
