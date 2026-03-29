@@ -1127,13 +1127,189 @@ def start_registration():
     return jsonify(response_data)
 
 
+def _resolve_claim_token(username, claim_token):
+    """
+    Resolve a claim token from either access_requests (new user) or
+    pending_registrations (existing user credential reset).
+
+    Returns:
+        (mode, obj, user_or_none, error_response)
+        - mode: "new_user" | "credential_reset"
+        - obj: AccessRequest or PendingRegistration
+        - user_or_none: existing User for resets, None for new
+        - error_response: (jsonify, status_code) tuple if invalid, else None
+    """
+    clean_token = claim_token.replace("-", "")
+    db = get_auth_db()
+    request_repo = AccessRequestRepository(db)
+    user_repo = UserRepository(db)
+    claim_token_hash = hash_token(clean_token)
+
+    # Path 1: Check access_requests (new user registration)
+    access_req = request_repo.get_pending_by_username_and_token(
+        username, claim_token_hash
+    )
+    if access_req:
+        if access_req.status == AccessRequestStatus.PENDING:
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            "valid": False,
+                            "status": "pending",
+                            "error": "Your request is still pending admin review",
+                        }
+                    ),
+                    400,
+                ),
+            )
+        if access_req.status == AccessRequestStatus.DENIED:
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            "valid": False,
+                            "status": "denied",
+                            "error": access_req.deny_reason
+                            or "Your request was denied",
+                        }
+                    ),
+                    400,
+                ),
+            )
+        if access_req.credentials_claimed:
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            "valid": False,
+                            "status": "already_claimed",
+                            "error": "Credentials have already been claimed.",
+                        }
+                    ),
+                    400,
+                ),
+            )
+        # New user with approved access request — but user might already exist
+        # (shouldn't happen normally, but guard against it)
+        if user_repo.username_exists(username):
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            "valid": False,
+                            "status": "already_claimed",
+                            "error": "Credentials have already been claimed.",
+                        }
+                    ),
+                    400,
+                ),
+            )
+        if access_req.is_claim_expired():
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            "valid": False,
+                            "status": "expired",
+                            "error": (
+                                "This invitation has expired."
+                                " Please ask the admin to send a new one."
+                            ),
+                        }
+                    ),
+                    400,
+                ),
+            )
+        return "new_user", access_req, None, None
+
+    # Path 2: Check pending_registrations (existing user credential reset)
+    reg_repo = PendingRegistrationRepository(db)
+    pending_reg = reg_repo.get_by_token(clean_token)
+    if pending_reg and pending_reg.username == username:
+        if pending_reg.is_expired():
+            pending_reg.consume(db)
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            "valid": False,
+                            "status": "expired",
+                            "error": (
+                                "This reset token has expired."
+                                " Please ask the admin for a new one."
+                            ),
+                        }
+                    ),
+                    400,
+                ),
+            )
+        existing_user = user_repo.get_by_username(username)
+        if not existing_user:
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify({"valid": False, "error": "User account not found"}),
+                    404,
+                ),
+            )
+        if existing_user.auth_credential != b"pending":
+            return (
+                None,
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            "valid": False,
+                            "status": "already_claimed",
+                            "error": "Credentials have already been set up.",
+                        }
+                    ),
+                    400,
+                ),
+            )
+        return "credential_reset", pending_reg, existing_user, None
+
+    # Neither found
+    return (
+        None,
+        None,
+        None,
+        (
+            jsonify({"valid": False, "error": "Invalid username or claim token"}),
+            404,
+        ),
+    )
+
+
 @auth_bp.route("/register/claim/validate", methods=["POST"])
 def validate_claim_token():
     """
     Validate a claim token and return the approval status.
 
-    This is the first step in the claim flow - validate the token
-    before presenting auth method options to the user.
+    Supports both new user registration (access_requests) and existing
+    user credential resets (pending_registrations).
 
     Request body:
         {
@@ -1145,6 +1321,7 @@ def validate_claim_token():
         200: {
             "valid": true,
             "status": "approved",
+            "mode": "new_user" | "credential_reset",
             "username": "..."
         }
         400: {"valid": false, "status": "pending|denied|already_claimed",
@@ -1161,70 +1338,12 @@ def validate_claim_token():
     if not username or not claim_token:
         return jsonify({"error": "Username and claim_token are required"}), 400
 
-    # Remove dashes from token if formatted
-    clean_token = claim_token.replace("-", "")
+    mode, obj, existing_user, error = _resolve_claim_token(username, claim_token)
+    if error:
+        return error
 
-    db = get_auth_db()
-    request_repo = AccessRequestRepository(db)
-    user_repo = UserRepository(db)
-
-    # Hash the token for lookup
-    claim_token_hash = hash_token(clean_token)
-
-    # Find the access request
-    access_req = request_repo.get_pending_by_username_and_token(
-        username, claim_token_hash
-    )
-    if not access_req:
-        return (
-            jsonify({"valid": False, "error": "Invalid username or claim token"}),
-            404,
-        )
-
-    # Check status
-    if access_req.status == AccessRequestStatus.PENDING:
-        return (
-            jsonify(
-                {
-                    "valid": False,
-                    "status": "pending",
-                    "error": "Your request is still pending admin review",
-                }
-            ),
-            400,
-        )
-
-    if access_req.status == AccessRequestStatus.DENIED:
-        return (
-            jsonify(
-                {
-                    "valid": False,
-                    "status": "denied",
-                    "error": access_req.deny_reason or "Your request was denied",
-                }
-            ),
-            400,
-        )
-
-    # Check if already claimed (user already exists)
-    if access_req.credentials_claimed or user_repo.username_exists(username):
-        return (
-            jsonify(
-                {
-                    "valid": False,
-                    "status": "already_claimed",
-                    "error": (
-                        "Credentials have already been claimed. If you lost your"
-                        " authenticator, use the recovery page."
-                    ),
-                }
-            ),
-            400,
-        )
-
-    # Token is valid and approved
     return jsonify(
-        {"valid": True, "status": "approved", "username": access_req.username}
+        {"valid": True, "status": "approved", "mode": mode, "username": username}
     )
 
 
@@ -1233,7 +1352,8 @@ def claim_credentials():
     """
     Claim credentials using TOTP or magic link authentication method.
 
-    Creates the user account with the chosen auth method.
+    Supports both new user registration (via access_requests) and existing
+    user credential resets (via pending_registrations).
     For passkey/FIDO2, use the /register/claim/webauthn endpoints.
 
     Request body:
@@ -1287,79 +1407,93 @@ def claim_credentials():
             400,
         )
 
-    # Remove dashes from token if formatted
-    clean_token = claim_token.replace("-", "")
+    mode, obj, existing_user, error = _resolve_claim_token(username, claim_token)
+    if error:
+        return error
 
     db = get_auth_db()
-    request_repo = AccessRequestRepository(db)
-    user_repo = UserRepository(db)
 
-    # Hash the token for lookup
-    claim_token_hash = hash_token(clean_token)
+    if mode == "credential_reset":
+        # Existing user credential reset
+        if auth_method == "magic_link":
+            existing_user.auth_type = AuthType.MAGIC_LINK
+            existing_user.auth_credential = b""
+            if recovery_email:
+                existing_user.recovery_email = recovery_email
+            if recovery_phone:
+                existing_user.recovery_phone = recovery_phone
+            existing_user.recovery_enabled = True
+            existing_user.save(db)
+            obj.consume(db)
 
-    # Find the access request
-    access_req = request_repo.get_pending_by_username_and_token(
-        username, claim_token_hash
-    )
-    if not access_req:
-        return jsonify({"error": "Invalid username or claim token"}), 404
+            backup_repo = BackupCodeRepository(db)
+            backup_codes = backup_repo.create_codes_for_user(existing_user.id)
 
-    # Check status
-    if access_req.status == AccessRequestStatus.PENDING:
-        return (
-            jsonify(
+            return jsonify(
                 {
-                    "error": "Your request is still pending admin review",
-                    "status": "pending",
-                }
-            ),
-            400,
-        )
-
-    if access_req.status == AccessRequestStatus.DENIED:
-        return (
-            jsonify(
-                {
-                    "error": access_req.deny_reason or "Your request was denied",
-                    "status": "denied",
-                }
-            ),
-            400,
-        )
-
-    # Check if already claimed
-    if access_req.credentials_claimed or user_repo.username_exists(username):
-        return (
-            jsonify(
-                {
-                    "error": (
-                        "Credentials have already been claimed. If you lost your"
-                        " authenticator, use the recovery page."
+                    "success": True,
+                    "auth_method": "magic_link",
+                    "username": username,
+                    "backup_codes": backup_codes,
+                    "message": (
+                        "Your credentials have been reset! To sign in, click"
+                        " 'Sign in with email link' on the login page."
                     ),
-                    "status": "already_claimed",
-                }
-            ),
-            400,
-        )
-
-    # Check if invitation has expired
-    if access_req.is_claim_expired():
-        return (
-            jsonify(
-                {
-                    "error": (
-                        "This invitation has expired. Please ask the admin to send"
-                        " a new one."
+                    "warning": (
+                        "IMPORTANT: Save your backup codes in a safe place!"
+                        " These are your ONLY way to recover your account"
+                        " if you lose access to your email."
                     ),
-                    "status": "expired",
                 }
-            ),
-            400,
-        )
+            )
 
-    # Check for invite metadata (admin-set permissions)
+        # TOTP reset
+        totp_secret, totp_base32, totp_uri = setup_totp(username)
+        existing_user.auth_type = AuthType.TOTP
+        existing_user.auth_credential = totp_secret
+        if recovery_email:
+            existing_user.recovery_email = recovery_email
+        if recovery_phone:
+            existing_user.recovery_phone = recovery_phone
+        existing_user.recovery_enabled = recovery_enabled
+        existing_user.save(db)
+        obj.consume(db)
+
+        backup_repo = BackupCodeRepository(db)
+        backup_codes = backup_repo.create_codes_for_user(existing_user.id)
+
+        response_data = {
+            "success": True,
+            "username": username,
+            "totp_secret": totp_base32,
+            "totp_uri": totp_uri,
+            "backup_codes": backup_codes,
+            "recovery_enabled": recovery_enabled,
+            "message": (
+                "Your credentials have been reset! Set up your authenticator app"
+                " using the QR code or manual entry, then log in with your"
+                " 6-digit code."
+            ),
+            "warning": (
+                "IMPORTANT: Save your backup codes in a safe place! These are"
+                " your ONLY way to recover your account if you lose your"
+                " authenticator device."
+            ),
+        }
+
+        try:
+            qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
+            response_data["totp_qr"] = base64.b64encode(qr_png).decode("ascii")
+        except ImportError:
+            pass
+
+        return jsonify(response_data)
+
+    # New user flow (access_request)
     import json as json_module
 
+    request_repo = AccessRequestRepository(db)
+    access_req = obj
     can_download = True
     if access_req.backup_codes_json:
         try:
@@ -1370,7 +1504,6 @@ def claim_credentials():
             pass
 
     if auth_method == "magic_link":
-        # Magic link: create user with no credential, email is required
         new_user = User(
             username=username,
             auth_type=AuthType.MAGIC_LINK,
@@ -1383,11 +1516,8 @@ def claim_credentials():
         )
         new_user.save(db)
 
-        # Generate backup codes
         backup_repo = BackupCodeRepository(db)
         backup_codes = backup_repo.create_codes_for_user(new_user.id)
-
-        # Mark as claimed
         request_repo.mark_credentials_claimed(access_req.id)
 
         return jsonify(
@@ -1409,8 +1539,7 @@ def claim_credentials():
             }
         )
 
-    # Default: TOTP flow
-    # Create TOTP credentials and user account
+    # TOTP flow
     totp_secret, totp_base32, totp_uri = setup_totp(username)
 
     new_user = User(
@@ -1425,14 +1554,10 @@ def claim_credentials():
     )
     new_user.save(db)
 
-    # Generate backup codes
     backup_repo = BackupCodeRepository(db)
     backup_codes = backup_repo.create_codes_for_user(new_user.id)
-
-    # Mark as claimed
     request_repo.mark_credentials_claimed(access_req.id)
 
-    # Generate QR code (optional - gracefully degrade if qrcode not installed)
     response_data = {
         "success": True,
         "username": username,
@@ -1456,7 +1581,7 @@ def claim_credentials():
         qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
         response_data["totp_qr"] = base64.b64encode(qr_png).decode("ascii")
     except ImportError:
-        pass  # QR code generation unavailable; user can enter secret manually
+        pass
 
     return jsonify(response_data)
 
@@ -1465,6 +1590,8 @@ def claim_credentials():
 def claim_webauthn_begin():
     """
     Start WebAuthn registration for claim flow.
+
+    Supports both new user registration and existing user credential resets.
 
     Request body:
         {
@@ -1496,41 +1623,9 @@ def claim_webauthn_begin():
     if auth_type not in ("passkey", "fido2"):
         return jsonify({"error": "Invalid auth type. Use 'passkey' or 'fido2'."}), 400
 
-    # Remove dashes from token if formatted
-    clean_token = claim_token.replace("-", "")
-
-    db = get_auth_db()
-    request_repo = AccessRequestRepository(db)
-    user_repo = UserRepository(db)
-
-    # Hash the token for lookup
-    claim_token_hash = hash_token(clean_token)
-
-    # Find and validate the access request
-    access_req = request_repo.get_pending_by_username_and_token(
-        username, claim_token_hash
-    )
-    if not access_req:
-        return jsonify({"error": "Invalid username or claim token"}), 400
-
-    if access_req.status != AccessRequestStatus.APPROVED:
-        return jsonify({"error": "Request not approved"}), 400
-
-    if access_req.credentials_claimed or user_repo.username_exists(username):
-        return jsonify({"error": "Credentials already claimed"}), 400
-
-    if access_req.is_claim_expired():
-        return (
-            jsonify(
-                {
-                    "error": (
-                        "This invitation has expired. Please ask the admin"
-                        " to send a new one."
-                    )
-                }
-            ),
-            400,
-        )
+    mode, obj, existing_user, error = _resolve_claim_token(username, claim_token)
+    if error:
+        return error
 
     # Get WebAuthn configuration
     rp_id, rp_name, _ = get_webauthn_config()
@@ -1558,6 +1653,8 @@ def claim_webauthn_begin():
 def claim_webauthn_complete():
     """
     Complete WebAuthn registration for claim flow.
+
+    Supports both new user registration and existing user credential resets.
 
     Request body:
         {
@@ -1608,41 +1705,11 @@ def claim_webauthn_complete():
     if auth_type not in ("passkey", "fido2"):
         return jsonify({"error": "Invalid auth type"}), 400
 
-    # Remove dashes from token if formatted
-    clean_token = claim_token.replace("-", "")
+    mode, obj, existing_user, error = _resolve_claim_token(username, claim_token)
+    if error:
+        return error
 
     db = get_auth_db()
-    request_repo = AccessRequestRepository(db)
-    user_repo = UserRepository(db)
-
-    # Hash the token for lookup
-    claim_token_hash = hash_token(clean_token)
-
-    # Find and validate the access request
-    access_req = request_repo.get_pending_by_username_and_token(
-        username, claim_token_hash
-    )
-    if not access_req:
-        return jsonify({"error": "Invalid username or claim token"}), 400
-
-    if access_req.status != AccessRequestStatus.APPROVED:
-        return jsonify({"error": "Request not approved"}), 400
-
-    if access_req.credentials_claimed or user_repo.username_exists(username):
-        return jsonify({"error": "Credentials already claimed"}), 400
-
-    if access_req.is_claim_expired():
-        return (
-            jsonify(
-                {
-                    "error": (
-                        "This invitation has expired. Please ask the admin"
-                        " to send a new one."
-                    )
-                }
-            ),
-            400,
-        )
 
     # Get WebAuthn configuration
     rp_id, _, origin = get_webauthn_config()
@@ -1669,54 +1736,89 @@ def claim_webauthn_complete():
     if webauthn_cred is None:
         return jsonify({"error": "WebAuthn verification failed"}), 400
 
-    # Check for invite metadata (admin-set permissions)
-    can_download = True
-    if access_req.backup_codes_json:
-        try:
-            invite_meta = json.loads(access_req.backup_codes_json)
-            if isinstance(invite_meta, dict) and invite_meta.get("invited"):
-                can_download = invite_meta.get("can_download", True)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    if mode == "credential_reset":
+        # Update existing user with new WebAuthn credential
+        existing_user.auth_type = (
+            AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2
+        )
+        existing_user.auth_credential = webauthn_cred.to_json().encode("utf-8")
+        if recovery_email:
+            existing_user.recovery_email = recovery_email
+        if recovery_phone:
+            existing_user.recovery_phone = recovery_phone
+        existing_user.recovery_enabled = recovery_enabled
+        existing_user.save(db)
+        obj.consume(db)
 
-    # Create user with WebAuthn credential
-    new_user = User(
-        username=username,
-        auth_type=AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2,
-        auth_credential=webauthn_cred.to_json().encode("utf-8"),
-        can_download=can_download,
-        is_admin=False,
-        recovery_email=recovery_email,
-        recovery_phone=recovery_phone,
-        recovery_enabled=recovery_enabled,
-    )
-    new_user.save(db)
+        backup_repo = BackupCodeRepository(db)
+        backup_codes = backup_repo.create_codes_for_user(existing_user.id)
 
-    # Generate backup codes
-    backup_repo = BackupCodeRepository(db)
-    backup_codes = backup_repo.create_codes_for_user(new_user.id)
+        # Create session so user is logged in immediately
+        session, token = Session.create_for_user(
+            db,
+            existing_user.id,
+            user_agent=request.headers.get("User-Agent"),
+            ip_address=request.remote_addr,
+        )
+        existing_user.update_last_login(db)
 
-    # Mark as claimed
-    request_repo.mark_credentials_claimed(access_req.id)
+        response_data = {
+            "success": True,
+            "username": username,
+            "user_id": existing_user.id,
+            "backup_codes": backup_codes,
+            "recovery_enabled": recovery_enabled,
+            "message": (
+                f"Credentials reset successfully with {auth_type}"
+                " authentication."
+            ),
+        }
+    else:
+        # New user flow
+        access_req = obj
+        request_repo = AccessRequestRepository(db)
 
-    # Create session so user is logged in immediately after claiming
-    session, token = Session.create_for_user(
-        db,
-        new_user.id,
-        user_agent=request.headers.get("User-Agent"),
-        ip_address=request.remote_addr,
-    )
-    new_user.update_last_login(db)
+        can_download = True
+        if access_req.backup_codes_json:
+            try:
+                invite_meta = json.loads(access_req.backup_codes_json)
+                if isinstance(invite_meta, dict) and invite_meta.get("invited"):
+                    can_download = invite_meta.get("can_download", True)
+            except (json.JSONDecodeError, TypeError):
+                pass
 
-    # Build response
-    response_data = {
-        "success": True,
-        "username": username,
-        "user_id": new_user.id,
-        "backup_codes": backup_codes,
-        "recovery_enabled": recovery_enabled,
-        "message": f"Account created successfully with {auth_type} authentication.",
-    }
+        new_user = User(
+            username=username,
+            auth_type=AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2,
+            auth_credential=webauthn_cred.to_json().encode("utf-8"),
+            can_download=can_download,
+            is_admin=False,
+            recovery_email=recovery_email,
+            recovery_phone=recovery_phone,
+            recovery_enabled=recovery_enabled,
+        )
+        new_user.save(db)
+
+        backup_repo = BackupCodeRepository(db)
+        backup_codes = backup_repo.create_codes_for_user(new_user.id)
+        request_repo.mark_credentials_claimed(access_req.id)
+
+        session, token = Session.create_for_user(
+            db,
+            new_user.id,
+            user_agent=request.headers.get("User-Agent"),
+            ip_address=request.remote_addr,
+        )
+        new_user.update_last_login(db)
+
+        response_data = {
+            "success": True,
+            "username": username,
+            "user_id": new_user.id,
+            "backup_codes": backup_codes,
+            "recovery_enabled": recovery_enabled,
+            "message": f"Account created successfully with {auth_type} authentication.",
+        }
 
     if recovery_enabled:
         response_data["warning"] = (
@@ -4149,8 +4251,9 @@ def create_user():
         truncated = raw_token[:16]
         formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
 
-        # Build claim URL
-        claim_url = f"/auth/register/claim?token={formatted_token}"
+        # Build claim URL (frontend page, not API endpoint)
+        encoded_name = urllib.parse.quote(username)
+        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
 
         setup_data = {
             "claim_token": formatted_token,
@@ -5326,7 +5429,8 @@ def admin_change_auth_method(user_id: int):
         )
         truncated = raw_token[:16]
         formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        claim_url = f"/auth/register/claim?token={formatted_token}"
+        encoded_name = urllib.parse.quote(target_user.username)
+        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
 
         setup_data = {
             "claim_token": formatted_token,
@@ -5400,7 +5504,8 @@ def admin_reset_credentials(user_id: int):
         )
         truncated = raw_token[:16]
         formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        claim_url = f"/auth/register/claim?token={formatted_token}"
+        encoded_name = urllib.parse.quote(target_user.username)
+        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
@@ -5793,7 +5898,8 @@ def account_switch_auth_method():
         )
         truncated = raw_token[:16]
         formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        claim_url = f"/auth/register/claim?token={formatted_token}"
+        encoded_name = urllib.parse.quote(user.username)
+        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
 
         setup_data = {
             "claim_token": formatted_token,
@@ -5871,7 +5977,8 @@ def account_reset_credentials():
         )
         truncated = raw_token[:16]
         formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        claim_url = f"/auth/register/claim?token={formatted_token}"
+        encoded_name = urllib.parse.quote(current_user.username)
+        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,

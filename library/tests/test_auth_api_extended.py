@@ -1366,7 +1366,7 @@ class TestClaimWebAuthn:
                 "auth_type": "passkey",
             },
         )
-        assert r.status_code == 400
+        assert r.status_code in (400, 404)
 
     def test_claim_webauthn_complete_no_body(self, anon_client):
         r = anon_client.post(

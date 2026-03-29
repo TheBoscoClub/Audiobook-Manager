@@ -574,7 +574,7 @@ class TestClaimWebAuthnFlows:
             },
         )
         assert r.status_code == 400
-        assert "not approved" in r.get_json()["error"].lower()
+        assert "pending" in r.get_json()["error"].lower()
 
     def test_claim_webauthn_begin_already_claimed(self, auth_app, auth_db):
         """WebAuthn begin for already claimed returns error."""
