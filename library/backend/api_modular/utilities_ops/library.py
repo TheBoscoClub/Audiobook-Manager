@@ -121,12 +121,17 @@ def init_library_routes(db_path, project_root):
 
         def run_rescan():
             import re
+            import time as _time
 
             tracker.start_operation(operation_id)
             scanner_path = project_root / "scanner" / "scan_audiobooks.py"
 
             # Strip ANSI escape codes before regex matching
             ansi_escape = re.compile(r"\033\[[0-9;]*m")
+
+            # Overall timeout: 2 hours for large libraries (437GB+)
+            SCAN_TIMEOUT_SECS = 7200
+            start_time = _time.monotonic()
 
             try:
                 tracker.update_progress(operation_id, 5, "Starting scanner...")
@@ -151,6 +156,16 @@ def init_library_routes(db_path, project_root):
                 # Scanner uses \r for in-place terminal updates, not \n
                 buffer = ""
                 while True:
+                    # Check overall timeout in the read loop (not just process.wait)
+                    elapsed = _time.monotonic() - start_time
+                    if elapsed > SCAN_TIMEOUT_SECS:
+                        process.kill()
+                        tracker.fail_operation(
+                            operation_id,
+                            f"Scan timed out after {int(elapsed // 60)} minutes",
+                        )
+                        return
+
                     char = process.stdout.read(1)
                     if not char:  # EOF
                         if buffer:
@@ -196,7 +211,7 @@ def init_library_routes(db_path, project_root):
                     else:
                         buffer += char
 
-                process.wait(timeout=1800)
+                process.wait(timeout=60)
                 stderr = process.stderr.read()
 
                 output = "".join(output_lines)
@@ -214,7 +229,9 @@ def init_library_routes(db_path, project_root):
 
             except subprocess.TimeoutExpired:
                 process.kill()
-                tracker.fail_operation(operation_id, "Scan timed out after 30 minutes")
+                tracker.fail_operation(
+                    operation_id, "Scanner process did not exit cleanly"
+                )
             except Exception as e:
                 tracker.fail_operation(operation_id, str(e))
 
