@@ -6,9 +6,11 @@
 ## Collections System Overhaul
 
 ### Core Change
+
 Replace hardcoded `COLLECTION_TREE` in `collections.py` with a dynamic system that builds the collection hierarchy from enrichment data. Clean break — no fallback to old pattern-matching.
 
 ### Approach: Hybrid (Option C)
+
 Fixed top-level categories, auto-generated subcategories from enrichment data.
 
 ### Top-Level Categories (Fixed)
@@ -25,6 +27,7 @@ Fixed top-level categories, auto-generated subcategories from enrichment data.
 | **Lectures** | Fixed (special) | `content_type` filter |
 
 ### Series Collection Behavior
+
 - Single Series collection (not split by content type)
 - Each series entry has a **content type badge** (Audiobook, Lecture, Podcast)
 - Shows **"X of Y books"** ownership count (e.g., "3 of 8 books")
@@ -33,11 +36,13 @@ Fixed top-level categories, auto-generated subcategories from enrichment data.
 - Books within a series sorted by `series_sequence` (first to last)
 
 ### Eras and Topics: Dual Role
+
 - Exist as **top-level categories** (browsable collections)
 - Also available as **cross-cutting filters** within any other collection
 - e.g., browsing Fiction > Mystery, you can filter by "19th Century" or "war"
 
 ### Migration Strategy: Clean Break (Option A)
+
 - Delete entire `COLLECTION_TREE` and all hardcoded genre patterns
 - Rebuild collections entirely from enrichment data
 - Books without enrichment data are invisible in collections (intentional)
@@ -46,14 +51,17 @@ Fixed top-level categories, auto-generated subcategories from enrichment data.
 ## User Preferences System
 
 ### Data Model: Key-Value Table
+
 ```sql
 user_preferences (user_id, preference_key, preference_value)
 ```
+
 Server-side only — requires authentication. Localhost users get defaults.
 
 ### Preference Categories
 
 #### Browsing & Display
+
 - **Sort order** — persists last-selected sort between visits
 - **View mode** — grid vs list
 - **Items per page** — 20, 50, 100
@@ -61,11 +69,13 @@ Server-side only — requires authentication. Localhost users get defaults.
 - **Content filter** — hide adult content
 
 #### Playback
+
 - **Default playback speed** — 1x, 1.25x, 1.5x, 2x
 - **Sleep timer default** — off, 15min, 30min, 60min
 - **Auto-play next in series** — yes/no
 
 #### Accessibility
+
 - **Font size** — 14px / 16px / 18px / 20px (CSS custom properties, rem-based)
 - **Contrast** — text/background contrast level
 - **Background opacity** — dark panel opacity
@@ -75,16 +85,19 @@ Server-side only — requires authentication. Localhost users get defaults.
 - **Foreground color temperature** — warm gold (default) vs cooler cream/white
 
 ### Preferences UI (Option C: Split)
+
 - **Gear icon in header** — quick-access panel for accessibility settings (font size, contrast, opacity, etc.)
 - **Account page** — browsing and playback preferences
 
 ### Art Deco Theme
+
 - Non-negotiable — the Art Deco aesthetic is the app's identity
 - Font family choices NOT offered (core to identity)
 - Color scheme overhaul NOT offered
 - Accessibility options work WITHIN the Art Deco framework
 
 ## Documentation Requirements
+
 - ALL changes documented in ARCHITECTURE.md, README.md, CHANGELOG.md, CSS-CUSTOMIZATION.md
 - In-app help page updated
 - Tutorial updated — accessibility options emphasized early in onboarding flow

@@ -1422,7 +1422,7 @@ CFEOF
         echo -e "${BLUE}Initializing database...${NC}"
         local schema_file="${APP_DIR}/library/backend/schema.sql"
         if [[ -f "$schema_file" ]]; then
-            sudo -u audiobooks sqlite3 "$db_file" <"$schema_file"
+            cat "$schema_file" | sudo -u audiobooks sqlite3 "$db_file"
             echo "  Created: $db_file"
         else
             echo -e "${YELLOW}  Warning: schema.sql not found, skipping database initialization${NC}"

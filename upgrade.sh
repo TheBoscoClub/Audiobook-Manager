@@ -604,7 +604,7 @@ apply_schema_migrations() {
         if [[ "$needs_migration" == "0" ]]; then
             echo -e "${BLUE}Applying schema migrations...${NC}"
             if [[ -n "$use_sudo" ]]; then
-                sudo sqlite3 "$db_path" <"$migration_sql"
+                cat "$migration_sql" | sudo sqlite3 "$db_path"
             else
                 sqlite3 "$db_path" <"$migration_sql"
             fi
