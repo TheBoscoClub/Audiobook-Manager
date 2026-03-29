@@ -281,6 +281,13 @@
     flex-wrap: wrap;
 }
 
+.filter-actions {
+    flex-basis: 100%;
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+}
+
 /* ============================================
    Library Tabs (Browse All / My Library)
    ============================================ */

@@ -52,39 +52,16 @@ class TestHiddenAttributeFix:
 
 
 class TestHeaderStructure:
-    """Test header HTML structure with left/right nav groups."""
+    """Test header HTML structure (v8: shell header is canonical, hero is clean)."""
 
-    def test_header_nav_left_exists(self):
-        """index.html must have a header-nav-left container."""
+    def test_index_hero_has_no_nav_buttons(self):
+        """v8: index.html hero should only have title and stats, no nav buttons."""
         content = (WEB_DIR / "index.html").read_text()
-        assert "header-nav-left" in content, (
-            "index.html should have header-nav-left class"
+        assert "header-nav-left" not in content, (
+            "v8: hero nav groups removed — auth handled by shell header"
         )
-
-    def test_header_nav_right_exists(self):
-        """index.html must have a header-nav-right container."""
-        content = (WEB_DIR / "index.html").read_text()
-        assert "header-nav-right" in content, (
-            "index.html should have header-nav-right class"
-        )
-
-    def test_help_link_in_left_nav(self):
-        """Help link must be inside the left nav section."""
-        content = (WEB_DIR / "index.html").read_text()
-        left_start = content.index("header-nav-left")
-        right_start = content.index("header-nav-right")
-        left_section = content[left_start:right_start]
-        assert 'href="help.html"' in left_section, (
-            "Help link should be inside header-nav-left"
-        )
-
-    def test_backoffice_in_right_nav(self):
-        """Back Office link must be inside the right nav section."""
-        content = (WEB_DIR / "index.html").read_text()
-        right_start = content.index("header-nav-right")
-        right_section = content[right_start : right_start + 1600]
-        assert "admin-backoffice-link" in right_section, (
-            "Back Office link should be inside header-nav-right"
+        assert "header-nav-right" not in content, (
+            "v8: hero nav groups removed — auth handled by shell header"
         )
 
     def test_account_button_in_shell_header(self):
@@ -96,22 +73,18 @@ class TestHeaderStructure:
             "Account button should be inside shell-header"
         )
 
-    def test_account_button_in_index_header(self):
-        """Account button must be in index.html right nav (v7.4.2+)."""
+    def test_account_button_not_in_index(self):
+        """v8: account button only in shell header, not duplicated in index.html."""
         content = (WEB_DIR / "index.html").read_text()
-        right_start = content.index("header-nav-right")
-        right_section = content[right_start : right_start + 1600]
-        assert "my-account-btn" in right_section, (
-            "Account button should be inside header-nav-right in index.html"
+        assert 'id="my-account-btn"' not in content, (
+            "v8: account button should only be in shell.html, not index.html"
         )
 
-    def test_login_link_in_right_nav(self):
-        """Login link must be inside the right nav section."""
-        content = (WEB_DIR / "index.html").read_text()
-        right_start = content.index("header-nav-right")
-        right_section = content[right_start : right_start + 800]
-        assert "login-link" in right_section, (
-            "Login link should be inside header-nav-right"
+    def test_shell_header_has_accessibility_btn(self):
+        """Shell header should have accessibility panel toggle."""
+        content = (WEB_DIR / "shell.html").read_text()
+        assert "accessibility-btn" in content, (
+            "Shell header should have accessibility button"
         )
 
 

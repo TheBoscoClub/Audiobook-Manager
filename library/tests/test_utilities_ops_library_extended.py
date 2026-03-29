@@ -15,13 +15,22 @@ MODULE = "backend.api_modular.utilities_ops.library"
 
 
 def _make_mock_popen_charread(chars, returncode=0, stderr_text=""):
-    """Create a mock Popen whose stdout.read(1) yields one char at a time.
+    """Create a mock Popen whose stdout supports select() + chunk reading.
 
-    Used for rescan and download endpoints that read char-by-char.
+    Used for rescan endpoints that use select.select() and read(4096).
+    Returns entire content on first read, then empty string (EOF).
     """
     mock_proc = MagicMock()
-    char_iter = iter(chars)
-    mock_proc.stdout.read = lambda n: next(char_iter, "")
+    read_calls = [0]
+
+    def _read(n):
+        if read_calls[0] == 0:
+            read_calls[0] = 1
+            return chars
+        return ""
+
+    mock_proc.stdout.read = _read
+    mock_proc.stdout.fileno.return_value = 99  # fake fd
     mock_proc.stderr = MagicMock()
     mock_proc.stderr.read.return_value = stderr_text
     mock_proc.returncode = returncode
@@ -150,13 +159,19 @@ class TestAddNewBackgroundThread:
         assert data["message"] == "Add operation started"
 
 
+def _mock_select_ready(*_args, **_kwargs):
+    """Mock select.select that always says fd is ready."""
+    return ([True], [], [])
+
+
 class TestRescanLibraryWorkerThread:
     """Test the run_rescan() background thread function."""
 
+    @patch("select.select", side_effect=_mock_select_ready)
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_success_with_progress(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Rescan parses percent progress from scanner output."""
         mock_tracker = MagicMock()
@@ -177,10 +192,11 @@ class TestRescanLibraryWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1800
 
+    @patch("select.select", side_effect=_mock_select_ready)
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_strips_ansi_codes(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """ANSI escape codes are stripped before regex matching."""
         mock_tracker = MagicMock()
@@ -199,9 +215,12 @@ class TestRescanLibraryWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1000
 
+    @patch("select.select", side_effect=_mock_select_ready)
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_rescan_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_rescan_failure(
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
+    ):
         """Non-zero return code calls fail_operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -220,10 +239,11 @@ class TestRescanLibraryWorkerThread:
         mock_tracker.fail_operation.assert_called_once()
         assert "Scanner crashed" in mock_tracker.fail_operation.call_args[0][1]
 
+    @patch("select.select", side_effect=_mock_select_ready)
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_empty_stderr_fallback(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Empty stderr on failure uses fallback message."""
         mock_tracker = MagicMock()
@@ -240,9 +260,12 @@ class TestRescanLibraryWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Scanner failed" in mock_tracker.fail_operation.call_args[0][1]
 
+    @patch("select.select", side_effect=_mock_select_ready)
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_rescan_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_rescan_timeout(
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
+    ):
         """Timeout kills process and fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -282,10 +305,11 @@ class TestRescanLibraryWorkerThread:
         mock_tracker.fail_operation.assert_called_once()
         assert "scanner not found" in mock_tracker.fail_operation.call_args[0][1]
 
+    @patch("select.select", side_effect=_mock_select_ready)
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_output_truncation(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Output longer than 2000 chars is truncated."""
         mock_tracker = MagicMock()
@@ -304,10 +328,11 @@ class TestRescanLibraryWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
+    @patch("select.select", side_effect=_mock_select_ready)
     @patch(f"{MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_total_files_parsing_error(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Malformed 'Total files:' line handled gracefully."""
         mock_tracker = MagicMock()

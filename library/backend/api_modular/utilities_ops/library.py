@@ -121,6 +121,7 @@ def init_library_routes(db_path, project_root):
 
         def run_rescan():
             import re
+            import select
             import time as _time
 
             tracker.start_operation(operation_id)
@@ -152,11 +153,37 @@ def init_library_routes(db_path, project_root):
                 # Pattern to extract progress: "99% | 1821/1828"
                 progress_pattern = re.compile(r"(\d+)%\s*\|\s*(\d+)/(\d+)")
 
-                # Read stdout char-by-char to handle \r progress updates
-                # Scanner uses \r for in-place terminal updates, not \n
+                def _parse_buffer(buf):
+                    """Parse a line/buffer for progress info."""
+                    nonlocal files_found, last_progress
+                    output_lines.append(buf)
+                    clean = ansi_escape.sub("", buf)
+                    match = progress_pattern.search(clean)
+                    if match:
+                        percent = int(match.group(1))
+                        current = int(match.group(2))
+                        total = int(match.group(3))
+                        files_found = total
+                        if percent > last_progress:
+                            scaled = 5 + int(percent * 0.9)
+                            tracker.update_progress(
+                                operation_id,
+                                scaled,
+                                f"Scanning: {current}/{total} files ({percent}%)",
+                            )
+                            last_progress = percent
+                    if "Total files:" in buf or "Total audiobooks:" in buf:
+                        try:
+                            files_found = int(buf.split(":")[1].strip())
+                        except (ValueError, IndexError):
+                            pass
+
+                # Read stdout in chunks using select() to avoid blocking the
+                # gevent event loop (single-worker gunicorn). Character-by-character
+                # read(1) starves other greenlets and causes poll timeouts.
                 buffer = ""
+                fd = process.stdout.fileno()
                 while True:
-                    # Check overall timeout in the read loop (not just process.wait)
                     elapsed = _time.monotonic() - start_time
                     if elapsed > SCAN_TIMEOUT_SECS:
                         process.kill()
@@ -166,50 +193,25 @@ def init_library_routes(db_path, project_root):
                         )
                         return
 
-                    char = process.stdout.read(1)
-                    if not char:  # EOF
+                    # Wait up to 0.5s for data — yields to gevent between checks
+                    ready, _, _ = select.select([fd], [], [], 0.5)
+                    if not ready:
+                        continue
+
+                    chunk = process.stdout.read(4096)
+                    if not chunk:  # EOF
                         if buffer:
-                            output_lines.append(buffer)
+                            _parse_buffer(buffer)
                         break
 
-                    if char in ("\r", "\n"):
-                        if buffer:
-                            output_lines.append(buffer)
-
-                            # Strip ANSI codes before parsing
-                            clean = ansi_escape.sub("", buffer)
-                            match = progress_pattern.search(clean)
-                            if match:
-                                percent = int(match.group(1))
-                                current = int(match.group(2))
-                                total = int(match.group(3))
-                                files_found = total
-
-                                # Only update if progress changed (avoid spam)
-                                if percent > last_progress:
-                                    # Scale to 5-95% range
-                                    scaled = 5 + int(percent * 0.9)
-                                    tracker.update_progress(
-                                        operation_id,
-                                        scaled,
-                                        f"Scanning: {current}/{total} files"
-                                        f" ({percent}%)",
-                                    )
-                                    last_progress = percent
-
-                            # Check for completion message
-                            if (
-                                "Total files:" in buffer
-                                or "Total audiobooks:" in buffer
-                            ):
-                                try:
-                                    files_found = int(buffer.split(":")[1].strip())
-                                except (ValueError, IndexError):
-                                    pass
-
-                            buffer = ""
-                    else:
-                        buffer += char
+                    # Split chunk on \r and \n to extract progress lines
+                    for ch in chunk:
+                        if ch in ("\r", "\n"):
+                            if buffer:
+                                _parse_buffer(buffer)
+                                buffer = ""
+                        else:
+                            buffer += ch
 
                 process.wait(timeout=60)
                 stderr = process.stderr.read()
