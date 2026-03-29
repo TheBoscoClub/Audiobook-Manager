@@ -35,54 +35,52 @@
 <body>
     <!-- Shell header with account access -->
     <div id="shell-header">
-        <button id="my-account-btn" class="header-btn account-btn" title="My Account settings">
-            <span class="account-icon" id="account-initial">?</span>
-            <span id="account-username">Account</span>
-        </button>
-        <span id="instance-badge" class="instance-badge" style="display:none"></span>
-        <!-- Admin suggestion alert — toggles suggestion drawer -->
-        <button id="suggestion-alert" class="suggestion-alert" hidden title="New user suggestions">
-            <span class="alert-icon">&#9993;</span>
-            <span id="suggestion-badge-count" class="alert-count">0</span>
-        </button>
-        <!-- Accessibility quick-panel toggle -->
-        <button id="accessibility-btn" class="header-btn a11y-btn" title="Accessibility &amp; display settings">
-            <span class="a11y-icon">
-                <svg viewBox="0 0 30 22" width="22" height="16" aria-hidden="true">
-                    <!-- Left lens (half-frame) -->
-                    <path d="M3 10 Q3 3 8 3 L12 3 Q14 3 14 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                    <!-- Right lens (half-frame) -->
-                    <path d="M16 10 Q16 3 18 3 L22 3 Q27 3 27 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                    <!-- Bridge -->
-                    <path d="M14 5 Q15 1.5 16 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                    <!-- Left temple arm -->
-                    <line x1="3" y1="5" x2="0" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <!-- Right temple arm -->
-                    <line x1="27" y1="5" x2="30" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <!-- Chain hanging from temples -->
-                    <path d="M0 4 Q5 20 15 18 Q25 16 30 4" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-dasharray="2,2" opacity="0.6"/>
-                </svg>
-            </span>
-            <span class="a11y-label">Display</span>
-        </button>
-        <span class="header-title">Audiobook Library</span>
-        <!-- Help link (always visible, targets iframe) -->
-        <a href="help.html" target="content-frame" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
-            <span class="help-icon">?</span>
-            <span class="help-label">Help</span>
-        </a>
-        <!-- Back Office link (visible to all, actionable by admins only, targets iframe) -->
-        <a href="utilities.html" target="content-frame" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
-            <span class="backoffice-icon">
-                <svg viewBox="0 0 24 32" width="14" height="18" aria-hidden="true">
-                    <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
-                    <rect x="9" y="16" width="6" height="12" rx="1" fill="currentColor"/>
-                    <ellipse cx="12" cy="10" rx="3" ry="3.5" fill="var(--deco-charcoal, #161616)"/>
-                    <rect x="10.5" y="12" width="3" height="5" fill="var(--deco-charcoal, #161616)"/>
-                </svg>
-            </span>
-            <span class="backoffice-label">Back Office</span>
-        </a>
+        <!-- Left group -->
+        <div class="header-group-left">
+            <button id="my-account-btn" class="header-btn account-btn" title="My Account settings">
+                <span class="account-icon" id="account-initial">?</span>
+                <span id="account-username">Account</span>
+            </button>
+            <span id="instance-badge" class="instance-badge" style="display:none"></span>
+            <!-- Accessibility quick-panel toggle -->
+            <button id="accessibility-btn" class="header-btn a11y-btn" title="Accessibility &amp; display settings">
+                <span class="a11y-icon">
+                    <svg viewBox="0 0 30 22" width="22" height="16" aria-hidden="true">
+                        <!-- Left lens (half-frame) -->
+                        <path d="M3 10 Q3 3 8 3 L12 3 Q14 3 14 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <!-- Right lens (half-frame) -->
+                        <path d="M16 10 Q16 3 18 3 L22 3 Q27 3 27 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <!-- Bridge -->
+                        <path d="M14 5 Q15 1.5 16 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <!-- Left temple arm -->
+                        <line x1="3" y1="5" x2="0" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <!-- Right temple arm -->
+                        <line x1="27" y1="5" x2="30" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <!-- Chain hanging from temples -->
+                        <path d="M0 4 Q5 20 15 18 Q25 16 30 4" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-dasharray="2,2" opacity="0.6"/>
+                    </svg>
+                </span>
+                <span class="a11y-label">Display</span>
+            </button>
+        </div>
+        <!-- Right group -->
+        <div class="header-group-right">
+            <a href="help.html" target="content-frame" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
+                <span class="help-icon">?</span>
+                <span class="help-label">Help</span>
+            </a>
+            <a href="utilities.html" target="content-frame" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
+                <span class="backoffice-icon">
+                    <svg viewBox="0 0 24 32" width="14" height="18" aria-hidden="true">
+                        <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <rect x="9" y="16" width="6" height="12" rx="1" fill="currentColor"/>
+                        <ellipse cx="12" cy="10" rx="3" ry="3.5" fill="var(--deco-charcoal, #161616)"/>
+                        <rect x="10.5" y="12" width="3" height="5" fill="var(--deco-charcoal, #161616)"/>
+                    </svg>
+                </span>
+                <span class="backoffice-label">Back Office</span>
+            </a>
+        </div>
     </div>
 
     <!-- Accessibility Quick Panel -->
@@ -143,20 +141,6 @@
                 <button id="a11y-reset-btn" class="btn btn-secondary" title="Reset all accessibility settings to defaults">Reset Defaults</button>
             </div>
         </div>
-    </div>
-
-    <!-- Admin Suggestions Drawer -->
-    <div id="suggestion-drawer" class="suggestion-drawer" hidden>
-        <div class="suggestion-drawer-header">
-            <h3>User Suggestions</h3>
-            <div class="suggestion-drawer-tabs">
-                <button class="sdtab active" data-filter="unread" title="Show unread suggestions">Unread</button>
-                <button class="sdtab" data-filter="read" title="Show read suggestions">Read</button>
-                <button class="sdtab" data-filter="all" title="Show all suggestions">All</button>
-            </div>
-            <button id="suggestion-drawer-close" class="drawer-close-btn" title="Close">&times;</button>
-        </div>
-        <div id="suggestion-drawer-list" class="suggestion-drawer-list"></div>
     </div>
 
     <!-- Content iframe: loads all authenticated pages -->
@@ -342,6 +326,6 @@
     <script data-cfasync="false" src="js/shell.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/account.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/accessibility.js?v=1774616000"></script>
-    <script data-cfasync="false" src="js/suggestions-admin.js?v=1774616000"></script>
+    <!-- suggestions-admin.js moved to utilities.html (Back Office) -->
 </body>
 </html>
