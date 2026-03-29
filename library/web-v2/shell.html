@@ -50,12 +50,12 @@
             <span class="a11y-icon">&#9881;</span>
         </button>
         <span class="header-title">Audiobook Library</span>
-        <!-- Help link (always visible) -->
-        <a href="help.html" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
+        <!-- Help link (always visible, targets iframe) -->
+        <a href="help.html" target="content-frame" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
             <span class="help-icon">?</span>
         </a>
-        <!-- Back Office link (visible to all, actionable by admins only) -->
-        <a href="utilities.html" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
+        <!-- Back Office link (visible to all, actionable by admins only, targets iframe) -->
+        <a href="utilities.html" target="content-frame" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
             <span class="backoffice-icon">
                 <svg viewBox="0 0 24 32" width="14" height="18" aria-hidden="true">
                     <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -143,7 +143,7 @@
     </div>
 
     <!-- Content iframe: loads all authenticated pages -->
-    <iframe id="content-frame" src="index.html?v=1774616000" title="Library content"></iframe>
+    <iframe id="content-frame" name="content-frame" src="index.html?v=1774616000" title="Library content"></iframe>
 
     <!-- Persistent player bar (hidden until a book is played) -->
     <div id="shell-player" hidden>
