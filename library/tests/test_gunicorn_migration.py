@@ -46,7 +46,11 @@ def test_systemd_uses_gunicorn():
     assert "gunicorn" in content, "Service should use gunicorn"
     assert "-k gevent" in content, "Service should use standard gevent worker"
     # Check ExecStart line specifically — comments may mention GeventWebSocketWorker as a warning
-    exec_lines = [l for l in content.splitlines() if l.strip().startswith(("ExecStart=", "-k "))]
+    exec_lines = [
+        line
+        for line in content.splitlines()
+        if line.strip().startswith(("ExecStart=", "-k "))
+    ]
     exec_text = " ".join(exec_lines)
     assert "GeventWebSocketWorker" not in exec_text, (
         "ExecStart must NOT use GeventWebSocketWorker — it double-handles WebSocket "
