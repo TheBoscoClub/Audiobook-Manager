@@ -405,7 +405,8 @@ library/auth/
 | `user_positions` | Per-user playback | user_id + audiobook_id composite PK, position_ms |
 | `user_listening_history` | Per-user listening sessions | user_id, audiobook_id, started_at, ended_at, duration_listened_ms |
 | `user_downloads` | Per-user download tracking | user_id, audiobook_id, downloaded_at, file_format |
-| `user_preferences` | Per-user preferences | user_id PK, new_books_seen_at |
+| `user_preferences` | Per-user legacy preferences | user_id PK, new_books_seen_at (marquee tracking) |
+| `user_settings` | Per-user key-value settings (v8+) | user_id + setting_key composite PK, setting_value TEXT |
 | `access_requests` | Registration queue | username, status, claim_token_hash, credentials_claimed |
 | `pending_registrations` | Verification tokens | username, token_hash, expires_at (15 min) |
 | `pending_recovery` | Magic link tokens | user_id, token_hash, expires_at, used_at |
@@ -616,7 +617,7 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 |-----------|--------|---------|
 | `auth_bp` | `/auth` | Authentication, registration, admin, `admin_or_localhost` decorator (v5.0+) |
 | `audiobooks_bp` | `/api` | Main listing, streaming, single book |
-| `collections_bp` | `/api` | Predefined genre-based collections |
+| `collections_bp` | `/api` | Dynamic collections from enrichment data: genres, narrators, decades, ratings (v8+) |
 | `editions_bp` | `/api` | Edition detection and grouping |
 | `duplicates_bp` | `/api` | Duplicate detection (hash/title) |
 | `supplements_bp` | `/api` | PDF, ebook companion files |
@@ -626,6 +627,7 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `grouped_bp` | `/api` | Grouped A-Z view by author or narrator (v7.0+) |
 | `admin_authors_bp` | `/api/admin` | Author/narrator rename, merge, reassign (v7.0+) |
 | `user_bp` | `/api/user` | Per-user state: history, downloads, library, new books (v6.3+) |
+| `preferences_bp` | `/api/user/preferences` | Key-value user preferences: sort, view, playback, accessibility settings (v8+) |
 | `admin_activity_bp` | `/api/admin` | Admin activity log and statistics (v6.3+) |
 | `user_mgmt_bp` | `/auth/admin` | Admin user management: create, edit roles, switch auth, delete, audit log (v7.4.1+) |
 | `account_bp` | `/auth/account` | Self-service: view profile, edit username/email, switch auth, reset credentials, delete account (v7.4.1+) |
@@ -861,12 +863,21 @@ CREATE TABLE user_downloads (
     file_format TEXT
 );
 
--- Per-user preferences
+-- Per-user preferences (legacy marquee tracking)
 CREATE TABLE user_preferences (
     user_id INTEGER PRIMARY KEY,
     new_books_seen_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Per-user key-value settings (v8+: sort, view mode, playback speed, accessibility)
+CREATE TABLE user_settings (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    setting_key TEXT NOT NULL,
+    setting_value TEXT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, setting_key)
 );
 
 -- User hidden books (soft-hide from My Library view, preserves all data)
@@ -944,9 +955,11 @@ Critical user management actions trigger notifications on two channels simultane
 
 Non-critical actions (email update, role change) are recorded in the audit log but do not trigger notifications.
 
-### Book Card UI (v7.1.3)
+### Book Card UI (v7.1.3+)
 
 Book cards display cover art with a progress bar for in-progress books. The Play button always resumes from the user's last saved position — there is no separate Resume button (removed in v7.1.3.3). The Play button tooltip shows the saved position (e.g., "Resume from 12:34").
+
+As of v8.0.0, card overlays also display **series name and book order** when the audiobook belongs to a series (e.g., "The Wheel of Time · Book 1").
 
 For complete position tracking documentation, see [Position Sync Guide](POSITION_SYNC.md).
 

@@ -196,6 +196,11 @@ Web-based audiobook library browser with:
 - **Self-service My Account** — authenticated users change their username, email, auth method, or credentials from the shell header without admin involvement (v7.4.1+)
 - **Audit logging** for all user management actions with paginated, filterable log in the Back Office (v7.4.1+)
 - **Admin notifications** — in-app badge and email alerts to all admins for critical account changes (v7.4.1+)
+- **Series metadata on library cards** — series name and book order number displayed on card overlays for series audiobooks (v8.0+)
+- **Dynamic collections** — auto-generated browsable groupings from enrichment data (genres, narrators, decades, ratings) via `/api/collections` (v8.0+)
+- **Per-user preferences** — key-value preference system persisting sort order, view mode, playback speed, and accessibility settings per user (v8.0+)
+- **Accessibility quick panel** — slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls (v8.0+)
+- **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
 
 ## Quick Start
 
