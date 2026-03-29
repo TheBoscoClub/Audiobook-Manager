@@ -1,0 +1,71 @@
+/* ============================================
+   Accessibility Consumer Rules
+   Applied inside iframe content pages.
+   Variables/classes are set by shell's accessibility.js.
+   ============================================ */
+
+:root {
+    --user-font-size: 16px;
+    --user-line-spacing: 1.5;
+    --user-bg-opacity: 1;
+}
+
+/* ── Font Size ─────────────────────────────── */
+body {
+    font-size: var(--user-font-size);
+}
+
+/* ── Line Spacing ──────────────────────────── */
+p, li, td, th, dd, dt, label, .book-card, .sidebar-content, .detail-row {
+    line-height: var(--user-line-spacing);
+}
+
+/* ── Panel Darkness (background opacity) ───── */
+.book-card,
+.sidebar,
+.modal-content,
+.detail-panel {
+    background-color: rgba(30, 30, 30, var(--user-bg-opacity));
+}
+
+/* ── Color Temperature ─────────────────────── */
+body.a11y-temp-warm {
+    filter: sepia(15%) saturate(110%);
+}
+
+body.a11y-temp-cool {
+    filter: saturate(90%) hue-rotate(10deg);
+}
+
+/* ── Contrast Levels ───────────────────────── */
+body.a11y-contrast-medium {
+    --parchment: #f5f0e6;
+    --gold: #e6c200;
+    filter: contrast(1.1);
+}
+
+body.a11y-contrast-high {
+    --parchment: #ffffff;
+    --gold: #ffd700;
+    filter: contrast(1.25);
+}
+
+/* ── High Contrast Mode ────────────────────── */
+body.a11y-high-contrast {
+    --parchment: #ffffff;
+    --gold: #ffd700;
+    --gold-dark: #daa520;
+}
+
+body.a11y-high-contrast .book-card,
+body.a11y-high-contrast .modal-content {
+    border-width: 2px;
+}
+
+/* ── Reduce Animations ─────────────────────── */
+body.a11y-reduce-motion,
+body.a11y-reduce-motion * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+}
