@@ -7,7 +7,6 @@ Handles SHA-256 hash generation and MD5 checksum operations for file integrity.
 import hashlib
 import os
 import re as regex
-import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -17,6 +16,7 @@ from operation_status import get_tracker
 
 from ..auth import admin_if_enabled
 from ..core import FlaskResponse
+from ._subprocess import run_with_progress
 
 utilities_ops_hashing_bp = Blueprint("utilities_ops_hashing", __name__)
 
@@ -52,103 +52,94 @@ def init_hashing_routes(project_root):
 
             hash_script = project_root / "scripts" / "generate_hashes.py"
 
+            # State variables
+            hashes_generated = 0
+            last_progress = 5
+
+            # Patterns for hash generation output
+            progress_pattern = regex.compile(r"\[(\d+)/(\d+)\]")
+            processing_pattern = regex.compile(r"(?:Processing|Hashing).*?(\d+)")
+            generated_pattern = regex.compile(
+                r"(?:Generated|Completed)\s*(\d+)", regex.I
+            )
+            file_pattern = regex.compile(r"Hashing:\s*(.+)")
+
+            def on_line(line):
+                nonlocal hashes_generated, last_progress
+                line = line.strip()
+                if not line:
+                    return
+
+                # Check for [X/Y] progress
+                match = progress_pattern.search(line)
+                if match:
+                    current = int(match.group(1))
+                    total = int(match.group(2))
+                    if total > 0:
+                        progress = 5 + int((current / total) * 90)
+                        if progress > last_progress:
+                            tracker.update_progress(
+                                operation_id,
+                                progress,
+                                f"Hashing: {current}/{total} files",
+                            )
+                            last_progress = progress
+                    return
+
+                # Check for file being hashed
+                match = file_pattern.search(line)
+                if match:
+                    filename = match.group(1).strip()[:40]
+                    tracker.update_progress(
+                        operation_id,
+                        last_progress,
+                        f"Hashing: {filename}",
+                    )
+
+                # Check for processing count
+                match = processing_pattern.search(line)
+                if match:
+                    count = int(match.group(1))
+                    progress = min(5 + (count // 10), 90)
+                    if progress > last_progress:
+                        tracker.update_progress(
+                            operation_id,
+                            progress,
+                            f"Processed {count} files",
+                        )
+                        last_progress = progress
+
+                # Check for generated count
+                match = generated_pattern.search(line)
+                if match:
+                    hashes_generated = int(match.group(1))
+
             try:
                 tracker.update_progress(operation_id, 5, "Starting hash generation...")
 
-                # Use Popen for streaming progress
-                process = subprocess.Popen(
+                result = run_with_progress(
                     [sys.executable, "-u", str(hash_script), "--parallel"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1,
+                    line_callback=on_line,
+                    timeout_secs=1800,
+                    operation_name="Hash generation",
                 )
 
-                output_lines = []
-                hashes_generated = 0
-                last_progress = 5
-
-                # Patterns for hash generation output
-                progress_pattern = regex.compile(r"\[(\d+)/(\d+)\]")
-                processing_pattern = regex.compile(r"(?:Processing|Hashing).*?(\d+)")
-                generated_pattern = regex.compile(
-                    r"(?:Generated|Completed)\s*(\d+)", regex.I
-                )
-                file_pattern = regex.compile(r"Hashing:\s*(.+)")
-
-                for line in iter(process.stdout.readline, ""):
-                    if not line:
-                        break
-                    line = line.strip()
-                    if line:
-                        output_lines.append(line)
-
-                        # Check for [X/Y] progress
-                        match = progress_pattern.search(line)
-                        if match:
-                            current = int(match.group(1))
-                            total = int(match.group(2))
-                            if total > 0:
-                                progress = 5 + int((current / total) * 90)
-                                if progress > last_progress:
-                                    tracker.update_progress(
-                                        operation_id,
-                                        progress,
-                                        f"Hashing: {current}/{total} files",
-                                    )
-                                    last_progress = progress
-                            continue
-
-                        # Check for file being hashed
-                        match = file_pattern.search(line)
-                        if match:
-                            filename = match.group(1).strip()[:40]
-                            tracker.update_progress(
-                                operation_id,
-                                last_progress,
-                                f"Hashing: {filename}",
-                            )
-
-                        # Check for processing count
-                        match = processing_pattern.search(line)
-                        if match:
-                            count = int(match.group(1))
-                            progress = min(5 + (count // 10), 90)
-                            if progress > last_progress:
-                                tracker.update_progress(
-                                    operation_id,
-                                    progress,
-                                    f"Processed {count} files",
-                                )
-                                last_progress = progress
-
-                        # Check for generated count
-                        match = generated_pattern.search(line)
-                        if match:
-                            hashes_generated = int(match.group(1))
-
-                process.wait(timeout=1800)
-                stderr = process.stderr.read()
-                output = "\n".join(output_lines)
-
-                if process.returncode == 0:
+                if result["timed_out"]:
+                    tracker.fail_operation(operation_id, result["error"])
+                elif result["success"]:
                     tracker.complete_operation(
                         operation_id,
                         {
                             "hashes_generated": hashes_generated,
-                            "output": output[-2000:] if len(output) > 2000 else output,
+                            "output": result["output"],
                         },
                     )
                 else:
                     tracker.fail_operation(
-                        operation_id, stderr or "Hash generation failed"
+                        operation_id,
+                        result["error"] or "Hash generation failed",
                     )
 
-            except subprocess.TimeoutExpired:
-                process.kill()
-                tracker.fail_operation(
-                    operation_id, "Hash generation timed out after 30 minutes"
-                )
             except Exception as e:
                 tracker.fail_operation(operation_id, str(e))
 

@@ -2,8 +2,8 @@
 Extended tests for Audible integration operations module.
 
 Tests background thread worker functions for download, genre sync, and
-narrator sync operations including subprocess.Popen mocking, progress
-parsing via char-by-char reading, and error handling paths.
+narrator sync operations including subprocess.Popen mocking via
+run_with_progress, progress parsing, and error handling paths.
 """
 
 import subprocess
@@ -12,17 +12,20 @@ from io import StringIO
 from unittest.mock import MagicMock, patch
 
 
+SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
 MODULE = "backend.api_modular.utilities_ops.audible"
 
 
-def _make_mock_popen_charread(chars, returncode=0, stderr_text=""):
-    """Create a mock Popen whose stdout.read(1) yields one char at a time.
+def _make_mock_popen(stdout_text, returncode=0, stderr_text=""):
+    """Create a mock Popen whose stdout.read(4096) yields text then EOF.
 
-    Used for download endpoint that reads char-by-char.
+    Works with run_with_progress's select/read(4096) loop.
     """
     mock_proc = MagicMock()
-    char_iter = iter(chars)
-    mock_proc.stdout.read = lambda n: next(char_iter, "")
+    stream = StringIO(stdout_text)
+    mock_proc.stdout = MagicMock()
+    mock_proc.stdout.fileno.return_value = 5  # fake fd
+    mock_proc.stdout.read = stream.read
     mock_proc.stderr = MagicMock()
     mock_proc.stderr.read.return_value = stderr_text
     mock_proc.returncode = returncode
@@ -31,17 +34,10 @@ def _make_mock_popen_charread(chars, returncode=0, stderr_text=""):
     return mock_proc
 
 
-def _make_mock_popen(stdout_lines, returncode=0, stderr_text=""):
-    """Create a mock Popen that yields stdout_lines line-by-line."""
-    mock_proc = MagicMock()
-    mock_proc.stdout = StringIO("\n".join(stdout_lines) + "\n" if stdout_lines else "")
-    mock_proc.stdout.readline = mock_proc.stdout.readline
-    mock_proc.stderr = MagicMock()
-    mock_proc.stderr.read.return_value = stderr_text
-    mock_proc.returncode = returncode
-    mock_proc.wait.return_value = None
-    mock_proc.kill.return_value = None
-    return mock_proc
+def _make_mock_popen_from_lines(stdout_lines, returncode=0, stderr_text=""):
+    """Create a mock Popen from a list of lines."""
+    text = "\n".join(stdout_lines) + "\n" if stdout_lines else ""
+    return _make_mock_popen(text, returncode, stderr_text)
 
 
 def _wait_for_thread_completion(tracker_mock, timeout=2.0):
@@ -57,10 +53,11 @@ def _wait_for_thread_completion(tracker_mock, timeout=2.0):
 class TestDownloadAudiobooksWorkerThread:
     """Test the run_download() background thread function."""
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_download_success_with_items(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Successful download parses item progress and success count."""
         mock_tracker = MagicMock()
@@ -77,7 +74,7 @@ class TestDownloadAudiobooksWorkerThread:
             "\u2717 Failed: Book Three\n"
             "Download complete: 2 succeeded, 1 failed\n"
         )
-        mock_proc = _make_mock_popen_charread(output, returncode=0)
+        mock_proc = _make_mock_popen(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -90,10 +87,11 @@ class TestDownloadAudiobooksWorkerThread:
         assert result["failed_count"] == 1
         assert result["total_attempted"] == 3
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_download_success_no_items(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Download with no items to download still completes."""
         mock_tracker = MagicMock()
@@ -102,7 +100,7 @@ class TestDownloadAudiobooksWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         output = "No new audiobooks to download\n"
-        mock_proc = _make_mock_popen_charread(output, returncode=0)
+        mock_proc = _make_mock_popen(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -113,16 +111,17 @@ class TestDownloadAudiobooksWorkerThread:
         assert result["downloaded_count"] == 0
         assert result["failed_count"] == 0
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_download_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_download_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Non-zero return code fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "dl-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen_charread(
+        mock_proc = _make_mock_popen(
             "", returncode=1, stderr_text="Authentication failed"
         )
         mock_popen_cls.return_value = mock_proc
@@ -133,10 +132,11 @@ class TestDownloadAudiobooksWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Authentication failed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_download_empty_stderr_fallback(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Empty stderr uses fallback message."""
         mock_tracker = MagicMock()
@@ -144,7 +144,7 @@ class TestDownloadAudiobooksWorkerThread:
         mock_tracker.create_operation.return_value = "dl-004"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen_charread("", returncode=1, stderr_text="")
+        mock_proc = _make_mock_popen("", returncode=1, stderr_text="")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -153,16 +153,17 @@ class TestDownloadAudiobooksWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Download failed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_download_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_download_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Timeout kills process and fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "dl-005"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen_charread("", returncode=0)
+        mock_proc = _make_mock_popen("", returncode=0)
         mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="bash", timeout=3600)
         mock_popen_cls.return_value = mock_proc
 
@@ -171,9 +172,11 @@ class TestDownloadAudiobooksWorkerThread:
 
         _wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
-        assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
+        # run_with_progress returns "did not exit cleanly" for wait() TimeoutExpired
+        error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
+        assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_download_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -192,10 +195,11 @@ class TestDownloadAudiobooksWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Script not found" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_download_output_truncation(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Output over 2000 chars is truncated."""
         mock_tracker = MagicMock()
@@ -204,7 +208,7 @@ class TestDownloadAudiobooksWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         long_output = ("[1/100] Downloading: " + "A" * 80 + "\n") * 50
-        mock_proc = _make_mock_popen_charread(long_output, returncode=0)
+        mock_proc = _make_mock_popen(long_output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -214,10 +218,11 @@ class TestDownloadAudiobooksWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_download_carriage_return_handling(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Carriage returns are handled as line breaks."""
         mock_tracker = MagicMock()
@@ -227,7 +232,7 @@ class TestDownloadAudiobooksWorkerThread:
 
         # Use \r instead of \n for some lines
         output = "[1/2] Downloading: Book\r\u2713 Downloaded: Book\n"
-        mock_proc = _make_mock_popen_charread(output, returncode=0)
+        mock_proc = _make_mock_popen(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -236,10 +241,11 @@ class TestDownloadAudiobooksWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         mock_tracker.complete_operation.assert_called_once()
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_download_title_truncation(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Long titles are truncated to 50 chars in progress."""
         mock_tracker = MagicMock()
@@ -249,7 +255,7 @@ class TestDownloadAudiobooksWorkerThread:
 
         long_title = "A" * 100
         output = f"[1/1] Downloading: {long_title}\n"
-        mock_proc = _make_mock_popen_charread(output, returncode=0)
+        mock_proc = _make_mock_popen(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -268,16 +274,17 @@ class TestDownloadAudiobooksWorkerThread:
 class TestSyncGenresWorkerThread:
     """Test the run_sync() background thread for genres."""
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_genre_sync_success(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_genre_sync_success(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Successful genre sync parses update count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "genre-w-001"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
+        mock_proc = _make_mock_popen_from_lines(
             [
                 "Loading 200 audiobooks",
                 "[100/200] Processing...",
@@ -296,10 +303,11 @@ class TestSyncGenresWorkerThread:
         assert result["genres_updated"] == 45
         assert result["dry_run"] is False
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_genre_sync_dry_run_would_update(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Dry run parses 'would update' pattern."""
         mock_tracker = MagicMock()
@@ -307,7 +315,7 @@ class TestSyncGenresWorkerThread:
         mock_tracker.create_operation.return_value = "genre-w-002"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
+        mock_proc = _make_mock_popen_from_lines(
             ["Loading 50 audiobooks", "would update 12"],
             returncode=0,
         )
@@ -321,16 +329,17 @@ class TestSyncGenresWorkerThread:
         assert result["genres_updated"] == 12
         assert result["dry_run"] is True
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_genre_sync_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_genre_sync_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Non-zero rc fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "genre-w-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
+        mock_proc = _make_mock_popen_from_lines(
             [], returncode=1, stderr_text="Metadata file not found"
         )
         mock_popen_cls.return_value = mock_proc
@@ -341,10 +350,11 @@ class TestSyncGenresWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Metadata file not found" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_genre_sync_empty_stderr_fallback(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Empty stderr uses fallback."""
         mock_tracker = MagicMock()
@@ -352,7 +362,7 @@ class TestSyncGenresWorkerThread:
         mock_tracker.create_operation.return_value = "genre-w-004"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=1, stderr_text="")
+        mock_proc = _make_mock_popen_from_lines([], returncode=1, stderr_text="")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -361,16 +371,17 @@ class TestSyncGenresWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Genre sync failed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_genre_sync_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_genre_sync_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Timeout kills process."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "genre-w-005"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=0)
+        mock_proc = _make_mock_popen_from_lines([], returncode=0)
         mock_proc.wait.side_effect = subprocess.TimeoutExpired(
             cmd="python", timeout=600
         )
@@ -381,18 +392,20 @@ class TestSyncGenresWorkerThread:
 
         _wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
-        assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
+        error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
+        assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_genre_sync_execute_flag(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_genre_sync_execute_flag(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Execute mode appends --execute flag."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "genre-w-006"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=0)
+        mock_proc = _make_mock_popen_from_lines([], returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -402,7 +415,7 @@ class TestSyncGenresWorkerThread:
         cmd_args = mock_popen_cls.call_args[0][0]
         assert "--execute" in cmd_args
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_genre_sync_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -425,16 +438,17 @@ class TestSyncGenresWorkerThread:
 class TestSyncNarratorsWorkerThread:
     """Test the run_sync() background thread for narrators."""
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_success(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_narrator_sync_success(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Successful narrator sync parses update count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "narr-w-001"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
+        mock_proc = _make_mock_popen_from_lines(
             [
                 "Loading 300 audiobooks",
                 "[150/300] Processing...",
@@ -453,16 +467,17 @@ class TestSyncNarratorsWorkerThread:
         assert result["narrators_updated"] == 80
         assert result["dry_run"] is False
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_dry_run(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_narrator_sync_dry_run(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Dry run parses 'would update' count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "narr-w-002"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
+        mock_proc = _make_mock_popen_from_lines(
             ["Loading 100 audiobooks", "would update 15"],
             returncode=0,
         )
@@ -475,16 +490,17 @@ class TestSyncNarratorsWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["narrators_updated"] == 15
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_narrator_sync_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Non-zero rc fails operation with stderr."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "narr-w-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
+        mock_proc = _make_mock_popen_from_lines(
             [], returncode=1, stderr_text="DB connection error"
         )
         mock_popen_cls.return_value = mock_proc
@@ -495,10 +511,11 @@ class TestSyncNarratorsWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "DB connection error" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_narrator_sync_empty_stderr_fallback(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Empty stderr uses fallback."""
         mock_tracker = MagicMock()
@@ -506,7 +523,7 @@ class TestSyncNarratorsWorkerThread:
         mock_tracker.create_operation.return_value = "narr-w-004"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=1, stderr_text="")
+        mock_proc = _make_mock_popen_from_lines([], returncode=1, stderr_text="")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -515,16 +532,17 @@ class TestSyncNarratorsWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Narrator sync failed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
-    def test_narrator_sync_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
+    def test_narrator_sync_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
         """Timeout kills process."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "narr-w-005"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=0)
+        mock_proc = _make_mock_popen_from_lines([], returncode=0)
         mock_proc.wait.side_effect = subprocess.TimeoutExpired(
             cmd="python", timeout=600
         )
@@ -535,12 +553,14 @@ class TestSyncNarratorsWorkerThread:
 
         _wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
-        assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
+        error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
+        assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_narrator_sync_execute_flag(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Execute mode appends --execute."""
         mock_tracker = MagicMock()
@@ -548,7 +568,7 @@ class TestSyncNarratorsWorkerThread:
         mock_tracker.create_operation.return_value = "narr-w-006"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=0)
+        mock_proc = _make_mock_popen_from_lines([], returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -558,7 +578,7 @@ class TestSyncNarratorsWorkerThread:
         cmd_args = mock_popen_cls.call_args[0][0]
         assert "--execute" in cmd_args
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_narrator_sync_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -577,10 +597,11 @@ class TestSyncNarratorsWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "bad args" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_narrator_sync_output_truncation(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Output over 2000 chars is truncated."""
         mock_tracker = MagicMock()
@@ -589,7 +610,7 @@ class TestSyncNarratorsWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         long_lines = [f"[{i}/1000] Processing narrator" for i in range(100)]
-        mock_proc = _make_mock_popen(long_lines, returncode=0)
+        mock_proc = _make_mock_popen_from_lines(long_lines, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -599,10 +620,11 @@ class TestSyncNarratorsWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_narrator_sync_loading_count(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
     ):
         """Loading pattern updates progress to 10%."""
         mock_tracker = MagicMock()
@@ -610,7 +632,7 @@ class TestSyncNarratorsWorkerThread:
         mock_tracker.create_operation.return_value = "narr-w-009"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
+        mock_proc = _make_mock_popen_from_lines(
             ["Loading 500 audiobooks"],
             returncode=0,
         )
