@@ -1127,6 +1127,44 @@ def start_registration():
     return jsonify(response_data)
 
 
+def _create_claim_token(db, username):
+    """
+    Create a pending registration and return formatted claim token + URL.
+
+    The token is truncated to 16 chars for user-friendliness (XXXX-XXXX-XXXX-XXXX).
+    The DB hash is updated to match the truncated version so lookups work.
+
+    Returns:
+        dict with keys: claim_token, claim_url, expires_at
+    """
+    from auth.models import PendingRegistration
+
+    pending_reg, raw_token = PendingRegistration.create(
+        db, username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
+    )
+
+    # Truncate to 16 chars and update hash to match
+    truncated = raw_token[:16]
+    truncated_hash = hash_token(truncated)
+    with db.connection() as conn:
+        conn.execute(
+            "UPDATE pending_registrations SET token_hash = ? WHERE id = ?",
+            (truncated_hash, pending_reg.id),
+        )
+
+    formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
+    encoded_name = urllib.parse.quote(username)
+    claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
+
+    return {
+        "claim_token": formatted_token,
+        "claim_url": claim_url,
+        "expires_at": (
+            pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
+        ),
+    }
+
+
 def _resolve_claim_token(username, claim_token):
     """
     Resolve a claim token from either access_requests (new user) or
@@ -4240,28 +4278,7 @@ def create_user():
             new_user.recovery_email = email
         new_user.save(db)
 
-        # Create PendingRegistration with claim token
-        from auth.models import PendingRegistration
-
-        pending_reg, raw_token = PendingRegistration.create(
-            db, username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
-        )
-
-        # Format token as XXXX-XXXX-XXXX-XXXX
-        truncated = raw_token[:16]
-        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-
-        # Build claim URL (frontend page, not API endpoint)
-        encoded_name = urllib.parse.quote(username)
-        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
-
-        setup_data = {
-            "claim_token": formatted_token,
-            "claim_url": claim_url,
-            "expires_at": (
-                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-            ),
-        }
+        setup_data = _create_claim_token(db, username)
 
     # Audit log
     audit_repo = AuditLogRepository(db)
@@ -5424,21 +5441,7 @@ def admin_change_auth_method(user_id: int):
         target_user.auth_credential = b"pending"
         target_user.save(db)
 
-        pending_reg, raw_token = PendingRegistration.create(
-            db, target_user.username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
-        )
-        truncated = raw_token[:16]
-        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        encoded_name = urllib.parse.quote(target_user.username)
-        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
-
-        setup_data = {
-            "claim_token": formatted_token,
-            "claim_url": claim_url,
-            "expires_at": (
-                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-            ),
-        }
+        setup_data = _create_claim_token(db, target_user.username)
 
     # Audit log
     details = {
@@ -5499,20 +5502,7 @@ def admin_reset_credentials(user_id: int):
         target_user.auth_credential = b"pending"
         target_user.save(db)
 
-        pending_reg, raw_token = PendingRegistration.create(
-            db, target_user.username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
-        )
-        truncated = raw_token[:16]
-        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        encoded_name = urllib.parse.quote(target_user.username)
-        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
-        setup_data = {
-            "claim_token": formatted_token,
-            "claim_url": claim_url,
-            "expires_at": (
-                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-            ),
-        }
+        setup_data = _create_claim_token(db, target_user.username)
 
     elif target_user.auth_type == AuthType.MAGIC_LINK:
         setup_data = {"email": target_user.recovery_email or ""}
@@ -5893,21 +5883,7 @@ def account_switch_auth_method():
         user.auth_credential = b"pending"
         user.save(db)
 
-        pending_reg, raw_token = PendingRegistration.create(
-            db, user.username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
-        )
-        truncated = raw_token[:16]
-        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        encoded_name = urllib.parse.quote(user.username)
-        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
-
-        setup_data = {
-            "claim_token": formatted_token,
-            "claim_url": claim_url,
-            "expires_at": (
-                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-            ),
-        }
+        setup_data = _create_claim_token(db, user.username)
 
     # Audit log
     details = {
@@ -5972,20 +5948,7 @@ def account_reset_credentials():
         current_user.auth_credential = b"pending"
         current_user.save(db)
 
-        pending_reg, raw_token = PendingRegistration.create(
-            db, current_user.username, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
-        )
-        truncated = raw_token[:16]
-        formatted_token = "-".join(truncated[i : i + 4] for i in range(0, 16, 4))
-        encoded_name = urllib.parse.quote(current_user.username)
-        claim_url = f"/claim.html?username={encoded_name}&token={formatted_token}"
-        setup_data = {
-            "claim_token": formatted_token,
-            "claim_url": claim_url,
-            "expires_at": (
-                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-            ),
-        }
+        setup_data = _create_claim_token(db, current_user.username)
 
     elif current_user.auth_type == AuthType.MAGIC_LINK:
         setup_data = {"email": current_user.recovery_email or ""}
