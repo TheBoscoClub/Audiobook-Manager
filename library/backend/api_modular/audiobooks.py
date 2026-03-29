@@ -607,6 +607,7 @@ def get_narrator_counts() -> Response:
         JOIN book_narrators bn ON bn.narrator_id = n.id
         JOIN audiobooks ab ON ab.id = bn.book_id
         WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
+        GROUP BY n.id, n.name
         ORDER BY n.sort_name COLLATE NOCASE
     """)  # nosec B608
 

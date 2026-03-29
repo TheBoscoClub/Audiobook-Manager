@@ -110,7 +110,7 @@ def is_content_type(genre: str) -> bool:
     return genre.lower().strip() in CONTENT_TYPES
 
 
-def categorize_genre(genre: str) -> dict:
+def categorize_genre(genre: str | None) -> dict:
     """Categorize genre into main category, subcategory, and original.
 
     Content types like "Audiobook" are classified as uncategorized since
@@ -119,6 +119,9 @@ def categorize_genre(genre: str) -> dict:
     Matches longer keywords first to avoid partial-match ambiguity
     (e.g., "true crime" should not match "crime" → mystery).
     """
+    if not genre:
+        return {"main": "uncategorized", "sub": "general", "original": ""}
+
     if is_content_type(genre):
         return {"main": "uncategorized", "sub": "general", "original": genre}
 
@@ -580,7 +583,9 @@ def enrich_metadata(metadata: dict) -> dict:
     metadata["genres"] = build_genres_list(genre_cat)
 
     # Add literary era
-    metadata["literary_era"] = determine_literary_era(metadata.get("year", ""))
+    era = determine_literary_era(metadata.get("year", ""))
+    metadata["literary_era"] = era
+    metadata["eras"] = [era] if era else []
 
     # Extract topics
     metadata["topics"] = extract_topics(metadata.get("description", ""))

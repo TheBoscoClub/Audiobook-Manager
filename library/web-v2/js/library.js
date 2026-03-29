@@ -681,7 +681,7 @@ class AudiobookLibraryV2 {
     // Group collections by category
     const grouped = {};
     this.collections.forEach((c) => {
-      const cat = c.category || "main";
+      const cat = c.category || "fiction";
       if (!grouped[cat]) grouped[cat] = [];
       grouped[cat].push(c);
     });
@@ -693,12 +693,14 @@ class AudiobookLibraryV2 {
 
     // Build tree-structured sidebar using DOM methods
     container.textContent = "";
-    const categoryOrder = ["special", "main", "nonfiction", "subgenre"];
+    const categoryOrder = ["special", "fiction", "nonfiction", "series", "eras", "topics"];
     const categoryLabels = {
       special: "Special Collections",
-      main: "Fiction Genres",
+      fiction: "Fiction",
       nonfiction: "Nonfiction",
-      subgenre: "More Genres",
+      series: "Series",
+      eras: "Eras",
+      topics: "Topics",
     };
 
     categoryOrder.forEach((cat) => {

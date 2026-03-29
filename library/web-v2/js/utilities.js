@@ -1640,7 +1640,7 @@ function startOperationPolling() {
     clearInterval(pollingInterval);
   }
 
-  pollingInterval = setInterval(pollOperationStatus, 500);
+  pollingInterval = setInterval(pollOperationStatus, 1000);
 }
 
 function stopOperationPolling() {
@@ -1651,7 +1651,7 @@ function stopOperationPolling() {
 }
 
 let _pollErrorCount = 0;
-const MAX_POLL_ERRORS = 10; // Stop polling after 10 consecutive errors
+const MAX_POLL_ERRORS = 30; // Stop polling after 30 consecutive errors (15s at 500ms)
 
 async function pollOperationStatus() {
   if (!activeOperationId) {
