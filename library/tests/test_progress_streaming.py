@@ -502,7 +502,7 @@ class TestModuleImports:
         assert hasattr(library, "init_library_routes")
 
     def test_modules_use_popen(self):
-        """Verify modules use subprocess.Popen (not blocking subprocess.run)."""
+        """Verify modules use subprocess.Popen or run_with_progress (not blocking subprocess.run)."""
         import inspect
         from backend.api_modular.utilities_ops import (
             audible,
@@ -511,10 +511,10 @@ class TestModuleImports:
             library,
         )
 
-        # Get source code and check for Popen usage
+        # Get source code and check for Popen or run_with_progress usage
         for module in [audible, maintenance, hashing, library]:
             source = inspect.getsource(module)
-            # Should have Popen (streaming)
-            assert "subprocess.Popen" in source, (
-                f"{module.__name__} missing subprocess.Popen"
+            # Should have Popen (streaming) or run_with_progress (shared helper)
+            assert "subprocess.Popen" in source or "run_with_progress" in source, (
+                f"{module.__name__} missing subprocess.Popen or run_with_progress"
             )

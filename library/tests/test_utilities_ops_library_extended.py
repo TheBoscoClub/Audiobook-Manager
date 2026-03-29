@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 
 MODULE = "backend.api_modular.utilities_ops.library"
+SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
 
 
 def _make_mock_popen_charread(chars, returncode=0, stderr_text=""):
@@ -167,8 +168,8 @@ def _mock_select_ready(*_args, **_kwargs):
 class TestRescanLibraryWorkerThread:
     """Test the run_rescan() background thread function."""
 
-    @patch("select.select", side_effect=_mock_select_ready)
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_success_with_progress(
         self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
@@ -192,8 +193,8 @@ class TestRescanLibraryWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1800
 
-    @patch("select.select", side_effect=_mock_select_ready)
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_strips_ansi_codes(
         self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
@@ -215,8 +216,8 @@ class TestRescanLibraryWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1000
 
-    @patch("select.select", side_effect=_mock_select_ready)
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_failure(
         self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
@@ -239,8 +240,8 @@ class TestRescanLibraryWorkerThread:
         mock_tracker.fail_operation.assert_called_once()
         assert "Scanner crashed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch("select.select", side_effect=_mock_select_ready)
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
@@ -258,10 +259,10 @@ class TestRescanLibraryWorkerThread:
             client.post("/api/utilities/rescan-async")
 
         _wait_for_thread_completion(mock_tracker)
-        assert "Scanner failed" in mock_tracker.fail_operation.call_args[0][1]
+        assert "failed" in mock_tracker.fail_operation.call_args[0][1].lower()
 
-    @patch("select.select", side_effect=_mock_select_ready)
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_timeout(
         self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
@@ -285,7 +286,7 @@ class TestRescanLibraryWorkerThread:
         mock_proc.kill.assert_called_once()
         assert "did not exit cleanly" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -305,8 +306,8 @@ class TestRescanLibraryWorkerThread:
         mock_tracker.fail_operation.assert_called_once()
         assert "scanner not found" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch("select.select", side_effect=_mock_select_ready)
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_output_truncation(
         self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
@@ -328,8 +329,8 @@ class TestRescanLibraryWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
-    @patch("select.select", side_effect=_mock_select_ready)
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_rescan_total_files_parsing_error(
         self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
@@ -355,7 +356,8 @@ class TestRescanLibraryWorkerThread:
 class TestReimportDatabaseWorkerThread:
     """Test the run_reimport() background thread function."""
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_success_with_progress(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -366,17 +368,15 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-001"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            [
-                "Found 500 audiobooks",
-                "Preserving existing metadata",
-                "Processed 250/500 audiobooks",
-                "Processed 500/500 audiobooks",
-                "Imported 500 audiobooks",
-                "Optimizing database",
-            ],
-            returncode=0,
+        output = (
+            "Found 500 audiobooks\n"
+            "Preserving existing metadata\n"
+            "Processed 250/500 audiobooks\n"
+            "Processed 500/500 audiobooks\n"
+            "Imported 500 audiobooks\n"
+            "Optimizing database\n"
         )
+        mock_proc = _make_mock_popen_charread(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -387,7 +387,8 @@ class TestReimportDatabaseWorkerThread:
         assert result["imported_count"] == 500
         assert result["total_audiobooks"] == 500
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_creating_database(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -398,15 +399,13 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-002"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            [
-                "Creating database",
-                "Database schema created",
-                "Found 10 audiobooks",
-                "Imported 10 audiobooks",
-            ],
-            returncode=0,
+        output = (
+            "Creating database\n"
+            "Database schema created\n"
+            "Found 10 audiobooks\n"
+            "Imported 10 audiobooks\n"
         )
+        mock_proc = _make_mock_popen_charread(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -418,7 +417,8 @@ class TestReimportDatabaseWorkerThread:
         assert any("Creating database" in m for m in progress_messages)
         assert any("schema ready" in m for m in progress_messages)
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Non-zero return code calls fail_operation."""
@@ -427,7 +427,7 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=1, stderr_text="Database error")
+        mock_proc = _make_mock_popen_charread("", returncode=1, stderr_text="Database error")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -436,7 +436,8 @@ class TestReimportDatabaseWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Database error" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -447,7 +448,7 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-004"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=1, stderr_text="")
+        mock_proc = _make_mock_popen_charread("", returncode=1, stderr_text="")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -456,7 +457,8 @@ class TestReimportDatabaseWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Import failed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Timeout kills process."""
@@ -465,9 +467,9 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-005"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=0)
+        mock_proc = _make_mock_popen_charread("", returncode=0)
         mock_proc.wait.side_effect = subprocess.TimeoutExpired(
-            cmd="python", timeout=600
+            cmd="python", timeout=60
         )
         mock_popen_cls.return_value = mock_proc
 
@@ -476,9 +478,10 @@ class TestReimportDatabaseWorkerThread:
 
         _wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
-        assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
+        error_msg = mock_tracker.fail_operation.call_args[0][1]
+        assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -497,7 +500,8 @@ class TestReimportDatabaseWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "access denied" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_output_truncation(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -508,8 +512,8 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-007"
         mock_get_tracker.return_value = mock_tracker
 
-        long_lines = [f"Processed {i}/2000 audiobooks" for i in range(100)]
-        mock_proc = _make_mock_popen(long_lines, returncode=0)
+        long_lines = "\n".join(f"Processed {i}/2000 audiobooks" for i in range(100)) + "\n"
+        mock_proc = _make_mock_popen_charread(long_lines, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -519,7 +523,8 @@ class TestReimportDatabaseWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_preserving_metadata(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -530,9 +535,8 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-008"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            ["Preserving existing metadata"],
-            returncode=0,
+        mock_proc = _make_mock_popen_charread(
+            "Preserving existing metadata\n", returncode=0
         )
         mock_popen_cls.return_value = mock_proc
 
@@ -544,7 +548,8 @@ class TestReimportDatabaseWorkerThread:
         percents = [c[0][1] for c in progress_calls]
         assert 8 in percents
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_reimport_optimizing_database(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -555,9 +560,8 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-009"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            ["Optimizing database"],
-            returncode=0,
+        mock_proc = _make_mock_popen_charread(
+            "Optimizing database\n", returncode=0
         )
         mock_popen_cls.return_value = mock_proc
 

@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 
 
 MODULE = "backend.api_modular.utilities_ops.hashing"
+SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
 
 
 def _make_mock_popen(stdout_lines, returncode=0, stderr_text=""):
@@ -42,7 +43,7 @@ def _wait_for_thread_completion(tracker_mock, timeout=2.0):
 class TestGenerateHashesWorkerThread:
     """Test the run_hash_gen() background thread function."""
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_success_with_progress(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -73,7 +74,7 @@ class TestGenerateHashesWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["hashes_generated"] == 100
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_file_pattern(self, mock_get_tracker, mock_popen_cls, flask_app):
         """File pattern updates progress with filename."""
@@ -97,7 +98,7 @@ class TestGenerateHashesWorkerThread:
         found_hashing_update = any("Hashing:" in str(c) for c in progress_calls)
         assert found_hashing_update
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_processing_pattern(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -121,7 +122,7 @@ class TestGenerateHashesWorkerThread:
         # Should have at least initial + processing progress
         assert mock_tracker.update_progress.call_count >= 2
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Non-zero return code calls fail_operation."""
@@ -140,7 +141,7 @@ class TestGenerateHashesWorkerThread:
         mock_tracker.fail_operation.assert_called_once()
         assert "Permission denied" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -160,7 +161,7 @@ class TestGenerateHashesWorkerThread:
         _wait_for_thread_completion(mock_tracker)
         assert "Hash generation failed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Timeout kills process and fails operation."""
@@ -180,9 +181,10 @@ class TestGenerateHashesWorkerThread:
 
         _wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
-        assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
+        error_msg = mock_tracker.fail_operation.call_args[0][1]
+        assert "did not exit cleanly" in error_msg or "timed out" in error_msg
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
@@ -202,7 +204,7 @@ class TestGenerateHashesWorkerThread:
         mock_tracker.fail_operation.assert_called_once()
         assert "script not found" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{MODULE}.get_tracker")
     def test_hash_gen_output_truncation(
         self, mock_get_tracker, mock_popen_cls, flask_app
