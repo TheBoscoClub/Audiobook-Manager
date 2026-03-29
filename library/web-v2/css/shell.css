@@ -267,30 +267,26 @@ body {
     flex-shrink: 0;
 }
 
-/* Help button */
+/* Help button — matches backoffice-btn styling */
 .help-btn {
     display: flex;
     align-items: center;
     gap: 0.4em;
-    padding: 0.25em 0.6em;
-    font-weight: 700;
-    font-size: 0.85em;
     text-decoration: none;
+    padding: 0.25em 0.6em;
 }
 
-.help-icon {
+.help-btn .help-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 20px;
     height: 20px;
-    border-radius: 50%;
-    background: rgba(201, 168, 76, 0.2);
     font-size: 0.85em;
     flex-shrink: 0;
 }
 
-.help-label {
+.help-btn .help-label {
     font-size: 0.8em;
     letter-spacing: 0.03em;
 }

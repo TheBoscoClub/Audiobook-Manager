@@ -259,22 +259,24 @@ body.a11y-reduce-motion * {
     transition-duration: 0.01ms !important;
 }
 
-/* Color temperature */
+/* Color temperature — use CSS filters for visible effect on dark theme */
 body.a11y-temp-warm {
-    --parchment: #f5e6c8;
+    filter: sepia(15%) saturate(110%);
 }
 
 body.a11y-temp-cool {
-    --parchment: #e8eef5;
+    filter: saturate(90%) hue-rotate(10deg);
 }
 
-/* Contrast levels */
+/* Contrast levels — use CSS filters for visible effect on dark theme */
 body.a11y-contrast-medium {
     --parchment: #f5f0e6;
+    filter: contrast(1.1);
 }
 
 body.a11y-contrast-high {
     --parchment: #ffffff;
+    filter: contrast(1.25);
 }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
