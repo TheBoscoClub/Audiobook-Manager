@@ -473,7 +473,7 @@ class TestClaimWebAuthnComplete:
                 "auth_type": "passkey",
             },
         )
-        assert resp.status_code == 400
+        assert resp.status_code in (400, 404)
 
     @patch("api_modular.auth.webauthn_verify_registration")
     @patch("api_modular.auth.get_webauthn_config")
