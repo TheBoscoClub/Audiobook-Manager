@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.0] - 2026-03-28
+
+### Added
+
+- **Per-user preferences**: Key-value preference system with `user_preferences` table, full CRUD API (`/api/preferences`), and 19 unit tests — supports theme, layout, and display customization per user
+- **Dynamic collections**: Auto-generated collections from enrichment data (genres, narrators, decades, ratings, etc.) with `/api/collections` endpoint and 36 unit tests — browseable curated groupings without manual curation
+- **Accessibility quick panel**: Slide-out accessibility settings panel with font size, contrast, reduced motion, and dyslexia-friendly font controls — persists via user preferences API
+- **Account preferences UI**: Account settings page for managing display preferences, notification settings, and accessibility options
+- **Series metadata on library cards**: Series name and book order number displayed on library card overlays
+
+### Fixed
+
 - **CI fix**: Renamed ambiguous single-letter variable `l` to `line` in `test_gunicorn_migration.py` — resolves ruff E741 lint error that caused CI failure in python-security workflow
 
 ## [7.6.0] - 2026-03-28
@@ -2319,7 +2331,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.0...HEAD
+[8.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...v8.0.0
 [7.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.3...v7.6.0
 [7.5.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...v7.5.3
 [7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2...v7.5.2.1
