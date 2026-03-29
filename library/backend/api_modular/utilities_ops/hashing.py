@@ -142,11 +142,7 @@ def init_hashing_routes(project_root):
                 list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
             )
             library_files = (
-                [
-                    f
-                    for f in library_dir.rglob("*.opus")
-                    if ".cover.opus" not in f.name
-                ]
+                [f for f in library_dir.rglob("*.opus") if ".cover.opus" not in f.name]
                 if library_dir.exists()
                 else []
             )
@@ -203,9 +199,7 @@ def init_hashing_routes(project_root):
 
             source_idx_path = index_dir / "source_checksums.idx"
             with open(source_idx_path, "w") as f:
-                f.write(
-                    "\n".join(source_checksums) + "\n" if source_checksums else ""
-                )
+                f.write("\n".join(source_checksums) + "\n" if source_checksums else "")
 
             library_idx_path = index_dir / "library_checksums.idx"
             with open(library_idx_path, "w") as f:

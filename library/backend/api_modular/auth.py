@@ -1769,8 +1769,7 @@ def claim_webauthn_complete():
             "backup_codes": backup_codes,
             "recovery_enabled": recovery_enabled,
             "message": (
-                f"Credentials reset successfully with {auth_type}"
-                " authentication."
+                f"Credentials reset successfully with {auth_type} authentication."
             ),
         }
     else:

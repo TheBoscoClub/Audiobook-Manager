@@ -70,17 +70,14 @@ def init_audible_routes(project_root):
                             tracker.update_progress(
                                 operation_id,
                                 progress,
-                                f"[{current_item}/{total_items}] "
-                                f"Downloading: {title}",
+                                f"[{current_item}/{total_items}] Downloading: {title}",
                             )
                             last_progress = progress
                     return
 
                 if success_pattern.search(line):
                     downloaded_count += 1
-                    title = (
-                        success_pattern.search(line).group(1).strip()[:40]
-                    )
+                    title = success_pattern.search(line).group(1).strip()[:40]
                     tracker.update_progress(
                         operation_id,
                         last_progress,
@@ -97,9 +94,7 @@ def init_audible_routes(project_root):
                     downloaded_count = int(match.group(1))
                     failed_count = int(match.group(2))
 
-            tracker.update_progress(
-                operation_id, 2, "Initializing download process..."
-            )
+            tracker.update_progress(operation_id, 2, "Initializing download process...")
             result = run_with_progress(
                 ["bash", str(script_path)],
                 line_callback=on_line,
@@ -259,8 +254,7 @@ def init_audible_routes(project_root):
                             tracker.update_progress(
                                 operation_id,
                                 progress,
-                                f"Processing narrators:"
-                                f" {processed_count}/{total}",
+                                f"Processing narrators: {processed_count}/{total}",
                             )
                             last_progress = progress
                     return

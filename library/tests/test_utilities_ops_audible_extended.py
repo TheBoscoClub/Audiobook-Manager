@@ -42,7 +42,6 @@ def _make_mock_popen_from_lines(stdout_lines, returncode=0, stderr_text=""):
     return _make_mock_popen(text, returncode, stderr_text)
 
 
-
 class TestDownloadAudiobooksWorkerThread:
     """Test the run_download() background thread function."""
 
@@ -107,7 +106,9 @@ class TestDownloadAudiobooksWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_download_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_download_failure(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Non-zero return code fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -149,7 +150,9 @@ class TestDownloadAudiobooksWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_download_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_download_timeout(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Timeout kills process and fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -270,7 +273,9 @@ class TestSyncGenresWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_genre_sync_success(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_genre_sync_success(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Successful genre sync parses update count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -325,7 +330,9 @@ class TestSyncGenresWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_genre_sync_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_genre_sync_failure(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Non-zero rc fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -367,7 +374,9 @@ class TestSyncGenresWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_genre_sync_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_genre_sync_timeout(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Timeout kills process."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -391,7 +400,9 @@ class TestSyncGenresWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_genre_sync_execute_flag(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_genre_sync_execute_flag(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Execute mode appends --execute flag."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -434,7 +445,9 @@ class TestSyncNarratorsWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_narrator_sync_success(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_narrator_sync_success(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Successful narrator sync parses update count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -463,7 +476,9 @@ class TestSyncNarratorsWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_narrator_sync_dry_run(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_narrator_sync_dry_run(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Dry run parses 'would update' count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -486,7 +501,9 @@ class TestSyncNarratorsWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_narrator_sync_failure(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_narrator_sync_failure(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Non-zero rc fails operation with stderr."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -528,7 +545,9 @@ class TestSyncNarratorsWorkerThread:
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_narrator_sync_timeout(self, mock_get_tracker, mock_popen_cls, mock_select, flask_app):
+    def test_narrator_sync_timeout(
+        self, mock_get_tracker, mock_popen_cls, mock_select, flask_app
+    ):
         """Timeout kills process."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None

@@ -609,6 +609,6 @@ class TestSecurityAttributes:
         ), "Login should include credentials"
         # api.js is the shared fetch wrapper used by library.js and others.
         # It must set credentials on every request (same-origin or include).
-        assert (
-            "credentials" in api_js_content
-        ), "Shared api.js client should configure credentials"
+        assert "credentials" in api_js_content, (
+            "Shared api.js client should configure credentials"
+        )

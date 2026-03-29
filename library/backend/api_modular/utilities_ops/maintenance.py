@@ -383,9 +383,7 @@ def init_maintenance_routes(project_root):
                 progress_pattern = re.compile(r"\[(\d+)/(\d+)\]")
                 matched_pattern = re.compile(r"Matched:\s*(\d+)")
                 unmatched_pattern = re.compile(r"Unmatched:\s*(\d+)")
-                processing_pattern = re.compile(
-                    r"(?:Processing|Matching).*?(\d+)"
-                )
+                processing_pattern = re.compile(r"(?:Processing|Matching).*?(\d+)")
 
                 def on_line(line):
                     nonlocal matched_count, unmatched_count, last_progress

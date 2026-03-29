@@ -77,8 +77,7 @@ def run_with_progress(
                     "returncode": None,
                     "timed_out": True,
                     "error": (
-                        f"{operation_name} timed out after "
-                        f"{int(elapsed // 60)} minutes"
+                        f"{operation_name} timed out after {int(elapsed // 60)} minutes"
                     ),
                 }
 
@@ -118,7 +117,9 @@ def run_with_progress(
             "stderr": stderr,
             "returncode": process.returncode,
             "timed_out": False,
-            "error": stderr or f"{operation_name} failed" if process.returncode != 0 else None,
+            "error": stderr or f"{operation_name} failed"
+            if process.returncode != 0
+            else None,
         }
 
     except subprocess.TimeoutExpired:

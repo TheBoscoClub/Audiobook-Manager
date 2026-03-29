@@ -22,7 +22,9 @@ def _make_side_effect(stdout_lines, returncode=0, stderr_text="", timed_out=Fals
     real run_with_progress behavior.
     """
 
-    def side_effect(cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None):
+    def side_effect(
+        cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None
+    ):
         # Invoke line_callback for each line so regex parsing is exercised
         for line_text in stdout_lines:
             line_callback(line_text)
@@ -51,10 +53,13 @@ def _make_side_effect(stdout_lines, returncode=0, stderr_text="", timed_out=Fals
 
 def _make_side_effect_raises(exc):
     """Create a side_effect function that raises an exception."""
-    def side_effect(cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None):
-        raise exc
-    return side_effect
 
+    def side_effect(
+        cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None
+    ):
+        raise exc
+
+    return side_effect
 
 
 class TestRebuildQueueWorkerThread:
@@ -109,9 +114,7 @@ class TestRebuildQueueWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_rebuild_timeout_kills_process(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_rebuild_timeout_kills_process(self, mock_get_tracker, mock_rwp, flask_app):
         """Timeout fails the operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -129,9 +132,7 @@ class TestRebuildQueueWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_rebuild_generic_exception(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_rebuild_generic_exception(self, mock_get_tracker, mock_rwp, flask_app):
         """Generic exception in run_rebuild calls fail_operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -173,9 +174,7 @@ class TestRebuildQueueWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_rebuild_output_truncation(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_rebuild_output_truncation(self, mock_get_tracker, mock_rwp, flask_app):
         """Output longer than 2000 chars is truncated."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -194,9 +193,7 @@ class TestRebuildQueueWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_rebuild_empty_stderr_fallback(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_rebuild_empty_stderr_fallback(self, mock_get_tracker, mock_rwp, flask_app):
         """Non-zero rc with empty stderr uses fallback message."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -246,9 +243,7 @@ class TestCleanupIndexesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_cleanup_checking_pattern(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_cleanup_checking_pattern(self, mock_get_tracker, mock_rwp, flask_app):
         """Cleanup handles Checking/Verifying pattern."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -287,9 +282,7 @@ class TestCleanupIndexesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_cleanup_execute_mode_command(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_cleanup_execute_mode_command(self, mock_get_tracker, mock_rwp, flask_app):
         """Execute mode does not append --dry-run flag."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -616,9 +609,7 @@ class TestFindSourceDuplicatesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_duplicates_scanning_progress(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_duplicates_scanning_progress(self, mock_get_tracker, mock_rwp, flask_app):
         """Scanning pattern tracks file count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
