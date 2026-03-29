@@ -119,8 +119,8 @@ def categorize_genre(genre: str) -> dict:
     Matches longer keywords first to avoid partial-match ambiguity
     (e.g., "true crime" should not match "crime" → mystery).
     """
-    if is_content_type(genre):
-        return {"main": "uncategorized", "sub": "general", "original": genre}
+    if not genre or is_content_type(genre):
+        return {"main": "uncategorized", "sub": "general", "original": genre or ""}
 
     genre_lower = genre.lower()
 
@@ -579,8 +579,12 @@ def enrich_metadata(metadata: dict) -> dict:
     # Build genres list for the importer (populates genres/audiobook_genres tables)
     metadata["genres"] = build_genres_list(genre_cat)
 
-    # Add literary era
-    metadata["literary_era"] = determine_literary_era(metadata.get("year", ""))
+    # Add literary era — both forms for backward compatibility:
+    # "literary_era" (string) used by import_single.py / add_new_audiobooks.py
+    # "eras" (list) used by import_to_db.py bulk importer
+    era = determine_literary_era(metadata.get("year", ""))
+    metadata["literary_era"] = era
+    metadata["eras"] = [era] if era else []
 
     # Extract topics
     metadata["topics"] = extract_topics(metadata.get("description", ""))

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Scanner-importer field mismatch**: `enrich_metadata()` now outputs `eras` (list) in addition to `literary_era` (string) — bulk importer (`import_to_db.py`) expected `eras` but scanner only produced `literary_era`, silently dropping era data for all bulk-scanned audiobooks
+- **None genre crash**: `categorize_genre(None)` no longer crashes with `AttributeError` — now returns uncategorized
+- **Narrator counts SQL**: `/api/narrator-counts` now returns per-narrator counts instead of a single aggregated row (missing `GROUP BY`)
+
 ## [7.6.1] - 2026-03-29
 
 ### Fixed
