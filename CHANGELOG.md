@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [8.0.1] - 2026-03-29
+
+### Changed
+
 - **Backend consolidation**: Extracted shared `run_async_operation()` and `handle_result()` into `utilities_ops/_helpers.py`, eliminating ~490 lines of duplicated async endpoint boilerplate across library.py, hashing.py, audible.py, and maintenance.py
 - **Scanner consolidation**: Created `scanner/utils/` package with shared `SUPPORTED_FORMATS`, `is_cover_art_file()`, and `get_or_create_lookup_id()` — previously duplicated across 4 scanner modules
 - **Frontend consolidation**: Extracted shared API client (`js/api.js`) and utility functions (`js/utils.js`) for date formatting, operation polling, and auth checking — removed ~305 lines of duplicated frontend code
@@ -2339,7 +2345,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1...HEAD
+[8.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.0...v8.0.1
 [8.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...v8.0.0
 [7.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.3...v7.6.0
 [7.5.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...v7.5.3
