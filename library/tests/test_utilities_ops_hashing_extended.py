@@ -32,7 +32,6 @@ def _make_mock_popen(stdout_lines, returncode=0, stderr_text=""):
     return mock_proc
 
 
-
 class TestGenerateHashesWorkerThread:
     """Test the run_hash_gen() background thread function."""
 

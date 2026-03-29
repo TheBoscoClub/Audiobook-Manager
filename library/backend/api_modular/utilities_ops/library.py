@@ -178,9 +178,7 @@ def init_library_routes(db_path, project_root):
                     return
 
                 if optimizing_pattern.search(line):
-                    tracker.update_progress(
-                        operation_id, 95, "Optimizing database..."
-                    )
+                    tracker.update_progress(operation_id, 95, "Optimizing database...")
                     last_progress = 95
                     return
 
@@ -191,9 +189,7 @@ def init_library_routes(db_path, project_root):
                     return
 
                 if "Database schema created" in line:
-                    tracker.update_progress(
-                        operation_id, 5, "Database schema ready"
-                    )
+                    tracker.update_progress(operation_id, 5, "Database schema ready")
 
             tracker.update_progress(operation_id, 2, "Starting database import...")
             result = run_with_progress(

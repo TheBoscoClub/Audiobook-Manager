@@ -55,7 +55,6 @@ def _make_mock_popen(stdout_lines, returncode=0, stderr_text=""):
     return mock_proc
 
 
-
 class TestAddNewBackgroundThread:
     """Test the run_add_new() background thread function."""
 
@@ -420,7 +419,9 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen_charread("", returncode=1, stderr_text="Database error")
+        mock_proc = _make_mock_popen_charread(
+            "", returncode=1, stderr_text="Database error"
+        )
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -461,9 +462,7 @@ class TestReimportDatabaseWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen_charread("", returncode=0)
-        mock_proc.wait.side_effect = subprocess.TimeoutExpired(
-            cmd="python", timeout=60
-        )
+        mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=60)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -505,7 +504,9 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-007"
         mock_get_tracker.return_value = mock_tracker
 
-        long_lines = "\n".join(f"Processed {i}/2000 audiobooks" for i in range(100)) + "\n"
+        long_lines = (
+            "\n".join(f"Processed {i}/2000 audiobooks" for i in range(100)) + "\n"
+        )
         mock_proc = _make_mock_popen_charread(long_lines, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
@@ -553,9 +554,7 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-009"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen_charread(
-            "Optimizing database\n", returncode=0
-        )
+        mock_proc = _make_mock_popen_charread("Optimizing database\n", returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
