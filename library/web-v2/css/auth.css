@@ -293,10 +293,6 @@
     display: inline-block;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
 /* Auth options / links */
 .auth-options {
     text-align: center;

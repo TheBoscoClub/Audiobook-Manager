@@ -27,11 +27,14 @@ from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
 
 # Import shared utilities from scanner package
 from scanner.metadata_utils import (
-    categorize_genre,
-    determine_literary_era,
     extract_cover_art,
-    extract_topics,
     get_file_metadata,
+)
+from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
+from scanner.utils.db_helpers import (
+    ALLOWED_LOOKUP_TABLES,  # noqa: F401 — re-exported for backward compatibility
+    get_or_create_lookup_id,  # noqa: F401 — re-exported for backward compatibility
+    insert_audiobook,
 )
 
 # Auto-enrichment and verification (imported lazily)
@@ -63,8 +66,6 @@ def _get_verify_module():
     return _verify_module if _verify_module else None
 
 
-SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
-
 # Progress callback type
 ProgressCallback = Optional[Callable[[int, int, str], None]]
 
@@ -88,7 +89,7 @@ def find_new_audiobooks(library_dir: Path, existing_paths: set[str]) -> list[Pat
         all_files.extend(files)
 
     # Filter out cover art files
-    all_files = [f for f in all_files if ".cover." not in f.name.lower()]
+    all_files = [f for f in all_files if not is_cover_art_file(f)]
 
     # Deduplicate: prefer main Library over /Library/Audiobook/
     main_files = [f for f in all_files if "/Library/Audiobook/" not in str(f)]
@@ -101,108 +102,6 @@ def find_new_audiobooks(library_dir: Path, existing_paths: set[str]) -> list[Pat
     new_files = [f for f in all_files if str(f) not in existing_paths]
 
     return new_files
-
-
-# Whitelist of allowed lookup tables for SQL queries - prevents SQL injection
-ALLOWED_LOOKUP_TABLES = frozenset({"genres", "eras", "topics"})
-
-
-def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> int:
-    """Get or create an ID in a lookup table (genres, eras, topics).
-
-    Args:
-        cursor: Database cursor
-        table: Table name - MUST be one of: genres, eras, topics
-        name: Value to insert/lookup
-
-    Raises:
-        ValueError: If table name is not in the whitelist
-    """
-    # SQL injection prevention: validate table name against whitelist
-    if table not in ALLOWED_LOOKUP_TABLES:
-        raise ValueError(
-            f"Invalid table name: {table}. Must be one of: {ALLOWED_LOOKUP_TABLES}"
-        )
-
-    cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))  # nosec B608 - table validated above
-    row = cursor.fetchone()
-    if row:
-        return row[0]
-    cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (name,))  # nosec B608 - table validated above
-    lastrowid = cursor.lastrowid
-    if lastrowid is None:
-        raise RuntimeError(f"Failed to insert into {table}")
-    return lastrowid
-
-
-def insert_audiobook(
-    conn: sqlite3.Connection, metadata: dict, cover_path: Optional[str]
-) -> Optional[int]:
-    """Insert a single audiobook into the database. Returns the new ID."""
-    cursor = conn.cursor()
-
-    # Insert main record
-    cursor.execute(
-        """
-        INSERT INTO audiobooks (
-            title, author, narrator, publisher, series,
-            duration_hours, duration_formatted, file_size_mb,
-            file_path, cover_path, format, description,
-            sha256_hash, hash_verified_at, asin,
-            published_year, published_date, acquired_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
-        (
-            metadata.get("title"),
-            metadata.get("author"),
-            metadata.get("narrator"),
-            metadata.get("publisher"),
-            metadata.get("series"),
-            metadata.get("duration_hours"),
-            metadata.get("duration_formatted"),
-            metadata.get("file_size_mb"),
-            metadata.get("file_path"),
-            cover_path,
-            metadata.get("format"),
-            metadata.get("description", ""),
-            metadata.get("sha256_hash"),
-            metadata.get("hash_verified_at"),
-            metadata.get("asin"),
-            metadata.get("published_year"),
-            metadata.get("published_date"),
-            metadata.get("acquired_date"),
-        ),
-    )
-
-    audiobook_id = cursor.lastrowid
-
-    # Insert genre
-    genre = metadata.get("genre", "Uncategorized")
-    genre_cat = categorize_genre(genre)
-    genre_id = get_or_create_lookup_id(cursor, "genres", genre_cat["sub"])
-    cursor.execute(
-        "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-        (audiobook_id, genre_id),
-    )
-
-    # Insert era
-    era = determine_literary_era(metadata.get("year", ""))
-    era_id = get_or_create_lookup_id(cursor, "eras", era)
-    cursor.execute(
-        "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-        (audiobook_id, era_id),
-    )
-
-    # Insert topics
-    topics = extract_topics(metadata.get("description", ""))
-    for topic_name in topics:
-        topic_id = get_or_create_lookup_id(cursor, "topics", topic_name)
-        cursor.execute(
-            "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
-            (audiobook_id, topic_id),
-        )
-
-    return audiobook_id
 
 
 def add_new_audiobooks(

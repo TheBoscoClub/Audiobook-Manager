@@ -8,13 +8,15 @@ Tests background thread worker functions for both SHA-256 hash generation
 import hashlib
 import os
 import subprocess
-import time
 from io import StringIO
 from unittest.mock import MagicMock, patch
+
+from tests.helpers import wait_for_thread_completion
 
 
 MODULE = "backend.api_modular.utilities_ops.hashing"
 SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
+HELPERS_MODULE = "backend.api_modular.utilities_ops._helpers"
 
 
 def _make_mock_popen(stdout_lines, returncode=0, stderr_text=""):
@@ -30,21 +32,12 @@ def _make_mock_popen(stdout_lines, returncode=0, stderr_text=""):
     return mock_proc
 
 
-def _wait_for_thread_completion(tracker_mock, timeout=2.0):
-    """Wait until tracker's complete_operation or fail_operation is called."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
-            return True
-        time.sleep(0.02)
-    return False
-
 
 class TestGenerateHashesWorkerThread:
     """Test the run_hash_gen() background thread function."""
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_success_with_progress(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -69,13 +62,13 @@ class TestGenerateHashesWorkerThread:
             resp = client.post("/api/utilities/generate-hashes-async")
         assert resp.status_code == 200
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["hashes_generated"] == 100
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_file_pattern(self, mock_get_tracker, mock_popen_cls, flask_app):
         """File pattern updates progress with filename."""
         mock_tracker = MagicMock()
@@ -92,14 +85,14 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # Check update_progress was called with filename info
         progress_calls = mock_tracker.update_progress.call_args_list
         found_hashing_update = any("Hashing:" in str(c) for c in progress_calls)
         assert found_hashing_update
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_processing_pattern(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -118,12 +111,12 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # Should have at least initial + processing progress
         assert mock_tracker.update_progress.call_count >= 2
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Non-zero return code calls fail_operation."""
         mock_tracker = MagicMock()
@@ -137,12 +130,12 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "Permission denied" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -158,11 +151,11 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Hash generation failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Timeout kills process and fails operation."""
         mock_tracker = MagicMock()
@@ -179,13 +172,13 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
         error_msg = mock_tracker.fail_operation.call_args[0][1]
         assert "did not exit cleanly" in error_msg or "timed out" in error_msg
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -200,12 +193,12 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "script not found" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_hash_gen_output_truncation(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -222,7 +215,7 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
@@ -230,7 +223,7 @@ class TestGenerateHashesWorkerThread:
 class TestGenerateChecksumsWorkerThread:
     """Test the run_checksum_gen() background thread function."""
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_no_files_completes_early(
         self, mock_get_tracker, flask_app, tmp_path
     ):
@@ -250,7 +243,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -262,7 +255,7 @@ class TestGenerateChecksumsWorkerThread:
         assert result["source_checksums"] == 0
         assert result["library_checksums"] == 0
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_processes_source_files(
         self, mock_get_tracker, flask_app, tmp_path
     ):
@@ -289,7 +282,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -302,7 +295,7 @@ class TestGenerateChecksumsWorkerThread:
         assert result["library_checksums"] == 0
         assert result["total_files"] == 2
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_processes_library_files(
         self, mock_get_tracker, flask_app, tmp_path
     ):
@@ -331,7 +324,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -342,7 +335,7 @@ class TestGenerateChecksumsWorkerThread:
         assert result["library_checksums"] == 2
         assert result["source_checksums"] == 0
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_writes_index_files(self, mock_get_tracker, flask_app, tmp_path):
         """Index files are written to .index directory."""
         mock_tracker = MagicMock()
@@ -363,7 +356,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -377,7 +370,7 @@ class TestGenerateChecksumsWorkerThread:
         content = source_idx.read_text()
         assert "|" in content  # format: checksum|filepath
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_handles_unreadable_file(
         self, mock_get_tracker, flask_app, tmp_path
     ):
@@ -404,7 +397,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -419,7 +412,7 @@ class TestGenerateChecksumsWorkerThread:
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["source_checksums"] == 0
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_generic_exception(self, mock_get_tracker, flask_app, tmp_path):
         """Generic exception in checksum gen calls fail_operation."""
         mock_tracker = MagicMock()
@@ -433,7 +426,7 @@ class TestGenerateChecksumsWorkerThread:
             with flask_app.test_client() as client:
                 with patch("pathlib.Path.mkdir", side_effect=PermissionError("denied")):
                     client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -442,7 +435,7 @@ class TestGenerateChecksumsWorkerThread:
 
         mock_tracker.fail_operation.assert_called_once()
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_progress_updates_periodically(
         self, mock_get_tracker, flask_app, tmp_path
     ):
@@ -469,7 +462,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -480,7 +473,7 @@ class TestGenerateChecksumsWorkerThread:
         # library processing (50), write index (95), complete
         assert mock_tracker.update_progress.call_count >= 3
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_checksum_nonexistent_dirs(self, mock_get_tracker, flask_app, tmp_path):
         """Non-existent Sources/Library dirs result in empty file lists."""
         mock_tracker = MagicMock()
@@ -497,7 +490,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            _wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker)
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val

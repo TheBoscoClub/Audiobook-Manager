@@ -101,7 +101,7 @@
     cursor: pointer;
     font-family: inherit;
     font-size: 0.85em;
-    transition: background 0.15s, color 0.15s;
+    transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .a11y-segmented button:last-child {

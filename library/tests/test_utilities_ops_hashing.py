@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 class TestGenerateHashesAsync:
     """Test the generate_hashes_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.hashing.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_hash_generation(self, mock_get_tracker, flask_app):
         """Test starts hash generation successfully."""
         mock_tracker = MagicMock()
@@ -28,7 +28,7 @@ class TestGenerateHashesAsync:
         assert data["success"] is True
         assert data["operation_id"] == "hash-123"
 
-    @patch("backend.api_modular.utilities_ops.hashing.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when hash generation already in progress."""
         mock_tracker = MagicMock()
@@ -42,7 +42,7 @@ class TestGenerateHashesAsync:
         data = response.get_json()
         assert "Hash generation already in progress" in data["error"]
 
-    @patch("backend.api_modular.utilities_ops.hashing.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_uses_correct_operation_type(self, mock_get_tracker, flask_app):
         """Test hash operation uses 'hash' type."""
         mock_tracker = MagicMock()
@@ -59,7 +59,7 @@ class TestGenerateHashesAsync:
 class TestGenerateChecksumsAsync:
     """Test the generate_checksums_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.hashing.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_checksum_generation(self, mock_get_tracker, flask_app):
         """Test starts checksum generation successfully."""
         mock_tracker = MagicMock()
@@ -75,7 +75,7 @@ class TestGenerateChecksumsAsync:
         assert data["success"] is True
         assert data["operation_id"] == "checksum-123"
 
-    @patch("backend.api_modular.utilities_ops.hashing.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when checksum generation already in progress."""
         mock_tracker = MagicMock()
@@ -87,7 +87,7 @@ class TestGenerateChecksumsAsync:
 
         assert response.status_code == 409
 
-    @patch("backend.api_modular.utilities_ops.hashing.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_uses_correct_operation_type(self, mock_get_tracker, flask_app):
         """Test checksum operation uses 'checksum' type."""
         mock_tracker = MagicMock()

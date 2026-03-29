@@ -21,10 +21,7 @@
 
   // ── Check if current user is admin ──
   function checkAdmin() {
-    return fetch("/auth/status", { credentials: "include" })
-      .then(function (r) {
-        return r.json();
-      })
+    return checkAuthStatus()
       .then(function (data) {
         if (data.user && data.user.is_admin) {
           isAdmin = true;
@@ -38,10 +35,7 @@
 
   // ── Poll unread count ──
   function pollUnreadCount() {
-    fetch("/api/admin/suggestions/unread-count", { credentials: "include" })
-      .then(function (r) {
-        return r.json();
-      })
+    api.get("/api/admin/suggestions/unread-count", { toast: false })
       .then(function (data) {
         var count = data.count || 0;
         badgeCount.textContent = count;
@@ -59,12 +53,7 @@
     currentFilter = filter || currentFilter;
     drawerList.textContent = "Loading...";
 
-    fetch("/api/admin/suggestions?filter=" + currentFilter, {
-      credentials: "include",
-    })
-      .then(function (r) {
-        return r.json();
-      })
+    api.get("/api/admin/suggestions?filter=" + currentFilter, { toast: false })
       .then(function (items) {
         drawerList.textContent = "";
 
@@ -94,19 +83,7 @@
 
           var time = document.createElement("span");
           time.className = "suggestion-time";
-          var d = new Date(item.created_at);
-          time.textContent =
-            " \u2014 " +
-            d.toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            }) +
-            " " +
-            d.toLocaleTimeString(undefined, {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+          time.textContent = " \u2014 " + formatDate(item.created_at, "long");
           meta.appendChild(time);
 
           card.appendChild(meta);
@@ -155,29 +132,21 @@
   }
 
   function toggleRead(id, markRead) {
-    fetch("/api/admin/suggestions/" + id, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_read: markRead }),
-    }).then(function (r) {
-      if (r.ok) {
+    api.patch("/api/admin/suggestions/" + id, { is_read: markRead }, { toast: false })
+      .then(function () {
         loadSuggestions();
         pollUnreadCount();
-      }
-    });
+      })
+      .catch(function () {});
   }
 
   function deleteSuggestion(id) {
-    fetch("/api/admin/suggestions/" + id, {
-      method: "DELETE",
-      credentials: "include",
-    }).then(function (r) {
-      if (r.ok) {
+    api.delete("/api/admin/suggestions/" + id, { toast: false })
+      .then(function () {
         loadSuggestions();
         pollUnreadCount();
-      }
-    });
+      })
+      .catch(function () {});
   }
 
   // ── Toggle drawer ──

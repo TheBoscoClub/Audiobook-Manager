@@ -2,6 +2,7 @@
 Pytest configuration and shared fixtures for Audiobooks Library tests.
 """
 
+import encodings.idna  # noqa: F401 — force-load idna codec for Python 3.14 + werkzeug
 import os
 import sqlite3
 import subprocess

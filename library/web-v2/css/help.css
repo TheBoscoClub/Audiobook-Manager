@@ -86,7 +86,7 @@
     background: linear-gradient(180deg, var(--deco-gray) 0%, var(--deco-slate) 40%, var(--deco-charcoal) 100%);
     color: var(--parchment);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all var(--transition-normal);
     box-shadow: var(--btn-3d-raised);
     text-shadow: var(--text-3d-light);
 }
@@ -536,7 +536,7 @@ button.suggestion-btn.visible {
     box-shadow: none;
     text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
     opacity: 1;
-    transition: opacity 0.3s, color 0.3s;
+    transition: opacity var(--transition-normal), color var(--transition-normal);
 }
 
 .help-header-actions .forthcoming-link:hover {
@@ -715,7 +715,7 @@ button.suggestion-btn.visible {
     );
     border-radius: 3px 7px 7px 3px;
     box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.3),
+        var(--shadow-soft-sm),
         inset 0 1px 0 rgba(200, 170, 80, 0.3);
 }
 
@@ -768,7 +768,7 @@ button.suggestion-btn.visible {
         #4A3507 100%
     );
     border-radius: 2px 9px 9px 2px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-soft-sm);
 }
 
 /* Cap clip (brass) */

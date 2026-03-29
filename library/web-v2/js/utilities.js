@@ -8,12 +8,12 @@
 const API_BASE = "";
 
 // ============================================
-// Safe Fetch Wrapper - Always checks response.ok
+// Safe Fetch Wrapper — delegates to shared api client (api.js)
 // ============================================
 
 /**
  * Fetch wrapper that always checks response.ok before parsing JSON.
- * Throws a detailed error for non-2xx responses.
+ * Now delegates to the shared api._request() for consistent error handling.
  *
  * @param {string} url - The URL to fetch
  * @param {object} options - Fetch options (method, headers, body, etc.)
@@ -21,25 +21,7 @@ const API_BASE = "";
  * @throws {Error} - If response is not ok or JSON parsing fails
  */
 async function safeFetch(url, options = {}) {
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    // Try to get error message from response body
-    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-    try {
-      const errorData = await response.json();
-      if (errorData.error) {
-        errorMessage = errorData.error;
-      } else if (errorData.message) {
-        errorMessage = errorData.message;
-      }
-    } catch (e) {
-      // Response wasn't JSON, use default error message
-    }
-    throw new Error(errorMessage);
-  }
-
-  return response.json();
+  return api._request(url, options, { toast: false });
 }
 
 // State
@@ -206,10 +188,7 @@ async function reimportDatabase() {
 
   showProgress("Reimporting Database", "Importing audiobooks to database...");
   try {
-    const res = await fetch(`${API_BASE}/api/utilities/reimport`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/utilities/reimport", null, { toast: false });
     hideProgress();
 
     if (result.success) {
@@ -233,10 +212,7 @@ async function generateHashes() {
     "Calculating SHA-256 hashes for all audiobooks...",
   );
   try {
-    const res = await fetch(`${API_BASE}/api/utilities/generate-hashes`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/utilities/generate-hashes", null, { toast: false });
     hideProgress();
 
     if (result.success) {
@@ -257,10 +233,7 @@ async function vacuumDatabase() {
     "Optimizing database and reclaiming space...",
   );
   try {
-    const res = await fetch(`${API_BASE}/api/utilities/vacuum`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/utilities/vacuum", null, { toast: false });
     hideProgress();
 
     if (result.success) {
@@ -324,10 +297,7 @@ async function searchForEdit(query) {
   resultsContainer.innerHTML = '<p class="placeholder-text">Searching...</p>';
 
   try {
-    const res = await fetch(
-      `${API_BASE}/api/audiobooks?search=${encodeURIComponent(query)}&per_page=20`,
-    );
-    const data = await res.json();
+    const data = await api.get(`/api/audiobooks?search=${encodeURIComponent(query)}&per_page=20`, { toast: false });
 
     if (data.audiobooks?.length > 0) {
       resultsContainer.innerHTML = data.audiobooks
@@ -367,8 +337,7 @@ async function searchForEdit(query) {
 
 async function loadAudiobookForEdit(id) {
   try {
-    const res = await fetch(`${API_BASE}/api/audiobooks/${id}`);
-    const book = await res.json();
+    const book = await api.get(`/api/audiobooks/${id}`, { toast: false });
 
     editingAudiobook = book;
 
@@ -417,13 +386,7 @@ async function saveAudiobook(e) {
   };
 
   try {
-    const res = await fetch(`${API_BASE}/api/audiobooks/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-
-    const result = await res.json();
+    const result = await api.put(`/api/audiobooks/${id}`, data, { toast: false });
 
     if (result.success) {
       showToast("Audiobook updated successfully", "success");
@@ -450,14 +413,7 @@ async function deleteAudiobook() {
   if (!confirmed) return;
 
   try {
-    const res = await fetch(
-      `${API_BASE}/api/audiobooks/${editingAudiobook.id}`,
-      {
-        method: "DELETE",
-      },
-    );
-
-    const result = await res.json();
+    const result = await api.delete(`/api/audiobooks/${editingAudiobook.id}`, { toast: false });
 
     if (result.success) {
       showToast("Audiobook deleted from database", "success");
@@ -590,8 +546,7 @@ async function findDuplicates() {
   showDuplicatesPlaceholder(listContainer, "Searching for duplicates...");
 
   try {
-    const res = await fetch(`${API_BASE}${endpoint}`);
-    const data = await res.json();
+    const data = await api.get(endpoint, { toast: false });
 
     const isChecksumMode =
       method === "source-checksum" || method === "library-checksum";
@@ -816,16 +771,10 @@ async function deleteSelectedDuplicates() {
     );
 
     try {
-      const res = await fetch(`${API_BASE}/api/duplicates/delete-by-path`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await api.post("/api/duplicates/delete-by-path", {
           paths: Array.from(checksumPathSelection),
           type: checksumType,
-        }),
-      });
-
-      const result = await res.json();
+        }, { toast: false });
       hideProgress();
 
       if (result.success) {
@@ -865,16 +814,10 @@ async function deleteSelectedDuplicates() {
     );
 
     try {
-      const res = await fetch(`${API_BASE}/api/audiobooks/bulk-delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await api.post("/api/audiobooks/bulk-delete", {
           ids: Array.from(duplicateSelection),
           delete_files: true,
-        }),
-      });
-
-      const result = await res.json();
+        }, { toast: false });
       hideProgress();
 
       if (result.success) {
@@ -946,8 +889,7 @@ async function loadBulkAudiobooks() {
   listContainer.innerHTML = '<p class="placeholder-text">Loading...</p>';
 
   try {
-    const res = await fetch(endpoint);
-    const data = await res.json();
+    const data = await api.get(endpoint, { toast: false });
 
     const audiobooks = data.audiobooks || data || [];
     bulkSelection.clear();
@@ -1618,10 +1560,7 @@ function initOperationStatus() {
 
 async function checkActiveOperations() {
   try {
-    const res = await fetch(`${API_BASE}/api/operations/active`);
-    if (!res.ok) return; // Auth required or server error — skip silently
-
-    const data = await res.json();
+    const data = await api.get("/api/operations/active", { toast: false });
 
     if (data.operations && data.operations.length > 0) {
       // Resume tracking the first active operation
@@ -1834,9 +1773,7 @@ async function cancelActiveOperation() {
   if (!activeOperationId) return;
 
   try {
-    await fetch(`${API_BASE}/api/operations/cancel/${activeOperationId}`, {
-      method: "POST",
-    });
+    await api.post(`/api/operations/cancel/${activeOperationId}`, null, { toast: false });
     showToast("Cancellation requested", "info");
   } catch (error) {
     showToast("Failed to cancel operation", "error");
@@ -1857,13 +1794,7 @@ async function addNewAudiobooks() {
   showProgressModal("Adding New Audiobooks", "Scanning for new files...");
 
   try {
-    const res = await fetch(`${API_BASE}/api/utilities/add-new`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ calculate_hashes: true }),
-    });
-
-    const result = await res.json();
+    const result = await api.post("/api/utilities/add-new", { calculate_hashes: true }, { toast: false });
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -1913,10 +1844,7 @@ async function rescanLibraryAsync() {
   showProgressModal("Scanning Library", "Starting full library scan...");
 
   try {
-    const res = await fetch(`${API_BASE}/api/utilities/rescan-async`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/utilities/rescan-async", null, { toast: false });
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -1954,10 +1882,7 @@ async function reimportDatabaseAsync() {
   showProgressModal("Reimporting Database", "Starting database import...");
 
   try {
-    const res = await fetch(`${API_BASE}/api/utilities/reimport-async`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/utilities/reimport-async", null, { toast: false });
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -1986,10 +1911,7 @@ async function generateHashesAsync() {
   showProgressModal("Generating Hashes", "Calculating SHA-256 hashes...");
 
   try {
-    const res = await fetch(`${API_BASE}/api/utilities/generate-hashes-async`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/utilities/generate-hashes-async", null, { toast: false });
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -2021,11 +1943,7 @@ async function generateChecksumsAsync() {
   );
 
   try {
-    const res = await fetch(
-      `${API_BASE}/api/utilities/generate-checksums-async`,
-      { method: "POST" },
-    );
-    const result = await res.json();
+    const result = await api.post("/api/utilities/generate-checksums-async", null, { toast: false });
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -2509,8 +2427,7 @@ function updateActiveFilesPanel(processes) {
  */
 async function loadConversionStatus() {
   try {
-    const res = await fetch(`${API_BASE}/api/conversion/status`);
-    const data = await res.json();
+    const data = await api.get("/api/conversion/status", { toast: false });
 
     if (!data.success) {
       console.error("Failed to load conversion status:", data.error);
@@ -2576,8 +2493,7 @@ let activityOffset = 0;
 const ACTIVITY_PAGE_SIZE = 25;
 
 function refreshLiveConnections() {
-  fetch("/api/admin/connections")
-    .then(function (r) { return r.json(); })
+  api.get("/api/admin/connections", { toast: false })
     .then(function (data) {
       var container = document.getElementById("activity-connections");
       if (!container) {
@@ -2783,8 +2699,7 @@ function populateUserFilter(statsData) {
 
   // We need to load actual users from the admin endpoint
   // Use the auth admin users endpoint if available
-  fetch(`${API_BASE}/auth/admin/users`, { credentials: "include" })
-    .then((res) => (res.ok ? res.json() : null))
+  api.get("/auth/admin/users", { toast: false })
     .then((data) => {
       if (data && data.users) {
         data.users.forEach((user) => {
@@ -3125,17 +3040,7 @@ function initCreateUserForm() {
     };
 
     try {
-      var resp = await fetch("/auth/admin/users/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify(body),
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to create user"));
-        return;
-      }
+      var data = await api.post("/auth/admin/users/create", body, { toast: false });
 
       // Show setup data
       renderSetupData(data.setup_data, body.username, body.auth_method);
@@ -3248,11 +3153,7 @@ async function loadAuditLog(actionFilter, offset) {
   if (actionFilter) params.set("action", actionFilter);
 
   try {
-    var resp = await fetch("/auth/admin/audit-log?" + params.toString(), {
-      credentials: "same-origin",
-    });
-    if (!resp.ok) return;
-    var data = await resp.json();
+    var data = await api.get("/auth/admin/audit-log?" + params.toString(), { toast: false });
 
     var tbody = document.getElementById("audit-table-body");
     tbody.innerHTML = "";
@@ -3366,11 +3267,7 @@ function renderAuditPagination(total, currentOffset, actionFilter) {
 
 async function loadUnseenBadge() {
   try {
-    var resp = await fetch("/auth/admin/users", {
-      credentials: "same-origin",
-    });
-    if (!resp.ok) return;
-    var data = await resp.json();
+    var data = await api.get("/auth/admin/users", { toast: false });
     var badge = document.getElementById("users-badge");
     if (!badge) return;
 
@@ -3497,47 +3394,36 @@ function showInviteUserModal() {
     newSendBtn.textContent = "Sending...";
 
     try {
-      const res = await fetch(`${API_BASE}/auth/admin/users/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
+      const data = await api.post("/auth/admin/users/invite", {
           username: username,
           email: email,
           can_download: canDownload,
           auth_method: authMethod,
-        }),
-      });
+        }, { toast: false });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        closeModal();
-        if (authMethod === "magic_link") {
-          if (data.email_sent) {
-            showToast(`Magic link invitation sent to ${email}`, "success");
-          } else {
-            showToast(
-              `User created but email failed. Admin can resend from user management.`,
-              "warning",
-            );
-          }
+      closeModal();
+      if (authMethod === "magic_link") {
+        if (data.email_sent) {
+          showToast(`Magic link invitation sent to ${email}`, "success");
         } else {
-          if (data.email_sent) {
-            showToast(`Invitation sent to ${email}`, "success");
-          } else {
-            showToast(
-              `User created. Email failed \u2014 claim token: ${data.claim_token}`,
-              "warning",
-            );
-          }
+          showToast(
+            `User created but email failed. Admin can resend from user management.`,
+            "warning",
+          );
         }
-        loadUsers();
       } else {
-        showToast(data.error || "Failed to invite user", "error");
+        if (data.email_sent) {
+          showToast(`Invitation sent to ${email}`, "success");
+        } else {
+          showToast(
+            `User created. Email failed \u2014 claim token: ${data.claim_token}`,
+            "warning",
+          );
+        }
       }
+      loadUsers();
     } catch (error) {
-      showToast("Connection error", "error");
+      showToast(error.message || "Connection error", "error");
     } finally {
       newSendBtn.disabled = false;
       newSendBtn.textContent = "Send Invitation";
@@ -3560,15 +3446,7 @@ async function loadUsers() {
   userList.appendChild(loadingP);
 
   try {
-    const res = await fetch(`${API_BASE}/auth/admin/users`, {
-      credentials: "include",
-    });
-
-    if (!res.ok) {
-      throw new Error("Failed to load users");
-    }
-
-    const data = await res.json();
+    const data = await api.get("/auth/admin/users", { toast: false });
 
     // Clear loading
     while (userList.firstChild) {
@@ -3721,15 +3599,7 @@ function createUserItem(user) {
 
 async function viewUserSetup(user) {
   try {
-    const res = await fetch(
-      `${API_BASE}/auth/admin/users/${user.id}/setup-info`,
-      { credentials: "include" }
-    );
-    const data = await res.json();
-    if (!res.ok) {
-      showToast(data.error || "Cannot retrieve setup info", "error");
-      return;
-    }
+    const data = await api.get(`/auth/admin/users/${user.id}/setup-info`, { toast: false });
     if (data.setup_data) {
       renderSetupData(data.setup_data, user.username, user.auth_type || "totp");
       // Scroll to setup panel
@@ -3745,27 +3615,14 @@ async function viewUserSetup(user) {
 
 async function toggleUserDownload(userId, canDownload) {
   try {
-    const res = await fetch(
-      `${API_BASE}/auth/admin/users/${userId}/toggle-download`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      },
+    await api.post(`/auth/admin/users/${userId}/toggle-download`, null, { toast: false });
+    showToast(
+      `Download permission ${canDownload ? "enabled" : "disabled"}`,
+      "success",
     );
-
-    if (res.ok) {
-      showToast(
-        `Download permission ${canDownload ? "enabled" : "disabled"}`,
-        "success",
-      );
-      loadUsers();
-    } else {
-      const data = await res.json();
-      showToast(data.error || "Failed to update permission", "error");
-    }
+    loadUsers();
   } catch (error) {
-    showToast("Connection error", "error");
+    showToast(error.message || "Failed to update permission", "error");
   }
 }
 
@@ -3786,25 +3643,12 @@ async function toggleUserAdmin(user) {
   if (!confirmed) return;
 
   try {
-    const res = await fetch(
-      `${API_BASE}/auth/admin/users/${user.id}/toggle-admin`,
-      {
-        method: "POST",
-        credentials: "include",
-      },
-    );
-
-    if (res.ok) {
-      const data = await res.json();
-      const status = data.is_admin ? "granted" : "revoked";
-      showToast(`Admin privileges ${status} for ${user.username}`, "success");
-      loadUsers();
-    } else {
-      const data = await res.json();
-      showToast(data.error || "Failed to update admin status", "error");
-    }
+    const data = await api.post(`/auth/admin/users/${user.id}/toggle-admin`, null, { toast: false });
+    const status = data.is_admin ? "granted" : "revoked";
+    showToast(`Admin privileges ${status} for ${user.username}`, "success");
+    loadUsers();
   } catch (error) {
-    showToast("Connection error", "error");
+    showToast(error.message || "Failed to update admin status", "error");
   }
 }
 
@@ -3814,20 +3658,11 @@ function confirmDeleteUser(user) {
     `Are you sure you want to delete user "${user.username}"? This action cannot be undone.`,
     async () => {
       try {
-        const res = await fetch(`${API_BASE}/auth/admin/users/${user.id}/delete`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-
-        if (res.ok) {
-          showToast(`User ${user.username} deleted`, "success");
-          loadUsers();
-        } else {
-          const data = await res.json();
-          showToast(data.error || "Failed to delete user", "error");
-        }
+        await api.delete(`/auth/admin/users/${user.id}/delete`, { toast: false });
+        showToast(`User ${user.username} deleted`, "success");
+        loadUsers();
       } catch (error) {
-        showToast("Connection error", "error");
+        showToast(error.message || "Failed to delete user", "error");
       }
     },
   );
@@ -3901,30 +3736,20 @@ function showEditUserModal(user, isProfile = false) {
 
       // Update username if changed
       if (newUsername !== user.username) {
-        var uRes = await fetch(`${usernameBase}/username`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ username: newUsername }),
-        });
-        if (!uRes.ok) {
-          var uErr = await uRes.json().catch(function () { return {}; });
-          errors.push(uErr.error || "Failed to update username");
+        try {
+          await api.put(`${usernameBase}/username`, { username: newUsername }, { toast: false });
+        } catch (uErr) {
+          errors.push(uErr.message || "Failed to update username");
         }
       }
 
       // Update email if changed
       var currentEmail = user.email || user.recovery_email || "";
       if (newEmail !== currentEmail) {
-        var eRes = await fetch(`${usernameBase}/email`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ email: newEmail || null }),
-        });
-        if (!eRes.ok) {
-          var eErr = await eRes.json().catch(function () { return {}; });
-          errors.push(eErr.error || "Failed to update email");
+        try {
+          await api.put(`${usernameBase}/email`, { email: newEmail || null }, { toast: false });
+        } catch (eErr) {
+          errors.push(eErr.message || "Failed to update email");
         }
       }
 
@@ -3961,15 +3786,7 @@ async function loadAccessRequests() {
   requestsList.appendChild(loadingP);
 
   try {
-    const res = await fetch(`${API_BASE}/auth/admin/access-requests`, {
-      credentials: "include",
-    });
-
-    if (!res.ok) {
-      throw new Error("Failed to load requests");
-    }
-
-    const data = await res.json();
+    const data = await api.get("/auth/admin/access-requests", { toast: false });
 
     // Clear loading
     while (requestsList.firstChild) {
@@ -4090,29 +3907,16 @@ function createRequestItem(req) {
 
 async function approveRequest(requestId, username) {
   try {
-    const res = await fetch(
-      `${API_BASE}/auth/admin/access-requests/${requestId}/approve`,
-      {
-        method: "POST",
-        credentials: "include",
-      },
-    );
-
-    const data = await res.json();
-
-    if (res.ok) {
-      let msg = `Access approved for ${username}`;
-      if (data.email_sent) {
-        msg += " (notification email sent)";
-      }
-      showToast(msg, "success");
-      loadUsers();
-      loadAccessRequests();
-    } else {
-      showToast(data.error || "Failed to approve request", "error");
+    const data = await api.post(`/auth/admin/access-requests/${requestId}/approve`, null, { toast: false });
+    let msg = `Access approved for ${username}`;
+    if (data.email_sent) {
+      msg += " (notification email sent)";
     }
+    showToast(msg, "success");
+    loadUsers();
+    loadAccessRequests();
   } catch (error) {
-    showToast("Connection error", "error");
+    showToast(error.message || "Failed to approve request", "error");
   }
 }
 
@@ -4164,30 +3968,15 @@ function showDenyModal(requestId, username) {
     modal.classList.remove("active");
 
     try {
-      const res = await fetch(
-        `${API_BASE}/auth/admin/access-requests/${requestId}/deny`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ reason: reason || null }),
-        },
-      );
-
-      const data = await res.json();
-
-      if (res.ok) {
-        let msg = `Access denied for ${username}`;
-        if (data.email_sent) {
-          msg += " (notification email sent)";
-        }
-        showToast(msg, "success");
-        loadAccessRequests();
-      } else {
-        showToast(data.error || "Failed to deny request", "error");
+      const data = await api.post(`/auth/admin/access-requests/${requestId}/deny`, { reason: reason || null }, { toast: false });
+      let msg = `Access denied for ${username}`;
+      if (data.email_sent) {
+        msg += " (notification email sent)";
       }
+      showToast(msg, "success");
+      loadAccessRequests();
     } catch (error) {
-      showToast("Connection error", "error");
+      showToast(error.message || "Failed to deny request", "error");
     }
   });
 }
@@ -4209,8 +3998,7 @@ async function loadServicesStatus() {
   servicesList.appendChild(loadingP);
 
   try {
-    const res = await fetch(`${API_BASE}/api/system/services`);
-    const data = await res.json();
+    const data = await api.get("/api/system/services", { toast: false });
 
     // Clear loading message
     while (servicesList.firstChild) {
@@ -4319,11 +4107,7 @@ async function loadServicesStatus() {
 async function startService(serviceName) {
   try {
     showToast(`Starting ${serviceName}...`, "info");
-    const res = await fetch(
-      `${API_BASE}/api/system/services/${serviceName}/start`,
-      { method: "POST" },
-    );
-    const result = await res.json();
+    const result = await api.post(`/api/system/services/${serviceName}/start`, null, { toast: false });
 
     if (result.success) {
       showToast(result.message, "success");
@@ -4339,11 +4123,7 @@ async function startService(serviceName) {
 async function stopService(serviceName) {
   try {
     showToast(`Stopping ${serviceName}...`, "info");
-    const res = await fetch(
-      `${API_BASE}/api/system/services/${serviceName}/stop`,
-      { method: "POST" },
-    );
-    const result = await res.json();
+    const result = await api.post(`/api/system/services/${serviceName}/stop`, null, { toast: false });
 
     if (result.success) {
       showToast(result.message, "success");
@@ -4359,11 +4139,7 @@ async function stopService(serviceName) {
 async function restartService(serviceName) {
   try {
     showToast(`Restarting ${serviceName}...`, "info");
-    const res = await fetch(
-      `${API_BASE}/api/system/services/${serviceName}/restart`,
-      { method: "POST" },
-    );
-    const result = await res.json();
+    const result = await api.post(`/api/system/services/${serviceName}/restart`, null, { toast: false });
 
     if (result.success) {
       showToast(result.message, "success");
@@ -4388,10 +4164,7 @@ async function startAllServices() {
 
   try {
     showToast("Starting all services...", "info");
-    const res = await fetch(`${API_BASE}/api/system/services/start-all`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/system/services/start-all", null, { toast: false });
 
     if (result.success) {
       showToast("All services started", "success");
@@ -4420,11 +4193,7 @@ async function stopAllServices() {
 
   try {
     showToast("Stopping all services...", "info");
-    const res = await fetch(
-      `${API_BASE}/api/system/services/stop-all?include_api=true`,
-      { method: "POST" },
-    );
-    const result = await res.json();
+    const result = await api.post("/api/system/services/stop-all?include_api=true", null, { toast: false });
 
     if (result.success) {
       showToast(
@@ -4453,10 +4222,7 @@ async function stopBackgroundServices() {
 
   try {
     showToast("Stopping background services...", "info");
-    const res = await fetch(`${API_BASE}/api/system/services/stop-all`, {
-      method: "POST",
-    });
-    const result = await res.json();
+    const result = await api.post("/api/system/services/stop-all", null, { toast: false });
 
     if (result.success) {
       showToast("Background services stopped", "success");
@@ -4471,8 +4237,7 @@ async function stopBackgroundServices() {
 
 async function loadVersionInfo() {
   try {
-    const res = await fetch(`${API_BASE}/api/system/version`);
-    const data = await res.json();
+    const data = await api.get("/api/system/version", { toast: false });
 
     const versionEl = document.getElementById("current-version");
     const pathEl = document.getElementById("install-path");
@@ -4493,8 +4258,7 @@ async function loadProjectsList() {
   try {
     const basePath = pathInput?.value?.trim() || "";
     const params = basePath ? `?base_path=${encodeURIComponent(basePath)}` : "";
-    const res = await fetch(`${API_BASE}/api/system/projects${params}`);
-    const data = await res.json();
+    const data = await api.get(`/api/system/projects${params}`, { toast: false });
 
     // Clear existing content
     while (projectsList.firstChild) {
@@ -4567,9 +4331,7 @@ let preflightTimestamp = null;
  */
 async function hydratePreflightState() {
   try {
-    const resp = await fetch(`${API_BASE}/api/system/upgrade/preflight`);
-    if (!resp.ok) return;
-    const json = await resp.json();
+    const json = await api.get("/api/system/upgrade/preflight", { toast: false });
     const pf = json.preflight;
     if (!pf || pf.stale) return;
 
@@ -4645,13 +4407,7 @@ async function checkUpgrade() {
       body.version = versionInput.value.trim();
     }
 
-    const res = await fetch(`${API_BASE}/api/system/upgrade/check`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const result = await res.json();
+    const result = await api.post("/api/system/upgrade/check", body, { toast: false });
 
     if (result.success) {
       // Poll for check results
@@ -4705,8 +4461,7 @@ function startCheckPolling() {
         return;
       }
 
-      const res = await fetch(`${API_BASE}/api/system/upgrade/status`);
-      const status = await res.json();
+      const status = await api.get("/api/system/upgrade/status", { toast: false });
 
       // Update progress modal
       const messageEl = document.getElementById("progress-message");
@@ -4817,13 +4572,7 @@ async function startUpgrade() {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/system/upgrade`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const result = await res.json();
+    const result = await api.post("/api/system/upgrade", body, { toast: false });
 
     if (result.success) {
       startResilientUpgradePolling();

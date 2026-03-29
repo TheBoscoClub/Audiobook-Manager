@@ -8,14 +8,13 @@ import hashlib
 import os
 import re as regex
 import sys
-import threading
 from pathlib import Path
 
-from flask import Blueprint, jsonify
-from operation_status import get_tracker
+from flask import Blueprint
 
 from ..auth import admin_if_enabled
 from ..core import FlaskResponse
+from ._helpers import handle_result, run_async_operation
 from ._subprocess import run_with_progress
 
 utilities_ops_hashing_bp = Blueprint("utilities_ops_hashing", __name__)
@@ -30,33 +29,12 @@ def init_hashing_routes(project_root):
     @admin_if_enabled
     def generate_hashes_async() -> FlaskResponse:
         """Generate SHA-256 hashes with progress tracking."""
-        tracker = get_tracker()
 
-        existing = tracker.is_operation_running("hash")
-        if existing:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Hash generation already in progress",
-                        "operation_id": existing,
-                    }
-                ),
-                409,
-            )
-
-        operation_id = tracker.create_operation("hash", "Generating SHA-256 hashes")
-
-        def run_hash_gen():
-            tracker.start_operation(operation_id)
-
+        def work(tracker, operation_id):
             hash_script = project_root / "scripts" / "generate_hashes.py"
-
-            # State variables
             hashes_generated = 0
             last_progress = 5
 
-            # Patterns for hash generation output
             progress_pattern = regex.compile(r"\[(\d+)/(\d+)\]")
             processing_pattern = regex.compile(r"(?:Processing|Hashing).*?(\d+)")
             generated_pattern = regex.compile(
@@ -70,7 +48,6 @@ def init_hashing_routes(project_root):
                 if not line:
                     return
 
-                # Check for [X/Y] progress
                 match = progress_pattern.search(line)
                 if match:
                     current = int(match.group(1))
@@ -86,7 +63,6 @@ def init_hashing_routes(project_root):
                             last_progress = progress
                     return
 
-                # Check for file being hashed
                 match = file_pattern.search(line)
                 if match:
                     filename = match.group(1).strip()[:40]
@@ -96,7 +72,6 @@ def init_hashing_routes(project_root):
                         f"Hashing: {filename}",
                     )
 
-                # Check for processing count
                 match = processing_pattern.search(line)
                 if match:
                     count = int(match.group(1))
@@ -109,49 +84,31 @@ def init_hashing_routes(project_root):
                         )
                         last_progress = progress
 
-                # Check for generated count
                 match = generated_pattern.search(line)
                 if match:
                     hashes_generated = int(match.group(1))
 
-            try:
-                tracker.update_progress(operation_id, 5, "Starting hash generation...")
+            tracker.update_progress(operation_id, 5, "Starting hash generation...")
+            result = run_with_progress(
+                [sys.executable, "-u", str(hash_script), "--parallel"],
+                line_callback=on_line,
+                timeout_secs=1800,
+                operation_name="Hash generation",
+            )
+            handle_result(
+                tracker,
+                operation_id,
+                result,
+                {"hashes_generated": hashes_generated, "output": result["output"]},
+                "Hash generation failed",
+            )
 
-                result = run_with_progress(
-                    [sys.executable, "-u", str(hash_script), "--parallel"],
-                    line_callback=on_line,
-                    timeout_secs=1800,
-                    operation_name="Hash generation",
-                )
-
-                if result["timed_out"]:
-                    tracker.fail_operation(operation_id, result["error"])
-                elif result["success"]:
-                    tracker.complete_operation(
-                        operation_id,
-                        {
-                            "hashes_generated": hashes_generated,
-                            "output": result["output"],
-                        },
-                    )
-                else:
-                    tracker.fail_operation(
-                        operation_id,
-                        result["error"] or "Hash generation failed",
-                    )
-
-            except Exception as e:
-                tracker.fail_operation(operation_id, str(e))
-
-        thread = threading.Thread(target=run_hash_gen, daemon=True)
-        thread.start()
-
-        return jsonify(
-            {
-                "success": True,
-                "message": "Hash generation started",
-                "operation_id": operation_id,
-            }
+        return run_async_operation(
+            "hash",
+            "Generating SHA-256 hashes",
+            "Hash generation already in progress",
+            "Hash generation started",
+            work,
         )
 
     @utilities_ops_hashing_bp.route(
@@ -160,151 +117,117 @@ def init_hashing_routes(project_root):
     @admin_if_enabled
     def generate_checksums_async() -> FlaskResponse:
         """Generate MD5 checksums for Sources and Library with progress tracking."""
-        tracker = get_tracker()
 
-        existing = tracker.is_operation_running("checksum")
-        if existing:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Checksum generation already in progress",
-                        "operation_id": existing,
-                    }
-                ),
-                409,
+        def work(tracker, operation_id):
+            audiobooks_data = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
+            sources_dir = Path(audiobooks_data) / "Sources"
+            library_dir = Path(audiobooks_data) / "Library"
+            index_dir = Path(audiobooks_data) / ".index"
+            index_dir.mkdir(parents=True, exist_ok=True)
+
+            source_checksums = []
+            library_checksums = []
+
+            def checksum_first_mb(filepath):
+                """Calculate MD5 of first 1MB of file."""
+                try:
+                    with open(filepath, "rb") as f:
+                        data = f.read(1048576)
+                    return hashlib.md5(data, usedforsecurity=False).hexdigest()
+                except (IOError, OSError):
+                    return None
+
+            tracker.update_progress(operation_id, 5, "Counting files...")
+            source_files = (
+                list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
             )
+            library_files = (
+                [
+                    f
+                    for f in library_dir.rglob("*.opus")
+                    if ".cover.opus" not in f.name
+                ]
+                if library_dir.exists()
+                else []
+            )
+            total_files = len(source_files) + len(library_files)
 
-        operation_id = tracker.create_operation("checksum", "Generating MD5 checksums")
-
-        def run_checksum_gen():
-            tracker.start_operation(operation_id)
-
-            try:
-                # Get paths from environment or defaults
-                audiobooks_data = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
-                sources_dir = Path(audiobooks_data) / "Sources"
-                library_dir = Path(audiobooks_data) / "Library"
-                index_dir = Path(audiobooks_data) / ".index"
-
-                index_dir.mkdir(parents=True, exist_ok=True)
-
-                source_checksums = []
-                library_checksums = []
-
-                def checksum_first_mb(filepath):
-                    """Calculate MD5 of first 1MB of file."""
-                    try:
-                        with open(filepath, "rb") as f:
-                            data = f.read(1048576)  # 1MB
-                        return hashlib.md5(data, usedforsecurity=False).hexdigest()
-                    except (IOError, OSError):
-                        return None
-
-                # Count files first for progress
-                tracker.update_progress(operation_id, 5, "Counting files...")
-                source_files = (
-                    list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
-                )
-                library_files = (
-                    [
-                        f
-                        for f in library_dir.rglob("*.opus")
-                        if ".cover.opus" not in f.name
-                    ]
-                    if library_dir.exists()
-                    else []
-                )
-                total_files = len(source_files) + len(library_files)
-
-                if total_files == 0:
-                    tracker.complete_operation(
-                        operation_id,
-                        {
-                            "source_checksums": 0,
-                            "library_checksums": 0,
-                            "message": "No files found to checksum",
-                        },
-                    )
-                    return
-
-                processed = 0
-
-                # Process source files
-                tracker.update_progress(
-                    operation_id, 10, f"Processing {len(source_files)} source files..."
-                )
-                for filepath in source_files:
-                    checksum = checksum_first_mb(filepath)
-                    if checksum:
-                        source_checksums.append(f"{checksum}|{filepath}")
-                    processed += 1
-                    if processed % 50 == 0:
-                        pct = 10 + int((processed / total_files) * 80)
-                        tracker.update_progress(
-                            operation_id,
-                            pct,
-                            f"Processed {processed}/{total_files} files...",
-                        )
-
-                # Process library files
-                tracker.update_progress(
-                    operation_id,
-                    50,
-                    f"Processing {len(library_files)} library files...",
-                )
-                for filepath in library_files:
-                    checksum = checksum_first_mb(filepath)
-                    if checksum:
-                        library_checksums.append(f"{checksum}|{filepath}")
-                    processed += 1
-                    if processed % 50 == 0:
-                        pct = 10 + int((processed / total_files) * 80)
-                        tracker.update_progress(
-                            operation_id,
-                            pct,
-                            f"Processed {processed}/{total_files} files...",
-                        )
-
-                # Write index files
-                tracker.update_progress(operation_id, 95, "Writing index files...")
-
-                source_idx_path = index_dir / "source_checksums.idx"
-                with open(source_idx_path, "w") as f:
-                    f.write(
-                        "\n".join(source_checksums) + "\n" if source_checksums else ""
-                    )
-
-                library_idx_path = index_dir / "library_checksums.idx"
-                with open(library_idx_path, "w") as f:
-                    f.write(
-                        "\n".join(library_checksums) + "\n" if library_checksums else ""
-                    )
-
+            if total_files == 0:
                 tracker.complete_operation(
                     operation_id,
                     {
-                        "source_checksums": len(source_checksums),
-                        "library_checksums": len(library_checksums),
-                        "total_files": total_files,
+                        "source_checksums": 0,
+                        "library_checksums": 0,
+                        "message": "No files found to checksum",
                     },
                 )
+                return
 
-            except Exception as e:
-                import traceback
+            processed = 0
 
-                traceback.print_exc()
-                tracker.fail_operation(operation_id, str(e))
+            tracker.update_progress(
+                operation_id, 10, f"Processing {len(source_files)} source files..."
+            )
+            for filepath in source_files:
+                checksum = checksum_first_mb(filepath)
+                if checksum:
+                    source_checksums.append(f"{checksum}|{filepath}")
+                processed += 1
+                if processed % 50 == 0:
+                    pct = 10 + int((processed / total_files) * 80)
+                    tracker.update_progress(
+                        operation_id,
+                        pct,
+                        f"Processed {processed}/{total_files} files...",
+                    )
 
-        thread = threading.Thread(target=run_checksum_gen, daemon=True)
-        thread.start()
+            tracker.update_progress(
+                operation_id,
+                50,
+                f"Processing {len(library_files)} library files...",
+            )
+            for filepath in library_files:
+                checksum = checksum_first_mb(filepath)
+                if checksum:
+                    library_checksums.append(f"{checksum}|{filepath}")
+                processed += 1
+                if processed % 50 == 0:
+                    pct = 10 + int((processed / total_files) * 80)
+                    tracker.update_progress(
+                        operation_id,
+                        pct,
+                        f"Processed {processed}/{total_files} files...",
+                    )
 
-        return jsonify(
-            {
-                "success": True,
-                "message": "Checksum generation started",
-                "operation_id": operation_id,
-            }
+            tracker.update_progress(operation_id, 95, "Writing index files...")
+
+            source_idx_path = index_dir / "source_checksums.idx"
+            with open(source_idx_path, "w") as f:
+                f.write(
+                    "\n".join(source_checksums) + "\n" if source_checksums else ""
+                )
+
+            library_idx_path = index_dir / "library_checksums.idx"
+            with open(library_idx_path, "w") as f:
+                f.write(
+                    "\n".join(library_checksums) + "\n" if library_checksums else ""
+                )
+
+            tracker.complete_operation(
+                operation_id,
+                {
+                    "source_checksums": len(source_checksums),
+                    "library_checksums": len(library_checksums),
+                    "total_files": total_files,
+                },
+            )
+
+        return run_async_operation(
+            "checksum",
+            "Generating MD5 checksums",
+            "Checksum generation already in progress",
+            "Checksum generation started",
+            work,
         )
 
     return utilities_ops_hashing_bp

@@ -160,6 +160,23 @@ html {
 
     /* Dynamic viewport height for player/modals */
     --vh-full: 100dvh;
+
+    /* Transition duration tokens */
+    --transition-fast: 0.15s;
+    --transition-normal: 0.3s;
+    --transition-slow: 0.5s;
+
+    /* Simple centered shadow patterns (non-directional, for overlays/dropdowns) */
+    --shadow-soft-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-soft-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-soft-lg: 0 10px 40px rgba(0, 0, 0, 0.5);
+    --shadow-soft-inset: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-soft-inset-deep: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Shared keyframes */
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /* ============================================

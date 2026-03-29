@@ -518,7 +518,11 @@ The scanner subsystem handles metadata extraction, library scanning, and databas
   ├── add_new_audiobooks.py  # Incremental scanner for new files
   ├── import_single.py       # Single-directory inline importer
   ├── find_missing_audiobooks.py  # Detect missing/moved files
-  └── create_priority_list.py     # Conversion queue prioritization
+  ├── create_priority_list.py     # Conversion queue prioritization
+  └── utils/                      # Shared scanner utilities (v8+)
+      ├── __init__.py              # Re-exports constants and helpers
+      ├── constants.py             # SUPPORTED_FORMATS list, is_cover_art_file()
+      └── db_helpers.py            # get_or_create_lookup_id() for author/narrator/genre tables
 
   library/scripts/           # Standalone utility and enrichment scripts
   ├── enrich_from_audible.py      # Audible API enrichment (ratings, categories, reviews, series, 15+ fields)
@@ -639,6 +643,7 @@ The `utilities_ops/` package contains specialized operation handlers (refactored
 ```text
 library/backend/api_modular/utilities_ops/
 ├── __init__.py      # Re-exports all operations
+├── _helpers.py      # Shared run_async_operation() and handle_result() (v8+)
 ├── audible.py       # Audible API operations (download, metadata sync)
 ├── hashing.py       # Hash generation for duplicate detection
 ├── library.py       # Library content management (rescan, cleanup)
@@ -648,6 +653,7 @@ library/backend/api_modular/utilities_ops/
 
 | Module | Key Functions | API Endpoints |
 |--------|--------------|---------------|
+| `_helpers.py` | `run_async_operation()`, `handle_result()` | (shared by all async endpoints) |
 | `audible.py` | `download_audiobook()`, `sync_metadata()` | POST `/api/utilities/download` |
 | `hashing.py` | `generate_hashes()`, `update_checksums()` | POST `/api/utilities/generate-hashes` |
 | `library.py` | `rescan_library()`, `cleanup_missing()` | POST `/api/utilities/rescan` |
@@ -943,6 +949,26 @@ This view ensures the main library displays full-length audiobooks only.
 | **Admin Audit** section | Back Office section showing unified activity log and statistics |
 | **USERS tab** (v7.4.1+) | Back Office tab: create users (TOTP/Magic Link/Passkey), edit username/email/roles, switch auth method, reset credentials, delete users, paginated audit log with action filter, notification badge for new audit entries |
 | **My Account modal** (v7.4.1+) | Shell header modal: view profile (username, email, auth type, member since), inline-edit username/email, switch auth method (two-step: select → configure), reset credentials, delete own account with custom confirmation text |
+
+### Shared Frontend Modules (v8+)
+
+Common JavaScript functionality is consolidated into shared modules to eliminate duplication across page scripts:
+
+| Module | Purpose | Key Exports |
+|--------|---------|-------------|
+| `js/api.js` | Centralized API client with error handling and toast notifications | `apiGet()`, `apiPost()`, `apiPut()`, `apiPatch()`, `apiDelete()` |
+| `js/utils.js` | Shared utility functions | `formatDate()`, `formatDateTime()`, `formatLocal()`, `pollOperation()`, `checkAuthStatus()` |
+
+Page scripts (`account.js`, `utilities.js`, etc.) import from these shared modules rather than defining their own fetch wrappers, date formatters, or polling logic.
+
+### Shared Test Helpers (v8+)
+
+```text
+library/tests/helpers/
+└── __init__.py      # wait_for_thread_completion() — shared by utilities_ops test files
+```
+
+The `wait_for_thread_completion()` helper provides consistent thread-join logic for async operation tests across all `utilities_ops` extended test modules.
 
 ### Admin Notification Flow (v7.4.1+)
 

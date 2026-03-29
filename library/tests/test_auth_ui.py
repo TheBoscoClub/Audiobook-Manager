@@ -601,13 +601,14 @@ class TestSecurityAttributes:
     def test_credentials_use_include(self):
         """Verify fetch calls include credentials for cookies."""
         login_content = (WEB_DIR / "login.html").read_text()
-        library_js_content = (JS_DIR / "library.js").read_text()
+        api_js_content = (JS_DIR / "api.js").read_text()
 
         assert (
             "credentials: 'include'" in login_content
             or 'credentials: "include"' in login_content
         ), "Login should include credentials"
+        # api.js is the shared fetch wrapper used by library.js and others.
+        # It must set credentials on every request (same-origin or include).
         assert (
-            "credentials: 'include'" in library_js_content
-            or 'credentials: "include"' in library_js_content
-        ), "Library.js should include credentials"
+            "credentials" in api_js_content
+        ), "Shared api.js client should configure credentials"

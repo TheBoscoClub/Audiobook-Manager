@@ -6,13 +6,13 @@ Handles adding new audiobooks, rescanning the library, and reimporting to databa
 
 import re
 import sys
-import threading
 
-from flask import Blueprint, jsonify, request
-from operation_status import create_progress_callback, get_tracker
+from flask import Blueprint, request
+from operation_status import create_progress_callback
 
 from ..auth import admin_if_enabled
 from ..core import FlaskResponse
+from ._helpers import handle_result, run_async_operation
 from ._subprocess import run_with_progress
 
 utilities_ops_library_bp = Blueprint("utilities_ops_library", __name__)
@@ -27,109 +27,45 @@ def init_library_routes(db_path, project_root):
     @utilities_ops_library_bp.route("/api/utilities/add-new", methods=["POST"])
     @admin_if_enabled
     def add_new_audiobooks_endpoint() -> FlaskResponse:
-        """
-        Add new audiobooks incrementally (only files not in database).
-        Runs in background thread with progress tracking.
-        """
-        tracker = get_tracker()
-
-        # Check if already running
-        existing = tracker.is_operation_running("add_new")
-        if existing:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Add operation already in progress",
-                        "operation_id": existing,
-                    }
-                ),
-                409,
-            )
-
-        # Create operation
-        operation_id = tracker.create_operation(
-            "add_new", "Adding new audiobooks to database"
-        )
-
-        # Get options from request
+        """Add new audiobooks incrementally (only files not in database)."""
         data = request.get_json() or {}
         calculate_hashes = data.get("calculate_hashes", True)
 
-        def run_add_new():
-            """Background thread function."""
-            tracker.start_operation(operation_id)
+        def work(tracker, operation_id):
             progress_cb = create_progress_callback(operation_id)
+            sys.path.insert(0, str(project_root / "scanner"))
+            from add_new_audiobooks import (
+                AUDIOBOOK_DIR,
+                COVER_DIR,
+                add_new_audiobooks,
+            )
 
-            try:
-                # Import here to avoid circular imports
-                sys.path.insert(0, str(project_root / "scanner"))
-                from add_new_audiobooks import (
-                    AUDIOBOOK_DIR,
-                    COVER_DIR,
-                    add_new_audiobooks,
-                )
+            results = add_new_audiobooks(
+                library_dir=AUDIOBOOK_DIR,
+                db_path=db_path,
+                cover_dir=COVER_DIR,
+                calculate_hashes=calculate_hashes,
+                progress_callback=progress_cb,
+            )
+            tracker.complete_operation(operation_id, results)
 
-                results = add_new_audiobooks(
-                    library_dir=AUDIOBOOK_DIR,
-                    db_path=db_path,
-                    cover_dir=COVER_DIR,
-                    calculate_hashes=calculate_hashes,
-                    progress_callback=progress_cb,
-                )
-
-                tracker.complete_operation(operation_id, results)
-
-            except Exception as e:
-                import traceback
-
-                traceback.print_exc()
-                tracker.fail_operation(operation_id, str(e))
-
-        # Start background thread
-        thread = threading.Thread(target=run_add_new, daemon=True)
-        thread.start()
-
-        return jsonify(
-            {
-                "success": True,
-                "message": "Add operation started",
-                "operation_id": operation_id,
-            }
+        return run_async_operation(
+            "add_new",
+            "Adding new audiobooks to database",
+            "Add operation already in progress",
+            "Add operation started",
+            work,
         )
 
     @utilities_ops_library_bp.route("/api/utilities/rescan-async", methods=["POST"])
     @admin_if_enabled
     def rescan_library_async() -> FlaskResponse:
-        """
-        Trigger a library rescan with progress tracking.
-        This is the async version that runs in background.
-        """
-        tracker = get_tracker()
+        """Trigger a library rescan with progress tracking."""
 
-        # Check if already running
-        existing = tracker.is_operation_running("rescan")
-        if existing:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Rescan already in progress",
-                        "operation_id": existing,
-                    }
-                ),
-                409,
-            )
-
-        operation_id = tracker.create_operation("rescan", "Scanning audiobook library")
-
-        def run_rescan():
-            tracker.start_operation(operation_id)
+        def work(tracker, operation_id):
             scanner_path = project_root / "scanner" / "scan_audiobooks.py"
-
             files_found = 0
             last_progress = 5
-
             progress_pattern = re.compile(r"(\d+)%\s*\|\s*(\d+)/(\d+)")
 
             def on_line(buf):
@@ -155,68 +91,36 @@ def init_library_routes(db_path, project_root):
                     except (ValueError, IndexError):
                         pass
 
-            try:
-                tracker.update_progress(operation_id, 5, "Starting scanner...")
+            tracker.update_progress(operation_id, 5, "Starting scanner...")
+            result = run_with_progress(
+                [sys.executable, "-u", str(scanner_path)],
+                line_callback=on_line,
+                timeout_secs=7200,
+                operation_name="Scan",
+            )
+            handle_result(
+                tracker,
+                operation_id,
+                result,
+                {"files_found": files_found, "output": result["output"]},
+                "Scanner failed",
+            )
 
-                result = run_with_progress(
-                    [sys.executable, "-u", str(scanner_path)],
-                    line_callback=on_line,
-                    timeout_secs=7200,  # 2 hours for large libraries
-                    operation_name="Scan",
-                )
-
-                if result["timed_out"]:
-                    tracker.fail_operation(operation_id, result["error"])
-                elif result["success"]:
-                    tracker.complete_operation(
-                        operation_id,
-                        {
-                            "files_found": files_found,
-                            "output": result["output"],
-                        },
-                    )
-                else:
-                    tracker.fail_operation(
-                        operation_id, result["error"] or "Scanner failed"
-                    )
-
-            except Exception as e:
-                tracker.fail_operation(operation_id, str(e))
-
-        thread = threading.Thread(target=run_rescan, daemon=True)
-        thread.start()
-
-        return jsonify(
-            {"success": True, "message": "Rescan started", "operation_id": operation_id}
+        return run_async_operation(
+            "rescan",
+            "Scanning audiobook library",
+            "Rescan already in progress",
+            "Rescan started",
+            work,
         )
 
     @utilities_ops_library_bp.route("/api/utilities/reimport-async", methods=["POST"])
     @admin_if_enabled
     def reimport_database_async() -> FlaskResponse:
         """Reimport audiobooks to database with progress tracking."""
-        tracker = get_tracker()
 
-        existing = tracker.is_operation_running("reimport")
-        if existing:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Reimport already in progress",
-                        "operation_id": existing,
-                    }
-                ),
-                409,
-            )
-
-        operation_id = tracker.create_operation(
-            "reimport", "Importing audiobooks to database"
-        )
-
-        def run_reimport():
-            tracker.start_operation(operation_id)
+        def work(tracker, operation_id):
             import_path = project_root / "backend" / "import_to_db.py"
-
             imported_count = 0
             total_audiobooks = 0
             last_progress = 2
@@ -291,44 +195,31 @@ def init_library_routes(db_path, project_root):
                         operation_id, 5, "Database schema ready"
                     )
 
-            try:
-                tracker.update_progress(operation_id, 2, "Starting database import...")
+            tracker.update_progress(operation_id, 2, "Starting database import...")
+            result = run_with_progress(
+                [sys.executable, "-u", str(import_path)],
+                line_callback=on_line,
+                timeout_secs=1800,
+                operation_name="Import",
+            )
+            handle_result(
+                tracker,
+                operation_id,
+                result,
+                {
+                    "imported_count": imported_count,
+                    "total_audiobooks": total_audiobooks,
+                    "output": result["output"],
+                },
+                "Import failed",
+            )
 
-                result = run_with_progress(
-                    [sys.executable, "-u", str(import_path)],
-                    line_callback=on_line,
-                    timeout_secs=1800,  # 30 minutes
-                    operation_name="Import",
-                )
-
-                if result["timed_out"]:
-                    tracker.fail_operation(operation_id, result["error"])
-                elif result["success"]:
-                    tracker.complete_operation(
-                        operation_id,
-                        {
-                            "imported_count": imported_count,
-                            "total_audiobooks": total_audiobooks,
-                            "output": result["output"],
-                        },
-                    )
-                else:
-                    tracker.fail_operation(
-                        operation_id, result["error"] or "Import failed"
-                    )
-
-            except Exception as e:
-                tracker.fail_operation(operation_id, str(e))
-
-        thread = threading.Thread(target=run_reimport, daemon=True)
-        thread.start()
-
-        return jsonify(
-            {
-                "success": True,
-                "message": "Reimport started",
-                "operation_id": operation_id,
-            }
+        return run_async_operation(
+            "reimport",
+            "Importing audiobooks to database",
+            "Reimport already in progress",
+            "Reimport started",
+            work,
         )
 
     return utilities_ops_library_bp

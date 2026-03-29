@@ -14,7 +14,7 @@
     background: var(--deco-slate, #1e1e1e);
     border-left: 3px solid var(--gold, #DAA520);
     padding: 1rem 1.25rem;
-    transition: border-color 0.3s, background 0.3s;
+    transition: border-color var(--transition-normal), background var(--transition-normal);
 }
 
 .about-attribution-item:hover {
@@ -85,7 +85,7 @@
     border: 1px solid var(--gold-dark, #B8860B);
     text-decoration: none;
     text-align: center;
-    transition: all 0.3s;
+    transition: all var(--transition-normal);
 }
 
 .about-link-card:hover {

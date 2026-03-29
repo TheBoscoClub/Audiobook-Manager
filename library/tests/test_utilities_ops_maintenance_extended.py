@@ -6,11 +6,13 @@ regex-based progress parsing, and error handling paths.
 """
 
 import subprocess
-import time
 from unittest.mock import MagicMock, patch
+
+from tests.helpers import wait_for_thread_completion
 
 
 MODULE = "backend.api_modular.utilities_ops.maintenance"
+HELPERS_MODULE = "backend.api_modular.utilities_ops._helpers"
 
 
 def _make_side_effect(stdout_lines, returncode=0, stderr_text="", timed_out=False):
@@ -54,21 +56,12 @@ def _make_side_effect_raises(exc):
     return side_effect
 
 
-def _wait_for_thread_completion(tracker_mock, timeout=2.0):
-    """Wait until tracker's complete_operation or fail_operation is called."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
-            return True
-        time.sleep(0.02)
-    return False
-
 
 class TestRebuildQueueWorkerThread:
     """Test the run_rebuild() background thread function."""
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_successful_rebuild_completes_operation(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -87,13 +80,13 @@ class TestRebuildQueueWorkerThread:
             resp = client.post("/api/utilities/rebuild-queue-async")
         assert resp.status_code == 200
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["queue_size"] == 42
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rebuild_failure_calls_fail_operation(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -110,12 +103,12 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "Script error" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rebuild_timeout_kills_process(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -130,12 +123,12 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rebuild_generic_exception(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -150,12 +143,12 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "No such file" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rebuild_scanning_progress_updates(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -173,13 +166,13 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # Should have multiple update_progress calls for scanning + found
         progress_calls = mock_tracker.update_progress.call_args_list
         assert len(progress_calls) >= 2  # Initial + at least scanning/found
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rebuild_output_truncation(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -195,12 +188,12 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rebuild_empty_stderr_fallback(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -215,7 +208,7 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Queue rebuild failed" in mock_tracker.fail_operation.call_args[0][1]
 
 
@@ -223,7 +216,7 @@ class TestCleanupIndexesWorkerThread:
     """Test the run_cleanup() background thread function."""
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_cleanup_success_with_progress_pattern(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -246,13 +239,13 @@ class TestCleanupIndexesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/cleanup-indexes-async", json={"dry_run": True})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["entries_removed"] == 5
         assert result["dry_run"] is True
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_cleanup_checking_pattern(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -270,12 +263,12 @@ class TestCleanupIndexesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/cleanup-indexes-async", json={"dry_run": True})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["entries_removed"] == 3
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_cleanup_timeout(self, mock_get_tracker, mock_rwp, flask_app):
         """Cleanup timeout fails operation."""
         mock_tracker = MagicMock()
@@ -288,12 +281,12 @@ class TestCleanupIndexesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/cleanup-indexes-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_cleanup_execute_mode_command(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -308,7 +301,7 @@ class TestCleanupIndexesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/cleanup-indexes-async", json={"dry_run": False})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         cmd_args = mock_rwp.call_args[0][0]
         assert "--dry-run" not in cmd_args
 
@@ -317,7 +310,7 @@ class TestPopulateSortFieldsWorkerThread:
     """Test the run_populate() background thread function for sort fields."""
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_sort_fields_success_with_loading(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -342,13 +335,13 @@ class TestPopulateSortFieldsWorkerThread:
                 "/api/utilities/populate-sort-fields-async", json={"dry_run": False}
             )
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["fields_updated"] == 42
         assert result["dry_run"] is False
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_sort_fields_dry_run_would_update(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -368,12 +361,12 @@ class TestPopulateSortFieldsWorkerThread:
                 "/api/utilities/populate-sort-fields-async", json={"dry_run": True}
             )
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["fields_updated"] == 25
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_sort_fields_failure(self, mock_get_tracker, mock_rwp, flask_app):
         """Sort field population failure uses stderr."""
         mock_tracker = MagicMock()
@@ -388,11 +381,11 @@ class TestPopulateSortFieldsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "DB locked" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_sort_fields_timeout(self, mock_get_tracker, mock_rwp, flask_app):
         """Sort field timeout."""
         mock_tracker = MagicMock()
@@ -405,12 +398,12 @@ class TestPopulateSortFieldsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_sort_fields_execute_appends_flag(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -427,12 +420,12 @@ class TestPopulateSortFieldsWorkerThread:
                 "/api/utilities/populate-sort-fields-async", json={"dry_run": False}
             )
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         cmd_args = mock_rwp.call_args[0][0]
         assert "--execute" in cmd_args
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_sort_fields_processing_pattern(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -450,7 +443,7 @@ class TestPopulateSortFieldsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # At least the initial progress + processing pattern
         assert mock_tracker.update_progress.call_count >= 2
 
@@ -460,7 +453,7 @@ class TestPopulateAsinsWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{MODULE}.subprocess.run")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_asin_populate_success(
         self, mock_get_tracker, mock_sub_run, mock_rwp, flask_app
     ):
@@ -495,14 +488,14 @@ class TestPopulateAsinsWorkerThread:
                         )
 
         assert resp.status_code == 200
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         if mock_tracker.complete_operation.called:
             result = mock_tracker.complete_operation.call_args[0][1]
             assert result["asins_matched"] == 30
             assert result["unmatched"] == 20
 
     @patch(f"{MODULE}.subprocess.run")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_asin_export_timeout(self, mock_get_tracker, mock_sub_run, flask_app):
         """Audible export timeout fails operation."""
         mock_tracker = MagicMock()
@@ -519,12 +512,12 @@ class TestPopulateAsinsWorkerThread:
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.subprocess.run")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_asin_export_failure(self, mock_get_tracker, mock_sub_run, flask_app):
         """Audible export non-zero rc fails operation."""
         mock_tracker = MagicMock()
@@ -545,12 +538,12 @@ class TestPopulateAsinsWorkerThread:
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "Auth failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.subprocess.run")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_asin_export_file_not_found(
         self, mock_get_tracker, mock_sub_run, flask_app
     ):
@@ -573,11 +566,11 @@ class TestPopulateAsinsWorkerThread:
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "not found" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_asin_409_when_running(self, mock_get_tracker, flask_app):
         """Returns 409 when ASIN population already running."""
         mock_tracker = MagicMock()
@@ -596,7 +589,7 @@ class TestFindSourceDuplicatesWorkerThread:
     """Test the run_scan() background thread for duplicate detection."""
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_duplicates_success_with_progress(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -616,13 +609,13 @@ class TestFindSourceDuplicatesWorkerThread:
                 "/api/utilities/find-source-duplicates-async", json={"dry_run": True}
             )
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["duplicates_found"] == 5
         assert result["dry_run"] is True
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_duplicates_scanning_progress(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -640,11 +633,11 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert mock_tracker.update_progress.call_count >= 2
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_duplicates_failure(self, mock_get_tracker, mock_rwp, flask_app):
         """Duplicate scan failure uses stderr."""
         mock_tracker = MagicMock()
@@ -659,11 +652,11 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Permission denied" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_duplicates_timeout(self, mock_get_tracker, mock_rwp, flask_app):
         """Duplicate scan timeout fails operation."""
         mock_tracker = MagicMock()
@@ -676,12 +669,12 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_duplicates_found_files_progress(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -699,14 +692,14 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # Check that update_progress was called with 20% for "Found X sources"
         progress_calls = mock_tracker.update_progress.call_args_list
         progress_percents = [c[0][1] for c in progress_calls]
         assert 20 in progress_percents
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_duplicates_dry_run_appends_flag(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -723,12 +716,12 @@ class TestFindSourceDuplicatesWorkerThread:
                 "/api/utilities/find-source-duplicates-async", json={"dry_run": True}
             )
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         cmd_args = mock_rwp.call_args[0][0]
         assert "--dry-run" in cmd_args
 
     @patch(f"{MODULE}.run_with_progress")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_duplicates_empty_stderr_fallback(
         self, mock_get_tracker, mock_rwp, flask_app
     ):
@@ -743,7 +736,7 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Duplicate scan failed" in mock_tracker.fail_operation.call_args[0][1]
 
 
@@ -756,7 +749,7 @@ class TestPopulateAsinsEndpointMethodConstraints:
             response = client.get("/api/utilities/populate-asins-async")
         assert response.status_code == 405
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_populate_asins_defaults_dry_run(self, mock_get_tracker, flask_app):
         """ASIN populate defaults to dry_run=True."""
         mock_tracker = MagicMock()
