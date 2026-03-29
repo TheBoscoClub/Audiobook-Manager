@@ -457,5 +457,5 @@ Previously, Audiobook-Manager supported bidirectional position synchronization w
 
 ---
 
-*Document Version: 7.6.0*
-*Last Updated: 2026-03-28*
+*Document Version: 7.6.1*
+*Last Updated: 2026-03-29*

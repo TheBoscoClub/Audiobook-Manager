@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [7.6.1] - 2026-03-29
+
+### Fixed
+
+- **Credential reset claim flow**: Existing users with reset credentials can now complete the claim process (passkey/TOTP registration). Previously, the claim flow only checked `access_requests` (new users) and rejected existing users from `pending_registrations`
+- **Claim URL generation**: Admin credential-reset endpoints now return `/claim.html?username=...&token=...` (browser page) instead of `/auth/register/claim?token=...` (POST-only API endpoint) — fixes 405 Method Not Allowed when navigating to claim URL
 - **CI fix**: Renamed ambiguous single-letter variable `l` to `line` in `test_gunicorn_migration.py` — resolves ruff E741 lint error that caused CI failure in python-security workflow
 
 ## [7.6.0] - 2026-03-28
@@ -2319,7 +2325,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.1...HEAD
+[7.6.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...v7.6.1
 [7.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.3...v7.6.0
 [7.5.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...v7.5.3
 [7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2...v7.5.2.1
