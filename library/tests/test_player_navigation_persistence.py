@@ -105,7 +105,9 @@ def test_audiobook(auth_session):
     assert response.status_code == 200
     data = response.json()
     if not data.get("audiobooks"):
-        pytest.skip("No audiobooks found in library — populate VM library before running Playwright tests")
+        pytest.skip(
+            "No audiobooks found in library — populate VM library before running Playwright tests"
+        )
     return data["audiobooks"][0]
 
 
