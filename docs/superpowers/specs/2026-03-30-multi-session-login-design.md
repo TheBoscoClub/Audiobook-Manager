@@ -28,6 +28,7 @@ ALTER TABLE users ADD COLUMN multi_session TEXT NOT NULL DEFAULT 'default';
 ```
 
 Values:
+
 - `'default'` — use global system setting
 - `'yes'` — always allow multiple sessions
 - `'no'` — always enforce single session
@@ -52,6 +53,7 @@ The table already supports multiple rows per `user_id` (no unique constraint on 
 #### Migration
 
 Single migration step in `auth/database.py` `_run_migrations()`:
+
 1. Add `multi_session` column to `users` (default `'default'`)
 2. Create `system_settings` table if not exists
 3. Seed `multi_session_default = 'false'` if not already present
@@ -90,6 +92,7 @@ Default is `False` — preserves current behavior for any caller that doesn't pa
 #### Call sites
 
 Every place that calls `Session.create_for_user()` resolves the flag via `_user_allows_multi_session()`. There are 5 call sites in `auth.py`:
+
 - `login()` — TOTP login (line ~902)
 - `login_webauthn_complete()` — passkey login (line ~2479)
 - `complete_magic_link()` — magic link login (line ~2968)

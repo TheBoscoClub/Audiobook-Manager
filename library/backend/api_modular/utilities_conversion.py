@@ -176,9 +176,102 @@ def get_system_stats() -> dict:
     }
 
 
+def _count_opus_files(directory: Path) -> int:
+    """Count opus files in a directory, excluding cover files."""
+    if not directory.exists():
+        return 0
+    count = 0
+    for f in directory.rglob("*.opus"):
+        if not f.name.endswith(".cover.opus"):
+            count += 1
+    return count
+
+
+def _get_remaining_count(sources_dir: Path, aaxc_count: int, total_converted: int) -> int:
+    """Get remaining conversion count from queue file or arithmetic fallback."""
+    queue_file = sources_dir.parent / ".index" / "queue.txt"
+    if queue_file.exists():
+        with open(queue_file) as qf:
+            return len([line.strip() for line in qf if line.strip()])
+    return max(0, aaxc_count - total_converted)
+
+
+def _collect_job_stats(
+    ffmpeg_pids: list[int], pid_cmdlines: dict[int, str]
+) -> tuple[list[str], list[dict], int, int]:
+    """Collect per-job stats from active FFmpeg processes.
+
+    Returns:
+        Tuple of (active_conversions, conversion_jobs, total_read, total_write)
+    """
+    active_conversions: list[str] = []
+    conversion_jobs: list[dict] = []
+    total_read = 0
+    total_write = 0
+
+    for pid in ffmpeg_pids:
+        cmdline = pid_cmdlines.get(pid, "")
+        job_info = parse_conversion_job(pid, cmdline)
+        if job_info:
+            active_conversions.append(job_info["display_name"])
+            conversion_jobs.append(job_info)
+            total_read += job_info["read_bytes"]
+            total_write += job_info["write_bytes"]
+
+    return active_conversions, conversion_jobs, total_read, total_write
+
+
+def _build_conversion_response(
+    sources_dir: Path, staging_dir: Path, library_dir: Path
+) -> FlaskResponse:
+    """Build the full conversion status response payload."""
+    aaxc_count = len(list(sources_dir.rglob("*.aaxc"))) if sources_dir.exists() else 0
+    staged_count = _count_opus_files(staging_dir)
+    library_count = _count_opus_files(library_dir)
+    total_converted = library_count + staged_count
+
+    remaining = _get_remaining_count(sources_dir, aaxc_count, total_converted)
+
+    ffmpeg_pids, pid_cmdlines = get_ffmpeg_processes()
+    ffmpeg_count = len(ffmpeg_pids)
+    ffmpeg_nice = get_ffmpeg_nice_value()
+
+    active_conversions, conversion_jobs, total_read, total_write = _collect_job_stats(
+        ffmpeg_pids, pid_cmdlines
+    )
+
+    percent = int(total_converted * 100 / aaxc_count) if aaxc_count > 0 else 0
+    effective_remaining = max(remaining, ffmpeg_count)
+    is_complete = remaining == 0 and ffmpeg_count == 0 and aaxc_count > 0
+
+    return jsonify(
+        {
+            "success": True,
+            "status": {
+                "source_count": aaxc_count,
+                "library_count": library_count,
+                "staged_count": staged_count,
+                "total_converted": total_converted,
+                "queue_count": effective_remaining,
+                "remaining": effective_remaining,
+                "percent_complete": percent,
+                "is_complete": is_complete,
+            },
+            "processes": {
+                "ffmpeg_count": ffmpeg_count,
+                "ffmpeg_nice": ffmpeg_nice,
+                "active_conversions": active_conversions[:12],
+                "conversion_jobs": conversion_jobs[:12],
+                "io_read_bytes": total_read,
+                "io_write_bytes": total_write,
+            },
+            "system": get_system_stats(),
+        }
+    )
+
+
 def init_conversion_routes(project_root: str | Path):
     """Initialize conversion monitoring routes with project root."""
-    # One-time path setup for config import
     _root = str(project_root)
     if _root not in sys.path:
         sys.path.insert(0, _root)
@@ -191,108 +284,10 @@ def init_conversion_routes(project_root: str | Path):
         Get current audiobook conversion status.
         Returns file counts, active processes, and statistics for the monitor.
         """
-
-        staging_dir = AUDIOBOOKS_STAGING
-
         try:
-            # Count source AAXC files (recursive to handle nested download batches)
-            sources_dir = AUDIOBOOKS_SOURCES
-            aaxc_count = (
-                len(list(sources_dir.rglob("*.aaxc"))) if sources_dir.exists() else 0
+            return _build_conversion_response(
+                AUDIOBOOKS_SOURCES, AUDIOBOOKS_STAGING, AUDIOBOOKS_LIBRARY
             )
-
-            # Count staged opus files (excluding covers) - recursively search subdirs
-            staged_count = 0
-            if staging_dir.exists():
-                for f in staging_dir.rglob("*.opus"):
-                    if not f.name.endswith(".cover.opus"):
-                        staged_count += 1
-
-            # Count library opus files (excluding covers)
-            library_count = 0
-            if AUDIOBOOKS_LIBRARY.exists():
-                for f in AUDIOBOOKS_LIBRARY.rglob("*.opus"):
-                    if not f.name.endswith(".cover.opus"):
-                        library_count += 1
-
-            # Total converted
-            total_converted = library_count + staged_count
-
-            # Remaining calculation - prefer queue file for accurate count
-            # The queue uses smart title matching to avoid false positives
-            queue_file = AUDIOBOOKS_SOURCES.parent / ".index" / "queue.txt"
-            if queue_file.exists():
-                with open(queue_file) as qf:
-                    queue_lines = [line.strip() for line in qf if line.strip()]
-                    remaining = len(queue_lines)
-            else:
-                # Fallback to simple arithmetic
-                remaining = max(0, aaxc_count - total_converted)
-
-            # Get active ffmpeg opus conversion processes with per-job stats
-            ffmpeg_pids, pid_cmdlines = get_ffmpeg_processes()
-            ffmpeg_count = len(ffmpeg_pids)
-            ffmpeg_nice = get_ffmpeg_nice_value()
-
-            active_conversions = []  # Legacy: just filenames for backward compat
-            conversion_jobs = []  # Detailed per-job info
-            total_read_bytes = 0
-            total_write_bytes = 0
-
-            # Process each FFmpeg job
-            for pid in ffmpeg_pids:
-                cmdline = pid_cmdlines.get(pid, "")
-                job_info = parse_conversion_job(pid, cmdline)
-
-                if job_info:
-                    active_conversions.append(job_info["display_name"])
-                    conversion_jobs.append(job_info)
-                    total_read_bytes += job_info["read_bytes"]
-                    total_write_bytes += job_info["write_bytes"]
-
-            # Get system stats
-            system_stats = get_system_stats()
-
-            # Calculate completion percentage
-            percent = int(total_converted * 100 / aaxc_count) if aaxc_count > 0 else 0
-
-            # Effective remaining: if FFmpeg is actively converting, those files
-            # haven't been written to staging yet, so count them as remaining
-            effective_remaining = max(remaining, ffmpeg_count)
-
-            # Only complete when no remaining AND no active conversions
-            is_complete = remaining == 0 and ffmpeg_count == 0 and aaxc_count > 0
-
-            return jsonify(
-                {
-                    "success": True,
-                    "status": {
-                        "source_count": aaxc_count,
-                        "library_count": library_count,
-                        "staged_count": staged_count,
-                        "total_converted": total_converted,
-                        # Use effective for consistency
-                        "queue_count": effective_remaining,
-                        "remaining": effective_remaining,
-                        "percent_complete": percent,
-                        "is_complete": is_complete,
-                    },
-                    "processes": {
-                        "ffmpeg_count": ffmpeg_count,
-                        "ffmpeg_nice": ffmpeg_nice,
-                        "active_conversions": active_conversions[
-                            :12
-                        ],  # Limit to 12 (legacy)
-                        "conversion_jobs": conversion_jobs[
-                            :12
-                        ],  # Detailed per-job info
-                        "io_read_bytes": total_read_bytes,
-                        "io_write_bytes": total_write_bytes,
-                    },
-                    "system": system_stats,
-                }
-            )
-
         except Exception:
             import logging
 

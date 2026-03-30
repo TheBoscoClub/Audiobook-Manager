@@ -28,6 +28,7 @@
 ### Task 1: Database Migration
 
 **Files:**
+
 - Create: `library/auth/migrations/009_multi_session.sql`
 - Modify: `library/auth/schema.sql`
 - Modify: `library/auth/database.py`
@@ -161,7 +162,7 @@ In `library/auth/database.py`:
 
 1. Change `SCHEMA_VERSION = 8` to `SCHEMA_VERSION = 9`
 
-2. Add additive migration block in `initialize()` after the `last_audit_seen_id` block (around line 251):
+1. Add additive migration block in `initialize()` after the `last_audit_seen_id` block (around line 251):
 
 ```python
             # Migration: add system_settings table if not exists
@@ -203,6 +204,7 @@ git commit -m "feat: add multi-session migration — system_settings table and u
 ### Task 2: User Model and SystemSettingsRepository
 
 **Files:**
+
 - Modify: `library/auth/models.py`
 - Test: `library/tests/test_multi_session.py`
 
@@ -325,7 +327,7 @@ In `library/auth/models.py`, class `User` (line ~56):
     multi_session: str = "default"
 ```
 
-2. Update `from_row()` — after the `last_audit_seen_id` block (line 118-119), add:
+1. Update `from_row()` — after the `last_audit_seen_id` block (line 118-119), add:
 
 ```python
         # Multi-session override (schema v9+, column 12)
@@ -333,7 +335,7 @@ In `library/auth/models.py`, class `User` (line ~56):
             fields["multi_session"] = row[12] if row[12] is not None else "default"
 ```
 
-3. Update `save()` INSERT — add `multi_session` to the column list and values:
+1. Update `save()` INSERT — add `multi_session` to the column list and values:
 
 In the INSERT statement (line ~127-148), add `multi_session` after `last_audit_seen_id`:
 
@@ -361,7 +363,7 @@ In the INSERT statement (line ~127-148), add `multi_session` after `last_audit_s
                     ),
 ```
 
-4. Update `save()` UPDATE — add `multi_session` to the SET clause:
+1. Update `save()` UPDATE — add `multi_session` to the SET clause:
 
 ```python
                     """
@@ -448,6 +450,7 @@ git commit -m "feat: add User.multi_session field and SystemSettingsRepository"
 ### Task 3: Session Logic — allow_multi Parameter
 
 **Files:**
+
 - Modify: `library/auth/models.py`
 - Test: `library/tests/test_multi_session.py`
 
@@ -555,13 +558,13 @@ In `library/auth/models.py`, modify `Session.create_for_user()` (line ~371):
     ) -> tuple["Session", str]:
 ```
 
-2. Update the docstring to include:
+1. Update the docstring to include:
 
 ```python
             allow_multi: If True, keep existing sessions (multi-device support)
 ```
 
-3. Make the DELETE conditional (line ~397):
+1. Make the DELETE conditional (line ~397):
 
 ```python
             # Invalidate existing sessions (unless multi-session is allowed)
@@ -591,6 +594,7 @@ git commit -m "feat: add allow_multi parameter to Session.create_for_user()"
 ### Task 4: Resolution Function and Call Sites
 
 **Files:**
+
 - Modify: `library/backend/api_modular/auth.py`
 - Modify: `library/auth/models.py` (import only)
 - Test: `library/tests/test_multi_session.py`
@@ -844,6 +848,7 @@ git commit -m "feat: add _user_allows_multi_session() and wire up all 5 login ca
 ### Task 5: Admin Settings API Endpoints
 
 **Files:**
+
 - Modify: `library/backend/api_modular/auth.py`
 - Test: `library/tests/test_multi_session.py`
 
@@ -982,6 +987,7 @@ git commit -m "feat: add GET/PATCH /auth/admin/settings endpoints for system set
 ### Task 6: Expose multi_session in User API Responses
 
 **Files:**
+
 - Modify: `library/backend/api_modular/auth.py`
 - Test: `library/tests/test_multi_session.py`
 
@@ -1051,7 +1057,7 @@ def _user_dict(user, include_auth_type: bool = False) -> dict:
     return d
 ```
 
-2. In `_apply_role_changes()` (line ~5205), add `multi_session` handling:
+1. In `_apply_role_changes()` (line ~5205), add `multi_session` handling:
 
 After the `can_download` block, add:
 
@@ -1063,7 +1069,7 @@ After the `can_download` block, add:
         user_repo.set_multi_session(user_id, value)
 ```
 
-3. Add `set_multi_session()` to `UserRepository` in `library/auth/models.py`:
+1. Add `set_multi_session()` to `UserRepository` in `library/auth/models.py`:
 
 After `set_download_permission()` (around line 270):
 
@@ -1099,6 +1105,7 @@ git commit -m "feat: expose multi_session in user API responses and admin role c
 ### Task 7: Back Office UI — Global Toggle and Per-User Selector
 
 **Files:**
+
 - Modify: `library/web-v2/utilities.html`
 - Modify: `library/web-v2/js/utilities.js`
 
@@ -1203,11 +1210,11 @@ Search `utilities.js` for an existing `api.patch` method. If not present, add it
 - [ ] **Step 5: Manual smoke test**
 
 1. Open the Back Office in a browser
-2. Navigate to Users tab
-3. Verify the "Allow multiple sessions by default" checkbox appears at the top
-4. Verify each user row has a "Sessions: Default/Yes/No" dropdown
-5. Toggle the checkbox — confirm toast appears and value persists on refresh
-6. Change a user's dropdown — confirm toast and persistence
+1. Navigate to Users tab
+1. Verify the "Allow multiple sessions by default" checkbox appears at the top
+1. Verify each user row has a "Sessions: Default/Yes/No" dropdown
+1. Toggle the checkbox — confirm toast appears and value persists on refresh
+1. Change a user's dropdown — confirm toast and persistence
 
 - [ ] **Step 6: Commit**
 
@@ -1221,6 +1228,7 @@ git commit -m "feat: add multi-session UI — global checkbox and per-user selec
 ### Task 8: Final Integration Test and Cleanup
 
 **Files:**
+
 - Test: `library/tests/test_multi_session.py`
 - Verify: all files from Tasks 1-7
 
@@ -1331,6 +1339,7 @@ git commit -m "test: add end-to-end integration tests for multi-session login"
 Add under `## [Unreleased]` → `### Added`:
 
 ```markdown
+
 - Multi-session login: admin-controllable toggle for concurrent device logins (global default + per-user override)
 ```
 

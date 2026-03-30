@@ -160,6 +160,45 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # Serve static files
             super().do_GET()
 
+    # Allowlist of content types for cover images
+    _ALLOWED_COVER_TYPES = {
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "image/svg+xml",
+    }
+
+    @staticmethod
+    def _is_safe_cover_filename(filename: str) -> bool:
+        """Check that a cover filename has no path traversal characters."""
+        return bool(filename) and "/" not in filename and "\\" not in filename and ".." not in filename
+
+    def _resolve_cover_content_type(self, filename: str) -> str:
+        """Determine the safe content type for a cover image."""
+        import mimetypes
+
+        guessed = mimetypes.guess_type(filename)[0] or "image/jpeg"
+        return guessed if guessed in self._ALLOWED_COVER_TYPES else "image/jpeg"
+
+    def _send_cover_response(self, cover_path: Path, content_type: str):
+        """Send the HTTP response with cover data and cache headers."""
+        file_size = cover_path.stat().st_size
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(file_size))
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
+        self.end_headers()
+
+        with open(cover_path, "rb") as f:
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+
     def _serve_cover(self, filename: str):
         """Serve a cover image directly from the covers directory.
 
@@ -167,10 +206,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         auth or logic. Content-addressed filenames (MD5 hashes) are immutable,
         so we set aggressive cache headers.
         """
-        import mimetypes
-
-        # Sanitize: only allow simple filenames (no path traversal)
-        if "/" in filename or "\\" in filename or ".." in filename or not filename:
+        if not self._is_safe_cover_filename(filename):
             self.send_error(400, "Bad Request")
             return
 
@@ -180,32 +216,8 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         try:
-            guessed = mimetypes.guess_type(filename)[0] or "image/jpeg"
-            # Allowlist content types to prevent HTTP response splitting
-            _ALLOWED_COVER_TYPES = {
-                "image/jpeg",
-                "image/png",
-                "image/gif",
-                "image/webp",
-                "image/svg+xml",
-            }
-            content_type = guessed if guessed in _ALLOWED_COVER_TYPES else "image/jpeg"
-            file_size = cover_path.stat().st_size
-
-            self.send_response(200)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(file_size))
-            # MD5-hash filenames are immutable — cache aggressively
-            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
-            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
-            self.end_headers()
-
-            with open(cover_path, "rb") as f:
-                while True:
-                    chunk = f.read(65536)
-                    if not chunk:
-                        break
-                    self.wfile.write(chunk)
+            content_type = self._resolve_cover_content_type(filename)
+            self._send_cover_response(cover_path, content_type)
         except (OSError, BrokenPipeError):
             pass
 

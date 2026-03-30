@@ -4306,6 +4306,46 @@ def _create_user_by_method(db, username, email, auth_method, is_admin, can_downl
     return new_user, setup_data
 
 
+def _user_to_entry(u: User) -> dict:
+    """Convert a User object to a JSON-serializable dict."""
+    return {
+        "id": u.id,
+        "username": u.username,
+        "email": u.recovery_email,
+        "auth_type": u.auth_type.value,
+        "can_download": u.can_download,
+        "is_admin": u.is_admin,
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+        "last_login": u.last_login.isoformat() if u.last_login else None,
+    }
+
+
+def _add_invite_expiry(
+    entry: dict, u: User, db: AuthDatabase, request_repo: AccessRequestRepository
+) -> None:
+    """Add invitation expiry fields to a user entry if they haven't logged in."""
+    if u.last_login:
+        return
+
+    if u.auth_type == AuthType.MAGIC_LINK:
+        with db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT expires_at, used_at FROM pending_recovery "
+                "WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+                (u.id,),
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                expires_at = datetime.fromisoformat(row[0])
+                entry["invite_expires_at"] = expires_at.isoformat()
+                entry["invite_expired"] = datetime.now() > expires_at
+    else:
+        ar = request_repo.get_by_username(u.username)
+        if ar and ar.claim_expires_at:
+            entry["invite_expires_at"] = ar.claim_expires_at.isoformat()
+            entry["invite_expired"] = ar.is_claim_expired()
+
+
 @auth_bp.route("/admin/users", methods=["GET"])
 @admin_required
 def list_users():
@@ -4326,43 +4366,12 @@ def list_users():
 
     all_users = user_repo.list_all()
     total = len(all_users)
-    users = all_users[
-        :limit
-    ]  # Apply limit in Python since list_all() doesn't support it
+    users = all_users[:limit]
 
     user_list = []
     for u in users:
-        entry = {
-            "id": u.id,
-            "username": u.username,
-            "email": u.recovery_email,
-            "auth_type": u.auth_type.value,
-            "can_download": u.can_download,
-            "is_admin": u.is_admin,
-            "created_at": u.created_at.isoformat() if u.created_at else None,
-            "last_login": u.last_login.isoformat() if u.last_login else None,
-        }
-        # For users who never logged in, include invitation expiry
-        if not u.last_login:
-            if u.auth_type == AuthType.MAGIC_LINK:
-                # Magic link invitations store expiry in pending_recovery
-                with db.connection() as conn:
-                    cursor = conn.execute(
-                        "SELECT expires_at, used_at FROM pending_recovery "
-                        "WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-                        (u.id,),
-                    )
-                    row = cursor.fetchone()
-                    if row and row[0]:
-                        expires_at = datetime.fromisoformat(row[0])
-                        entry["invite_expires_at"] = expires_at.isoformat()
-                        entry["invite_expired"] = datetime.now() > expires_at
-            else:
-                # TOTP/passkey invitations store expiry in access_requests
-                ar = request_repo.get_by_username(u.username)
-                if ar and ar.claim_expires_at:
-                    entry["invite_expires_at"] = ar.claim_expires_at.isoformat()
-                    entry["invite_expired"] = ar.is_claim_expired()
+        entry = _user_to_entry(u)
+        _add_invite_expiry(entry, u, db, request_repo)
         user_list.append(entry)
 
     return jsonify({"users": user_list, "total": total})
@@ -5574,6 +5583,37 @@ def admin_audit_log():
     )
 
 
+def _totp_setup_data(user: User) -> dict[str, str | None]:
+    """Build TOTP setup data (QR code, secret) for a user."""
+    if not user.auth_credential:
+        return {}
+    b32 = secret_to_base32(user.auth_credential)
+    qr_uri = get_provisioning_uri(user.auth_credential, user.username)
+    qr_png = generate_qr_code(user.auth_credential, user.username)
+    qr_b64 = base64.b64encode(qr_png).decode("ascii")
+    return {"secret": b32, "qr_uri": qr_uri, "manual_key": b32, "qr_base64": qr_b64}
+
+
+def _passkey_setup_data(db: AuthDatabase, username: str) -> dict[str, str | None]:
+    """Build passkey/FIDO2 setup data from pending registrations."""
+    with db.connection() as conn:
+        cursor = conn.execute(
+            "SELECT * FROM pending_registrations WHERE username = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (username,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return {}
+        from auth.models import PendingRegistration as PR
+
+        pending = PR.from_row(row)
+        return {
+            "claim_token": "pending",
+            "expires_at": pending.expires_at.isoformat() if pending.expires_at else None,
+        }
+
+
 @auth_bp.route("/admin/users/<int:user_id>/setup-info", methods=["GET"])
 @admin_required
 def admin_setup_info(user_id: int):
@@ -5592,46 +5632,14 @@ def admin_setup_info(user_id: int):
     if target_user.last_login is not None:
         return jsonify({"error": "User has already logged in"}), 404
 
-    setup_data: dict[str, str | None] = {}
-
     if target_user.auth_type == AuthType.TOTP:
-        # Decode existing credential to base32
-        if target_user.auth_credential:
-            base32 = secret_to_base32(target_user.auth_credential)
-            qr_uri = get_provisioning_uri(
-                target_user.auth_credential, target_user.username
-            )
-            qr_png = generate_qr_code(target_user.auth_credential, target_user.username)
-            qr_b64 = base64.b64encode(qr_png).decode("ascii")
-            setup_data = {
-                "secret": base32,
-                "qr_uri": qr_uri,
-                "manual_key": base32,
-                "qr_base64": qr_b64,
-            }
-
+        setup_data = _totp_setup_data(target_user)
     elif target_user.auth_type in (AuthType.PASSKEY, AuthType.FIDO2):
-        # Look up pending registration
-        with db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM pending_registrations WHERE username = ? "
-                "ORDER BY id DESC LIMIT 1",
-                (target_user.username,),
-            )
-            row = cursor.fetchone()
-            if row:
-                from auth.models import PendingRegistration as PR
-
-                pending = PR.from_row(row)
-                setup_data = {
-                    "claim_token": "pending",
-                    "expires_at": (
-                        pending.expires_at.isoformat() if pending.expires_at else None
-                    ),
-                }
-
+        setup_data = _passkey_setup_data(db, target_user.username)
     elif target_user.auth_type == AuthType.MAGIC_LINK:
         setup_data = {"email": target_user.recovery_email or ""}
+    else:
+        setup_data = {}
 
     return jsonify({"setup_data": setup_data})
 
