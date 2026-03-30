@@ -2996,6 +2996,7 @@ function initUsersSection() {
     .querySelector('.cabinet-tab[data-section="users"]')
     ?.addEventListener("click", function() {
       loadUsers();
+      loadSystemSettings();
       loadAccessRequests();
       loadAuditLog();
       loadUnseenBadge();
@@ -3431,6 +3432,36 @@ function showInviteUserModal() {
   });
 }
 
+async function loadSystemSettings() {
+  try {
+    const settings = await api.get("/auth/admin/settings", { toast: false });
+    const checkbox = document.getElementById("multi-session-default-checkbox");
+    if (checkbox && settings) {
+      checkbox.checked = settings.multi_session_default === "true";
+      checkbox.addEventListener("change", async () => {
+        try {
+          await api.patch("/auth/admin/settings", {
+            multi_session_default: checkbox.checked ? "true" : "false",
+          });
+          showToast(
+            checkbox.checked
+              ? "Multiple sessions enabled by default"
+              : "Multiple sessions disabled by default",
+            "success"
+          );
+        } catch (err) {
+          checkbox.checked = !checkbox.checked;
+          showToast("Failed to update setting: " + err.message, "error");
+        }
+      });
+    }
+  } catch {
+    // Non-admin or settings not available — hide the toggle
+    const toggle = document.getElementById("multi-session-toggle");
+    if (toggle) toggle.style.display = "none";
+  }
+}
+
 async function loadUsers() {
   const userList = document.getElementById("user-list");
   const countBadge = document.getElementById("users-count-badge");
@@ -3572,6 +3603,31 @@ function createUserItem(user) {
     toggleUserDownload(user.id, !user.can_download),
   );
   actions.appendChild(toggleBtn);
+
+  // Multi-session selector
+  const msSelect = document.createElement("select");
+  msSelect.className = "user-action-btn";
+  msSelect.title = `Multi-session setting for ${user.username}`;
+  msSelect.style.cssText = "padding: 4px 6px; font-size: 0.85em; cursor: pointer;";
+  ["default", "yes", "no"].forEach((val) => {
+    const opt = document.createElement("option");
+    opt.value = val;
+    opt.textContent = val === "default" ? "Sessions: Default" : val === "yes" ? "Sessions: Yes" : "Sessions: No";
+    if (user.multi_session === val) opt.selected = true;
+    msSelect.appendChild(opt);
+  });
+  msSelect.addEventListener("change", async () => {
+    try {
+      await api.put(`/auth/admin/users/${user.id}/roles`, {
+        multi_session: msSelect.value,
+      });
+      showToast(`Multi-session set to '${msSelect.value}' for ${user.username}`, "success");
+    } catch (err) {
+      showToast("Failed to update: " + err.message, "error");
+      msSelect.value = user.multi_session;
+    }
+  });
+  actions.appendChild(msSelect);
 
   // View Setup (for users who haven't logged in yet)
   if (!user.last_login) {
