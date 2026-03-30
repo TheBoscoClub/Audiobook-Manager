@@ -1321,9 +1321,13 @@ class PendingRegistration:
 
         Returns:
             Tuple of (PendingRegistration, raw_token)
-            - raw_token is sent to user via email/SMS
+            - raw_token is the 16-char truncated token for claim URLs
         """
-        raw_token, token_hash = generate_verification_token()
+        full_token, _ = generate_verification_token()
+        # Truncate to 16 chars — callers format as XXXX-XXXX-XXXX-XXXX.
+        # The stored hash must match hash(truncated) so validate works.
+        raw_token = full_token[:16]
+        token_hash = hash_token(raw_token)
         expires_at = datetime.now() + timedelta(minutes=expiry_minutes)
 
         with db.connection() as conn:

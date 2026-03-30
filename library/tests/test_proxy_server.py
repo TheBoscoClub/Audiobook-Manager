@@ -336,13 +336,14 @@ class TestHttpMethods:
             handler.do_POST()
             mock_proxy.assert_called_once_with("POST")
 
-    def test_covers_path_proxied_get(self):
+    def test_covers_path_served_directly(self):
+        """Covers are served directly from COVER_DIR, not proxied to API."""
         handler = _make_handler(path="/covers/abc.jpg")
         with patch.object(
-            proxy_server.ReverseProxyHandler, "proxy_to_api"
-        ) as mock_proxy:
+            proxy_server.ReverseProxyHandler, "_serve_cover"
+        ) as mock_serve:
             handler.do_GET()
-            mock_proxy.assert_called_once_with("GET")
+            mock_serve.assert_called_once_with("abc.jpg")
 
 
 # ============================================================
@@ -774,7 +775,7 @@ class TestIsProxyPath:
             ("/api/books", True),
             ("/api/system/version", True),
             ("/auth/login", True),
-            ("/covers/abc.jpg", True),
+            ("/covers/abc.jpg", False),
             ("/", False),
             ("/shell.html", False),
             ("/css/style.css", False),
@@ -829,4 +830,5 @@ class TestModuleConstants:
     def test_proxy_prefixes(self):
         assert "/api/" in proxy_server.ReverseProxyHandler.PROXY_PREFIXES
         assert "/auth/" in proxy_server.ReverseProxyHandler.PROXY_PREFIXES
-        assert "/covers/" in proxy_server.ReverseProxyHandler.PROXY_PREFIXES
+        # /covers/ is served directly from COVER_DIR, not proxied
+        assert "/covers/" not in proxy_server.ReverseProxyHandler.PROXY_PREFIXES
