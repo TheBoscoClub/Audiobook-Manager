@@ -180,7 +180,16 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         try:
-            content_type = mimetypes.guess_type(filename)[0] or "image/jpeg"
+            guessed = mimetypes.guess_type(filename)[0] or "image/jpeg"
+            # Allowlist content types to prevent HTTP response splitting
+            _ALLOWED_COVER_TYPES = {
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+                "image/svg+xml",
+            }
+            content_type = guessed if guessed in _ALLOWED_COVER_TYPES else "image/jpeg"
             file_size = cover_path.stat().st_size
 
             self.send_response(200)

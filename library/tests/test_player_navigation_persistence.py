@@ -48,7 +48,7 @@ try:
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
-    Page = None
+    Page = None  # type: ignore[assignment,misc]
 
 try:
     from selenium import webdriver
@@ -67,7 +67,7 @@ WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"
 ADMIN_TOTP_SECRET = os.environ.get(
-    "ADMIN_TOTP_SECRET", "W2GGPH7KH2WL2PN22SGW62WQMJOABGZS"
+    "ADMIN_TOTP_SECRET", "5DJSOED2NSA22QGXIF6VHTUV6VQHIQH4"
 )
 # Skip SSL verification for self-signed certs
 IGNORE_HTTPS_ERRORS = True

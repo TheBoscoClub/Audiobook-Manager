@@ -309,13 +309,27 @@ def _validate_merge_request(data, entity_label):
         return (
             None,
             None,
-            (jsonify({"error": "'source_ids' and 'target_id' required"}), 400),
+            (
+                jsonify(
+                    {
+                        "error": f"'source_ids' and 'target_id' required for {entity_label} merge"
+                    }
+                ),
+                400,
+            ),
         )
     if target_id in source_ids:
         return (
             None,
             None,
-            (jsonify({"error": "target_id cannot be in source_ids"}), 400),
+            (
+                jsonify(
+                    {
+                        "error": f"target_id cannot be in source_ids for {entity_label} merge"
+                    }
+                ),
+                400,
+            ),
         )
     return source_ids, target_id, None
 

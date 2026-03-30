@@ -304,9 +304,9 @@ async function searchForEdit(query) {
         .map(
           (book) => `
                 <div class="search-result-item" data-id="${book.id}">
-                    <img src="${book.cover_url || "/api/covers/default.jpg"}"
+                    <img src="${book.cover_url || "/covers/default.jpg"}"
                          alt="" class="result-cover"
-                         onerror="this.src='/api/covers/default.jpg'">
+                         onerror="this.src='/covers/default.jpg'">
                     <div class="result-info">
                         <div class="result-title">${escapeHtml(book.title)}</div>
                         <div class="result-meta">${escapeHtml(book.author)} | ${escapeHtml(book.narrator || "Unknown narrator")}</div>

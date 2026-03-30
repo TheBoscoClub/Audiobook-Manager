@@ -70,7 +70,7 @@ def _import_book_to_db(conn: sqlite3.Connection, book: dict) -> int:
             book.get("published_date"),
         ),
     )
-    audiobook_id = cursor.lastrowid
+    audiobook_id: int = cursor.lastrowid  # type: ignore[assignment]  # always set after INSERT
 
     # Handle genres — same logic as import_to_db.py line 471
     for genre_name in book.get("genres", []):
