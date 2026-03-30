@@ -124,10 +124,9 @@ class GooglePlayProcessor:
         self.verbose = verbose
         self.temp_dir: Optional[Path] = None
 
+        self.ol_client: OpenLibraryClient | None = None
         if self.enrich_metadata:
             self.ol_client = OpenLibraryClient()
-        else:
-            self.ol_client = None
 
     def process(self, input_path: Path) -> Dict:
         """
@@ -348,12 +347,12 @@ class GooglePlayProcessor:
                     total += audio.info.length
             except Exception as e:
                 if self.verbose:
-                    print(
-                        f"Warning: Could not read duration from {chapter_file}: {e}"
-                    )
+                    print(f"Warning: Could not read duration from {chapter_file}: {e}")
         return total
 
-    def _extract_first_chapter_tags(self, chapter_file: Path, metadata: Dict, MutagenFile):
+    def _extract_first_chapter_tags(
+        self, chapter_file: Path, metadata: Dict, MutagenFile
+    ):
         """Extract metadata tags from the first chapter file."""
         try:
             audio = MutagenFile(chapter_file)
@@ -434,9 +433,7 @@ class GooglePlayProcessor:
         if "\xa9wrt" in tags:
             metadata["narrator"] = str(tags["\xa9wrt"][0])
         elif "----:com.apple.iTunes:NARRATOR" in tags:
-            metadata["narrator"] = str(
-                tags["----:com.apple.iTunes:NARRATOR"][0]
-            )
+            metadata["narrator"] = str(tags["----:com.apple.iTunes:NARRATOR"][0])
 
     def _extract_cover_art(
         self, chapter_files: List[Path]
@@ -472,9 +469,7 @@ class GooglePlayProcessor:
                     return result
             except Exception as e:
                 if self.verbose:
-                    print(
-                        f"Warning: Could not extract cover from {chapter_file}: {e}"
-                    )
+                    print(f"Warning: Could not extract cover from {chapter_file}: {e}")
         return None
 
     def _extract_mp3_cover(self, chapter_file: Path) -> Optional[Tuple[bytes, str]]:
@@ -486,7 +481,9 @@ class GooglePlayProcessor:
                     return tag.data, tag.mime
         return None
 
-    def _extract_m4a_cover(self, chapter_file: Path, MutagenFile) -> Optional[Tuple[bytes, str]]:
+    def _extract_m4a_cover(
+        self, chapter_file: Path, MutagenFile
+    ) -> Optional[Tuple[bytes, str]]:
         """Extract cover art from M4A/M4B file."""
         audio = MutagenFile(chapter_file)
         if not (audio and audio.tags and "covr" in audio.tags):
@@ -672,14 +669,12 @@ class GooglePlayProcessor:
 
         return enriched
 
-    def _apply_openlibrary_results(
-        self, results: List, metadata: Dict, enriched: Dict
-    ):
+    def _apply_openlibrary_results(self, results: List, metadata: Dict, enriched: Dict):
         """Apply OpenLibrary search results to enriched dict."""
         best = results[0]
         work_key = best.get("key", "")
 
-        if work_key:
+        if work_key and self.ol_client:
             work = self.ol_client.get_work(work_key)
             if work:
                 enriched["subjects"] = work.subjects[:10]

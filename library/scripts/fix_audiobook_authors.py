@@ -34,10 +34,7 @@ def _extract_author_from_path(file_path):
     library_idx = parts.index("Library")
 
     # /Library/Audiobook/Author/ pattern
-    if (
-        len(parts) > library_idx + 2
-        and parts[library_idx + 1].lower() == "audiobook"
-    ):
+    if len(parts) > library_idx + 2 and parts[library_idx + 1].lower() == "audiobook":
         return parts[library_idx + 2]
 
     # /Library/Author/ fallback pattern
@@ -61,13 +58,15 @@ def _classify_entries(entries):
         real_author = _extract_author_from_path(file_path)
 
         if real_author and real_author.lower() != "audiobook":
-            updates.append({
-                "id": entry_id,
-                "title": title,
-                "old_author": author,
-                "new_author": real_author,
-                "file_path": file_path,
-            })
+            updates.append(
+                {
+                    "id": entry_id,
+                    "title": title,
+                    "old_author": author,
+                    "new_author": real_author,
+                    "file_path": file_path,
+                }
+            )
         else:
             cannot_fix.append({"id": entry_id, "title": title, "file_path": file_path})
 

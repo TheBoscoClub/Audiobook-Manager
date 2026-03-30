@@ -77,8 +77,16 @@ def get_db():
     return _get_db_with_path(DB_PATH)
 
 
-def _configure_app(flask_app, database_path, project_dir, supplements_dir,
-                   api_port, auth_db_path, auth_key_path, auth_dev_mode):
+def _configure_app(
+    flask_app,
+    database_path,
+    project_dir,
+    supplements_dir,
+    api_port,
+    auth_db_path,
+    auth_key_path,
+    auth_dev_mode,
+):
     """Set Flask app configuration values."""
     flask_app.config["SESSION_COOKIE_SECURE"] = True
     flask_app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -104,8 +112,9 @@ def _init_once(bp, init_fn, *args):
         bp._routes_initialized = True
 
 
-def _init_route_modules(flask_app, database_path, project_root, supplements_dir,
-                        auth_dev_mode):
+def _init_route_modules(
+    flask_app, database_path, project_root, supplements_dir, auth_dev_mode
+):
     """Initialize all route modules with their dependencies."""
     init_audiobooks_routes(database_path, project_root, database_path)
     _init_once(collections_bp, init_collections_routes, database_path)
@@ -129,9 +138,17 @@ def _init_route_modules(flask_app, database_path, project_root, supplements_dir,
 
 def _register_core_blueprints(flask_app):
     """Register all non-auth blueprints."""
-    for bp in (audiobooks_bp, collections_bp, editions_bp, duplicates_bp,
-               supplements_bp, utilities_bp, position_bp, grouped_bp,
-               admin_authors_bp):
+    for bp in (
+        audiobooks_bp,
+        collections_bp,
+        editions_bp,
+        duplicates_bp,
+        supplements_bp,
+        utilities_bp,
+        position_bp,
+        grouped_bp,
+        admin_authors_bp,
+    ):
         flask_app.register_blueprint(bp)
 
 
@@ -145,10 +162,12 @@ def _register_auth_blueprints(flask_app):
 def _register_extension_blueprints(flask_app, database_path):
     """Register maintenance, roadmap, and suggestions blueprints."""
     from .maintenance import maintenance_bp, init_maintenance_routes
+
     init_maintenance_routes(database_path)
     flask_app.register_blueprint(maintenance_bp)
 
     from .roadmap import roadmap_bp, init_roadmap_routes
+
     init_roadmap_routes(database_path)
     flask_app.register_blueprint(roadmap_bp)
 
@@ -181,6 +200,7 @@ def _setup_websocket(flask_app, database_path):
 
         connection_manager.register(session_id, ws, username=username)
         from .websocket import init_notification_poller
+
         init_notification_poller(database_path)
         try:
             while True:
@@ -234,8 +254,14 @@ def create_app(
 
     flask_app = Flask(__name__)
     _configure_app(
-        flask_app, database_path, project_dir, supplements_dir,
-        api_port, auth_db_path, auth_key_path, auth_dev_mode,
+        flask_app,
+        database_path,
+        project_dir,
+        supplements_dir,
+        api_port,
+        auth_db_path,
+        auth_key_path,
+        auth_dev_mode,
     )
 
     project_root = project_dir / "library"
@@ -255,8 +281,9 @@ def create_app(
         """Handle CORS preflight requests"""
         return "", 204
 
-    _init_route_modules(flask_app, database_path, project_root, supplements_dir,
-                        auth_dev_mode)
+    _init_route_modules(
+        flask_app, database_path, project_root, supplements_dir, auth_dev_mode
+    )
     _register_core_blueprints(flask_app)
     _register_auth_blueprints(flask_app)
     _register_extension_blueprints(flask_app, database_path)

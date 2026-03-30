@@ -117,13 +117,15 @@ def _match_books(unknown_books, audible_by_title, audible_by_asin):
     for book in unknown_books:
         match, method = _find_match(book, audible_by_title, audible_by_asin)
         if match:
-            updates.append({
-                "id": book["id"],
-                "title": book["title"],
-                "narrator": match["narrators"],
-                "method": method,
-                "matched_title": match["title"],
-            })
+            updates.append(
+                {
+                    "id": book["id"],
+                    "title": book["title"],
+                    "narrator": match["narrators"],
+                    "method": method,
+                    "matched_title": match["title"],
+                }
+            )
         else:
             no_match.append(book["title"])
 

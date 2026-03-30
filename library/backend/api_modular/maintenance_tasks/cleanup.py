@@ -149,7 +149,9 @@ class OrphanedSupplementsTask(MaintenanceTask):
                 )
 
             orphan_ids, total_checked = _find_orphan_supplement_ids(cursor)
-            _report_progress(progress_callback, 0.6, f"Found {len(orphan_ids)} orphans...")
+            _report_progress(
+                progress_callback, 0.6, f"Found {len(orphan_ids)} orphans..."
+            )
 
             if orphan_ids:
                 placeholders = ",".join("?" * len(orphan_ids))
@@ -191,6 +193,7 @@ def _resolve_staging_dir():
         if _lib not in sys.path:
             sys.path.insert(0, _lib)
         from config import AUDIOBOOKS_STAGING
+
         return AUDIOBOOKS_STAGING
     except ImportError:
         return Path(os.environ.get("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"))
@@ -199,6 +202,7 @@ def _resolve_staging_dir():
 def _is_conversion_active():
     """Check if any ffmpeg conversions are currently running."""
     import subprocess
+
     result = subprocess.run(
         ["pgrep", "-f", "ffmpeg.*opus"],
         capture_output=True,

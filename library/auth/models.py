@@ -1532,9 +1532,7 @@ class AccessRequest:
             "username": row[1],
             "requested_at": datetime.fromisoformat(row[2]) if row[2] else None,
             "status": (
-                AccessRequestStatus(row[3])
-                if row[3]
-                else AccessRequestStatus.PENDING
+                AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING
             ),
             "reviewed_at": datetime.fromisoformat(row[4]) if row[4] else None,
             "reviewed_by": row[5],
@@ -1551,14 +1549,16 @@ class AccessRequest:
             return cls(**fields)
 
         # New schema: claim fields (columns 7-12)
-        fields.update({
-            "claim_token_hash": row[7],
-            "contact_email": row[8],
-            "totp_secret": row[9],
-            "totp_uri": row[10],
-            "backup_codes_json": row[11],
-            "credentials_claimed": bool(row[12]) if row[12] is not None else False,
-        })
+        fields.update(
+            {
+                "claim_token_hash": row[7],
+                "contact_email": row[8],
+                "totp_secret": row[9],
+                "totp_uri": row[10],
+                "backup_codes_json": row[11],
+                "credentials_claimed": bool(row[12]) if row[12] is not None else False,
+            }
+        )
 
         if len(row) > 13:
             fields["preferred_auth_method"] = row[13] or "totp"

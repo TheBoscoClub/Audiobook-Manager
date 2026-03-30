@@ -159,7 +159,9 @@ def _print_api_distribution(audible_by_asin: dict[str, dict]) -> None:
     print()
 
 
-def _match_library_pass(all_books: list, audible_by_asin: dict) -> tuple[list, int, int, list]:
+def _match_library_pass(
+    all_books: list, audible_by_asin: dict
+) -> tuple[list, int, int, list]:
     """Pass 1: Match books against library list.
 
     Returns (updates, already_correct, no_asin, unmatched).
@@ -201,8 +203,9 @@ def _match_library_pass(all_books: list, audible_by_asin: dict) -> tuple[list, i
     return updates, already_correct, no_asin, unmatched
 
 
-def _print_pass1_report(updates: list, already_correct: int,
-                        no_asin: int, unmatched: list) -> None:
+def _print_pass1_report(
+    updates: list, already_correct: int, no_asin: int, unmatched: list
+) -> None:
     """Print Pass 1 results."""
     print("=" * 70)
     print("PASS 1 — Library list")
@@ -269,10 +272,7 @@ def _catalog_lookup_pass(unmatched: list) -> tuple[list, int, int]:
             print(f"  Progress: {i + 1}/{len(unmatched)}")
 
     cat_dist = Counter(u["new_ct"] for u in catalog_updates)
-    print(
-        f"\nCatalog results: {len(catalog_updates)} updates,"
-        f" {catalog_failed} failed"
-    )
+    print(f"\nCatalog results: {len(catalog_updates)} updates, {catalog_failed} failed")
     if catalog_updates:
         print("Updates by content_type:")
         for ct, count in cat_dist.most_common():
@@ -397,12 +397,13 @@ def populate_content_types(dry_run: bool = True) -> None:
 
     # Pass 1: Match against library list
     updates, already_correct, no_asin, unmatched = _match_library_pass(
-        all_books, audible_by_asin,
+        all_books,
+        audible_by_asin,
     )
     _print_pass1_report(updates, already_correct, no_asin, unmatched)
 
     # Pass 2: Catalog lookup for unmatched ASINs
-    catalog_updates = []
+    catalog_updates: list[tuple[str, int]] = []
     catalog_failed = 0
     if unmatched:
         catalog_updates, additional_correct, catalog_failed = _catalog_lookup_pass(

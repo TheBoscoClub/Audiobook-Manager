@@ -127,7 +127,9 @@ def _resolve_db_path(db_path: Path | None) -> Path:
 
 
 def _fetch_isbn_candidates(
-    db_path: Path, include_asin_books: bool, single_id: int | None,
+    db_path: Path,
+    include_asin_books: bool,
+    single_id: int | None,
 ) -> list:
     """Fetch candidate books for ISBN enrichment."""
     conn = sqlite3.connect(db_path)
@@ -156,8 +158,9 @@ def _fetch_isbn_candidates(
     return books
 
 
-def _fetch_source_data(isbn: str | None, title: str,
-                       author: str) -> tuple[dict | None, dict | None]:
+def _fetch_source_data(
+    isbn: str | None, title: str, author: str
+) -> tuple[dict | None, dict | None]:
     """Fetch data from Google Books or Open Library.
 
     Returns (gb_data, ol_data).
@@ -241,20 +244,26 @@ def _extract_ol_description(ol_data: dict) -> str:
     return desc or ""
 
 
-def _extract_ol_fields(ol_data: dict, isbn: str | None) -> tuple[list, list, int]:
+def _extract_ol_fields(
+    ol_data: dict, isbn: str | None
+) -> tuple[list[str], list[str | None], int]:
     """Extract update fields from Open Library data.
 
     Returns (updates, params, isbn_found_count).
     """
-    updates = []
-    params = []
+    updates: list[str] = []
+    params: list[str | None] = []
 
     if not isinstance(ol_data, dict):
         return updates, params, 0
 
     _add_coalesce_field(updates, params, "language", _extract_ol_language(ol_data))
-    _add_coalesce_field(updates, params, "description", _extract_ol_description(ol_data))
-    _add_coalesce_field(updates, params, "published_date", ol_data.get("publish_date", ""))
+    _add_coalesce_field(
+        updates, params, "description", _extract_ol_description(ol_data)
+    )
+    _add_coalesce_field(
+        updates, params, "published_date", ol_data.get("publish_date", "")
+    )
 
     isbn_found = 0
     if not isbn:
@@ -267,7 +276,11 @@ def _extract_ol_fields(ol_data: dict, isbn: str | None) -> tuple[list, list, int
 
 
 def _enrich_one_book(
-    cursor, book: dict, now: str, dry_run: bool, delay: float,
+    cursor,
+    book: dict,
+    now: str,
+    dry_run: bool,
+    delay: float,
 ) -> tuple[str, int]:
     """Enrich a single book from ISBN sources.
 
@@ -286,8 +299,8 @@ def _enrich_one_book(
             time.sleep(delay)
         return "skipped", 0
 
-    updates = []
-    params = []
+    updates: list[str] = []
+    params: list[str | None] = []
     isbn_found = 0
 
     if gb_data:
@@ -317,8 +330,14 @@ def _enrich_one_book(
     return "skipped", 0
 
 
-def _print_isbn_summary(books: list, enriched: int, skipped: int,
-                        errors: int, isbn_found: int, dry_run: bool) -> dict:
+def _print_isbn_summary(
+    books: list,
+    enriched: int,
+    skipped: int,
+    errors: int,
+    isbn_found: int,
+    dry_run: bool,
+) -> dict:
     """Print ISBN enrichment summary and return results dict."""
     results = {
         "total": len(books),

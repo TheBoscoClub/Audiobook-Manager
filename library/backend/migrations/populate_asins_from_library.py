@@ -187,11 +187,13 @@ def match_books_to_library(
             confidence_str = f"{best_confidence} ({best_score:.0%})"
             matches.append(_make_match(book, best_match, confidence_str, best_score))
         else:
-            unmatched.append({
-                **book,
-                "best_score": best_score,
-                "best_match": best_match.get("title") if best_match else None,
-            })
+            unmatched.append(
+                {
+                    **book,
+                    "best_score": best_score,
+                    "best_match": best_match.get("title") if best_match else None,
+                }
+            )
 
     return matches, unmatched
 

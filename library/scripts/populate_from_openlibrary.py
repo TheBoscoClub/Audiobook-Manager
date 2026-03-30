@@ -89,9 +89,7 @@ def _build_candidate_query(
         params.append(audiobook_id)
     else:
         if only_missing_genres:
-            conditions.append(
-                "a.id NOT IN (SELECT audiobook_id FROM audiobook_genres)"
-            )
+            conditions.append("a.id NOT IN (SELECT audiobook_id FROM audiobook_genres)")
         if only_non_audible:
             conditions.append("(a.asin IS NULL OR a.asin = '')")
 
@@ -108,8 +106,9 @@ def _build_candidate_query(
     return query, params
 
 
-def _try_isbn_lookup(client: OpenLibraryClient, book_id: int,
-                     book_title: str, book_isbn: str) -> Optional[EnrichmentResult]:
+def _try_isbn_lookup(
+    client: OpenLibraryClient, book_id: int, book_title: str, book_isbn: str
+) -> Optional[EnrichmentResult]:
     """Tier 1: ISBN lookup (most reliable)."""
     edition = client.lookup_isbn(book_isbn)
     if not edition or not edition.work_id:
@@ -129,7 +128,8 @@ def _try_isbn_lookup(client: OpenLibraryClient, book_id: int,
 
 
 def _find_best_title_match(
-    search_results: list, book_title: str,
+    search_results: list,
+    book_title: str,
 ) -> tuple[Optional[dict], float, str]:
     """Find best title match from search results.
 
@@ -156,13 +156,14 @@ def _find_best_title_match(
     return best_match, best_ratio, best_method
 
 
-def _try_title_search(client: OpenLibraryClient, book_id: int,
-                      book_title: str,
-                      book_author: str) -> Optional[EnrichmentResult]:
+def _try_title_search(
+    client: OpenLibraryClient, book_id: int, book_title: str, book_author: str
+) -> Optional[EnrichmentResult]:
     """Tier 2 & 3: Title/Author search with matching."""
     search_results = client.search(title=book_title, author=book_author, limit=5)
     best_match, best_ratio, best_method = _find_best_title_match(
-        search_results, book_title,
+        search_results,
+        book_title,
     )
 
     if not best_match:
@@ -193,8 +194,9 @@ def _try_title_search(client: OpenLibraryClient, book_id: int,
     )
 
 
-def _match_book(client: OpenLibraryClient, book: dict,
-                verbose: bool, idx: int, total: int) -> Optional[EnrichmentResult]:
+def _match_book(
+    client: OpenLibraryClient, book: dict, verbose: bool, idx: int, total: int
+) -> Optional[EnrichmentResult]:
     """Attempt to match a single book via ISBN or title search."""
     book_id = book["id"]
     book_title = book["title"]
@@ -214,8 +216,9 @@ def _match_book(client: OpenLibraryClient, book: dict,
     return _try_title_search(client, book_id, book_title, book_author)
 
 
-def _print_match_report(matches: list[EnrichmentResult], no_match: list[str],
-                        all_subjects: set) -> None:
+def _print_match_report(
+    matches: list[EnrichmentResult], no_match: list[str], all_subjects: set
+) -> None:
     """Print matching results report."""
     print()
     print("=" * 70)
@@ -246,8 +249,9 @@ def _print_match_report(matches: list[EnrichmentResult], no_match: list[str],
         print(f"  ... and {len(no_match) - 5} more")
 
 
-def _apply_genre_updates(cursor, matches: list[EnrichmentResult],
-                         all_subjects: set) -> None:
+def _apply_genre_updates(
+    cursor, matches: list[EnrichmentResult], all_subjects: set
+) -> None:
     """Apply genre and metadata updates to the database."""
     genre_id_map = {}
 
@@ -283,8 +287,7 @@ def _update_isbn_if_missing(cursor, result: EnrichmentResult) -> int:
     if not result.isbn_found:
         return 0
     cursor.execute(
-        "UPDATE audiobooks SET isbn = ? WHERE id = ?"
-        " AND (isbn IS NULL OR isbn = '')",
+        "UPDATE audiobooks SET isbn = ? WHERE id = ? AND (isbn IS NULL OR isbn = '')",
         (result.isbn_found, result.audiobook_id),
     )
     return cursor.rowcount
@@ -302,8 +305,9 @@ def _update_year_if_missing(cursor, result: EnrichmentResult) -> int:
     return cursor.rowcount
 
 
-def _create_genre_associations(cursor, result: EnrichmentResult,
-                               genre_id_map: dict) -> int:
+def _create_genre_associations(
+    cursor, result: EnrichmentResult, genre_id_map: dict
+) -> int:
     """Create genre associations for a book. Returns count of new associations."""
     count = 0
     seen_genres = set()
@@ -360,7 +364,10 @@ def populate_from_openlibrary(
     cursor = conn.cursor()
 
     query, params = _build_candidate_query(
-        audiobook_id, only_missing_genres, only_non_audible, limit,
+        audiobook_id,
+        only_missing_genres,
+        only_non_audible,
+        limit,
     )
     cursor.execute(query, params)
     candidates = cursor.fetchall()

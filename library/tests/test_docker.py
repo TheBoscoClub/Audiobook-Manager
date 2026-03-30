@@ -31,7 +31,7 @@ try:
     import requests
     from requests.exceptions import ConnectionError as RequestsConnectionError
 except ImportError:
-    requests = None
+    requests = None  # type: ignore[assignment]
 
 # ---------------------------------------------------------------------------
 # Path setup (matches project convention)

@@ -82,7 +82,7 @@ def get_existing_paths(db_path: Path) -> set[str]:
 
 def _collect_audio_files(library_dir: Path) -> list[Path]:
     """Collect all audio files from library, filtering cover art."""
-    all_files = []
+    all_files: list[Path] = []
     for ext in SUPPORTED_FORMATS:
         all_files.extend(library_dir.rglob(f"*{ext}"))
     return [f for f in all_files if not is_cover_art_file(f)]
@@ -142,7 +142,8 @@ def _insert_one_audiobook(
     try:
         audiobook_id = insert_audiobook(conn, metadata, cover_path)
         conn.commit()
-        _run_post_insert_hooks(audiobook_id, db_path)
+        if audiobook_id is not None:
+            _run_post_insert_hooks(audiobook_id, db_path)
         book_info = {
             "id": audiobook_id,
             "title": metadata.get("title"),
@@ -188,7 +189,9 @@ def add_new_audiobooks(
     Returns:
         dict with results: {added: int, skipped: int, errors: int, new_files: list}
     """
-    _report_progress(progress_callback, 0, 100, "Querying database for existing files...")
+    _report_progress(
+        progress_callback, 0, 100, "Querying database for existing files..."
+    )
     existing_paths = get_existing_paths(db_path)
     print(f"Found {len(existing_paths)} existing audiobooks in database")
 
@@ -213,7 +216,10 @@ def add_new_audiobooks(
         for idx, filepath in enumerate(new_files, 1):
             pct = 5 + int((idx / total) * 90)
             _report_progress(
-                progress_callback, pct, 100, f"Processing {idx}/{total}: {filepath.name}"
+                progress_callback,
+                pct,
+                100,
+                f"Processing {idx}/{total}: {filepath.name}",
             )
             print(f"[{idx:3d}/{total}] Adding: {filepath.name}")
 

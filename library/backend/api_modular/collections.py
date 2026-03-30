@@ -162,8 +162,9 @@ def _build_special_collections(tree, flat):
         }
 
 
-def _build_children_from_rows(rows, slug_prefix, query_fn, name_field="name",
-                               extra_fields=None):
+def _build_children_from_rows(
+    rows, slug_prefix, query_fn, name_field="name", extra_fields=None
+):
     """Build child collection dicts from DB rows.
 
     Args:
@@ -178,7 +179,9 @@ def _build_children_from_rows(rows, slug_prefix, query_fn, name_field="name",
     children = []
     for row in rows:
         name = _row_field(row, name_field, 0)
-        count = _row_field(row, "cnt", len(row) - 1 if not isinstance(row, dict) else "cnt")
+        count = _row_field(
+            row, "cnt", len(row) - 1 if not isinstance(row, dict) else "cnt"
+        )
         child = {
             "id": f"{slug_prefix}-{_slugify(name)}",
             "name": name,
@@ -192,8 +195,9 @@ def _build_children_from_rows(rows, slug_prefix, query_fn, name_field="name",
     return children
 
 
-def _add_parent_node(tree, flat, node_id, name, description, query, icon,
-                     category, children):
+def _add_parent_node(
+    tree, flat, node_id, name, description, query, icon, category, children
+):
     """Add a parent collection node with its children to tree and flat."""
     node = {
         "id": node_id,
@@ -271,15 +275,27 @@ def _build_genre_collections(cursor, tree, flat):
 
     if fic_names:
         _add_parent_node(
-            tree, flat, "fiction", "Fiction",
+            tree,
+            flat,
+            "fiction",
+            "Fiction",
             "Novels, stories, and literary fiction",
-            _multi_genre_query(fic_names), "📖", "fiction", fic_ch,
+            _multi_genre_query(fic_names),
+            "📖",
+            "fiction",
+            fic_ch,
         )
     if nfic_names:
         _add_parent_node(
-            tree, flat, "nonfiction", "Nonfiction",
+            tree,
+            flat,
+            "nonfiction",
+            "Nonfiction",
             "Biography, history, science, and more",
-            _multi_genre_query(nfic_names), "📚", "nonfiction", nfic_ch,
+            _multi_genre_query(nfic_names),
+            "📚",
+            "nonfiction",
+            nfic_ch,
         )
 
 
@@ -293,16 +309,23 @@ def _build_series_collections(cursor, tree, flat):
         ORDER BY series
     """)
     children = _build_children_from_rows(
-        cursor.fetchall(), "series", _series_query,
+        cursor.fetchall(),
+        "series",
+        _series_query,
         name_field="series",
         extra_fields={"content_type": ("content_type", 1)},
     )
     if children:
         _add_parent_node(
-            tree, flat, "series", "Series",
+            tree,
+            flat,
+            "series",
+            "Series",
             "Books organized by series",
             "series IS NOT NULL AND series != ''",
-            "📕", "series", children,
+            "📕",
+            "series",
+            children,
         )
 
 
@@ -319,10 +342,15 @@ def _build_era_collections(cursor, tree, flat):
     children = _build_children_from_rows(cursor.fetchall(), "era", _era_query)
     if children:
         _add_parent_node(
-            tree, flat, "eras", "Eras",
+            tree,
+            flat,
+            "eras",
+            "Eras",
             "Books by literary era and time period",
             "id IN (SELECT ae.audiobook_id FROM audiobook_eras ae)",
-            "🕰️", "eras", children,
+            "🕰️",
+            "eras",
+            children,
         )
 
 
@@ -339,10 +367,15 @@ def _build_topic_collections(cursor, tree, flat):
     children = _build_children_from_rows(cursor.fetchall(), "topic", _topic_query)
     if children:
         _add_parent_node(
-            tree, flat, "topics", "Topics",
+            tree,
+            flat,
+            "topics",
+            "Topics",
             "Books by subject and theme",
             "id IN (SELECT at.audiobook_id FROM audiobook_topics at)",
-            "🏷️", "topics", children,
+            "🏷️",
+            "topics",
+            children,
         )
 
 

@@ -230,7 +230,12 @@ def _update_from_api(cursor, raw_series, series_counter, asin_books, dry_run):
         series_name, seq = pick_best_series(series_list, series_counter)
         if series_name:
             _apply_series_update(
-                cursor, book_id, series_name, seq, dry_run, title_by_id.get(book_id, "?")
+                cursor,
+                book_id,
+                series_name,
+                seq,
+                dry_run,
+                title_by_id.get(book_id, "?"),
             )
             updated += 1
     return updated
@@ -254,7 +259,9 @@ def _print_series_results(results, dry_run):
     print(f"{'=' * 50}")
     print(f"Updated from Audible API: {results['updated_from_api']}")
     print(f"Updated from title parse: {results['updated_from_title']}")
-    print(f"Total updated: {results['updated_from_api'] + results['updated_from_title']}")
+    print(
+        f"Total updated: {results['updated_from_api'] + results['updated_from_title']}"
+    )
     print(f"Unique series: {results['unique_series']}")
 
 
@@ -290,7 +297,9 @@ def populate_series(
     print("Phase 2: Updating database...")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    updated_asin = _update_from_api(cursor, raw_series, series_counter, asin_books, dry_run)
+    updated_asin = _update_from_api(
+        cursor, raw_series, series_counter, asin_books, dry_run
+    )
 
     print(f"\nPhase 3: Title fallback for {len(no_asin_books)} books without ASIN...")
     updated_title = _update_from_titles(cursor, no_asin_books, dry_run)

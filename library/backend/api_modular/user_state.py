@@ -231,7 +231,12 @@ def _collect_user_book_ids(auth_db, user_id):
     positions = position_repo.get_all_for_user(user_id)
     position_ids = {str(p.audiobook_id) for p in positions}
 
-    return history_ids | download_ids | position_ids, history_ids, download_ids, position_ids
+    return (
+        history_ids | download_ids | position_ids,
+        history_ids,
+        download_ids,
+        position_ids,
+    )
 
 
 def _apply_hidden_filter(all_ids, hidden_ids, show_hidden):
@@ -284,8 +289,9 @@ def _safe_int_ids(str_ids):
     return result
 
 
-def _fetch_library_metadata(int_ids, history_ids, download_ids, position_ids,
-                            listened_map, downloaded_map):
+def _fetch_library_metadata(
+    int_ids, history_ids, download_ids, position_ids, listened_map, downloaded_map
+):
     """Fetch book metadata from library DB and build response list."""
     conn = _get_library_db()
     try:
@@ -299,19 +305,21 @@ def _fetch_library_metadata(int_ids, history_ids, download_ids, position_ids,
         books = []
         for row in cursor.fetchall():
             rid = str(row["id"])
-            books.append({
-                "id": row["id"],
-                "title": row["title"],
-                "author": row["author"],
-                "duration_hours": row["duration_hours"],
-                "cover_path": row["cover_path"],
-                "format": row["format"],
-                "has_history": rid in history_ids,
-                "has_download": rid in download_ids,
-                "has_position": rid in position_ids,
-                "last_listened_at": listened_map.get(rid),
-                "downloaded_at": downloaded_map.get(rid),
-            })
+            books.append(
+                {
+                    "id": row["id"],
+                    "title": row["title"],
+                    "author": row["author"],
+                    "duration_hours": row["duration_hours"],
+                    "cover_path": row["cover_path"],
+                    "format": row["format"],
+                    "has_history": rid in history_ids,
+                    "has_download": rid in download_ids,
+                    "has_position": rid in position_ids,
+                    "last_listened_at": listened_map.get(rid),
+                    "downloaded_at": downloaded_map.get(rid),
+                }
+            )
         return books
     finally:
         conn.close()
@@ -354,8 +362,12 @@ def get_user_library():
         return jsonify({"books": [], "total": 0})
 
     books = _fetch_library_metadata(
-        int_ids, history_ids, download_ids, position_ids,
-        listened_map, downloaded_map,
+        int_ids,
+        history_ids,
+        download_ids,
+        position_ids,
+        listened_map,
+        downloaded_map,
     )
 
     return jsonify({"books": books, "total": len(books), "hidden_count": hidden_count})

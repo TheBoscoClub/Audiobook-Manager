@@ -84,19 +84,23 @@ def get_stats() -> Response:
     total_size_gb = total_size_mb / 1024
 
     # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
-    query = (f"SELECT COUNT(DISTINCT author) as count FROM audiobooks"  # nosec B608
-             f" WHERE {AUDIOBOOK_FILTER}"
-             " AND author IS NOT NULL"
-             " AND LOWER(TRIM(author)) != 'audiobook'"
-             " AND LOWER(TRIM(author)) != 'unknown author'")
+    query = (
+        f"SELECT COUNT(DISTINCT author) as count FROM audiobooks"  # nosec B608
+        f" WHERE {AUDIOBOOK_FILTER}"
+        " AND author IS NOT NULL"
+        " AND LOWER(TRIM(author)) != 'audiobook'"
+        " AND LOWER(TRIM(author)) != 'unknown author'"
+    )
     cursor.execute(query)
     unique_authors = cursor.fetchone()["count"]
 
-    query = (f"SELECT COUNT(DISTINCT narrator) as count FROM audiobooks"  # nosec B608
-             f" WHERE {AUDIOBOOK_FILTER}"
-             " AND narrator IS NOT NULL"
-             " AND LOWER(TRIM(narrator)) != 'unknown narrator'"
-             " AND LOWER(TRIM(narrator)) != ''")
+    query = (
+        f"SELECT COUNT(DISTINCT narrator) as count FROM audiobooks"  # nosec B608
+        f" WHERE {AUDIOBOOK_FILTER}"
+        " AND narrator IS NOT NULL"
+        " AND LOWER(TRIM(narrator)) != 'unknown narrator'"
+        " AND LOWER(TRIM(narrator)) != ''"
+    )
     cursor.execute(query)
     unique_narrators = cursor.fetchone()["count"]
 

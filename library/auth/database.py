@@ -321,17 +321,19 @@ class AuthDatabase:
         conn.execute("INSERT INTO users_new SELECT * FROM users")
         conn.execute("DROP TABLE users")
         conn.execute("ALTER TABLE users_new RENAME TO users")
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         conn.commit()
         conn.execute("PRAGMA foreign_keys = ON")
         logger.info("Recreated users table with magic_link support")
 
     @staticmethod
-    def _v5_add_column_if_missing(conn, table: str, column: str, definition: str, logger) -> None:
+    def _v5_add_column_if_missing(
+        conn, table: str, column: str, definition: str, logger
+    ) -> None:
         """Add a column to a table if it doesn't already exist."""
-        cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        cols = {
+            row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
         if column not in cols:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
             logger.info("Added %s to %s", column, table)
@@ -339,10 +341,12 @@ class AuthDatabase:
     @staticmethod
     def _v5_table_exists(conn, table: str) -> bool:
         """Check if a table exists in the database."""
-        return bool(conn.execute(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
-            (table,),
-        ).fetchone()[0])
+        return bool(
+            conn.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
+                (table,),
+            ).fetchone()[0]
+        )
 
     def _migrate_v4_to_v5(self, conn) -> None:
         """
@@ -358,9 +362,7 @@ class AuthDatabase:
         session_count = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
         ar_exists = self._v5_table_exists(conn, "access_requests")
 
-        logger.info(
-            "v4→v5 migration: %d users, %d sessions", user_count, session_count
-        )
+        logger.info("v4→v5 migration: %d users, %d sessions", user_count, session_count)
 
         # Backup database before migration
         backup_path = str(self.db_path) + ".pre-v5-backup"
@@ -382,8 +384,11 @@ class AuthDatabase:
         # Step 3: Add preferred_auth_method to access_requests
         if ar_exists:
             self._v5_add_column_if_missing(
-                conn, "access_requests", "preferred_auth_method",
-                "TEXT DEFAULT 'totp'", logger,
+                conn,
+                "access_requests",
+                "preferred_auth_method",
+                "TEXT DEFAULT 'totp'",
+                logger,
             )
 
         # Step 4: Update schema version

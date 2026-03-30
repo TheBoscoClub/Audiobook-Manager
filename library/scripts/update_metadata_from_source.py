@@ -124,8 +124,13 @@ def _extract_ffprobe_fields(aaxc_file, metadata):
     try:
         result = subprocess.run(
             [
-                "ffprobe", "-v", "quiet", "-print_format", "json",
-                "-show_format", str(aaxc_file),
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                str(aaxc_file),
             ],
             capture_output=True,
             text=True,
@@ -138,6 +143,7 @@ def _extract_ffprobe_fields(aaxc_file, metadata):
         return
 
     import json
+
     data = json.loads(result.stdout)
     tags = data.get("format", {}).get("tags", {})
     tags_norm = {k.lower(): v for k, v in tags.items()}
@@ -181,9 +187,21 @@ def _build_update_params(metadata, book):
     stats = {}
 
     field_checks = [
-        ("narrator", "narrator", lambda b: not b["narrator"] or b["narrator"] == "Unknown Narrator"),
-        ("publisher", "publisher", lambda b: not b["publisher"] or b["publisher"] == "Unknown Publisher"),
-        ("description", "description", lambda b: not b["description"] or not b["description"].strip()),
+        (
+            "narrator",
+            "narrator",
+            lambda b: not b["narrator"] or b["narrator"] == "Unknown Narrator",
+        ),
+        (
+            "publisher",
+            "publisher",
+            lambda b: not b["publisher"] or b["publisher"] == "Unknown Publisher",
+        ),
+        (
+            "description",
+            "description",
+            lambda b: not b["description"] or not b["description"].strip(),
+        ),
         ("published_year", "published_year", lambda _b: True),
         ("series", "series", lambda _b: True),
     ]

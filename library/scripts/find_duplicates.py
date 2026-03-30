@@ -111,9 +111,7 @@ def _build_duplicate_group(conn, hash_value, count, idx, total_groups):
     wasted = file_size * (count - 1)
     keep_id = suggest_keep(files)
 
-    print(
-        f"\n[{idx}/{total_groups}] Duplicate Group (Hash: {hash_value[:16]}...)"
-    )
+    print(f"\n[{idx}/{total_groups}] Duplicate Group (Hash: {hash_value[:16]}...)")
     print(
         f"    Files: {count} | Size each: {format_size(file_size * 1024 * 1024)} | "
         f"Wasted: {format_size(wasted * 1024 * 1024)}"
@@ -127,12 +125,14 @@ def _build_duplicate_group(conn, hash_value, count, idx, total_groups):
         is_keep = file_id == keep_id
         marker = "KEEP" if is_keep else "    "
         print(f"    [{marker}] ID:{file_id} | {fmt.upper():4} | {path}")
-        group_files.append({
-            "id": file_id,
-            "path": path,
-            "format": fmt,
-            "suggested_action": "keep" if is_keep else "remove",
-        })
+        group_files.append(
+            {
+                "id": file_id,
+                "path": path,
+                "format": fmt,
+                "suggested_action": "keep" if is_keep else "remove",
+            }
+        )
 
     return {
         "hash": hash_value,
@@ -146,8 +146,14 @@ def _build_duplicate_group(conn, hash_value, count, idx, total_groups):
     }
 
 
-def _export_report(export_data, total_books, duplicates, total_wasted_files,
-                    total_wasted_space, export_path):
+def _export_report(
+    export_data,
+    total_books,
+    duplicates,
+    total_wasted_files,
+    total_wasted_space,
+    export_path,
+):
     """Export duplicate report to JSON file."""
     output_path = Path(export_path) if export_path else Path("duplicates.json")
     with open(output_path, "w") as f:
@@ -212,8 +218,12 @@ def generate_report(export_json: bool = False, export_path: str | None = None):
 
     if export_json:
         _export_report(
-            export_data, total_books, duplicates,
-            total_wasted_files, total_wasted_space, export_path,
+            export_data,
+            total_books,
+            duplicates,
+            total_wasted_files,
+            total_wasted_space,
+            export_path,
         )
 
     conn.close()
@@ -241,10 +251,15 @@ def _build_removal_plan(duplicates, conn):
 
         for f in files_sorted[1:]:
             file_id, title, _author, path, size, _fmt, _duration, _created = f
-            files_to_remove.append({
-                "id": file_id, "path": path, "size_mb": size,
-                "hash": hash_value, "title": title,
-            })
+            files_to_remove.append(
+                {
+                    "id": file_id,
+                    "path": path,
+                    "size_mb": size,
+                    "hash": hash_value,
+                    "title": title,
+                }
+            )
             space_to_free += size
 
     return files_to_remove, protected_keepers, space_to_free

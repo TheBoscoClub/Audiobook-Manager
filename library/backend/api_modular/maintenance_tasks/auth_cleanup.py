@@ -29,6 +29,7 @@ def _cleanup_stale_sessions(db, results, progress_callback):
         progress_callback(0.1, "Cleaning stale sessions...")
 
     from models import SessionRepository
+
     sessions = SessionRepository(db)
     results["stale_sessions"] = sessions.cleanup_stale(grace_minutes=30)
 
@@ -39,6 +40,7 @@ def _cleanup_expired_registrations(db, results, progress_callback):
         progress_callback(0.3, "Cleaning expired registrations...")
 
     from models import PendingRegistrationRepository
+
     registrations = PendingRegistrationRepository(db)
     results["expired_registrations"] = registrations.cleanup_expired()
 
@@ -49,6 +51,7 @@ def _cleanup_expired_recoveries(db, results, progress_callback):
         progress_callback(0.5, "Cleaning expired recovery tokens...")
 
     from models import PendingRecoveryRepository
+
     recoveries = PendingRecoveryRepository(db)
     results["expired_recoveries"] = recoveries.cleanup_expired()
 
@@ -59,6 +62,7 @@ def _cleanup_old_access_requests(db, results, progress_callback):
         progress_callback(0.7, "Cleaning old access requests...")
 
     from datetime import datetime, timedelta
+
     cutoff = datetime.now() - timedelta(days=_ACCESS_REQUEST_RETENTION_DAYS)
     with db.connection() as conn:
         cursor = conn.execute(
@@ -78,11 +82,7 @@ def _build_summary(results):
         "expired_recoveries": "expired recoveries",
         "old_access_requests": "old access requests",
     }
-    parts = [
-        f"{results[k]} {label}"
-        for k, label in labels.items()
-        if results.get(k)
-    ]
+    parts = [f"{results[k]} {label}" for k, label in labels.items() if results.get(k)]
     total = sum(results.values())
     if parts:
         return f"Cleaned {total} records: {', '.join(parts)}"
@@ -109,7 +109,7 @@ class AuthCleanupTask(MaintenanceTask):
         except Exception as e:
             return ExecutionResult(success=False, message=f"Cannot open auth DB: {e}")
 
-        results = {}
+        results: dict[str, int] = {}
         try:
             _cleanup_stale_sessions(db, results, progress_callback)
             _cleanup_expired_registrations(db, results, progress_callback)

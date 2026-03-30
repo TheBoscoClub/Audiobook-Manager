@@ -245,7 +245,9 @@ LANG_MAP = {
 # ═══════════════════════════════════════════════════════════
 
 
-def _build_audible_fields(product: dict, existing_series: str | None) -> tuple[list, list]:
+def _build_audible_fields(
+    product: dict, existing_series: str | None
+) -> tuple[list, list]:
     """Build SQL update clauses from Audible product data.
 
     Returns (updates, params) lists.
@@ -300,8 +302,12 @@ def _build_audible_fields(product: dict, existing_series: str | None) -> tuple[l
 
 
 def _apply_audible_enrichment(
-    cursor, book_id: int, product: dict, existing_series: str | None,
-    now: str, quiet: bool,
+    cursor,
+    book_id: int,
+    product: dict,
+    existing_series: str | None,
+    now: str,
+    quiet: bool,
 ) -> int:
     """Apply Audible API enrichment for a single book.
 
@@ -407,14 +413,15 @@ def _extract_gb_isbn(gb_data: dict) -> str | None:
     return None
 
 
-def _extract_google_books_fields(gb_data: dict, current: dict,
-                                 current_isbn: str | None) -> tuple[list, list]:
+def _extract_google_books_fields(
+    gb_data: dict, current: dict, current_isbn: str | None
+) -> tuple[list, list]:
     """Extract ISBN update fields from Google Books data.
 
     Returns (updates, params) lists.
     """
-    updates = []
-    params = []
+    updates: list[str] = []
+    params: list[str | None] = []
 
     lang = _resolve_gb_language(gb_data)
     if lang and not current["language"]:
@@ -438,8 +445,9 @@ def _extract_google_books_fields(gb_data: dict, current: dict,
     return updates, params
 
 
-def _extract_openlibrary_fields(ol_data: dict, current: dict,
-                                current_isbn: str | None) -> tuple[list, list]:
+def _extract_openlibrary_fields(
+    ol_data: dict, current: dict, current_isbn: str | None
+) -> tuple[list, list]:
     """Extract ISBN update fields from Open Library data.
 
     Returns (updates, params) lists.
@@ -466,8 +474,9 @@ def _extract_openlibrary_fields(ol_data: dict, current: dict,
     return updates, params
 
 
-def _fetch_isbn_source_data(current_isbn: str | None,
-                            title: str, author: str) -> tuple[dict | None, dict | None]:
+def _fetch_isbn_source_data(
+    current_isbn: str | None, title: str, author: str
+) -> tuple[dict | None, dict | None]:
     """Fetch data from Google Books or Open Library.
 
     Returns (gb_data, ol_data).
@@ -486,8 +495,14 @@ def _fetch_isbn_source_data(current_isbn: str | None,
 
 
 def _apply_isbn_enrichment(
-    cursor, book_id: int, current: dict, isbn: str | None,
-    title: str, author: str, now: str, quiet: bool,
+    cursor,
+    book_id: int,
+    current: dict,
+    isbn: str | None,
+    title: str,
+    author: str,
+    now: str,
+    quiet: bool,
 ) -> tuple[int, bool]:
     """Apply ISBN-based enrichment for a single book.
 
@@ -496,16 +511,20 @@ def _apply_isbn_enrichment(
     current_isbn = isbn or current["isbn"]
     gb_data, ol_data = _fetch_isbn_source_data(current_isbn, title, author)
 
-    isbn_updates = []
-    isbn_params = []
+    isbn_updates: list[str] = []
+    isbn_params: list[str | int | None] = []
 
     if gb_data:
         isbn_updates, isbn_params = _extract_google_books_fields(
-            gb_data, current, current_isbn,
+            gb_data,
+            current,
+            current_isbn,
         )
     elif ol_data:
         isbn_updates, isbn_params = _extract_openlibrary_fields(
-            ol_data, current, current_isbn,
+            ol_data,
+            current,
+            current_isbn,
         )
 
     # Mark as ISBN-enriched regardless
@@ -546,14 +565,25 @@ def _resolve_enrich_db_path(db_path: Path | None) -> Path | None:
     return DATABASE_PATH
 
 
-def _try_audible_enrichment(cursor, book_id: int, asin: str,
-                            existing_series: str | None, now: str,
-                            quiet: bool, result: dict) -> None:
+def _try_audible_enrichment(
+    cursor,
+    book_id: int,
+    asin: str,
+    existing_series: str | None,
+    now: str,
+    quiet: bool,
+    result: dict,
+) -> None:
     """Attempt Audible API enrichment and update result dict."""
     product = _fetch_audible_product(asin)
     if product:
         fields_updated = _apply_audible_enrichment(
-            cursor, book_id, product, existing_series, now, quiet,
+            cursor,
+            book_id,
+            product,
+            existing_series,
+            now,
+            quiet,
         )
         result["fields_updated"] += fields_updated
         result["audible_enriched"] = True
@@ -571,9 +601,16 @@ def _needs_isbn_enrichment(current: dict, isbn: str | None) -> bool:
     )
 
 
-def _try_isbn_enrichment(cursor, book_id: int, isbn: str | None,
-                         title: str, author: str, now: str,
-                         quiet: bool, result: dict) -> None:
+def _try_isbn_enrichment(
+    cursor,
+    book_id: int,
+    isbn: str | None,
+    title: str,
+    author: str,
+    now: str,
+    quiet: bool,
+    result: dict,
+) -> None:
     """Attempt ISBN-based enrichment and update result dict."""
     cursor.execute(
         "SELECT language, description, published_year, isbn, isbn_enriched_at "
@@ -587,7 +624,14 @@ def _try_isbn_enrichment(cursor, book_id: int, isbn: str | None,
 
     if _needs_isbn_enrichment(dict(current), isbn):
         isbn_count, was_enriched = _apply_isbn_enrichment(
-            cursor, book_id, dict(current), isbn, title, author, now, quiet,
+            cursor,
+            book_id,
+            dict(current),
+            isbn,
+            title,
+            author,
+            now,
+            quiet,
         )
         result["fields_updated"] += isbn_count
         result["isbn_enriched"] = was_enriched
@@ -636,12 +680,24 @@ def enrich_book(
 
     if book["asin"]:
         _try_audible_enrichment(
-            cursor, book_id, book["asin"], book["series"], now, quiet, result,
+            cursor,
+            book_id,
+            book["asin"],
+            book["series"],
+            now,
+            quiet,
+            result,
         )
 
     _try_isbn_enrichment(
-        cursor, book_id, book["isbn"], book["title"], book["author"],
-        now, quiet, result,
+        cursor,
+        book_id,
+        book["isbn"],
+        book["title"],
+        book["author"],
+        now,
+        quiet,
+        result,
     )
 
     conn.commit()

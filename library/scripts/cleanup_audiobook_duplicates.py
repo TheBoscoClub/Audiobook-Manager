@@ -180,8 +180,9 @@ def _execute_cleanup(conn, duplicates, delete_files):
     return removed_count, deleted_files, space_freed, errors
 
 
-def _print_cleanup_results(removed_count, deleted_files, space_freed,
-                           errors, delete_files):
+def _print_cleanup_results(
+    removed_count, deleted_files, space_freed, errors, delete_files
+):
     """Print the cleanup completion summary."""
     print("\n" + "=" * 70)
     print("CLEANUP COMPLETE")
