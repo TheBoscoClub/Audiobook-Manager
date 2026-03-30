@@ -11,7 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Download timer interval**: Reduced from 6h to 5min; boot delay reduced from 30min to 2min for faster initial download checks
+- **Edison bulb indicator**: Enlarged (28×49 → 40×70px), brighter glow colors, and pulsing scale animation for better visibility in Back Office header
+
 ### Fixed
+
+- **Sort order persistence**: Sort preference now persists via localStorage (instant) and server API (cross-device); previously the async API call could race with page load or fail silently for guests; clear-search also syncs sort reset
+- **Mobile horizontal overflow**: Changed `.letter-groups` `flex-wrap: nowrap` → `wrap` so letter-group buttons flow to multiple rows on narrow viewports instead of overflowing; added `overflow-x: hidden` on body; added 480px breakpoint for filter actions, compact letter buttons, pagination wrap, and vertically-stacked results info
+- **Shellcheck fixes**: SC2162 (add `-r` to `read`), SC2181 (direct exit code check), SC2086 (quote variables), SC2317 (remove unreachable exit), SC2012 (replace `ls` with `find`), SC2001 (use parameter expansion), SC2029 (document intentional client-side expansion) across `launch.sh`, `setup.sh`, `start-dev.sh`, `config-migrations/001_add_run_dir.sh`, `create-release.sh`, `install.sh`, `upgrade.sh`
+- **Back Office upgrade panel**: Removed hardcoded dev path placeholder from upgrade source field
 
 ## [8.0.1.2] - 2026-03-30
 
