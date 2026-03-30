@@ -73,6 +73,43 @@ def normalize_base_title(title: str | None) -> str:
     return base.strip()
 
 
+def _find_matching_editions(all_books: list, base_title: str, book_id: int) -> list[dict]:
+    """Find editions matching the base title, falling back to the single book."""
+    editions = [
+        dict(row) for row in all_books
+        if normalize_base_title(row["title"]) == base_title
+    ]
+
+    has_markers = any(has_edition_marker(ed["title"]) for ed in editions)
+
+    if len(editions) <= 1 and not has_markers:
+        editions = [dict(row) for row in all_books if row["id"] == book_id]
+
+    return editions
+
+
+def _enrich_edition(cursor, edition: dict) -> dict:
+    """Add genres and supplement count to an edition dict."""
+    cursor.execute(
+        """
+        SELECT g.name FROM genres g
+        JOIN audiobook_genres ag ON g.id = ag.genre_id
+        WHERE ag.audiobook_id = ?
+    """,
+        (edition["id"],),
+    )
+    edition["genres"] = [r["name"] for r in cursor.fetchall()]
+
+    cursor.execute(
+        "SELECT COUNT(*) as count FROM supplements WHERE audiobook_id = ?",
+        (edition["id"],),
+    )
+    result = cursor.fetchone()
+    edition["supplement_count"] = result["count"] if result else 0
+
+    return edition
+
+
 def init_editions_routes(db_path):
     """Initialize routes with database path."""
 
@@ -112,43 +149,8 @@ def init_editions_routes(db_path):
         )
 
         all_books = cursor.fetchall()
-        editions = []
-
-        for row in all_books:
-            book_title = row["title"]
-            book_base = normalize_base_title(book_title)
-
-            if book_base == base_title:
-                editions.append(dict(row))
-
-        has_markers = any(has_edition_marker(ed["title"]) for ed in editions)
-
-        if len(editions) <= 1 and not has_markers:
-            editions = [dict(row) for row in all_books if row["id"] == book_id]
-
-        final_editions = []
-        for edition in editions:
-            cursor.execute(
-                """
-                SELECT g.name FROM genres g
-                JOIN audiobook_genres ag ON g.id = ag.genre_id
-                WHERE ag.audiobook_id = ?
-            """,
-                (edition["id"],),
-            )
-            edition["genres"] = [r["name"] for r in cursor.fetchall()]
-
-            cursor.execute(
-                """
-                SELECT COUNT(*) as count FROM supplements
-                WHERE audiobook_id = ?
-            """,
-                (edition["id"],),
-            )
-            result = cursor.fetchone()
-            edition["supplement_count"] = result["count"] if result else 0
-
-            final_editions.append(edition)
+        editions = _find_matching_editions(all_books, base_title, book_id)
+        final_editions = [_enrich_edition(cursor, ed) for ed in editions]
 
         conn.close()
 

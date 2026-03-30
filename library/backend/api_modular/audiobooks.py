@@ -768,47 +768,39 @@ def serve_cover(filename: str) -> Response:
     return send_from_directory(COVER_DIR, filename)
 
 
+def _sanitize_log_message(msg: str) -> str:
+    """Sanitize a string for safe logging (no control chars / log injection)."""
+    return "".join(c if c.isprintable() or c == " " else "?" for c in msg)
+
+
+def _extract_ffmpeg_error(stderr) -> str:
+    """Extract and sanitize an error message from ffmpeg stderr output."""
+    if isinstance(stderr, bytes):
+        raw = stderr[:500].replace(b"\n", b" ").decode("utf-8", errors="replace")
+    else:
+        raw = str(stderr)[:500].replace("\n", " ")
+    return _sanitize_log_message(raw)
+
+
 def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | None:
     """Remux an Opus/Ogg file to WebM container. Returns error message or None."""
     AUDIOBOOKS_WEBM_CACHE.mkdir(parents=True, exist_ok=True)
     tmp_path = webm_path.with_suffix(".webm.tmp")
     try:
         result = subprocess.run(  # nosec B603
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(source),
-                "-c:a",
-                "copy",
-                "-f",
-                "webm",
-                str(tmp_path),
-            ],
+            ["ffmpeg", "-y", "-i", str(source), "-c:a", "copy", "-f", "webm", str(tmp_path)],
             capture_output=True,
             timeout=300,
         )
         if result.returncode != 0:
-            stderr = result.stderr or b""
-            if isinstance(stderr, bytes):
-                safe_err = (
-                    stderr[:500].replace(b"\n", b" ").decode("utf-8", errors="replace")
-                )
-            else:
-                safe_err = str(stderr)[:500].replace("\n", " ")
-            # Sanitize control chars to prevent log injection (CodeQL py/log-injection)
-            safe_err = "".join(
-                c if c.isprintable() or c == " " else "?" for c in safe_err
-            )
+            safe_err = _extract_ffmpeg_error(result.stderr or b"")
             logger.error("WebM remux failed for %d: %s", audiobook_id, safe_err)
             tmp_path.unlink(missing_ok=True)
             return "Format conversion failed"
         tmp_path.rename(webm_path)
         return None
     except (subprocess.TimeoutExpired, OSError) as e:
-        safe_msg = str(e).replace("\n", " ")
-        # Sanitize control chars to prevent log injection (CodeQL py/log-injection)
-        safe_msg = "".join(c if c.isprintable() or c == " " else "?" for c in safe_msg)
+        safe_msg = _sanitize_log_message(str(e).replace("\n", " "))
         logger.error("WebM remux error for %d: %s", audiobook_id, safe_msg)
         tmp_path.unlink(missing_ok=True)
         return "Format conversion failed"
