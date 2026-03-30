@@ -1,9 +1,11 @@
 """Tests to verify Gunicorn migration doesn't break existing functionality."""
 
+import pytest
 from pathlib import Path
 
 # Resolve project root from test file location (library/tests/ -> project root)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_SYSTEMD_SERVICE = _PROJECT_ROOT / "systemd" / "audiobook-api.service"
 
 
 def test_monkey_patch_is_first():
@@ -39,9 +41,13 @@ def test_requirements_has_gunicorn_deps():
         assert dep in content, f"{dep} missing from requirements.txt"
 
 
+@pytest.mark.skipif(
+    not _SYSTEMD_SERVICE.is_file(),
+    reason="systemd service file not at project path (deployed installation)",
+)
 def test_systemd_uses_gunicorn():
     """Verify systemd service uses Gunicorn, not waitress."""
-    with open(_PROJECT_ROOT / "systemd/audiobook-api.service") as f:
+    with open(_SYSTEMD_SERVICE) as f:
         content = f.read()
     assert "gunicorn" in content, "Service should use gunicorn"
     assert "-k gevent" in content, "Service should use standard gevent worker"
