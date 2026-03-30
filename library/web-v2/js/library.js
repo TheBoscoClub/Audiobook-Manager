@@ -1498,7 +1498,7 @@ class AudiobookLibraryV2 {
                 <div class="book-cover">
                     ${
                       book.cover_path
-                        ? `<img src="/covers/${book.cover_path}" alt="${this.escapeHtml(book.title)}" onerror="this.parentElement.innerHTML='<span class=\\'book-cover-placeholder\\'>📖</span>'">`
+                        ? `<img src="/covers/${book.cover_path}" alt="${this.escapeHtml(book.title)}" onerror="if(!this.dataset.retries){this.dataset.retries='0';}var r=parseInt(this.dataset.retries);if(r<2){this.dataset.retries=r+1;var s=this;setTimeout(function(){s.src=s.src.split('?')[0]+'?r='+Date.now()},500*(r+1));}else{this.parentElement.innerHTML='<span class=\\'book-cover-placeholder\\'>📖</span>';}">`
                         : '<span class="book-cover-placeholder">📖</span>'
                     }
                     ${hasSupplement ? `<span class="supplement-badge" title="Has PDF supplement" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ""}
@@ -2251,6 +2251,15 @@ class AudiobookLibraryV2 {
       img.src = `/covers/${book.cover_path}`;
       img.alt = book.title;
       img.onerror = function () {
+        const retries = parseInt(this.dataset.retries || "0", 10);
+        if (retries < 2) {
+          this.dataset.retries = retries + 1;
+          const self = this;
+          setTimeout(function () {
+            self.src = self.src.split("?")[0] + "?r=" + Date.now();
+          }, 500 * (retries + 1));
+          return;
+        }
         const parent = this.parentElement;
         if (!parent) return;
         parent.textContent = "";

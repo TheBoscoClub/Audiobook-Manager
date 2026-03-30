@@ -25,6 +25,7 @@ from config import (
     AUDIOBOOKS_BIND_ADDRESS,
     AUDIOBOOKS_CERTS,
     AUDIOBOOKS_WEB_PORT,
+    COVER_DIR,
 )
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
@@ -59,7 +60,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     """Handler that proxies API requests and serves static files."""
 
     # Paths that get proxied to the Flask API backend
-    PROXY_PREFIXES = ("/api/", "/auth/", "/covers/")
+    PROXY_PREFIXES = ("/api/", "/auth/")
 
     # Static asset extensions that get 1-day cache
     _ASSET_EXTENSIONS = (
@@ -135,6 +136,11 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         bare_path = parsed.path
 
+        # Serve cover images directly from the covers directory (bypasses Flask)
+        if bare_path.startswith("/covers/"):
+            self._serve_cover(bare_path[8:])  # strip "/covers/"
+            return
+
         if bare_path == "/":
             # Serve shell.html directly at / so the browser address bar shows
             # the clean URL (e.g., https://library.thebosco.club/) with no
@@ -153,6 +159,46 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         else:
             # Serve static files
             super().do_GET()
+
+    def _serve_cover(self, filename: str):
+        """Serve a cover image directly from the covers directory.
+
+        Bypasses the Flask proxy hop — covers are static files that need no
+        auth or logic. Content-addressed filenames (MD5 hashes) are immutable,
+        so we set aggressive cache headers.
+        """
+        import mimetypes
+
+        # Sanitize: only allow simple filenames (no path traversal)
+        if "/" in filename or "\\" in filename or ".." in filename or not filename:
+            self.send_error(400, "Bad Request")
+            return
+
+        cover_path = COVER_DIR / filename
+        if not cover_path.is_file():
+            self.send_error(404, "Cover not found")
+            return
+
+        try:
+            content_type = mimetypes.guess_type(filename)[0] or "image/jpeg"
+            file_size = cover_path.stat().st_size
+
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(file_size))
+            # MD5-hash filenames are immutable — cache aggressively
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
+            self.end_headers()
+
+            with open(cover_path, "rb") as f:
+                while True:
+                    chunk = f.read(65536)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+        except (OSError, BrokenPipeError):
+            pass
 
     def do_POST(self):
         if self._is_proxy_path():
