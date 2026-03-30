@@ -141,3 +141,70 @@ class TestSystemSettingsRepository:
         all_settings = repo.get_all()
         assert all_settings["multi_session_default"] == "false"
         assert all_settings["extra_key"] == "extra_val"
+
+
+class TestSessionAllowMulti:
+    def _make_user(self, temp_db, username="session_user"):
+        user = User(
+            username=username,
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+        )
+        user.save(temp_db)
+        return user
+
+    def test_default_behavior_single_session(self, temp_db):
+        user = self._make_user(temp_db)
+        repo = SessionRepository(temp_db)
+        session1, token1 = Session.create_for_user(temp_db, user.id)
+        session2, token2 = Session.create_for_user(temp_db, user.id)
+        assert repo.get_by_token(token1) is None
+        assert repo.get_by_token(token2) is not None
+
+    def test_allow_multi_preserves_sessions(self, temp_db):
+        user = self._make_user(temp_db)
+        repo = SessionRepository(temp_db)
+        session1, token1 = Session.create_for_user(temp_db, user.id)
+        session2, token2 = Session.create_for_user(
+            temp_db, user.id, allow_multi=True
+        )
+        assert repo.get_by_token(token1) is not None
+        assert repo.get_by_token(token2) is not None
+
+    def test_allow_multi_false_still_deletes(self, temp_db):
+        user = self._make_user(temp_db)
+        repo = SessionRepository(temp_db)
+        session1, token1 = Session.create_for_user(temp_db, user.id)
+        session2, token2 = Session.create_for_user(
+            temp_db, user.id, allow_multi=False
+        )
+        assert repo.get_by_token(token1) is None
+        assert repo.get_by_token(token2) is not None
+
+    def test_allow_multi_three_sessions(self, temp_db):
+        user = self._make_user(temp_db)
+        repo = SessionRepository(temp_db)
+        _, token1 = Session.create_for_user(temp_db, user.id)
+        _, token2 = Session.create_for_user(
+            temp_db, user.id, allow_multi=True
+        )
+        _, token3 = Session.create_for_user(
+            temp_db, user.id, allow_multi=True
+        )
+        assert repo.get_by_token(token1) is not None
+        assert repo.get_by_token(token2) is not None
+        assert repo.get_by_token(token3) is not None
+
+    def test_single_session_after_multi_clears_all(self, temp_db):
+        user = self._make_user(temp_db)
+        repo = SessionRepository(temp_db)
+        _, token1 = Session.create_for_user(temp_db, user.id)
+        _, token2 = Session.create_for_user(
+            temp_db, user.id, allow_multi=True
+        )
+        _, token3 = Session.create_for_user(
+            temp_db, user.id, allow_multi=False
+        )
+        assert repo.get_by_token(token1) is None
+        assert repo.get_by_token(token2) is None
+        assert repo.get_by_token(token3) is not None
