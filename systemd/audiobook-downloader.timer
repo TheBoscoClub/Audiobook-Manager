@@ -3,14 +3,11 @@ Description=Audiobook Download Timer (check for new audiobooks)
 PartOf=audiobook.target
 
 [Timer]
-# Run 30 minutes after boot
-OnBootSec=30min
+# Run 2 minutes after boot
+OnBootSec=2min
 
-# Then run every 6 hours
-OnUnitActiveSec=6h
-
-# Add randomized delay to avoid thundering herd
-RandomizedDelaySec=5min
+# Then run every 5 minutes
+OnUnitActiveSec=5min
 
 # Persist timer across reboots
 Persistent=true

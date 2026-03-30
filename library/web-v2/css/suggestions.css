@@ -8,13 +8,13 @@
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0;
-    margin-right: 0.5em;
+    padding: 4px;
+    margin-right: 0.75em;
     transition: transform 0.2s;
 }
 
 .edison-bulb-btn:hover {
-    transform: scale(1.1);
+    transform: scale(1.12);
 }
 
 .edison-bulb-btn[hidden] {
@@ -24,15 +24,15 @@
 /* Unread count badge — positioned over the bulb */
 .edison-count {
     position: absolute;
-    bottom: 0;
-    right: -4px;
-    font-size: 0.65rem;
+    bottom: 2px;
+    right: -6px;
+    font-size: 0.7rem;
     font-weight: 700;
     background: rgba(80, 60, 20, 0.6);
     color: rgba(200, 180, 120, 0.6);
-    padding: 0.1em 0.35em;
+    padding: 0.15em 0.4em;
     border-radius: 8px;
-    min-width: 1em;
+    min-width: 1.1em;
     text-align: center;
     line-height: 1.2;
 }
@@ -40,44 +40,56 @@
 /* ── Lit state (has-unread) ── */
 
 .edison-bulb-btn.has-unread .bulb-glass {
-    fill: rgba(255, 180, 40, 0.25);
-    stroke: rgba(255, 200, 80, 0.6);
+    fill: rgba(255, 180, 40, 0.4);
+    stroke: rgba(255, 210, 80, 0.8);
 }
 
 .edison-bulb-btn.has-unread .bulb-filament {
-    stroke: #ffb830;
-    stroke-width: 1.6;
-    filter: drop-shadow(0 0 3px rgba(255, 180, 40, 0.9))
-            drop-shadow(0 0 8px rgba(255, 140, 0, 0.5));
-    animation: filamentGlow 3s ease-in-out infinite;
+    stroke: #ffc940;
+    stroke-width: 1.8;
+    filter: drop-shadow(0 0 4px rgba(255, 200, 60, 1))
+            drop-shadow(0 0 10px rgba(255, 160, 0, 0.7));
+    animation: filamentGlow 2.5s ease-in-out infinite;
 }
 
 .edison-bulb-btn.has-unread .bulb-wire {
-    stroke: rgba(255, 180, 40, 0.5);
+    stroke: rgba(255, 200, 60, 0.6);
 }
 
 .edison-bulb-btn.has-unread .edison-count {
-    background: rgba(255, 180, 40, 0.85);
+    background: #ffb830;
     color: #1a0a00;
+    font-size: 0.75rem;
+    box-shadow: 0 0 6px rgba(255, 180, 40, 0.6);
 }
 
 /* Ambient glow around the whole bulb when lit */
 .edison-bulb-btn.has-unread .edison-bulb {
-    filter: drop-shadow(0 0 6px rgba(255, 160, 20, 0.4))
-            drop-shadow(0 0 15px rgba(255, 120, 0, 0.2));
+    filter: drop-shadow(0 0 10px rgba(255, 180, 40, 0.6))
+            drop-shadow(0 0 25px rgba(255, 140, 0, 0.3));
+}
+
+/* Pulse the entire button for attention */
+.edison-bulb-btn.has-unread {
+    animation: bulbPulse 3s ease-in-out infinite;
 }
 
 @keyframes filamentGlow {
     0%, 100% {
-        opacity: 0.85;
-        filter: drop-shadow(0 0 3px rgba(255, 180, 40, 0.8))
-                drop-shadow(0 0 6px rgba(255, 140, 0, 0.4));
+        opacity: 0.9;
+        filter: drop-shadow(0 0 4px rgba(255, 200, 60, 0.9))
+                drop-shadow(0 0 8px rgba(255, 160, 0, 0.5));
     }
     50% {
         opacity: 1;
-        filter: drop-shadow(0 0 5px rgba(255, 200, 60, 1))
-                drop-shadow(0 0 12px rgba(255, 160, 20, 0.6));
+        filter: drop-shadow(0 0 7px rgba(255, 220, 80, 1))
+                drop-shadow(0 0 16px rgba(255, 180, 40, 0.8));
     }
+}
+
+@keyframes bulbPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
 }
 
 /* ── Suggestion Drawer ────────────────────────────────────────────────── */

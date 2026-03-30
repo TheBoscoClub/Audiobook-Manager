@@ -569,29 +569,44 @@ class AudiobookLibraryV2 {
     await this.loadAudiobooks();
   }
 
+  /**
+   * Apply a sort preference string (e.g. "author_last_asc") to the dropdown and filters.
+   * Returns true if successfully applied, false otherwise.
+   */
+  _applySortString(sortPref) {
+    if (!sortPref || sortPref === "title_asc") return false;
+    const lastUnderscore = sortPref.lastIndexOf("_");
+    if (lastUnderscore <= 0) return false;
+    const sort = sortPref.substring(0, lastUnderscore);
+    const order = sortPref.substring(lastUnderscore + 1);
+    const dropdownValue = sort + ":" + order;
+    const sortSelect = document.getElementById("sort-filter");
+    const optionExists = Array.from(sortSelect.options).some(o => o.value === dropdownValue);
+    if (optionExists) {
+      sortSelect.value = dropdownValue;
+      this.currentFilters.sort = sort;
+      this.currentFilters.order = order;
+      return true;
+    }
+    return false;
+  }
+
   async applySavedSortPreference() {
+    // Restore from localStorage immediately (works for all users, no network)
+    const localSort = localStorage.getItem("audiobook_sort_order");
+    this._applySortString(localSort);
+
+    // Then sync from server for authenticated users (authoritative source)
     if (!this.user) return;
     try {
       const prefs = await api.get("/api/user/preferences", { toast: false });
-      if (prefs && prefs.sort_order && prefs.sort_order !== "title_asc") {
-        // Convert stored "field_direction" to dropdown "field:direction"
-        const lastUnderscore = prefs.sort_order.lastIndexOf("_");
-        if (lastUnderscore > 0) {
-          const sort = prefs.sort_order.substring(0, lastUnderscore);
-          const order = prefs.sort_order.substring(lastUnderscore + 1);
-          const dropdownValue = sort + ":" + order;
-          const sortSelect = document.getElementById("sort-filter");
-          // Only apply if the value exists in the dropdown
-          const optionExists = Array.from(sortSelect.options).some(o => o.value === dropdownValue);
-          if (optionExists) {
-            sortSelect.value = dropdownValue;
-            this.currentFilters.sort = sort;
-            this.currentFilters.order = order;
-          }
-        }
+      if (prefs && prefs.sort_order) {
+        this._applySortString(prefs.sort_order);
+        // Keep localStorage in sync with server
+        localStorage.setItem("audiobook_sort_order", prefs.sort_order);
       }
     } catch (_e) {
-      // Not authenticated or API unavailable — use default sort
+      // API unavailable — localStorage value already applied above
     }
   }
 
@@ -2519,6 +2534,10 @@ class AudiobookLibraryV2 {
         sort: "title",
         order: "asc",
       };
+      localStorage.setItem("audiobook_sort_order", "title_asc");
+      if (this.user) {
+        api.patch("/api/user/preferences", { sort_order: "title_asc" }, { toast: false }).catch(() => {});
+      }
       this.currentPage = 1;
       this.loadAudiobooks();
     });
@@ -2530,9 +2549,10 @@ class AudiobookLibraryV2 {
       this.currentFilters.order = order;
       this.currentPage = 1;
 
-      // Persist sort preference for authenticated users
+      // Persist sort preference (localStorage for instant restore + API for cross-device sync)
+      const prefValue = sort + "_" + (order || "asc");
+      localStorage.setItem("audiobook_sort_order", prefValue);
       if (this.user) {
-        const prefValue = sort + "_" + (order || "asc");
         api.patch("/api/user/preferences", { sort_order: prefValue }, { toast: false }).catch(() => {});
       }
 
