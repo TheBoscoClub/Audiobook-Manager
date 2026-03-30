@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Converter service**: Added `LimitNOFILE=65536` to `audiobook-converter.service` matching API service configuration
 - **Audit pass 2**: Reformatted 36 Python files with ruff; fixed 26 mypy type errors across 15 files (type annotations, Optional guards, urllib.parse.quote import); fixed 19 markdownlint issues in tracked rule and template files
 
+## [8.0.1.1] - 2026-03-30
+
+### Fixed
+
+- **Cover art loading failures**: Covers now served as static files directly from the proxy, bypassing the Flask proxy hop that caused ~5.5% of cover images to fail loading through the external stack (Cloudflare tunnel → Caddy → proxy → Flask urllib.request). Content-addressed filenames get immutable cache headers.
+- **Cover onerror retry**: Cover image `onerror` handler now retries twice with staggered delays (500ms, 1s) before falling back to placeholder, instead of immediately destroying the `<img>` element
+
 ## [8.0.1] - 2026-03-29
 
 ### Changed
@@ -2373,7 +2380,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.1...HEAD
+[8.0.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1...v8.0.1.1
 [8.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.0...v8.0.1
 [8.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.1...v8.0.0
 [7.6.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...v7.6.1
