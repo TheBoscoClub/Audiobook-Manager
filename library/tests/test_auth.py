@@ -74,10 +74,11 @@ class TestAuthDatabase:
         assert status["db_exists"]
         assert status["key_exists"]
         assert status["can_connect"]
-        assert status["schema_version"] == 7
+        assert status["schema_version"] == 8
         # 13 original + user_listening_history, user_downloads,
-        # user_preferences, webauthn_credentials, audit_log, user_hidden_books
-        assert status["table_count"] == 19
+        # user_preferences, webauthn_credentials, audit_log, user_hidden_books,
+        # user_settings (v8)
+        assert status["table_count"] == 20
 
     def test_database_encryption(self):
         """Test database file is actually encrypted."""

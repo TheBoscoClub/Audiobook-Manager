@@ -26,8 +26,6 @@ import pyotp
 import pytest
 import requests as req_lib
 
-pytestmark = pytest.mark.integration
-
 # Check VM reachability before running — skip entire module if unreachable
 VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
 _vm_reachable = False
@@ -38,7 +36,7 @@ try:
 except (OSError, ConnectionRefusedError):
     pass
 
-pytestmark = [
+pytestmark: list[pytest.MarkDecorator] = [
     pytest.mark.integration,
     pytest.mark.skipif(not _vm_reachable, reason=f"VM {VM_HOST}:5001 unreachable"),
 ]

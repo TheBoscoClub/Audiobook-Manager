@@ -14,13 +14,7 @@
     monthly: "0 {H} 1 * *",
   };
 
-  /** Standard fetch options with auth credentials */
-  var FETCH_OPTS = { credentials: "same-origin" };
-
-  function fetchAuth(url, opts) {
-    var merged = Object.assign({}, FETCH_OPTS, opts || {});
-    return fetch(url, merged);
-  }
+  // fetchAuth replaced by shared api.* client (api.js)
 
   function escText(s) {
     return s == null ? "" : String(s);
@@ -32,21 +26,11 @@
     return td;
   }
 
-  /** Format a UTC ISO date string to user's local timezone */
-  function formatLocal(isoStr) {
-    if (!isoStr) return "N/A";
-    var d = new Date(isoStr);
-    if (isNaN(d.getTime())) return isoStr;
-    return d.toLocaleString();
-  }
+  // formatLocal is now provided by utils.js
 
   // -- Task type population --
   function loadTaskTypes() {
-    fetchAuth("/api/admin/maintenance/tasks")
-      .then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
+    api.get("/api/admin/maintenance/tasks", { toast: false })
       .then(function (tasks) {
         var sel = document.getElementById("maint-task-type");
         while (sel.firstChild) sel.removeChild(sel.firstChild);
@@ -137,23 +121,14 @@
     if (!body.name) { alert("Name is required"); return; }
     if (!body.task_type) { alert("Please select a task type"); return; }
 
-    fetchAuth("/api/admin/maintenance/windows", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then(function (r) {
-        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "HTTP " + r.status); });
-        return r.json();
-      })
+    api.post("/api/admin/maintenance/windows", body, { toast: false })
       .then(function () { loadWindows(); })
       .catch(function (e) { alert("Error: " + e.message); });
   }
 
   // -- Load windows --
   function loadWindows() {
-    fetchAuth("/api/admin/maintenance/windows")
-      .then(function (r) { return r.json(); })
+    api.get("/api/admin/maintenance/windows", { toast: false })
       .then(function (windows) {
         var tbody = document.getElementById("maint-windows-body");
         while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
@@ -196,16 +171,15 @@
   }
 
   function cancelWindow(id) {
-    fetchAuth("/api/admin/maintenance/windows/" + id, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "cancelled" }),
-    }).then(function () { loadWindows(); });
+    api.put("/api/admin/maintenance/windows/" + id, { status: "cancelled" }, { toast: false })
+      .then(function () { loadWindows(); })
+      .catch(function () {});
   }
 
   function deleteWindow(id) {
-    fetchAuth("/api/admin/maintenance/windows/" + id, { method: "DELETE" })
-      .then(function () { loadWindows(); });
+    api.delete("/api/admin/maintenance/windows/" + id, { toast: false })
+      .then(function () { loadWindows(); })
+      .catch(function () {});
   }
 
   // -- Messages --
@@ -214,15 +188,7 @@
     var text = input.value.trim();
     if (!text) return;
 
-    fetchAuth("/api/admin/maintenance/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
-    })
-      .then(function (r) {
-        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "HTTP " + r.status); });
-        return r.json();
-      })
+    api.post("/api/admin/maintenance/messages", { message: text }, { toast: false })
       .then(function (created) {
         input.value = "";
         loadMessages();
@@ -251,8 +217,7 @@
   }
 
   function loadMessages() {
-    fetchAuth("/api/admin/maintenance/messages")
-      .then(function (r) { return r.json(); })
+    api.get("/api/admin/maintenance/messages", { toast: false })
       .then(function (messages) {
         var container = document.getElementById("maint-messages-list");
         while (container.firstChild) container.removeChild(container.firstChild);
@@ -286,14 +251,14 @@
   }
 
   function dismissMessage(id) {
-    fetchAuth("/api/admin/maintenance/messages/" + id, { method: "DELETE" })
-      .then(function () { loadMessages(); });
+    api.delete("/api/admin/maintenance/messages/" + id, { toast: false })
+      .then(function () { loadMessages(); })
+      .catch(function () {});
   }
 
   // -- History --
   function loadHistory() {
-    fetchAuth("/api/admin/maintenance/history")
-      .then(function (r) { return r.json(); })
+    api.get("/api/admin/maintenance/history", { toast: false })
       .then(function (history) {
         var tbody = document.getElementById("maint-history-body");
         while (tbody.firstChild) tbody.removeChild(tbody.firstChild);

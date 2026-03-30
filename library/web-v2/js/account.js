@@ -57,6 +57,7 @@
     if (initialEl && data.username) {
       initialEl.textContent = data.username.charAt(0).toUpperCase();
     }
+    updateBackOfficeButton(data.is_admin);
   }
 
   // ── Update button to show unauthenticated state ──
@@ -64,36 +65,45 @@
     authenticated = false;
     document.getElementById("account-initial").textContent = "\u2192";
     document.getElementById("account-username").textContent = "Sign In";
+    updateBackOfficeButton(false);
+  }
+
+  // ── Back Office button visibility ──
+  function updateBackOfficeButton(isAdmin) {
+    var boLink = document.getElementById("admin-backoffice-link");
+    if (!boLink) return;
+    boLink.hidden = false;
+    if (isAdmin) {
+      boLink.classList.remove("backoffice-locked");
+      boLink.removeAttribute("data-locked");
+    } else {
+      boLink.classList.add("backoffice-locked");
+      boLink.setAttribute("data-locked", "true");
+    }
   }
 
   // ── Initial auth probe on page load ──
   async function initAccountButton() {
     try {
-      var resp = await fetch("/auth/account", { credentials: "same-origin" });
-      if (resp.ok) {
-        accountData = await resp.json();
-        showAuthenticatedState(accountData);
-        populateModal(accountData);
-        return;
-      }
+      accountData = await api.get("/auth/account", { toast: false });
+      showAuthenticatedState(accountData);
+      populateModal(accountData);
+      return;
     } catch (_e) {
-      // Network error — fall through to status check
+      // Network error or not authenticated — fall through to status check
     }
 
     // /auth/account failed — check if auth is even enabled
     try {
-      var statusResp = await fetch("/auth/status", { credentials: "same-origin" });
-      if (statusResp.ok) {
-        var statusData = await statusResp.json();
-        if (!statusData.auth_enabled) {
-          // Auth disabled — show generic "Account" (button stays visible)
-          return;
-        }
-        if (statusData.user) {
-          // Authenticated but /auth/account failed — show username from status
-          showAuthenticatedState(statusData.user);
-          return;
-        }
+      var statusData = await checkAuthStatus();
+      if (!statusData.auth_enabled) {
+        // Auth disabled — show generic "Account" (button stays visible)
+        return;
+      }
+      if (statusData.user) {
+        // Authenticated but /auth/account failed — show username from status
+        showAuthenticatedState(statusData.user);
+        return;
       }
     } catch (_e2) {
       // Both endpoints failed — API is down, keep default button state
@@ -106,9 +116,7 @@
   // ── Refresh account data (for modal open, not initial load) ──
   async function refreshAccountData() {
     try {
-      var resp = await fetch("/auth/account", { credentials: "same-origin" });
-      if (!resp.ok) return; // keep existing modal data
-      accountData = await resp.json();
+      accountData = await api.get("/auth/account", { toast: false });
       populateModal(accountData);
     } catch (_e) {
       // keep existing modal data
@@ -121,7 +129,7 @@
     document.getElementById("acct-username").textContent = data.username;
     document.getElementById("acct-email").textContent = data.email || "(none)";
     document.getElementById("acct-created").textContent =
-      data.created_at ? new Date(data.created_at).toLocaleDateString() : "Unknown";
+      data.created_at ? formatDate(data.created_at, "short") : "Unknown";
     document.getElementById("acct-auth-badge").textContent =
       (data.auth_type || "").toUpperCase();
   }
@@ -165,23 +173,13 @@
     }
 
     try {
-      var resp = await fetch("/auth/account/username", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ username: newName }),
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to change username"));
-        return;
-      }
+      await api.put("/auth/account/username", { username: newName }, { toast: false });
       hideUsernameEdit();
       refreshAccountData();
       // Update header button with new username
       showAuthenticatedState({ username: newName });
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -212,21 +210,11 @@
     var newEmail = input.value.trim();
 
     try {
-      var resp = await fetch("/auth/account/email", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ email: newEmail }),
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to change email"));
-        return;
-      }
+      await api.put("/auth/account/email", { email: newEmail }, { toast: false });
       hideEmailEdit();
       refreshAccountData();
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -245,23 +233,12 @@
     }
 
     try {
-      var resp = await fetch("/auth/account/auth-method", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ auth_method: selected.value }),
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to switch auth method"));
-        return;
-      }
-
+      var data = await api.put("/auth/account/auth-method", { auth_method: selected.value }, { toast: false });
       document.getElementById("auth-switch-panel").hidden = true;
       showSetupResult(data.setup_data, selected.value);
       refreshAccountData();
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -270,19 +247,10 @@
     if (!confirm("Reset your authentication credentials? You will need to reconfigure your authenticator.")) return;
 
     try {
-      var resp = await fetch("/auth/account/reset-credentials", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      var data = await resp.json();
-      if (!resp.ok) {
-        alert("Error: " + (data.error || "Failed to reset credentials"));
-        return;
-      }
-
+      var data = await api.post("/auth/account/reset-credentials", null, { toast: false });
       showSetupResult(data.setup_data, accountData ? accountData.auth_type : "");
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -329,18 +297,10 @@
     if (!confirm(msg)) return;
 
     try {
-      var resp = await fetch("/auth/account", {
-        method: "DELETE",
-        credentials: "same-origin",
-      });
-      if (resp.ok) {
-        window.location.href = "/auth/login";
-      } else {
-        var data = await resp.json();
-        alert("Error: " + (data.error || "Failed to delete account"));
-      }
+      await api.delete("/auth/account", { toast: false });
+      window.location.href = "/auth/login";
     } catch (err) {
-      alert("Network error: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
@@ -391,11 +351,22 @@
       if (frame && frame.contentWindow && frame.contentWindow.library) {
         frame.contentWindow.library.logout();
       } else {
-        fetch("/auth/logout", { method: "POST", credentials: "same-origin" })
+        api.post("/auth/logout", null, { toast: false })
           .then(function () { window.location.href = "/auth/login"; })
           .catch(function () { window.location.href = "/auth/login"; });
       }
     });
+
+    // Back Office gate — intercept clicks from non-admins
+    var boLink = document.getElementById("admin-backoffice-link");
+    if (boLink) {
+      boLink.addEventListener("click", function (e) {
+        if (boLink.getAttribute("data-locked") === "true") {
+          e.preventDefault();
+          alert("The Back Office is restricted to admin users.");
+        }
+      });
+    }
 
     // Contact admin — navigate the iframe
     var contactBtn = document.getElementById("contact-admin-btn");
@@ -408,7 +379,95 @@
       });
     }
 
+    // ── Preferences controls ──
+    initPreferencesControls();
+
     // Populate account button — never hides it
     initAccountButton();
   });
+
+  // ── Preferences: load, bind, save ──
+
+  var PREF_DEFAULTS = {
+    sort_order: 'title_asc', view_mode: 'grid', items_per_page: '24',
+    content_filter: 'all', playback_speed: '1', sleep_timer: '0',
+    auto_play_series: 'false'
+  };
+
+  function initPreferencesControls() {
+    // Hide prefs section for unauthenticated users (loaded after auth check)
+    var prefsSection = document.getElementById('prefs-section');
+    if (!prefsSection) return;
+
+    // Auto-save on select change
+    prefsSection.querySelectorAll('.pref-select').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        saveBrowsingPref(sel.dataset.key, sel.value);
+      });
+    });
+
+    // Toggle groups
+    prefsSection.querySelectorAll('.pref-toggle-group').forEach(function (group) {
+      group.addEventListener('click', function (e) {
+        var target = e.target.closest('button');
+        if (!target) return;
+        group.querySelectorAll('button').forEach(function (b) {
+          b.classList.toggle('active', b === target);
+        });
+        saveBrowsingPref(group.dataset.key, target.dataset.value);
+      });
+    });
+
+    // Checkbox
+    var autoPlay = document.getElementById('pref-auto-play');
+    if (autoPlay) {
+      autoPlay.addEventListener('change', function () {
+        saveBrowsingPref('auto_play_series', this.checked ? 'true' : 'false');
+      });
+    }
+  }
+
+  function saveBrowsingPref(key, value) {
+    var body = {};
+    body[key] = value;
+    api.patch('/api/user/preferences', body, { toast: false }).catch(function () {});
+  }
+
+  function loadPreferencesIntoModal() {
+    api.get('/api/user/preferences', { toast: false })
+      .then(function (data) {
+        // Select dropdowns
+        var selects = document.querySelectorAll('#prefs-section .pref-select');
+        selects.forEach(function (sel) {
+          var key = sel.dataset.key;
+          if (data[key] !== undefined) sel.value = data[key];
+        });
+        // Toggle groups
+        document.querySelectorAll('#prefs-section .pref-toggle-group').forEach(function (group) {
+          var key = group.dataset.key;
+          var val = data[key] || PREF_DEFAULTS[key];
+          group.querySelectorAll('button').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.value === val);
+          });
+        });
+        // Checkbox
+        var autoPlay = document.getElementById('pref-auto-play');
+        if (autoPlay) autoPlay.checked = data.auto_play_series === 'true';
+
+        // Show section
+        document.getElementById('prefs-section').style.display = '';
+      })
+      .catch(function () {
+        // Hide preferences section for unauthenticated users
+        var s = document.getElementById('prefs-section');
+        if (s) s.style.display = 'none';
+      });
+  }
+
+  // Override openAccountModal to also load preferences
+  var _origOpenModal = openAccountModal;
+  openAccountModal = function () {
+    _origOpenModal();
+    if (authenticated) loadPreferencesIntoModal();
+  };
 })();

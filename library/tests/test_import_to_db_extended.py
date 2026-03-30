@@ -34,7 +34,7 @@ def _create_db_with_schema(db_path: Path) -> sqlite3.Connection:
 
 def _make_book(**overrides) -> dict:
     """Build a minimal audiobook dict for JSON import, applying overrides."""
-    book = {
+    book: dict[str, str | int | float | list | None] = {
         "title": "Default Title",
         "author": "Jane Smith",
         "narrator": "John Doe",

@@ -30,11 +30,10 @@ from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
 
 from .audiobooks import audiobooks_bp, init_audiobooks_routes
 from .collections import (
-    COLLECTIONS,
     collections_bp,
-    genre_query,
+    get_collections_lookup,
     init_collections_routes,
-    multi_genre_query,
+    invalidate_collections_cache,
 )
 from .core import add_cors_headers, add_security_headers
 from .core import get_db as _get_db_with_path
@@ -52,6 +51,7 @@ from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .admin_authors import admin_authors_bp, init_admin_authors_routes
 from .suggestions import suggestions_bp, init_suggestions_routes
 from .user_state import init_user_state_routes, user_bp
+from .preferences import preferences_bp
 from .utilities import init_utilities_routes, utilities_bp
 from .auth import (
     auth_bp,
@@ -77,50 +77,26 @@ def get_db():
     return _get_db_with_path(DB_PATH)
 
 
-def create_app(
-    database_path: Optional[Path] = None,
-    project_dir: Optional[Path] = None,
-    supplements_dir: Optional[Path] = None,
-    api_port: Optional[int] = None,
-    auth_db_path: Optional[Path] = None,
-    auth_key_path: Optional[Path] = None,
-    auth_dev_mode: bool = False,
+def _configure_app(
+    flask_app,
+    database_path,
+    project_dir,
+    supplements_dir,
+    api_port,
+    auth_db_path,
+    auth_key_path,
+    auth_dev_mode,
 ):
-    """
-    Create and configure the Flask application.
-
-    Args:
-        database_path: Path to the SQLite database file (default: from config)
-        project_dir: Path to the project root directory (default: from config)
-        supplements_dir: Path to the supplements directory (default: from config)
-        api_port: Port to run the API on (default: from config)
-
-    Returns:
-        Configured Flask application
-    """
-    # Use defaults from config if not provided
-    database_path = database_path or DATABASE_PATH
-    project_dir = project_dir or PROJECT_DIR
-    supplements_dir = supplements_dir or SUPPLEMENTS_DIR
-    api_port = api_port or API_PORT
-
-    flask_app = Flask(__name__)
-
-    # Session cookie security hardening
+    """Set Flask app configuration values."""
     flask_app.config["SESSION_COOKIE_SECURE"] = True
     flask_app.config["SESSION_COOKIE_HTTPONLY"] = True
     flask_app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-
-    # Store configuration
     flask_app.config["DATABASE_PATH"] = database_path
     flask_app.config["PROJECT_DIR"] = project_dir
     flask_app.config["SUPPLEMENTS_DIR"] = supplements_dir
     flask_app.config["API_PORT"] = api_port
     flask_app.config["AUTH_DEV_MODE"] = auth_dev_mode
 
-    project_root = project_dir / "library"
-
-    # Auth database paths (optional - auth endpoints disabled if not configured)
     if auth_db_path and auth_key_path:
         flask_app.config["AUTH_DB_PATH"] = auth_db_path
         flask_app.config["AUTH_KEY_PATH"] = auth_key_path
@@ -128,91 +104,79 @@ def create_app(
     else:
         flask_app.config["AUTH_ENABLED"] = False
 
-    # Register CORS and security headers
-    @flask_app.after_request
-    def apply_cors(response: Response) -> Response:
-        return add_cors_headers(response)
 
-    @flask_app.after_request
-    def apply_security_headers(response: Response) -> Response:
-        return add_security_headers(response)
+def _init_once(bp, init_fn, *args):
+    """Initialize a blueprint's routes only once (idempotency guard)."""
+    if not getattr(bp, "_routes_initialized", False):
+        init_fn(*args)
+        bp._routes_initialized = True
 
-    # Handle OPTIONS preflight requests
-    @flask_app.route("/", defaults={"path": ""}, methods=["OPTIONS"])
-    @flask_app.route("/<path:path>", methods=["OPTIONS"])
-    def handle_options(path: str) -> tuple[str, int]:
-        """Handle CORS preflight requests"""
-        return "", 204
 
-    # Initialize route modules with their dependencies.
-    # Modules using current_app.config (audiobooks, grouped, admin_authors) are
-    # no-ops but called for API compatibility. Closure-based modules need guards.
+def _init_route_modules(
+    flask_app, database_path, project_root, supplements_dir, auth_dev_mode
+):
+    """Initialize all route modules with their dependencies."""
     init_audiobooks_routes(database_path, project_root, database_path)
-    if not getattr(collections_bp, "_routes_initialized", False):
-        init_collections_routes(database_path)
-        collections_bp._routes_initialized = True
-    if not getattr(editions_bp, "_routes_initialized", False):
-        init_editions_routes(database_path)
-        editions_bp._routes_initialized = True
-    if not getattr(duplicates_bp, "_routes_initialized", False):
-        init_duplicates_routes(database_path)
-        duplicates_bp._routes_initialized = True
-    if not getattr(supplements_bp, "_routes_initialized", False):
-        init_supplements_routes(database_path, supplements_dir)
-        supplements_bp._routes_initialized = True
-    if not getattr(utilities_bp, "_routes_initialized", False):
-        init_utilities_routes(database_path, project_root)
-        utilities_bp._routes_initialized = True
-    if not getattr(position_bp, "_routes_initialized", False):
-        init_position_routes(database_path)
-        position_bp._routes_initialized = True
+    _init_once(collections_bp, init_collections_routes, database_path)
+    _init_once(editions_bp, init_editions_routes, database_path)
+    _init_once(duplicates_bp, init_duplicates_routes, database_path)
+    _init_once(supplements_bp, init_supplements_routes, database_path, supplements_dir)
+    _init_once(utilities_bp, init_utilities_routes, database_path, project_root)
+    _init_once(position_bp, init_position_routes, database_path)
     init_grouped_routes(database_path)
-    init_admin_authors_routes(database_path)
+    init_admin_authors_routes(str(database_path))
 
-    # Initialize auth routes if configured
     if flask_app.config["AUTH_ENABLED"]:
         init_auth_routes(
             auth_db_path=flask_app.config["AUTH_DB_PATH"],
             auth_key_path=flask_app.config["AUTH_KEY_PATH"],
             is_dev=auth_dev_mode,
         )
-        init_user_state_routes(database_path)
-        init_admin_activity_routes(database_path)
+        init_user_state_routes(str(database_path))
+        init_admin_activity_routes(str(database_path))
 
-    # Register blueprints
-    flask_app.register_blueprint(audiobooks_bp)
-    flask_app.register_blueprint(collections_bp)
-    flask_app.register_blueprint(editions_bp)
-    flask_app.register_blueprint(duplicates_bp)
-    flask_app.register_blueprint(supplements_bp)
-    flask_app.register_blueprint(utilities_bp)
-    flask_app.register_blueprint(position_bp)
-    flask_app.register_blueprint(grouped_bp)
-    flask_app.register_blueprint(admin_authors_bp)
 
-    # Register auth blueprint if configured
+def _register_core_blueprints(flask_app):
+    """Register all non-auth blueprints."""
+    for bp in (
+        audiobooks_bp,
+        collections_bp,
+        editions_bp,
+        duplicates_bp,
+        supplements_bp,
+        utilities_bp,
+        position_bp,
+        grouped_bp,
+        admin_authors_bp,
+    ):
+        flask_app.register_blueprint(bp)
+
+
+def _register_auth_blueprints(flask_app):
+    """Register auth-related blueprints if auth is enabled."""
     if flask_app.config["AUTH_ENABLED"]:
-        flask_app.register_blueprint(auth_bp)
-        flask_app.register_blueprint(user_bp)
-        flask_app.register_blueprint(admin_activity_bp)
+        for bp in (auth_bp, user_bp, preferences_bp, admin_activity_bp):
+            flask_app.register_blueprint(bp)
 
-    # Maintenance scheduling
+
+def _register_extension_blueprints(flask_app, database_path):
+    """Register maintenance, roadmap, and suggestions blueprints."""
     from .maintenance import maintenance_bp, init_maintenance_routes
 
     init_maintenance_routes(database_path)
     flask_app.register_blueprint(maintenance_bp)
 
-    # Roadmap
     from .roadmap import roadmap_bp, init_roadmap_routes
 
     init_roadmap_routes(database_path)
     flask_app.register_blueprint(roadmap_bp)
 
-    # User suggestions
     init_suggestions_routes(database_path)
     flask_app.register_blueprint(suggestions_bp)
 
-    # WebSocket endpoint (flask-sock handles upgrades natively with gevent worker)
+
+def _setup_websocket(flask_app, database_path):
+    """Configure WebSocket endpoint and admin connections route."""
     from flask_sock import Sock
     from .websocket import connection_manager
     import json as _json
@@ -256,11 +220,74 @@ def create_app(
         finally:
             connection_manager.unregister(session_id)
 
-    # Admin connections endpoint
     @flask_app.route("/api/admin/connections")
     @admin_if_enabled
     def get_connections():
         return jsonify(connection_manager.admin_connections_list())
+
+
+def create_app(
+    database_path: Optional[Path] = None,
+    project_dir: Optional[Path] = None,
+    supplements_dir: Optional[Path] = None,
+    api_port: Optional[int] = None,
+    auth_db_path: Optional[Path] = None,
+    auth_key_path: Optional[Path] = None,
+    auth_dev_mode: bool = False,
+):
+    """
+    Create and configure the Flask application.
+
+    Args:
+        database_path: Path to the SQLite database file (default: from config)
+        project_dir: Path to the project root directory (default: from config)
+        supplements_dir: Path to the supplements directory (default: from config)
+        api_port: Port to run the API on (default: from config)
+
+    Returns:
+        Configured Flask application
+    """
+    database_path = database_path or DATABASE_PATH
+    project_dir = project_dir or PROJECT_DIR
+    supplements_dir = supplements_dir or SUPPLEMENTS_DIR
+    api_port = api_port or API_PORT
+
+    flask_app = Flask(__name__)
+    _configure_app(
+        flask_app,
+        database_path,
+        project_dir,
+        supplements_dir,
+        api_port,
+        auth_db_path,
+        auth_key_path,
+        auth_dev_mode,
+    )
+
+    project_root = project_dir / "library"
+
+    # Register CORS and security headers
+    @flask_app.after_request
+    def apply_cors(response: Response) -> Response:
+        return add_cors_headers(response)
+
+    @flask_app.after_request
+    def apply_security_headers(response: Response) -> Response:
+        return add_security_headers(response)
+
+    @flask_app.route("/", defaults={"path": ""}, methods=["OPTIONS"])
+    @flask_app.route("/<path:path>", methods=["OPTIONS"])
+    def handle_options(path: str) -> tuple[str, int]:
+        """Handle CORS preflight requests"""
+        return "", 204
+
+    _init_route_modules(
+        flask_app, database_path, project_root, supplements_dir, auth_dev_mode
+    )
+    _register_core_blueprints(flask_app)
+    _register_auth_blueprints(flask_app)
+    _register_extension_blueprints(flask_app, database_path)
+    _setup_websocket(flask_app, database_path)
 
     return flask_app
 
@@ -276,10 +303,8 @@ __all__ = [
     # Helper functions (backward compatibility)
     "has_edition_marker",
     "normalize_base_title",
-    "genre_query",
-    "multi_genre_query",
-    # Constants
-    "COLLECTIONS",
+    "get_collections_lookup",
+    "invalidate_collections_cache",
     # Blueprints
     "audiobooks_bp",
     "collections_bp",

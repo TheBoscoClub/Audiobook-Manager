@@ -1,0 +1,235 @@
+/* Admin Suggestion Alert Badge & Drawer
+   Used by utilities.html (Back Office) */
+
+/* ── Edison Bulb Indicator ────────────────────────────────────────────── */
+
+.edison-bulb-btn {
+    position: relative;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-right: 0.5em;
+    transition: transform 0.2s;
+}
+
+.edison-bulb-btn:hover {
+    transform: scale(1.1);
+}
+
+.edison-bulb-btn[hidden] {
+    display: none;
+}
+
+/* Unread count badge — positioned over the bulb */
+.edison-count {
+    position: absolute;
+    bottom: 0;
+    right: -4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: rgba(80, 60, 20, 0.6);
+    color: rgba(200, 180, 120, 0.6);
+    padding: 0.1em 0.35em;
+    border-radius: 8px;
+    min-width: 1em;
+    text-align: center;
+    line-height: 1.2;
+}
+
+/* ── Lit state (has-unread) ── */
+
+.edison-bulb-btn.has-unread .bulb-glass {
+    fill: rgba(255, 180, 40, 0.25);
+    stroke: rgba(255, 200, 80, 0.6);
+}
+
+.edison-bulb-btn.has-unread .bulb-filament {
+    stroke: #ffb830;
+    stroke-width: 1.6;
+    filter: drop-shadow(0 0 3px rgba(255, 180, 40, 0.9))
+            drop-shadow(0 0 8px rgba(255, 140, 0, 0.5));
+    animation: filamentGlow 3s ease-in-out infinite;
+}
+
+.edison-bulb-btn.has-unread .bulb-wire {
+    stroke: rgba(255, 180, 40, 0.5);
+}
+
+.edison-bulb-btn.has-unread .edison-count {
+    background: rgba(255, 180, 40, 0.85);
+    color: #1a0a00;
+}
+
+/* Ambient glow around the whole bulb when lit */
+.edison-bulb-btn.has-unread .edison-bulb {
+    filter: drop-shadow(0 0 6px rgba(255, 160, 20, 0.4))
+            drop-shadow(0 0 15px rgba(255, 120, 0, 0.2));
+}
+
+@keyframes filamentGlow {
+    0%, 100% {
+        opacity: 0.85;
+        filter: drop-shadow(0 0 3px rgba(255, 180, 40, 0.8))
+                drop-shadow(0 0 6px rgba(255, 140, 0, 0.4));
+    }
+    50% {
+        opacity: 1;
+        filter: drop-shadow(0 0 5px rgba(255, 200, 60, 1))
+                drop-shadow(0 0 12px rgba(255, 160, 20, 0.6));
+    }
+}
+
+/* ── Suggestion Drawer ────────────────────────────────────────────────── */
+
+.suggestion-drawer[hidden] {
+    display: none !important;
+}
+
+.suggestion-drawer {
+    position: fixed;
+    top: 44px;
+    right: 0;
+    width: 420px;
+    max-width: 95vw;
+    max-height: calc(100vh - 44px);
+    background: #1a1208;
+    border-left: 2px solid var(--gold-dark, #B8860B);
+    border-bottom: 2px solid var(--gold-dark, #B8860B);
+    box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.5);
+    z-index: 8000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: drawerSlideIn 0.25s ease-out;
+}
+
+@keyframes drawerSlideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.suggestion-drawer-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(218, 165, 32, 0.3);
+    flex-shrink: 0;
+}
+
+.suggestion-drawer-header h3 {
+    font-family: Georgia, serif;
+    font-size: 0.95rem;
+    color: var(--gold, #DAA520);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.suggestion-drawer-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: auto;
+}
+
+.sdtab {
+    background: none;
+    border: 1px solid rgba(218, 165, 32, 0.3);
+    color: #aaa;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sdtab:hover { color: #ddd; border-color: rgba(218, 165, 32, 0.5); }
+.sdtab.active { color: var(--gold, #DAA520); border-color: var(--gold, #DAA520); background: rgba(218, 165, 32, 0.1); }
+
+.drawer-close-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    line-height: 1;
+}
+
+.drawer-close-btn:hover { color: #fff; }
+
+.suggestion-drawer-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.suggestion-empty {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    padding: 2rem;
+    font-size: 0.9rem;
+}
+
+/* ── Suggestion Cards ─────────────────────────────────────────────────── */
+
+.suggestion-card {
+    background: #2d2015;
+    border-left: 3px solid var(--gold, #DAA520);
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.suggestion-card.suggestion-read {
+    opacity: 0.55;
+    border-left-color: #555;
+}
+
+.suggestion-meta {
+    font-size: 0.8rem;
+    color: var(--gold, #DAA520);
+    margin-bottom: 0.4rem;
+}
+
+.suggestion-time {
+    color: #888;
+    font-size: 0.75rem;
+}
+
+.suggestion-body {
+    font-size: 0.9rem;
+    color: #e8dcc8;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 0.5rem;
+}
+
+.suggestion-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.sug-btn {
+    background: none;
+    border: 1px solid rgba(218, 165, 32, 0.3);
+    color: #aaa;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sug-btn:hover { color: #fff; border-color: rgba(218, 165, 32, 0.6); }
+
+.sug-btn-danger:hover {
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+}
+
+@media (max-width: 480px) {
+    .suggestion-drawer { width: 100vw; max-width: 100vw; }
+    .suggestion-alert .alert-icon { font-size: 1em; }
+}

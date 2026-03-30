@@ -38,6 +38,26 @@ GOOGLE_BOOKS_API = "https://www.googleapis.com/books/v1/volumes"
 OPENLIBRARY_API = "https://openlibrary.org"
 DEFAULT_DELAY = 0.6
 
+LANG_MAP = {
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ja": "Japanese",
+    "zh": "Chinese",
+    "ko": "Korean",
+    "ru": "Russian",
+    "ar": "Arabic",
+    "nl": "Dutch",
+    "sv": "Swedish",
+    "no": "Norwegian",
+    "da": "Danish",
+    "pl": "Polish",
+    "fi": "Finnish",
+}
+
 
 def query_google_books(
     isbn: str | None = None, title: str | None = None, author: str | None = None
@@ -96,29 +116,26 @@ def query_openlibrary_search(title: str, author: str | None = None) -> dict | No
     return None
 
 
-def enrich_from_isbn(
-    dry_run: bool = False,
-    delay: float = DEFAULT_DELAY,
-    db_path: Path | None = None,
-    include_asin_books: bool = False,
-    single_id: int | None = None,
-) -> dict:
-    """Enrich books from ISBN/title via Open Library and Google Books."""
+def _resolve_db_path(db_path: Path | None) -> Path:
+    """Resolve database path from argument or config, exit on failure."""
+    if db_path is not None:
+        return db_path
+    if DATABASE_PATH is None:
+        print("Error: No database path. Use --db flag.", file=sys.stderr)
+        sys.exit(1)
+    return DATABASE_PATH
 
-    if db_path is None:
-        if DATABASE_PATH is None:
-            print("Error: No database path. Use --db flag.", file=sys.stderr)
-            sys.exit(1)
-        db_path = DATABASE_PATH
 
-    print(f"Database: {db_path}")
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
+def _fetch_isbn_candidates(
+    db_path: Path,
+    include_asin_books: bool,
+    single_id: int | None,
+) -> list:
+    """Fetch candidate books for ISBN enrichment."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Find candidates: books not yet ISBN-enriched
     if single_id is not None:
         cursor.execute(
             "SELECT id, title, author, isbn, asin FROM audiobooks WHERE id = ?",
@@ -130,7 +147,6 @@ def enrich_from_isbn(
             "WHERE isbn_enriched_at IS NULL"
         )
     else:
-        # Default: only books without ASIN or without Audible enrichment
         cursor.execute(
             "SELECT id, title, author, isbn, asin FROM audiobooks "
             "WHERE isbn_enriched_at IS NULL "
@@ -139,169 +155,190 @@ def enrich_from_isbn(
 
     books = cursor.fetchall()
     conn.close()
+    return books
 
-    print(f"Books to enrich via ISBN: {len(books)}")
-    if not books:
-        print("Nothing to do.")
-        return {"enriched": 0, "skipped": 0, "errors": 0}
 
-    enriched = 0
-    skipped = 0
-    errors = 0
+def _fetch_source_data(
+    isbn: str | None, title: str, author: str
+) -> tuple[dict | None, dict | None]:
+    """Fetch data from Google Books or Open Library.
+
+    Returns (gb_data, ol_data).
+    """
+    if isbn:
+        gb_data = query_google_books(isbn=isbn)
+        ol_data = query_openlibrary_isbn(isbn) if not gb_data else None
+        return gb_data, ol_data
+
+    gb_data = query_google_books(title=title, author=author)
+    if gb_data:
+        return gb_data, None
+    ol_data = query_openlibrary_search(title, author)
+    return None, ol_data
+
+
+def _extract_gb_fields(gb_data: dict, isbn: str | None) -> tuple[list, list, int]:
+    """Extract update fields from Google Books data.
+
+    Returns (updates, params, isbn_found_count).
+    """
+    updates = []
+    params = []
     isbn_found = 0
 
-    # Re-open for writes
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    lang = gb_data.get("language")
+    if lang and len(lang) == 2:
+        lang = LANG_MAP.get(lang, lang)
+    if lang:
+        updates.append("language = COALESCE(language, ?)")
+        params.append(lang)
 
-    for idx, book in enumerate(books, 1):
-        book_id = book["id"]
-        title = book["title"]
-        author = book["author"]
-        isbn = book["isbn"]
+    desc = gb_data.get("description")
+    if desc:
+        updates.append("description = COALESCE(description, ?)")
+        params.append(desc)
 
-        if idx % 50 == 0 or idx == 1:
-            print(f"  [{idx}/{len(books)}] {title[:50]}...")
+    pub_date = gb_data.get("publishedDate")
+    if pub_date:
+        updates.append("published_date = COALESCE(published_date, ?)")
+        params.append(pub_date[:10])
+        try:
+            updates.append("published_year = COALESCE(published_year, ?)")
+            params.append(int(pub_date[:4]))
+        except ValueError:
+            pass
 
-        # Try Google Books first (better coverage, faster)
-        gb_data = None
-        ol_data = None
+    if not isbn:
+        identifiers = gb_data.get("industryIdentifiers", [])
+        for ident in identifiers:
+            if ident.get("type") in ("ISBN_13", "ISBN_10"):
+                updates.append("isbn = COALESCE(isbn, ?)")
+                params.append(ident["identifier"])
+                isbn_found = 1
+                break
 
-        if isbn:
-            gb_data = query_google_books(isbn=isbn)
-            if not gb_data:
-                ol_data = query_openlibrary_isbn(isbn)
-        else:
-            # Try title+author search
-            gb_data = query_google_books(title=title, author=author)
-            if not gb_data:
-                ol_data = query_openlibrary_search(title, author)
+    return updates, params, isbn_found
 
-        if not gb_data and not ol_data:
-            skipped += 1
-            if delay > 0:
-                time.sleep(delay)
-            continue
 
-        # Extract data from whichever source responded
-        updates = []
-        params = []
+def _add_coalesce_field(updates: list, params: list, col: str, val) -> None:
+    """Add a COALESCE update field if value is truthy."""
+    if val:
+        updates.append(f"{col} = COALESCE({col}, ?)")
+        params.append(val)
 
-        def add_field(col: str, val: object) -> None:
-            if val is not None:
-                updates.append(f"{col} = COALESCE({col}, ?)")
-                params.append(val)
 
-        if gb_data:
-            # Google Books data extraction
-            lang = gb_data.get("language")
-            if lang and len(lang) == 2:
-                # Convert 2-letter to full name for common languages
-                lang_map = {
-                    "en": "English",
-                    "es": "Spanish",
-                    "fr": "French",
-                    "de": "German",
-                    "it": "Italian",
-                    "pt": "Portuguese",
-                    "ja": "Japanese",
-                    "zh": "Chinese",
-                    "ko": "Korean",
-                    "ru": "Russian",
-                    "ar": "Arabic",
-                    "nl": "Dutch",
-                    "sv": "Swedish",
-                    "no": "Norwegian",
-                    "da": "Danish",
-                    "pl": "Polish",
-                    "fi": "Finnish",
-                }
-                lang = lang_map.get(lang, lang)
-            add_field("language", lang)
+def _extract_ol_language(ol_data: dict) -> str | None:
+    """Extract language from Open Library data."""
+    lang_keys = ol_data.get("languages", [])
+    if not lang_keys or not isinstance(lang_keys[0], dict):
+        return None
+    lang_key = lang_keys[0].get("key", "")
+    return lang_key.split("/")[-1] if "/" in lang_key else None
 
-            desc = gb_data.get("description")
-            if desc:
-                add_field("description", desc)
 
-            pub_date = gb_data.get("publishedDate")
-            if pub_date:
-                add_field("published_date", pub_date[:10])
-                try:
-                    add_field("published_year", int(pub_date[:4]))
-                except ValueError:
-                    pass
+def _extract_ol_description(ol_data: dict) -> str:
+    """Extract description from Open Library data."""
+    desc = ol_data.get("description")
+    if isinstance(desc, dict):
+        return desc.get("value", "")
+    return desc or ""
 
-            # Extract ISBN if we didn't have one
-            if not isbn:
-                identifiers = gb_data.get("industryIdentifiers", [])
-                for ident in identifiers:
-                    if ident.get("type") == "ISBN_13":
-                        add_field("isbn", ident["identifier"])
-                        isbn_found += 1
-                        break
-                    elif ident.get("type") == "ISBN_10":
-                        add_field("isbn", ident["identifier"])
-                        isbn_found += 1
-                        break
 
-            # Categories from Google Books could be added to genres table
-            # in a future enhancement if needed
+def _extract_ol_fields(
+    ol_data: dict, isbn: str | None
+) -> tuple[list[str], list[str | None], int]:
+    """Extract update fields from Open Library data.
 
-        elif ol_data:
-            # Open Library data extraction
-            if isinstance(ol_data, dict):
-                lang_keys = ol_data.get("languages", [])
-                if lang_keys and isinstance(lang_keys[0], dict):
-                    lang_key = lang_keys[0].get("key", "")
-                    lang = lang_key.split("/")[-1] if "/" in lang_key else None
-                    add_field("language", lang)
+    Returns (updates, params, isbn_found_count).
+    """
+    updates: list[str] = []
+    params: list[str | None] = []
 
-                desc = ol_data.get("description")
-                if isinstance(desc, dict):
-                    desc = desc.get("value", "")
-                if desc:
-                    add_field("description", desc)
+    if not isinstance(ol_data, dict):
+        return updates, params, 0
 
-                pub_date = ol_data.get("publish_date", "")
-                if pub_date:
-                    add_field("published_date", pub_date)
+    _add_coalesce_field(updates, params, "language", _extract_ol_language(ol_data))
+    _add_coalesce_field(
+        updates, params, "description", _extract_ol_description(ol_data)
+    )
+    _add_coalesce_field(
+        updates, params, "published_date", ol_data.get("publish_date", "")
+    )
 
-                # ISBN from search results
-                if not isbn:
-                    isbns = ol_data.get("isbn", [])
-                    if isbns:
-                        add_field("isbn", isbns[0])
-                        isbn_found += 1
+    isbn_found = 0
+    if not isbn:
+        isbns = ol_data.get("isbn", [])
+        if isbns:
+            _add_coalesce_field(updates, params, "isbn", isbns[0])
+            isbn_found = 1
 
-        if dry_run:
-            if updates:
-                print(f"  [DRY RUN] {title[:50]} — {len(updates)} fields")
-                enriched += 1
-            else:
-                skipped += 1
-        elif updates:
-            # Always mark as ISBN-enriched
-            updates.append("isbn_enriched_at = ?")
-            params.append(now)
-            params.append(book_id)
-            sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"
-            cursor.execute(sql, params)
-            enriched += 1
-        else:
-            # No data found but mark as attempted
-            cursor.execute(
-                "UPDATE audiobooks SET isbn_enriched_at = ? WHERE id = ?",
-                (now, book_id),
-            )
-            skipped += 1
+    return updates, params, isbn_found
 
+
+def _enrich_one_book(
+    cursor,
+    book: dict,
+    now: str,
+    dry_run: bool,
+    delay: float,
+) -> tuple[str, int]:
+    """Enrich a single book from ISBN sources.
+
+    Returns (status, isbn_found_count) where status is 'enriched', 'skipped',
+    or 'error'.
+    """
+    book_id = book["id"]
+    title = book["title"]
+    author = book["author"]
+    isbn = book["isbn"]
+
+    gb_data, ol_data = _fetch_source_data(isbn, title, author)
+
+    if not gb_data and not ol_data:
         if delay > 0:
             time.sleep(delay)
+        return "skipped", 0
 
-    if not dry_run:
-        conn.commit()
-    conn.close()
+    updates: list[str] = []
+    params: list[str | None] = []
+    isbn_found = 0
 
+    if gb_data:
+        updates, params, isbn_found = _extract_gb_fields(gb_data, isbn)
+    elif ol_data:
+        updates, params, isbn_found = _extract_ol_fields(ol_data, isbn)
+
+    if dry_run:
+        if updates:
+            print(f"  [DRY RUN] {title[:50]} — {len(updates)} fields")
+            return "enriched", isbn_found
+        return "skipped", 0
+
+    if updates:
+        updates.append("isbn_enriched_at = ?")
+        params.append(now)
+        params.append(book_id)
+        sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+        cursor.execute(sql, params)
+        return "enriched", isbn_found
+
+    # No data found but mark as attempted
+    cursor.execute(
+        "UPDATE audiobooks SET isbn_enriched_at = ? WHERE id = ?",
+        (now, book_id),
+    )
+    return "skipped", 0
+
+
+def _print_isbn_summary(
+    books: list,
+    enriched: int,
+    skipped: int,
+    errors: int,
+    isbn_found: int,
+    dry_run: bool,
+) -> dict:
+    """Print ISBN enrichment summary and return results dict."""
     results = {
         "total": len(books),
         "enriched": enriched,
@@ -320,6 +357,56 @@ def enrich_from_isbn(
     print(f"ISBNs discovered:  {isbn_found}")
 
     return results
+
+
+def enrich_from_isbn(
+    dry_run: bool = False,
+    delay: float = DEFAULT_DELAY,
+    db_path: Path | None = None,
+    include_asin_books: bool = False,
+    single_id: int | None = None,
+) -> dict:
+    """Enrich books from ISBN/title via Open Library and Google Books."""
+    db_path = _resolve_db_path(db_path)
+    print(f"Database: {db_path}")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+    books = _fetch_isbn_candidates(db_path, include_asin_books, single_id)
+    print(f"Books to enrich via ISBN: {len(books)}")
+    if not books:
+        print("Nothing to do.")
+        return {"enriched": 0, "skipped": 0, "errors": 0}
+
+    enriched = 0
+    skipped = 0
+    errors = 0
+    isbn_found = 0
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    for idx, book in enumerate(books, 1):
+        if idx % 50 == 0 or idx == 1:
+            print(f"  [{idx}/{len(books)}] {book['title'][:50]}...")
+
+        status, found = _enrich_one_book(cursor, dict(book), now, dry_run, delay)
+        isbn_found += found
+
+        if status == "enriched":
+            enriched += 1
+        elif status == "skipped":
+            skipped += 1
+        else:
+            errors += 1
+
+        if delay > 0:
+            time.sleep(delay)
+
+    if not dry_run:
+        conn.commit()
+    conn.close()
+
+    return _print_isbn_summary(books, enriched, skipped, errors, isbn_found, dry_run)
 
 
 def main():

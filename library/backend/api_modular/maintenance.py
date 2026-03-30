@@ -61,6 +61,45 @@ def list_windows():
         conn.close()
 
 
+def _compute_next_run_at(schedule_type, scheduled_at, cron_expression):
+    """Compute next_run_at from schedule parameters.
+
+    Returns (next_run_at, error_response) where error_response is None on success.
+    """
+    if schedule_type == "once" and scheduled_at:
+        return scheduled_at, None
+    if schedule_type == "recurring" and cron_expression:
+        try:
+            from croniter import croniter
+
+            cron = croniter(cron_expression, datetime.now(timezone.utc))
+            return cron.get_next(datetime).isoformat() + "Z", None
+        except (ValueError, KeyError):
+            return None, (jsonify({"error": "Invalid cron expression"}), 400)
+    return None, None
+
+
+def _validate_task_type(task_type):
+    """Validate task_type against the registry. Returns error response or None."""
+    try:
+        from .maintenance_tasks import registry
+
+        if not registry.get(task_type):
+            available = [t["name"] for t in registry.list_all()]
+            return (
+                jsonify(
+                    {
+                        "error": f"Unknown task_type '{task_type}'",
+                        "available": available,
+                    }
+                ),
+                400,
+            )
+    except ImportError:
+        pass  # Registry not yet available
+    return None
+
+
 @maintenance_bp.route("/api/admin/maintenance/windows", methods=["POST"])
 @admin_if_enabled
 def create_window():
@@ -78,44 +117,22 @@ def create_window():
     if schedule_type not in ("once", "recurring"):
         return jsonify({"error": "schedule_type must be 'once' or 'recurring'"}), 400
 
+    # Validate task type
+    err = _validate_task_type(task_type)
+    if err:
+        return err
+
     cron_expression = data.get("cron_expression")
     scheduled_at = data.get("scheduled_at")
-    task_params = json.dumps(data.get("task_params", {}))
-    duration_minutes = data.get("duration_minutes", 30)
-    lead_time_hours = data.get("lead_time_hours", 48)
-    description = data.get("description", "")
 
     # Compute next_run_at
-    next_run_at = None
-    if schedule_type == "once" and scheduled_at:
-        next_run_at = scheduled_at
-    elif schedule_type == "recurring" and cron_expression:
-        try:
-            from croniter import croniter
+    next_run_at, err = _compute_next_run_at(
+        schedule_type, scheduled_at, cron_expression
+    )
+    if err:
+        return err
 
-            cron = croniter(cron_expression, datetime.now(timezone.utc))
-            next_run_at = cron.get_next(datetime).isoformat() + "Z"
-        except (ValueError, KeyError):
-            return jsonify({"error": "Invalid cron expression"}), 400
-
-    # Validate task type against registry (if available)
-    try:
-        from .maintenance_tasks import registry
-
-        if not registry.get(task_type):
-            available = [t["name"] for t in registry.list_all()]
-            return (
-                jsonify(
-                    {
-                        "error": f"Unknown task_type '{task_type}'",
-                        "available": available,
-                    }
-                ),
-                400,
-            )
-    except ImportError:
-        pass  # Registry not yet available (during early development)
-
+    task_params = json.dumps(data.get("task_params", {}))
     conn = _get_db()
     try:
         cursor = conn.execute(
@@ -126,15 +143,15 @@ def create_window():
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 name,
-                description,
+                data.get("description", ""),
                 task_type,
                 task_params,
                 schedule_type,
                 cron_expression,
                 scheduled_at,
                 next_run_at,
-                duration_minutes,
-                lead_time_hours,
+                data.get("duration_minutes", 30),
+                data.get("lead_time_hours", 48),
             ),
         )
         conn.commit()
@@ -144,6 +161,52 @@ def create_window():
         return jsonify(dict(row)), 201
     finally:
         conn.close()
+
+
+_ALLOWED_UPDATE_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "task_type",
+        "task_params",
+        "cron_expression",
+        "scheduled_at",
+        "duration_minutes",
+        "lead_time_hours",
+        "status",
+    }
+)
+
+_SAFE_COLUMNS = _ALLOWED_UPDATE_FIELDS | {"next_run_at"}
+
+
+def _extract_allowed_fields(data):
+    """Filter request data to only allowed update fields."""
+    updates = {k: v for k, v in data.items() if k in _ALLOWED_UPDATE_FIELDS}
+    if "task_params" in updates and isinstance(updates["task_params"], dict):
+        updates["task_params"] = json.dumps(updates["task_params"])
+    return updates
+
+
+def _recompute_schedule(updates, data, existing):
+    """Recompute next_run_at if schedule fields changed."""
+    schedule_changed = "cron_expression" in updates or "scheduled_at" in updates
+    if not schedule_changed:
+        return
+
+    stype = data.get("schedule_type", existing["schedule_type"])
+    next_run, _ = _compute_next_run_at(
+        stype, updates.get("scheduled_at"), updates.get("cron_expression")
+    )
+    if next_run is not None:
+        updates["next_run_at"] = next_run
+
+
+def _build_window_updates(data, existing):
+    """Build sanitized update dict from request data."""
+    updates = _extract_allowed_fields(data)
+    _recompute_schedule(updates, data, existing)
+    return {k: v for k, v in updates.items() if k in _SAFE_COLUMNS}
 
 
 @maintenance_bp.route("/api/admin/maintenance/windows/<int:wid>", methods=["PUT"])
@@ -162,50 +225,10 @@ def update_window(wid):
         if not existing:
             return jsonify({"error": "Window not found"}), 404
 
-        # Build dynamic update
-        allowed = {
-            "name",
-            "description",
-            "task_type",
-            "task_params",
-            "cron_expression",
-            "scheduled_at",
-            "duration_minutes",
-            "lead_time_hours",
-            "status",
-        }
-        updates = {k: v for k, v in data.items() if k in allowed}
-        if "task_params" in updates and isinstance(updates["task_params"], dict):
-            updates["task_params"] = json.dumps(updates["task_params"])
-
-        # Recompute next_run_at if schedule changed
-        if "cron_expression" in updates or "scheduled_at" in updates:
-            stype = data.get("schedule_type", existing["schedule_type"])
-            if stype == "recurring" and updates.get("cron_expression"):
-                from croniter import croniter
-
-                cron = croniter(updates["cron_expression"], datetime.now(timezone.utc))
-                updates["next_run_at"] = cron.get_next(datetime).isoformat() + "Z"
-            elif stype == "once" and updates.get("scheduled_at"):
-                updates["next_run_at"] = updates["scheduled_at"]
-
-        if not updates:
+        sanitized = _build_window_updates(data, existing)
+        if not sanitized:
             return jsonify({"error": "No valid fields to update"}), 400
 
-        # Keys are validated against `allowed` set of known column names
-        safe_columns = {
-            "name",
-            "description",
-            "task_type",
-            "task_params",
-            "cron_expression",
-            "scheduled_at",
-            "duration_minutes",
-            "lead_time_hours",
-            "status",
-            "next_run_at",
-        }
-        sanitized = {k: v for k, v in updates.items() if k in safe_columns}
         set_clause = ", ".join(f'"{k}" = ?' for k in sanitized)
         values = list(sanitized.values()) + [wid]
         conn.execute(

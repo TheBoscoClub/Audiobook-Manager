@@ -154,7 +154,7 @@
     color: var(--cream, #F5DEB3);
     border-left: 4px solid var(--gold, #DAA520);
     border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-soft-md);
     animation: toastSlideIn 0.3s ease-out;
     pointer-events: auto;
     max-width: 400px;

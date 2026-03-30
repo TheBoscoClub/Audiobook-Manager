@@ -175,6 +175,8 @@ def record_download_complete(audiobook_id: int):
         file_format: Format of the downloaded file (e.g., "opus", "mp3")
     """
     user = get_current_user()
+    if user is None or user.id is None:
+        return jsonify({"error": "User not found"}), 401
 
     # Verify the audiobook exists and get title for denormalized storage
     conn = _get_library_db()
@@ -215,6 +217,114 @@ def record_download_complete(audiobook_id: int):
 # ============================================================
 
 
+def _collect_user_book_ids(auth_db, user_id):
+    """Collect all audiobook IDs from user's history, downloads, and positions.
+
+    Returns (all_ids, history_ids, download_ids, position_ids).
+    """
+    history_repo = ListeningHistoryRepository(auth_db)
+    download_repo = DownloadRepository(auth_db)
+    position_repo = PositionRepository(auth_db)
+
+    history_ids = set(history_repo.get_user_book_ids(user_id))
+    download_ids = set(download_repo.get_user_book_ids(user_id))
+    positions = position_repo.get_all_for_user(user_id)
+    position_ids = {str(p.audiobook_id) for p in positions}
+
+    return (
+        history_ids | download_ids | position_ids,
+        history_ids,
+        download_ids,
+        position_ids,
+    )
+
+
+def _apply_hidden_filter(all_ids, hidden_ids, show_hidden):
+    """Apply hidden books filter and return (filtered_ids, hidden_count)."""
+    hidden_count = len(all_ids & hidden_ids)
+    if show_hidden:
+        return all_ids & hidden_ids, hidden_count
+    return all_ids - hidden_ids, hidden_count
+
+
+def _build_last_listened_map(history_repo, user_id, history_ids):
+    """Build mapping of audiobook_id -> most recent listened ISO timestamp."""
+    if not history_ids:
+        return {}
+    result: dict[str, str] = {}
+    for h in history_repo.get_for_user(user_id, limit=10000, offset=0):
+        ts = h.ended_at or h.started_at
+        if ts is None:
+            continue
+        aid = str(h.audiobook_id)
+        ts_iso = ts.isoformat()
+        if aid not in result or ts_iso > result[aid]:
+            result[aid] = ts_iso
+    return result
+
+
+def _build_downloaded_at_map(download_repo, user_id, download_ids):
+    """Build mapping of audiobook_id -> most recent download ISO timestamp."""
+    if not download_ids:
+        return {}
+    result: dict[str, str] = {}
+    for d in download_repo.get_for_user(user_id, limit=10000, offset=0):
+        if d.downloaded_at is None:
+            continue
+        aid = str(d.audiobook_id)
+        ts_iso = d.downloaded_at.isoformat()
+        if aid not in result or ts_iso > result[aid]:
+            result[aid] = ts_iso
+    return result
+
+
+def _safe_int_ids(str_ids):
+    """Convert string IDs to integers, skipping invalid values."""
+    result = []
+    for aid in str_ids:
+        try:
+            result.append(int(aid))
+        except (ValueError, TypeError):
+            continue
+    return result
+
+
+def _fetch_library_metadata(
+    int_ids, history_ids, download_ids, position_ids, listened_map, downloaded_map
+):
+    """Fetch book metadata from library DB and build response list."""
+    conn = _get_library_db()
+    try:
+        placeholders = ",".join("?" * len(int_ids))
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT id, title, author, duration_hours, cover_path, format "  # nosec B608
+            f"FROM audiobooks WHERE id IN ({placeholders})",
+            int_ids,
+        )
+        books = []
+        for row in cursor.fetchall():
+            rid = str(row["id"])
+            books.append(
+                {
+                    "id": row["id"],
+                    "title": row["title"],
+                    "author": row["author"],
+                    "duration_hours": row["duration_hours"],
+                    "cover_path": row["cover_path"],
+                    "format": row["format"],
+                    "has_history": rid in history_ids,
+                    "has_download": rid in download_ids,
+                    "has_position": rid in position_ids,
+                    "last_listened_at": listened_map.get(rid),
+                    "downloaded_at": downloaded_map.get(rid),
+                }
+            )
+        return books
+    finally:
+        conn.close()
+
+
 @user_bp.route("/library", methods=["GET"])
 @login_required
 def get_user_library():
@@ -231,106 +341,36 @@ def get_user_library():
     hidden_ids = hidden_repo.get_hidden_ids(user.id)
     show_hidden = request.args.get("hidden", "").lower() == "true"
 
-    # Collect unique audiobook IDs from all user activity sources
-    history_repo = ListeningHistoryRepository(auth_db)
-    download_repo = DownloadRepository(auth_db)
-
-    history_ids = set(history_repo.get_user_book_ids(user.id))
-
-    # Get download IDs (uses efficient DISTINCT query)
-    download_book_ids = set(download_repo.get_user_book_ids(user.id))
-
-    # Get position IDs
-    position_repo = PositionRepository(auth_db)
-    positions = position_repo.get_all_for_user(user.id)
-    position_ids = {str(p.audiobook_id) for p in positions}
-
-    # Merge all IDs
-    all_ids = history_ids | download_book_ids | position_ids
-
-    # Apply hidden books filter
-    hidden_count = len(all_ids & hidden_ids)
-    if show_hidden:
-        all_ids = all_ids & hidden_ids  # intersection: only hidden ones
-    else:
-        all_ids = all_ids - hidden_ids  # exclude hidden ones
+    # Collect all book IDs from user activity
+    all_ids, history_ids, download_ids, position_ids = _collect_user_book_ids(
+        auth_db, user.id
+    )
+    all_ids, hidden_count = _apply_hidden_filter(all_ids, hidden_ids, show_hidden)
 
     if not all_ids:
         return jsonify({"books": [], "total": 0, "hidden_count": hidden_count})
 
-    # Build timestamp lookup dicts for history and downloads
-    # last_listened_at: most recent ended_at (or started_at) per audiobook
-    last_listened_map: dict[str, str] = {}
-    if history_ids:
-        history_items = history_repo.get_for_user(user.id, limit=10000, offset=0)
-        for h in history_items:
-            ts = h.ended_at or h.started_at
-            if ts is None:
-                continue
-            aid = str(h.audiobook_id)
-            if aid not in last_listened_map or ts.isoformat() > last_listened_map[aid]:
-                last_listened_map[aid] = ts.isoformat()
+    # Build timestamp lookups
+    history_repo = ListeningHistoryRepository(auth_db)
+    download_repo = DownloadRepository(auth_db)
+    listened_map = _build_last_listened_map(history_repo, user.id, history_ids)
+    downloaded_map = _build_downloaded_at_map(download_repo, user.id, download_ids)
 
-    # downloaded_at: most recent download per audiobook
-    downloaded_at_map: dict[str, str] = {}
-    if download_book_ids:
-        download_items = download_repo.get_for_user(user.id, limit=10000, offset=0)
-        for d in download_items:
-            if d.downloaded_at is None:
-                continue
-            aid = str(d.audiobook_id)
-            if (
-                aid not in downloaded_at_map
-                or d.downloaded_at.isoformat() > downloaded_at_map[aid]
-            ):
-                downloaded_at_map[aid] = d.downloaded_at.isoformat()
+    # Fetch library metadata
+    int_ids = _safe_int_ids(all_ids)
+    if not int_ids:
+        return jsonify({"books": [], "total": 0})
 
-    # Fetch metadata from library DB
-    conn = _get_library_db()
-    try:
-        # Build parameterized query for integer IDs
-        int_ids = []
-        for aid in all_ids:
-            try:
-                int_ids.append(int(aid))
-            except (ValueError, TypeError):
-                continue
+    books = _fetch_library_metadata(
+        int_ids,
+        history_ids,
+        download_ids,
+        position_ids,
+        listened_map,
+        downloaded_map,
+    )
 
-        if not int_ids:
-            return jsonify({"books": [], "total": 0})
-
-        placeholders = ",".join("?" * len(int_ids))
-        cursor = conn.cursor()
-        cursor.execute(
-            f"SELECT id, title, author, duration_hours, cover_path, format "  # nosec B608
-            f"FROM audiobooks WHERE id IN ({placeholders})",
-            int_ids,
-        )
-
-        books = []
-        for row in cursor.fetchall():
-            row_id_str = str(row["id"])
-            books.append(
-                {
-                    "id": row["id"],
-                    "title": row["title"],
-                    "author": row["author"],
-                    "duration_hours": row["duration_hours"],
-                    "cover_path": row["cover_path"],
-                    "format": row["format"],
-                    "has_history": row_id_str in history_ids,
-                    "has_download": row_id_str in download_book_ids,
-                    "has_position": row_id_str in position_ids,
-                    "last_listened_at": last_listened_map.get(row_id_str),
-                    "downloaded_at": downloaded_at_map.get(row_id_str),
-                }
-            )
-
-        return jsonify(
-            {"books": books, "total": len(books), "hidden_count": hidden_count}
-        )
-    finally:
-        conn.close()
+    return jsonify({"books": books, "total": len(books), "hidden_count": hidden_count})
 
 
 # ============================================================

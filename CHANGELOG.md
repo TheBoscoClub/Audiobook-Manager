@@ -9,7 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Edison bulb indicator**: Animated Edison bulb in Back Office header lights up when there are unread user suggestions
+- **Reading glasses icon**: Accessibility button in shell header uses reading glasses icon with label; all shell header buttons now have visible labels
+
 ### Changed
+
+- **Shell header restructure**: Shell header reorganized per user feedback — navigation and controls reordered for improved usability
+- **`index.html` redirect**: Direct access to `index.html` now redirects to shell wrapper; all shell navigation links target the iframe
+- **Complexity refactoring**: Refactored 84 functions from C/D/E/F-grade cyclomatic complexity down to A/B-grade across 47 files — decomposed using helper extraction, table-driven dispatch, and guard clauses for improved maintainability, readability, and testability
+- **Architecture documentation**: Added "Code Quality & Complexity Management" section to ARCHITECTURE.md documenting the complexity policy, refactoring patterns used, and enforcement via `/test` audits
+
+### Fixed
+
+- **Accessibility font size**: Font size setting now applies to `html` element (not `body`), ensuring changes propagate into iframe content
+- **Accessibility iframe propagation**: Accessibility settings (font size, contrast, reduced motion) now visually affect iframe content via `a11y-consumer.css`
+- **Shell navigation links**: Shell header links now correctly target the iframe instead of the top-level window
+- **Sort preference persistence**: Sort preference now persists correctly in shell header; Help and Back Office buttons restored
+- **Audit fixes**: SC2024 sudo redirect corrections, script permissions, markdown formatting, and Caddy config formatting
+- **Bandit B608 cleanup**: Removed 12 stale `nosec B608` annotations from non-f-string lines; added proper suppression to 40 false-positive SQL f-strings using module constants
+- **Converter service**: Added `LimitNOFILE=65536` to `audiobook-converter.service` matching API service configuration
+- **Audit pass 2**: Reformatted 36 Python files with ruff; fixed 26 mypy type errors across 15 files (type annotations, Optional guards, urllib.parse.quote import); fixed 19 markdownlint issues in tracked rule and template files
+
+## [8.0.1] - 2026-03-29
+
+### Changed
+
+- **Backend consolidation**: Extracted shared `run_async_operation()` and `handle_result()` into `utilities_ops/_helpers.py`, eliminating ~490 lines of duplicated async endpoint boilerplate across library.py, hashing.py, audible.py, and maintenance.py
+- **Scanner consolidation**: Created `scanner/utils/` package with shared `SUPPORTED_FORMATS`, `is_cover_art_file()`, and `get_or_create_lookup_id()` — previously duplicated across 4 scanner modules
+- **Frontend consolidation**: Extracted shared API client (`js/api.js`) and utility functions (`js/utils.js`) for date formatting, operation polling, and auth checking — removed ~305 lines of duplicated frontend code
+- **CSS variable consolidation**: Extracted repeated transition, shadow, and other values into CSS custom properties in theme-art-deco.css; replaced hardcoded values across 13 CSS files
+- **Test helper consolidation**: Moved shared `wait_for_thread_completion()` into `tests/helpers/` package for reuse across utilities_ops test files
+
+### Fixed
+
+- **Python 3.14 compatibility**: Added `encodings.idna` import in conftest.py to fix werkzeug hostname resolution under Python 3.14
+
+## [8.0.0] - 2026-03-28
+
+### Added
+
+- **Per-user preferences**: Key-value preference system with `user_preferences` table, full CRUD API (`/api/preferences`), and 19 unit tests — supports theme, layout, and display customization per user
+- **Dynamic collections**: Auto-generated collections from enrichment data (genres, narrators, decades, ratings, etc.) with `/api/collections` endpoint and 36 unit tests — browsable curated groupings without manual curation
+- **Accessibility quick panel**: Slide-out accessibility settings panel with font size, contrast, reduced motion, and dyslexia-friendly font controls — persists via user preferences API
+- **Account preferences UI**: Account settings page for managing display preferences, notification settings, and accessibility options
+- **Series metadata on library cards**: Series name and book order number displayed on library card overlays
 
 ### Fixed
 
@@ -2330,12 +2373,13 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1...HEAD
+[8.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.0...v8.0.1
+[8.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.1...v8.0.0
 [7.6.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.0...v7.6.1
 [7.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.3...v7.6.0
 [7.5.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2.1...v7.5.3
 [7.5.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.2...v7.5.2.1
-[7.5.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.3...v7.5.2
 [7.5.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.2...v7.5.1.3
 [7.5.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1.1...v7.5.1.2
 [7.5.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.5.1...v7.5.1.1

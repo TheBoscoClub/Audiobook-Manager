@@ -74,7 +74,7 @@
 
 .btn-inline:active {
     transform: translateY(1px);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-soft-inset-deep);
 }
 
 .auth-badge {
@@ -251,6 +251,96 @@ a.btn-secondary:active {
     font-family: monospace;
     font-size: 0.85em;
     word-break: break-all;
+}
+
+/* ── Preference controls ─────────────────────────────────────────────────── */
+
+.pref-select {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    color: var(--parchment, #f0e6d3);
+    padding: 0.25em 0.5em;
+    font-family: inherit;
+    font-size: 0.85em;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.pref-select:focus {
+    outline: none;
+    border-color: var(--gold, #DAA520);
+}
+
+.pref-select option {
+    background: #1a1a1a;
+    color: #f0e6d3;
+}
+
+.pref-toggle-group {
+    display: inline-flex;
+    gap: 0;
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    overflow: hidden;
+}
+
+.pref-toggle-group button {
+    padding: 0.25em 0.8em;
+    background: rgba(0, 0, 0, 0.3);
+    border: none;
+    border-right: 1px solid rgba(201, 168, 76, 0.2);
+    color: var(--parchment, #f0e6d3);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85em;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.pref-toggle-group button:last-child {
+    border-right: none;
+}
+
+.pref-toggle-group button:hover {
+    background: rgba(201, 168, 76, 0.15);
+}
+
+.pref-toggle-group button.active {
+    background: rgba(218, 165, 32, 0.3);
+    color: var(--gold, #DAA520);
+    font-weight: 600;
+}
+
+#prefs-section input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 36px;
+    height: 18px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+#prefs-section input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    background: rgba(240, 230, 211, 0.5);
+    transition: transform 0.2s, background 0.2s;
+}
+
+#prefs-section input[type="checkbox"]:checked {
+    background: rgba(218, 165, 32, 0.3);
+    border-color: var(--gold, #DAA520);
+}
+
+#prefs-section input[type="checkbox"]:checked::after {
+    transform: translateX(18px);
+    background: var(--gold, #DAA520);
 }
 
 /* Mobile: stack account fields */

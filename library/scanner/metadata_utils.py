@@ -110,7 +110,7 @@ def is_content_type(genre: str) -> bool:
     return genre.lower().strip() in CONTENT_TYPES
 
 
-def categorize_genre(genre: str) -> dict:
+def categorize_genre(genre: str | None) -> dict:
     """Categorize genre into main category, subcategory, and original.
 
     Content types like "Audiobook" are classified as uncategorized since
@@ -119,8 +119,11 @@ def categorize_genre(genre: str) -> dict:
     Matches longer keywords first to avoid partial-match ambiguity
     (e.g., "true crime" should not match "crime" → mystery).
     """
-    if not genre or is_content_type(genre):
-        return {"main": "uncategorized", "sub": "general", "original": genre or ""}
+    if not genre:
+        return {"main": "uncategorized", "sub": "general", "original": ""}
+
+    if is_content_type(genre):
+        return {"main": "uncategorized", "sub": "general", "original": genre}
 
     genre_lower = genre.lower()
 
@@ -305,6 +308,117 @@ def extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
         return None
 
 
+def _merge_tags(data: dict) -> dict:
+    """Extract and merge format-level and stream-level tags.
+
+    Opus/Ogg stores metadata in streams[0].tags, not format.tags.
+    Stream tags take precedence when format tags are empty.
+    """
+    format_data = data.get("format", {})
+    tags = format_data.get("tags", {})
+    streams = data.get("streams", [])
+    stream_tags = streams[0].get("tags", {}) if streams else {}
+
+    if not tags:
+        return stream_tags
+
+    # Merge stream tags for fields missing from format tags
+    merged = dict(tags)
+    for k, v in stream_tags.items():
+        if k not in merged:
+            merged[k] = v
+    return merged
+
+
+def _parse_publication_date(raw_date: str) -> tuple[int | None, str | None]:
+    """Parse year and full date from a raw date string.
+
+    Returns (published_year, published_date).
+    """
+    if not raw_date:
+        return None, None
+
+    published_year = None
+    published_date = None
+    year_match = re.search(r"\d{4}", str(raw_date))
+    if year_match:
+        published_year = int(year_match.group())
+    full_date_match = re.search(r"(\d{4}-\d{2}-\d{2})", str(raw_date))
+    if full_date_match:
+        published_date = full_date_match.group(1)
+    return published_year, published_date
+
+
+def _compute_hash(
+    filepath: Path, calculate_hash: bool
+) -> tuple[str | None, str | None]:
+    """Calculate SHA-256 hash if requested. Returns (hash, verified_at)."""
+    if not calculate_hash:
+        return None, None
+    file_hash = calculate_sha256(filepath)
+    verified_at = datetime.now().isoformat() if file_hash else None
+    return file_hash, verified_at
+
+
+def _build_metadata_dict(
+    filepath: Path,
+    tags_normalized: dict,
+    format_data: dict,
+    audiobook_dir: Path,
+    calculate_hash: bool,
+) -> dict:
+    """Build the final metadata dictionary from normalized tags and format data."""
+    duration_sec = float(format_data.get("duration", 0))
+    duration_hours = duration_sec / 3600
+
+    author_from_path = extract_author_from_path(filepath)
+    author = extract_author_from_tags(tags_normalized, author_from_path)
+    narrator = extract_narrator_from_tags(tags_normalized, author)
+
+    file_hash, hash_verified_at = _compute_hash(filepath, calculate_hash)
+    asin = extract_asin_from_chapters_json(filepath)
+    raw_date = tags_normalized.get("date", tags_normalized.get("year", ""))
+    published_year, published_date = _parse_publication_date(raw_date)
+
+    metadata = {
+        "title": tags_normalized.get(
+            "title", tags_normalized.get("album", filepath.stem)
+        ),
+        "author": author,
+        "narrator": narrator,
+        "publisher": tags_normalized.get(
+            "publisher", tags_normalized.get("label", "Unknown Publisher")
+        ),
+        "genre": tags_normalized.get("genre", "Uncategorized"),
+        "year": raw_date,
+        "published_year": published_year,
+        "published_date": published_date,
+        "acquired_date": datetime.now().strftime("%Y-%m-%d"),
+        "description": tags_normalized.get(
+            "comment", tags_normalized.get("description", "")
+        ),
+        "duration_hours": round(duration_hours, 2),
+        "duration_formatted": (
+            f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m"
+        ),
+        "file_size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
+        "file_path": str(filepath),
+        "series": tags_normalized.get("series", ""),
+        "series_part": tags_normalized.get("series-part", ""),
+        "sha256_hash": file_hash,
+        "hash_verified_at": hash_verified_at,
+        "format": filepath.suffix.lower().replace(".", ""),
+        "asin": asin,
+    }
+
+    try:
+        metadata["relative_path"] = str(filepath.relative_to(audiobook_dir))
+    except ValueError:
+        metadata["relative_path"] = str(filepath)
+
+    return metadata
+
+
 def get_file_metadata(
     filepath: Path, audiobook_dir: Path, calculate_hash: bool = True
 ) -> Optional[dict]:
@@ -324,109 +438,88 @@ def get_file_metadata(
         if not data:
             return None
 
-        # Extract relevant metadata
-        format_data = data.get("format", {})
-        tags = format_data.get("tags", {})
-
-        # Opus/Ogg stores metadata in streams[0].tags, not format.tags.
-        # Check both locations — stream tags take precedence when format
-        # tags are empty (common for all Opus files in this library).
-        if not tags:
-            streams = data.get("streams", [])
-            if streams:
-                tags = streams[0].get("tags", {})
-        else:
-            # Merge stream tags for fields missing from format tags
-            streams = data.get("streams", [])
-            if streams:
-                stream_tags = streams[0].get("tags", {})
-                for k, v in stream_tags.items():
-                    if k not in tags:
-                        tags[k] = v
-
-        # Normalize tag keys (handle case variations)
+        tags = _merge_tags(data)
         tags_normalized = {k.lower(): v for k, v in tags.items()}
+        format_data = data.get("format", {})
 
-        # Calculate duration
-        duration_sec = float(format_data.get("duration", 0))
-        duration_hours = duration_sec / 3600
-
-        # Extract author
-        author_from_path = extract_author_from_path(filepath)
-        author = extract_author_from_tags(tags_normalized, author_from_path)
-
-        # Extract narrator
-        narrator = extract_narrator_from_tags(tags_normalized, author)
-
-        # Calculate SHA-256 hash if requested
-        file_hash = None
-        hash_verified_at = None
-        if calculate_hash:
-            file_hash = calculate_sha256(filepath)
-            if file_hash:
-                hash_verified_at = datetime.now().isoformat()
-
-        # Extract ASIN from chapters.json if present
-        asin = extract_asin_from_chapters_json(filepath)
-
-        # Parse publication date from tags (may be "2015", "2015-03-17", etc.)
-        raw_date = tags_normalized.get("date", tags_normalized.get("year", ""))
-        published_year = None
-        published_date = None
-        if raw_date:
-            year_match = re.search(r"\d{4}", str(raw_date))
-            if year_match:
-                published_year = int(year_match.group())
-            # Try to extract full date (YYYY-MM-DD)
-            full_date_match = re.search(r"(\d{4}-\d{2}-\d{2})", str(raw_date))
-            if full_date_match:
-                published_date = full_date_match.group(1)
-
-        # acquired_date = now (the moment this book enters the library)
-        acquired_date = datetime.now().strftime("%Y-%m-%d")
-
-        # Build metadata dict
-        metadata = {
-            "title": tags_normalized.get(
-                "title", tags_normalized.get("album", filepath.stem)
-            ),
-            "author": author,
-            "narrator": narrator,
-            "publisher": tags_normalized.get(
-                "publisher", tags_normalized.get("label", "Unknown Publisher")
-            ),
-            "genre": tags_normalized.get("genre", "Uncategorized"),
-            "year": raw_date,
-            "published_year": published_year,
-            "published_date": published_date,
-            "acquired_date": acquired_date,
-            "description": tags_normalized.get(
-                "comment", tags_normalized.get("description", "")
-            ),
-            "duration_hours": round(duration_hours, 2),
-            "duration_formatted": (
-                f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m"
-            ),
-            "file_size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
-            "file_path": str(filepath),
-            "series": tags_normalized.get("series", ""),
-            "series_part": tags_normalized.get("series-part", ""),
-            "sha256_hash": file_hash,
-            "hash_verified_at": hash_verified_at,
-            "format": filepath.suffix.lower().replace(".", ""),
-            "asin": asin,
-        }
-
-        # Add relative path if audiobook_dir provided
-        try:
-            metadata["relative_path"] = str(filepath.relative_to(audiobook_dir))
-        except ValueError:
-            metadata["relative_path"] = str(filepath)
-
-        return metadata
+        return _build_metadata_dict(
+            filepath, tags_normalized, format_data, audiobook_dir, calculate_hash
+        )
 
     except Exception as e:
         print(f"Error processing {filepath}: {e}", file=sys.stderr)
+        return None
+
+
+def _cover_path_for_file(filepath: Path, output_dir: Path) -> Path:
+    """Generate the deterministic cover art path for an audio file."""
+    file_hash = hashlib.md5(str(filepath).encode(), usedforsecurity=False).hexdigest()
+    return output_dir / f"{file_hash}.jpg"
+
+
+def _extract_embedded_cover(
+    filepath: Path, cover_path: Path, timeout: int
+) -> str | None:
+    """Try extracting embedded cover art via ffmpeg. Returns filename or None."""
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-i",
+        str(filepath),
+        "-an",
+        "-vcodec",
+        "copy",
+        str(cover_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+    if result.returncode == 0 and cover_path.exists():
+        return cover_path.name
+    if result.returncode == 0 and not cover_path.exists():
+        print(
+            f"Warning: ffmpeg succeeded but cover not created at {cover_path} "
+            f"— check filesystem permissions or systemd ReadWritePaths",
+            file=sys.stderr,
+        )
+    return None
+
+
+def _copy_standalone_cover(filepath: Path, cover_path: Path) -> str | None:
+    """Try copying a sidecar cover file. Returns filename or None."""
+    standalone = _find_standalone_cover(filepath)
+    if not standalone:
+        return None
+    try:
+        shutil.copy2(standalone, cover_path)
+        return cover_path.name
+    except OSError as copy_err:
+        print(
+            f"Warning: found cover {standalone} but copy failed: {copy_err}",
+            file=sys.stderr,
+        )
+        return None
+
+
+def _resolve_external_cover(
+    metadata: Optional[dict], output_dir: Path, timeout: int
+) -> str | None:
+    """Try external API resolver (Audible/OpenLibrary/Google Books)."""
+    if not metadata or not metadata.get("title"):
+        return None
+    try:
+        from utils.cover_resolver import resolve_cover
+
+        return resolve_cover(
+            title=metadata["title"],
+            author=metadata.get("author"),
+            asin=metadata.get("asin"),
+            output_dir=output_dir,
+            timeout=timeout,
+        )
+    except ImportError:
+        return None
+    except Exception as e:
+        print(f"Warning: external cover resolver failed: {e}", file=sys.stderr)
         return None
 
 
@@ -443,83 +536,27 @@ def extract_cover_art(
       1. ffmpeg — extract embedded cover art from the audio file
       2. Standalone sidecar — look for {title}.jpg or cover.jpg next to the file
       3. External resolver — query Audible/OpenLibrary/Google Books APIs
-         (requires metadata dict with 'title' and optionally 'author', 'asin')
 
     Returns the cover filename if successful, None otherwise.
     """
     try:
-        # Generate unique filename based on file path
-        file_hash = hashlib.md5(
-            str(filepath).encode(), usedforsecurity=False
-        ).hexdigest()
-        cover_path = output_dir / f"{file_hash}.jpg"
+        cover_path = _cover_path_for_file(filepath, output_dir)
 
-        # Skip if already extracted
         if cover_path.exists():
             return cover_path.name
 
-        cmd = [
-            "ffmpeg",
-            "-v",
-            "quiet",
-            "-i",
-            str(filepath),
-            "-an",  # No audio
-            "-vcodec",
-            "copy",
-            str(cover_path),
-        ]
+        # Tier 1: embedded cover via ffmpeg
+        result = _extract_embedded_cover(filepath, cover_path, timeout)
+        if result:
+            return result
 
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
-        if result.returncode == 0 and cover_path.exists():
-            return cover_path.name
-        if result.returncode == 0 and not cover_path.exists():
-            # ffmpeg succeeded but file not created — likely a read-only filesystem
-            # (e.g. ProtectSystem=strict without the data dir in ReadWritePaths)
-            print(
-                f"Warning: ffmpeg succeeded but cover not created at {cover_path} "
-                f"— check filesystem permissions or systemd ReadWritePaths",
-                file=sys.stderr,
-            )
+        # Tier 2: standalone sidecar file
+        result = _copy_standalone_cover(filepath, cover_path)
+        if result:
+            return result
 
-        # Fallback: look for standalone cover files in the audio file's directory.
-        # AAXtoMP3 extracts covers as {title}.jpg alongside the opus file, but
-        # can't embed them into Opus containers without mutagen. Rather than lose
-        # the cover, copy the standalone file into the centralized covers dir.
-        standalone = _find_standalone_cover(filepath)
-        if standalone:
-            try:
-                shutil.copy2(standalone, cover_path)
-                return cover_path.name
-            except OSError as copy_err:
-                print(
-                    f"Warning: found cover {standalone} but copy failed: {copy_err}",
-                    file=sys.stderr,
-                )
-
-        # Tier 3: External API resolver (Audible → Open Library → Google Books)
-        if metadata and metadata.get("title"):
-            try:
-                from utils.cover_resolver import resolve_cover
-
-                resolved = resolve_cover(
-                    title=metadata["title"],
-                    author=metadata.get("author"),
-                    asin=metadata.get("asin"),
-                    output_dir=output_dir,
-                    timeout=timeout,
-                )
-                if resolved:
-                    return resolved
-            except ImportError:
-                pass
-            except Exception as e:
-                print(
-                    f"Warning: external cover resolver failed: {e}",
-                    file=sys.stderr,
-                )
-
-        return None
+        # Tier 3: external API resolver
+        return _resolve_external_cover(metadata, output_dir, timeout)
 
     except subprocess.TimeoutExpired:
         return None
@@ -579,9 +616,7 @@ def enrich_metadata(metadata: dict) -> dict:
     # Build genres list for the importer (populates genres/audiobook_genres tables)
     metadata["genres"] = build_genres_list(genre_cat)
 
-    # Add literary era — both forms for backward compatibility:
-    # "literary_era" (string) used by import_single.py / add_new_audiobooks.py
-    # "eras" (list) used by import_to_db.py bulk importer
+    # Add literary era
     era = determine_literary_era(metadata.get("year", ""))
     metadata["literary_era"] = era
     metadata["eras"] = [era] if era else []

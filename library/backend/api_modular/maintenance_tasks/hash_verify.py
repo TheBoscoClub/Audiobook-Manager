@@ -12,6 +12,23 @@ from .db_vacuum import _resolve_db_path
 logger = logging.getLogger(__name__)
 
 
+def _compute_sha256(filepath):
+    """Compute SHA-256 hex digest for a file."""
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _verify_single_file(fpath, expected_hash):
+    """Verify a single file's hash. Returns "ok", "missing", or "mismatch"."""
+    p = Path(fpath)
+    if not p.exists():
+        return "missing"
+    return "ok" if _compute_sha256(p) == expected_hash else "mismatch"
+
+
 @registry.register
 class HashVerifyTask(MaintenanceTask):
     name = "hash_verify"
@@ -51,17 +68,10 @@ class HashVerifyTask(MaintenanceTask):
                 if progress_callback and i % 10 == 0:
                     progress_callback(i / total, f"Checking {i}/{total}...")
 
-                p = Path(fpath)
-                if not p.exists():
+                result = _verify_single_file(fpath, expected)
+                if result == "missing":
                     missing.append(fpath)
-                    continue
-
-                h = hashlib.sha256()
-                with open(p, "rb") as f:
-                    while chunk := f.read(65536):
-                        h.update(chunk)
-
-                if h.hexdigest() != expected:
+                elif result == "mismatch":
                     mismatches.append({"id": aid, "path": fpath})
                 else:
                     verified += 1
@@ -69,9 +79,8 @@ class HashVerifyTask(MaintenanceTask):
             if progress_callback:
                 progress_callback(1.0, "Complete")
 
-            ok = len(mismatches) == 0
             return ExecutionResult(
-                success=ok,
+                success=len(mismatches) == 0,
                 message=(
                     f"Verified {verified}/{total}, "
                     f"{len(mismatches)} mismatches, {len(missing)} missing"

@@ -118,7 +118,7 @@ class LibrivoxDownloader:
         Returns:
             List of matching LibrivoxBook objects
         """
-        params = {"format": "json", "limit": limit}
+        params: dict[str, str | int] = {"format": "json", "limit": limit}
 
         # Librivox API uses ^ for exact match prefix, but often fails
         # Use simple search terms instead
@@ -147,7 +147,11 @@ class LibrivoxDownloader:
 
     def get_recent(self, limit: int = 20) -> List[LibrivoxBook]:
         """Get recently added audiobooks."""
-        params = {"format": "json", "limit": limit, "sort": "release_date"}
+        params: dict[str, str | int] = {
+            "format": "json",
+            "limit": limit,
+            "sort": "release_date",
+        }
 
         try:
             response = self.session.get(LIBRIVOX_API, params=params, timeout=30)
@@ -424,6 +428,55 @@ def interactive_search(downloader: LibrivoxDownloader, query: str):
         print("Invalid input.")
 
 
+def _handle_download_by_id(downloader, args):
+    """Handle --id: download a specific audiobook by ID."""
+    print(f"Fetching audiobook ID: {args.id}")
+    book = downloader.get_by_id(args.id)
+    if not book:
+        print("Audiobook not found.")
+        return
+    print(f"Found: {book.title} by {book.author}")
+    result = downloader.download(book, use_zip=not args.individual)
+    if result:
+        print(f"Downloaded to: {result}")
+
+
+def _handle_recent(downloader):
+    """Handle --recent: list recently added audiobooks."""
+    print("Recent Librivox Audiobooks:")
+    print("-" * 60)
+    books = downloader.get_recent(20)
+    for book in books:
+        print(f"\n{book.title}")
+        print(f"  Author: {book.author}")
+        print(f"  Duration: {book.total_time}")
+        print(f"  ID: {book.id}")
+
+
+def _handle_wishlist(downloader, args):
+    """Handle --wishlist: download from a wishlist file."""
+    if not args.wishlist.exists():
+        print(f"Wishlist not found: {args.wishlist}")
+        sys.exit(1)
+
+    with open(args.wishlist) as f:
+        titles = [
+            line.strip() for line in f if line.strip() and not line.startswith("#")
+        ]
+
+    print(f"Processing wishlist with {len(titles)} titles...")
+    for title in titles:
+        print(f"\nSearching: {title}")
+        books = downloader.search(title=title, limit=1)
+        if books:
+            book = books[0]
+            print(f"  Found: {book.title} by {book.author}")
+            downloader.download(book, use_zip=not args.individual)
+        else:
+            print(f"  Not found: {title}")
+        time.sleep(2)  # Rate limiting
+
+
 def main():
     parser = ArgumentParser(description="Download free audiobooks from Librivox")
     parser.add_argument(
@@ -459,60 +512,16 @@ def main():
     args = parser.parse_args()
 
     downloader = LibrivoxDownloader(output_dir=args.output_dir, verbose=args.verbose)
-
-    # Ensure output directory exists
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.id:
-        # Download by ID
-        print(f"Fetching audiobook ID: {args.id}")
-        book = downloader.get_by_id(args.id)
-        if book:
-            print(f"Found: {book.title} by {book.author}")
-            result = downloader.download(book, use_zip=not args.individual)
-            if result:
-                print(f"Downloaded to: {result}")
-        else:
-            print("Audiobook not found.")
-
+        _handle_download_by_id(downloader, args)
     elif args.recent:
-        # List recent
-        print("Recent Librivox Audiobooks:")
-        print("-" * 60)
-        books = downloader.get_recent(20)
-        for book in books:
-            print(f"\n{book.title}")
-            print(f"  Author: {book.author}")
-            print(f"  Duration: {book.total_time}")
-            print(f"  ID: {book.id}")
-
+        _handle_recent(downloader)
     elif args.wishlist:
-        # Download from wishlist
-        if not args.wishlist.exists():
-            print(f"Wishlist not found: {args.wishlist}")
-            sys.exit(1)
-
-        with open(args.wishlist) as f:
-            titles = [
-                line.strip() for line in f if line.strip() and not line.startswith("#")
-            ]
-
-        print(f"Processing wishlist with {len(titles)} titles...")
-        for title in titles:
-            print(f"\nSearching: {title}")
-            books = downloader.search(title=title, limit=1)
-            if books:
-                book = books[0]
-                print(f"  Found: {book.title} by {book.author}")
-                downloader.download(book, use_zip=not args.individual)
-            else:
-                print(f"  Not found: {title}")
-            time.sleep(2)  # Rate limiting
-
+        _handle_wishlist(downloader, args)
     elif args.search:
-        # Interactive search
         interactive_search(downloader, args.search)
-
     else:
         parser.print_help()
 

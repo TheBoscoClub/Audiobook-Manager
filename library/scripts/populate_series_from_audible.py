@@ -166,61 +166,37 @@ def parse_series_from_title(title: str) -> tuple[str, float | None]:
     return ("", None)
 
 
-def populate_series(
-    dry_run: bool = False,
-    delay: float = DEFAULT_DELAY,
-    db_path: Path | None = None,
-) -> dict:
-    """Main function: populate series from Audible API, then title fallback."""
-
-    if db_path is None:
-        if DATABASE_PATH is None:
-            print("Error: No database path. Use --db flag.", file=sys.stderr)
-            sys.exit(1)
-        db_path = DATABASE_PATH
-
-    print(f"Database: {db_path}")
-
-    # Read phase: open connection, fetch what we need, close immediately.
-    # This avoids holding a connection open during the long API phase.
+def _fetch_books_needing_series(db_path: Path):
+    """Read phase: fetch books needing series, close connection before API calls."""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
     cursor.execute(
         "SELECT id, asin, title FROM audiobooks "
         "WHERE asin IS NOT NULL AND asin != '' "
         "AND (series IS NULL OR series = '')"
     )
     asin_books = cursor.fetchall()
-
     cursor.execute(
         "SELECT id, title FROM audiobooks "
         "WHERE (asin IS NULL OR asin = '') "
         "AND (series IS NULL OR series = '')"
     )
     no_asin_books = cursor.fetchall()
+    conn.close()
+    return asin_books, no_asin_books
 
-    conn.close()  # Release connection before API calls
 
-    print(f"Books with ASIN, no series: {len(asin_books)}")
-    print(f"Books without ASIN, no series: {len(no_asin_books)}")
-    print()
-
-    # Phase 1: Collect all series data from Audible API
-    # (two passes — first collect, then pick best series based on popularity)
-    print("Phase 1: Querying Audible API...")
-    raw_series: dict[int, list[dict]] = {}  # book_id -> series list
-    series_counter: dict[str, int] = {}  # series_title -> count in our library
+def _query_audible_series(asin_books, delay: float):
+    """Phase 1: Collect series data from Audible API for all ASIN books."""
+    raw_series: dict[int, list[dict]] = {}
+    series_counter: dict[str, int] = {}
     api_hits = 0
     api_misses = 0
-    api_errors = 0
 
-    for idx, (book_id, asin, title) in enumerate(asin_books, 1):
+    for idx, (book_id, asin, _title) in enumerate(asin_books, 1):
         if idx % 50 == 0 or idx == 1:
             print(f"  [{idx}/{len(asin_books)}] Querying {asin}...")
-
         series_list = fetch_series_from_audible(asin)
-
         if series_list:
             raw_series[book_id] = series_list
             api_hits += 1
@@ -228,66 +204,108 @@ def populate_series(
                 series_counter[s["title"]] = series_counter.get(s["title"], 0) + 1
         else:
             api_misses += 1
-
         if delay > 0:
             time.sleep(delay)
 
-    print(
-        f"\n  API results: {api_hits} with series, {api_misses} without, {api_errors} errors"
-    )
-    print(f"  Unique series found: {len(series_counter)}")
+    return raw_series, series_counter, api_hits, api_misses
 
-    # Show top series by count
+
+def _apply_series_update(cursor, book_id, series_name, seq, dry_run, display_title="?"):
+    """Apply a single series update (or print dry-run output)."""
+    if dry_run:
+        seq_str = f" #{seq}" if seq is not None else ""
+        print(f"  [DRY RUN] {display_title} → {series_name}{seq_str}")
+    else:
+        cursor.execute(
+            "UPDATE audiobooks SET series = ?, series_sequence = ? WHERE id = ?",
+            (series_name, seq, book_id),
+        )
+
+
+def _update_from_api(cursor, raw_series, series_counter, asin_books, dry_run):
+    """Phase 2: Pick best series for each book and update DB."""
+    title_by_id = {book_id: title for book_id, _, title in asin_books}
+    updated = 0
+    for book_id, series_list in raw_series.items():
+        series_name, seq = pick_best_series(series_list, series_counter)
+        if series_name:
+            _apply_series_update(
+                cursor,
+                book_id,
+                series_name,
+                seq,
+                dry_run,
+                title_by_id.get(book_id, "?"),
+            )
+            updated += 1
+    return updated
+
+
+def _update_from_titles(cursor, no_asin_books, dry_run):
+    """Phase 3: Title-based fallback for books without ASIN."""
+    updated = 0
+    for book_id, title in no_asin_books:
+        series_name, seq = parse_series_from_title(title)
+        if series_name:
+            _apply_series_update(cursor, book_id, series_name, seq, dry_run, title)
+            updated += 1
+    return updated
+
+
+def _print_series_results(results, dry_run):
+    """Print final series population results."""
+    print(f"\n{'=' * 50}")
+    print(f"RESULTS {'(DRY RUN)' if dry_run else ''}")
+    print(f"{'=' * 50}")
+    print(f"Updated from Audible API: {results['updated_from_api']}")
+    print(f"Updated from title parse: {results['updated_from_title']}")
+    print(
+        f"Total updated: {results['updated_from_api'] + results['updated_from_title']}"
+    )
+    print(f"Unique series: {results['unique_series']}")
+
+
+def populate_series(
+    dry_run: bool = False,
+    delay: float = DEFAULT_DELAY,
+    db_path: Path | None = None,
+) -> dict:
+    """Main function: populate series from Audible API, then title fallback."""
+    if db_path is None:
+        if DATABASE_PATH is None:
+            print("Error: No database path. Use --db flag.", file=sys.stderr)
+            sys.exit(1)
+        db_path = DATABASE_PATH
+
+    print(f"Database: {db_path}")
+    asin_books, no_asin_books = _fetch_books_needing_series(db_path)
+    print(f"Books with ASIN, no series: {len(asin_books)}")
+    print(f"Books without ASIN, no series: {len(no_asin_books)}\n")
+
+    print("Phase 1: Querying Audible API...")
+    raw_series, series_counter, api_hits, api_misses = _query_audible_series(
+        asin_books, delay
+    )
+    print(f"\n  API results: {api_hits} with series, {api_misses} without, 0 errors")
+    print(f"  Unique series found: {len(series_counter)}")
     top_series = sorted(series_counter.items(), key=lambda x: -x[1])[:15]
     print("\n  Top series in library:")
     for name, count in top_series:
         print(f"    {count:3d} books: {name}")
     print()
 
-    # Phase 2: Pick best series for each book and update DB
-    # Open a fresh connection for the write phase
     print("Phase 2: Updating database...")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    updated_asin = 0
+    updated_asin = _update_from_api(
+        cursor, raw_series, series_counter, asin_books, dry_run
+    )
 
-    # Build title lookup for dry-run display
-    title_by_id = {book_id: title for book_id, _, title in asin_books}
-
-    for book_id, series_list in raw_series.items():
-        series_name, seq = pick_best_series(series_list, series_counter)
-        if series_name:
-            if dry_run:
-                title = title_by_id.get(book_id, "?")
-                seq_str = f" #{seq}" if seq is not None else ""
-                print(f"  [DRY RUN] {title} → {series_name}{seq_str}")
-            else:
-                cursor.execute(
-                    "UPDATE audiobooks SET series = ?, series_sequence = ? WHERE id = ?",
-                    (series_name, seq, book_id),
-                )
-            updated_asin += 1
-
-    # Phase 3: Title-based fallback for books without ASIN
     print(f"\nPhase 3: Title fallback for {len(no_asin_books)} books without ASIN...")
-    updated_title = 0
-
-    for book_id, title in no_asin_books:
-        series_name, seq = parse_series_from_title(title)
-        if series_name:
-            if dry_run:
-                seq_str = f" #{seq}" if seq is not None else ""
-                print(f"  [DRY RUN] {title} → {series_name}{seq_str}")
-            else:
-                cursor.execute(
-                    "UPDATE audiobooks SET series = ?, series_sequence = ? WHERE id = ?",
-                    (series_name, seq, book_id),
-                )
-            updated_title += 1
+    updated_title = _update_from_titles(cursor, no_asin_books, dry_run)
 
     if not dry_run:
         conn.commit()
-
     conn.close()
 
     results = {
@@ -299,15 +317,7 @@ def populate_series(
         "updated_from_title": updated_title,
         "unique_series": len(series_counter),
     }
-
-    print(f"\n{'=' * 50}")
-    print(f"RESULTS {'(DRY RUN)' if dry_run else ''}")
-    print(f"{'=' * 50}")
-    print(f"Updated from Audible API: {updated_asin}")
-    print(f"Updated from title parse: {updated_title}")
-    print(f"Total updated: {updated_asin + updated_title}")
-    print(f"Unique series: {len(series_counter)}")
-
+    _print_series_results(results, dry_run)
     return results
 
 

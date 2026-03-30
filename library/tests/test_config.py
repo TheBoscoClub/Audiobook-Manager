@@ -176,6 +176,40 @@ class TestNoHardcodedPaths:
                 return True
         return False
 
+    @staticmethod
+    def _is_comment_line(stripped: str) -> bool:
+        """Check if a line is a comment."""
+        return stripped.startswith("#") or stripped.startswith("//")
+
+    @staticmethod
+    def _is_config_fallback(line: str, lines: list[str], line_num: int) -> bool:
+        """Check if the path is in a config.get() or environ.get() fallback."""
+        if "get_config(" in line or "environ.get(" in line:
+            return True
+        # Multi-line environ.get(): path on continuation line
+        ctx_start = max(0, line_num - 4)
+        prior = " ".join(lines[ctx_start : line_num - 1])
+        return "environ.get(" in prior
+
+    @staticmethod
+    def _is_bash_variable_default(line: str, forbidden: str) -> bool:
+        """Check if the path is in a bash ${VAR:-default} pattern."""
+        if ":-" not in line:
+            return False
+        return forbidden in line.split(":-")[1].split("}")[0]
+
+    def _is_allowed_usage(
+        self, line: str, lines: list[str], line_num: int, forbidden: str
+    ) -> bool:
+        """Check if a forbidden path usage is in an allowed context."""
+        if self._is_config_fallback(line, lines, line_num):
+            return True
+        if self._is_bash_variable_default(line, forbidden):
+            return True
+        if "audiobook-config.sh" in line:
+            return True
+        return False
+
     def _scan_file_for_hardcoded_paths(
         self, filepath: Path
     ) -> list[tuple[int, str, str]]:
@@ -188,40 +222,14 @@ class TestNoHardcodedPaths:
             content = filepath.read_text(encoding="utf-8", errors="ignore")
             lines = content.splitlines()
             for line_num, line in enumerate(lines, 1):
-                # Skip comments
-                stripped = line.strip()
-                if stripped.startswith("#") or stripped.startswith("//"):
+                if self._is_comment_line(line.strip()):
                     continue
-                # Check for forbidden paths
                 for forbidden in self.FORBIDDEN_PATHS:
-                    if forbidden in line:
-                        # Skip if it's in a config.get() default
-                        # or environment variable fallback
-                        # (acceptable as fallback defaults).
-                        # Also check prior lines for multi-line
-                        # environ.get() calls.
-                        if "get_config(" in line or "environ.get(" in line:
-                            continue
-                        # Multi-line environ.get(): path on
-                        # continuation line
-                        ctx_start = max(0, line_num - 4)
-                        prior = " ".join(lines[ctx_start : line_num - 1])
-                        if "environ.get(" in prior:
-                            continue
-                        # Skip bash variable defaults: ${VAR:-/default/path}
-                        # This is the proper way to specify fallbacks in shell
-                        if (
-                            ":-" in line
-                            and forbidden in line.split(":-")[1].split("}")[0]
-                            if ":-" in line
-                            else False
-                        ):
-                            continue
-                        # Skip config file sourcing bootstrap
-                        # (needed before config is loaded)
-                        if "audiobook-config.sh" in line:
-                            continue
-                        violations.append((line_num, forbidden, line.strip()[:100]))
+                    if forbidden not in line:
+                        continue
+                    if self._is_allowed_usage(line, lines, line_num, forbidden):
+                        continue
+                    violations.append((line_num, forbidden, line.strip()[:100]))
         except Exception:
             pass  # Skip files that can't be read
         return violations

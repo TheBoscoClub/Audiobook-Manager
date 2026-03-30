@@ -84,51 +84,41 @@ class User:
     recovery_enabled: bool = False
     last_audit_seen_id: int = 0
 
+    @staticmethod
+    def _parse_timestamp(val) -> Optional[datetime]:
+        """Parse a timestamp value from a database row."""
+        return datetime.fromisoformat(val) if val else None
+
+    @classmethod
+    def _base_fields(cls, row: tuple) -> dict:
+        """Extract base fields common to all schema versions (columns 0-7)."""
+        return {
+            "id": row[0],
+            "username": row[1],
+            "auth_type": AuthType(row[2]),
+            "auth_credential": row[3] if row[3] else b"",
+            "can_download": bool(row[4]),
+            "is_admin": bool(row[5]),
+            "created_at": cls._parse_timestamp(row[6]),
+            "last_login": cls._parse_timestamp(row[7]),
+        }
+
     @classmethod
     def from_row(cls, row: tuple) -> "User":
         """Create User from database row."""
-        # Handle old (8 columns), new (11 columns), and current (12 columns) schema
+        fields = cls._base_fields(row)
+
+        # Recovery fields (schema v4+, columns 8-10)
+        if len(row) >= 11:
+            fields["recovery_email"] = row[8]
+            fields["recovery_phone"] = row[9]
+            fields["recovery_enabled"] = bool(row[10]) if row[10] is not None else False
+
+        # Audit seen ID (schema v7+, column 11)
         if len(row) >= 12:
-            return cls(
-                id=row[0],
-                username=row[1],
-                auth_type=AuthType(row[2]),
-                auth_credential=row[3] if row[3] else b"",
-                can_download=bool(row[4]),
-                is_admin=bool(row[5]),
-                created_at=datetime.fromisoformat(row[6]) if row[6] else None,
-                last_login=datetime.fromisoformat(row[7]) if row[7] else None,
-                recovery_email=row[8],
-                recovery_phone=row[9],
-                recovery_enabled=bool(row[10]) if row[10] is not None else False,
-                last_audit_seen_id=int(row[11]) if row[11] is not None else 0,
-            )
-        elif len(row) >= 11:
-            return cls(
-                id=row[0],
-                username=row[1],
-                auth_type=AuthType(row[2]),
-                auth_credential=row[3] if row[3] else b"",
-                can_download=bool(row[4]),
-                is_admin=bool(row[5]),
-                created_at=datetime.fromisoformat(row[6]) if row[6] else None,
-                last_login=datetime.fromisoformat(row[7]) if row[7] else None,
-                recovery_email=row[8],
-                recovery_phone=row[9],
-                recovery_enabled=bool(row[10]) if row[10] is not None else False,
-            )
-        else:
-            # Old schema without recovery fields
-            return cls(
-                id=row[0],
-                username=row[1],
-                auth_type=AuthType(row[2]),
-                auth_credential=row[3] if row[3] else b"",
-                can_download=bool(row[4]),
-                is_admin=bool(row[5]),
-                created_at=datetime.fromisoformat(row[6]) if row[6] else None,
-                last_login=datetime.fromisoformat(row[7]) if row[7] else None,
-            )
+            fields["last_audit_seen_id"] = int(row[11]) if row[11] is not None else 0
+
+        return cls(**fields)
 
     def save(self, db: AuthDatabase) -> "User":
         """Save user to database (insert or update)."""
@@ -695,25 +685,27 @@ class ListeningHistoryRepository:
         cols = UserListeningHistory._COLUMNS
         with self.db.connection() as conn:
             if min_duration_ms is not None:
+                query = (
+                    f"SELECT {cols} FROM user_listening_history"  # nosec B608
+                    " WHERE user_id = ?"
+                    " AND duration_listened_ms IS NOT NULL"
+                    " AND duration_listened_ms >= ?"
+                    " ORDER BY started_at DESC"
+                    " LIMIT ? OFFSET ?"
+                )
                 cursor = conn.execute(
-                    f"""
-                    SELECT {cols} FROM user_listening_history
-                    WHERE user_id = ?
-                      AND duration_listened_ms IS NOT NULL
-                      AND duration_listened_ms >= ?
-                    ORDER BY started_at DESC
-                    LIMIT ? OFFSET ?
-                    """,
+                    query,
                     (user_id, min_duration_ms, limit, offset),
                 )
             else:
+                query = (
+                    f"SELECT {cols} FROM user_listening_history"  # nosec B608
+                    " WHERE user_id = ?"
+                    " ORDER BY started_at DESC"
+                    " LIMIT ? OFFSET ?"
+                )
                 cursor = conn.execute(
-                    f"""
-                    SELECT {cols} FROM user_listening_history
-                    WHERE user_id = ?
-                    ORDER BY started_at DESC
-                    LIMIT ? OFFSET ?
-                    """,
+                    query,
                     (user_id, limit, offset),
                 )
             return [UserListeningHistory.from_row(row) for row in cursor.fetchall()]
@@ -742,7 +734,7 @@ class ListeningHistoryRepository:
                 WHERE user_id = ? AND audiobook_id = ? AND ended_at IS NULL
                 ORDER BY started_at DESC
                 LIMIT 1
-                """,
+                """,  # nosec B608
                 (user_id, audiobook_id),
             )
             row = cursor.fetchone()
@@ -819,7 +811,7 @@ class DownloadRepository:
                 WHERE user_id = ?
                 ORDER BY downloaded_at DESC
                 LIMIT ? OFFSET ?
-                """,
+                """,  # nosec B608
                 (user_id, limit, offset),
             )
             return [UserDownload.from_row(row) for row in cursor.fetchall()]
@@ -1523,58 +1515,57 @@ class AccessRequest:
     # Expiry for claim token (invitations only)
     claim_expires_at: Optional[datetime] = None
 
+    @staticmethod
+    def _parse_claim_expires(val) -> Optional[datetime]:
+        """Parse claim_expires_at from various stored types."""
+        if val and isinstance(val, str):
+            return datetime.fromisoformat(val)
+        if val and isinstance(val, (int, float)):
+            return datetime.fromtimestamp(val)
+        return None
+
+    @classmethod
+    def _base_ar_fields(cls, row: tuple) -> dict:
+        """Extract base fields common to all AccessRequest schema versions."""
+        return {
+            "id": row[0],
+            "username": row[1],
+            "requested_at": datetime.fromisoformat(row[2]) if row[2] else None,
+            "status": (
+                AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING
+            ),
+            "reviewed_at": datetime.fromisoformat(row[4]) if row[4] else None,
+            "reviewed_by": row[5],
+            "deny_reason": row[6],
+        }
+
     @classmethod
     def from_row(cls, row: tuple) -> "AccessRequest":
         """Create from database row."""
-        # Handle both old (7 columns) and new (14+ columns) schema
-        if len(row) >= 13:
-            ar = cls(
-                id=row[0],
-                username=row[1],
-                requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
-                status=(
-                    AccessRequestStatus(row[3])
-                    if row[3]
-                    else AccessRequestStatus.PENDING
-                ),
-                reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
-                reviewed_by=row[5],
-                deny_reason=row[6],
-                claim_token_hash=row[7],
-                contact_email=row[8],
-                totp_secret=row[9],
-                totp_uri=row[10],
-                backup_codes_json=row[11],
-                credentials_claimed=bool(row[12]) if row[12] is not None else False,
-            )
-            # Handle preferred_auth_method (added in v5)
-            if len(row) > 13:
-                ar.preferred_auth_method = row[13] or "totp"
-            # Handle claim_expires_at (added in v6.6.5)
-            if len(row) > 14:
-                val = row[14]
-                if val and isinstance(val, str):
-                    ar.claim_expires_at = datetime.fromisoformat(val)
-                elif val and isinstance(val, (int, float)):
-                    ar.claim_expires_at = datetime.fromtimestamp(val)
-                else:
-                    ar.claim_expires_at = None
-            return ar
-        else:
-            # Old schema without claim fields
-            return cls(
-                id=row[0],
-                username=row[1],
-                requested_at=datetime.fromisoformat(row[2]) if row[2] else None,
-                status=(
-                    AccessRequestStatus(row[3])
-                    if row[3]
-                    else AccessRequestStatus.PENDING
-                ),
-                reviewed_at=datetime.fromisoformat(row[4]) if row[4] else None,
-                reviewed_by=row[5],
-                deny_reason=row[6],
-            )
+        fields = cls._base_ar_fields(row)
+
+        # Old schema (7 columns) — no claim fields
+        if len(row) < 13:
+            return cls(**fields)
+
+        # New schema: claim fields (columns 7-12)
+        fields.update(
+            {
+                "claim_token_hash": row[7],
+                "contact_email": row[8],
+                "totp_secret": row[9],
+                "totp_uri": row[10],
+                "backup_codes_json": row[11],
+                "credentials_claimed": bool(row[12]) if row[12] is not None else False,
+            }
+        )
+
+        if len(row) > 13:
+            fields["preferred_auth_method"] = row[13] or "totp"
+        if len(row) > 14:
+            fields["claim_expires_at"] = cls._parse_claim_expires(row[14])
+
+        return cls(**fields)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -1874,6 +1865,139 @@ class AccessRequestRepository:
             return AccessRequest.from_row(row) if row else None
 
 
+class UserSettingsRepository:
+    """
+    Key-value settings repository for per-user preferences (v8).
+
+    All values are stored as strings. The frontend handles type coercion.
+    Unknown keys are rejected at the repository level.
+    """
+
+    VALID_KEYS = frozenset(
+        {
+            # Browsing
+            "sort_order",
+            "view_mode",
+            "items_per_page",
+            "default_collection",
+            "content_filter",
+            # Playback
+            "playback_speed",
+            "sleep_timer",
+            "auto_play_series",
+            # Accessibility
+            "font_size",
+            "contrast",
+            "bg_opacity",
+            "line_spacing",
+            "reduce_animations",
+            "high_contrast",
+            "color_temperature",
+        }
+    )
+
+    DEFAULTS = {
+        "sort_order": "title_asc",
+        "view_mode": "grid",
+        "items_per_page": "24",
+        "default_collection": "",
+        "content_filter": "all",
+        "playback_speed": "1",
+        "sleep_timer": "0",
+        "auto_play_series": "false",
+        "font_size": "16",
+        "contrast": "normal",
+        "bg_opacity": "100",
+        "line_spacing": "1.5",
+        "reduce_animations": "false",
+        "high_contrast": "false",
+        "color_temperature": "neutral",
+    }
+
+    def __init__(self, db: "AuthDatabase"):
+        self.db = db
+
+    def _validate_key(self, key: str) -> None:
+        if key not in self.VALID_KEYS:
+            raise ValueError(f"Unknown setting key: {key}")
+
+    def get(self, user_id: int, key: str) -> str:
+        """Get a single setting value, returning the default if unset."""
+        self._validate_key(key)
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT setting_value FROM user_settings"
+                " WHERE user_id = ? AND setting_key = ?",
+                (user_id, key),
+            )
+            row = cursor.fetchone()
+            return row[0] if row else self.DEFAULTS[key]
+
+    def get_all(self, user_id: int) -> dict:
+        """Get all settings for a user, merging stored values over defaults."""
+        result = dict(self.DEFAULTS)
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT setting_key, setting_value FROM user_settings"
+                " WHERE user_id = ?",
+                (user_id,),
+            )
+            for row in cursor.fetchall():
+                key, value = row[0], row[1]
+                if key in self.VALID_KEYS:
+                    result[key] = value
+        return result
+
+    def set(self, user_id: int, key: str, value: str) -> None:
+        """Set a single setting (upsert)."""
+        self._validate_key(key)
+        with self.db.connection() as conn:
+            conn.execute(
+                "INSERT INTO user_settings (user_id, setting_key, setting_value)"
+                " VALUES (?, ?, ?)"
+                " ON CONFLICT (user_id, setting_key)"
+                " DO UPDATE SET setting_value = excluded.setting_value,"
+                " updated_at = CURRENT_TIMESTAMP",
+                (user_id, key, value),
+            )
+
+    def set_many(self, user_id: int, settings: dict) -> int:
+        """Set multiple settings at once. Returns count of valid keys set."""
+        count = 0
+        with self.db.connection() as conn:
+            for key, value in settings.items():
+                if key in self.VALID_KEYS and isinstance(value, str):
+                    conn.execute(
+                        "INSERT INTO user_settings"
+                        " (user_id, setting_key, setting_value)"
+                        " VALUES (?, ?, ?)"
+                        " ON CONFLICT (user_id, setting_key)"
+                        " DO UPDATE SET setting_value = excluded.setting_value,"
+                        " updated_at = CURRENT_TIMESTAMP",
+                        (user_id, key, value),
+                    )
+                    count += 1
+        return count
+
+    def delete(self, user_id: int, key: str) -> None:
+        """Delete a single setting (reverts to default)."""
+        self._validate_key(key)
+        with self.db.connection() as conn:
+            conn.execute(
+                "DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?",
+                (user_id, key),
+            )
+
+    def delete_all(self, user_id: int) -> int:
+        """Delete all settings for a user. Returns count deleted."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM user_settings WHERE user_id = ?",
+                (user_id,),
+            )
+            return cursor.rowcount
+
+
 @dataclass
 class AuditLog:
     """Audit log entry for user management actions."""
@@ -1886,7 +2010,7 @@ class AuditLog:
     details: Optional[str] = None
 
     @classmethod
-    def from_row(cls, row) -> "AuditLog":
+    def from_row(cls, row) -> Optional["AuditLog"]:
         """Create AuditLog from database row (positional tuple indexing)."""
         if row is None:
             return None

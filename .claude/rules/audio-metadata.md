@@ -5,12 +5,14 @@
 ## The Issue
 
 When extracting metadata from `.opus` files using ffprobe:
+
 - **Wrong**: `ffprobe ... | jq '.format.tags'` -> Returns `null` or empty
 - **Correct**: `ffprobe ... | jq '.streams[0].tags'` -> Returns actual metadata
 
 ## Why This Matters
 
 This project converts audiobooks to Opus format. When reading metadata:
+
 ```python
 # WRONG - will return None for Opus files
 tags = data.get("format", {}).get("tags", {})

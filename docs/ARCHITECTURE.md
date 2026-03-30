@@ -74,6 +74,36 @@ Audiobook-Manager consists of seven logical component groups:
 2. **Symlink Architecture**: Scripts installed once, accessed via symlinks
 3. **Configuration Hierarchy**: Defaults → System config → User config → Environment
 4. **Storage Optimization**: Each component placed on appropriate storage tier
+5. **Code Quality**: All functions target A-grade cyclomatic complexity (1–5); B-grade (6–10) is acceptable; C-grade and above is prohibited
+
+### Code Quality & Complexity Management (v8.0.1+)
+
+Every function in the codebase is held to a strict cyclomatic complexity standard measured by [radon](https://radon.readthedocs.io/):
+
+| Grade | CC Range | Policy |
+|-------|----------|--------|
+| **A** | 1–5 | Target — simple, single-responsibility |
+| **B** | 6–10 | Acceptable — clear logic with bounded branching |
+| **C** | 11–15 | **Prohibited** — must be decomposed |
+| **D–F** | 16+ | **Prohibited** — must be decomposed |
+
+**Why this matters.** The v8.0.1 audit found 84 functions at C-grade or worse (up to F-62). High complexity makes code harder to understand, test, review, and maintain. A function that scores F-62 cannot be held in a single person's working memory — bugs hide in branches that no test exercises and no reviewer reads. The refactoring was driven by four principles:
+
+- **Manageability**: Small functions with clear inputs and outputs are easier to modify without breaking adjacent logic
+- **Sustainability**: Lower complexity correlates with fewer defects per function and lower cost-of-change over the project's lifetime
+- **Understandability**: A developer encountering `_apply_role_changes()` immediately knows its scope; encountering a 200-line `update_current_user()` does not
+- **Aesthetics**: Code should be pleasant to read — not because beauty is a luxury, but because readable code is reviewed more carefully and maintained more willingly
+
+**Refactoring patterns used:**
+
+| Pattern | When Used | Example |
+|---------|-----------|---------|
+| **Helper extraction** | Long function with distinct phases | `populate_series()` → `_fetch_books_needing_series()`, `_query_audible_series()`, `_update_from_api()`, `_update_from_titles()` |
+| **Table-driven dispatch** | Repeated if/elif chains mapping keys to actions | `verify_metadata()` field checks → `FIELD_CHECKS` dict keyed by field name |
+| **Guard clauses** | Deep nesting from early-return conditions | `claim_webauthn_complete()` — validate inputs and bail early, happy path at the end |
+| **Parameter objects** | Functions with 5+ related parameters | Grouping filter/sort/pagination args into structured inputs |
+
+**Enforcement.** `radon cc library/ -n C` is run during every `/test` audit (Phase 7). Any function scoring C or above blocks the audit until refactored. This is not a guideline — it is enforced by the audit's governing law.
 
 ---
 
@@ -405,7 +435,8 @@ library/auth/
 | `user_positions` | Per-user playback | user_id + audiobook_id composite PK, position_ms |
 | `user_listening_history` | Per-user listening sessions | user_id, audiobook_id, started_at, ended_at, duration_listened_ms |
 | `user_downloads` | Per-user download tracking | user_id, audiobook_id, downloaded_at, file_format |
-| `user_preferences` | Per-user preferences | user_id PK, new_books_seen_at |
+| `user_preferences` | Per-user legacy preferences | user_id PK, new_books_seen_at (marquee tracking) |
+| `user_settings` | Per-user key-value settings (v8+) | user_id + setting_key composite PK, setting_value TEXT |
 | `access_requests` | Registration queue | username, status, claim_token_hash, credentials_claimed |
 | `pending_registrations` | Verification tokens | username, token_hash, expires_at (15 min) |
 | `pending_recovery` | Magic link tokens | user_id, token_hash, expires_at, used_at |
@@ -517,7 +548,11 @@ The scanner subsystem handles metadata extraction, library scanning, and databas
   ├── add_new_audiobooks.py  # Incremental scanner for new files
   ├── import_single.py       # Single-directory inline importer
   ├── find_missing_audiobooks.py  # Detect missing/moved files
-  └── create_priority_list.py     # Conversion queue prioritization
+  ├── create_priority_list.py     # Conversion queue prioritization
+  └── utils/                      # Shared scanner utilities (v8+)
+      ├── __init__.py              # Re-exports constants and helpers
+      ├── constants.py             # SUPPORTED_FORMATS list, is_cover_art_file()
+      └── db_helpers.py            # get_or_create_lookup_id() for author/narrator/genre tables
 
   library/scripts/           # Standalone utility and enrichment scripts
   ├── enrich_from_audible.py      # Audible API enrichment (ratings, categories, reviews, series, 15+ fields)
@@ -616,7 +651,7 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 |-----------|--------|---------|
 | `auth_bp` | `/auth` | Authentication, registration, admin, `admin_or_localhost` decorator (v5.0+) |
 | `audiobooks_bp` | `/api` | Main listing, streaming, single book |
-| `collections_bp` | `/api` | Predefined genre-based collections |
+| `collections_bp` | `/api` | Dynamic collections from enrichment data: genres, narrators, decades, ratings (v8+) |
 | `editions_bp` | `/api` | Edition detection and grouping |
 | `duplicates_bp` | `/api` | Duplicate detection (hash/title) |
 | `supplements_bp` | `/api` | PDF, ebook companion files |
@@ -626,6 +661,7 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `grouped_bp` | `/api` | Grouped A-Z view by author or narrator (v7.0+) |
 | `admin_authors_bp` | `/api/admin` | Author/narrator rename, merge, reassign (v7.0+) |
 | `user_bp` | `/api/user` | Per-user state: history, downloads, library, new books (v6.3+) |
+| `preferences_bp` | `/api/user/preferences` | Key-value user preferences: sort, view, playback, accessibility settings (v8+) |
 | `admin_activity_bp` | `/api/admin` | Admin activity log and statistics (v6.3+) |
 | `user_mgmt_bp` | `/auth/admin` | Admin user management: create, edit roles, switch auth, delete, audit log (v7.4.1+) |
 | `account_bp` | `/auth/account` | Self-service: view profile, edit username/email, switch auth, reset credentials, delete account (v7.4.1+) |
@@ -637,6 +673,7 @@ The `utilities_ops/` package contains specialized operation handlers (refactored
 ```text
 library/backend/api_modular/utilities_ops/
 ├── __init__.py      # Re-exports all operations
+├── _helpers.py      # Shared run_async_operation() and handle_result() (v8+)
 ├── audible.py       # Audible API operations (download, metadata sync)
 ├── hashing.py       # Hash generation for duplicate detection
 ├── library.py       # Library content management (rescan, cleanup)
@@ -646,6 +683,7 @@ library/backend/api_modular/utilities_ops/
 
 | Module | Key Functions | API Endpoints |
 |--------|--------------|---------------|
+| `_helpers.py` | `run_async_operation()`, `handle_result()` | (shared by all async endpoints) |
 | `audible.py` | `download_audiobook()`, `sync_metadata()` | POST `/api/utilities/download` |
 | `hashing.py` | `generate_hashes()`, `update_checksums()` | POST `/api/utilities/generate-hashes` |
 | `library.py` | `rescan_library()`, `cleanup_missing()` | POST `/api/utilities/rescan` |
@@ -861,12 +899,21 @@ CREATE TABLE user_downloads (
     file_format TEXT
 );
 
--- Per-user preferences
+-- Per-user preferences (legacy marquee tracking)
 CREATE TABLE user_preferences (
     user_id INTEGER PRIMARY KEY,
     new_books_seen_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Per-user key-value settings (v8+: sort, view mode, playback speed, accessibility)
+CREATE TABLE user_settings (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    setting_key TEXT NOT NULL,
+    setting_value TEXT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, setting_key)
 );
 
 -- User hidden books (soft-hide from My Library view, preserves all data)
@@ -933,6 +980,26 @@ This view ensures the main library displays full-length audiobooks only.
 | **USERS tab** (v7.4.1+) | Back Office tab: create users (TOTP/Magic Link/Passkey), edit username/email/roles, switch auth method, reset credentials, delete users, paginated audit log with action filter, notification badge for new audit entries |
 | **My Account modal** (v7.4.1+) | Shell header modal: view profile (username, email, auth type, member since), inline-edit username/email, switch auth method (two-step: select → configure), reset credentials, delete own account with custom confirmation text |
 
+### Shared Frontend Modules (v8+)
+
+Common JavaScript functionality is consolidated into shared modules to eliminate duplication across page scripts:
+
+| Module | Purpose | Key Exports |
+|--------|---------|-------------|
+| `js/api.js` | Centralized API client with error handling and toast notifications | `apiGet()`, `apiPost()`, `apiPut()`, `apiPatch()`, `apiDelete()` |
+| `js/utils.js` | Shared utility functions | `formatDate()`, `formatDateTime()`, `formatLocal()`, `pollOperation()`, `checkAuthStatus()` |
+
+Page scripts (`account.js`, `utilities.js`, etc.) import from these shared modules rather than defining their own fetch wrappers, date formatters, or polling logic.
+
+### Shared Test Helpers (v8+)
+
+```text
+library/tests/helpers/
+└── __init__.py      # wait_for_thread_completion() — shared by utilities_ops test files
+```
+
+The `wait_for_thread_completion()` helper provides consistent thread-join logic for async operation tests across all `utilities_ops` extended test modules.
+
 ### Admin Notification Flow (v7.4.1+)
 
 Critical user management actions trigger notifications on two channels simultaneously:
@@ -944,9 +1011,11 @@ Critical user management actions trigger notifications on two channels simultane
 
 Non-critical actions (email update, role change) are recorded in the audit log but do not trigger notifications.
 
-### Book Card UI (v7.1.3)
+### Book Card UI (v7.1.3+)
 
 Book cards display cover art with a progress bar for in-progress books. The Play button always resumes from the user's last saved position — there is no separate Resume button (removed in v7.1.3.3). The Play button tooltip shows the saved position (e.g., "Resume from 12:34").
+
+As of v8.0.0, card overlays also display **series name and book order** when the audiobook belongs to a series (e.g., "The Wheel of Time · Book 1").
 
 For complete position tracking documentation, see [Position Sync Guide](POSITION_SYNC.md).
 
@@ -2277,5 +2346,5 @@ systemctl status audiobook.target --no-pager
 
 ---
 
-*Document Version: 7.6.1*
-*Last Updated: 2026-03-29*
+*Document Version: 8.0.1*
+*Last Updated: 2026-03-28*

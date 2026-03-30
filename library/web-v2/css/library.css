@@ -14,6 +14,7 @@
 @import url('player.css?v=1774616000');
 @import url('modals.css?v=1774616000');
 @import url('responsive.css?v=1774616000');
+@import url('a11y-consumer.css?v=1774616000');
 
 /* ============================================
    Book Cards - Art Deco Geometric Design
@@ -27,7 +28,7 @@
         var(--shadow-gold-glow),
         inset 1px 1px 0 rgba(255, 215, 0, 0.18),
         inset -1px -1px 0 rgba(0, 0, 0, 0.3);
-    transition: all 0.3s;
+    transition: all var(--transition-normal);
     cursor: pointer;
     position: relative;
     /* Art Deco stepped corner effect */
@@ -142,6 +143,13 @@
     font-style: italic;
     margin-bottom: 0.5rem;
     opacity: 1;
+}
+
+.book-series {
+    color: var(--cream-light);
+    font-size: 0.82rem;
+    margin-bottom: 0.3rem;
+    opacity: 0.75;
 }
 
 .book-meta {

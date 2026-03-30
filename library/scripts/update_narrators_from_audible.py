@@ -26,127 +26,122 @@ def similarity(a, b):
     return SequenceMatcher(None, normalize_title(a), normalize_title(b)).ratio()
 
 
-def update_narrators(dry_run=True):
-    """Update narrator fields from Audible export."""
+def _load_audible_library():
+    """Load and validate the Audible library export file.
+
+    Returns the parsed JSON list. Exits on error.
+    """
     if not AUDIBLE_EXPORT.exists():
         print(f"Error: Audible export not found at {AUDIBLE_EXPORT}")
         print(f"Run: audible library export -f json -o {AUDIBLE_EXPORT}")
         sys.exit(1)
 
-    if not DB_PATH.exists():
-        print(f"Error: Database not found at {DB_PATH}")
-        sys.exit(1)
-
-    # Load Audible library
     with open(AUDIBLE_EXPORT) as f:
-        audible_library = json.load(f)
+        return json.load(f)
 
-    print(f"Loaded {len(audible_library)} items from Audible library export")
 
-    # Build lookup by normalized title and by ASIN
-    audible_by_title = {}
-    audible_by_asin = {}
+def _build_audible_lookups(audible_library):
+    """Build title and ASIN lookup dictionaries from Audible library.
+
+    Returns (audible_by_title, audible_by_asin).
+    """
+    by_title = {}
+    by_asin = {}
     for item in audible_library:
-        title = item.get("title", "")
-        asin = item.get("asin", "")
         narrators = item.get("narrators", "")
+        if not narrators:
+            continue
 
-        if narrators:
-            norm_title = normalize_title(title)
-            if norm_title:
-                audible_by_title[norm_title] = {
-                    "title": title,
-                    "narrators": narrators,
-                    "authors": item.get("authors", ""),
-                    "asin": asin,
-                }
-            if asin:
-                audible_by_asin[asin] = {
-                    "title": title,
-                    "narrators": narrators,
-                    "authors": item.get("authors", ""),
-                }
+        entry = {
+            "title": item.get("title", ""),
+            "narrators": narrators,
+            "authors": item.get("authors", ""),
+            "asin": item.get("asin", ""),
+        }
 
-    print(
-        f"Built lookup with {len(audible_by_title)} titles,"
-        f" {len(audible_by_asin)} ASINs"
-    )
+        norm_title = normalize_title(entry["title"])
+        if norm_title:
+            by_title[norm_title] = entry
+        if entry["asin"]:
+            by_asin[entry["asin"]] = entry
 
-    # Connect to database
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    return by_title, by_asin
 
-    # Get all audiobooks with Unknown Narrator
-    cursor.execute("""
-        SELECT id, title, author, narrator, asin
-        FROM audiobooks
-        WHERE narrator = 'Unknown Narrator' OR narrator IS NULL OR narrator = ''
-    """)
-    unknown_narrator_books = cursor.fetchall()
 
-    print(f"Found {len(unknown_narrator_books)} books with unknown narrator")
-    print()
+def _find_match(book, audible_by_title, audible_by_asin):
+    """Find a matching Audible entry for a book.
 
+    Returns (match_dict, match_method) or (None, None).
+    """
+    book_asin = book["asin"]
+
+    # ASIN match (most reliable)
+    if book_asin and book_asin in audible_by_asin:
+        return audible_by_asin[book_asin], "ASIN"
+
+    # Exact normalized title match
+    norm_title = normalize_title(book["title"])
+    if norm_title in audible_by_title:
+        return audible_by_title[norm_title], "exact title"
+
+    # Fuzzy title match
+    return _fuzzy_match(book["title"], audible_by_title)
+
+
+def _fuzzy_match(book_title, audible_by_title):
+    """Find the best fuzzy title match above threshold.
+
+    Returns (match_dict, method_str) or (None, None).
+    """
+    best_ratio = 0
+    best_match = None
+    for _aud_title, aud_data in audible_by_title.items():
+        ratio = similarity(book_title, aud_data["title"])
+        if ratio > best_ratio and ratio >= 0.85:
+            best_ratio = ratio
+            best_match = aud_data
+
+    if best_match:
+        return best_match, f"fuzzy ({best_ratio:.0%})"
+    return None, None
+
+
+def _match_books(unknown_books, audible_by_title, audible_by_asin):
+    """Match unknown-narrator books against Audible lookups.
+
+    Returns (updates_list, no_match_list).
+    """
     updates = []
     no_match = []
 
-    for book in unknown_narrator_books:
-        book_id = book["id"]
-        book_title = book["title"]
-        book_asin = book["asin"]
-
-        match = None
-        match_method = None
-
-        # Try ASIN match first (most reliable)
-        if book_asin and book_asin in audible_by_asin:
-            match = audible_by_asin[book_asin]
-            match_method = "ASIN"
-        else:
-            # Try exact normalized title match
-            norm_title = normalize_title(book_title)
-            if norm_title in audible_by_title:
-                match = audible_by_title[norm_title]
-                match_method = "exact title"
-            else:
-                # Try fuzzy title match
-                best_ratio = 0
-                best_match = None
-                for aud_title, aud_data in audible_by_title.items():
-                    ratio = similarity(book_title, aud_data["title"])
-                    if ratio > best_ratio and ratio >= 0.85:  # 85% threshold
-                        best_ratio = ratio
-                        best_match = aud_data
-
-                if best_match:
-                    match = best_match
-                    match_method = f"fuzzy ({best_ratio:.0%})"
-
+    for book in unknown_books:
+        match, method = _find_match(book, audible_by_title, audible_by_asin)
         if match:
             updates.append(
                 {
-                    "id": book_id,
-                    "title": book_title,
+                    "id": book["id"],
+                    "title": book["title"],
                     "narrator": match["narrators"],
-                    "method": match_method,
+                    "method": method,
                     "matched_title": match["title"],
                 }
             )
         else:
-            no_match.append(book_title)
+            no_match.append(book["title"])
 
-    # Show results
+    return updates, no_match
+
+
+def _print_match_results(updates, no_match):
+    """Print match and no-match summaries."""
     print("=" * 70)
     print(f"MATCHES FOUND: {len(updates)}")
     print("=" * 70)
 
-    # Show sample updates
     for update in updates[:20]:
         print(f"\n{update['title'][:50]}")
         print(f"  -> Narrator: {update['narrator'][:50]}")
         print(f"     Match: {update['method']}")
-
     if len(updates) > 20:
         print(f"\n... and {len(updates) - 20} more")
 
@@ -160,21 +155,60 @@ def update_narrators(dry_run=True):
     if len(no_match) > 10:
         print(f"  ... and {len(no_match) - 10} more")
 
-    # Apply updates
+
+def _apply_updates(cursor, conn, updates):
+    """Apply narrator updates to the database."""
+    print()
+    print("=" * 70)
+    print("APPLYING UPDATES...")
+    print("=" * 70)
+
+    for update in updates:
+        cursor.execute(
+            "UPDATE audiobooks SET narrator = ? WHERE id = ?",
+            (update["narrator"], update["id"]),
+        )
+
+    conn.commit()
+    print(f"Updated {len(updates)} records")
+
+
+def update_narrators(dry_run=True):
+    """Update narrator fields from Audible export."""
+    if not DB_PATH.exists():
+        print(f"Error: Database not found at {DB_PATH}")
+        sys.exit(1)
+
+    audible_library = _load_audible_library()
+    print(f"Loaded {len(audible_library)} items from Audible library export")
+
+    audible_by_title, audible_by_asin = _build_audible_lookups(audible_library)
+    print(
+        f"Built lookup with {len(audible_by_title)} titles,"
+        f" {len(audible_by_asin)} ASINs"
+    )
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, title, author, narrator, asin
+        FROM audiobooks
+        WHERE narrator = 'Unknown Narrator' OR narrator IS NULL OR narrator = ''
+    """)
+    unknown_narrator_books = cursor.fetchall()
+    print(f"Found {len(unknown_narrator_books)} books with unknown narrator")
+    print()
+
+    updates, no_match = _match_books(
+        unknown_narrator_books, audible_by_title, audible_by_asin
+    )
+
+    _print_match_results(updates, no_match)
+
     if not dry_run and updates:
-        print()
-        print("=" * 70)
-        print("APPLYING UPDATES...")
-        print("=" * 70)
-
-        for update in updates:
-            cursor.execute(
-                "UPDATE audiobooks SET narrator = ? WHERE id = ?",
-                (update["narrator"], update["id"]),
-            )
-
-        conn.commit()
-        print(f"Updated {len(updates)} records")
+        _apply_updates(cursor, conn, updates)
 
     if dry_run:
         print()

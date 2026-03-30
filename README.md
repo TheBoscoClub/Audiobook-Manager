@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![7](https://img.shields.io/badge/7-brightgreen)![6](https://img.shields.io/badge/6-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v7.6.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.6.1) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v8.0.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v8.0.1) |
+| ![8](https://img.shields.io/badge/8-brightred)![0](https://img.shields.io/badge/0-darkred)![0](https://img.shields.io/badge/0-red) | Prior major | [v8.0.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v8.0.0) |
 | ![7](https://img.shields.io/badge/7-brightred)![6](https://img.shields.io/badge/6-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v7.6.0](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.6.0) |
 | ![7](https://img.shields.io/badge/7-brightred)![5](https://img.shields.io/badge/5-darkred)![3](https://img.shields.io/badge/3-red) | Prior patch | [v7.5.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.5.3) |
 | ![7](https://img.shields.io/badge/7-brightred)![5](https://img.shields.io/badge/5-darkred)![2](https://img.shields.io/badge/2-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v7.5.2.1](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v7.5.2.1) |
@@ -196,6 +197,11 @@ Web-based audiobook library browser with:
 - **Self-service My Account** — authenticated users change their username, email, auth method, or credentials from the shell header without admin involvement (v7.4.1+)
 - **Audit logging** for all user management actions with paginated, filterable log in the Back Office (v7.4.1+)
 - **Admin notifications** — in-app badge and email alerts to all admins for critical account changes (v7.4.1+)
+- **Series metadata on library cards** — series name and book order number displayed on card overlays for series audiobooks (v8.0+)
+- **Dynamic collections** — auto-generated browsable groupings from enrichment data (genres, narrators, decades, ratings) via `/api/collections` (v8.0+)
+- **Per-user preferences** — key-value preference system persisting sort order, view mode, playback speed, and accessibility settings per user (v8.0+)
+- **Accessibility quick panel** — slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls (v8.0+)
+- **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
 
 ## Quick Start
 

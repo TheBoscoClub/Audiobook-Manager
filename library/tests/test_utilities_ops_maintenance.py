@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 class TestRebuildQueueAsync:
     """Test the rebuild_queue_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_rebuild_operation(self, mock_get_tracker, flask_app):
         """Test starts queue rebuild operation successfully."""
         mock_tracker = MagicMock()
@@ -30,7 +30,7 @@ class TestRebuildQueueAsync:
         assert data["success"] is True
         assert data["operation_id"] == "rebuild-123"
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when queue rebuild already in progress."""
         mock_tracker = MagicMock()
@@ -42,7 +42,7 @@ class TestRebuildQueueAsync:
 
         assert response.status_code == 409
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_uses_correct_operation_type(self, mock_get_tracker, flask_app):
         """Test rebuild queue operation uses 'rebuild_queue' type."""
         mock_tracker = MagicMock()
@@ -59,7 +59,7 @@ class TestRebuildQueueAsync:
 class TestCleanupIndexesAsync:
     """Test the cleanup_indexes_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_cleanup_operation_dry_run(self, mock_get_tracker, flask_app):
         """Test starts cleanup operation in dry run mode."""
         mock_tracker = MagicMock()
@@ -78,7 +78,7 @@ class TestCleanupIndexesAsync:
         assert data["success"] is True
         assert "dry run" in data["message"]
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_cleanup_operation_execute(self, mock_get_tracker, flask_app):
         """Test starts cleanup operation in execute mode."""
         mock_tracker = MagicMock()
@@ -97,7 +97,7 @@ class TestCleanupIndexesAsync:
         assert data["success"] is True
         assert "dry run" not in data["message"]
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when cleanup already in progress."""
         mock_tracker = MagicMock()
@@ -109,7 +109,7 @@ class TestCleanupIndexesAsync:
 
         assert response.status_code == 409
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_defaults_to_dry_run(self, mock_get_tracker, flask_app):
         """Test cleanup defaults to dry_run=True when not specified."""
         mock_tracker = MagicMock()
@@ -128,7 +128,7 @@ class TestCleanupIndexesAsync:
 class TestPopulateSortFieldsAsync:
     """Test the populate_sort_fields_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_sort_fields_dry_run(self, mock_get_tracker, flask_app):
         """Test starts sort field population in dry run mode."""
         mock_tracker = MagicMock()
@@ -147,7 +147,7 @@ class TestPopulateSortFieldsAsync:
         assert data["success"] is True
         assert "dry run" in data["message"]
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_sort_fields_execute(self, mock_get_tracker, flask_app):
         """Test starts sort field population in execute mode."""
         mock_tracker = MagicMock()
@@ -165,7 +165,7 @@ class TestPopulateSortFieldsAsync:
         data = response.get_json()
         assert data["success"] is True
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when sort field population already in progress."""
         mock_tracker = MagicMock()
@@ -177,7 +177,7 @@ class TestPopulateSortFieldsAsync:
 
         assert response.status_code == 409
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_defaults_to_dry_run(self, mock_get_tracker, flask_app):
         """Test sort fields defaults to dry_run=True when not specified."""
         mock_tracker = MagicMock()
@@ -196,7 +196,7 @@ class TestPopulateSortFieldsAsync:
 class TestFindSourceDuplicatesAsync:
     """Test the find_source_duplicates_async endpoint."""
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_duplicate_scan_dry_run(self, mock_get_tracker, flask_app):
         """Test starts duplicate scan in dry run mode."""
         mock_tracker = MagicMock()
@@ -215,7 +215,7 @@ class TestFindSourceDuplicatesAsync:
         assert data["success"] is True
         assert "dry run" in data["message"]
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_starts_duplicate_scan_execute(self, mock_get_tracker, flask_app):
         """Test starts duplicate scan in execute mode."""
         mock_tracker = MagicMock()
@@ -233,7 +233,7 @@ class TestFindSourceDuplicatesAsync:
         data = response.get_json()
         assert data["success"] is True
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_returns_409_when_already_running(self, mock_get_tracker, flask_app):
         """Test returns 409 when duplicate scan already in progress."""
         mock_tracker = MagicMock()
@@ -249,7 +249,7 @@ class TestFindSourceDuplicatesAsync:
         data = response.get_json()
         assert "Duplicate scan already in progress" in data["error"]
 
-    @patch("backend.api_modular.utilities_ops.maintenance.get_tracker")
+    @patch("backend.api_modular.utilities_ops._helpers.get_tracker")
     def test_defaults_to_dry_run(self, mock_get_tracker, flask_app):
         """Test duplicates scan defaults to dry_run=True when not specified."""
         mock_tracker = MagicMock()

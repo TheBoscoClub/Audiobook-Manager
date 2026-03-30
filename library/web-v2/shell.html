@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/theme-art-deco.css?v=1774616000">
     <link rel="stylesheet" href="css/modals.css?v=1774616000">
     <link rel="stylesheet" href="css/account.css?v=1774616000">
+    <link rel="stylesheet" href="css/accessibility.css?v=1774616000">
     <style>
         .instance-badge {
             display: inline-block;
@@ -34,35 +35,116 @@
 <body>
     <!-- Shell header with account access -->
     <div id="shell-header">
-        <button id="my-account-btn" class="header-btn account-btn" title="My Account settings">
-            <span class="account-icon" id="account-initial">?</span>
-            <span id="account-username">Account</span>
-        </button>
-        <span id="instance-badge" class="instance-badge" style="display:none"></span>
-        <!-- Admin suggestion alert — toggles suggestion drawer -->
-        <button id="suggestion-alert" class="suggestion-alert" hidden title="New user suggestions">
-            <span class="alert-icon">&#9993;</span>
-            <span id="suggestion-badge-count" class="alert-count">0</span>
-        </button>
-        <span class="header-title">Audiobook Library</span>
+        <!-- Left group -->
+        <div class="header-group-left">
+            <button id="my-account-btn" class="header-btn account-btn" title="My Account settings">
+                <span class="account-icon" id="account-initial">?</span>
+                <span id="account-username">Account</span>
+            </button>
+            <span id="instance-badge" class="instance-badge" style="display:none"></span>
+            <!-- Accessibility quick-panel toggle -->
+            <button id="accessibility-btn" class="header-btn a11y-btn" title="Accessibility &amp; display settings">
+                <span class="a11y-icon">
+                    <svg viewBox="0 0 30 22" width="22" height="16" aria-hidden="true">
+                        <!-- Left lens (half-frame) -->
+                        <path d="M3 10 Q3 3 8 3 L12 3 Q14 3 14 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <!-- Right lens (half-frame) -->
+                        <path d="M16 10 Q16 3 18 3 L22 3 Q27 3 27 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <!-- Bridge -->
+                        <path d="M14 5 Q15 1.5 16 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <!-- Left temple arm -->
+                        <line x1="3" y1="5" x2="0" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <!-- Right temple arm -->
+                        <line x1="27" y1="5" x2="30" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <!-- Chain hanging from temples -->
+                        <path d="M0 4 Q5 20 15 18 Q25 16 30 4" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-dasharray="2,2" opacity="0.6"/>
+                    </svg>
+                </span>
+                <span class="a11y-label">Display</span>
+            </button>
+        </div>
+        <!-- Right group -->
+        <div class="header-group-right">
+            <a href="help.html" target="content-frame" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
+                <span class="help-icon">?</span>
+                <span class="help-label">Help</span>
+            </a>
+            <a href="utilities.html" target="content-frame" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
+                <span class="backoffice-icon">
+                    <svg viewBox="0 0 24 32" width="14" height="18" aria-hidden="true">
+                        <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <rect x="9" y="16" width="6" height="12" rx="1" fill="currentColor"/>
+                        <ellipse cx="12" cy="10" rx="3" ry="3.5" fill="var(--deco-charcoal, #161616)"/>
+                        <rect x="10.5" y="12" width="3" height="5" fill="var(--deco-charcoal, #161616)"/>
+                    </svg>
+                </span>
+                <span class="backoffice-label">Back Office</span>
+            </a>
+        </div>
     </div>
 
-    <!-- Admin Suggestions Drawer -->
-    <div id="suggestion-drawer" class="suggestion-drawer" hidden>
-        <div class="suggestion-drawer-header">
-            <h3>User Suggestions</h3>
-            <div class="suggestion-drawer-tabs">
-                <button class="sdtab active" data-filter="unread" title="Show unread suggestions">Unread</button>
-                <button class="sdtab" data-filter="read" title="Show read suggestions">Read</button>
-                <button class="sdtab" data-filter="all" title="Show all suggestions">All</button>
-            </div>
-            <button id="suggestion-drawer-close" class="drawer-close-btn" title="Close">&times;</button>
+    <!-- Accessibility Quick Panel -->
+    <div id="a11y-panel" class="a11y-panel" hidden>
+        <div class="a11y-panel-header">
+            <h3>Accessibility</h3>
+            <button id="a11y-panel-close" class="drawer-close-btn" title="Close">&times;</button>
         </div>
-        <div id="suggestion-drawer-list" class="suggestion-drawer-list"></div>
+        <div class="a11y-panel-body">
+            <div class="a11y-control">
+                <label for="a11y-font-size">Font Size</label>
+                <div class="a11y-segmented" id="a11y-font-size" data-key="font_size">
+                    <button data-value="14" title="Small (14px)">A</button>
+                    <button data-value="16" title="Default (16px)" class="active">A</button>
+                    <button data-value="18" title="Large (18px)">A</button>
+                    <button data-value="20" title="Extra large (20px)">A</button>
+                </div>
+            </div>
+            <div class="a11y-control">
+                <label for="a11y-line-spacing">Line Spacing</label>
+                <div class="a11y-segmented" id="a11y-line-spacing" data-key="line_spacing">
+                    <button data-value="1.2" title="Compact">1.2</button>
+                    <button data-value="1.5" title="Default" class="active">1.5</button>
+                    <button data-value="1.8" title="Relaxed">1.8</button>
+                </div>
+            </div>
+            <div class="a11y-control">
+                <label for="a11y-contrast">Contrast</label>
+                <div class="a11y-segmented" id="a11y-contrast" data-key="contrast">
+                    <button data-value="normal" title="Normal contrast" class="active">Normal</button>
+                    <button data-value="medium" title="Medium contrast">Medium</button>
+                    <button data-value="high" title="High contrast">High</button>
+                </div>
+            </div>
+            <div class="a11y-control">
+                <label for="a11y-bg-opacity">Panel Darkness</label>
+                <input type="range" id="a11y-bg-opacity" min="50" max="100" value="100"
+                       data-key="bg_opacity" title="Adjust background darkness">
+                <span id="a11y-bg-opacity-val" class="a11y-range-val">100%</span>
+            </div>
+            <div class="a11y-control">
+                <label for="a11y-color-temp">Color Tone</label>
+                <div class="a11y-segmented" id="a11y-color-temp" data-key="color_temperature">
+                    <button data-value="warm" title="Warm (golden)">Warm</button>
+                    <button data-value="neutral" title="Default" class="active">Neutral</button>
+                    <button data-value="cool" title="Cool (blue-white)">Cool</button>
+                </div>
+            </div>
+            <div class="a11y-control a11y-toggle-row">
+                <label for="a11y-reduce-motion">Reduce Animations</label>
+                <input type="checkbox" id="a11y-reduce-motion" data-key="reduce_animations" title="Minimize motion and animations">
+            </div>
+            <div class="a11y-control a11y-toggle-row">
+                <label for="a11y-high-contrast">High Contrast Mode</label>
+                <input type="checkbox" id="a11y-high-contrast" data-key="high_contrast" title="Increase text and border contrast">
+            </div>
+            <div class="a11y-control a11y-reset">
+                <button id="a11y-reset-btn" class="btn btn-secondary" title="Reset all accessibility settings to defaults">Reset Defaults</button>
+            </div>
+        </div>
     </div>
 
     <!-- Content iframe: loads all authenticated pages -->
-    <iframe id="content-frame" src="index.html?v=1774616000" title="Library content"></iframe>
+    <iframe id="content-frame" name="content-frame" src="index.html?v=1774616000" title="Library content"></iframe>
 
     <!-- Persistent player bar (hidden until a book is played) -->
     <div id="shell-player" hidden>
@@ -153,6 +235,70 @@
                     </div>
                 </div>
 
+                <!-- Preferences Section -->
+                <div class="account-section" id="prefs-section">
+                    <h3>Browsing</h3>
+                    <div class="account-field">
+                        <label for="pref-sort-order">Sort order</label>
+                        <select id="pref-sort-order" class="pref-select" data-key="sort_order" title="Default sort order for the library">
+                            <option value="title_asc">Title A–Z</option>
+                            <option value="title_desc">Title Z–A</option>
+                            <option value="author_asc">Author A–Z</option>
+                            <option value="author_desc">Author Z–A</option>
+                            <option value="date_added">Date Added</option>
+                            <option value="duration">Duration</option>
+                        </select>
+                    </div>
+                    <div class="account-field">
+                        <label for="pref-view-mode">View mode</label>
+                        <div class="pref-toggle-group" id="pref-view-mode" data-key="view_mode">
+                            <button data-value="grid" class="active" title="Grid view">Grid</button>
+                            <button data-value="list" title="List view">List</button>
+                        </div>
+                    </div>
+                    <div class="account-field">
+                        <label for="pref-items-per-page">Items per page</label>
+                        <select id="pref-items-per-page" class="pref-select" data-key="items_per_page" title="Number of items shown per page">
+                            <option value="20">20</option>
+                            <option value="24">24</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="account-field">
+                        <label for="pref-content-filter">Content filter</label>
+                        <select id="pref-content-filter" class="pref-select" data-key="content_filter" title="Filter library content">
+                            <option value="all">All content</option>
+                            <option value="audiobooks">Audiobooks only</option>
+                        </select>
+                    </div>
+
+                    <h3 style="margin-top:1.2em">Playback</h3>
+                    <div class="account-field">
+                        <label for="pref-playback-speed">Default speed</label>
+                        <select id="pref-playback-speed" class="pref-select" data-key="playback_speed" title="Default playback speed">
+                            <option value="0.75">0.75×</option>
+                            <option value="1">1×</option>
+                            <option value="1.25">1.25×</option>
+                            <option value="1.5">1.5×</option>
+                            <option value="2">2×</option>
+                        </select>
+                    </div>
+                    <div class="account-field">
+                        <label for="pref-sleep-timer">Sleep timer</label>
+                        <select id="pref-sleep-timer" class="pref-select" data-key="sleep_timer" title="Default sleep timer duration">
+                            <option value="0">Off</option>
+                            <option value="15">15 min</option>
+                            <option value="30">30 min</option>
+                            <option value="60">60 min</option>
+                        </select>
+                    </div>
+                    <div class="account-field">
+                        <label for="pref-auto-play">Auto-play series</label>
+                        <input type="checkbox" id="pref-auto-play" data-key="auto_play_series" title="Automatically play next book in series">
+                    </div>
+                </div>
+
                 <!-- Danger Zone -->
                 <div class="account-section danger-zone">
                     <h3>Danger Zone</h3>
@@ -172,11 +318,14 @@
             }
         }).catch(function(){});
     </script>
+    <script data-cfasync="false" src="js/api.js?v=1774616000"></script>
+    <script data-cfasync="false" src="js/utils.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/websocket.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/maintenance-banner.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/session-persistence.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/shell.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/account.js?v=1774616000"></script>
-    <script data-cfasync="false" src="js/suggestions-admin.js?v=1774616000"></script>
+    <script data-cfasync="false" src="js/accessibility.js?v=1774616000"></script>
+    <!-- suggestions-admin.js moved to utilities.html (Back Office) -->
 </body>
 </html>
