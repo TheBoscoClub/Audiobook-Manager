@@ -42,7 +42,7 @@ if [ ! -f "$SCRIPT_DIR/data/audiobooks.json" ]; then
     echo "  cd $SCRIPT_DIR"
     echo "  ./setup.sh"
     echo ""
-    read "?Press Enter to exit..."
+    read -r -p "Press Enter to exit..."
     exit 1
 fi
 
@@ -52,7 +52,7 @@ echo "[DEBUG] Data file found!"
 BOOK_COUNT=$(python3 -c "import json; data=json.load(open('$SCRIPT_DIR/data/audiobooks.json')); print(data['total_audiobooks'])" 2>&1) || {
     echo "❌ Error reading audiobook data"
     echo "Error: $BOOK_COUNT"
-    read "?Press Enter to exit..."
+    read -r -p "Press Enter to exit..."
     exit 1
 }
 
@@ -64,7 +64,7 @@ PORT=8090
 MAX_PORT=8099
 
 echo "[DEBUG] Looking for available port..."
-while [ $PORT -le $MAX_PORT ]; do
+while [ "$PORT" -le "$MAX_PORT" ]; do
     if ! ss -tln | grep -q ":$PORT "; then
         echo "[DEBUG] Port $PORT is available"
         break
@@ -73,11 +73,11 @@ while [ $PORT -le $MAX_PORT ]; do
     PORT=$((PORT + 1))
 done
 
-if [ $PORT -gt $MAX_PORT ]; then
+if [ "$PORT" -gt "$MAX_PORT" ]; then
     echo "❌ Error: No available ports found between 8090-8099"
     echo ""
     echo "Please close some applications and try again."
-    read "?Press Enter to exit..."
+    read -r -p "Press Enter to exit..."
     exit 1
 fi
 
@@ -92,18 +92,18 @@ echo "[DEBUG] Serving from project directory (so web/ and data/ are accessible)"
 
 # Start server in background
 echo "[DEBUG] Starting Python HTTP server on port $PORT..."
-python3 -m http.server $PORT >/tmp/audiobook-library-server.log 2>&1 &
+python3 -m http.server "$PORT" >/tmp/audiobook-library-server.log 2>&1 &
 SERVER_PID=$!
 
 echo "[DEBUG] Server PID: $SERVER_PID"
 
 # Check if server started successfully
 sleep 1
-if ! kill -0 $SERVER_PID 2>/dev/null; then
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "❌ Error: Server failed to start"
     echo "Log output:"
     cat /tmp/audiobook-library-server.log
-    read "?Press Enter to exit..."
+    read -r -p "Press Enter to exit..."
     exit 1
 fi
 

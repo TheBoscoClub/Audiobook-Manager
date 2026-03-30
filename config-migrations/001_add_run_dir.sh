@@ -9,14 +9,14 @@
 # shellcheck disable=SC2154  # CONF_FILE, USE_SUDO, DRY_RUN set by caller
 
 if grep -q '^AUDIOBOOKS_RUN_DIR=' "$CONF_FILE" 2>/dev/null; then
-    return 0 2>/dev/null || exit 0
+    return 0
 fi
 
 echo "  Adding AUDIOBOOKS_RUN_DIR to config"
 
 if [[ "$DRY_RUN" == "true" ]]; then
     echo "  [DRY-RUN] Would add: AUDIOBOOKS_RUN_DIR to $CONF_FILE"
-    return 0 2>/dev/null || exit 0
+    return 0
 fi
 
 # Derive default from existing VAR_DIR if set, otherwise use standard path

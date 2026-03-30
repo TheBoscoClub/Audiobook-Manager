@@ -264,6 +264,7 @@ do_remote_upgrade() {
 
     # rsync project to remote temp directory
     echo -e "${BLUE}Syncing project to remote...${NC}"
+    # shellcheck disable=SC2029  # $remote_tmp intentionally expands client-side
     ssh "${ssh_opts[@]}" "$ssh_target" "mkdir -p '$remote_tmp'"
     rsync -az --delete \
         --exclude='venv' \
@@ -290,12 +291,14 @@ do_remote_upgrade() {
     [[ "$MAJOR_VERSION" == "true" ]] && remote_flags="$remote_flags --major-version"
     echo -e "${BLUE}Running remote upgrade (full lifecycle)...${NC}"
     echo ""
+    # shellcheck disable=SC2029  # $remote_tmp, $remote_target, $remote_flags intentionally expand client-side
     ssh "${ssh_opts[@]}" "$ssh_target" \
         "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" ||
         {
             local rc=$?
             echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"
             # Cleanup on failure
+            # shellcheck disable=SC2029  # $remote_tmp intentionally expands client-side
             ssh "${ssh_opts[@]}" "$ssh_target" "rm -rf '$remote_tmp'" 2>/dev/null || true
             return $rc
         }
@@ -303,6 +306,7 @@ do_remote_upgrade() {
     # Cleanup remote temp directory
     echo ""
     echo -e "${BLUE}Cleaning up remote temp files...${NC}"
+    # shellcheck disable=SC2029  # $remote_tmp intentionally expands client-side
     ssh "${ssh_opts[@]}" "$ssh_target" "rm -rf '$remote_tmp'"
     echo -e "${GREEN}  Cleanup complete${NC}"
 
@@ -1688,7 +1692,7 @@ backup_auth_db() {
     local backup_base
     backup_base=$(basename "$auth_db")
     local old_backups
-    mapfile -t old_backups < <(ls -1t "${backup_dir}/${backup_base}.pre-upgrade-"* 2>/dev/null | tail -n +4)
+    mapfile -t old_backups < <(find "${backup_dir}" -maxdepth 1 -name "${backup_base}.pre-upgrade-*" -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +4 | cut -d' ' -f2-)
     if [[ ${#old_backups[@]} -gt 0 ]]; then
         echo "  Cleaning up ${#old_backups[@]} old backup(s)..."
         for old in "${old_backups[@]}"; do

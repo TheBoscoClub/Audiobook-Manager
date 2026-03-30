@@ -92,11 +92,11 @@ check_port() {
     return 0
 }
 
-if ! check_port $API_PORT "API"; then
+if ! check_port "$API_PORT" "API"; then
     exit 1
 fi
 
-if ! check_port $WEB_PORT "HTTPS"; then
+if ! check_port "$WEB_PORT" "HTTPS"; then
     exit 1
 fi
 
@@ -198,7 +198,7 @@ for i in {1..15}; do
         echo -e " ${GREEN}✓${NC}"
         break
     fi
-    if [ $i -eq 15 ]; then
+    if [ "$i" -eq 15 ]; then
         echo -e " ${RED}✗${NC}"
         echo -e "${RED}Error: API failed to start. Check /tmp/audiobooks-dev-api.log${NC}"
         tail -20 /tmp/audiobooks-dev-api.log
