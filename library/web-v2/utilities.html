@@ -1021,6 +1021,12 @@
 
                             <!-- Users List Tab -->
                             <div class="user-tab-content active" id="users-tab">
+                                <div class="system-settings-row" id="multi-session-toggle" style="padding: 8px 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-color, #333);">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9em;" title="When enabled, users can stay logged in on multiple devices simultaneously">
+                                        <input type="checkbox" id="multi-session-default-checkbox">
+                                        Allow multiple sessions by default
+                                    </label>
+                                </div>
                                 <div class="user-list" id="user-list">
                                     <p class="placeholder-text">Loading users...</p>
                                 </div>
