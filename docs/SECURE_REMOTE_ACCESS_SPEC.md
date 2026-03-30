@@ -69,7 +69,7 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 1. **Secure Authentication**
    - Passwordless authentication (Passkey, FIDO2, TOTP)
    - Self-service registration with ephemeral verification
-   - Single active session per user
+   - Single active session per user by default; admin-configurable multi-session (v8.0.1.2+)
 
 2. **Library Access**
    - Browse audiobook catalog
@@ -235,7 +235,7 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 | Asset | Sensitivity | Protection |
 |-------|-------------|------------|
 | Auth credentials | Critical | Encrypted at rest (SQLCipher) |
-| User sessions | High | Secure tokens, single-session |
+| User sessions | High | Secure tokens, configurable single/multi-session |
 | Listening positions | Medium | Per-user isolation |
 | Audio files | Low | Authentication required |
 | Source files (AAXC) | High | Never exposed |
@@ -255,7 +255,7 @@ LAYER 2: AUTHENTICATION
 ├── No passwords
 ├── Passkey/FIDO2/TOTP only
 ├── Magic links expire in 15 minutes
-├── Single session per user
+├── Single session per user (default; multi-session opt-in)
 └── Cryptographically random tokens
 
 LAYER 3: AUTHORIZATION
@@ -507,7 +507,7 @@ System checks user's registered auth method
 | Storage | `auth.db` sessions table (encrypted) |
 | Duration | Indefinite (until logout or kicked) |
 | Disconnect grace | 30 minutes |
-| Concurrency | Single active session per user |
+| Concurrency | Single session by default; multi-session when enabled globally and per-user (v8.0.1.2+) |
 
 ### 7.2 Session Lifecycle
 

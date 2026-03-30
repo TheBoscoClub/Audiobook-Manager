@@ -343,7 +343,7 @@ sudo ufw deny from ATTACKER_IP
 
 ## Concurrent Access Issues
 
-### 11. Simultaneous Login Race Condition
+### 11. Simultaneous Login Session Conflict
 
 **Symptoms:**
 
@@ -352,18 +352,19 @@ sudo ufw deny from ATTACKER_IP
 
 **Cause:**
 
-- Single-session-per-user design (intentional security feature)
-- New login invalidates existing session
+- Single-session-per-user is the default policy (v8.0.1.2+: admin-configurable)
+- With multi-session disabled (default): new login invalidates existing session
+- With multi-session enabled: multiple concurrent sessions are allowed
 
 **Impact:**
 
-- Normal behavior - not a failure
-- User understands only one session allowed
+- Normal behavior when multi-session is disabled - not a failure
+- User understands session policy based on admin configuration
 
 **Recovery:**
 
-- No action needed - this is expected behavior
-- Users log in on the device they want to use
+- If single-session (default): user logs in on the device they want to use
+- If multi-session desired: admin enables via Back Office → SYSTEM → "Allow multi-session login" checkbox, or per-user via USERS tab → edit user → multi-session selector
 
 ### 12. Database Lock Contention
 

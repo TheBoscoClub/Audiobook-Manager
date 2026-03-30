@@ -361,7 +361,7 @@ library/auth/
 ├── cli.py            # Admin CLI tool (audiobook-user)
 ├── inbox_cli.py      # Admin inbox management CLI
 ├── notify_cli.py     # Notification management CLI
-└── schema.sql        # Auth database schema (18 tables, v7)
+└── schema.sql        # Auth database schema (19 tables, v9)
 ```
 
 ### Authentication Flow
@@ -430,7 +430,7 @@ library/auth/
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `users` | User accounts | username, auth_type, auth_credential, is_admin, can_download |
+| `users` | User accounts | username, auth_type, auth_credential, is_admin, can_download, multi_session |
 | `sessions` | Active sessions | user_id, token_hash (SHA-256), expires_at, last_seen |
 | `user_positions` | Per-user playback | user_id + audiobook_id composite PK, position_ms |
 | `user_listening_history` | Per-user listening sessions | user_id, audiobook_id, started_at, ended_at, duration_listened_ms |
@@ -448,6 +448,7 @@ library/auth/
 | `webauthn_credentials` | Passkey/FIDO2 credentials | user_id, credential_id, public_key, name, created_at |
 | `audit_log` | User management audit trail | actor_id, target_user_id (ON DELETE SET NULL), action, details (JSON), created_at |
 | `user_hidden_books` | My Library hidden books | user_id + audiobook_id composite PK, hidden_at |
+| `system_settings` | Global system settings (v8.0.1.2+) | key (PK), value, updated_at |
 | `schema_version` | Migration tracking | version, applied_at |
 
 ### Session Management
@@ -458,8 +459,8 @@ library/auth/
 | **Token** | 32-byte URL-safe random (`secrets.token_urlsafe(32)`) |
 | **Storage** | SHA-256 hash in `sessions` table |
 | **Cookie flags** | `HttpOnly`, `Secure`, `SameSite=Lax` |
-| **Policy** | One session per user (new login invalidates previous) |
-| **Staleness** | 30-minute inactivity grace period |
+| **Policy** | Single session by default; multi-session opt-in via global setting and per-user override (v8.0.1.2+) |
+| **Staleness** | 30-minute inactivity grace period (non-persistent sessions only) |
 
 ### WebAuthn Auto-Configuration
 
@@ -489,7 +490,7 @@ Priority chain:
 |----------|---------------|
 | Token storage | All tokens SHA-256 hashed before DB storage |
 | Database encryption | SQLCipher AES-256 (key in `/etc/audiobooks/auth.key`) |
-| Session isolation | One session per user; new login invalidates previous |
+| Session isolation | Single session by default; configurable multi-session (v8.0.1.2+) |
 | Credential protection | WebAuthn credentials stored as encrypted BLOB |
 | CSRF protection | SameSite=Lax cookies prevent cross-origin requests |
 | Claim tokens | One-time use, hash-verified, username-bound |
@@ -504,11 +505,13 @@ Admin endpoints require an authenticated admin session. All actions are recorded
 | `GET /auth/admin/users/<id>/setup-info` | GET | Re-fetch setup info for incomplete enrollment |
 | `PUT /auth/admin/users/<id>/username` | PUT | Change username |
 | `PUT /auth/admin/users/<id>/email` | PUT | Change email |
-| `PUT /auth/admin/users/<id>/roles` | PUT | Update is_admin, can_download flags |
+| `PUT /auth/admin/users/<id>/roles` | PUT | Update is_admin, can_download, multi_session flags |
 | `PUT /auth/admin/users/<id>/auth-method` | PUT | Switch auth method |
 | `POST /auth/admin/users/<id>/reset-credentials` | POST | Reset auth credentials (new TOTP secret, new magic link token, or clear passkey) |
 | `DELETE /auth/admin/users/<id>/delete` | DELETE | Delete user (last-admin guard: error if only admin) |
 | `GET /auth/admin/users/audit-log` | GET | Paginated audit log; query params: `page`, `per_page`, `action` filter |
+| `GET /auth/admin/settings` | GET | Fetch system settings (e.g., `allow_multi_session`) |
+| `PATCH /auth/admin/settings` | PATCH | Update system settings (JSON body with key-value pairs) |
 
 ### Self-Service Account API (v7.4.1+)
 
