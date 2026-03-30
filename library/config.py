@@ -89,16 +89,6 @@ if _project_root:
     _config.update(_load_config_file(_project_root / "config.env"))
 
 
-@overload
-def get_config(key: str) -> Optional[str]:
-    pass
-
-
-@overload
-def get_config(key: str, default: str) -> str:
-    pass
-
-
 def _expand_vars(value: Optional[str]) -> Optional[str]:
     """Expand ${VAR} references using resolved config, then environment.
 
@@ -114,6 +104,14 @@ def _expand_vars(value: Optional[str]) -> Optional[str]:
         replacement = _config.get(match, os.environ.get(match, ""))
         value = value.replace("${" + match + "}", replacement)
     return value
+
+
+@overload
+def get_config(key: str) -> Optional[str]: ...
+
+
+@overload
+def get_config(key: str, default: str) -> str: ...
 
 
 def get_config(key: str, default: Optional[str] = None) -> Optional[str]:

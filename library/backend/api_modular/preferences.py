@@ -78,6 +78,8 @@ def reset_preference(key: str):
         return jsonify({"error": f"Unknown preference key: {key}"}), 400
 
     user = get_current_user()
+    if user is None or user.id is None:
+        return jsonify({"error": "User not found"}), 401
     auth_db = get_auth_db()
     repo = UserSettingsRepository(auth_db)
     repo.delete(user.id, key)

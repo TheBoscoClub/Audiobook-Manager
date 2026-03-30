@@ -236,9 +236,9 @@ def verify_registration(
         del _pending_challenges[challenge_key]
 
         # Extract transports if available
-        transports = []
+        transports: list[str] = []
         if credential.response.transports:
-            transports = list(credential.response.transports)
+            transports = [str(t) for t in credential.response.transports]
 
         return WebAuthnCredential(
             credential_id=verification.credential_id,

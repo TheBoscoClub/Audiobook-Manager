@@ -2019,7 +2019,7 @@ class AuditLog:
     details: Optional[str] = None
 
     @classmethod
-    def from_row(cls, row) -> "AuditLog":
+    def from_row(cls, row) -> Optional["AuditLog"]:
         """Create AuditLog from database row (positional tuple indexing)."""
         if row is None:
             return None

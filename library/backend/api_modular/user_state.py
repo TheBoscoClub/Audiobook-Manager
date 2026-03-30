@@ -175,6 +175,8 @@ def record_download_complete(audiobook_id: int):
         file_format: Format of the downloaded file (e.g., "opus", "mp3")
     """
     user = get_current_user()
+    if user is None or user.id is None:
+        return jsonify({"error": "User not found"}), 401
 
     # Verify the audiobook exists and get title for denormalized storage
     conn = _get_library_db()

@@ -167,7 +167,7 @@ def create_app(
         init_position_routes(database_path)
         position_bp._routes_initialized = True
     init_grouped_routes(database_path)
-    init_admin_authors_routes(database_path)
+    init_admin_authors_routes(str(database_path))
 
     # Initialize auth routes if configured
     if flask_app.config["AUTH_ENABLED"]:
@@ -176,8 +176,8 @@ def create_app(
             auth_key_path=flask_app.config["AUTH_KEY_PATH"],
             is_dev=auth_dev_mode,
         )
-        init_user_state_routes(database_path)
-        init_admin_activity_routes(database_path)
+        init_user_state_routes(str(database_path))
+        init_admin_activity_routes(str(database_path))
 
     # Register blueprints
     flask_app.register_blueprint(audiobooks_bp)

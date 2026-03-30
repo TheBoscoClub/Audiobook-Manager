@@ -139,6 +139,357 @@ def get_stats() -> Response:
     )
 
 
+# --- Sort configuration constants (module-level, shared by helpers) ---
+
+# Map user-friendly sort names to SQL column names.
+# Text columns get COLLATE NOCASE applied in the ORDER BY clause.
+_SORT_MAPPINGS = {
+    "title": "title",
+    "author": "author",
+    "author_last": "author_last_name",
+    "author_first": "author_first_name",
+    "narrator": "narrator",
+    "narrator_last": "narrator_last_name",
+    "narrator_first": "narrator_first_name",
+    "duration_hours": "duration_hours",
+    "created_at": "created_at",
+    "acquired_date": "acquired_date",
+    "published_year": "published_year",
+    "published_date": "published_date",
+    "file_size_mb": "file_size_mb",
+    "series": None,  # Special handling in _build_sort_clause
+    "asin": "asin",
+    "edition": "edition",
+}
+
+# Text columns that need case-insensitive sorting
+_TEXT_SORTS = {"title", "author", "narrator", "asin", "edition"}
+
+# Nullable columns: push NULLs to end regardless of sort direction
+# SQLite doesn't support NULLS LAST natively; use CASE expression
+_NULLABLE_SORTS = {
+    "author_last_name",
+    "author_first_name",
+    "narrator_last_name",
+    "narrator_first_name",
+    "acquired_date",
+    "published_date",
+}
+
+# Name-based sorts: use COLLATE NOCASE for case-insensitive ordering
+# (handles "Le Carre" vs "le Carre", "Del Toro" vs "del Toro")
+# and add secondary sort by title for deterministic order within same name
+_NAME_SORTS = {
+    "author_last_name",
+    "author_first_name",
+    "narrator_last_name",
+    "narrator_first_name",
+}
+
+
+def _parse_query_params(req) -> dict:
+    """Extract and validate query parameters from the request.
+
+    Returns a dict with all parsed/validated parameters ready for use
+    by the query builder and sort clause builder.
+    """
+    page = max(1, int(req.args.get("page", 1)))
+    per_page = min(200, max(1, int(req.args.get("per_page", 50))))
+    sort_order = req.args.get("order", "asc").lower()
+    if sort_order not in ("asc", "desc"):
+        sort_order = "asc"
+
+    return {
+        "page": page,
+        "per_page": per_page,
+        "search": req.args.get("search", "").strip(),
+        "author": req.args.get("author", "").strip(),
+        "narrator": req.args.get("narrator", "").strip(),
+        "publisher": req.args.get("publisher", "").strip(),
+        "genre": req.args.get("genre", "").strip(),
+        "format_filter": req.args.get("format", "").strip(),
+        "collection": req.args.get("collection", "").strip(),
+        "sort_field": req.args.get("sort", "title"),
+        "sort_order": sort_order,
+    }
+
+
+def _build_sort_clause(sort_field: str, sort_order: str) -> tuple[str, str]:
+    """Generate ORDER BY clause components from sort field and order.
+
+    Returns (sort_sql, sort_order) where sort_order may be empty if
+    the direction is already embedded in sort_sql.
+    """
+    # Get SQL sort expression from allowlist
+    sort_sql = _SORT_MAPPINGS.get(sort_field, "title")
+
+    # Series: sort by series name (user's asc/desc), then sequence always ascending
+    if sort_field == "series":
+        return f"series COLLATE NOCASE {sort_order}, series_sequence ASC", ""
+
+    # After series handling, sort_sql is always str (default is "title")
+    assert sort_sql is not None
+
+    if sort_sql in _NULLABLE_SORTS:
+        if sort_sql in _NAME_SORTS:
+            # NULLS LAST + case-insensitive + secondary sort by title
+            return (
+                f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, "
+                f"{sort_sql} COLLATE NOCASE {sort_order}, "
+                f"title COLLATE NOCASE ASC"
+            ), ""
+        return f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, {sort_sql}", sort_order
+    elif sort_sql in _TEXT_SORTS:
+        # Case-insensitive sorting for text columns
+        return f"{sort_sql} COLLATE NOCASE", sort_order
+
+    return sort_sql, sort_order
+
+
+def _resolve_collection(collection: str | None) -> dict | None:
+    """Look up collection data from the collections registry."""
+    if not collection:
+        return None
+    db_path = str(current_app.config.get("DATABASE_PATH", ""))
+    collections = get_collections_lookup(db_path)
+    return collections.get(collection)
+
+
+# Table-driven filter specs: (param_key, sql_clause, param_transform)
+# param_transform: None means use value as-is, callable transforms the value
+_FILTER_SPECS: list[tuple[str, str, object]] = [
+    (
+        "search",
+        "id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)",
+        None,
+    ),
+    (
+        "author",
+        """id IN (
+                SELECT ba.book_id FROM book_authors ba
+                JOIN authors a ON a.id = ba.author_id
+                WHERE a.name = ?
+            )""",
+        None,
+    ),
+    (
+        "narrator",
+        """id IN (
+                SELECT bn.book_id FROM book_narrators bn
+                JOIN narrators n ON n.id = bn.narrator_id
+                WHERE n.name = ?
+            )""",
+        None,
+    ),
+    ("publisher", "publisher LIKE ?", lambda v: f"%{v}%"),
+    ("format_filter", "format = ?", lambda v: v.lower()),
+    (
+        "genre",
+        """id IN (
+                SELECT audiobook_id FROM audiobook_genres ag
+                JOIN genres g ON ag.genre_id = g.id
+                WHERE g.name LIKE ?
+            )""",
+        lambda v: f"%{v}%",
+    ),
+]
+
+
+def _apply_param_filters(params: dict) -> tuple[list[str], list]:
+    """Apply table-driven parameter filters to build WHERE clauses."""
+    where_clauses: list[str] = []
+    sql_params: list = []
+    for key, clause, transform in _FILTER_SPECS:
+        value = params.get(key)
+        if value:
+            where_clauses.append(clause)
+            sql_params.append(transform(value) if callable(transform) else value)
+    return where_clauses, sql_params
+
+
+def _build_filter_clauses(params: dict) -> tuple[list[str], list]:
+    """Generate WHERE conditions and query params from parsed filter values.
+
+    Handles collection lookup, content-type bypass, search, author/narrator/
+    publisher/genre/format filters, collection query injection, and
+    sort-specific filters (e.g., series-only).
+    """
+    collection_data = _resolve_collection(params.get("collection"))
+
+    bypasses = collection_data and collection_data.get("bypasses_filter", False)
+    where_clauses: list[str] = [] if bypasses else [AUDIOBOOK_FILTER]
+
+    param_clauses, sql_params = _apply_param_filters(params)
+    where_clauses.extend(param_clauses)
+
+    if collection_data:
+        where_clauses.append(f"({collection_data['query']})")
+
+    if params.get("sort_field") == "series":
+        where_clauses.append("series IS NOT NULL AND series != ''")
+
+    return where_clauses, sql_params
+
+
+def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
+    """Load genres, eras, topics, supplements, authors, and narrators in batch.
+
+    Returns a dict of maps keyed by metadata type, each mapping book_id
+    to its associated data.
+    """
+    placeholders = ",".join("?" * len(book_ids))
+
+    # Batch: genres for all books in one query
+    cursor.execute(
+        f"""
+        SELECT ag.audiobook_id, g.name FROM genres g
+        JOIN audiobook_genres ag ON g.id = ag.genre_id
+        WHERE ag.audiobook_id IN ({placeholders})
+        """,  # nosec B608
+        book_ids,
+    )
+    genres_map: dict[int, list[str]] = {}
+    for r in cursor.fetchall():
+        genres_map.setdefault(r["audiobook_id"], []).append(r["name"])
+
+    # Batch: eras for all books in one query
+    cursor.execute(
+        f"""
+        SELECT ae.audiobook_id, e.name FROM eras e
+        JOIN audiobook_eras ae ON e.id = ae.era_id
+        WHERE ae.audiobook_id IN ({placeholders})
+        """,  # nosec B608
+        book_ids,
+    )
+    eras_map: dict[int, list[str]] = {}
+    for r in cursor.fetchall():
+        eras_map.setdefault(r["audiobook_id"], []).append(r["name"])
+
+    # Batch: topics for all books in one query
+    cursor.execute(
+        f"""
+        SELECT at.audiobook_id, t.name FROM topics t
+        JOIN audiobook_topics at ON t.id = at.topic_id
+        WHERE at.audiobook_id IN ({placeholders})
+        """,  # nosec B608
+        book_ids,
+    )
+    topics_map: dict[int, list[str]] = {}
+    for r in cursor.fetchall():
+        topics_map.setdefault(r["audiobook_id"], []).append(r["name"])
+
+    # Batch: supplement counts in one query
+    cursor.execute(
+        f"""
+        SELECT audiobook_id, COUNT(*) as count FROM supplements
+        WHERE audiobook_id IN ({placeholders})
+        GROUP BY audiobook_id
+        """,  # nosec B608
+        book_ids,
+    )
+    supplements_map = {r["audiobook_id"]: r["count"] for r in cursor.fetchall()}
+
+    # Batch: authors for all books in one query (normalized many-to-many)
+    authors_map: dict[int, list[dict]] = {}
+    try:
+        cursor.execute(
+            f"""
+            SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position
+            FROM book_authors ba
+            JOIN authors a ON ba.author_id = a.id
+            WHERE ba.book_id IN ({placeholders})
+            ORDER BY ba.position
+            """,  # nosec B608
+            book_ids,
+        )
+        for r in cursor.fetchall():
+            authors_map.setdefault(r["book_id"], []).append(
+                {
+                    "id": r["id"],
+                    "name": r["name"],
+                    "sort_name": r["sort_name"],
+                    "position": r["position"],
+                }
+            )
+    except Exception:
+        # Tables may not exist yet (pre-migration)
+        pass
+
+    # Batch: narrators for all books in one query (normalized many-to-many)
+    narrators_map: dict[int, list[dict]] = {}
+    try:
+        cursor.execute(
+            f"""
+            SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position
+            FROM book_narrators bn
+            JOIN narrators n ON bn.narrator_id = n.id
+            WHERE bn.book_id IN ({placeholders})
+            ORDER BY bn.position
+            """,  # nosec B608
+            book_ids,
+        )
+        for r in cursor.fetchall():
+            narrators_map.setdefault(r["book_id"], []).append(
+                {
+                    "id": r["id"],
+                    "name": r["name"],
+                    "sort_name": r["sort_name"],
+                    "position": r["position"],
+                }
+            )
+    except Exception:
+        # Tables may not exist yet (pre-migration)
+        pass
+
+    return {
+        "genres": genres_map,
+        "eras": eras_map,
+        "topics": topics_map,
+        "supplements": supplements_map,
+        "authors": authors_map,
+        "narrators": narrators_map,
+    }
+
+
+def _fetch_titles_by_author(cursor, audiobooks: list[dict]) -> dict[str, list[str]]:
+    """Query all titles grouped by author for edition detection."""
+    authors = list({book["author"] for book in audiobooks if book["author"]})
+    if not authors:
+        return {}
+    author_placeholders = ",".join("?" * len(authors))
+    cursor.execute(
+        f"""
+        SELECT author, title FROM audiobooks
+        WHERE author IN ({author_placeholders})
+        """,  # nosec B608
+        authors,
+    )
+    result: dict[str, list[str]] = {}
+    for r in cursor.fetchall():
+        result.setdefault(r["author"], []).append(r["title"])
+    return result
+
+
+def _count_edition(book_title: str, related_titles: list[str]) -> int:
+    """Count editions for a single book based on normalized title matching."""
+    base_title = normalize_base_title(book_title)
+    matching = [t for t in related_titles if normalize_base_title(t) == base_title]
+    if len(matching) > 1 and any(has_edition_marker(t) for t in matching):
+        return len(matching)
+    return 1
+
+
+def _detect_editions(cursor, audiobooks: list[dict]) -> None:
+    """Detect edition counts for a list of audiobooks.
+
+    Modifies books in-place by adding the 'edition_count' key.
+    """
+    titles_by_author = _fetch_titles_by_author(cursor, audiobooks)
+    for book in audiobooks:
+        related = titles_by_author.get(book["author"], [])
+        book["edition_count"] = _count_edition(book["title"], related)
+
+
 @audiobooks_bp.route("/api/audiobooks", methods=["GET"])
 @guest_allowed
 def get_audiobooks() -> Response:
@@ -157,167 +508,16 @@ def get_audiobooks() -> Response:
     - sort: Sort field (title, author, duration_hours, created_at)
     - order: Sort order (asc, desc)
     """
-    # Parse parameters
-    page = max(1, int(request.args.get("page", 1)))
-    per_page = min(200, max(1, int(request.args.get("per_page", 50))))
-    search = request.args.get("search", "").strip()
-    author = request.args.get("author", "").strip()
-    narrator = request.args.get("narrator", "").strip()
-    publisher = request.args.get("publisher", "").strip()
-    genre = request.args.get("genre", "").strip()
-    format_filter = request.args.get("format", "").strip()
-    collection = request.args.get("collection", "").strip()
-    sort_field = request.args.get("sort", "title")
-    sort_order = request.args.get("order", "asc").lower()
-
-    # Map user-friendly sort names to SQL column names.
-    # Text columns get COLLATE NOCASE applied in the ORDER BY clause below.
-    sort_mappings = {
-        "title": "title",
-        "author": "author",
-        "author_last": "author_last_name",
-        "author_first": "author_first_name",
-        "narrator": "narrator",
-        "narrator_last": "narrator_last_name",
-        "narrator_first": "narrator_first_name",
-        "duration_hours": "duration_hours",
-        "created_at": "created_at",
-        "acquired_date": "acquired_date",
-        "published_year": "published_year",
-        "published_date": "published_date",
-        "file_size_mb": "file_size_mb",
-        "series": None,  # Special handling below
-        "asin": "asin",
-        "edition": "edition",
-    }
-
-    # Text columns that need case-insensitive sorting
-    _text_sorts = {"title", "author", "narrator", "asin", "edition"}
-
-    # Get SQL sort expression
-    if sort_field in sort_mappings:
-        sort_sql = sort_mappings[sort_field]
-    else:
-        sort_sql = "title"
-
-    # Validate sort order
-    if sort_order not in ["asc", "desc"]:
-        sort_order = "asc"
-
-    # Nullable columns: push NULLs to end regardless of sort direction
-    # SQLite doesn't support NULLS LAST natively; use CASE expression
-    _nullable_sorts = {
-        "author_last_name",
-        "author_first_name",
-        "narrator_last_name",
-        "narrator_first_name",
-        "acquired_date",
-        "published_date",
-    }
-
-    # Name-based sorts: use COLLATE NOCASE for case-insensitive ordering
-    # (handles "Le Carré" vs "le Carré", "Del Toro" vs "del Toro")
-    # and add secondary sort by title for deterministic order within same name
-    _name_sorts = {
-        "author_last_name",
-        "author_first_name",
-        "narrator_last_name",
-        "narrator_first_name",
-    }
-
-    if sort_sql in _nullable_sorts:
-        if sort_sql in _name_sorts:
-            # NULLS LAST + case-insensitive + secondary sort by title
-            sort_sql = (
-                f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, "
-                f"{sort_sql} COLLATE NOCASE {sort_order}, "
-                f"title COLLATE NOCASE ASC"
-            )
-            sort_order = ""  # Already embedded
-        else:
-            sort_sql = f"CASE WHEN {sort_sql} IS NULL THEN 1 ELSE 0 END, {sort_sql}"
-    elif sort_sql in _text_sorts:
-        # Case-insensitive sorting for text columns
-        sort_sql = f"{sort_sql} COLLATE NOCASE"
-
-    # Series: sort by series name (user's asc/desc), then sequence always ascending
-    # sort_sql=None signals that ORDER BY is fully specified here
-    if sort_field == "series":
-        sort_sql = f"series COLLATE NOCASE {sort_order}, series_sequence ASC"
-        sort_order = ""  # Already embedded in sort_sql
-
-    # Sort-specific filters: hide irrelevant books for series/edition views
-    sort_filter_clause = ""
-    if sort_field == "series":
-        sort_filter_clause = "series IS NOT NULL AND series != ''"
-    elif sort_field == "edition":
-        # Edition filtering happens post-query (edition_count is computed in Python)
-        pass
-
-    conn = _get_audiobooks_db()
-    cursor = conn.cursor()
-
-    # Build query - filter to audiobooks only unless collection bypasses it
-    # Collections like "Podcasts" set bypasses_filter=True to show non-audiobook content
-    db_path = str(current_app.config.get("DATABASE_PATH", ""))
-    collections = get_collections_lookup(db_path) if collection else {}
-    collection_data = collections.get(collection) if collection else None
-    bypasses = collection_data and collection_data.get("bypasses_filter", False)
-
-    where_clauses = [] if bypasses else [AUDIOBOOK_FILTER]
-    params = []
-
-    if search:
-        # Full-text search
-        where_clauses.append(
-            "id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)"
-        )
-        params.append(search)
-
-    if author:
-        where_clauses.append("""id IN (
-                SELECT ba.book_id FROM book_authors ba
-                JOIN authors a ON a.id = ba.author_id
-                WHERE a.name = ?
-            )""")
-        params.append(author)
-
-    if narrator:
-        where_clauses.append("""id IN (
-                SELECT bn.book_id FROM book_narrators bn
-                JOIN narrators n ON n.id = bn.narrator_id
-                WHERE n.name = ?
-            )""")
-        params.append(narrator)
-
-    if publisher:
-        where_clauses.append("publisher LIKE ?")
-        params.append(f"%{publisher}%")
-
-    if format_filter:
-        where_clauses.append("format = ?")
-        params.append(format_filter.lower())
-
-    if genre:
-        where_clauses.append("""
-            id IN (
-                SELECT audiobook_id FROM audiobook_genres ag
-                JOIN genres g ON ag.genre_id = g.id
-                WHERE g.name LIKE ?
-            )
-        """)
-        params.append(f"%{genre}%")
-
-    # Collection filter (predefined query from COLLECTIONS)
-    if collection_data:
-        where_clauses.append(f"({collection_data['query']})")
-
-    if sort_filter_clause:
-        where_clauses.append(sort_filter_clause)
+    qp = _parse_query_params(request)
+    sort_sql, sort_order = _build_sort_clause(qp["sort_field"], qp["sort_order"])
+    where_clauses, params = _build_filter_clauses(qp)
 
     where_sql = ""
     if where_clauses:
         where_sql = "WHERE " + " AND ".join(where_clauses)
+
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
 
     # Count total matching audiobooks
     count_query = f"SELECT COUNT(*) as total FROM audiobooks {where_sql}"  # nosec B608
@@ -325,9 +525,11 @@ def get_audiobooks() -> Response:
     total_count = cursor.fetchone()["total"]
 
     # Get paginated audiobooks
+    page = qp["page"]
+    per_page = qp["per_page"]
     offset = (page - 1) * per_page
 
-    # CodeQL: sort_sql from allowlist (lines 148-165), sort_order validated (174)
+    # CodeQL: sort_sql from allowlist (_SORT_MAPPINGS), sort_order validated
     query = f"""
         SELECT
             id, title, author, narrator, publisher, series,
@@ -354,150 +556,26 @@ def get_audiobooks() -> Response:
         book_ids.append(book["id"])
 
     if book_ids:
-        placeholders = ",".join("?" * len(book_ids))
-
-        # Batch: genres for all books in one query
-        cursor.execute(
-            f"""
-            SELECT ag.audiobook_id, g.name FROM genres g
-            JOIN audiobook_genres ag ON g.id = ag.genre_id
-            WHERE ag.audiobook_id IN ({placeholders})
-            """,  # nosec B608
-            book_ids,
-        )
-        genres_map: dict[int, list[str]] = {}
-        for r in cursor.fetchall():
-            genres_map.setdefault(r["audiobook_id"], []).append(r["name"])
-
-        # Batch: eras for all books in one query
-        cursor.execute(
-            f"""
-            SELECT ae.audiobook_id, e.name FROM eras e
-            JOIN audiobook_eras ae ON e.id = ae.era_id
-            WHERE ae.audiobook_id IN ({placeholders})
-            """,  # nosec B608
-            book_ids,
-        )
-        eras_map: dict[int, list[str]] = {}
-        for r in cursor.fetchall():
-            eras_map.setdefault(r["audiobook_id"], []).append(r["name"])
-
-        # Batch: topics for all books in one query
-        cursor.execute(
-            f"""
-            SELECT at.audiobook_id, t.name FROM topics t
-            JOIN audiobook_topics at ON t.id = at.topic_id
-            WHERE at.audiobook_id IN ({placeholders})
-            """,  # nosec B608
-            book_ids,
-        )
-        topics_map: dict[int, list[str]] = {}
-        for r in cursor.fetchall():
-            topics_map.setdefault(r["audiobook_id"], []).append(r["name"])
-
-        # Batch: supplement counts in one query
-        cursor.execute(
-            f"""
-            SELECT audiobook_id, COUNT(*) as count FROM supplements
-            WHERE audiobook_id IN ({placeholders})
-            GROUP BY audiobook_id
-            """,  # nosec B608
-            book_ids,
-        )
-        supplements_map = {r["audiobook_id"]: r["count"] for r in cursor.fetchall()}
-
-        # Batch: authors for all books in one query (normalized many-to-many)
-        authors_map: dict[int, list[dict]] = {}
-        try:
-            cursor.execute(
-                f"""
-                SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position
-                FROM book_authors ba
-                JOIN authors a ON ba.author_id = a.id
-                WHERE ba.book_id IN ({placeholders})
-                ORDER BY ba.position
-                """,  # nosec B608
-                book_ids,
-            )
-            for r in cursor.fetchall():
-                authors_map.setdefault(r["book_id"], []).append(
-                    {
-                        "id": r["id"],
-                        "name": r["name"],
-                        "sort_name": r["sort_name"],
-                        "position": r["position"],
-                    }
-                )
-        except Exception:
-            # Tables may not exist yet (pre-migration)
-            pass
-
-        # Batch: narrators for all books in one query (normalized many-to-many)
-        narrators_map: dict[int, list[dict]] = {}
-        try:
-            cursor.execute(
-                f"""
-                SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position
-                FROM book_narrators bn
-                JOIN narrators n ON bn.narrator_id = n.id
-                WHERE bn.book_id IN ({placeholders})
-                ORDER BY bn.position
-                """,  # nosec B608
-                book_ids,
-            )
-            for r in cursor.fetchall():
-                narrators_map.setdefault(r["book_id"], []).append(
-                    {
-                        "id": r["id"],
-                        "name": r["name"],
-                        "sort_name": r["sort_name"],
-                        "position": r["position"],
-                    }
-                )
-        except Exception:
-            # Tables may not exist yet (pre-migration)
-            pass
-
-        # Batch: edition detection — get all titles by the same authors
-        authors = list({book["author"] for book in audiobooks if book["author"]})
-        edition_titles_by_author: dict[str, list[str]] = {}
-        if authors:
-            author_placeholders = ",".join("?" * len(authors))
-            cursor.execute(
-                f"""
-                SELECT author, title FROM audiobooks
-                WHERE author IN ({author_placeholders})
-                """,  # nosec B608
-                authors,
-            )
-            for r in cursor.fetchall():
-                edition_titles_by_author.setdefault(r["author"], []).append(r["title"])
+        # Load all related metadata in batch queries
+        metadata = _batch_load_metadata(cursor, book_ids)
 
         # Assign batch results to each book
         for book in audiobooks:
             bid = book["id"]
-            book["genres"] = genres_map.get(bid, [])
-            book["eras"] = eras_map.get(bid, [])
-            book["topics"] = topics_map.get(bid, [])
-            book["supplement_count"] = supplements_map.get(bid, 0)
-            book["authors"] = authors_map.get(bid, [])
-            book["narrators"] = narrators_map.get(bid, [])
+            book["genres"] = metadata["genres"].get(bid, [])
+            book["eras"] = metadata["eras"].get(bid, [])
+            book["topics"] = metadata["topics"].get(bid, [])
+            book["supplement_count"] = metadata["supplements"].get(bid, 0)
+            book["authors"] = metadata["authors"].get(bid, [])
+            book["narrators"] = metadata["narrators"].get(bid, [])
 
-            # Edition count from pre-fetched author titles
-            base_title = normalize_base_title(book["title"])
-            related_titles = edition_titles_by_author.get(book["author"], [])
-            matching_editions = [
-                t for t in related_titles if normalize_base_title(t) == base_title
-            ]
-            has_markers = any(has_edition_marker(title) for title in matching_editions)
-            if len(matching_editions) > 1 and has_markers:
-                book["edition_count"] = len(matching_editions)
-            else:
-                book["edition_count"] = 1
+        # Detect edition counts
+        _detect_editions(cursor, audiobooks)
 
     conn.close()
 
     # Edition sort: filter to only books with multiple editions
+    sort_field = qp["sort_field"]
     if sort_field == "edition":
         audiobooks = [b for b in audiobooks if b.get("edition_count", 1) > 1]
         total_count = len(audiobooks)
@@ -681,6 +759,63 @@ def serve_cover(filename: str) -> Response:
     return send_from_directory(COVER_DIR, filename)
 
 
+def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | None:
+    """Remux an Opus/Ogg file to WebM container. Returns error message or None."""
+    AUDIOBOOKS_WEBM_CACHE.mkdir(parents=True, exist_ok=True)
+    tmp_path = webm_path.with_suffix(".webm.tmp")
+    try:
+        result = subprocess.run(  # nosec B603
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(source),
+                "-c:a",
+                "copy",
+                "-f",
+                "webm",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr or b""
+            if isinstance(stderr, bytes):
+                safe_err = (
+                    stderr[:500].replace(b"\n", b" ").decode("utf-8", errors="replace")
+                )
+            else:
+                safe_err = str(stderr)[:500].replace("\n", " ")
+            logger.error("WebM remux failed for %d: %s", audiobook_id, safe_err)
+            tmp_path.unlink(missing_ok=True)
+            return "Format conversion failed"
+        tmp_path.rename(webm_path)
+        return None
+    except (subprocess.TimeoutExpired, OSError) as e:
+        safe_msg = str(e).replace("\n", " ")
+        logger.error("WebM remux error for %d: %s", audiobook_id, safe_msg)
+        tmp_path.unlink(missing_ok=True)
+        return "Format conversion failed"
+
+
+def _serve_webm(file_path: Path, audiobook_id: int) -> FlaskResponse:
+    """Serve an Opus file remuxed to WebM container for Safari/iOS."""
+    webm_path = AUDIOBOOKS_WEBM_CACHE / f"{audiobook_id}.webm"
+
+    cache_stale = (
+        not webm_path.exists() or webm_path.stat().st_mtime < file_path.stat().st_mtime
+    )
+    if cache_stale:
+        error = _remux_to_webm(file_path, webm_path, audiobook_id)
+        if error:
+            return jsonify({"error": error}), 500
+
+    return send_file(
+        webm_path, mimetype="audio/webm", as_attachment=False, conditional=True
+    )
+
+
 @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
 @auth_if_enabled
 def stream_audiobook(audiobook_id: int) -> FlaskResponse:
@@ -712,58 +847,7 @@ def stream_audiobook(audiobook_id: int) -> FlaskResponse:
 
     # Safari/iOS: remux Opus from Ogg to WebM container (codec copy, no quality loss)
     if requested_format == "webm" and file_format == "opus":
-        webm_path = AUDIOBOOKS_WEBM_CACHE / f"{audiobook_id}.webm"
-
-        if (
-            not webm_path.exists()
-            or webm_path.stat().st_mtime < file_path.stat().st_mtime
-        ):
-            AUDIOBOOKS_WEBM_CACHE.mkdir(parents=True, exist_ok=True)
-            tmp_path = webm_path.with_suffix(".webm.tmp")
-            try:
-                result = subprocess.run(  # nosec B603
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-i",
-                        str(file_path),
-                        "-c:a",
-                        "copy",
-                        "-f",
-                        "webm",
-                        str(tmp_path),
-                    ],
-                    capture_output=True,
-                    timeout=300,
-                )
-                if result.returncode != 0:
-                    # Sanitize subprocess output (CWE-117)
-                    stderr = result.stderr or ""
-                    safe_err = stderr[:500].replace("\n", " ")
-                    logger.error(
-                        "WebM remux failed for %d: %s",
-                        audiobook_id,
-                        safe_err,
-                    )
-                    tmp_path.unlink(missing_ok=True)
-                    return jsonify({"error": "Format conversion failed"}), 500
-                tmp_path.rename(webm_path)
-            except (subprocess.TimeoutExpired, OSError) as e:
-                safe_msg = str(e).replace("\n", " ")
-                logger.error(
-                    "WebM remux error for %d: %s",
-                    audiobook_id,
-                    safe_msg,
-                )
-                tmp_path.unlink(missing_ok=True)
-                return jsonify({"error": "Format conversion failed"}), 500
-
-        return send_file(
-            webm_path,
-            mimetype="audio/webm",
-            as_attachment=False,
-            conditional=True,
-        )
+        return _serve_webm(file_path, audiobook_id)
 
     # Default: serve the original file
     mime_types = {
