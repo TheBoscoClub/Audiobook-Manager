@@ -226,6 +226,7 @@ def _user_dict(user, include_auth_type: bool = False) -> dict:
         "email": user.recovery_email,
         "is_admin": user.is_admin,
         "can_download": user.can_download,
+        "multi_session": user.multi_session,
     }
     if include_auth_type:
         d["auth_type"] = user.auth_type.value
@@ -2992,7 +2993,12 @@ def verify_magic_link():
     remember_me = data.get("remember_me", True)
     allow_multi = _user_allows_multi_session(user, db)
     session, raw_token = Session.create_for_user(
-        db, user.id, user_agent, ip_address, remember_me=remember_me, allow_multi=allow_multi
+        db,
+        user.id,
+        user_agent,
+        ip_address,
+        remember_me=remember_me,
+        allow_multi=allow_multi,
     )
 
     # Update last login
@@ -5240,6 +5246,11 @@ def _apply_role_changes(
         user_repo.set_admin(user_id, bool(data["is_admin"]))
     if "can_download" in data:
         user_repo.set_download_permission(user_id, bool(data["can_download"]))
+    if "multi_session" in data:
+        value = data["multi_session"]
+        if value not in ("default", "yes", "no"):
+            return {"error": "multi_session must be 'default', 'yes', or 'no'"}, 400
+        user_repo.set_multi_session(user_id, value)
     return None
 
 
@@ -5256,8 +5267,14 @@ def admin_change_roles(user_id: int):
 
     data = request.get_json() or {}
 
-    if "is_admin" not in data and "can_download" not in data:
-        return jsonify({"error": "Provide is_admin and/or can_download"}), 400
+    if (
+        "is_admin" not in data
+        and "can_download" not in data
+        and "multi_session" not in data
+    ):
+        return jsonify(
+            {"error": "Provide is_admin, can_download, and/or multi_session"}
+        ), 400
 
     db = get_auth_db()
     user_repo = UserRepository(db)
