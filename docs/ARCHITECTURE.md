@@ -361,7 +361,7 @@ library/auth/
 ├── cli.py            # Admin CLI tool (audiobook-user)
 ├── inbox_cli.py      # Admin inbox management CLI
 ├── notify_cli.py     # Notification management CLI
-└── schema.sql        # Auth database schema (19 tables, v9)
+└── schema.sql        # Auth database schema (20 tables, v9)
 ```
 
 ### Authentication Flow
