@@ -267,9 +267,7 @@ class TestAdminResetPasskeyCredentialsThenClaimThenLogin:
         assert resp.status_code == 200, f"Login failed: {resp.get_json()}"
         assert resp.get_json()["success"] is True
 
-    def test_reset_totp_after_claim_then_login(
-        self, admin_client, auth_app, auth_db
-    ):
+    def test_reset_totp_after_claim_then_login(self, admin_client, auth_app, auth_db):
         """
         Create passkey user → claim TOTP (now auth_type=TOTP) →
         admin resets → new TOTP secret returned directly → login.

@@ -62,9 +62,7 @@ class TestAdminResetThenClaimTOTP:
     def test_reset_totp_then_claim_totp(self, admin_client):
         """Admin resets TOTP credentials; user claims new TOTP secret."""
         # Step 1: Create a TOTP user
-        uid, create_data = _create_user_via_admin(
-            admin_client, "reset-claim-totp1"
-        )
+        uid, create_data = _create_user_via_admin(admin_client, "reset-claim-totp1")
         old_secret = create_data["setup_data"]["secret"]
 
         # Step 2: Admin resets credentials
@@ -349,9 +347,9 @@ class TestClaimURLFormat:
         )
         reset_data = _reset_credentials(admin_client, uid)
         token = reset_data["setup_data"]["claim_token"]
-        assert re.match(
-            r"^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){3}$", token
-        ), f"Token format invalid: {token}"
+        assert re.match(r"^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){3}$", token), (
+            f"Token format invalid: {token}"
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────

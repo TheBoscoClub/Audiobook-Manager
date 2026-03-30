@@ -796,6 +796,10 @@ def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | No
                 )
             else:
                 safe_err = str(stderr)[:500].replace("\n", " ")
+            # Sanitize control chars to prevent log injection (CodeQL py/log-injection)
+            safe_err = "".join(
+                c if c.isprintable() or c == " " else "?" for c in safe_err
+            )
             logger.error("WebM remux failed for %d: %s", audiobook_id, safe_err)
             tmp_path.unlink(missing_ok=True)
             return "Format conversion failed"
@@ -803,6 +807,8 @@ def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | No
         return None
     except (subprocess.TimeoutExpired, OSError) as e:
         safe_msg = str(e).replace("\n", " ")
+        # Sanitize control chars to prevent log injection (CodeQL py/log-injection)
+        safe_msg = "".join(c if c.isprintable() or c == " " else "?" for c in safe_msg)
         logger.error("WebM remux error for %d: %s", audiobook_id, safe_msg)
         tmp_path.unlink(missing_ok=True)
         return "Format conversion failed"
