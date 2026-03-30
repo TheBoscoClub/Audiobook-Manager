@@ -430,7 +430,11 @@
   function saveBrowsingPref(key, value) {
     var body = {};
     body[key] = value;
-    api.patch('/api/user/preferences', body, { toast: false }).catch(function () {});
+    // Keep localStorage in sync so the main page sort restores correctly
+    if (key === 'sort_order') {
+      localStorage.setItem('audiobook_sort_order', value);
+    }
+    api.patch('/api/user/preferences', body, { toast: false, keepalive: true }).catch(function () {});
   }
 
   function loadPreferencesIntoModal() {

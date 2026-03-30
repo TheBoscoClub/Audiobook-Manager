@@ -113,6 +113,11 @@ const api = {
       fetchOpts.signal = opts.signal;
     }
 
+    // keepalive: ensures request completes even if page unloads (iframe navigation)
+    if (opts.keepalive) {
+      fetchOpts.keepalive = true;
+    }
+
     const response = await fetch(url, fetchOpts);
 
     // Return raw Response if requested (for blob downloads, etc.)
