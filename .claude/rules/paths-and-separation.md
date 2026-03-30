@@ -25,6 +25,7 @@
 ### Pre-commit Hook
 
 A pre-commit hook blocks commits containing hardcoded paths. If rejected:
+
 1. Replace the literal path with the appropriate variable
 2. If no variable exists, add one to `lib/audiobook-config.sh`
 3. Re-run your commit

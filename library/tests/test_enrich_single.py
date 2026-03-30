@@ -46,7 +46,7 @@ def _init_db(db_path: Path) -> None:
     conn.close()
 
 
-def _insert_book(db_path: Path, **overrides) -> int:
+def _insert_book(db_path: Path, **overrides) -> int | None:
     """Insert a test audiobook and return its ID."""
     defaults = {
         "title": "Test Book",
@@ -75,7 +75,7 @@ def _insert_book(db_path: Path, **overrides) -> int:
     return book_id
 
 
-def _insert_author(db_path: Path, name: str, asin: str | None = None) -> int:
+def _insert_author(db_path: Path, name: str, asin: str | None = None) -> int | None:
     """Insert an author row and return its ID."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()

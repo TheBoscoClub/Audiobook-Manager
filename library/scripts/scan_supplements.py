@@ -128,8 +128,17 @@ def _match_audiobook(cursor, clean_name):
     return match if match else None
 
 
-def _upsert_supplement(cursor, path_str, existing_paths, audiobook_id,
-                       file_size, supplement_type, filename, match, verbose):
+def _upsert_supplement(
+    cursor,
+    path_str,
+    existing_paths,
+    audiobook_id,
+    file_size,
+    supplement_type,
+    filename,
+    match,
+    verbose,
+):
     """Insert or update a single supplement record. Returns ('added'|'updated')."""
     if path_str in existing_paths:
         cursor.execute(
@@ -191,8 +200,15 @@ def scan_supplements(supplements_dir: Path, verbose: bool = True):
         audiobook_id = match["id"] if match else None
 
         result = _upsert_supplement(
-            cursor, str(file_path), existing_paths, audiobook_id,
-            file_size, supplement_type, file_path.name, match, verbose,
+            cursor,
+            str(file_path),
+            existing_paths,
+            audiobook_id,
+            file_size,
+            supplement_type,
+            file_path.name,
+            match,
+            verbose,
         )
         if result == "added":
             added += 1

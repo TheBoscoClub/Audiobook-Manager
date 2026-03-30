@@ -198,22 +198,53 @@ def _populate_names_and_junctions(cursor):
 # ---------- Enrichment preservation helpers ----------
 
 # Whitelist of valid enrichment columns to prevent SQL injection
-_ENRICHMENT_COLUMNS = frozenset({
-    "series", "series_sequence", "subtitle", "language", "format_type",
-    "runtime_length_min", "release_date", "publisher_summary",
-    "rating_overall", "rating_performance", "rating_story",
-    "num_ratings", "num_reviews", "audible_image_url", "sample_url",
-    "audible_sku", "is_adult_product", "merchandising_summary",
-    "audible_enriched_at", "isbn_enriched_at", "content_type",
-})
+_ENRICHMENT_COLUMNS = frozenset(
+    {
+        "series",
+        "series_sequence",
+        "subtitle",
+        "language",
+        "format_type",
+        "runtime_length_min",
+        "release_date",
+        "publisher_summary",
+        "rating_overall",
+        "rating_performance",
+        "rating_story",
+        "num_ratings",
+        "num_reviews",
+        "audible_image_url",
+        "sample_url",
+        "audible_sku",
+        "is_adult_product",
+        "merchandising_summary",
+        "audible_enriched_at",
+        "isbn_enriched_at",
+        "content_type",
+    }
+)
 
 _ENRICHMENT_FIELDS = [
-    "series", "series_sequence", "subtitle", "language",
-    "format_type", "runtime_length_min", "release_date",
-    "publisher_summary", "rating_overall", "rating_performance",
-    "rating_story", "num_ratings", "num_reviews", "audible_image_url",
-    "sample_url", "audible_sku", "is_adult_product",
-    "merchandising_summary", "audible_enriched_at", "isbn_enriched_at",
+    "series",
+    "series_sequence",
+    "subtitle",
+    "language",
+    "format_type",
+    "runtime_length_min",
+    "release_date",
+    "publisher_summary",
+    "rating_overall",
+    "rating_performance",
+    "rating_story",
+    "num_ratings",
+    "num_reviews",
+    "audible_image_url",
+    "sample_url",
+    "audible_sku",
+    "is_adult_product",
+    "merchandising_summary",
+    "audible_enriched_at",
+    "isbn_enriched_at",
     "content_type",
 ]
 
@@ -290,13 +321,15 @@ def _preserve_categories(cursor):
         fp = row[0]
         if fp not in preserved:
             preserved[fp] = []
-        preserved[fp].append({
-            "category_path": row[1],
-            "category_name": row[2],
-            "root_category": row[3],
-            "depth": row[4],
-            "audible_category_id": row[5],
-        })
+        preserved[fp].append(
+            {
+                "category_path": row[1],
+                "category_name": row[2],
+                "root_category": row[3],
+                "depth": row[4],
+                "audible_category_id": row[5],
+            }
+        )
     print(f"  Preserved categories for {len(preserved)} audiobooks")
     return preserved
 
@@ -363,7 +396,9 @@ def _restore_reviews(cursor, audiobook_id, revs):
         )
 
 
-def _insert_taxonomy_items(cursor, audiobook_id, items, entity_map, table, junction_table):
+def _insert_taxonomy_items(
+    cursor, audiobook_id, items, entity_map, table, junction_table
+):
     """Insert genre/era/topic items and junction rows.
 
     Args:
@@ -387,10 +422,19 @@ def _insert_taxonomy_items(cursor, audiobook_id, items, entity_map, table, junct
 
 
 _CLEAR_TABLES = [
-    "audiobook_topics", "audiobook_eras", "audiobook_genres",
-    "audible_categories", "editorial_reviews", "book_authors",
-    "book_narrators", "audiobooks", "topics", "eras", "genres",
-    "authors", "narrators",
+    "audiobook_topics",
+    "audiobook_eras",
+    "audiobook_genres",
+    "audible_categories",
+    "editorial_reviews",
+    "book_authors",
+    "book_narrators",
+    "audiobooks",
+    "topics",
+    "eras",
+    "genres",
+    "authors",
+    "narrators",
 ]
 
 
@@ -445,14 +489,24 @@ def import_audiobooks(conn):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
-                book.get("title"), book.get("author"), narrator,
-                book.get("publisher"), book.get("series"),
-                book.get("duration_hours"), book.get("duration_formatted"),
-                book.get("file_size_mb"), file_path, book.get("cover_path"),
-                book.get("format"), book.get("quality"),
-                book.get("description", ""), book.get("sha256_hash"),
-                book.get("hash_verified_at"), book.get("asin"),
-                book.get("published_year"), book.get("published_date"),
+                book.get("title"),
+                book.get("author"),
+                narrator,
+                book.get("publisher"),
+                book.get("series"),
+                book.get("duration_hours"),
+                book.get("duration_formatted"),
+                book.get("file_size_mb"),
+                file_path,
+                book.get("cover_path"),
+                book.get("format"),
+                book.get("quality"),
+                book.get("description", ""),
+                book.get("sha256_hash"),
+                book.get("hash_verified_at"),
+                book.get("asin"),
+                book.get("published_year"),
+                book.get("published_date"),
                 book.get("acquired_date"),
             ),
         )
@@ -472,7 +526,9 @@ def import_audiobooks(conn):
             )
 
         # Restore Audible categories and editorial reviews
-        _restore_categories(cursor, audiobook_id, preserved_categories.get(file_path, []))
+        _restore_categories(
+            cursor, audiobook_id, preserved_categories.get(file_path, [])
+        )
         _restore_reviews(cursor, audiobook_id, preserved_reviews.get(file_path, []))
 
         # Handle genres, eras, topics
@@ -481,18 +537,34 @@ def import_audiobooks(conn):
             cursor, audiobook_id, genre_list, genres_map, "genres", "audiobook_genres"
         )
         _insert_taxonomy_items(
-            cursor, audiobook_id, book.get("eras", []), eras_map, "eras", "audiobook_eras"
+            cursor,
+            audiobook_id,
+            book.get("eras", []),
+            eras_map,
+            "eras",
+            "audiobook_eras",
         )
         _insert_taxonomy_items(
-            cursor, audiobook_id, book.get("topics", []), topics_map, "topics", "audiobook_topics"
+            cursor,
+            audiobook_id,
+            book.get("topics", []),
+            topics_map,
+            "topics",
+            "audiobook_topics",
         )
 
     conn.commit()
 
     _print_import_stats(
-        audiobooks, preserved_narrators, preserved_genres,
-        preserved_enrichment, preserved_categories, preserved_reviews,
-        genres_map, eras_map, topics_map,
+        audiobooks,
+        preserved_narrators,
+        preserved_genres,
+        preserved_enrichment,
+        preserved_categories,
+        preserved_reviews,
+        genres_map,
+        eras_map,
+        topics_map,
     )
 
     # Populate name-split columns and rebuild junction tables
@@ -513,9 +585,15 @@ def import_audiobooks(conn):
 
 
 def _print_import_stats(
-    audiobooks, preserved_narrators, preserved_genres,
-    preserved_enrichment, preserved_categories, preserved_reviews,
-    genres_map, eras_map, topics_map,
+    audiobooks,
+    preserved_narrators,
+    preserved_genres,
+    preserved_enrichment,
+    preserved_categories,
+    preserved_reviews,
+    genres_map,
+    eras_map,
+    topics_map,
 ):
     """Print import summary statistics."""
     print(f"\n✓ Imported {len(audiobooks)} audiobooks")

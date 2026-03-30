@@ -123,8 +123,9 @@ def _build_activity_filters(user_id, audiobook_id, from_date, to_date):
     return listen_w, listen_p, download_w, download_p
 
 
-def _build_union_sql(type_filter, listen_wheres, listen_params,
-                     download_wheres, download_params):
+def _build_union_sql(
+    type_filter, listen_wheres, listen_params, download_wheres, download_params
+):
     """Build the UNION ALL SQL and combined params.
 
     Returns (union_sql, all_params).

@@ -146,12 +146,18 @@ def extract_series_sequence(series, title):
 
     # Try Roman numerals
     roman_numerals = {
-        "i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5,
-        "vi": 6, "vii": 7, "viii": 8, "ix": 9, "x": 10,
+        "i": 1,
+        "ii": 2,
+        "iii": 3,
+        "iv": 4,
+        "v": 5,
+        "vi": 6,
+        "vii": 7,
+        "viii": 8,
+        "ix": 9,
+        "x": 10,
     }
-    match = re.search(
-        r"book\s+(i{1,3}|iv|v|vi{0,3}|ix|x)(?:\s|$|:)", text
-    )
+    match = re.search(r"book\s+(i{1,3}|iv|v|vi{0,3}|ix|x)(?:\s|$|:)", text)
     if match:
         roman = match.group(1).lower()
         return float(roman_numerals.get(roman, 0)) or None
@@ -330,8 +336,13 @@ def populate_sort_fields(dry_run=True):
     print(f"Processing {len(audiobooks)} audiobooks...")
     print()
 
-    totals = {"author_names": 0, "narrator_names": 0, "series_seq": 0,
-              "edition": 0, "acquired": 0}
+    totals = {
+        "author_names": 0,
+        "narrator_names": 0,
+        "series_seq": 0,
+        "edition": 0,
+        "acquired": 0,
+    }
     sample_updates = []
 
     for book in audiobooks:

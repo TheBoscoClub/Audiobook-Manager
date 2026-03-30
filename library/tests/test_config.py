@@ -188,7 +188,7 @@ class TestNoHardcodedPaths:
             return True
         # Multi-line environ.get(): path on continuation line
         ctx_start = max(0, line_num - 4)
-        prior = " ".join(lines[ctx_start: line_num - 1])
+        prior = " ".join(lines[ctx_start : line_num - 1])
         return "environ.get(" in prior
 
     @staticmethod

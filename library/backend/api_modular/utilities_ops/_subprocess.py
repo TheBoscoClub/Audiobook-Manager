@@ -17,8 +17,9 @@ import subprocess
 import time
 
 
-def _make_result(success, output_lines, stderr="", returncode=None,
-                 timed_out=False, error=None):
+def _make_result(
+    success, output_lines, stderr="", returncode=None, timed_out=False, error=None
+):
     """Build a standard result dict."""
     output = "\n".join(output_lines)
     return {
@@ -58,8 +59,9 @@ def _flush_buffer(buffer, output_lines, line_callback):
         line_callback(buffer)
 
 
-def _read_stdout_loop(process, fd, timeout_secs, operation_name,
-                      line_callback, output_lines):
+def _read_stdout_loop(
+    process, fd, timeout_secs, operation_name, line_callback, output_lines
+):
     """Main read loop for subprocess stdout.
 
     Returns a result dict if terminated early (timeout), or None on normal EOF.
@@ -72,7 +74,9 @@ def _read_stdout_loop(process, fd, timeout_secs, operation_name,
         if elapsed > timeout_secs:
             process.kill()
             return _make_result(
-                False, output_lines, timed_out=True,
+                False,
+                output_lines,
+                timed_out=True,
                 error=f"{operation_name} timed out after {int(elapsed // 60)} minutes",
             )
 
@@ -136,8 +140,12 @@ def run_with_progress(
 
     try:
         early_result = _read_stdout_loop(
-            process, fd, timeout_secs, operation_name,
-            line_callback, output_lines,
+            process,
+            fd,
+            timeout_secs,
+            operation_name,
+            line_callback,
+            output_lines,
         )
         if early_result is not None:
             return early_result
@@ -158,6 +166,8 @@ def run_with_progress(
     except subprocess.TimeoutExpired:
         process.kill()
         return _make_result(
-            False, output_lines, timed_out=True,
+            False,
+            output_lines,
+            timed_out=True,
             error=f"{operation_name} process did not exit cleanly",
         )

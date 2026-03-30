@@ -349,7 +349,9 @@ def _parse_publication_date(raw_date: str) -> tuple[int | None, str | None]:
     return published_year, published_date
 
 
-def _compute_hash(filepath: Path, calculate_hash: bool) -> tuple[str | None, str | None]:
+def _compute_hash(
+    filepath: Path, calculate_hash: bool
+) -> tuple[str | None, str | None]:
     """Calculate SHA-256 hash if requested. Returns (hash, verified_at)."""
     if not calculate_hash:
         return None, None
@@ -451,9 +453,7 @@ def get_file_metadata(
 
 def _cover_path_for_file(filepath: Path, output_dir: Path) -> Path:
     """Generate the deterministic cover art path for an audio file."""
-    file_hash = hashlib.md5(
-        str(filepath).encode(), usedforsecurity=False
-    ).hexdigest()
+    file_hash = hashlib.md5(str(filepath).encode(), usedforsecurity=False).hexdigest()
     return output_dir / f"{file_hash}.jpg"
 
 
@@ -462,8 +462,15 @@ def _extract_embedded_cover(
 ) -> str | None:
     """Try extracting embedded cover art via ffmpeg. Returns filename or None."""
     cmd = [
-        "ffmpeg", "-v", "quiet", "-i", str(filepath),
-        "-an", "-vcodec", "copy", str(cover_path),
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-i",
+        str(filepath),
+        "-an",
+        "-vcodec",
+        "copy",
+        str(cover_path),
     ]
     result = subprocess.run(cmd, capture_output=True, timeout=timeout)
     if result.returncode == 0 and cover_path.exists():
@@ -501,6 +508,7 @@ def _resolve_external_cover(
         return None
     try:
         from utils.cover_resolver import resolve_cover
+
         return resolve_cover(
             title=metadata["title"],
             author=metadata.get("author"),

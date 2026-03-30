@@ -349,8 +349,11 @@ def _extract_product_fields(product: dict) -> dict:
 
 
 def _build_update_params(
-    fields: dict, rating_data: dict, image_url: str | None,
-    series_name: str, series_seq: float | None,
+    fields: dict,
+    rating_data: dict,
+    image_url: str | None,
+    series_name: str,
+    series_seq: float | None,
     has_existing_series: bool,
 ) -> tuple[list[str], list]:
     """Build SQL update clauses and params from extracted data."""
@@ -381,8 +384,9 @@ def _build_update_params(
     return updates, params
 
 
-def _log_dry_run(product: dict, rating_data: dict, categories: list,
-                 series_name: str, fields: dict) -> None:
+def _log_dry_run(
+    product: dict, rating_data: dict, categories: list, series_name: str, fields: dict
+) -> None:
     """Log a dry-run enrichment entry."""
     title = product.get("title", "?")
     info_parts = []
@@ -515,8 +519,9 @@ def _has_existing_series(cursor, book_id: int) -> bool:
     return bool(existing and existing[0] and existing[0] != "")
 
 
-def _execute_book_update(cursor, book_id: int, updates: list, params: list,
-                         now: str) -> bool:
+def _execute_book_update(
+    cursor, book_id: int, updates: list, params: list, now: str
+) -> bool:
     """Execute the main audiobooks table update.
 
     Returns True on success, False on DB error.
@@ -540,8 +545,12 @@ def _execute_book_update(cursor, book_id: int, updates: list, params: list,
 
 
 def _enrich_single_book(
-    cursor, book_id: int, product: dict, series_counter: dict,
-    now: str, dry_run: bool,
+    cursor,
+    book_id: int,
+    product: dict,
+    series_counter: dict,
+    now: str,
+    dry_run: bool,
 ) -> bool:
     """Enrich a single book from Audible product data.
 
@@ -560,8 +569,12 @@ def _enrich_single_book(
         return True
 
     updates, params = _build_update_params(
-        fields, rating_data, image_url,
-        series_name, series_seq, _has_existing_series(cursor, book_id),
+        fields,
+        rating_data,
+        image_url,
+        series_name,
+        series_seq,
+        _has_existing_series(cursor, book_id),
     )
 
     if not _execute_book_update(cursor, book_id, updates, params, now):
@@ -571,8 +584,14 @@ def _enrich_single_book(
     return True
 
 
-def _upsert_related_data(cursor, book_id: int, categories: list,
-                         reviews: list, authors: list, narrators: list) -> None:
+def _upsert_related_data(
+    cursor,
+    book_id: int,
+    categories: list,
+    reviews: list,
+    authors: list,
+    narrators: list,
+) -> None:
     """Upsert categories, reviews, authors, and narrators."""
     if categories:
         _upsert_categories(cursor, book_id, categories)
@@ -586,8 +605,9 @@ def _upsert_related_data(cursor, book_id: int, categories: list,
         _ensure_normalized_narrators(cursor, book_id, narrators)
 
 
-def _print_summary(books: list, enriched: int, errors: int,
-                   series_counter: dict, dry_run: bool) -> dict:
+def _print_summary(
+    books: list, enriched: int, errors: int, series_counter: dict, dry_run: bool
+) -> dict:
     """Print enrichment summary and return results dict."""
     results = {
         "total": len(books),
@@ -641,7 +661,12 @@ def enrich_from_audible(
 
     for book_id, product in products.items():
         success = _enrich_single_book(
-            cursor, book_id, product, series_counter, now, dry_run,
+            cursor,
+            book_id,
+            product,
+            series_counter,
+            now,
+            dry_run,
         )
         if success:
             enriched += 1

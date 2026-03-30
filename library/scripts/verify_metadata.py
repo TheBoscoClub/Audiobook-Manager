@@ -52,9 +52,16 @@ NARRATOR_MISMATCH_THRESHOLD = 0.75
 DURATION_TOLERANCE_PCT = 0.05
 DURATION_TOLERANCE_MIN = 2.0
 
-VALID_CONTENT_TYPES = frozenset({
-    "Product", "Performance", "Speech", "Podcast", "Lecture", "Radio/TV Program",
-})
+VALID_CONTENT_TYPES = frozenset(
+    {
+        "Product",
+        "Performance",
+        "Speech",
+        "Podcast",
+        "Lecture",
+        "Radio/TV Program",
+    }
+)
 
 
 def similarity(a: str | None, b: str | None) -> float:
@@ -201,18 +208,30 @@ def _check_title(book_id: int, book: dict, embedded_tags: dict) -> list[Metadata
         return []
 
     if book.get("audible_enriched_at"):
-        return [MetadataIssue(
-            book_id, "title", MetadataIssue.SEVERITY_INFO,
-            f"File title differs from DB (similarity {sim:.0%}). "
-            f"DB (Audible-enriched) is authoritative.",
-            db_value=book["title"], file_value=file_title, confidence=0.9,
-        )]
+        return [
+            MetadataIssue(
+                book_id,
+                "title",
+                MetadataIssue.SEVERITY_INFO,
+                f"File title differs from DB (similarity {sim:.0%}). "
+                f"DB (Audible-enriched) is authoritative.",
+                db_value=book["title"],
+                file_value=file_title,
+                confidence=0.9,
+            )
+        ]
 
-    return [MetadataIssue(
-        book_id, "title", MetadataIssue.SEVERITY_WARNING,
-        f"Title mismatch between file and DB (similarity {sim:.0%})",
-        db_value=book["title"], file_value=file_title, confidence=0.5,
-    )]
+    return [
+        MetadataIssue(
+            book_id,
+            "title",
+            MetadataIssue.SEVERITY_WARNING,
+            f"Title mismatch between file and DB (similarity {sim:.0%})",
+            db_value=book["title"],
+            file_value=file_title,
+            confidence=0.5,
+        )
+    ]
 
 
 def _check_author(book_id: int, book: dict, embedded_tags: dict) -> list[MetadataIssue]:
@@ -240,17 +259,24 @@ def _check_author(book_id: int, book: dict, embedded_tags: dict) -> list[Metadat
         severity = MetadataIssue.SEVERITY_CONFLICT
         confidence = 0.5
 
-    return [MetadataIssue(
-        book_id, "author", severity,
-        f"Author mismatch: file='{file_author}' vs DB='{book['author']}' "
-        f"(similarity {sim:.0%})",
-        db_value=book["author"], file_value=file_author,
-        recommended_value=recommended, confidence=confidence,
-    )]
+    return [
+        MetadataIssue(
+            book_id,
+            "author",
+            severity,
+            f"Author mismatch: file='{file_author}' vs DB='{book['author']}' "
+            f"(similarity {sim:.0%})",
+            db_value=book["author"],
+            file_value=file_author,
+            recommended_value=recommended,
+            confidence=confidence,
+        )
+    ]
 
 
-def _check_narrator(book_id: int, book: dict,
-                    embedded_tags: dict) -> list[MetadataIssue]:
+def _check_narrator(
+    book_id: int, book: dict, embedded_tags: dict
+) -> list[MetadataIssue]:
     """Check narrator consistency between file and DB."""
     if not book.get("narrator"):
         return []
@@ -263,16 +289,23 @@ def _check_narrator(book_id: int, book: dict,
     if sim >= NARRATOR_MISMATCH_THRESHOLD:
         return []
 
-    return [MetadataIssue(
-        book_id, "narrator", MetadataIssue.SEVERITY_WARNING,
-        f"Narrator mismatch: file='{file_narrator}' "
-        f"vs DB='{book['narrator']}' (similarity {sim:.0%})",
-        db_value=book["narrator"], file_value=file_narrator, confidence=0.6,
-    )]
+    return [
+        MetadataIssue(
+            book_id,
+            "narrator",
+            MetadataIssue.SEVERITY_WARNING,
+            f"Narrator mismatch: file='{file_narrator}' "
+            f"vs DB='{book['narrator']}' (similarity {sim:.0%})",
+            db_value=book["narrator"],
+            file_value=file_narrator,
+            confidence=0.6,
+        )
+    ]
 
 
-def _check_duration(book_id: int, book: dict,
-                    file_duration_hours: float | None) -> list[MetadataIssue]:
+def _check_duration(
+    book_id: int, book: dict, file_duration_hours: float | None
+) -> list[MetadataIssue]:
     """Check duration consistency between file and Audible data."""
     if not file_duration_hours or not book.get("runtime_length_min"):
         return []
@@ -301,38 +334,49 @@ def _check_duration(book_id: int, book: dict,
             f"vs Audible={audible_hours:.1f}h ({pct_diff:.0f}% off)"
         )
 
-    return [MetadataIssue(
-        book_id, "duration", severity, msg,
-        db_value=f"{audible_hours:.2f}h",
-        file_value=f"{file_duration_hours:.2f}h", confidence=0.9,
-    )]
+    return [
+        MetadataIssue(
+            book_id,
+            "duration",
+            severity,
+            msg,
+            db_value=f"{audible_hours:.2f}h",
+            file_value=f"{file_duration_hours:.2f}h",
+            confidence=0.9,
+        )
+    ]
 
 
 # Table-driven missing field checks: (condition_fn, field, severity, message)
 _MISSING_FIELD_CHECKS = [
     (
         lambda b: not b.get("asin") and not b.get("isbn"),
-        "identifier", MetadataIssue.SEVERITY_WARNING,
+        "identifier",
+        MetadataIssue.SEVERITY_WARNING,
         "No ASIN or ISBN — cannot enrich from external sources",
     ),
     (
         lambda b: not b.get("cover_path") and not b.get("audible_image_url"),
-        "cover", MetadataIssue.SEVERITY_WARNING,
+        "cover",
+        MetadataIssue.SEVERITY_WARNING,
         "No cover art (local or Audible URL)",
     ),
     (
         lambda b: not b.get("description") and not b.get("publisher_summary"),
-        "description", MetadataIssue.SEVERITY_INFO,
+        "description",
+        MetadataIssue.SEVERITY_INFO,
         "No description or publisher summary",
     ),
     (
         lambda b: not b.get("narrator") or b["narrator"] == "Unknown Narrator",
-        "narrator", MetadataIssue.SEVERITY_WARNING,
+        "narrator",
+        MetadataIssue.SEVERITY_WARNING,
         "Missing or unknown narrator",
     ),
     (
         lambda b: not b.get("language") and b.get("audible_enriched_at"),
-        "language", MetadataIssue.SEVERITY_INFO,
+        "language",
+        MetadataIssue.SEVERITY_INFO,
         "Language not set despite Audible enrichment",
     ),
 ]
@@ -347,8 +391,7 @@ def _check_missing_fields(book_id: int, book: dict) -> list[MetadataIssue]:
     ]
 
 
-def _check_series(book_id: int, book: dict,
-                  embedded_tags: dict) -> list[MetadataIssue]:
+def _check_series(book_id: int, book: dict, embedded_tags: dict) -> list[MetadataIssue]:
     """Check series consistency between file and DB."""
     if not book.get("series"):
         return []
@@ -368,17 +411,24 @@ def _check_series(book_id: int, book: dict,
     recommended = book["series"] if book.get("audible_enriched_at") else None
     confidence = 0.7 if book.get("audible_enriched_at") else 0.4
 
-    return [MetadataIssue(
-        book_id, "series", MetadataIssue.SEVERITY_WARNING,
-        f"Series mismatch: file='{file_series}' "
-        f"vs DB='{book['series']}' (similarity {sim:.0%})",
-        db_value=book["series"], file_value=file_series,
-        recommended_value=recommended, confidence=confidence,
-    )]
+    return [
+        MetadataIssue(
+            book_id,
+            "series",
+            MetadataIssue.SEVERITY_WARNING,
+            f"Series mismatch: file='{file_series}' "
+            f"vs DB='{book['series']}' (similarity {sim:.0%})",
+            db_value=book["series"],
+            file_value=file_series,
+            recommended_value=recommended,
+            confidence=confidence,
+        )
+    ]
 
 
-def _check_publisher(book_id: int, book: dict,
-                     embedded_tags: dict) -> list[MetadataIssue]:
+def _check_publisher(
+    book_id: int, book: dict, embedded_tags: dict
+) -> list[MetadataIssue]:
     """Check publisher consistency between file and DB."""
     if not book.get("publisher"):
         return []
@@ -391,11 +441,17 @@ def _check_publisher(book_id: int, book: dict,
     if sim >= 0.6:
         return []
 
-    return [MetadataIssue(
-        book_id, "publisher", MetadataIssue.SEVERITY_INFO,
-        f"Publisher differs: file='{file_publisher}' vs DB='{book['publisher']}'",
-        db_value=book["publisher"], file_value=file_publisher, confidence=0.5,
-    )]
+    return [
+        MetadataIssue(
+            book_id,
+            "publisher",
+            MetadataIssue.SEVERITY_INFO,
+            f"Publisher differs: file='{file_publisher}' vs DB='{book['publisher']}'",
+            db_value=book["publisher"],
+            file_value=file_publisher,
+            confidence=0.5,
+        )
+    ]
 
 
 def _check_content_type(book_id: int, book: dict) -> list[MetadataIssue]:
@@ -404,11 +460,16 @@ def _check_content_type(book_id: int, book: dict) -> list[MetadataIssue]:
     if not ct or ct in VALID_CONTENT_TYPES:
         return []
 
-    return [MetadataIssue(
-        book_id, "content_type", MetadataIssue.SEVERITY_WARNING,
-        f"Unknown content type: '{ct}'",
-        db_value=ct, confidence=0.9,
-    )]
+    return [
+        MetadataIssue(
+            book_id,
+            "content_type",
+            MetadataIssue.SEVERITY_WARNING,
+            f"Unknown content type: '{ct}'",
+            db_value=ct,
+            confidence=0.9,
+        )
+    ]
 
 
 def verify_book(
@@ -460,11 +521,13 @@ def apply_fixes(
     cursor = conn.cursor()
     fixes_applied = 0
 
-    fixable_severities = frozenset({
-        MetadataIssue.SEVERITY_WARNING,
-        MetadataIssue.SEVERITY_ERROR,
-        MetadataIssue.SEVERITY_CONFLICT,
-    })
+    fixable_severities = frozenset(
+        {
+            MetadataIssue.SEVERITY_WARNING,
+            MetadataIssue.SEVERITY_ERROR,
+            MetadataIssue.SEVERITY_CONFLICT,
+        }
+    )
     fixable_fields = frozenset({"title", "author", "narrator", "series", "publisher"})
 
     for issue in issues:
@@ -495,17 +558,22 @@ def _categorize_issues(all_issues: list[MetadataIssue]) -> dict[str, list]:
     """Categorize issues by severity."""
     return {
         "errors": [i for i in all_issues if i.severity == MetadataIssue.SEVERITY_ERROR],
-        "conflicts": [i for i in all_issues
-                       if i.severity == MetadataIssue.SEVERITY_CONFLICT],
-        "warnings": [i for i in all_issues
-                      if i.severity == MetadataIssue.SEVERITY_WARNING],
+        "conflicts": [
+            i for i in all_issues if i.severity == MetadataIssue.SEVERITY_CONFLICT
+        ],
+        "warnings": [
+            i for i in all_issues if i.severity == MetadataIssue.SEVERITY_WARNING
+        ],
         "infos": [i for i in all_issues if i.severity == MetadataIssue.SEVERITY_INFO],
     }
 
 
 def _print_verification_summary(
-    checked: int, categories: dict[str, list], fixes: int,
-    dry_run: bool, auto_fix: bool,
+    checked: int,
+    categories: dict[str, list],
+    fixes: int,
+    dry_run: bool,
+    auto_fix: bool,
 ) -> None:
     """Print the verification results summary."""
     print(f"\n{'=' * 60}")
@@ -562,8 +630,9 @@ def _get_file_metadata(book, check_files: bool) -> tuple[dict | None, float | No
     return embedded_tags, file_duration
 
 
-def _verify_all_books(books: list, check_files: bool,
-                      quiet: bool) -> tuple[list[MetadataIssue], int]:
+def _verify_all_books(
+    books: list, check_files: bool, quiet: bool
+) -> tuple[list[MetadataIssue], int]:
     """Verify all books and collect issues. Returns (all_issues, checked)."""
     all_issues: list[MetadataIssue] = []
     checked = 0
@@ -580,8 +649,7 @@ def _verify_all_books(books: list, check_files: bool,
     return all_issues, checked
 
 
-def _build_results(all_issues: list[MetadataIssue], checked: int,
-                   fixes: int) -> dict:
+def _build_results(all_issues: list[MetadataIssue], checked: int, fixes: int) -> dict:
     """Build the final results dict from issues."""
     categories = _categorize_issues(all_issues)
     return {

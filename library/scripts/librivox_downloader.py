@@ -118,7 +118,7 @@ class LibrivoxDownloader:
         Returns:
             List of matching LibrivoxBook objects
         """
-        params = {"format": "json", "limit": limit}
+        params: dict[str, str | int] = {"format": "json", "limit": limit}
 
         # Librivox API uses ^ for exact match prefix, but often fails
         # Use simple search terms instead
@@ -147,7 +147,11 @@ class LibrivoxDownloader:
 
     def get_recent(self, limit: int = 20) -> List[LibrivoxBook]:
         """Get recently added audiobooks."""
-        params = {"format": "json", "limit": limit, "sort": "release_date"}
+        params: dict[str, str | int] = {
+            "format": "json",
+            "limit": limit,
+            "sort": "release_date",
+        }
 
         try:
             response = self.session.get(LIBRIVOX_API, params=params, timeout=30)

@@ -239,8 +239,15 @@ def rename_author(author_id: int):
         conn.close()
 
 
-def _merge_entities(conn, source_ids, target_id, junction_table, entity_id_col,
-                    entity_table, regenerate_fn):
+def _merge_entities(
+    conn,
+    source_ids,
+    target_id,
+    junction_table,
+    entity_id_col,
+    entity_table,
+    regenerate_fn,
+):
     """Merge duplicate authors/narrators by reassigning junctions.
 
     Returns (books_reassigned, affected_book_ids).
@@ -299,9 +306,17 @@ def _validate_merge_request(data, entity_label):
     target_id = data.get("target_id")
 
     if not source_ids or target_id is None:
-        return None, None, (jsonify({"error": "'source_ids' and 'target_id' required"}), 400)
+        return (
+            None,
+            None,
+            (jsonify({"error": "'source_ids' and 'target_id' required"}), 400),
+        )
     if target_id in source_ids:
-        return None, None, (jsonify({"error": "target_id cannot be in source_ids"}), 400)
+        return (
+            None,
+            None,
+            (jsonify({"error": "target_id cannot be in source_ids"}), 400),
+        )
     return source_ids, target_id, None
 
 
@@ -349,8 +364,13 @@ def merge_authors():
             return err
 
         books_reassigned = _merge_entities(
-            conn, source_ids, target_id,
-            "book_authors", "author_id", "authors", regenerate_flat_author,
+            conn,
+            source_ids,
+            target_id,
+            "book_authors",
+            "author_id",
+            "authors",
+            regenerate_flat_author,
         )
         conn.commit()
 
@@ -358,10 +378,12 @@ def merge_authors():
             "SELECT * FROM authors WHERE id = ?", (target_id,)
         ).fetchone()
 
-        return jsonify({
-            "author": _author_to_dict(updated_target),
-            "books_reassigned": books_reassigned,
-        }), 200
+        return jsonify(
+            {
+                "author": _author_to_dict(updated_target),
+                "books_reassigned": books_reassigned,
+            }
+        ), 200
     finally:
         conn.close()
 
@@ -502,9 +524,7 @@ def merge_narrators():
 
     Returns 200 with target narrator and count of books reassigned.
     """
-    source_ids, target_id, err = _validate_merge_request(
-        request.get_json(), "narrator"
-    )
+    source_ids, target_id, err = _validate_merge_request(request.get_json(), "narrator")
     if err:
         return err
 
@@ -517,8 +537,13 @@ def merge_narrators():
             return err
 
         books_reassigned = _merge_entities(
-            conn, source_ids, target_id,
-            "book_narrators", "narrator_id", "narrators", regenerate_flat_narrator,
+            conn,
+            source_ids,
+            target_id,
+            "book_narrators",
+            "narrator_id",
+            "narrators",
+            regenerate_flat_narrator,
         )
         conn.commit()
 
@@ -526,10 +551,12 @@ def merge_narrators():
             "SELECT * FROM narrators WHERE id = ?", (target_id,)
         ).fetchone()
 
-        return jsonify({
-            "narrator": _narrator_to_dict(updated_target),
-            "books_reassigned": books_reassigned,
-        }), 200
+        return jsonify(
+            {
+                "narrator": _narrator_to_dict(updated_target),
+                "books_reassigned": books_reassigned,
+            }
+        ), 200
     finally:
         conn.close()
 

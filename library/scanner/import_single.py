@@ -114,7 +114,8 @@ def _import_single_file(
         audiobook_id = insert_audiobook(conn, metadata, cover_path)
         conn.commit()
         print(f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}")
-        _post_import_hooks(audiobook_id, db_path)
+        if audiobook_id is not None:
+            _post_import_hooks(audiobook_id, db_path)
         return "added"
     except sqlite3.IntegrityError:
         conn.rollback()

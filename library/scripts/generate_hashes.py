@@ -163,8 +163,9 @@ def _print_hash_header(total_files, total_size, label="SHA-256 Hash Generation")
     print(f"Total size: {format_size(total_size * 1024 * 1024)}")
 
 
-def _print_hash_completion(processed, processed_size, elapsed, errors,
-                           extra_lines=None):
+def _print_hash_completion(
+    processed, processed_size, elapsed, errors, extra_lines=None
+):
     """Print the hash generation completion banner."""
     print(f"\n{'=' * 60}")
     print("COMPLETE")
@@ -334,7 +335,10 @@ def generate_hashes_parallel(
     conn.commit()
 
     _print_hash_completion(
-        processed, processed_size, elapsed, errors,
+        processed,
+        processed_size,
+        elapsed,
+        errors,
         extra_lines=[f"Workers used: {workers}"],
     )
     show_stats(conn)

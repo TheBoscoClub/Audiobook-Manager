@@ -76,15 +76,18 @@ def _build_audible_lookups(audible_library: list) -> tuple[dict, dict]:
     return audible_by_asin, audible_by_title
 
 
-def _match_by_asin(book_asin: str, audible_by_asin: dict) -> tuple[dict | None, str | None]:
+def _match_by_asin(
+    book_asin: str, audible_by_asin: dict
+) -> tuple[dict | None, str | None]:
     """Try ASIN match. Returns (match, method) or (None, None)."""
     if book_asin and book_asin in audible_by_asin:
         return audible_by_asin[book_asin], "ASIN"
     return None, None
 
 
-def _match_by_title(book_title: str,
-                    audible_by_title: dict) -> tuple[dict | None, str | None]:
+def _match_by_title(
+    book_title: str, audible_by_title: dict
+) -> tuple[dict | None, str | None]:
     """Try exact or fuzzy title match. Returns (match, method) or (None, None)."""
     norm_title = normalize_title(book_title)
     if norm_title in audible_by_title:
@@ -103,8 +106,9 @@ def _match_by_title(book_title: str,
     return None, None
 
 
-def _match_books(all_books: list, audible_by_asin: dict,
-                 audible_by_title: dict) -> tuple[list, list, set]:
+def _match_books(
+    all_books: list, audible_by_asin: dict, audible_by_title: dict
+) -> tuple[list, list, set]:
     """Match all books against Audible data.
 
     Returns (matches, no_match_titles, all_genres).
@@ -209,7 +213,7 @@ def _print_genre_summary(matches: list) -> None:
     print("TOP GENRES FOUND:")
     print("=" * 70)
 
-    genre_counts = {}
+    genre_counts: dict[str, int] = {}
     for m in matches:
         for g in m["genres"]:
             genre_counts[g] = genre_counts.get(g, 0) + 1
@@ -236,7 +240,9 @@ def populate_genres(dry_run=True):
     print(f"Found {len(all_books)} audiobooks in database")
 
     matches, no_match, all_genres = _match_books(
-        all_books, audible_by_asin, audible_by_title,
+        all_books,
+        audible_by_asin,
+        audible_by_title,
     )
 
     _print_match_report(matches, no_match, all_genres)

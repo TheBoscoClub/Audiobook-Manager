@@ -71,6 +71,7 @@ def _compute_next_run_at(schedule_type, scheduled_at, cron_expression):
     if schedule_type == "recurring" and cron_expression:
         try:
             from croniter import croniter
+
             cron = croniter(cron_expression, datetime.now(timezone.utc))
             return cron.get_next(datetime).isoformat() + "Z", None
         except (ValueError, KeyError):
@@ -82,11 +83,16 @@ def _validate_task_type(task_type):
     """Validate task_type against the registry. Returns error response or None."""
     try:
         from .maintenance_tasks import registry
+
         if not registry.get(task_type):
             available = [t["name"] for t in registry.list_all()]
             return (
-                jsonify({"error": f"Unknown task_type '{task_type}'",
-                         "available": available}),
+                jsonify(
+                    {
+                        "error": f"Unknown task_type '{task_type}'",
+                        "available": available,
+                    }
+                ),
                 400,
             )
     except ImportError:
@@ -120,7 +126,9 @@ def create_window():
     scheduled_at = data.get("scheduled_at")
 
     # Compute next_run_at
-    next_run_at, err = _compute_next_run_at(schedule_type, scheduled_at, cron_expression)
+    next_run_at, err = _compute_next_run_at(
+        schedule_type, scheduled_at, cron_expression
+    )
     if err:
         return err
 
@@ -155,10 +163,19 @@ def create_window():
         conn.close()
 
 
-_ALLOWED_UPDATE_FIELDS = frozenset({
-    "name", "description", "task_type", "task_params", "cron_expression",
-    "scheduled_at", "duration_minutes", "lead_time_hours", "status",
-})
+_ALLOWED_UPDATE_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "task_type",
+        "task_params",
+        "cron_expression",
+        "scheduled_at",
+        "duration_minutes",
+        "lead_time_hours",
+        "status",
+    }
+)
 
 _SAFE_COLUMNS = _ALLOWED_UPDATE_FIELDS | {"next_run_at"}
 

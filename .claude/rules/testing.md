@@ -22,6 +22,7 @@
 ## After Syncing Project to Production
 
 After running `upgrade.sh`:
+
 1. Verify all wrapper scripts execute: `for cmd in /usr/local/bin/audiobooks-*; do $cmd --help 2>&1 | head -1 || echo "BROKEN: $cmd"; done`
 2. Verify API responds: `curl -s http://localhost:5001/api/system/version`
 3. Verify web UI loads and buttons work
@@ -63,6 +64,7 @@ Copying production data *into* a test/QA environment is fine — once data is on
 Production audiobook files are personally owned and licensed content. Accidentally including them in a release (GitHub, Docker registry, tarball) would expose private data and create copyright/trademark liability.
 
 **Mandatory safeguards:**
+
 - **Docker test containers**: Any production data copied into a test container MUST be cleaned up (container removed) during Phase D cleanup or Phase C, BEFORE `/test` formally ends
 - **Docker test images**: NEVER build a Docker image with production data baked in via `COPY`. Use runtime `-v` mounts or `docker cp` for test data — these don't persist in the image
 - **Project working tree**: NEVER copy production data (audiobooks, databases, configs) into the project directory. If this happens accidentally, remove it BEFORE any commit or release operation
@@ -93,11 +95,13 @@ def test_new_v8_feature():
 ```
 
 **How it works:**
+
 - `conftest.py::pytest_collection_modifyitems` reads `VERSION`, extracts major version
 - Tests marked `@pytest.mark.v8` auto-skip when major < 8
 - No CLI flag needed — version detection is automatic
 
 **Rules for v8 test separation:**
+
 - v8 tests go in their own modules (e.g., `test_v8_feature_name.py`) OR use the `@pytest.mark.v8` marker on individual tests
 - v7 test modules carry forward into v8 unchanged — they test foundational behavior
 - Only mark tests as `v8` when they test features that DON'T EXIST in v7
@@ -108,6 +112,7 @@ def test_new_v8_feature():
 ## Testing & Validation Notes
 
 When running `/test`:
+
 1. **DO NOT** access production data from project code
 2. **DO NOT** create symlinks from application to project
 3. **DO** use test data in `./library/testdata/`

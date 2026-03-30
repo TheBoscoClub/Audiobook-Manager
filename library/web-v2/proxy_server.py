@@ -63,8 +63,16 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     # Static asset extensions that get 1-day cache
     _ASSET_EXTENSIONS = (
-        ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
-        ".woff", ".woff2", ".ttf", ".eot",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".ico",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".eot",
     )
 
     def _cache_control_for_path(self, path: str, has_version: bool) -> str | None:
@@ -332,15 +340,12 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 error_body = e.read()
             except Exception:
-                error_body = json.dumps(
-                    {"error": e.reason, "code": e.code}
-                ).encode()
+                error_body = json.dumps({"error": e.reason, "code": e.code}).encode()
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:
             self._send_json_error(
-                503, "Service Unavailable",
-                f"API server not reachable: {str(e.reason)}"
+                503, "Service Unavailable", f"API server not reachable: {str(e.reason)}"
             )
 
         except Exception as e:
