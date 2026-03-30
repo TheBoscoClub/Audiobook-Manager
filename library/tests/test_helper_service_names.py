@@ -1,9 +1,15 @@
 """Verify upgrade-helper-process uses correct singular service names."""
 
+import pytest
 import re
 from pathlib import Path
 
 HELPER_PATH = Path(__file__).resolve().parents[2] / "scripts" / "upgrade-helper-process"
+
+pytestmark = pytest.mark.skipif(
+    not HELPER_PATH.is_file(),
+    reason="upgrade-helper-process not at project path (deployed installation)",
+)
 
 
 def test_no_plural_service_names():

@@ -1,9 +1,16 @@
 """Verify install.sh and upgrade.sh handle Caddy files."""
 
+import pytest
 from pathlib import Path
 
 INSTALL_SH = Path(__file__).resolve().parents[2] / "install.sh"
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
+
+# Skip when running on deployed installation (install.sh/upgrade.sh not in app tree)
+pytestmark = pytest.mark.skipif(
+    not INSTALL_SH.is_file(),
+    reason="install.sh not present (deployed installation)",
+)
 
 
 def test_install_references_caddy_files():

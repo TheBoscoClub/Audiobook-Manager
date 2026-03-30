@@ -1,8 +1,14 @@
 """Verify upgrade-helper-process implements the 9-step lifecycle."""
 
+import pytest
 from pathlib import Path
 
 HELPER_PATH = Path(__file__).resolve().parents[2] / "scripts" / "upgrade-helper-process"
+
+pytestmark = pytest.mark.skipif(
+    not HELPER_PATH.is_file(),
+    reason="upgrade-helper-process not at project path (deployed installation)",
+)
 
 REQUIRED_STAGES = [
     "preflight_recheck",
