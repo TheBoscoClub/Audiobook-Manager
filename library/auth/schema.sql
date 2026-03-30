@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     recovery_phone TEXT,           -- Optional, stored encrypted in SQLCipher
     recovery_enabled BOOLEAN DEFAULT FALSE,
     last_audit_seen_id INTEGER DEFAULT 0,
+    multi_session TEXT NOT NULL DEFAULT 'default',
 
     CHECK (length(username) >= 3 AND length(username) <= 24)
 );
@@ -231,7 +232,16 @@ CREATE TABLE IF NOT EXISTS schema_version (
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (8);
+INSERT OR IGNORE INTO schema_version (version) VALUES (9);
+
+-- System settings table (global admin key-value store)
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key TEXT PRIMARY KEY,
+    setting_value TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO system_settings (setting_key, setting_value)
+VALUES ('multi_session_default', 'false');
 
 -- Audit log for user management actions (nullable FKs survive user deletion)
 CREATE TABLE IF NOT EXISTS audit_log (

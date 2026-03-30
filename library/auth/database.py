@@ -45,7 +45,7 @@ class AuthDatabase:
             cursor = conn.execute("SELECT * FROM users")
     """
 
-    SCHEMA_VERSION = 8
+    SCHEMA_VERSION = 9
     KEY_LENGTH = 32  # 256 bits
 
     def __init__(
@@ -246,6 +246,25 @@ class AuthDatabase:
             try:
                 conn.execute(
                     "ALTER TABLE users ADD COLUMN last_audit_seen_id INTEGER DEFAULT 0"
+                )
+            except Exception:
+                pass  # Column already exists
+
+            # Migration: add system_settings table if not exists
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS system_settings (
+                    setting_key TEXT PRIMARY KEY,
+                    setting_value TEXT NOT NULL
+                )
+            """)
+            conn.execute(
+                "INSERT OR IGNORE INTO system_settings (setting_key, setting_value) "
+                "VALUES ('multi_session_default', 'false')"
+            )
+            # Migration: add multi_session column to users if not exists
+            try:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN multi_session TEXT NOT NULL DEFAULT 'default'"
                 )
             except Exception:
                 pass  # Column already exists
