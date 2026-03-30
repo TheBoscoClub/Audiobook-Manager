@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [8.0.1.4] - 2026-03-30
 
+### Changed
+
+- **Cyclomatic complexity refactoring**: Extracted nested Flask route handlers to module level across 14 `api_modular` files; decomposed complex functions into focused helpers. 1353 functions scanned — zero at C-grade or worse. All route handlers are now registered at module level with `@blueprint.route()` decorators; `init_*_routes()` functions are thin wrappers that set the module-level `_db_path` variable. No API changes.
+
 ### Fixed
 
 - **Sort order persistence across sessions**: Sort selection now survives iframe navigation (back office, collections) and full page reloads; localStorage is the browser-local source of truth with server API as cross-device sync; profile modal sort dropdown aligned with main page values; all preference PATCHes use `keepalive` to complete even during page unload

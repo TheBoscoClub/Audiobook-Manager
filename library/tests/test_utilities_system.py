@@ -654,6 +654,7 @@ class TestEnvironmentVariables:
 
         from backend.api_modular import utilities_system
 
+        saved_project_root = utilities_system._project_root
         importlib.reload(utilities_system)
 
         assert "/custom/var/dir" in str(utilities_system.CONTROL_DIR)
@@ -661,6 +662,7 @@ class TestEnvironmentVariables:
         # Reset
         monkeypatch.delenv("AUDIOBOOKS_VAR_DIR", raising=False)
         importlib.reload(utilities_system)
+        utilities_system._project_root = saved_project_root
 
     def test_uses_default_var_dir(self, monkeypatch):
         """Test uses default /var/lib/audiobooks when env not set."""
@@ -670,9 +672,13 @@ class TestEnvironmentVariables:
 
         from backend.api_modular import utilities_system
 
+        saved_project_root = utilities_system._project_root
         importlib.reload(utilities_system)
 
         assert "/var/lib/audiobooks" in str(utilities_system.CONTROL_DIR)
+
+        # Restore module state after reload
+        utilities_system._project_root = saved_project_root
 
 
 class TestGetHealth:
