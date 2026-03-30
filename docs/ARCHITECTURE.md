@@ -74,6 +74,36 @@ Audiobook-Manager consists of seven logical component groups:
 2. **Symlink Architecture**: Scripts installed once, accessed via symlinks
 3. **Configuration Hierarchy**: Defaults → System config → User config → Environment
 4. **Storage Optimization**: Each component placed on appropriate storage tier
+5. **Code Quality**: All functions target A-grade cyclomatic complexity (1–5); B-grade (6–10) is acceptable; C-grade and above is prohibited
+
+### Code Quality & Complexity Management (v8.0.1+)
+
+Every function in the codebase is held to a strict cyclomatic complexity standard measured by [radon](https://radon.readthedocs.io/):
+
+| Grade | CC Range | Policy |
+|-------|----------|--------|
+| **A** | 1–5 | Target — simple, single-responsibility |
+| **B** | 6–10 | Acceptable — clear logic with bounded branching |
+| **C** | 11–15 | **Prohibited** — must be decomposed |
+| **D–F** | 16+ | **Prohibited** — must be decomposed |
+
+**Why this matters.** The v8.0.1 audit found 84 functions at C-grade or worse (up to F-62). High complexity makes code harder to understand, test, review, and maintain. A function that scores F-62 cannot be held in a single person's working memory — bugs hide in branches that no test exercises and no reviewer reads. The refactoring was driven by four principles:
+
+- **Manageability**: Small functions with clear inputs and outputs are easier to modify without breaking adjacent logic
+- **Sustainability**: Lower complexity correlates with fewer defects per function and lower cost-of-change over the project's lifetime
+- **Understandability**: A developer encountering `_apply_role_changes()` immediately knows its scope; encountering a 200-line `update_current_user()` does not
+- **Aesthetics**: Code should be pleasant to read — not because beauty is a luxury, but because readable code is reviewed more carefully and maintained more willingly
+
+**Refactoring patterns used:**
+
+| Pattern | When Used | Example |
+|---------|-----------|---------|
+| **Helper extraction** | Long function with distinct phases | `populate_series()` → `_fetch_books_needing_series()`, `_query_audible_series()`, `_update_from_api()`, `_update_from_titles()` |
+| **Table-driven dispatch** | Repeated if/elif chains mapping keys to actions | `verify_metadata()` field checks → `FIELD_CHECKS` dict keyed by field name |
+| **Guard clauses** | Deep nesting from early-return conditions | `claim_webauthn_complete()` — validate inputs and bail early, happy path at the end |
+| **Parameter objects** | Functions with 5+ related parameters | Grouping filter/sort/pagination args into structured inputs |
+
+**Enforcement.** `radon cc library/ -n C` is run during every `/test` audit (Phase 7). Any function scoring C or above blocks the audit until refactored. This is not a guideline — it is enforced by the audit's governing law.
 
 ---
 
