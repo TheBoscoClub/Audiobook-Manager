@@ -56,3 +56,88 @@ class TestMultiSessionMigration:
         with temp_db.connection() as conn:
             cursor = conn.execute("SELECT MAX(version) FROM schema_version")
             assert cursor.fetchone()[0] >= 9
+
+
+class TestUserMultiSessionField:
+    def test_user_has_multi_session_default(self, temp_db):
+        user = User(
+            username="ms_test1",
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+        )
+        user.save(temp_db)
+        with temp_db.connection() as conn:
+            cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user.id,))
+            fetched = User.from_row(cursor.fetchone())
+        assert fetched.multi_session == "default"
+
+    def test_user_multi_session_save_and_load(self, temp_db):
+        user = User(
+            username="ms_test2",
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+            multi_session="yes",
+        )
+        user.save(temp_db)
+        with temp_db.connection() as conn:
+            cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user.id,))
+            fetched = User.from_row(cursor.fetchone())
+        assert fetched.multi_session == "yes"
+
+    def test_user_multi_session_update(self, temp_db):
+        user = User(
+            username="ms_test3",
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+        )
+        user.save(temp_db)
+        assert user.multi_session == "default"
+        user.multi_session = "no"
+        user.save(temp_db)
+        with temp_db.connection() as conn:
+            cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user.id,))
+            fetched = User.from_row(cursor.fetchone())
+        assert fetched.multi_session == "no"
+
+
+class TestSystemSettingsRepository:
+    def test_get_existing_setting(self, temp_db):
+        from auth.models import SystemSettingsRepository
+
+        repo = SystemSettingsRepository(temp_db)
+        assert repo.get("multi_session_default") == "false"
+
+    def test_get_nonexistent_setting(self, temp_db):
+        from auth.models import SystemSettingsRepository
+
+        repo = SystemSettingsRepository(temp_db)
+        assert repo.get("nonexistent_key") is None
+
+    def test_get_with_default(self, temp_db):
+        from auth.models import SystemSettingsRepository
+
+        repo = SystemSettingsRepository(temp_db)
+        assert repo.get("nonexistent_key", "fallback") == "fallback"
+
+    def test_set_new_setting(self, temp_db):
+        from auth.models import SystemSettingsRepository
+
+        repo = SystemSettingsRepository(temp_db)
+        repo.set("test_key", "test_value")
+        assert repo.get("test_key") == "test_value"
+
+    def test_set_overwrites_existing(self, temp_db):
+        from auth.models import SystemSettingsRepository
+
+        repo = SystemSettingsRepository(temp_db)
+        repo.set("multi_session_default", "true")
+        assert repo.get("multi_session_default") == "true"
+
+    def test_get_all(self, temp_db):
+        from auth.models import SystemSettingsRepository
+
+        repo = SystemSettingsRepository(temp_db)
+        repo.set("extra_key", "extra_val")
+        all_settings = repo.get_all()
+        assert all_settings["multi_session_default"] == "false"
+        assert all_settings["extra_key"] == "extra_val"

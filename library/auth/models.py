@@ -83,6 +83,7 @@ class User:
     recovery_phone: Optional[str] = None
     recovery_enabled: bool = False
     last_audit_seen_id: int = 0
+    multi_session: str = "default"
 
     @staticmethod
     def _parse_timestamp(val) -> Optional[datetime]:
@@ -118,6 +119,10 @@ class User:
         if len(row) >= 12:
             fields["last_audit_seen_id"] = int(row[11]) if row[11] is not None else 0
 
+        # Multi-session override (schema v9+, column 12)
+        if len(row) >= 13:
+            fields["multi_session"] = row[12] if row[12] is not None else "default"
+
         return cls(**fields)
 
     def save(self, db: AuthDatabase) -> "User":
@@ -130,9 +135,9 @@ class User:
                         username, auth_type, auth_credential,
                         can_download, is_admin,
                         recovery_email, recovery_phone, recovery_enabled,
-                        last_audit_seen_id
+                        last_audit_seen_id, multi_session
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         self.username,
@@ -144,6 +149,7 @@ class User:
                         self.recovery_phone,
                         self.recovery_enabled,
                         self.last_audit_seen_id,
+                        self.multi_session,
                     ),
                 )
                 self.id = cursor.lastrowid
@@ -159,7 +165,7 @@ class User:
                         username = ?, auth_type = ?, auth_credential = ?,
                         can_download = ?, is_admin = ?, last_login = ?,
                         recovery_email = ?, recovery_phone = ?, recovery_enabled = ?,
-                        last_audit_seen_id = ?
+                        last_audit_seen_id = ?, multi_session = ?
                     WHERE id = ?
                     """,
                     (
@@ -173,6 +179,7 @@ class User:
                         self.recovery_phone,
                         self.recovery_enabled,
                         self.last_audit_seen_id,
+                        self.multi_session,
                         self.id,
                     ),
                 )
@@ -2022,3 +2029,38 @@ class AuditLog:
             action=row[4],
             details=row[5],
         )
+
+
+class SystemSettingsRepository:
+    """Repository for global system settings (admin-only key-value store)."""
+
+    def __init__(self, db: AuthDatabase):
+        self.db = db
+
+    def get(self, key: str, default: str | None = None) -> str | None:
+        """Get a system setting value by key."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT setting_value FROM system_settings WHERE setting_key = ?",
+                (key,),
+            )
+            row = cursor.fetchone()
+            return row[0] if row else default
+
+    def set(self, key: str, value: str) -> None:
+        """Set a system setting (insert or update)."""
+        with self.db.connection() as conn:
+            conn.execute(
+                "INSERT INTO system_settings (setting_key, setting_value) "
+                "VALUES (?, ?) "
+                "ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value",
+                (key, value),
+            )
+
+    def get_all(self) -> dict[str, str]:
+        """Get all system settings as a dict."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "SELECT setting_key, setting_value FROM system_settings"
+            )
+            return {row[0]: row[1] for row in cursor.fetchall()}
