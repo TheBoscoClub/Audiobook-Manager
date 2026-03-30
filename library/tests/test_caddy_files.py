@@ -1,8 +1,15 @@
 """Verify Caddy project files exist and are well-formed."""
 
+import pytest
 from pathlib import Path
 
 CADDY_DIR = Path(__file__).resolve().parents[2] / "caddy"
+
+# Skip entire module when running on deployed installation (no caddy/ in app tree)
+pytestmark = pytest.mark.skipif(
+    not CADDY_DIR.is_dir(),
+    reason="caddy/ directory not present (deployed installation)",
+)
 
 
 def test_audiobooks_conf_exists():
