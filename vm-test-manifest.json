@@ -26,7 +26,7 @@
       "venv_system_install"
     ],
 
-    "pristine_snapshot": "pristine-275g-2026-02-25",
+    "pristine_snapshot": "pristine",
     "post_test_restore": true,
 
     "test_environments": [
@@ -34,7 +34,7 @@
         "name": "test-audiobook-cachyos",
         "type": "existing",
         "vm_name": "test-audiobook-cachyos",
-        "snapshot": "pristine-275g-2026-02-25",
+        "snapshot": "pristine",
         "description": "Dedicated CachyOS VM for audiobook integration/API/UI testing. Restore to pristine snapshot after every test run.",
         "requirements": {
           "python": "3.14",
