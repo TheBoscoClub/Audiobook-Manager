@@ -203,15 +203,15 @@ dry_run() {
 
     echo ""
     echo "=== lib/ ==="
-    ls -1 "${SCRIPT_DIR}/lib/" 2>/dev/null | sed 's/^/  /'
+    find "${SCRIPT_DIR}/lib/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/lib/||" | sort | sed 's/^/  /'
 
     echo ""
     echo "=== scripts/ ==="
-    ls -1 "${SCRIPT_DIR}/scripts/" 2>/dev/null | sed 's/^/  /'
+    find "${SCRIPT_DIR}/scripts/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/scripts/||" | sort | sed 's/^/  /'
 
     echo ""
     echo "=== systemd/ ==="
-    ls -1 "${SCRIPT_DIR}/systemd/" 2>/dev/null | sed 's/^/  /'
+    find "${SCRIPT_DIR}/systemd/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/systemd/||" | sort | sed 's/^/  /'
 
     if [[ -d "${SCRIPT_DIR}/converter" ]]; then
         echo ""
@@ -224,7 +224,7 @@ dry_run() {
     if [[ -d "${SCRIPT_DIR}/etc" ]]; then
         echo ""
         echo "=== etc/ ==="
-        ls -1 "${SCRIPT_DIR}/etc/" 2>/dev/null | sed 's/^/  /'
+        find "${SCRIPT_DIR}/etc/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/etc/||" | sort | sed 's/^/  /'
     fi
 }
 

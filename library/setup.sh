@@ -80,9 +80,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "Error: Failed to cd to scanner directory"
         exit 1
     }
-    python3 scan_audiobooks.py
-
-    if [ $? -eq 0 ]; then
+    if python3 scan_audiobooks.py; then
         echo ""
         echo "Importing to database..."
         cd "$SCRIPT_DIR/backend" || {

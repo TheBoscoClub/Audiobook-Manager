@@ -420,14 +420,14 @@ detect_storage_tier() {
         else
             # Try to resolve through dmsetup
             local slave
-            slave=$(ls /sys/block/dm-*/slaves/ 2>/dev/null | head -1)
+            slave=$(find /sys/block/dm-*/slaves/ -maxdepth 1 -mindepth 1 2>/dev/null | head -1 | xargs -r basename)
             dev_name="${slave:-unknown}"
         fi
     elif [[ "$device" == /dev/md* ]]; then
         # RAID array - check component devices
         local md_name=${device##*/}
         local component
-        component=$(ls /sys/block/"$md_name"/slaves/ 2>/dev/null | head -1)
+        component=$(find /sys/block/"$md_name"/slaves/ -maxdepth 1 -mindepth 1 2>/dev/null | head -1 | xargs -r basename)
         if [[ -n "$component" ]]; then
             dev_name="$component"
         else
@@ -435,7 +435,9 @@ detect_storage_tier() {
         fi
     else
         # Regular device - extract base name (sda from sda1, nvme0n1 from nvme0n1p1)
-        dev_name=$(echo "$device" | sed 's|/dev/||; s/[0-9]*$//; s/p[0-9]*$//')
+        dev_name="${device#/dev/}"
+        dev_name="${dev_name%[0-9]*}"
+        dev_name="${dev_name%p[0-9]*}"
     fi
 
     # Check if NVMe (device name starts with nvme)

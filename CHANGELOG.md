@@ -39,7 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bandit B608 cleanup**: Removed 12 stale `nosec B608` annotations from non-f-string lines; added proper suppression to 40 false-positive SQL f-strings using module constants
 - **Converter service**: Added `LimitNOFILE=65536` to `audiobook-converter.service` matching API service configuration
 - **Audit pass 2**: Reformatted 36 Python files with ruff; fixed 26 mypy type errors across 15 files (type annotations, Optional guards, urllib.parse.quote import); fixed 19 markdownlint issues in tracked rule and template files
-- **Audit pass 3**: Fixed TOTP secret mismatch in `test_player_navigation_persistence.py` (5 test errors); sanitized control characters in log messages (`audiobooks.py`, CodeQL py/log-injection #380/#381); added content-type allowlist for cover image proxy responses (`proxy_server.py`, CodeQL py/http-response-splitting #382); fixed `/api/covers/default.jpg` → `/covers/default.jpg` in `utilities.js` (was always 404); replaced dead `author_name` parameter with `entity_label` in merge validation errors (`admin_authors.py`); ruff-formatted 5 files; fixed mypy errors in 4 test files
+- **Audit pass 3**: Fixed TOTP secret mismatch in `test_player_navigation_persistence.py` (5 test errors);
+  sanitized control characters in log messages (`audiobooks.py`, CodeQL py/log-injection #380/#381);
+  added content-type allowlist for cover image proxy responses (`proxy_server.py`, CodeQL py/http-response-splitting #382);
+  fixed `/api/covers/default.jpg` → `/covers/default.jpg` in `utilities.js` (was always 404);
+  replaced dead `author_name` parameter with `entity_label` in merge validation errors (`admin_authors.py`);
+  ruff-formatted 5 files; fixed mypy errors in 4 test files
 - **Playwright test resilience**: Playwright tests now skip gracefully when the VM library is empty (pristine VM), instead of erroring on missing test data
 
 ## [8.0.1.1] - 2026-03-30
