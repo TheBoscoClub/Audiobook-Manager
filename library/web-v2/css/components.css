@@ -252,7 +252,7 @@
 .letter-groups {
     display: flex;
     gap: 0.2rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .letter-group {
