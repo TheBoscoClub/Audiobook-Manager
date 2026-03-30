@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [8.0.1.3] - 2026-03-30
+
+### Fixed
+
+- **Proxy PATCH method**: Added missing `do_PATCH` handler to `proxy_server.py` — previously returned HTTP 501 for all PATCH requests (e.g., admin settings toggle)
+- **Proxy PATCH body forwarding**: `_read_request_body` now includes PATCH alongside POST/PUT — previously dropped the JSON body, causing Flask to return HTTP 400
+- **CORS PATCH support**: Added PATCH to `Access-Control-Allow-Methods` header in OPTIONS preflight responses
+
+### Changed
+
 - **Download timer interval**: Reduced from 6h to 5min; boot delay reduced from 30min to 2min for faster initial download checks
 - **Edison bulb indicator**: Enlarged (28×49 → 40×70px), brighter glow colors, and pulsing scale animation for better visibility in Back Office header
 
@@ -2405,7 +2417,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.3...HEAD
+[8.0.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.2...v8.0.1.3
 [8.0.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.1...v8.0.1.2
 [8.0.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1...v8.0.1.1
 [8.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.0...v8.0.1
