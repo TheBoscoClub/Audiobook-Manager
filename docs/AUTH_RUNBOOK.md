@@ -171,6 +171,41 @@ When user loses access to their authenticator:
 ./library/tools/auth_admin.py --logout-all
 ```
 
+## Multi-Session Login (v8.0.1.2+)
+
+By default, each user is limited to one active session (logging in on a new device invalidates the previous session). Admins can enable multi-session login to allow concurrent sessions on multiple devices.
+
+### Global Setting
+
+Navigate to **Back Office → SYSTEM** and toggle the **"Allow multi-session login"** checkbox. This sets the system-wide default.
+
+### Per-User Override
+
+Navigate to **Back Office → USERS**, click the pencil icon on a user row, and use the **multi-session selector**:
+
+| Setting | Behavior |
+|---------|----------|
+| **Default** | Follows the global system setting |
+| **Yes** | Always allows multi-session for this user, regardless of global setting |
+| **No** | Always enforces single-session for this user, regardless of global setting |
+
+### API Endpoints
+
+```bash
+# Get current system settings (includes allow_multi_session)
+curl -b cookies.txt https://localhost:5001/auth/admin/settings
+
+# Enable multi-session globally
+curl -b cookies.txt -X PATCH https://localhost:5001/auth/admin/settings \
+  -H 'Content-Type: application/json' \
+  -d '{"allow_multi_session": true}'
+
+# Set per-user override (via roles endpoint)
+curl -b cookies.txt -X PUT https://localhost:5001/auth/admin/users/5/roles \
+  -H 'Content-Type: application/json' \
+  -d '{"multi_session": "yes"}'  # "default", "yes", or "no"
+```
+
 ## Web-Based User Management (v7.3+)
 
 The Back Office **USERS** tab provides full user lifecycle management without the command line.

@@ -204,6 +204,7 @@ Web-based audiobook library browser with:
 - **Per-user preferences** — key-value preference system persisting sort order, view mode, playback speed, and accessibility settings per user (v8.0+)
 - **Accessibility quick panel** — slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls (v8.0+)
 - **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
+- **Multi-session login** — admin-configurable concurrent device sessions with global default and per-user override (v8.0.1.2+)
 
 ## Quick Start
 
@@ -666,7 +667,7 @@ Audiobooks/
 │   │   ├── cli.py               # Admin CLI tool (audiobook-user)
 │   │   ├── inbox_cli.py         # Admin inbox management CLI
 │   │   ├── notify_cli.py        # Notification management CLI
-│   │   └── schema.sql           # Auth database schema (18 tables, v7)
+│   │   └── schema.sql           # Auth database schema (19 tables, v9)
 │   ├── backend/
 │   │   ├── api_server.py        # Flask server launcher
 │   │   ├── api_modular/         # Modular Flask Blueprints
@@ -984,6 +985,7 @@ Admins can also pre-approve users with **invitations** (`POST /auth/admin/users/
 - Approve or deny access requests
 - Invite new users with pre-approved accounts
 - Toggle admin and download permissions per user
+- Configure multi-session login globally and per-user (v8.0.1.2+)
 - View and manage active sessions
 - Send system notifications to users
 
