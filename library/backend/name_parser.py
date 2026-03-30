@@ -504,6 +504,40 @@ def _is_credential_word(text: str) -> bool:
     }
 
 
+def _try_last_first_pair(parts):
+    """Try to interpret two comma-separated parts as 'Last, First'.
+
+    Returns a single-element list if it's Last-First format, or None.
+    """
+    words_a = parts[0].split()
+    words_b = parts[1].split()
+
+    # "King, Stephen" or "de Saint-Exupery, Antoine"
+    if len(words_b) == 1 and len(words_a) >= 1:
+        return [f"{parts[1]} {parts[0]}"]
+    return None
+
+
+def _try_alternating_pairs(parts):
+    """Try to interpret >2 single-word parts as alternating Last, First pairs.
+
+    Returns list of names if pattern matches, or None.
+    """
+    all_single = all(len(p.split()) == 1 and "-" not in p for p in parts)
+    if not all_single or len(parts) % 2 != 0:
+        return None
+    return [f"{parts[i + 1]} {parts[i]}" for i in range(0, len(parts), 2)]
+
+
+def _filter_credentials(parts):
+    """Remove standalone credential suffixes and junk from comma parts.
+
+    Returns filtered list, or original parts if filtering removes everything.
+    """
+    filtered = [p for p in parts if not _is_credential_word(p) and not is_junk_name(p)]
+    return filtered if filtered else parts
+
+
 def _parse_comma_separated(text: str) -> list[str]:
     """Handle comma-separated names with Last,First disambiguation.
 
@@ -516,49 +550,18 @@ def _parse_comma_separated(text: str) -> list[str]:
     - If any token has spaces/hyphens: conservative treatment, flag for review
     """
     parts = [p.strip() for p in text.split(",") if p.strip()]
-
-    # Filter out standalone credential/junk parts before disambiguation
-    # "Tara Brach, PhD" -> filter PhD -> ["Tara Brach"]
-    # "Jeffrey M. Schwartz, M.D., Rebecca Gladding, M.D., M.D." -> filter M.D.
-    filtered = [p for p in parts if not _is_credential_word(p) and not is_junk_name(p)]
-    if not filtered:
-        return _clean_parts(parts)
-    parts = filtered
+    parts = _filter_credentials(parts)
 
     if len(parts) == 2:
-        # Two parts: is it "Last, First" or "Author1, Author2"?
-        words_a = parts[0].split()
-        words_b = parts[1].split()
-
-        if len(words_b) == 1 and len(words_a) >= 1:
-            # Second part is a single word (first name).
-            # Could be "King, Stephen" or "de Saint-Exupery, Antoine".
-            # Both are "Last, First" format.
-            if len(words_a) == 1:
-                # Simple: "King, Stephen" -> "Stephen King"
-                return [f"{parts[1]} {parts[0]}"]
-            # Compound: "de Saint-Exupery, Antoine" -> "Antoine de Saint-Exupery"
-            return [f"{parts[1]} {parts[0]}"]
-
-        if len(words_a) > 1 and len(words_b) > 1:
-            # Both sides multi-word: "Stephen King, Peter Straub" -> two authors
-            return _clean_parts(parts)
-
-        # One multi-word, one single but first part is single word
-        # e.g. "Stephen, King Peter" - unusual, treat as two parts
+        result = _try_last_first_pair(parts)
+        if result:
+            return result
         return _clean_parts(parts)
 
     if len(parts) > 2:
-        # Check if ALL parts are single words -> alternating Last, First pairs
-        all_single = all(len(p.split()) == 1 and "-" not in p for p in parts)
-        if all_single and len(parts) % 2 == 0:
-            # Pair them up: Last1, First1, Last2, First2
-            names = []
-            for i in range(0, len(parts), 2):
-                names.append(f"{parts[i + 1]} {parts[i]}")
-            return names
-
-        # Not all single words - treat as multiple authors separated by commas
+        result = _try_alternating_pairs(parts)
+        if result:
+            return result
         return _clean_parts(parts)
 
     return _clean_parts(parts)

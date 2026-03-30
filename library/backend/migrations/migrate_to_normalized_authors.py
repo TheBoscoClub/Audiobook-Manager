@@ -89,6 +89,117 @@ def _name_quality(name: str) -> int:
     return score
 
 
+def _classify_author_name(name, stats):
+    """Classify an author name as junk, group, role, brand, or clean.
+
+    Returns:
+        ("junk", None) | ("group", name) | ("role", None) |
+        ("brand", None) | ("clean", name)
+    """
+    if not name or is_junk_name(name):
+        stats["junk_excluded"] += 1
+        return "junk", None
+    if is_group_name(name):
+        stats["group_redirections"] += 1
+        return "group", name
+    if has_role_suffix(name):
+        stats["role_excluded"] += 1
+        return "role", None
+    if is_brand_name(name):
+        stats["brand_excluded"] += 1
+        return "brand", None
+    return "clean", name
+
+
+def _prepare_names(raw_names):
+    """Clean and normalize group casing for a list of raw names."""
+    names = [clean_name(n) for n in raw_names]
+    return [_normalize_group_case(n) for n in names]
+
+
+def _filter_authors(author_names, narrator_names, stats):
+    """Separate clean authors from group redirections.
+
+    Returns (clean_authors, updated_narrator_names).
+    """
+    redirected = []
+    clean_authors = []
+    for name in author_names:
+        kind, value = _classify_author_name(name, stats)
+        if kind == "group":
+            redirected.append(value)
+        elif kind == "clean":
+            clean_authors.append(value)
+
+    # Add redirected names to narrators (avoid duplicates)
+    for name in redirected:
+        if name not in narrator_names:
+            narrator_names.append(name)
+
+    return clean_authors, narrator_names
+
+
+def _upsert_entity(conn, name, seen, stats, table, dry_run):
+    """Insert or find a deduplicated entity. Returns entity ID or None."""
+    canonical = _find_canonical(seen, name)
+    if canonical is not None:
+        name = canonical
+        stats["dedup_merged"] += 1
+
+    sort_name = generate_sort_name(name)
+    if not sort_name:
+        return None
+
+    if dry_run:
+        return None
+
+    conn.execute(
+        f"INSERT OR IGNORE INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608
+        (name, sort_name),
+    )
+    return conn.execute(
+        f"SELECT id FROM {table} WHERE name = ?",  # nosec B608
+        (name,),
+    ).fetchone()["id"]
+
+
+def _process_authors(conn, book_id, clean_authors, seen_authors, stats, dry_run):
+    """Insert authors and create junction links for a single book."""
+    for pos, name in enumerate(clean_authors):
+        entity_id = _upsert_entity(conn, name, seen_authors, stats, "authors", dry_run)
+        if entity_id is None:
+            continue
+        conn.execute(
+            "INSERT OR IGNORE INTO book_authors"
+            " (book_id, author_id, position) VALUES (?, ?, ?)",
+            (book_id, entity_id, pos),
+        )
+        stats["author_links"] += 1
+
+
+def _process_narrators(conn, book_id, narrator_names, seen_narrators, stats, dry_run):
+    """Insert narrators and create junction links for a single book."""
+    for pos, name in enumerate(narrator_names):
+        if not name or is_junk_name(name):
+            stats["junk_excluded"] += 1
+            continue
+        if is_brand_name(name):
+            stats["brand_excluded"] += 1
+            continue
+
+        entity_id = _upsert_entity(
+            conn, name, seen_narrators, stats, "narrators", dry_run
+        )
+        if entity_id is None:
+            continue
+        conn.execute(
+            "INSERT OR IGNORE INTO book_narrators"
+            " (book_id, narrator_id, position) VALUES (?, ?, ?)",
+            (book_id, entity_id, pos),
+        )
+        stats["narrator_links"] += 1
+
+
 def migrate(db_path: str, dry_run: bool = False) -> dict:
     """Run the author/narrator normalization migration.
 
@@ -130,98 +241,22 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         book_id = row["id"]
         stats["books_processed"] += 1
 
-        # --- Authors ---
+        # Parse and clean names
         author_names = parse_names(row["author"]) if row["author"] else []
         narrator_names = parse_names(row["narrator"]) if row["narrator"] else []
+        author_names = _prepare_names(author_names)
+        narrator_names = _prepare_names(narrator_names)
 
-        # Clean each name (strip credentials, trailing roles)
-        author_names = [clean_name(n) for n in author_names]
-        narrator_names = [clean_name(n) for n in narrator_names]
+        # Filter authors, redirect groups to narrators
+        clean_authors, narrator_names = _filter_authors(
+            author_names, narrator_names, stats
+        )
 
-        # Normalize group name casing (prefer title case: "Full Cast" not "full cast")
-        author_names = [_normalize_group_case(n) for n in author_names]
-        narrator_names = [_normalize_group_case(n) for n in narrator_names]
-
-        # Redirect group names from author to narrator, exclude role-suffixed,
-        # brand/publisher names, and junk entries
-        redirected = []
-        clean_authors = []
-        for name in author_names:
-            if not name or is_junk_name(name):
-                stats["junk_excluded"] += 1
-            elif is_group_name(name):
-                redirected.append(name)
-                stats["group_redirections"] += 1
-            elif has_role_suffix(name):
-                stats["role_excluded"] += 1
-            elif is_brand_name(name):
-                stats["brand_excluded"] += 1
-            else:
-                clean_authors.append(name)
-
-        # Add redirected names to narrators (avoid duplicates)
-        for name in redirected:
-            if name not in narrator_names:
-                narrator_names.append(name)
-
-        # Insert authors and link (with dedup)
-        for pos, name in enumerate(clean_authors):
-            # Check for dedup match
-            canonical = _find_canonical(seen_authors, name)
-            if canonical is not None:
-                name = canonical
-                stats["dedup_merged"] += 1
-
-            sort_name = generate_sort_name(name)
-            if not sort_name:
-                continue
-            if not dry_run:
-                conn.execute(
-                    "INSERT OR IGNORE INTO authors (name, sort_name) VALUES (?, ?)",
-                    (name, sort_name),
-                )
-                author_id = conn.execute(
-                    "SELECT id FROM authors WHERE name = ?", (name,)
-                ).fetchone()["id"]
-                conn.execute(
-                    "INSERT OR IGNORE INTO book_authors"
-                    " (book_id, author_id, position) VALUES (?, ?, ?)",
-                    (book_id, author_id, pos),
-                )
-                stats["author_links"] += 1
-
-        # Insert narrators and link (skip brands/junk, with dedup)
-        for pos, name in enumerate(narrator_names):
-            if not name or is_junk_name(name):
-                stats["junk_excluded"] += 1
-                continue
-            if is_brand_name(name):
-                stats["brand_excluded"] += 1
-                continue
-
-            # Check for dedup match
-            canonical = _find_canonical(seen_narrators, name)
-            if canonical is not None:
-                name = canonical
-                stats["dedup_merged"] += 1
-
-            sort_name = generate_sort_name(name)
-            if not sort_name:
-                continue
-            if not dry_run:
-                conn.execute(
-                    "INSERT OR IGNORE INTO narrators (name, sort_name) VALUES (?, ?)",
-                    (name, sort_name),
-                )
-                narrator_id = conn.execute(
-                    "SELECT id FROM narrators WHERE name = ?", (name,)
-                ).fetchone()["id"]
-                conn.execute(
-                    "INSERT OR IGNORE INTO book_narrators"
-                    " (book_id, narrator_id, position) VALUES (?, ?, ?)",
-                    (book_id, narrator_id, pos),
-                )
-                stats["narrator_links"] += 1
+        # Insert authors and narrators with junction links
+        _process_authors(conn, book_id, clean_authors, seen_authors, stats, dry_run)
+        _process_narrators(
+            conn, book_id, narrator_names, seen_narrators, stats, dry_run
+        )
 
     if not dry_run:
         conn.commit()

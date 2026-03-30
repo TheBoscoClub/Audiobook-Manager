@@ -143,20 +143,16 @@ SPECIAL_COLLECTIONS = [
 # ─── Dynamic collection builder ──────────────────────────────────────────────
 
 
-def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
-    """
-    Build the collection tree and flat lookup from enrichment data.
+def _row_field(row, name, index):
+    """Extract a field from a row that may be a dict or tuple."""
+    return row[name] if isinstance(row, dict) else row[index]
 
-    Returns (tree, flat_lookup).
-    """
-    tree: list[dict] = []
-    flat: dict[str, dict] = {}
 
-    # --- Special collections ---
+def _build_special_collections(tree, flat):
+    """Add special (fixed-query) collections to tree and flat lookup."""
     for spec in SPECIAL_COLLECTIONS:
         tree.append(spec)
-        spec_id = str(spec["id"])
-        flat[spec_id] = {
+        flat[str(spec["id"])] = {
             "name": spec["name"],
             "description": spec.get("description", ""),
             "query": spec["query"],
@@ -165,7 +161,102 @@ def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
             "bypasses_filter": spec.get("bypasses_filter", False),
         }
 
-    # --- Genres: Fiction and Nonfiction with auto-generated children ---
+
+def _build_children_from_rows(rows, slug_prefix, query_fn, name_field="name",
+                               extra_fields=None):
+    """Build child collection dicts from DB rows.
+
+    Args:
+        rows: DB result rows
+        slug_prefix: Prefix for collection IDs (e.g. "genre", "era")
+        query_fn: Function(name) -> SQL WHERE clause
+        name_field: Row field name for the entity name
+        extra_fields: Optional dict mapping child_key -> (row_field, row_index)
+
+    Returns list of child dicts.
+    """
+    children = []
+    for row in rows:
+        name = _row_field(row, name_field, 0)
+        count = _row_field(row, "cnt", len(row) - 1 if not isinstance(row, dict) else "cnt")
+        child = {
+            "id": f"{slug_prefix}-{_slugify(name)}",
+            "name": name,
+            "query": query_fn(name),
+            "count": count,
+        }
+        if extra_fields:
+            for key, (field, idx) in extra_fields.items():
+                child[key] = _row_field(row, field, idx) or "Product"
+        children.append(child)
+    return children
+
+
+def _add_parent_node(tree, flat, node_id, name, description, query, icon,
+                     category, children):
+    """Add a parent collection node with its children to tree and flat."""
+    node = {
+        "id": node_id,
+        "name": name,
+        "description": description,
+        "query": query,
+        "icon": icon,
+        "category": category,
+        "children": children,
+    }
+    tree.append(node)
+    flat[node_id] = {
+        "name": name,
+        "description": description,
+        "query": query,
+        "icon": icon,
+        "category": category,
+        "bypasses_filter": False,
+    }
+    for child in children:
+        flat[child["id"]] = {
+            "name": child["name"],
+            "description": "",
+            "query": child["query"],
+            "icon": icon,
+            "category": category,
+            "bypasses_filter": False,
+        }
+
+
+def _classify_genre_children(genre_rows):
+    """Classify genre rows into fiction and nonfiction buckets.
+
+    Returns (fiction_children, nonfiction_children,
+             fiction_genre_names, nonfiction_genre_names).
+    """
+    fiction_children = []
+    nonfiction_children = []
+    fiction_names = []
+    nonfiction_names = []
+
+    for row in genre_rows:
+        name = _row_field(row, "name", 0)
+        count = _row_field(row, "cnt", 1)
+        child = {
+            "id": f"genre-{_slugify(name)}",
+            "name": name,
+            "query": _genre_query(name),
+            "count": count,
+        }
+        if name in NONFICTION_GENRES:
+            nonfiction_children.append(child)
+            nonfiction_names.append(name)
+        else:
+            # Unknown genres default to fiction (most Audible genres are fiction)
+            fiction_children.append(child)
+            fiction_names.append(name)
+
+    return fiction_children, nonfiction_children, fiction_names, nonfiction_names
+
+
+def _build_genre_collections(cursor, tree, flat):
+    """Build fiction and nonfiction genre collections."""
     cursor.execute("""
         SELECT g.name, COUNT(ag.audiobook_id) as cnt
         FROM genres g
@@ -176,97 +267,24 @@ def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
     """)
     genre_rows = cursor.fetchall()
 
-    fiction_children = []
-    nonfiction_children = []
-    fiction_genre_names = []
-    nonfiction_genre_names = []
+    fic_ch, nfic_ch, fic_names, nfic_names = _classify_genre_children(genre_rows)
 
-    for row in genre_rows:
-        name = row["name"] if isinstance(row, dict) else row[0]
-        count = row["cnt"] if isinstance(row, dict) else row[1]
-        slug = f"genre-{_slugify(name)}"
+    if fic_names:
+        _add_parent_node(
+            tree, flat, "fiction", "Fiction",
+            "Novels, stories, and literary fiction",
+            _multi_genre_query(fic_names), "📖", "fiction", fic_ch,
+        )
+    if nfic_names:
+        _add_parent_node(
+            tree, flat, "nonfiction", "Nonfiction",
+            "Biography, history, science, and more",
+            _multi_genre_query(nfic_names), "📚", "nonfiction", nfic_ch,
+        )
 
-        child = {
-            "id": slug,
-            "name": name,
-            "query": _genre_query(name),
-            "count": count,
-        }
 
-        if name in FICTION_GENRES:
-            fiction_children.append(child)
-            fiction_genre_names.append(name)
-        elif name in NONFICTION_GENRES:
-            nonfiction_children.append(child)
-            nonfiction_genre_names.append(name)
-        else:
-            # Unknown genres go to fiction by default (most Audible genres are fiction)
-            fiction_children.append(child)
-            fiction_genre_names.append(name)
-
-    # Fiction parent
-    if fiction_genre_names:
-        fiction_query = _multi_genre_query(fiction_genre_names)
-        fiction_node = {
-            "id": "fiction",
-            "name": "Fiction",
-            "description": "Novels, stories, and literary fiction",
-            "query": fiction_query,
-            "icon": "📖",
-            "category": "fiction",
-            "children": fiction_children,
-        }
-        tree.append(fiction_node)
-        flat["fiction"] = {
-            "name": "Fiction",
-            "description": fiction_node["description"],
-            "query": fiction_query,
-            "icon": "📖",
-            "category": "fiction",
-            "bypasses_filter": False,
-        }
-        for child in fiction_children:
-            flat[child["id"]] = {
-                "name": child["name"],
-                "description": "",
-                "query": child["query"],
-                "icon": "📖",
-                "category": "fiction",
-                "bypasses_filter": False,
-            }
-
-    # Nonfiction parent
-    if nonfiction_genre_names:
-        nonfiction_query = _multi_genre_query(nonfiction_genre_names)
-        nonfiction_node = {
-            "id": "nonfiction",
-            "name": "Nonfiction",
-            "description": "Biography, history, science, and more",
-            "query": nonfiction_query,
-            "icon": "📚",
-            "category": "nonfiction",
-            "children": nonfiction_children,
-        }
-        tree.append(nonfiction_node)
-        flat["nonfiction"] = {
-            "name": "Nonfiction",
-            "description": nonfiction_node["description"],
-            "query": nonfiction_query,
-            "icon": "📚",
-            "category": "nonfiction",
-            "bypasses_filter": False,
-        }
-        for child in nonfiction_children:
-            flat[child["id"]] = {
-                "name": child["name"],
-                "description": "",
-                "query": child["query"],
-                "icon": "📚",
-                "category": "nonfiction",
-                "bypasses_filter": False,
-            }
-
-    # --- Series ---
+def _build_series_collections(cursor, tree, flat):
+    """Build series collections."""
     cursor.execute("""
         SELECT series, content_type, COUNT(*) as cnt
         FROM audiobooks
@@ -274,54 +292,22 @@ def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
         GROUP BY series
         ORDER BY series
     """)
-    series_rows = cursor.fetchall()
+    children = _build_children_from_rows(
+        cursor.fetchall(), "series", _series_query,
+        name_field="series",
+        extra_fields={"content_type": ("content_type", 1)},
+    )
+    if children:
+        _add_parent_node(
+            tree, flat, "series", "Series",
+            "Books organized by series",
+            "series IS NOT NULL AND series != ''",
+            "📕", "series", children,
+        )
 
-    series_children = []
-    for row in series_rows:
-        name = row["series"] if isinstance(row, dict) else row[0]
-        content_type = row["content_type"] if isinstance(row, dict) else row[1]
-        count = row["cnt"] if isinstance(row, dict) else row[2]
-        slug = f"series-{_slugify(name)}"
 
-        child = {
-            "id": slug,
-            "name": name,
-            "query": _series_query(name),
-            "count": count,
-            "content_type": content_type or "Product",
-        }
-        series_children.append(child)
-        flat[slug] = {
-            "name": name,
-            "description": "",
-            "query": child["query"],
-            "icon": "📕",
-            "category": "series",
-            "bypasses_filter": False,
-        }
-
-    if series_children:
-        # Series parent matches all books that have a series
-        series_node = {
-            "id": "series",
-            "name": "Series",
-            "description": "Books organized by series",
-            "query": "series IS NOT NULL AND series != ''",
-            "icon": "📕",
-            "category": "series",
-            "children": series_children,
-        }
-        tree.append(series_node)
-        flat["series"] = {
-            "name": "Series",
-            "description": series_node["description"],
-            "query": series_node["query"],
-            "icon": "📕",
-            "category": "series",
-            "bypasses_filter": False,
-        }
-
-    # --- Eras ---
+def _build_era_collections(cursor, tree, flat):
+    """Build era collections."""
     cursor.execute("""
         SELECT e.name, COUNT(ae.audiobook_id) as cnt
         FROM eras e
@@ -330,55 +316,18 @@ def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
         HAVING cnt > 0
         ORDER BY e.name
     """)
-    era_rows = cursor.fetchall()
+    children = _build_children_from_rows(cursor.fetchall(), "era", _era_query)
+    if children:
+        _add_parent_node(
+            tree, flat, "eras", "Eras",
+            "Books by literary era and time period",
+            "id IN (SELECT ae.audiobook_id FROM audiobook_eras ae)",
+            "🕰️", "eras", children,
+        )
 
-    era_children = []
-    era_names = []
-    for row in era_rows:
-        name = row["name"] if isinstance(row, dict) else row[0]
-        count = row["cnt"] if isinstance(row, dict) else row[1]
-        slug = f"era-{_slugify(name)}"
 
-        child = {
-            "id": slug,
-            "name": name,
-            "query": _era_query(name),
-            "count": count,
-        }
-        era_children.append(child)
-        era_names.append(name)
-        flat[slug] = {
-            "name": name,
-            "description": "",
-            "query": child["query"],
-            "icon": "🕰️",
-            "category": "eras",
-            "bypasses_filter": False,
-        }
-
-    if era_children:
-        era_node = {
-            "id": "eras",
-            "name": "Eras",
-            "description": "Books by literary era and time period",
-            "query": """id IN (
-                SELECT ae.audiobook_id FROM audiobook_eras ae
-            )""",
-            "icon": "🕰️",
-            "category": "eras",
-            "children": era_children,
-        }
-        tree.append(era_node)
-        flat["eras"] = {
-            "name": "Eras",
-            "description": era_node["description"],
-            "query": era_node["query"],
-            "icon": "🕰️",
-            "category": "eras",
-            "bypasses_filter": False,
-        }
-
-    # --- Topics ---
+def _build_topic_collections(cursor, tree, flat):
+    """Build topic collections."""
     cursor.execute("""
         SELECT t.name, COUNT(at.audiobook_id) as cnt
         FROM topics t
@@ -387,51 +336,30 @@ def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
         HAVING cnt > 0
         ORDER BY t.name
     """)
-    topic_rows = cursor.fetchall()
+    children = _build_children_from_rows(cursor.fetchall(), "topic", _topic_query)
+    if children:
+        _add_parent_node(
+            tree, flat, "topics", "Topics",
+            "Books by subject and theme",
+            "id IN (SELECT at.audiobook_id FROM audiobook_topics at)",
+            "🏷️", "topics", children,
+        )
 
-    topic_children = []
-    for row in topic_rows:
-        name = row["name"] if isinstance(row, dict) else row[0]
-        count = row["cnt"] if isinstance(row, dict) else row[1]
-        slug = f"topic-{_slugify(name)}"
 
-        child = {
-            "id": slug,
-            "name": name,
-            "query": _topic_query(name),
-            "count": count,
-        }
-        topic_children.append(child)
-        flat[slug] = {
-            "name": name,
-            "description": "",
-            "query": child["query"],
-            "icon": "🏷️",
-            "category": "topics",
-            "bypasses_filter": False,
-        }
+def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
+    """
+    Build the collection tree and flat lookup from enrichment data.
 
-    if topic_children:
-        topic_node = {
-            "id": "topics",
-            "name": "Topics",
-            "description": "Books by subject and theme",
-            "query": """id IN (
-                SELECT at.audiobook_id FROM audiobook_topics at
-            )""",
-            "icon": "🏷️",
-            "category": "topics",
-            "children": topic_children,
-        }
-        tree.append(topic_node)
-        flat["topics"] = {
-            "name": "Topics",
-            "description": topic_node["description"],
-            "query": topic_node["query"],
-            "icon": "🏷️",
-            "category": "topics",
-            "bypasses_filter": False,
-        }
+    Returns (tree, flat_lookup).
+    """
+    tree: list[dict] = []
+    flat: dict[str, dict] = {}
+
+    _build_special_collections(tree, flat)
+    _build_genre_collections(cursor, tree, flat)
+    _build_series_collections(cursor, tree, flat)
+    _build_era_collections(cursor, tree, flat)
+    _build_topic_collections(cursor, tree, flat)
 
     return tree, flat
 

@@ -66,7 +66,7 @@ def _insert_book(db_path: Path, **overrides) -> int:
     cols = ", ".join(defaults.keys())
     placeholders = ", ".join(["?"] * len(defaults))
     cur.execute(
-        f"INSERT INTO audiobooks ({cols}) VALUES ({placeholders})",
+        f"INSERT INTO audiobooks ({cols}) VALUES ({placeholders})",  # nosec B608
         list(defaults.values()),
     )
     book_id = cur.lastrowid
@@ -918,15 +918,13 @@ class TestEnrichBookISBN:
 
     @patch("scripts.enrich_single._query_google_books")
     def test_isbn_published_date_bad_year_parse(self, mock_gb, tmp_path):
-        """publishedDate with non-numeric year prefix triggers a bug.
+        """publishedDate with non-numeric year prefix is handled gracefully.
 
-        BUG: The source code appends 'published_year = COALESCE(...)' to
-        isbn_updates before attempting int(pub_date[:4]). When the int()
-        raises ValueError, the SQL placeholder exists but the corresponding
-        parameter does not, causing a sqlite3.ProgrammingError.
-
-        This test documents the existing bug — fix should move the append
-        after the int() conversion succeeds.
+        Previously this was a documented bug where the SQL placeholder was
+        appended before int() conversion, causing ProgrammingError on
+        ValueError. The refactored code handles the ValueError correctly
+        by skipping published_year when int() fails, while still setting
+        published_date.
         """
         db = tmp_path / "test.db"
         _init_db(db)
@@ -934,10 +932,12 @@ class TestEnrichBookISBN:
 
         gb_data = {"publishedDate": "XXXX-01-01"}
         mock_gb.return_value = gb_data
-        with pytest.raises(
-            sqlite3.ProgrammingError, match="Incorrect number of bindings"
-        ):
-            enrich_book(book_id=book_id, db_path=db, quiet=True)
+        # Should not raise — bad year is skipped gracefully
+        enrich_book(book_id=book_id, db_path=db, quiet=True)
+
+        book = _get_book(db, book_id)
+        # published_date is set (bad year prefix treated as literal date string)
+        assert book["published_year"] is None  # int("XXXX") failed, skipped
 
     @patch("scripts.enrich_single._query_openlibrary_search")
     @patch("scripts.enrich_single._query_google_books")

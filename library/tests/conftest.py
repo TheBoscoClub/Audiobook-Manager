@@ -87,38 +87,29 @@ def _get_project_major_version():
         return 0
 
 
+def _apply_skip_marker(items, keyword: str, reason: str):
+    """Add a skip marker to all items matching a keyword."""
+    marker = pytest.mark.skip(reason=reason)
+    for item in items:
+        if keyword in item.keywords:
+            item.add_marker(marker)
+
+
 def pytest_collection_modifyitems(config, items):
     # Version-gated markers: auto-skip @pytest.mark.v8 tests when major < 8
     major = _get_project_major_version()
     if major < 8:
-        skip_v8 = pytest.mark.skip(reason=f"v8 feature (current version major={major})")
-        for item in items:
-            if "v8" in item.keywords:
-                item.add_marker(skip_v8)
+        _apply_skip_marker(items, "v8", f"v8 feature (current version major={major})")
 
-    # --hardware gates non-FIDO2 hardware tests only
-    if not config.getoption("--hardware"):
-        skip_hw = pytest.mark.skip(
-            reason="needs --hardware flag to run (non-FIDO2 hardware)"
-        )
-        for item in items:
-            if "hardware" in item.keywords:
-                item.add_marker(skip_hw)
-
-    # --vm gates integration tests (NOT FIDO2 auth tests)
-    if not config.getoption("--vm"):
-        skip_vm = pytest.mark.skip(reason="needs --vm flag to run (test VM)")
-        for item in items:
-            if "integration" in item.keywords:
-                item.add_marker(skip_vm)
-
-    if not config.getoption("--docker"):
-        skip_docker = pytest.mark.skip(
-            reason="needs --docker flag to run (Docker daemon)"
-        )
-        for item in items:
-            if "docker" in item.keywords:
-                item.add_marker(skip_docker)
+    # Flag-gated markers: skip tests unless corresponding CLI flag is given
+    flag_gates = {
+        "--hardware": ("hardware", "needs --hardware flag to run (non-FIDO2 hardware)"),
+        "--vm": ("integration", "needs --vm flag to run (test VM)"),
+        "--docker": ("docker", "needs --docker flag to run (Docker daemon)"),
+    }
+    for flag, (keyword, reason) in flag_gates.items():
+        if not config.getoption(flag):
+            _apply_skip_marker(items, keyword, reason)
 
 
 HARDWARE_SKIP_MSG = (

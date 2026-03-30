@@ -425,35 +425,35 @@ class TestQueryExecution:
     def test_genre_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _genre_query("Mystery")
-        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()  # nosec B608
         conn.close()
         assert len(rows) == 1  # Murder on the Orient Express
 
     def test_multi_genre_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _multi_genre_query(["Mystery", "Science Fiction"])
-        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()  # nosec B608
         conn.close()
         assert len(rows) == 2  # Dune + Murder
 
     def test_era_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _era_query("Jazz Age")
-        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()  # nosec B608
         conn.close()
         assert len(rows) == 1  # Gatsby
 
     def test_topic_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _topic_query("Space Exploration")
-        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()  # nosec B608
         conn.close()
         assert len(rows) == 2  # Dune + Brief History
 
     def test_series_query_executes(self, test_db_path):
         conn = sqlite3.connect(test_db_path)
         q = _series_query("Dune Chronicles")
-        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()
+        rows = conn.execute(f"SELECT id FROM audiobooks WHERE {q}").fetchall()  # nosec B608
         conn.close()
         assert len(rows) == 1  # Dune
 

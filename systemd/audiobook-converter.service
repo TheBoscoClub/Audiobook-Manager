@@ -22,6 +22,7 @@ ExecStart=/usr/local/bin/audiobook-convert
 # Restart on failure
 Restart=always
 RestartSec=30
+LimitNOFILE=65536
 
 # Nice value for lower priority
 Nice=5

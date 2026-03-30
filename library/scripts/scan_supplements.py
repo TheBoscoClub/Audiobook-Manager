@@ -32,6 +32,18 @@ except ImportError:
         os.environ.get("AUDIOBOOKS_SUPPLEMENTS", f"{_data_dir}/Supplements")
     )
 
+# Type mapping for supplement file extensions
+_TYPE_MAP = {
+    "pdf": "pdf",
+    "epub": "ebook",
+    "mobi": "ebook",
+    "jpg": "image",
+    "jpeg": "image",
+    "png": "image",
+    "mp3": "audio",
+    "wav": "audio",
+}
+
 
 def get_db():
     """Get database connection"""
@@ -67,24 +79,16 @@ def ensure_supplements_table(cursor):
     )
 
 
-def scan_supplements(supplements_dir: Path, verbose: bool = True):
-    """Scan supplements directory and update database"""
-    if not supplements_dir.exists():
-        print(f"Supplements directory not found: {supplements_dir}")
-        return {"added": 0, "updated": 0, "skipped": 0}
+def _remove_orphaned_entries(cursor, conn, verbose):
+    """Remove supplement entries whose files no longer exist on disk.
 
-    conn = get_db()
-    cursor = conn.cursor()
-
-    # Ensure table exists
-    ensure_supplements_table(cursor)
-    conn.commit()
-
-    # Get existing supplements and remove orphaned entries (file deleted from disk)
+    Returns (existing_paths_set, removed_count).
+    """
     cursor.execute("SELECT id, file_path FROM supplements")
     existing_rows = cursor.fetchall()
     existing_paths = set()
     orphaned_ids = []
+
     for row in existing_rows:
         if not Path(row["file_path"]).is_file():
             orphaned_ids.append(row["id"])
@@ -102,90 +106,98 @@ def scan_supplements(supplements_dir: Path, verbose: bool = True):
         removed = len(orphaned_ids)
         if verbose:
             print(
-                f"  Removed {removed} orphaned supplement entries (files no longer on disk)"
+                f"  Removed {removed} orphaned supplement entries"
+                " (files no longer on disk)"
             )
+
+    return existing_paths, removed
+
+
+def _match_audiobook(cursor, clean_name):
+    """Try to match a supplement file name to an audiobook. Returns audiobook_id or None."""
+    cursor.execute(
+        """
+        SELECT id, title FROM audiobooks
+        WHERE LOWER(title) LIKE ?
+        OR LOWER(REPLACE(REPLACE(title, ':', ''), '-', '')) LIKE ?
+        LIMIT 1
+    """,
+        (f"%{clean_name[:30].lower()}%", f"%{clean_name[:30].lower()}%"),
+    )
+    match = cursor.fetchone()
+    return match if match else None
+
+
+def _upsert_supplement(cursor, path_str, existing_paths, audiobook_id,
+                       file_size, supplement_type, filename, match, verbose):
+    """Insert or update a single supplement record. Returns ('added'|'updated')."""
+    if path_str in existing_paths:
+        cursor.execute(
+            "UPDATE supplements SET audiobook_id = ?, file_size_mb = ?, type = ? "
+            "WHERE file_path = ?",
+            (audiobook_id, file_size, supplement_type, path_str),
+        )
+        action = "Updated"
+        result = "updated"
+    else:
+        cursor.execute(
+            "INSERT INTO supplements "
+            "(audiobook_id, type, filename, file_path, file_size_mb) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (audiobook_id, supplement_type, filename, path_str, file_size),
+        )
+        action = "Added"
+        result = "added"
+
+    if verbose:
+        status = f"linked to '{match['title'][:40]}...'" if match else "unlinked"
+        print(f"  {action}: {filename[:50]} ({status})")
+
+    return result
+
+
+def scan_supplements(supplements_dir: Path, verbose: bool = True):
+    """Scan supplements directory and update database"""
+    if not supplements_dir.exists():
+        print(f"Supplements directory not found: {supplements_dir}")
+        return {"added": 0, "updated": 0, "skipped": 0}
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    ensure_supplements_table(cursor)
+    conn.commit()
+
+    existing_paths, removed = _remove_orphaned_entries(cursor, conn, verbose)
 
     added = 0
     updated = 0
     skipped = 0
 
-    # Type mapping
-    type_map = {
-        "pdf": "pdf",
-        "epub": "ebook",
-        "mobi": "ebook",
-        "jpg": "image",
-        "jpeg": "image",
-        "png": "image",
-        "mp3": "audio",
-        "wav": "audio",
-    }
-
     for file_path in supplements_dir.iterdir():
         if not file_path.is_file():
             continue
 
-        path_str = str(file_path)
-        filename = file_path.name
         ext = file_path.suffix.lower().lstrip(".")
-
-        # Skip non-supplement files
-        if ext not in type_map:
+        if ext not in _TYPE_MAP:
             skipped += 1
             continue
 
-        file_size = file_path.stat().st_size / (1024 * 1024)  # MB
-        supplement_type = type_map.get(ext, "other")
-
-        # Clean filename for matching
+        file_size = file_path.stat().st_size / (1024 * 1024)
+        supplement_type = _TYPE_MAP[ext]
         clean_name = file_path.stem.replace("_", " ").replace("-", " ")
 
-        # Try to match to an audiobook by title (first 30 chars)
-        cursor.execute(
-            """
-            SELECT id, title FROM audiobooks
-            WHERE LOWER(title) LIKE ?
-            OR LOWER(REPLACE(REPLACE(title, ':', ''), '-', '')) LIKE ?
-            LIMIT 1
-        """,
-            (f"%{clean_name[:30].lower()}%", f"%{clean_name[:30].lower()}%"),
-        )
-
-        match = cursor.fetchone()
+        match = _match_audiobook(cursor, clean_name)
         audiobook_id = match["id"] if match else None
 
-        if path_str in existing_paths:
-            # Update existing record
-            cursor.execute(
-                """
-                UPDATE supplements
-                SET audiobook_id = ?, file_size_mb = ?, type = ?
-                WHERE file_path = ?
-            """,
-                (audiobook_id, file_size, supplement_type, path_str),
-            )
-            updated += 1
-            if verbose:
-                status = (
-                    f"linked to '{match['title'][:40]}...'" if match else "unlinked"
-                )
-                print(f"  Updated: {filename[:50]} ({status})")
-        else:
-            # Insert new record
-            cursor.execute(
-                """
-                INSERT INTO supplements
-                    (audiobook_id, type, filename, file_path, file_size_mb)
-                VALUES (?, ?, ?, ?, ?)
-            """,
-                (audiobook_id, supplement_type, filename, path_str, file_size),
-            )
+        result = _upsert_supplement(
+            cursor, str(file_path), existing_paths, audiobook_id,
+            file_size, supplement_type, file_path.name, match, verbose,
+        )
+        if result == "added":
             added += 1
-            if verbose:
-                status = (
-                    f"linked to '{match['title'][:40]}...'" if match else "unlinked"
-                )
-                print(f"  Added: {filename[:50]} ({status})")
+        else:
+            updated += 1
 
     conn.commit()
     conn.close()

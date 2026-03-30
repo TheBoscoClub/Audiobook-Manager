@@ -58,6 +58,73 @@ def _get_verify_module():
     return _verify_module if _verify_module else None
 
 
+def _find_audio_files(dir_path: Path) -> list[Path]:
+    """Find audio files in directory, filtering out cover art."""
+    audio_files: list[Path] = []
+    for ext in SUPPORTED_FORMATS:
+        audio_files.extend(dir_path.rglob(f"*{ext}"))
+    return [f for f in audio_files if not is_cover_art_file(f)]
+
+
+def _get_existing_paths_for_dir(cursor, audio_files: list[Path]) -> set[str]:
+    """Return set of file paths that already exist in the database."""
+    existing = set()
+    for f in audio_files:
+        cursor.execute("SELECT 1 FROM audiobooks WHERE file_path = ?", (str(f),))
+        if cursor.fetchone():
+            existing.add(str(f))
+    return existing
+
+
+def _post_import_hooks(audiobook_id: int, db_path: Path) -> None:
+    """Run enrichment and verification after a successful import."""
+    enrich_fn = _get_enrich_module()
+    if enrich_fn and audiobook_id:
+        try:
+            enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=False)
+        except Exception as e:
+            print(f"  ⚠ Enrichment error (non-fatal): {e}", file=sys.stderr)
+
+    verify_fn = _get_verify_module()
+    if verify_fn and audiobook_id:
+        try:
+            verify_fn(
+                book_id=audiobook_id,
+                db_path=db_path,
+                auto_fix=True,
+                quiet=True,
+            )
+        except Exception as e:
+            print(f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr)
+
+
+def _import_single_file(
+    filepath: Path, conn, dir_path: Path, cover_dir: Path, db_path: Path
+) -> str:
+    """Import one audiobook file. Returns 'added', 'skipped', or 'error'."""
+    metadata = get_file_metadata(
+        filepath, audiobook_dir=dir_path.parent, calculate_hash=False
+    )
+    if not metadata:
+        return "error"
+
+    cover_path = extract_cover_art(filepath, cover_dir, metadata=metadata)
+
+    try:
+        audiobook_id = insert_audiobook(conn, metadata, cover_path)
+        conn.commit()
+        print(f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}")
+        _post_import_hooks(audiobook_id, db_path)
+        return "added"
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return "skipped"
+    except Exception as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        conn.rollback()
+        return "error"
+
+
 def import_directory(
     dir_path: Path, db_path: Path = DATABASE_PATH, cover_dir: Path = COVER_DIR
 ) -> dict:
@@ -72,10 +139,6 @@ def import_directory(
     Returns:
         dict with {added: int, skipped: int, errors: int}
     """
-    added = 0
-    skipped = 0
-    errors = 0
-
     if not dir_path.is_dir():
         return {
             "added": 0,
@@ -84,14 +147,7 @@ def import_directory(
             "error": f"Not a directory: {dir_path}",
         }
 
-    # Find audio files in this directory (recursive for nested structure)
-    audio_files: list[Path] = []
-    for ext in SUPPORTED_FORMATS:
-        audio_files.extend(dir_path.rglob(f"*{ext}"))
-
-    # Filter out cover art files
-    audio_files = [f for f in audio_files if not is_cover_art_file(f)]
-
+    audio_files = _find_audio_files(dir_path)
     if not audio_files:
         return {
             "added": 0,
@@ -100,16 +156,9 @@ def import_directory(
             "message": "No audio files found",
         }
 
-    # Check which files are already in DB
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
-    existing = set()
-    for f in audio_files:
-        cursor.execute("SELECT 1 FROM audiobooks WHERE file_path = ?", (str(f),))
-        if cursor.fetchone():
-            existing.add(str(f))
-
+    existing = _get_existing_paths_for_dir(cursor, audio_files)
     new_files = [f for f in audio_files if str(f) not in existing]
     skipped = len(existing)
 
@@ -117,59 +166,19 @@ def import_directory(
         conn.close()
         return {"added": 0, "skipped": skipped, "errors": 0}
 
-    # Ensure cover directory exists
     cover_dir.mkdir(parents=True, exist_ok=True)
+    added = 0
+    errors = 0
 
     try:
         for filepath in new_files:
-            # Extract metadata (skip hash for speed - mover already validated)
-            metadata = get_file_metadata(
-                filepath, audiobook_dir=dir_path.parent, calculate_hash=False
-            )
-            if not metadata:
-                errors += 1
-                continue
-
-            # Extract cover art (tiers: embedded → sidecar → external API)
-            cover_path = extract_cover_art(filepath, cover_dir, metadata=metadata)
-
-            try:
-                audiobook_id = insert_audiobook(conn, metadata, cover_path)
-                conn.commit()
+            result = _import_single_file(filepath, conn, dir_path, cover_dir, db_path)
+            if result == "added":
                 added += 1
-                print(
-                    f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}"
-                )
-
-                # Auto-enrich from Audible + ISBN sources
-                enrich_fn = _get_enrich_module()
-                if enrich_fn and audiobook_id:
-                    try:
-                        enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=False)
-                    except Exception as e:
-                        print(f"  ⚠ Enrichment error (non-fatal): {e}", file=sys.stderr)
-
-                # Verify metadata consistency
-                verify_fn = _get_verify_module()
-                if verify_fn and audiobook_id:
-                    try:
-                        verify_fn(
-                            book_id=audiobook_id,
-                            db_path=db_path,
-                            auto_fix=True,
-                            quiet=True,
-                        )
-                    except Exception as e:
-                        print(
-                            f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr
-                        )
-            except sqlite3.IntegrityError:
+            elif result == "skipped":
                 skipped += 1
-                conn.rollback()
-            except Exception as e:
-                print(f"✗ Error: {e}", file=sys.stderr)
+            else:
                 errors += 1
-                conn.rollback()
     finally:
         conn.close()
 

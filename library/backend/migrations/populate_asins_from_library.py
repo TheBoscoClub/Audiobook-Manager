@@ -102,6 +102,63 @@ def calculate_similarity(s1: str, s2: str) -> float:
     return len(intersection) / len(union)
 
 
+def _make_match(book, item, confidence, score):
+    """Create a match result dict."""
+    return {
+        "book_id": book["id"],
+        "book_title": book["title"],
+        "library_title": item.get("title"),
+        "asin": item.get("asin"),
+        "confidence": confidence,
+        "score": score,
+    }
+
+
+def _check_containment(norm_title, lib_norm_title, lib_items, best):
+    """Check if lib title is contained in book title.
+
+    Returns (score, item, confidence) if a better match found, else None.
+    """
+    lib_words = lib_norm_title.split()
+    if lib_norm_title not in norm_title or len(lib_words) < 1:
+        return None
+
+    # Skip if DB title has episode marker but library title does not
+    episode_markers = ["ep ", "episode "]
+    db_has_episode = any(w in norm_title for w in episode_markers)
+    lib_has_episode = any(w in lib_norm_title for w in episode_markers)
+    if db_has_episode and not lib_has_episode:
+        return None
+
+    containment_score = len(lib_words) / len(norm_title.split())
+    if norm_title.startswith(lib_norm_title):
+        containment_score = max(containment_score, 0.5)
+
+    if containment_score > best["score"] and containment_score >= 0.2:
+        return containment_score, lib_items[0], "containment"
+    return None
+
+
+def _find_best_fuzzy_match(norm_title, by_title):
+    """Find the best fuzzy/containment match for a normalized title.
+
+    Returns (best_match_item, best_score, best_confidence) or (None, 0.0, "fuzzy").
+    """
+    best = {"match": None, "score": 0.0, "confidence": "fuzzy"}
+
+    for lib_norm_title, lib_items in by_title.items():
+        score = calculate_similarity(norm_title, lib_norm_title)
+        if score > best["score"]:
+            best["score"] = score
+            best["match"] = lib_items[0]
+
+        result = _check_containment(norm_title, lib_norm_title, lib_items, best)
+        if result:
+            best["score"], best["match"], best["confidence"] = result
+
+    return best["match"], best["score"], best["confidence"]
+
+
 def match_books_to_library(
     audiobooks: list[dict], library_index: dict, threshold: float = 0.6
 ) -> tuple[list[dict], list[dict]]:
@@ -118,93 +175,29 @@ def match_books_to_library(
 
         # Try exact normalized title match
         if norm_title in by_title:
-            lib_items = by_title[norm_title]
-            item = lib_items[0]
-            matches.append(
-                {
-                    "book_id": book["id"],
-                    "book_title": book["title"],
-                    "library_title": item.get("title"),
-                    "asin": item.get("asin"),
-                    "confidence": "exact",
-                    "score": 1.0,
-                }
-            )
+            matches.append(_make_match(book, by_title[norm_title][0], "exact", 1.0))
             continue
 
         # Try fuzzy match
-        best_match = None
-        best_score = 0.0
-        best_confidence = "fuzzy"
-
-        for lib_norm_title, lib_items in by_title.items():
-            score = calculate_similarity(norm_title, lib_norm_title)
-            if score > best_score:
-                best_score = score
-                best_match = lib_items[0]
-
-            # Check containment
-            lib_words = lib_norm_title.split()
-            if lib_norm_title in norm_title and len(lib_words) >= 1:
-                db_has_episode = any(w in norm_title for w in ["ep ", "episode "])
-                lib_has_episode = any(w in lib_norm_title for w in ["ep ", "episode "])
-                if db_has_episode and not lib_has_episode:
-                    continue
-
-                containment_score = len(lib_words) / len(norm_title.split())
-                if norm_title.startswith(lib_norm_title):
-                    containment_score = max(containment_score, 0.5)
-                if containment_score > best_score and containment_score >= 0.2:
-                    best_score = containment_score
-                    best_match = lib_items[0]
-                    best_confidence = "containment"
+        best_match, best_score, best_confidence = _find_best_fuzzy_match(
+            norm_title, by_title
+        )
 
         if best_match and best_score >= threshold:
-            matches.append(
-                {
-                    "book_id": book["id"],
-                    "book_title": book["title"],
-                    "library_title": best_match.get("title"),
-                    "asin": best_match.get("asin"),
-                    "confidence": f"{best_confidence} ({best_score:.0%})",
-                    "score": best_score,
-                }
-            )
+            confidence_str = f"{best_confidence} ({best_score:.0%})"
+            matches.append(_make_match(book, best_match, confidence_str, best_score))
         else:
-            unmatched.append(
-                {
-                    **book,
-                    "best_score": best_score,
-                    "best_match": best_match.get("title") if best_match else None,
-                }
-            )
+            unmatched.append({
+                **book,
+                "best_score": best_score,
+                "best_match": best_match.get("title") if best_match else None,
+            })
 
     return matches, unmatched
 
 
-def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -> int:
-    """Update database with matched ASINs."""
-    if dry_run:
-        print("\nDRY RUN - No changes will be made\n")
-
-    print("\nMatch Results:")
-    print(f"   Matched: {len(matches)}")
-
-    if not dry_run and matches:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        for match in matches:
-            cursor.execute(
-                "UPDATE audiobooks SET asin = ?, source_asin = ? WHERE id = ?",
-                (match["asin"], match["asin"], match["book_id"]),
-            )
-
-        conn.commit()
-        conn.close()
-        print(f"\nUpdated {len(matches)} audiobooks with ASINs")
-
-    # Show sample matches grouped by confidence
+def _print_match_samples(matches):
+    """Print sample matches grouped by confidence."""
     exact = [m for m in matches if m["confidence"] == "exact"]
     fuzzy = [m for m in matches if m["confidence"] != "exact"]
 
@@ -220,6 +213,28 @@ def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -
             print(f"       -> {m['library_title'][:50]}")
             print(f"       -> ASIN: {m['asin']}")
 
+
+def update_database(db_path: Path, matches: list[dict], dry_run: bool = False) -> int:
+    """Update database with matched ASINs."""
+    if dry_run:
+        print("\nDRY RUN - No changes will be made\n")
+
+    print("\nMatch Results:")
+    print(f"   Matched: {len(matches)}")
+
+    if not dry_run and matches:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        for match in matches:
+            cursor.execute(
+                "UPDATE audiobooks SET asin = ?, source_asin = ? WHERE id = ?",
+                (match["asin"], match["asin"], match["book_id"]),
+            )
+        conn.commit()
+        conn.close()
+        print(f"\nUpdated {len(matches)} audiobooks with ASINs")
+
+    _print_match_samples(matches)
     return len(matches)
 
 

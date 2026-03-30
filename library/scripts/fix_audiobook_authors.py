@@ -20,77 +20,62 @@ from config import DATABASE_PATH
 DB_PATH = DATABASE_PATH
 
 
-def fix_audiobook_authors(dry_run=True):
+def _extract_author_from_path(file_path):
+    """Extract the real author from a file path.
+
+    Looks for /Library/Audiobook/Author/ or /Library/Author/ patterns.
+    Returns the author string or None.
     """
-    Fix author metadata for entries with author="Audiobook"
+    parts = Path(file_path).parts
+
+    if "Library" not in parts:
+        return None
+
+    library_idx = parts.index("Library")
+
+    # /Library/Audiobook/Author/ pattern
+    if (
+        len(parts) > library_idx + 2
+        and parts[library_idx + 1].lower() == "audiobook"
+    ):
+        return parts[library_idx + 2]
+
+    # /Library/Author/ fallback pattern
+    if len(parts) > library_idx + 1:
+        potential = parts[library_idx + 1]
+        if potential.lower() != "audiobook":
+            return potential
+
+    return None
+
+
+def _classify_entries(entries):
+    """Classify entries into fixable updates and unfixable.
+
+    Returns (updates, cannot_fix).
     """
-    if not DB_PATH.exists():
-        print(f"Error: Database not found at {DB_PATH}")
-        sys.exit(1)
-
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    print("=" * 70)
-    print("FIX AUDIOBOOK AUTHORS")
-    print("=" * 70)
-    print(f"Database: {DB_PATH}")
-    print(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}")
-    print()
-
-    # Find all entries with author="Audiobook"
-    cursor.execute("""
-        SELECT id, title, author, file_path
-        FROM audiobooks
-        WHERE LOWER(TRIM(author)) = 'audiobook'
-        ORDER BY title
-    """)
-    entries = cursor.fetchall()
-
-    print(f"Found {len(entries)} entries with author='Audiobook'")
-    print()
-
     updates = []
     cannot_fix = []
 
     for entry_id, title, author, file_path in entries:
-        # Extract author from path
-        # Path: $AUDIOBOOKS_LIBRARY/Audiobook/Real Author/Book Title/file.opus
-        path = Path(file_path)
-        parts = path.parts
-
-        real_author = None
-        if "Library" in parts:
-            library_idx = parts.index("Library")
-            # Check for /Library/Audiobook/Author/ pattern
-            if (
-                len(parts) > library_idx + 2
-                and parts[library_idx + 1].lower() == "audiobook"
-            ):
-                real_author = parts[library_idx + 2]
-            elif len(parts) > library_idx + 1:
-                # Fallback: /Library/Author/ pattern
-                potential = parts[library_idx + 1]
-                if potential.lower() != "audiobook":
-                    real_author = potential
+        real_author = _extract_author_from_path(file_path)
 
         if real_author and real_author.lower() != "audiobook":
-            updates.append(
-                {
-                    "id": entry_id,
-                    "title": title,
-                    "old_author": author,
-                    "new_author": real_author,
-                    "file_path": file_path,
-                }
-            )
+            updates.append({
+                "id": entry_id,
+                "title": title,
+                "old_author": author,
+                "new_author": real_author,
+                "file_path": file_path,
+            })
         else:
             cannot_fix.append({"id": entry_id, "title": title, "file_path": file_path})
 
-    print(f"Can fix: {len(updates)}")
-    print(f"Cannot fix (need manual review): {len(cannot_fix)}")
-    print()
+    return updates, cannot_fix
 
+
+def _print_updates_preview(updates, cannot_fix):
+    """Print preview of planned updates and unfixable entries."""
     if updates:
         print("=" * 70)
         print("UPDATES (first 20):")
@@ -113,6 +98,67 @@ def fix_audiobook_authors(dry_run=True):
         if len(cannot_fix) > 10:
             print(f"... and {len(cannot_fix) - 10} more")
 
+
+def _apply_author_updates(cursor, conn, updates):
+    """Execute author updates and verify."""
+    print()
+    print("=" * 70)
+    print("EXECUTING UPDATES...")
+    print("=" * 70)
+
+    for upd in updates:
+        cursor.execute(
+            "UPDATE audiobooks SET author = ? WHERE id = ?",
+            (upd["new_author"], upd["id"]),
+        )
+
+    conn.commit()
+
+    cursor.execute("""
+        SELECT COUNT(*) FROM audiobooks
+        WHERE LOWER(TRIM(author)) = 'audiobook'
+    """)
+    remaining = cursor.fetchone()[0]
+
+    print(f"Updated: {len(updates)}")
+    print(f"Remaining with 'Audiobook' author: {remaining}")
+
+
+def fix_audiobook_authors(dry_run=True):
+    """Fix author metadata for entries with author='Audiobook'."""
+    if not DB_PATH.exists():
+        print(f"Error: Database not found at {DB_PATH}")
+        sys.exit(1)
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    print("=" * 70)
+    print("FIX AUDIOBOOK AUTHORS")
+    print("=" * 70)
+    print(f"Database: {DB_PATH}")
+    print(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}")
+    print()
+
+    cursor.execute("""
+        SELECT id, title, author, file_path
+        FROM audiobooks
+        WHERE LOWER(TRIM(author)) = 'audiobook'
+        ORDER BY title
+    """)
+    entries = cursor.fetchall()
+
+    print(f"Found {len(entries)} entries with author='Audiobook'")
+    print()
+
+    updates, cannot_fix = _classify_entries(entries)
+
+    print(f"Can fix: {len(updates)}")
+    print(f"Cannot fix (need manual review): {len(cannot_fix)}")
+    print()
+
+    _print_updates_preview(updates, cannot_fix)
+
     if dry_run:
         print()
         print("=" * 70)
@@ -122,32 +168,7 @@ def fix_audiobook_authors(dry_run=True):
         conn.close()
         return
 
-    # Execute updates
-    print()
-    print("=" * 70)
-    print("EXECUTING UPDATES...")
-    print("=" * 70)
-
-    updated = 0
-    for upd in updates:
-        cursor.execute(
-            "UPDATE audiobooks SET author = ? WHERE id = ?",
-            (upd["new_author"], upd["id"]),
-        )
-        updated += 1
-
-    conn.commit()
-
-    # Verify
-    cursor.execute("""
-        SELECT COUNT(*) FROM audiobooks
-        WHERE LOWER(TRIM(author)) = 'audiobook'
-    """)
-    remaining = cursor.fetchone()[0]
-
-    print(f"Updated: {updated}")
-    print(f"Remaining with 'Audiobook' author: {remaining}")
-
+    _apply_author_updates(cursor, conn, updates)
     conn.close()
 
 

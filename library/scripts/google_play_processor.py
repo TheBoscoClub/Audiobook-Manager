@@ -140,7 +140,59 @@ class GooglePlayProcessor:
             Dictionary with processing results
         """
         input_path = Path(input_path)
-        result = {
+        result = self._init_result(input_path)
+
+        try:
+            self._process_pipeline(input_path, result)
+        except Exception as e:
+            result["error"] = str(e)
+            if self.verbose:
+                import traceback
+
+                traceback.print_exc()
+        finally:
+            if self.temp_dir and self.temp_dir.exists():
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+        return result
+
+    def _process_pipeline(self, input_path: Path, result: Dict):
+        """Run the full processing pipeline, populating result in place."""
+        work_dir = self._resolve_input(input_path, result)
+        if work_dir is None:
+            return
+
+        chapter_files = self._find_chapter_files(work_dir)
+        if not chapter_files:
+            result["error"] = f"No MP3 files found in: {work_dir}"
+            return
+
+        result["chapters"] = len(chapter_files)
+        metadata = self._extract_metadata_from_chapters(chapter_files)
+        result["metadata"] = metadata
+        result["duration"] = metadata.get("duration_hours", 0)
+
+        cover_data, cover_mime = self._extract_cover_art(chapter_files)
+        if cover_data:
+            metadata["has_cover"] = True
+
+        if self.enrich_metadata and self.ol_client:
+            metadata.update(self._enrich_from_openlibrary(metadata))
+
+        output_file = self._build_output_path(metadata)
+        result["output_path"] = str(output_file)
+        self._print_summary(result, metadata, output_file)
+
+        if self.dry_run:
+            return
+
+        self._execute_processing(
+            chapter_files, output_file, metadata, cover_data, cover_mime, result
+        )
+
+    def _init_result(self, input_path: Path) -> Dict:
+        """Create initial result dictionary."""
+        return {
             "success": False,
             "input": str(input_path),
             "chapters": 0,
@@ -150,96 +202,65 @@ class GooglePlayProcessor:
             "error": None,
         }
 
-        try:
-            # Determine input type
-            if input_path.suffix.lower() == ".zip":
-                work_dir = self._extract_zip(input_path)
-                result["extracted"] = True
-            elif input_path.is_dir():
-                work_dir = input_path
-                result["extracted"] = False
-            else:
-                result["error"] = f"Input must be a ZIP file or directory: {input_path}"
-                return result
+    def _resolve_input(self, input_path: Path, result: Dict) -> Optional[Path]:
+        """Resolve input to a working directory. Returns None on error."""
+        if input_path.suffix.lower() == ".zip":
+            result["extracted"] = True
+            return self._extract_zip(input_path)
+        if input_path.is_dir():
+            result["extracted"] = False
+            return input_path
+        result["error"] = f"Input must be a ZIP file or directory: {input_path}"
+        return None
 
-            # Find chapter files
-            chapter_files = self._find_chapter_files(work_dir)
-            if not chapter_files:
-                result["error"] = f"No MP3 files found in: {work_dir}"
-                return result
+    def _build_output_path(self, metadata: Dict) -> Path:
+        """Build the output file path from metadata."""
+        output_dir = self._create_output_structure(metadata)
+        filename = self._sanitize_filename(metadata.get("title", "audiobook"))
+        return output_dir / f"{filename}.opus"
 
-            result["chapters"] = len(chapter_files)
+    def _execute_processing(
+        self,
+        chapter_files: List[Path],
+        output_file: Path,
+        metadata: Dict,
+        cover_data: Optional[bytes],
+        cover_mime: str,
+        result: Dict,
+    ):
+        """Execute the actual merge, cover embedding, and file creation."""
+        output_file.parent.mkdir(parents=True, exist_ok=True)
 
-            # Extract metadata from chapters
-            metadata = self._extract_metadata_from_chapters(chapter_files)
-            result["metadata"] = metadata
-            result["duration"] = metadata.get("duration_hours", 0)
+        if not self._merge_to_opus(chapter_files, output_file, metadata):
+            result["error"] = "Failed to merge chapters to OPUS"
+            return
 
-            # Extract cover art
-            cover_data, cover_mime = self._extract_cover_art(chapter_files)
-            if cover_data:
-                metadata["has_cover"] = True
+        if cover_data and HAS_MUTAGEN:
+            self._embed_and_save_cover(output_file, cover_data, cover_mime, metadata)
 
-            # Enrich with OpenLibrary if enabled
-            if self.enrich_metadata and self.ol_client:
-                enriched = self._enrich_from_openlibrary(metadata)
-                metadata.update(enriched)
+        result["success"] = True
+        print(f"\nOutput: {output_file}")
 
-            # Create output structure
-            output_dir = self._create_output_structure(metadata)
-            output_file = (
-                output_dir
-                / f"{self._sanitize_filename(metadata.get('title', 'audiobook'))}.opus"
-            )
-            result["output_path"] = str(output_file)
+    def _embed_and_save_cover(
+        self,
+        output_file: Path,
+        cover_data: bytes,
+        cover_mime: str,
+        metadata: Dict,
+    ):
+        """Embed cover art into OPUS and save a separate copy."""
+        self._embed_opus_cover(output_file, cover_data, cover_mime)
 
-            # Report what would happen
-            self._print_summary(result, metadata, output_file)
-
-            if self.dry_run:
-                return result
-
-            # Actual processing
-            # Create output directory
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            # Merge chapters to OPUS
-            if not self._merge_to_opus(chapter_files, output_file, metadata):
-                result["error"] = "Failed to merge chapters to OPUS"
-                return result
-
-            # Embed cover art
-            if cover_data and HAS_MUTAGEN:
-                self._embed_opus_cover(output_file, cover_data, cover_mime)
-
-                # Also save cover separately
-                cover_ext = "jpg" if "jpeg" in cover_mime else "png"
-                cover_hash = hashlib.md5(
-                    str(output_file).encode(), usedforsecurity=False
-                ).hexdigest()
-                cover_path = self.covers_dir / f"{cover_hash}.{cover_ext}"
-                if not cover_path.exists():
-                    self.covers_dir.mkdir(parents=True, exist_ok=True)
-                    with open(cover_path, "wb") as f:
-                        f.write(cover_data)
-                metadata["cover_path"] = str(cover_path)
-
-            result["success"] = True
-            print(f"\nOutput: {output_file}")
-
-        except Exception as e:
-            result["error"] = str(e)
-            if self.verbose:
-                import traceback
-
-                traceback.print_exc()
-
-        finally:
-            # Clean up temp directory if we created one
-            if self.temp_dir and self.temp_dir.exists():
-                shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-        return result
+        cover_ext = "jpg" if "jpeg" in cover_mime else "png"
+        cover_hash = hashlib.md5(
+            str(output_file).encode(), usedforsecurity=False
+        ).hexdigest()
+        cover_path = self.covers_dir / f"{cover_hash}.{cover_ext}"
+        if not cover_path.exists():
+            self.covers_dir.mkdir(parents=True, exist_ok=True)
+            with open(cover_path, "wb") as f:
+                f.write(cover_data)
+        metadata["cover_path"] = str(cover_path)
 
     def _extract_zip(self, zip_path: Path) -> Path:
         """Extract ZIP file to temporary directory."""
@@ -283,7 +304,28 @@ class GooglePlayProcessor:
         self, chapter_files: List[Path]
     ) -> Dict[str, Any]:
         """Extract metadata from chapter files using mutagen."""
-        metadata: Dict[str, Any] = {
+        metadata = self._init_metadata(len(chapter_files))
+
+        if not HAS_MUTAGEN:
+            metadata["title"] = chapter_files[0].parent.name
+            return metadata
+
+        from mutagen import File as MutagenFile
+
+        total_duration = self._sum_durations(chapter_files, MutagenFile)
+        self._extract_first_chapter_tags(chapter_files[0], metadata, MutagenFile)
+
+        metadata["duration_seconds"] = int(total_duration)
+        metadata["duration_hours"] = round(total_duration / 3600, 2)
+
+        if not metadata["title"]:
+            metadata["title"] = chapter_files[0].parent.name
+
+        return metadata
+
+    def _init_metadata(self, chapter_count: int) -> Dict[str, Any]:
+        """Create initial metadata dictionary."""
+        return {
             "title": None,
             "author": None,
             "narrator": None,
@@ -292,119 +334,109 @@ class GooglePlayProcessor:
             "year": None,
             "duration_seconds": 0,
             "duration_hours": 0.0,
-            "chapter_count": len(chapter_files),
+            "chapter_count": chapter_count,
             "source": "google_play",
         }
 
-        if not HAS_MUTAGEN:
-            # Fallback: try to parse from directory/filename
-            parent = chapter_files[0].parent
-            metadata["title"] = parent.name
-            return metadata
-
-        # Import additional mutagen formats
-        from mutagen import File as MutagenFile
-
-        total_duration = 0
-
-        for i, chapter_file in enumerate(chapter_files):
+    def _sum_durations(self, chapter_files: List[Path], MutagenFile) -> float:
+        """Sum audio duration across all chapter files."""
+        total = 0.0
+        for chapter_file in chapter_files:
             try:
-                # Use generic File to handle MP3, M4A, etc.
                 audio = MutagenFile(chapter_file)
-                if audio is None:
-                    continue
-
-                total_duration += audio.info.length
-
-                # Get metadata from first chapter only
-                if i == 0:
-                    suffix = chapter_file.suffix.lower()
-
-                    if suffix == ".mp3" and audio.tags:
-                        # MP3 with ID3 tags
-                        tags = audio.tags
-                        if "TALB" in tags:
-                            metadata["album"] = str(tags["TALB"])
-                            metadata["title"] = metadata["album"]
-                        elif "TIT2" in tags:
-                            title = str(tags["TIT2"])
-                            title = re.sub(
-                                r",?\s*(Chapter|Part|Section)\s*\d+.*$",
-                                "",
-                                title,
-                                flags=re.IGNORECASE,
-                            )
-                            metadata["title"] = title
-                        if "TPE1" in tags:
-                            metadata["author"] = str(tags["TPE1"])
-                        elif "TPE2" in tags:
-                            metadata["author"] = str(tags["TPE2"])
-                        if "TCOM" in tags:
-                            metadata["narrator"] = str(tags["TCOM"])
-                        if "TCON" in tags:
-                            metadata["genre"] = str(tags["TCON"])
-                        if "TDRC" in tags:
-                            try:
-                                metadata["year"] = int(str(tags["TDRC"])[:4])
-                            except (ValueError, TypeError):
-                                pass  # Non-critical: year is optional metadata
-
-                    elif suffix in [".m4a", ".m4b", ".aac"]:
-                        # M4A/M4B/AAC with MP4 tags
-                        tags = audio.tags or {}
-
-                        # Album/Title
-                        if "\xa9alb" in tags:
-                            metadata["album"] = str(tags["\xa9alb"][0])
-                            metadata["title"] = metadata["album"]
-                        elif "\xa9nam" in tags:
-                            title = str(tags["\xa9nam"][0])
-                            title = re.sub(
-                                r",?\s*(Chapter|Part|Section)\s*\d+.*$",
-                                "",
-                                title,
-                                flags=re.IGNORECASE,
-                            )
-                            metadata["title"] = title
-
-                        # Artist/Author
-                        if "\xa9ART" in tags:
-                            metadata["author"] = str(tags["\xa9ART"][0])
-                        elif "aART" in tags:
-                            metadata["author"] = str(tags["aART"][0])
-
-                        # Narrator (composer or narrator tag)
-                        if "\xa9wrt" in tags:
-                            metadata["narrator"] = str(tags["\xa9wrt"][0])
-                        elif "----:com.apple.iTunes:NARRATOR" in tags:
-                            metadata["narrator"] = str(
-                                tags["----:com.apple.iTunes:NARRATOR"][0]
-                            )
-
-                        # Genre
-                        if "\xa9gen" in tags:
-                            metadata["genre"] = str(tags["\xa9gen"][0])
-
-                        # Year
-                        if "\xa9day" in tags:
-                            try:
-                                year_str = str(tags["\xa9day"][0])
-                                metadata["year"] = int(year_str[:4])
-                            except (ValueError, TypeError, IndexError):
-                                pass  # Non-critical: year is optional metadata
-
+                if audio is not None:
+                    total += audio.info.length
             except Exception as e:
                 if self.verbose:
-                    print(f"Warning: Could not read metadata from {chapter_file}: {e}")
+                    print(
+                        f"Warning: Could not read duration from {chapter_file}: {e}"
+                    )
+        return total
 
-        metadata["duration_seconds"] = int(total_duration)
-        metadata["duration_hours"] = round(total_duration / 3600, 2)
+    def _extract_first_chapter_tags(self, chapter_file: Path, metadata: Dict, MutagenFile):
+        """Extract metadata tags from the first chapter file."""
+        try:
+            audio = MutagenFile(chapter_file)
+            if audio is None:
+                return
+            suffix = chapter_file.suffix.lower()
+            if suffix == ".mp3" and audio.tags:
+                self._extract_mp3_tags(audio.tags, metadata)
+            elif suffix in [".m4a", ".m4b", ".aac"]:
+                self._extract_m4a_tags(audio.tags or {}, metadata)
+        except Exception as e:
+            if self.verbose:
+                print(f"Warning: Could not read metadata from {chapter_file}: {e}")
 
-        # Fallback title from directory name
-        if not metadata["title"]:
-            metadata["title"] = chapter_files[0].parent.name
+    def _extract_mp3_tags(self, tags, metadata: Dict):
+        """Extract metadata from MP3 ID3 tags."""
+        if "TALB" in tags:
+            metadata["album"] = str(tags["TALB"])
+            metadata["title"] = metadata["album"]
+        elif "TIT2" in tags:
+            title = re.sub(
+                r",?\s*(Chapter|Part|Section)\s*\d+.*$",
+                "",
+                str(tags["TIT2"]),
+                flags=re.IGNORECASE,
+            )
+            metadata["title"] = title
 
-        return metadata
+        metadata["author"] = str(tags.get("TPE1") or tags.get("TPE2") or "") or None
+
+        if "TCOM" in tags:
+            metadata["narrator"] = str(tags["TCOM"])
+        if "TCON" in tags:
+            metadata["genre"] = str(tags["TCON"])
+        if "TDRC" in tags:
+            try:
+                metadata["year"] = int(str(tags["TDRC"])[:4])
+            except (ValueError, TypeError):
+                pass  # Non-critical: year is optional metadata
+
+    def _extract_m4a_tags(self, tags: Dict, metadata: Dict):
+        """Extract metadata from M4A/M4B/AAC MP4 tags."""
+        self._extract_m4a_title(tags, metadata)
+        self._extract_m4a_author(tags, metadata)
+        self._extract_m4a_narrator(tags, metadata)
+
+        if "\xa9gen" in tags:
+            metadata["genre"] = str(tags["\xa9gen"][0])
+        if "\xa9day" in tags:
+            try:
+                metadata["year"] = int(str(tags["\xa9day"][0])[:4])
+            except (ValueError, TypeError, IndexError):
+                pass  # Non-critical: year is optional metadata
+
+    def _extract_m4a_title(self, tags: Dict, metadata: Dict):
+        """Extract title from M4A tags."""
+        if "\xa9alb" in tags:
+            metadata["album"] = str(tags["\xa9alb"][0])
+            metadata["title"] = metadata["album"]
+        elif "\xa9nam" in tags:
+            title = re.sub(
+                r",?\s*(Chapter|Part|Section)\s*\d+.*$",
+                "",
+                str(tags["\xa9nam"][0]),
+                flags=re.IGNORECASE,
+            )
+            metadata["title"] = title
+
+    def _extract_m4a_author(self, tags: Dict, metadata: Dict):
+        """Extract author from M4A tags."""
+        if "\xa9ART" in tags:
+            metadata["author"] = str(tags["\xa9ART"][0])
+        elif "aART" in tags:
+            metadata["author"] = str(tags["aART"][0])
+
+    def _extract_m4a_narrator(self, tags: Dict, metadata: Dict):
+        """Extract narrator from M4A tags."""
+        if "\xa9wrt" in tags:
+            metadata["narrator"] = str(tags["\xa9wrt"][0])
+        elif "----:com.apple.iTunes:NARRATOR" in tags:
+            metadata["narrator"] = str(
+                tags["----:com.apple.iTunes:NARRATOR"][0]
+            )
 
     def _extract_cover_art(
         self, chapter_files: List[Path]
@@ -413,41 +445,63 @@ class GooglePlayProcessor:
         if not HAS_MUTAGEN:
             return None, ""
 
+        # Try embedded cover from first 3 chapters
+        cover = self._extract_embedded_cover(chapter_files[:3])
+        if cover:
+            return cover
+
+        # Fall back to cover image files in directory
+        return self._find_cover_file(chapter_files[0].parent)
+
+    def _extract_embedded_cover(
+        self, chapter_files: List[Path]
+    ) -> Optional[Tuple[bytes, str]]:
+        """Try to extract embedded cover art from audio files."""
         from mutagen import File as MutagenFile
 
-        for chapter_file in chapter_files[:3]:  # Check first 3 chapters
+        for chapter_file in chapter_files:
             try:
                 suffix = chapter_file.suffix.lower()
-
                 if suffix == ".mp3":
-                    audio = MP3(chapter_file)
-                    if audio.tags:
-                        for tag in audio.tags.values():
-                            if isinstance(tag, APIC):
-                                return tag.data, tag.mime
-
+                    result = self._extract_mp3_cover(chapter_file)
                 elif suffix in [".m4a", ".m4b", ".aac"]:
-                    audio = MutagenFile(chapter_file)
-                    if audio and audio.tags:
-                        # M4A cover art is in 'covr' tag
-                        if "covr" in audio.tags:
-                            cover = audio.tags["covr"][0]
-                            # Determine MIME type from format
-                            if hasattr(cover, "imageformat"):
-                                if cover.imageformat == 13:  # JPEG
-                                    return bytes(cover), "image/jpeg"
-                                elif cover.imageformat == 14:  # PNG
-                                    return bytes(cover), "image/png"
-                            return bytes(cover), "image/jpeg"  # Default to JPEG
-
+                    result = self._extract_m4a_cover(chapter_file, MutagenFile)
+                else:
+                    continue
+                if result:
+                    return result
             except Exception as e:
                 if self.verbose:
-                    print(f"Warning: Could not extract cover from {chapter_file}: {e}")
-                continue
+                    print(
+                        f"Warning: Could not extract cover from {chapter_file}: {e}"
+                    )
+        return None
 
-        # Also check for cover.jpg in directory
+    def _extract_mp3_cover(self, chapter_file: Path) -> Optional[Tuple[bytes, str]]:
+        """Extract cover art from MP3 file."""
+        audio = MP3(chapter_file)
+        if audio.tags:
+            for tag in audio.tags.values():
+                if isinstance(tag, APIC):
+                    return tag.data, tag.mime
+        return None
+
+    def _extract_m4a_cover(self, chapter_file: Path, MutagenFile) -> Optional[Tuple[bytes, str]]:
+        """Extract cover art from M4A/M4B file."""
+        audio = MutagenFile(chapter_file)
+        if not (audio and audio.tags and "covr" in audio.tags):
+            return None
+
+        cover = audio.tags["covr"][0]
+        if hasattr(cover, "imageformat"):
+            mime_map = {13: "image/jpeg", 14: "image/png"}
+            mime = mime_map.get(cover.imageformat, "image/jpeg")
+            return bytes(cover), mime
+        return bytes(cover), "image/jpeg"
+
+    def _find_cover_file(self, directory: Path) -> Tuple[Optional[bytes], str]:
+        """Look for cover image files in directory."""
         cover_files = ["cover.jpg", "cover.jpeg", "cover.png", "folder.jpg"]
-        directory = chapter_files[0].parent
         for cover_name in cover_files:
             cover_path = directory / cover_name
             if cover_path.exists():
@@ -458,7 +512,6 @@ class GooglePlayProcessor:
                 )
                 with open(cover_path, "rb") as f:
                     return f.read(), mime
-
         return None, ""
 
     def _merge_to_opus(
@@ -477,45 +530,7 @@ class GooglePlayProcessor:
                     escaped = str(chapter).replace("'", "'\\''")
                     f.write(f"file '{escaped}'\n")
 
-            # Build FFmpeg command
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                str(concat_file),
-                "-c:a",
-                "libopus",
-                "-b:a",
-                "64k",
-                "-vbr",
-                "on",
-                "-compression_level",
-                "10",
-                "-application",
-                "voip",
-                "-map_metadata",
-                "-1",  # Clear existing metadata
-            ]
-
-            # Add metadata
-            if metadata.get("title"):
-                cmd.extend(["-metadata", f"title={metadata['title']}"])
-                cmd.extend(["-metadata", f"album={metadata['title']}"])
-            if metadata.get("author"):
-                cmd.extend(["-metadata", f"artist={metadata['author']}"])
-                cmd.extend(["-metadata", f"album_artist={metadata['author']}"])
-            if metadata.get("narrator"):
-                cmd.extend(["-metadata", f"composer={metadata['narrator']}"])
-            if metadata.get("genre"):
-                cmd.extend(["-metadata", f"genre={metadata['genre']}"])
-            if metadata.get("year"):
-                cmd.extend(["-metadata", f"date={metadata['year']}"])
-
-            cmd.append(str(output_path))
+            cmd = self._build_ffmpeg_command(concat_file, output_path, metadata)
 
             if self.verbose:
                 print(f"Running: {' '.join(cmd[:10])}...")
@@ -533,6 +548,50 @@ class GooglePlayProcessor:
         finally:
             if concat_file.exists():
                 concat_file.unlink()
+
+    def _build_ffmpeg_command(
+        self, concat_file: Path, output_path: Path, metadata: Dict
+    ) -> List[str]:
+        """Build the FFmpeg command for merging chapters."""
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat_file),
+            "-c:a",
+            "libopus",
+            "-b:a",
+            "64k",
+            "-vbr",
+            "on",
+            "-compression_level",
+            "10",
+            "-application",
+            "voip",
+            "-map_metadata",
+            "-1",  # Clear existing metadata
+        ]
+
+        # Add metadata fields
+        metadata_map = {
+            "title": ("title", "album"),
+            "author": ("artist", "album_artist"),
+            "narrator": ("composer",),
+            "genre": ("genre",),
+            "year": ("date",),
+        }
+        for key, tags in metadata_map.items():
+            value = metadata.get(key)
+            if value:
+                for tag in tags:
+                    cmd.extend(["-metadata", f"{tag}={value}"])
+
+        cmd.append(str(output_path))
+        return cmd
 
     def _embed_opus_cover(
         self, opus_path: Path, cover_data: bytes, mime_type: str = "image/jpeg"
@@ -598,35 +657,38 @@ class GooglePlayProcessor:
             return enriched
 
         title = metadata.get("title", "")
-        author = metadata.get("author", "")
-
         if not title:
             return enriched
 
         try:
-            results = self.ol_client.search(title=title, author=author, limit=3)
-
+            results = self.ol_client.search(
+                title=title, author=metadata.get("author", ""), limit=3
+            )
             if results:
-                best = results[0]
-                work_key = best.get("key", "")
-
-                if work_key:
-                    work = self.ol_client.get_work(work_key)
-                    if work:
-                        enriched["subjects"] = work.subjects[:10]  # Limit subjects
-                        if work.first_publish_year and not metadata.get("year"):
-                            enriched["year"] = work.first_publish_year
-
-                # Get ISBN
-                isbn_list = best.get("isbn", [])
-                if isbn_list:
-                    enriched["isbn"] = isbn_list[0]
-
+                self._apply_openlibrary_results(results, metadata, enriched)
         except Exception as e:
             if self.verbose:
                 print(f"OpenLibrary lookup failed: {e}")
 
         return enriched
+
+    def _apply_openlibrary_results(
+        self, results: List, metadata: Dict, enriched: Dict
+    ):
+        """Apply OpenLibrary search results to enriched dict."""
+        best = results[0]
+        work_key = best.get("key", "")
+
+        if work_key:
+            work = self.ol_client.get_work(work_key)
+            if work:
+                enriched["subjects"] = work.subjects[:10]
+                if work.first_publish_year and not metadata.get("year"):
+                    enriched["year"] = work.first_publish_year
+
+        isbn_list = best.get("isbn", [])
+        if isbn_list:
+            enriched["isbn"] = isbn_list[0]
 
     def _print_summary(self, result: Dict, metadata: Dict, output_file: Path):
         """Print processing summary."""
