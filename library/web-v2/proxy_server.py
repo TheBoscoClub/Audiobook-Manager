@@ -172,7 +172,12 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     @staticmethod
     def _is_safe_cover_filename(filename: str) -> bool:
         """Check that a cover filename has no path traversal characters."""
-        return bool(filename) and "/" not in filename and "\\" not in filename and ".." not in filename
+        return (
+            bool(filename)
+            and "/" not in filename
+            and "\\" not in filename
+            and ".." not in filename
+        )
 
     def _resolve_cover_content_type(self, filename: str) -> str:
         """Determine the safe content type for a cover image."""

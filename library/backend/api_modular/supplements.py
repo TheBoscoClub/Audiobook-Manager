@@ -57,9 +57,7 @@ def _match_audiobook(cursor, file_path: Path) -> int | None:
     return match["id"] if match else None
 
 
-def _process_supplement_file(
-    file_path: Path, cursor, existing_paths: set[str]
-) -> str:
+def _process_supplement_file(file_path: Path, cursor, existing_paths: set[str]) -> str:
     """Process a single supplement file: insert or update in the database.
 
     Returns:
@@ -147,9 +145,7 @@ def get_supplement_stats() -> Response:
     )
 
 
-@supplements_bp.route(
-    "/api/audiobooks/<int:audiobook_id>/supplements", methods=["GET"]
-)
+@supplements_bp.route("/api/audiobooks/<int:audiobook_id>/supplements", methods=["GET"])
 @guest_allowed
 def get_audiobook_supplements(audiobook_id: int) -> Response:
     """Get supplements for a specific audiobook"""
@@ -176,9 +172,7 @@ def get_audiobook_supplements(audiobook_id: int) -> Response:
     )
 
 
-@supplements_bp.route(
-    "/api/supplements/<int:supplement_id>/download", methods=["GET"]
-)
+@supplements_bp.route("/api/supplements/<int:supplement_id>/download", methods=["GET"])
 @download_permission_required
 def download_supplement(supplement_id: int) -> FlaskResponse:
     """Download/serve a supplement file"""

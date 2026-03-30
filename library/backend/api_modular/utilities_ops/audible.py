@@ -233,9 +233,7 @@ def download_audiobooks_async() -> FlaskResponse:
     )
 
 
-@utilities_ops_audible_bp.route(
-    "/api/utilities/sync-genres-async", methods=["POST"]
-)
+@utilities_ops_audible_bp.route("/api/utilities/sync-genres-async", methods=["POST"])
 @admin_if_enabled
 def sync_genres_async() -> FlaskResponse:
     """Sync genres from Audible metadata with progress tracking."""
@@ -256,9 +254,7 @@ def sync_genres_async() -> FlaskResponse:
     )
 
 
-@utilities_ops_audible_bp.route(
-    "/api/utilities/sync-narrators-async", methods=["POST"]
-)
+@utilities_ops_audible_bp.route("/api/utilities/sync-narrators-async", methods=["POST"])
 @admin_if_enabled
 def sync_narrators_async() -> FlaskResponse:
     """Update narrator info from Audible metadata with progress tracking."""
@@ -284,9 +280,7 @@ def sync_narrators_async() -> FlaskResponse:
     )
 
 
-@utilities_ops_audible_bp.route(
-    "/api/utilities/check-audible-prereqs", methods=["GET"]
-)
+@utilities_ops_audible_bp.route("/api/utilities/check-audible-prereqs", methods=["GET"])
 @admin_if_enabled
 def check_audible_prereqs() -> FlaskResponse:
     """Check if Audible library metadata file exists."""

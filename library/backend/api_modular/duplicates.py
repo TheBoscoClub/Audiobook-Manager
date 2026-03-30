@@ -107,9 +107,7 @@ def _delete_audiobook_cascade(cursor, audiobook_id: int) -> None:
         "DELETE FROM audiobook_topics WHERE audiobook_id = ?",
         (audiobook_id,),
     )
-    cursor.execute(
-        "DELETE FROM audiobook_eras WHERE audiobook_id = ?", (audiobook_id,)
-    )
+    cursor.execute("DELETE FROM audiobook_eras WHERE audiobook_id = ?", (audiobook_id,))
     cursor.execute(
         "DELETE FROM audiobook_genres WHERE audiobook_id = ?",
         (audiobook_id,),
@@ -428,9 +426,7 @@ def _delete_library_file_with_db(
     return deleted_files, errors, skipped_not_found
 
 
-def _delete_source_file(
-    filepath: Path, filepath_str: str
-) -> tuple[list, list, list]:
+def _delete_source_file(filepath: Path, filepath_str: str) -> tuple[list, list, list]:
     """Delete a source file (no DB record). Returns (deleted, errors, not_found)."""
     deleted_files: list[dict] = []
     errors: list[dict] = []
@@ -530,9 +526,7 @@ def get_duplicates() -> FlaskResponse:
 
         if "sha256_hash" not in columns:
             return (
-                jsonify(
-                    {"error": "Hash column not found. Run hash generation first."}
-                ),
+                jsonify({"error": "Hash column not found. Run hash generation first."}),
                 400,
             )
 
@@ -592,9 +586,7 @@ def get_duplicates() -> FlaskResponse:
                 "duplicate_groups": duplicate_groups,
                 "total_groups": len(duplicate_groups),
                 "total_wasted_mb": round(total_wasted_space, 2),
-                "total_duplicate_files": sum(
-                    g["count"] - 1 for g in duplicate_groups
-                ),
+                "total_duplicate_files": sum(g["count"] - 1 for g in duplicate_groups),
             }
         )
     finally:
@@ -891,12 +883,8 @@ def delete_duplicates_by_path() -> FlaskResponse:
         return jsonify({"error": "No paths provided"}), 400
 
     # Get allowed directories from environment for path safety validation
-    library_dir = Path(
-        os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")
-    )
-    sources_dir = Path(
-        os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources")
-    )
+    library_dir = Path(os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library"))
+    sources_dir = Path(os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources"))
 
     # Determine which directories are allowed based on file type
     if file_type == "library":
@@ -986,9 +974,7 @@ def verify_deletion_safe() -> FlaskResponse:
     )
 
 
-def _verify_hash_groups(
-    cursor, items: list[dict]
-) -> tuple[list[int], list[dict]]:
+def _verify_hash_groups(cursor, items: list[dict]) -> tuple[list[int], list[dict]]:
     """Verify which items can be safely deleted by hash grouping."""
     hash_groups: dict[str | None, list[dict[str, Any]]] = {}
     for item in items:

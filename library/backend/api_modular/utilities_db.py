@@ -285,9 +285,7 @@ def export_csv() -> Response:
         response=output.getvalue(), status=200, mimetype="text/csv"
     )
     export_filename = f"audiobooks_export_{datetime.now().strftime('%Y%m%d')}.csv"
-    response.headers["Content-Disposition"] = (
-        f"attachment; filename={export_filename}"
-    )
+    response.headers["Content-Disposition"] = f"attachment; filename={export_filename}"
     return response
 
 

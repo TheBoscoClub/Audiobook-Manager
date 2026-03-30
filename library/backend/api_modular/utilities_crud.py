@@ -148,9 +148,14 @@ def _collect_paths_for_deletion(cursor, ids, placeholders, delete_files):
 def _validate_bulk_request(data, required_key, entity_label):
     """Validate common bulk request fields. Returns (ids, names, mode, error_response)."""
     if not data:
-        return None, None, None, (
-            jsonify({"success": False, "error": "No data provided"}),
-            400,
+        return (
+            None,
+            None,
+            None,
+            (
+                jsonify({"success": False, "error": "No data provided"}),
+                400,
+            ),
         )
 
     ids = data.get("ids", [])
@@ -158,19 +163,34 @@ def _validate_bulk_request(data, required_key, entity_label):
     mode = data.get("mode", "add")
 
     if not ids:
-        return None, None, None, (
-            jsonify({"success": False, "error": "No audiobook IDs provided"}),
-            400,
+        return (
+            None,
+            None,
+            None,
+            (
+                jsonify({"success": False, "error": "No audiobook IDs provided"}),
+                400,
+            ),
         )
     if not names:
-        return None, None, None, (
-            jsonify({"success": False, "error": f"No {entity_label} provided"}),
-            400,
+        return (
+            None,
+            None,
+            None,
+            (
+                jsonify({"success": False, "error": f"No {entity_label} provided"}),
+                400,
+            ),
         )
     if mode not in ("add", "remove"):
-        return None, None, None, (
-            jsonify({"success": False, "error": "mode must be 'add' or 'remove'"}),
-            400,
+        return (
+            None,
+            None,
+            None,
+            (
+                jsonify({"success": False, "error": "mode must be 'add' or 'remove'"}),
+                400,
+            ),
         )
     return ids, names, mode, None
 
@@ -226,7 +246,9 @@ def _bulk_remove_tags(cursor, ids, names, table, id_column, entity_table):
     return affected
 
 
-def _set_tags_for_audiobook(cursor, audiobook_id, names, junction_table, id_column, entity_table):
+def _set_tags_for_audiobook(
+    cursor, audiobook_id, names, junction_table, id_column, entity_table
+):
     """Replace all tag associations for a single audiobook."""
     cursor.execute(
         f"DELETE FROM {junction_table} WHERE audiobook_id = ?",  # nosec B608
@@ -561,7 +583,9 @@ def set_audiobook_genres(id: int) -> FlaskResponse:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
 
         cursor.execute("BEGIN TRANSACTION")
-        _set_tags_for_audiobook(cursor, id, genre_names, "audiobook_genres", "genre_id", "genres")
+        _set_tags_for_audiobook(
+            cursor, id, genre_names, "audiobook_genres", "genre_id", "genres"
+        )
         conn.commit()
         conn.close()
 
@@ -598,9 +622,13 @@ def bulk_manage_genres() -> FlaskResponse:
         cursor.execute("BEGIN TRANSACTION")
 
         if mode == "add":
-            affected = _bulk_add_tags(cursor, ids, genre_names, "audiobook_genres", "genre_id", "genres")
+            affected = _bulk_add_tags(
+                cursor, ids, genre_names, "audiobook_genres", "genre_id", "genres"
+            )
         else:
-            affected = _bulk_remove_tags(cursor, ids, genre_names, "audiobook_genres", "genre_id", "genres")
+            affected = _bulk_remove_tags(
+                cursor, ids, genre_names, "audiobook_genres", "genre_id", "genres"
+            )
 
         conn.commit()
         conn.close()
@@ -668,7 +696,9 @@ def set_audiobook_topics(id: int) -> FlaskResponse:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
 
         cursor.execute("BEGIN TRANSACTION")
-        _set_tags_for_audiobook(cursor, id, topic_names, "audiobook_topics", "topic_id", "topics")
+        _set_tags_for_audiobook(
+            cursor, id, topic_names, "audiobook_topics", "topic_id", "topics"
+        )
         conn.commit()
         conn.close()
         return jsonify({"success": True, "topics": topic_names})
@@ -694,9 +724,13 @@ def bulk_manage_topics() -> FlaskResponse:
         cursor.execute("BEGIN TRANSACTION")
 
         if mode == "add":
-            affected = _bulk_add_tags(cursor, ids, topic_names, "audiobook_topics", "topic_id", "topics")
+            affected = _bulk_add_tags(
+                cursor, ids, topic_names, "audiobook_topics", "topic_id", "topics"
+            )
         else:
-            affected = _bulk_remove_tags(cursor, ids, topic_names, "audiobook_topics", "topic_id", "topics")
+            affected = _bulk_remove_tags(
+                cursor, ids, topic_names, "audiobook_topics", "topic_id", "topics"
+            )
 
         conn.commit()
         conn.close()
@@ -705,9 +739,7 @@ def bulk_manage_topics() -> FlaskResponse:
         logging.exception("Error in bulk topic %s", mode)
         conn.rollback()
         conn.close()
-        return jsonify(
-            {"success": False, "error": "Bulk topic operation failed"}
-        ), 500
+        return jsonify({"success": False, "error": "Bulk topic operation failed"}), 500
 
 
 # ── Era management ────────────────────────────────────────────────────
@@ -737,9 +769,7 @@ def set_audiobook_eras(id: int) -> FlaskResponse:
     """Set eras for a single audiobook (replaces all existing eras)."""
     data = request.get_json()
     if not data or "eras" not in data:
-        return jsonify(
-            {"success": False, "error": "Missing required field: eras"}
-        ), 400
+        return jsonify({"success": False, "error": "Missing required field: eras"}), 400
 
     era_names = data["eras"]
     if not isinstance(era_names, list):
@@ -754,7 +784,9 @@ def set_audiobook_eras(id: int) -> FlaskResponse:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
 
         cursor.execute("BEGIN TRANSACTION")
-        _set_tags_for_audiobook(cursor, id, era_names, "audiobook_eras", "era_id", "eras")
+        _set_tags_for_audiobook(
+            cursor, id, era_names, "audiobook_eras", "era_id", "eras"
+        )
         conn.commit()
         conn.close()
         return jsonify({"success": True, "eras": era_names})
@@ -866,9 +898,7 @@ def get_enrichment_stats() -> Response:
     )
     stats["audible_enriched"] = cursor.fetchone()[0]
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE isbn_enriched_at IS NOT NULL"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE isbn_enriched_at IS NOT NULL")
     stats["isbn_enriched"] = cursor.fetchone()[0]
 
     cursor.execute("""

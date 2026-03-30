@@ -187,7 +187,9 @@ def _check_not_running() -> FlaskResponse | None:
     return None
 
 
-def _validate_project_path_basic(project_path: str | None, source: str) -> FlaskResponse | None:
+def _validate_project_path_basic(
+    project_path: str | None, source: str
+) -> FlaskResponse | None:
     """Validate project_path for check_upgrade (basic validation).
 
     Returns an error response tuple if invalid, or None if OK.
@@ -210,14 +212,19 @@ def _validate_project_path_basic(project_path: str | None, source: str) -> Flask
     return None
 
 
-def _validate_project_path_strict(project_path: str | None, source: str) -> tuple[FlaskResponse | None, str | None]:
+def _validate_project_path_strict(
+    project_path: str | None, source: str
+) -> tuple[FlaskResponse | None, str | None]:
     """Validate project_path for start_upgrade (strict security validation).
 
     Returns (error_response, resolved_path). If error_response is not None,
     resolved_path is None and the error should be returned to the caller.
     """
     if source == "project" and not project_path:
-        return (jsonify({"error": "project_path required for project source"}), 400), None
+        return (
+            jsonify({"error": "project_path required for project source"}),
+            400,
+        ), None
 
     if source != "project" or not project_path:
         return None, project_path
@@ -256,7 +263,9 @@ def _validate_version_source(version: str | None, source: str) -> FlaskResponse 
     return None
 
 
-def _build_upgrade_check_request(source: str, project_path: str | None, version: str | None) -> dict:
+def _build_upgrade_check_request(
+    source: str, project_path: str | None, version: str | None
+) -> dict:
     """Build the request dict for an upgrade check."""
     request_data = {"type": "upgrade_check", "source": source}
     if project_path:
@@ -296,12 +305,7 @@ def _check_preflight_gate(force: bool) -> FlaskResponse | None:
     if preflight is None or preflight.get("stale", True):
         return (
             jsonify(
-                {
-                    "error": (
-                        "Preflight check required. "
-                        "Run 'Check for Updates' first."
-                    )
-                }
+                {"error": ("Preflight check required. Run 'Check for Updates' first.")}
             ),
             400,
         )
@@ -470,9 +474,7 @@ def _load_cf_credentials_from_file(token_file: str) -> tuple[str | None, str | N
 
 def _resolve_cf_credentials() -> tuple[str | None, str | None]:
     """Resolve Cloudflare credentials from file then environment."""
-    token_file = os.environ.get(
-        "CF_TOKEN_FILE", "/etc/audiobooks/cloudflare-api-token"
-    )
+    token_file = os.environ.get("CF_TOKEN_FILE", "/etc/audiobooks/cloudflare-api-token")
     api_key, auth_email = _load_cf_credentials_from_file(token_file)
 
     # Fall back to env vars
@@ -509,9 +511,7 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
             {"success": False, "error": "Cloudflare API request failed"}
         ), 502
     except TimeoutError:
-        return jsonify(
-            {"success": False, "error": "Cloudflare API timeout"}
-        ), 504
+        return jsonify({"success": False, "error": "Cloudflare API timeout"}), 504
 
 
 # =========================================================================
@@ -541,9 +541,7 @@ def start_service(service_name: str) -> FlaskResponse:
     return _service_control(service_name, "start")
 
 
-@utilities_system_bp.route(
-    "/api/system/services/<service_name>/stop", methods=["POST"]
-)
+@utilities_system_bp.route("/api/system/services/<service_name>/stop", methods=["POST"])
 @admin_or_localhost
 def stop_service(service_name: str) -> FlaskResponse:
     """Stop a specific service."""
@@ -584,9 +582,7 @@ def stop_all_services() -> FlaskResponse:
     """Stop audiobook services. By default keeps API and proxy for web access."""
     include_api = request.args.get("include_api", "false").lower() == "true"
 
-    if not _write_request(
-        {"type": "services_stop_all", "include_api": include_api}
-    ):
+    if not _write_request({"type": "services_stop_all", "include_api": include_api}):
         return _write_request_or_error()
 
     status = _wait_for_completion(timeout=60.0)
@@ -776,8 +772,7 @@ def list_projects() -> FlaskResponse:
     if user_path:
         resolved = os.path.realpath(user_path)
         if any(
-            resolved == ab or resolved.startswith(ab + os.sep)
-            for ab in allowed_bases
+            resolved == ab or resolved.startswith(ab + os.sep) for ab in allowed_bases
         ):
             extra_base = resolved
 

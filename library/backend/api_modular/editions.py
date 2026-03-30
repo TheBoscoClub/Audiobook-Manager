@@ -73,10 +73,13 @@ def normalize_base_title(title: str | None) -> str:
     return base.strip()
 
 
-def _find_matching_editions(all_books: list, base_title: str, book_id: int) -> list[dict]:
+def _find_matching_editions(
+    all_books: list, base_title: str, book_id: int
+) -> list[dict]:
     """Find editions matching the base title, falling back to the single book."""
     editions = [
-        dict(row) for row in all_books
+        dict(row)
+        for row in all_books
         if normalize_base_title(row["title"]) == base_title
     ]
 
