@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-session login**: Admin-controllable toggle for concurrent device logins — global default setting plus per-user override (yes/no/default) in Back Office
 - **Edison bulb indicator**: Animated Edison bulb in Back Office header lights up when there are unread user suggestions
 - **Reading glasses icon**: Accessibility button in shell header uses reading glasses icon with label; all shell header buttons now have visible labels
 
