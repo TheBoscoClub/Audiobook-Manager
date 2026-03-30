@@ -382,9 +382,10 @@ class Session:
         user_agent: Optional[str] = None,
         ip_address: Optional[str] = None,
         remember_me: bool = False,
+        allow_multi: bool = False,
     ) -> tuple["Session", str]:
         """
-        Create new session for user, invalidating any existing sessions.
+        Create new session for user, optionally invalidating existing sessions.
 
         Args:
             db: Auth database instance
@@ -392,6 +393,7 @@ class Session:
             user_agent: Client user agent string
             ip_address: Client IP address
             remember_me: If True, create a persistent session (no inactivity timeout)
+            allow_multi: If True, keep existing sessions (multi-device support)
 
         Returns:
             Tuple of (Session, raw_token)
@@ -400,8 +402,9 @@ class Session:
         raw_token, token_hash = generate_session_token()
 
         with db.connection() as conn:
-            # Invalidate existing sessions
-            conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            # Invalidate existing sessions unless multi-session is allowed
+            if not allow_multi:
+                conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
 
             # Create new session
             cursor = conn.execute(
