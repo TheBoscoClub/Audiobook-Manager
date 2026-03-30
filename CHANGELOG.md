@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.0.1.2] - 2026-03-30
+
+### Added
+
 - **Multi-session login**: Admin-controllable toggle for concurrent device logins — global default setting plus per-user override (yes/no/default) in Back Office
 - **Edison bulb indicator**: Animated Edison bulb in Back Office header lights up when there are unread user suggestions
 - **Reading glasses icon**: Accessibility button in shell header uses reading glasses icon with label; all shell header buttons now have visible labels
@@ -22,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Claim token hash mismatch**: Fixed PendingRegistration storing hash of full 32-char token while validate used hash of 16-char truncated token — passkey user creation → claim → login round trips now work correctly
 - **Accessibility font size**: Font size setting now applies to `html` element (not `body`), ensuring changes propagate into iframe content
 - **Accessibility iframe propagation**: Accessibility settings (font size, contrast, reduced motion) now visually affect iframe content via `a11y-consumer.css`
 - **Shell navigation links**: Shell header links now correctly target the iframe instead of the top-level window
@@ -2381,7 +2390,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.2...HEAD
+[8.0.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.1...v8.0.1.2
 [8.0.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1...v8.0.1.1
 [8.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.0...v8.0.1
 [8.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v7.6.1...v8.0.0
