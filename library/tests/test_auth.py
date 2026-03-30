@@ -556,7 +556,7 @@ class TestPendingRegistration:
 
         assert reg.id is not None
         assert reg.username == "newuser"
-        assert len(token) > 30
+        assert len(token) == 16
         assert not reg.is_expired()
 
     def test_pending_token_lookup(self, temp_db):

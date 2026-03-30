@@ -29,6 +29,7 @@ class TestHopByHopHeaders:
         mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"
         mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")
         mock_config.AUDIOBOOKS_WEB_PORT = 8443
+        mock_config.COVER_DIR = Path("/tmp/covers")
         sys.modules["config"] = mock_config
         try:
             import importlib
@@ -86,6 +87,7 @@ class TestProxyPrefixes:
         mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"
         mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")
         mock_config.AUDIOBOOKS_WEB_PORT = 8443
+        mock_config.COVER_DIR = Path("/tmp/covers")
         sys.modules["config"] = mock_config
         try:
             import importlib
@@ -99,12 +101,11 @@ class TestProxyPrefixes:
             del sys.modules["config"]
 
     def test_proxy_prefixes_defined(self):
-        """/api/, /auth/, /covers/ must be in PROXY_PREFIXES."""
+        """/api/ and /auth/ must be in PROXY_PREFIXES."""
         handler_cls = self._get_handler_class()
         prefixes = handler_cls.PROXY_PREFIXES
         assert "/api/" in prefixes, "Missing /api/ prefix"
         assert "/auth/" in prefixes, "Missing /auth/ prefix"
-        assert "/covers/" in prefixes, "Missing /covers/ prefix"
 
     def test_is_proxy_path_true_for_api(self):
         """_is_proxy_path returns True for /api/foo paths."""
@@ -159,9 +160,9 @@ class TestProxyPrefixes:
         instance.path = "/auth/login"
         assert instance._is_proxy_path() is True
 
-    def test_covers_path_proxied(self):
-        """Path '/covers/123.jpg' should be proxied."""
+    def test_covers_path_not_proxied(self):
+        """Path '/covers/123.jpg' is served directly, not proxied to API."""
         handler_cls = self._get_handler_class()
         instance = object.__new__(handler_cls)
         instance.path = "/covers/123.jpg"
-        assert instance._is_proxy_path() is True
+        assert instance._is_proxy_path() is False
