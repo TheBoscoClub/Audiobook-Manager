@@ -592,19 +592,29 @@ class AudiobookLibraryV2 {
   }
 
   async applySavedSortPreference() {
-    // Restore from localStorage immediately (works for all users, no network)
+    // localStorage is the source of truth for the current browser.
+    // The API is the cross-device sync mechanism.
     const localSort = localStorage.getItem("audiobook_sort_order");
     this._applySortString(localSort);
 
-    // Then sync from server for authenticated users (authoritative source)
     if (!this.user) return;
     try {
       const prefs = await api.get("/api/user/preferences", { toast: false });
-      if (prefs && prefs.sort_order) {
-        this._applySortString(prefs.sort_order);
-        // Keep localStorage in sync with server
-        localStorage.setItem("audiobook_sort_order", prefs.sort_order);
+      const serverSort = prefs && prefs.sort_order;
+      if (!serverSort) return;
+
+      if (localSort && localSort !== serverSort) {
+        // localStorage disagrees with server — a previous PATCH may have been
+        // cancelled during iframe navigation.  Push local value to server so
+        // they converge (localStorage was the most recent write in this browser).
+        api.patch("/api/user/preferences", { sort_order: localSort },
+          { toast: false, keepalive: true }).catch(() => {});
+      } else if (!localSort) {
+        // No local preference yet (new device / cleared cache) — seed from server
+        this._applySortString(serverSort);
+        localStorage.setItem("audiobook_sort_order", serverSort);
       }
+      // If they already agree, nothing to do — localStorage was applied above
     } catch (_e) {
       // API unavailable — localStorage value already applied above
     }
@@ -2536,7 +2546,8 @@ class AudiobookLibraryV2 {
       };
       localStorage.setItem("audiobook_sort_order", "title_asc");
       if (this.user) {
-        api.patch("/api/user/preferences", { sort_order: "title_asc" }, { toast: false }).catch(() => {});
+        api.patch("/api/user/preferences", { sort_order: "title_asc" },
+          { toast: false, keepalive: true }).catch(() => {});
       }
       this.currentPage = 1;
       this.loadAudiobooks();
@@ -2553,7 +2564,8 @@ class AudiobookLibraryV2 {
       const prefValue = sort + "_" + (order || "asc");
       localStorage.setItem("audiobook_sort_order", prefValue);
       if (this.user) {
-        api.patch("/api/user/preferences", { sort_order: prefValue }, { toast: false }).catch(() => {});
+        api.patch("/api/user/preferences", { sort_order: prefValue },
+          { toast: false, keepalive: true }).catch(() => {});
       }
 
       if (sort === "grouped_author" || sort === "grouped_narrator") {
