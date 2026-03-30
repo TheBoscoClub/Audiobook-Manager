@@ -67,6 +67,7 @@ from auth import (
     webauthn_authentication_options,
     webauthn_verify_authentication,
 )
+from auth.models import SystemSettingsRepository
 from auth.totp import (
     setup_totp,
     verify_code as verify_totp,
@@ -229,6 +230,22 @@ def _user_dict(user, include_auth_type: bool = False) -> dict:
     if include_auth_type:
         d["auth_type"] = user.auth_type.value
     return d
+
+
+def _user_allows_multi_session(user, db=None) -> bool:
+    """Check if a user is allowed multiple concurrent sessions.
+
+    Resolution order: per-user override > global system setting.
+    """
+    if user.multi_session == "yes":
+        return True
+    if user.multi_session == "no":
+        return False
+    # 'default' — check global system setting
+    if db is None:
+        db = get_auth_db()
+    repo = SystemSettingsRepository(db)
+    return repo.get("multi_session_default") == "true"
 
 
 def _setup_totp_data(username: str) -> tuple[bytes, str, str, dict]:
@@ -899,12 +916,14 @@ def login():
         return jsonify({"error": "Authentication method not supported"}), 400
 
     # Create session (invalidates any existing session)
+    allow_multi = _user_allows_multi_session(user, db)
     session, token = Session.create_for_user(
         db,
         user.id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
         remember_me=remember_me,
+        allow_multi=allow_multi,
     )
 
     # Update last login
@@ -1930,11 +1949,13 @@ def _claim_webauthn_reset(
     obj.consume(db)
 
     backup_codes = BackupCodeRepository(db).create_codes_for_user(existing_user.id)
+    allow_multi = _user_allows_multi_session(existing_user, db)
     session, token = Session.create_for_user(
         db,
         existing_user.id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
+        allow_multi=allow_multi,
     )
     existing_user.update_last_login(db)
 
@@ -1976,11 +1997,13 @@ def _claim_webauthn_new_user(
     backup_codes = BackupCodeRepository(db).create_codes_for_user(new_user.id)
     AccessRequestRepository(db).mark_credentials_claimed(obj.id)
 
+    allow_multi = _user_allows_multi_session(new_user, db)
     session, token = Session.create_for_user(
         db,
         new_user.id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
+        allow_multi=allow_multi,
     )
     new_user.update_last_login(db)
 
@@ -2476,12 +2499,14 @@ def login_webauthn_complete():
     user.save(db)
 
     remember_me = data.get("remember_me", True)
+    allow_multi = _user_allows_multi_session(user, db)
     session, token = Session.create_for_user(
         db,
         user.id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
         remember_me=remember_me,
+        allow_multi=allow_multi,
     )
     user.update_last_login(db)
 
@@ -2965,8 +2990,9 @@ def verify_magic_link():
     ip_address = request.remote_addr or ""
 
     remember_me = data.get("remember_me", True)
+    allow_multi = _user_allows_multi_session(user, db)
     session, raw_token = Session.create_for_user(
-        db, user.id, user_agent, ip_address, remember_me=remember_me
+        db, user.id, user_agent, ip_address, remember_me=remember_me, allow_multi=allow_multi
     )
 
     # Update last login
