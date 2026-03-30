@@ -136,9 +136,7 @@ def _handle_reimport_regex(line, state, tracker, operation_id):
 def _handle_reimport_status(line, state, tracker, operation_id):
     """Handle string-match reimport status lines (metadata, optimizing, schema)."""
     if "Preserving existing metadata" in line:
-        tracker.update_progress(
-            operation_id, 8, "Preserving existing metadata..."
-        )
+        tracker.update_progress(operation_id, 8, "Preserving existing metadata...")
         return
 
     if _optimizing_pattern.search(line):
@@ -147,9 +145,7 @@ def _handle_reimport_status(line, state, tracker, operation_id):
         return
 
     if "Creating database" in line:
-        tracker.update_progress(
-            operation_id, 3, "Creating database schema..."
-        )
+        tracker.update_progress(operation_id, 3, "Creating database schema...")
         return
 
     if "Database schema created" in line:

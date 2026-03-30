@@ -127,9 +127,7 @@ def _collect_checksum_files(sources_dir, library_dir):
     Returns:
         Tuple of (source_files, library_files).
     """
-    source_files = (
-        list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
-    )
+    source_files = list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
     library_files = (
         [f for f in library_dir.rglob("*.opus") if ".cover.opus" not in f.name]
         if library_dir.exists()

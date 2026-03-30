@@ -788,7 +788,17 @@ def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | No
     tmp_path = webm_path.with_suffix(".webm.tmp")
     try:
         result = subprocess.run(  # nosec B603
-            ["ffmpeg", "-y", "-i", str(source), "-c:a", "copy", "-f", "webm", str(tmp_path)],
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(source),
+                "-c:a",
+                "copy",
+                "-f",
+                "webm",
+                str(tmp_path),
+            ],
             capture_output=True,
             timeout=300,
         )

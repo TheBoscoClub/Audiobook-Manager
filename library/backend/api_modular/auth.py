@@ -5610,7 +5610,9 @@ def _passkey_setup_data(db: AuthDatabase, username: str) -> dict[str, str | None
         pending = PR.from_row(row)
         return {
             "claim_token": "pending",
-            "expires_at": pending.expires_at.isoformat() if pending.expires_at else None,
+            "expires_at": pending.expires_at.isoformat()
+            if pending.expires_at
+            else None,
         }
 
 

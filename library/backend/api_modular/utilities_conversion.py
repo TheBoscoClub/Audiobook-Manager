@@ -187,7 +187,9 @@ def _count_opus_files(directory: Path) -> int:
     return count
 
 
-def _get_remaining_count(sources_dir: Path, aaxc_count: int, total_converted: int) -> int:
+def _get_remaining_count(
+    sources_dir: Path, aaxc_count: int, total_converted: int
+) -> int:
     """Get remaining conversion count from queue file or arithmetic fallback."""
     queue_file = sources_dir.parent / ".index" / "queue.txt"
     if queue_file.exists():
