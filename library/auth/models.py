@@ -277,6 +277,14 @@ class UserRepository:
             )
             return cursor.rowcount > 0
 
+    def set_multi_session(self, user_id: int, value: str) -> bool:
+        """Set multi-session override for a user."""
+        with self.db.connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET multi_session = ? WHERE id = ?", (value, user_id)
+            )
+            return cursor.rowcount > 0
+
     def update_username(self, user_id: int, new_username: str) -> bool:
         """
         Update a user's username.
