@@ -262,12 +262,13 @@ class AuthDatabase:
                 "VALUES ('multi_session_default', 'false')"
             )
             # Migration: add multi_session column to users if not exists
-            try:
+            cols = {
+                row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()
+            }
+            if "multi_session" not in cols:
                 conn.execute(
                     "ALTER TABLE users ADD COLUMN multi_session TEXT NOT NULL DEFAULT 'default'"
                 )
-            except Exception:
-                pass  # Column already exists
 
         return created
 
