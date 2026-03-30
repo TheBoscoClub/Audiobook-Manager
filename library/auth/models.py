@@ -52,6 +52,13 @@ class ReplyMethod(Enum):
     EMAIL = "email"
 
 
+# Valid values for User.multi_session column
+MULTI_SESSION_DEFAULT = "default"
+MULTI_SESSION_YES = "yes"
+MULTI_SESSION_NO = "no"
+_VALID_MULTI_SESSION = {MULTI_SESSION_DEFAULT, MULTI_SESSION_YES, MULTI_SESSION_NO}
+
+
 @dataclass
 class User:
     """
@@ -127,6 +134,8 @@ class User:
 
     def save(self, db: AuthDatabase) -> "User":
         """Save user to database (insert or update)."""
+        if self.multi_session not in _VALID_MULTI_SESSION:
+            raise ValueError(f"Invalid multi_session value: {self.multi_session!r}")
         with db.connection() as conn:
             if self.id is None:
                 cursor = conn.execute(
@@ -351,7 +360,9 @@ class Session:
     """
     Represents an active user session.
 
-    Only one session per user is allowed. New logins invalidate existing sessions.
+    By default, only one session per user is allowed and new logins invalidate
+    existing sessions. Pass allow_multi=True to create_for_user() to preserve
+    existing sessions and support concurrent multi-device logins.
     """
 
     id: Optional[int] = None
