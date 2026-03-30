@@ -334,3 +334,76 @@ class TestUserDictMultiSession:
         user.save(temp_db)
         d = _user_dict(user)
         assert d["multi_session"] == "default"
+
+
+class TestMultiSessionIntegration:
+    """End-to-end integration tests for the full multi-session flow."""
+
+    def test_global_enabled_allows_multi_login(self, temp_db):
+        """With global multi-session enabled, two logins should coexist."""
+        from auth.models import SystemSettingsRepository
+
+        SystemSettingsRepository(temp_db).set("multi_session_default", "true")
+
+        user = User(
+            username="integration1",
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+        )
+        user.save(temp_db)
+
+        from backend.api_modular.auth import _user_allows_multi_session
+
+        assert _user_allows_multi_session(user, temp_db) is True
+
+        repo = SessionRepository(temp_db)
+        _, token1 = Session.create_for_user(temp_db, user.id, allow_multi=True)
+        _, token2 = Session.create_for_user(temp_db, user.id, allow_multi=True)
+
+        assert repo.get_by_token(token1) is not None
+        assert repo.get_by_token(token2) is not None
+
+    def test_per_user_no_overrides_global_true(self, temp_db):
+        """Per-user 'no' should enforce single session even when global is enabled."""
+        from auth.models import SystemSettingsRepository
+
+        SystemSettingsRepository(temp_db).set("multi_session_default", "true")
+
+        user = User(
+            username="integration2",
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+            multi_session="no",
+        )
+        user.save(temp_db)
+
+        from backend.api_modular.auth import _user_allows_multi_session
+
+        assert _user_allows_multi_session(user, temp_db) is False
+
+        repo = SessionRepository(temp_db)
+        _, token1 = Session.create_for_user(temp_db, user.id)
+        _, token2 = Session.create_for_user(temp_db, user.id, allow_multi=False)
+
+        assert repo.get_by_token(token1) is None
+        assert repo.get_by_token(token2) is not None
+
+    def test_backwards_compat_default_global_false(self, temp_db):
+        """Default state (global=false, user=default) should enforce single session."""
+        user = User(
+            username="integration3",
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+        )
+        user.save(temp_db)
+
+        from backend.api_modular.auth import _user_allows_multi_session
+
+        assert _user_allows_multi_session(user, temp_db) is False
+
+        repo = SessionRepository(temp_db)
+        _, token1 = Session.create_for_user(temp_db, user.id)
+        _, token2 = Session.create_for_user(temp_db, user.id)
+
+        assert repo.get_by_token(token1) is None
+        assert repo.get_by_token(token2) is not None
