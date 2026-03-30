@@ -458,7 +458,7 @@ class AuthDatabase:
         Returns:
             Dict with verification results
         """
-        result = {
+        result: dict[str, object] = {
             "db_exists": self.db_path.exists(),
             "key_exists": self.key_path.exists(),
             "can_connect": False,
@@ -467,13 +467,15 @@ class AuthDatabase:
             "user_count": 0,
             "errors": [],
         }
+        errors: list[str] = []
+        result["errors"] = errors
 
         if not result["db_exists"]:
-            result["errors"].append("Database file does not exist")
+            errors.append("Database file does not exist")
             return result
 
         if not result["key_exists"]:
-            result["errors"].append("Key file does not exist")
+            errors.append("Key file does not exist")
             return result
 
         try:
@@ -498,7 +500,7 @@ class AuthDatabase:
                 result["user_count"] = cursor.fetchone()[0]
 
         except Exception as e:
-            result["errors"].append(str(e))
+            errors.append(str(e))
 
         return result
 

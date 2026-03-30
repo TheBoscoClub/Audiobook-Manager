@@ -14,6 +14,7 @@ import argparse
 import logging
 import sqlite3
 import unicodedata
+from typing import Any
 
 from backend.name_parser import (
     clean_name,
@@ -105,7 +106,7 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         conn.execute("DELETE FROM authors")
         conn.execute("DELETE FROM narrators")
 
-    stats = {
+    stats: dict[str, Any] = {
         "books_processed": 0,
         "authors_created": 0,
         "narrators_created": 0,
@@ -120,8 +121,8 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
     }
 
     # Track seen names for dedup (normalized_key -> canonical_name)
-    seen_authors = {}
-    seen_narrators = {}
+    seen_authors: dict[str, str] = {}
+    seen_narrators: dict[str, str] = {}
 
     rows = conn.execute("SELECT id, title, author, narrator FROM audiobooks").fetchall()
 

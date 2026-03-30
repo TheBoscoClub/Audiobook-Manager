@@ -3430,6 +3430,8 @@ def dismiss_notification(notification_id: int):
         400: {"error": "..."}
     """
     user = get_current_user()
+    assert user is not None  # guaranteed by @login_required
+    assert user.id is not None  # persisted user always has id
     db = get_auth_db()
     notif_repo = NotificationRepository(db)
 
@@ -3889,6 +3891,7 @@ def reply_to_message(message_id: int):
     else:
         # Create in-app notification
         admin_user = get_current_user()
+        assert admin_user is not None  # guaranteed by @admin_required
         notification = Notification(
             message=f"Reply from {admin_user.username}: {reply_text}",
             type=NotificationType.PERSONAL,
@@ -4928,7 +4931,8 @@ def toggle_user_admin(user_id: int):
 
     # Prevent self-demotion
     current_user = get_current_user()
-    if current_user and current_user.id == user_id and target_user.is_admin:
+    assert current_user is not None  # guaranteed by @admin_required
+    if current_user.id == user_id and target_user.is_admin:
         return jsonify({"error": "Cannot demote yourself"}), 400
 
     # Toggle admin status
@@ -5070,6 +5074,7 @@ def update_user(user_id: int):
 
     # Fetch updated user data
     updated_user = user_repo.get_by_id(user_id)
+    assert updated_user is not None  # just updated this user
 
     return jsonify(
         {
@@ -5189,6 +5194,7 @@ def admin_change_username(user_id: int):
 
     # Audit log
     admin_user = get_current_user()
+    assert admin_user is not None  # guaranteed by @admin_required
     audit_repo = AuditLogRepository(db)
     details = {
         "old": old_username,
@@ -5205,6 +5211,7 @@ def admin_change_username(user_id: int):
     notify_admins("change_username", details, db)
 
     updated = user_repo.get_by_id(user_id)
+    assert updated is not None  # just updated this user
     return jsonify(
         {
             "success": True,
@@ -5254,6 +5261,7 @@ def admin_change_email(user_id: int):
 
     # Audit log
     admin_user = get_current_user()
+    assert admin_user is not None  # guaranteed by @admin_required
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
         actor_id=admin_user.id,
@@ -5268,6 +5276,7 @@ def admin_change_email(user_id: int):
     )
 
     updated = user_repo.get_by_id(user_id)
+    assert updated is not None  # just updated this user
     return jsonify(
         {
             "success": True,
@@ -5321,7 +5330,9 @@ def admin_change_roles(user_id: int):
 
     # Audit log
     admin_user = get_current_user()
+    assert admin_user is not None  # guaranteed by @admin_required
     updated = user_repo.get_by_id(user_id)
+    assert updated is not None  # just updated this user
     new_roles = {
         "is_admin": updated.is_admin,
         "can_download": updated.can_download,
@@ -5385,7 +5396,8 @@ def admin_change_auth_method(user_id: int):
 
     old_method = target_user.auth_type.value
     admin_user = get_current_user()
-    setup_data = {}
+    assert admin_user is not None  # guaranteed by @admin_required
+    setup_data: dict[str, str | None] = {}
 
     if auth_method == "totp":
         secret_bytes, base32_secret, provisioning_uri = setup_totp(target_user.username)
@@ -5479,7 +5491,8 @@ def admin_reset_credentials(user_id: int):
         return jsonify({"error": "User not found"}), 404
 
     admin_user = get_current_user()
-    setup_data = {}
+    assert admin_user is not None  # guaranteed by @admin_required
+    setup_data: dict[str, str | None] = {}
 
     if target_user.auth_type == AuthType.TOTP:
         secret_bytes, base32_secret, provisioning_uri = setup_totp(target_user.username)
@@ -5553,7 +5566,8 @@ def admin_delete_user_v2(user_id: int):
 
     # Prevent self-deletion
     admin_user = get_current_user()
-    if admin_user and admin_user.id == user_id:
+    assert admin_user is not None  # guaranteed by @admin_required
+    if admin_user.id == user_id:
         return jsonify({"error": "Cannot delete yourself"}), 400
 
     # Last-admin guard
@@ -5656,7 +5670,7 @@ def admin_setup_info(user_id: int):
     if target_user.last_login is not None:
         return jsonify({"error": "User has already logged in"}), 404
 
-    setup_data = {}
+    setup_data: dict[str, str | None] = {}
 
     if target_user.auth_type == AuthType.TOTP:
         # Decode existing credential to base32

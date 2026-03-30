@@ -211,7 +211,11 @@ def get_position(audiobook_id: int):
         # Get position: per-user when auth enabled, global otherwise
         if _is_auth_enabled():
             user = get_current_user()
-            local_pos = _get_user_position(user.id, audiobook_id) if user else 0
+            local_pos = (
+                _get_user_position(user.id, audiobook_id)
+                if user and user.id is not None
+                else 0
+            )
         else:
             local_pos = row["playback_position_ms"] or 0
 
@@ -271,7 +275,7 @@ def update_position(audiobook_id: int):
         # Save position: per-user when auth enabled, global otherwise
         if _is_auth_enabled():
             user = get_current_user()
-            if user:
+            if user and user.id is not None:
                 if not _save_user_position(user.id, audiobook_id, position_ms):
                     return jsonify({"error": "Failed to save position"}), 500
                 # Create/update listening history entry

@@ -9,6 +9,7 @@ COLLECTIONS dict for filtering by any collection ID.
 """
 
 import re
+from pathlib import Path
 
 from flask import Blueprint, Response, jsonify
 
@@ -148,13 +149,14 @@ def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
 
     Returns (tree, flat_lookup).
     """
-    tree = []
-    flat = {}
+    tree: list[dict] = []
+    flat: dict[str, dict] = {}
 
     # --- Special collections ---
     for spec in SPECIAL_COLLECTIONS:
         tree.append(spec)
-        flat[spec["id"]] = {
+        spec_id = str(spec["id"])
+        flat[spec_id] = {
             "name": spec["name"],
             "description": spec.get("description", ""),
             "query": spec["query"],
@@ -437,15 +439,15 @@ def _build_dynamic_collections(cursor) -> tuple[list[dict], dict]:
 # ─── Module-level COLLECTIONS for audiobooks.py ──────────────────────────────
 # This is populated lazily on first request via get_collections_lookup().
 
-_collections_cache = {}
-_collections_db_path = None
+_collections_cache: dict[str, dict] = {}
+_collections_db_path: str | None = None
 
 
 def get_collections_lookup(db_path: str) -> dict:
     """Get the flat COLLECTIONS dict, building from DB if needed."""
     global _collections_cache, _collections_db_path
     if not _collections_cache or _collections_db_path != db_path:
-        conn = get_db(db_path)
+        conn = get_db(Path(db_path))
         cursor = conn.cursor()
         _, _collections_cache = _build_dynamic_collections(cursor)
         _collections_db_path = db_path

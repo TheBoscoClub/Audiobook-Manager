@@ -13,6 +13,7 @@ Called by extract_cover_art() in metadata_utils.py when local extraction
 import hashlib
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 
@@ -156,7 +157,7 @@ def _try_google_books(
     if author:
         query = f"{title}+inauthor:{author}"
 
-    url = f"https://www.googleapis.com/books/v1/volumes?q={requests.utils.quote(query)}&maxResults=3"
+    url = f"https://www.googleapis.com/books/v1/volumes?q={urllib.parse.quote(query)}&maxResults=3"
     try:
         resp = requests.get(url, timeout=timeout)
         if resp.status_code != 200:
