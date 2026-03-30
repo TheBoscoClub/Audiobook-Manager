@@ -208,3 +208,45 @@ class TestSessionAllowMulti:
         assert repo.get_by_token(token1) is None
         assert repo.get_by_token(token2) is None
         assert repo.get_by_token(token3) is not None
+
+
+class TestUserAllowsMultiSession:
+    """Tests for _user_allows_multi_session() resolution logic."""
+
+    def _make_user(self, temp_db, username, multi_session="default"):
+        user = User(
+            username=username,
+            auth_type=AuthType.TOTP,
+            auth_credential=b"secret",
+            multi_session=multi_session,
+        )
+        user.save(temp_db)
+        return user
+
+    def test_user_yes_overrides_global_false(self, temp_db):
+        from auth.models import SystemSettingsRepository
+        SystemSettingsRepository(temp_db).set("multi_session_default", "false")
+        user = self._make_user(temp_db, "override_yes", multi_session="yes")
+        from backend.api_modular.auth import _user_allows_multi_session
+        assert _user_allows_multi_session(user, temp_db) is True
+
+    def test_user_no_overrides_global_true(self, temp_db):
+        from auth.models import SystemSettingsRepository
+        SystemSettingsRepository(temp_db).set("multi_session_default", "true")
+        user = self._make_user(temp_db, "override_no", multi_session="no")
+        from backend.api_modular.auth import _user_allows_multi_session
+        assert _user_allows_multi_session(user, temp_db) is False
+
+    def test_user_default_follows_global_false(self, temp_db):
+        from auth.models import SystemSettingsRepository
+        SystemSettingsRepository(temp_db).set("multi_session_default", "false")
+        user = self._make_user(temp_db, "follow_false")
+        from backend.api_modular.auth import _user_allows_multi_session
+        assert _user_allows_multi_session(user, temp_db) is False
+
+    def test_user_default_follows_global_true(self, temp_db):
+        from auth.models import SystemSettingsRepository
+        SystemSettingsRepository(temp_db).set("multi_session_default", "true")
+        user = self._make_user(temp_db, "follow_true")
+        from backend.api_modular.auth import _user_allows_multi_session
+        assert _user_allows_multi_session(user, temp_db) is True
