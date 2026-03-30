@@ -61,51 +61,36 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     # Paths that get proxied to the Flask API backend
     PROXY_PREFIXES = ("/api/", "/auth/", "/covers/")
 
-    def end_headers(self):
-        """Inject Cache-Control headers for static files.
+    # Static asset extensions that get 1-day cache
+    _ASSET_EXTENSIONS = (
+        ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+        ".woff", ".woff2", ".ttf", ".eot",
+    )
 
-        Strategy:
-        - HTML: no-cache (revalidate every request; ~200ms conditional GET).
-          HTML files are small and reference versioned JS/CSS via ?v= params,
-          so they must always reflect current asset versions.
-        - JS/CSS with ?v=: immutable, cache for 1 year.  The ?v= param changes
-          on each release, busting the cache automatically.
-        - JS/CSS without ?v=: short cache (5 min) to avoid stale scripts
-          while still reducing repeat requests.
-        - Images/fonts: cache for 1 day.
-        - API responses: not touched here (proxied responses have their own
-          headers from Flask).
-        """
+    def _cache_control_for_path(self, path: str, has_version: bool) -> str | None:
+        """Return the Cache-Control value for a static file path, or None."""
+        if path.endswith(".html") or path == "/":
+            return "no-cache"
+        if path.endswith((".js", ".css")):
+            if has_version:
+                return "public, max-age=31536000, immutable"
+            return "public, max-age=300"
+        if path.endswith(self._ASSET_EXTENSIONS):
+            return "public, max-age=86400"
+        return None
+
+    def end_headers(self):
+        """Inject Cache-Control headers for static files."""
         from urllib.parse import urlparse
 
         parsed = urlparse(self.path)
-        path = parsed.path.lower()
-        has_version = "v=" in (parsed.query or "")
-
         # Only set cache headers for static file responses (not proxied API)
         if not any(self.path.startswith(p) for p in self.PROXY_PREFIXES):
-            if path.endswith(".html") or path == "/":
-                self.send_header("Cache-Control", "no-cache")
-            elif (path.endswith(".js") or path.endswith(".css")) and has_version:
-                self.send_header("Cache-Control", "public, max-age=31536000, immutable")
-            elif path.endswith(".js") or path.endswith(".css"):
-                self.send_header("Cache-Control", "public, max-age=300")
-            elif any(
-                path.endswith(ext)
-                for ext in (
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".gif",
-                    ".svg",
-                    ".ico",
-                    ".woff",
-                    ".woff2",
-                    ".ttf",
-                    ".eot",
-                )
-            ):
-                self.send_header("Cache-Control", "public, max-age=86400")
+            cache_val = self._cache_control_for_path(
+                parsed.path.lower(), "v=" in (parsed.query or "")
+            )
+            if cache_val:
+                self.send_header("Cache-Control", cache_val)
 
         super().end_headers()
 
@@ -193,23 +178,52 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         )
         self.end_headers()
 
-    def _tunnel_websocket(self):
-        """Tunnel a WebSocket upgrade request to the API backend via raw TCP.
-
-        Note: All headers are forwarded verbatim (no hop-by-hop filtering).
-        This is intentional per RFC 6455 — WebSocket upgrades require
-        Connection: Upgrade and Upgrade: websocket to pass through intact.
-        """
-        import socket
-        import select
-
-        # Build raw HTTP upgrade request to forward to backend
+    def _build_ws_upgrade_request(self) -> bytes:
+        """Build raw HTTP upgrade request bytes for the backend."""
         request_line = f"{self.command} {self.path} HTTP/1.1\r\n"
         header_lines = ""
         for key, value in self.headers.items():
             header_lines += f"{key}: {value}\r\n"
         header_lines += "\r\n"
-        raw_request = (request_line + header_lines).encode("latin-1")
+        return (request_line + header_lines).encode("latin-1")
+
+    def _ws_read_upgrade_response(self, backend) -> bytes:
+        """Read the HTTP upgrade response from backend until headers end."""
+        buf = b""
+        while b"\r\n\r\n" not in buf:
+            chunk = backend.recv(4096)
+            if not chunk:
+                break
+            buf += chunk
+        return buf
+
+    @staticmethod
+    def _ws_drain_ssl_pending(client_sock, backend) -> bool:
+        """Drain data from SSL read buffer. Returns False if connection closed."""
+        if hasattr(client_sock, "pending") and client_sock.pending() > 0:
+            data = client_sock.recv(65536)
+            if not data:
+                return False
+            backend.sendall(data)
+        return True
+
+    @staticmethod
+    def _ws_relay_readable(readable, client_sock, backend) -> bool:
+        """Relay data between readable sockets. Returns False if connection closed."""
+        for sock in readable:
+            data = sock.recv(65536)
+            if not data:
+                return False
+            target = backend if sock is client_sock else client_sock
+            target.sendall(data)
+        return True
+
+    def _tunnel_websocket(self):
+        """Tunnel a WebSocket upgrade request to the API backend via raw TCP."""
+        import socket
+        import select
+
+        raw_request = self._build_ws_upgrade_request()
 
         try:
             backend = socket.create_connection(("127.0.0.1", API_PORT), timeout=10)
@@ -219,53 +233,24 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             backend.sendall(raw_request)
-
-            # Read the upgrade response from backend and forward to client
-            client_sock = self.request  # the raw client socket
-            buf = b""
-            while b"\r\n\r\n" not in buf:
-                chunk = backend.recv(4096)
-                if not chunk:
-                    break
-                buf += chunk
-
-            # Send the full upgrade response (headers) to client
+            client_sock = self.request
+            buf = self._ws_read_upgrade_response(backend)
             client_sock.sendall(buf)
 
-            # Check if upgrade was accepted (101 Switching Protocols)
             if not buf.startswith(b"HTTP/1.1 101"):
                 backend.close()
                 return
 
-            # Bidirectional relay: client <-> backend
-            #
-            # client_sock is an ssl.SSLSocket (TLS-terminated here).
-            # select() only sees the underlying TCP fd, NOT data already
-            # decrypted into the SSL buffer.  We must check pending()
-            # before each select() to avoid starving the backend of
-            # heartbeats that are sitting in the SSL read buffer.
             sockets = [client_sock, backend]
             while True:
-                # Drain any data already decrypted in the SSL buffer
-                # before asking select() about the raw TCP fd.
-                if hasattr(client_sock, "pending") and client_sock.pending() > 0:
-                    data = client_sock.recv(65536)
-                    if not data:
-                        return
-                    backend.sendall(data)
-                    continue
+                if not self._ws_drain_ssl_pending(client_sock, backend):
+                    return
 
                 readable, _, errored = select.select(sockets, [], sockets, 30)
-                if errored:
+                if errored or not readable:
                     break
-                if not readable:
-                    break  # timeout
-                for sock in readable:
-                    data = sock.recv(65536)
-                    if not data:
-                        return
-                    target = backend if sock is client_sock else client_sock
-                    target.sendall(data)
+                if not self._ws_relay_readable(readable, client_sock, backend):
+                    return
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
         finally:
@@ -274,66 +259,66 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
+    # Headers to forward from client to Flask backend
+    _CLIENT_HEADERS = ("Content-Type", "Range", "Accept", "Cookie")
+    _PROXY_HEADERS = ("X-Forwarded-For", "X-Forwarded-Proto", "X-Real-IP", "Host")
+
+    def _collect_proxy_headers(self) -> dict:
+        """Collect headers to forward to the Flask backend."""
+        headers = {}
+        for header in self._CLIENT_HEADERS:
+            if header in self.headers:
+                headers[header] = self.headers[header]
+        for header in self._PROXY_HEADERS:
+            if header in self.headers:
+                headers[header] = self.headers[header]
+        if "X-Forwarded-For" not in headers:
+            headers["X-Forwarded-For"] = self.client_address[0]
+        return headers
+
+    def _read_request_body(self, method: str) -> bytes | None:
+        """Read request body for POST/PUT methods."""
+        if method not in ("POST", "PUT"):
+            return None
+        content_length = int(self.headers.get("Content-Length", 0))
+        return self.rfile.read(content_length) if content_length > 0 else None
+
+    def _forward_response_headers(self, response_headers) -> None:
+        """Forward response headers, filtering hop-by-hop."""
+        for header, value in response_headers.items():
+            if header.lower() not in HOP_BY_HOP_HEADERS:
+                self.send_header(header, value)
+
+    def _send_json_error(self, code: int, error: str, message: str) -> None:
+        """Send a JSON error response."""
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        body = json.dumps({"error": error, "code": code, "message": message}).encode()
+        self.wfile.write(body)
+
     def proxy_to_api(self, method="GET"):
         """Proxy request to Flask API backend."""
-        # Validate the path to prevent SSRF - only allow known prefixes
-        # and sanitize to prevent path traversal
         path = self.path
         if not any(path.startswith(p) for p in self.PROXY_PREFIXES):
             self.send_error(403, "Forbidden - Invalid path")
             return
 
-        # Sanitize path: remove any null bytes and normalize
         path = path.replace("\x00", "")
-        # Construct URL to local backend only (never external)
-        # CodeQL: SSRF safe - path validated above, connects to localhost only
         api_url = f"http://127.0.0.1:{API_PORT}{path}"
 
         try:
-            # Prepare headers - forward client headers to Flask
-            headers = {}
-            for header in ["Content-Type", "Range", "Accept", "Cookie"]:
-                if header in self.headers:
-                    headers[header] = self.headers[header]
-
-            # Forward proxy headers so Flask sees real client info
-            # These are set by the upstream Caddy reverse proxy
-            for proxy_header in [
-                "X-Forwarded-For",
-                "X-Forwarded-Proto",
-                "X-Real-IP",
-                "Host",
-            ]:
-                if proxy_header in self.headers:
-                    headers[proxy_header] = self.headers[proxy_header]
-
-            # If no X-Forwarded-For from upstream, set it from the connecting client
-            if "X-Forwarded-For" not in headers:
-                headers["X-Forwarded-For"] = self.client_address[0]
-
-            # Read request body for POST/PUT
-            body = None
-            if method in ("POST", "PUT"):
-                content_length = int(self.headers.get("Content-Length", 0))
-                if content_length > 0:
-                    body = self.rfile.read(content_length)
-
-            # Make request to API
+            headers = self._collect_proxy_headers()
+            body = self._read_request_body(method)
             req = urllib.request.Request(
                 api_url, data=body, headers=headers, method=method
             )
 
-            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310 — connects to hardcoded 127.0.0.1 only
-                # Send response status
+            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
                 self.send_response(response.status)
-
-                # Copy headers from API response, filtering hop-by-hop headers
-                for header, value in response.headers.items():
-                    if header.lower() not in HOP_BY_HOP_HEADERS:
-                        self.send_header(header, value)
+                self._forward_response_headers(response.headers)
                 self.end_headers()
 
-                # Stream response body
                 while True:
                     chunk = response.read(8192)
                     if not chunk:
@@ -341,42 +326,25 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(chunk)
 
         except urllib.error.HTTPError as e:
-            # Forward HTTP errors from API, preserving the original response body
             self.send_response(e.code)
-            for header, value in e.headers.items():
-                if header.lower() not in HOP_BY_HOP_HEADERS:
-                    self.send_header(header, value)
+            self._forward_response_headers(e.headers)
             self.end_headers()
-            # Read and forward the actual error body from Flask
             try:
                 error_body = e.read()
             except Exception:
-                error_body = json.dumps({"error": e.reason, "code": e.code}).encode()
+                error_body = json.dumps(
+                    {"error": e.reason, "code": e.code}
+                ).encode()
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:
-            # API server not reachable (no CORS here — Flask handles it on success)
-            self.send_response(503)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            error_body = json.dumps(
-                {
-                    "error": "Service Unavailable",
-                    "code": 503,
-                    "message": f"API server not reachable: {str(e.reason)}",
-                }
-            ).encode()
-            self.wfile.write(error_body)
+            self._send_json_error(
+                503, "Service Unavailable",
+                f"API server not reachable: {str(e.reason)}"
+            )
 
         except Exception as e:
-            # Unexpected error (no CORS here — Flask handles it on success)
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            error_body = json.dumps(
-                {"error": "Internal Server Error", "code": 500, "message": str(e)}
-            ).encode()
-            self.wfile.write(error_body)
+            self._send_json_error(500, "Internal Server Error", str(e))
 
     def log_message(self, format, *args):
         """Log with [PROXY] prefix."""

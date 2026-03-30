@@ -178,7 +178,7 @@ def grouped_db(flask_app, app_client):
         placeholders = ", ".join("?" * len(_saved_cols))
         cols_str = ", ".join(_saved_cols)
         cursor.executemany(
-            f"INSERT INTO audiobooks ({cols_str}) VALUES ({placeholders})",
+            f"INSERT INTO audiobooks ({cols_str}) VALUES ({placeholders})",  # nosec B608
             _saved_books,
         )
     conn.commit()

@@ -37,7 +37,7 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 # Include: Product, Performance, Speech (all valid audiobook content)
 # Exclude: Lecture, Podcast, Newspaper / Magazine, Show, Radio/TV Program, Episode
 # content_type IS NULL handles legacy entries before the field was added
-# nosec B608: This constant is safe for SQL - it's hardcoded, not user input
+# This constant is safe for SQL - hardcoded, not user input
 AUDIOBOOK_FILTER = "(content_type = 'Product' OR content_type IS NULL)"
 
 
@@ -84,22 +84,20 @@ def get_stats() -> Response:
     total_size_gb = total_size_mb / 1024
 
     # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
-    cursor.execute(f"""
-        SELECT COUNT(DISTINCT author) as count FROM audiobooks
-        WHERE {AUDIOBOOK_FILTER}
-          AND author IS NOT NULL
-          AND LOWER(TRIM(author)) != 'audiobook'
-          AND LOWER(TRIM(author)) != 'unknown author'
-    """)  # nosec B608
+    query = (f"SELECT COUNT(DISTINCT author) as count FROM audiobooks"  # nosec B608
+             f" WHERE {AUDIOBOOK_FILTER}"
+             " AND author IS NOT NULL"
+             " AND LOWER(TRIM(author)) != 'audiobook'"
+             " AND LOWER(TRIM(author)) != 'unknown author'")
+    cursor.execute(query)
     unique_authors = cursor.fetchone()["count"]
 
-    cursor.execute(f"""
-        SELECT COUNT(DISTINCT narrator) as count FROM audiobooks
-        WHERE {AUDIOBOOK_FILTER}
-          AND narrator IS NOT NULL
-          AND LOWER(TRIM(narrator)) != 'unknown narrator'
-          AND LOWER(TRIM(narrator)) != ''
-    """)  # nosec B608
+    query = (f"SELECT COUNT(DISTINCT narrator) as count FROM audiobooks"  # nosec B608
+             f" WHERE {AUDIOBOOK_FILTER}"
+             " AND narrator IS NOT NULL"
+             " AND LOWER(TRIM(narrator)) != 'unknown narrator'"
+             " AND LOWER(TRIM(narrator)) != ''")
+    cursor.execute(query)
     unique_narrators = cursor.fetchone()["count"]
 
     cursor.execute(
@@ -392,14 +390,15 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
     # Batch: authors for all books in one query (normalized many-to-many)
     authors_map: dict[int, list[dict]] = {}
     try:
+        query = (
+            "SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position"  # nosec B608
+            " FROM book_authors ba"
+            " JOIN authors a ON ba.author_id = a.id"
+            f" WHERE ba.book_id IN ({placeholders})"
+            " ORDER BY ba.position"
+        )
         cursor.execute(
-            f"""
-            SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position
-            FROM book_authors ba
-            JOIN authors a ON ba.author_id = a.id
-            WHERE ba.book_id IN ({placeholders})
-            ORDER BY ba.position
-            """,  # nosec B608
+            query,
             book_ids,
         )
         for r in cursor.fetchall():
@@ -418,14 +417,15 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
     # Batch: narrators for all books in one query (normalized many-to-many)
     narrators_map: dict[int, list[dict]] = {}
     try:
+        query = (
+            "SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position"  # nosec B608
+            " FROM book_narrators bn"
+            " JOIN narrators n ON bn.narrator_id = n.id"
+            f" WHERE bn.book_id IN ({placeholders})"
+            " ORDER BY bn.position"
+        )
         cursor.execute(
-            f"""
-            SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position
-            FROM book_narrators bn
-            JOIN narrators n ON bn.narrator_id = n.id
-            WHERE bn.book_id IN ({placeholders})
-            ORDER BY bn.position
-            """,  # nosec B608
+            query,
             book_ids,
         )
         for r in cursor.fetchall():
@@ -530,19 +530,19 @@ def get_audiobooks() -> Response:
     offset = (page - 1) * per_page
 
     # CodeQL: sort_sql from allowlist (_SORT_MAPPINGS), sort_order validated
-    query = f"""
-        SELECT
-            id, title, author, narrator, publisher, series,
-            series_sequence, edition, asin, acquired_date, published_year,
-            author_last_name, author_first_name,
-            narrator_last_name, narrator_first_name,
-            duration_hours, duration_formatted, file_size_mb,
-            file_path, cover_path, format, quality, description
-        FROM audiobooks
-        {where_sql}
-        ORDER BY {sort_sql} {sort_order}
-        LIMIT ? OFFSET ?
-    """  # nosec B608
+    # where_sql/sort_sql built from validated allowlists, not user input
+    query = (
+        "SELECT id, title, author, narrator, publisher, series,"  # nosec B608
+        " series_sequence, edition, asin, acquired_date, published_year,"
+        " author_last_name, author_first_name,"
+        " narrator_last_name, narrator_first_name,"
+        " duration_hours, duration_formatted, file_size_mb,"
+        " file_path, cover_path, format, quality, description"
+        " FROM audiobooks"
+        f" {where_sql}"
+        f" ORDER BY {sort_sql} {sort_order}"
+        " LIMIT ? OFFSET ?"
+    )
 
     cursor.execute(query, params + [per_page, offset])
     rows = cursor.fetchall()
@@ -607,26 +607,29 @@ def get_filters() -> Response:
 
     # Get unique authors from normalized table (individual names, not composites)
     # Return objects with name + sort_name so frontend can display "Last, First"
-    cursor.execute(f"""
-        SELECT DISTINCT a.name, a.sort_name FROM authors a
-        JOIN book_authors ba ON ba.author_id = a.id
-        JOIN audiobooks ab ON ab.id = ba.book_id
-        WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY a.sort_name COLLATE NOCASE
-    """)  # nosec B608
+    _filter_ab = AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")
+    query = (
+        "SELECT DISTINCT a.name, a.sort_name FROM authors a"  # nosec B608
+        " JOIN book_authors ba ON ba.author_id = a.id"
+        " JOIN audiobooks ab ON ab.id = ba.book_id"
+        f" WHERE {_filter_ab}"
+        " ORDER BY a.sort_name COLLATE NOCASE"
+    )
+    cursor.execute(query)
     authors = [
         {"name": row["name"], "sort_name": row["sort_name"]}
         for row in cursor.fetchall()
     ]
 
     # Get unique narrators from normalized table
-    cursor.execute(f"""
-        SELECT DISTINCT n.name FROM narrators n
-        JOIN book_narrators bn ON bn.narrator_id = n.id
-        JOIN audiobooks ab ON ab.id = bn.book_id
-        WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        ORDER BY n.sort_name COLLATE NOCASE
-    """)  # nosec B608
+    query = (
+        "SELECT DISTINCT n.name FROM narrators n"  # nosec B608
+        " JOIN book_narrators bn ON bn.narrator_id = n.id"
+        " JOIN audiobooks ab ON ab.id = bn.book_id"
+        f" WHERE {_filter_ab}"
+        " ORDER BY n.sort_name COLLATE NOCASE"
+    )
+    cursor.execute(query)
     narrators = [row["name"] for row in cursor.fetchall()]
 
     # Get unique publishers (audiobooks only)
@@ -679,15 +682,17 @@ def get_narrator_counts() -> Response:
     conn = _get_audiobooks_db()
     cursor = conn.cursor()
 
-    cursor.execute(f"""
-        SELECT n.name as narrator, COUNT(DISTINCT bn.book_id) as count
-        FROM narrators n
-        JOIN book_narrators bn ON bn.narrator_id = n.id
-        JOIN audiobooks ab ON ab.id = bn.book_id
-        WHERE {AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")}
-        GROUP BY n.id, n.name
-        ORDER BY n.sort_name COLLATE NOCASE
-    """)  # nosec B608
+    _filter_ab = AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")
+    query = (
+        "SELECT n.name as narrator, COUNT(DISTINCT bn.book_id) as count"  # nosec B608
+        " FROM narrators n"
+        " JOIN book_narrators bn ON bn.narrator_id = n.id"
+        " JOIN audiobooks ab ON ab.id = bn.book_id"
+        f" WHERE {_filter_ab}"
+        " GROUP BY n.id, n.name"
+        " ORDER BY n.sort_name COLLATE NOCASE"
+    )
+    cursor.execute(query)
 
     counts = {row["narrator"]: row["count"] for row in cursor.fetchall()}
     conn.close()

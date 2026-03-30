@@ -155,34 +155,33 @@ class ProgressTracker:
 # =============================================================================
 
 
-def find_audiobook_files(base_dir: Path, formats: list[str]) -> list[Path]:
-    """
-    Find all audiobook files, filtering covers and deduplicating.
-
-    Returns list of unique audiobook file paths.
-    """
-    # Find all files across formats
+def _collect_files_by_format(base_dir: Path, formats: list[str]) -> list[Path]:
+    """Collect all audio files across formats, printing per-format counts."""
     all_files = []
     for ext in formats:
         files = list(base_dir.rglob(f"*{ext}"))
         print(f"  Found {len(files)} {ext} files")
         all_files.extend(files)
+    return all_files
 
-    # Filter out cover art files
+
+def _filter_cover_art(all_files: list[Path]) -> list[Path]:
+    """Filter out cover art files, printing count if any removed."""
     original_count = len(all_files)
     audiobook_files = [f for f in all_files if not is_cover_art_file(f)]
     filtered_count = original_count - len(audiobook_files)
     if filtered_count > 0:
         print(f"  Filtered out {filtered_count} cover art files")
+    return audiobook_files
 
-    # Deduplicate: prefer main Library over /Library/Audiobook/
+
+def _deduplicate_library_files(audiobook_files: list[Path]) -> list[Path]:
+    """Deduplicate: prefer main Library over /Library/Audiobook/."""
     main_library = [f for f in audiobook_files if "/Library/Audiobook/" not in str(f)]
     audiobook_folder = [f for f in audiobook_files if "/Library/Audiobook/" in str(f)]
 
     main_titles = {f.stem for f in main_library}
     unique_from_audiobook = [f for f in audiobook_folder if f.stem not in main_titles]
-
-    result = main_library + unique_from_audiobook
 
     if len(audiobook_folder) > len(unique_from_audiobook):
         dup_count = len(audiobook_folder) - len(unique_from_audiobook)
@@ -191,7 +190,18 @@ def find_audiobook_files(base_dir: Path, formats: list[str]) -> list[Path]:
             f"(keeping {len(unique_from_audiobook)} unique)"
         )
 
-    return result
+    return main_library + unique_from_audiobook
+
+
+def find_audiobook_files(base_dir: Path, formats: list[str]) -> list[Path]:
+    """
+    Find all audiobook files, filtering covers and deduplicating.
+
+    Returns list of unique audiobook file paths.
+    """
+    all_files = _collect_files_by_format(base_dir, formats)
+    audiobook_files = _filter_cover_art(all_files)
+    return _deduplicate_library_files(audiobook_files)
 
 
 # =============================================================================

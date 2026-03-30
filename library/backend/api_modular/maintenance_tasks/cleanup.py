@@ -14,6 +14,21 @@ logger = logging.getLogger(__name__)
 _BACKUP_RETENTION = 5
 
 
+def _report_progress(callback, fraction, message):
+    """Call progress callback if provided."""
+    if callback:
+        callback(fraction, message)
+
+
+def _delete_files(file_list):
+    """Delete a list of Path objects and return total bytes freed."""
+    total_bytes = 0
+    for f in file_list:
+        total_bytes += f.stat().st_size
+        f.unlink()
+    return total_bytes
+
+
 @registry.register
 class BackupRetentionTask(MaintenanceTask):
     name = "backup_retention"
@@ -45,10 +60,8 @@ class BackupRetentionTask(MaintenanceTask):
             )
 
         try:
-            if progress_callback:
-                progress_callback(0.2, "Scanning backups...")
+            _report_progress(progress_callback, 0.2, "Scanning backups...")
 
-            # Sort by modification time, newest first
             backups = sorted(
                 [f for f in backup_dir.iterdir() if f.suffix == ".db"],
                 key=lambda f: f.stat().st_mtime,
@@ -57,22 +70,16 @@ class BackupRetentionTask(MaintenanceTask):
 
             to_delete = backups[_BACKUP_RETENTION:]
             if not to_delete:
-                if progress_callback:
-                    progress_callback(1.0, "Complete")
+                _report_progress(progress_callback, 1.0, "Complete")
                 return ExecutionResult(
                     success=True,
                     message=f"Only {len(backups)} backups — nothing to remove",
                     data={"deleted": 0, "kept": len(backups)},
                 )
 
-            total_bytes = 0
-            for backup in to_delete:
-                total_bytes += backup.stat().st_size
-                backup.unlink()
-
+            total_bytes = _delete_files(to_delete)
             mb = total_bytes / (1024 * 1024)
-            if progress_callback:
-                progress_callback(1.0, "Complete")
+            _report_progress(progress_callback, 1.0, "Complete")
 
             return ExecutionResult(
                 success=True,
@@ -93,6 +100,17 @@ class BackupRetentionTask(MaintenanceTask):
         return 5
 
 
+def _find_orphan_supplement_ids(cursor):
+    """Find supplement IDs whose files no longer exist on disk.
+
+    Returns (orphan_ids, total_checked).
+    """
+    cursor.execute("SELECT id, file_path FROM supplements")
+    rows = cursor.fetchall()
+    orphan_ids = [row["id"] for row in rows if not Path(row["file_path"]).is_file()]
+    return orphan_ids, len(rows)
+
+
 @registry.register
 class OrphanedSupplementsTask(MaintenanceTask):
     name = "cleanup_orphaned_supplements"
@@ -111,8 +129,7 @@ class OrphanedSupplementsTask(MaintenanceTask):
             return ExecutionResult(success=False, message="Database path not available")
 
         try:
-            if progress_callback:
-                progress_callback(0.2, "Scanning supplements...")
+            _report_progress(progress_callback, 0.2, "Scanning supplements...")
 
             conn = sqlite3.connect(str(db_path))
             conn.row_factory = sqlite3.Row
@@ -131,16 +148,8 @@ class OrphanedSupplementsTask(MaintenanceTask):
                     data={"removed": 0},
                 )
 
-            cursor.execute("SELECT id, file_path FROM supplements")
-            rows = cursor.fetchall()
-
-            orphan_ids = []
-            for row in rows:
-                if not Path(row["file_path"]).is_file():
-                    orphan_ids.append(row["id"])
-
-            if progress_callback:
-                progress_callback(0.6, f"Found {len(orphan_ids)} orphans...")
+            orphan_ids, total_checked = _find_orphan_supplement_ids(cursor)
+            _report_progress(progress_callback, 0.6, f"Found {len(orphan_ids)} orphans...")
 
             if orphan_ids:
                 placeholders = ",".join("?" * len(orphan_ids))
@@ -151,8 +160,7 @@ class OrphanedSupplementsTask(MaintenanceTask):
                 conn.commit()
 
             conn.close()
-            if progress_callback:
-                progress_callback(1.0, "Complete")
+            _report_progress(progress_callback, 1.0, "Complete")
 
             return ExecutionResult(
                 success=True,
@@ -161,13 +169,63 @@ class OrphanedSupplementsTask(MaintenanceTask):
                     if orphan_ids
                     else "No orphaned supplements found"
                 ),
-                data={"removed": len(orphan_ids), "total_checked": len(rows)},
+                data={"removed": len(orphan_ids), "total_checked": total_checked},
             )
         except Exception as e:
             return ExecutionResult(success=False, message=str(e))
 
     def estimate_duration(self):
         return 10
+
+
+def _resolve_staging_dir():
+    """Resolve the staging directory path from config or environment."""
+    import os
+    import sys
+
+    _backend = str(Path(__file__).parent.parent.parent)
+    if _backend not in sys.path:
+        sys.path.insert(0, _backend)
+    try:
+        _lib = str(Path(__file__).parent.parent.parent.parent)
+        if _lib not in sys.path:
+            sys.path.insert(0, _lib)
+        from config import AUDIOBOOKS_STAGING
+        return AUDIOBOOKS_STAGING
+    except ImportError:
+        return Path(os.environ.get("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"))
+
+
+def _is_conversion_active():
+    """Check if any ffmpeg conversions are currently running."""
+    import subprocess
+    result = subprocess.run(
+        ["pgrep", "-f", "ffmpeg.*opus"],
+        capture_output=True,
+        timeout=5,
+    )
+    return result.returncode == 0
+
+
+def _clean_staging_files(staging):
+    """Delete all files in staging directory and remove empty subdirs.
+
+    Returns (deleted_count, freed_bytes).
+    """
+    deleted = 0
+    total_bytes = 0
+    for f in staging.rglob("*"):
+        if f.is_file():
+            total_bytes += f.stat().st_size
+            f.unlink()
+            deleted += 1
+
+    # Remove empty subdirectories
+    for d in sorted(staging.rglob("*"), reverse=True):
+        if d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
+
+    return deleted, total_bytes
 
 
 @registry.register
@@ -180,24 +238,7 @@ class StagingCleanupTask(MaintenanceTask):
         return ValidationResult(ok=True)
 
     def execute(self, params: dict, progress_callback=None) -> ExecutionResult:
-        import os
-        import sys
-
-        # Resolve staging directory from config
-        _backend = str(Path(__file__).parent.parent.parent)
-        if _backend not in sys.path:
-            sys.path.insert(0, _backend)
-        try:
-            _lib = str(Path(__file__).parent.parent.parent.parent)
-            if _lib not in sys.path:
-                sys.path.insert(0, _lib)
-            from config import AUDIOBOOKS_STAGING
-        except ImportError:
-            staging = Path(
-                os.environ.get("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging")
-            )
-        else:
-            staging = AUDIOBOOKS_STAGING
+        staging = _resolve_staging_dir()
 
         if not staging.is_dir():
             return ExecutionResult(
@@ -207,40 +248,18 @@ class StagingCleanupTask(MaintenanceTask):
             )
 
         try:
-            if progress_callback:
-                progress_callback(0.2, "Scanning staging directory...")
+            _report_progress(progress_callback, 0.2, "Scanning staging directory...")
 
-            # Check if any ffmpeg conversions are active — don't delete mid-conversion
-            import subprocess
-
-            result = subprocess.run(
-                ["pgrep", "-f", "ffmpeg.*opus"],
-                capture_output=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
+            if _is_conversion_active():
                 return ExecutionResult(
                     success=True,
                     message="Conversion in progress — skipping staging cleanup",
                     data={"deleted": 0, "reason": "active_conversion"},
                 )
 
-            deleted = 0
-            total_bytes = 0
-            for f in staging.rglob("*"):
-                if f.is_file():
-                    total_bytes += f.stat().st_size
-                    f.unlink()
-                    deleted += 1
-
-            # Remove empty subdirectories
-            for d in sorted(staging.rglob("*"), reverse=True):
-                if d.is_dir() and not any(d.iterdir()):
-                    d.rmdir()
-
+            deleted, total_bytes = _clean_staging_files(staging)
             mb = total_bytes / (1024 * 1024)
-            if progress_callback:
-                progress_callback(1.0, "Complete")
+            _report_progress(progress_callback, 1.0, "Complete")
 
             return ExecutionResult(
                 success=True,

@@ -391,17 +391,18 @@ def init_duplicates_routes(db_path):
 
         # Get all audiobooks to be deleted with their grouping keys
         placeholders = ",".join("?" * len(ids_to_delete))
+        query = (
+            "SELECT id, sha256_hash, title, author, file_path,"  # nosec B608
+            " duration_hours, file_size_mb,"
+            " LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''),"
+            " '-', ''), '  ', ' '))) as norm_title,"
+            " LOWER(TRIM(author)) as norm_author,"
+            " ROUND(duration_hours, 1) as duration_group"
+            " FROM audiobooks"
+            f" WHERE id IN ({placeholders})"
+        )
         cursor.execute(
-            f"""
-            SELECT id, sha256_hash, title, author, file_path,
-                   duration_hours, file_size_mb,
-                   LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''),
-                   '-', ''), '  ', ' '))) as norm_title,
-                   LOWER(TRIM(author)) as norm_author,
-                   ROUND(duration_hours, 1) as duration_group
-            FROM audiobooks
-            WHERE id IN ({placeholders})
-        """,  # nosec B608
+            query,
             ids_to_delete,
         )
 

@@ -1682,13 +1682,13 @@ backup_auth_db() {
     fi
     echo -e "${GREEN}  Auth database backed up${NC}"
 
-    # Retain only the 5 most recent backups
+    # Retain only the 3 most recent backups
     local backup_dir
     backup_dir=$(dirname "$auth_db")
     local backup_base
     backup_base=$(basename "$auth_db")
     local old_backups
-    mapfile -t old_backups < <(ls -1t "${backup_dir}/${backup_base}.pre-upgrade-"* 2>/dev/null | tail -n +6)
+    mapfile -t old_backups < <(ls -1t "${backup_dir}/${backup_base}.pre-upgrade-"* 2>/dev/null | tail -n +4)
     if [[ ${#old_backups[@]} -gt 0 ]]; then
         echo "  Cleaning up ${#old_backups[@]} old backup(s)..."
         for old in "${old_backups[@]}"; do

@@ -65,31 +65,107 @@ def get_duplicate_details(conn: sqlite3.Connection, hash_value: str) -> list:
 
 def suggest_keep(files: list) -> int:
     """Suggest which file to keep based on preferences"""
-    # Preference order:
-    # 1. M4B format (native audiobook format)
-    # 2. Shorter path (usually better organized)
-    # 3. First in alphabetical order
+    format_scores = {"m4b": 100, "opus": 50, "m4a": 25}
 
     scored = []
     for f in files:
-        file_id, title, author, path, size, fmt, duration, created = f
-        score = 0
-
-        # Prefer M4B format
-        if fmt == "m4b":
-            score += 100
-        elif fmt == "opus":
-            score += 50
-        elif fmt == "m4a":
-            score += 25
-
-        # Prefer shorter paths (better organization)
-        score -= int(len(path) / 10)
-
+        file_id, _title, _author, path, _size, fmt, _duration, _created = f
+        score = format_scores.get(fmt, 0) - int(len(path) / 10)
         scored.append((score, file_id))
 
     scored.sort(reverse=True)
     return scored[0][1]
+
+
+def _print_library_stats(total_books, hashed_books, total_size):
+    """Print overall library statistics."""
+    print(f"\n{'=' * 70}")
+    print("AUDIOBOOK DUPLICATE REPORT")
+    print(f"{'=' * 70}")
+    print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Total audiobooks: {total_books:,}")
+    print(f"With hashes: {hashed_books:,} ({hashed_books * 100 / total_books:.1f}%)")
+    print(f"Total library size: {format_size(total_size * 1024 * 1024)}")
+
+    if hashed_books < total_books:
+        print(f"\n\u26a0 {total_books - hashed_books} audiobooks not yet hashed.")
+        print("  Run: python3 scripts/generate_hashes.py")
+
+
+def _get_library_stats(conn):
+    """Fetch basic library statistics. Returns (total, hashed, total_size)."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM audiobooks")
+    total_books = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
+    hashed_books = cursor.fetchone()[0]
+    cursor.execute("SELECT SUM(file_size_mb) FROM audiobooks")
+    total_size = cursor.fetchone()[0] or 0
+    return total_books, hashed_books, total_size
+
+
+def _build_duplicate_group(conn, hash_value, count, idx, total_groups):
+    """Build export data and print info for one duplicate group."""
+    files = get_duplicate_details(conn, hash_value)
+    file_size = files[0][4] if files else 0
+    wasted = file_size * (count - 1)
+    keep_id = suggest_keep(files)
+
+    print(
+        f"\n[{idx}/{total_groups}] Duplicate Group (Hash: {hash_value[:16]}...)"
+    )
+    print(
+        f"    Files: {count} | Size each: {format_size(file_size * 1024 * 1024)} | "
+        f"Wasted: {format_size(wasted * 1024 * 1024)}"
+    )
+    print(f"    Title: {files[0][1][:60]}")
+    print(f"    Author: {files[0][2]}")
+
+    group_files = []
+    for f in files:
+        file_id, _title, _author, path, _size, fmt, _duration, _created = f
+        is_keep = file_id == keep_id
+        marker = "KEEP" if is_keep else "    "
+        print(f"    [{marker}] ID:{file_id} | {fmt.upper():4} | {path}")
+        group_files.append({
+            "id": file_id,
+            "path": path,
+            "format": fmt,
+            "suggested_action": "keep" if is_keep else "remove",
+        })
+
+    return {
+        "hash": hash_value,
+        "count": count,
+        "file_size_mb": file_size,
+        "wasted_mb": wasted,
+        "title": files[0][1],
+        "author": files[0][2],
+        "suggested_keep_id": keep_id,
+        "files": group_files,
+    }
+
+
+def _export_report(export_data, total_books, duplicates, total_wasted_files,
+                    total_wasted_space, export_path):
+    """Export duplicate report to JSON file."""
+    output_path = Path(export_path) if export_path else Path("duplicates.json")
+    with open(output_path, "w") as f:
+        json.dump(
+            {
+                "generated_at": datetime.now().isoformat(),
+                "summary": {
+                    "total_audiobooks": total_books,
+                    "duplicate_groups": len(duplicates),
+                    "extra_copies": total_wasted_files,
+                    "wasted_space_mb": total_wasted_space,
+                },
+                "duplicates": export_data,
+            },
+            f,
+            indent=2,
+        )
+    print(f"\n\u2713 Exported to: {output_path}")
 
 
 def generate_report(export_json: bool = False, export_path: str | None = None):
@@ -100,41 +176,17 @@ def generate_report(export_json: bool = False, export_path: str | None = None):
         sys.exit(1)
 
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    total_books, hashed_books, total_size = _get_library_stats(conn)
+    _print_library_stats(total_books, hashed_books, total_size)
 
-    # Get overall stats
-    cursor.execute("SELECT COUNT(*) FROM audiobooks")
-    total_books = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
-    hashed_books = cursor.fetchone()[0]
-
-    cursor.execute("SELECT SUM(file_size_mb) FROM audiobooks")
-    total_size = cursor.fetchone()[0] or 0
-
-    print(f"\n{'=' * 70}")
-    print("AUDIOBOOK DUPLICATE REPORT")
-    print(f"{'=' * 70}")
-    print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Total audiobooks: {total_books:,}")
-    print(f"With hashes: {hashed_books:,} ({hashed_books * 100 / total_books:.1f}%)")
-    print(f"Total library size: {format_size(total_size * 1024 * 1024)}")
-
-    if hashed_books < total_books:
-        print(f"\n⚠ {total_books - hashed_books} audiobooks not yet hashed.")
-        print("  Run: python3 scripts/generate_hashes.py")
-
-    # Find duplicates
     duplicates = find_duplicates(conn)
-
     if not duplicates:
         print(f"\n{'=' * 70}")
-        print("✓ No duplicates found!")
+        print("\u2713 No duplicates found!")
         print(f"{'=' * 70}")
         conn.close()
         return
 
-    # Calculate stats
     total_duplicate_files = sum(count for _, count in duplicates)
     total_wasted_files = total_duplicate_files - len(duplicates)
 
@@ -145,53 +197,10 @@ def generate_report(export_json: bool = False, export_path: str | None = None):
 
     export_data = []
     total_wasted_space = 0
-
     for idx, (hash_value, count) in enumerate(duplicates, 1):
-        files = get_duplicate_details(conn, hash_value)
-        file_size = files[0][4] if files else 0
-        wasted = file_size * (count - 1)
-        total_wasted_space += wasted
-
-        keep_id = suggest_keep(files)
-
-        print(
-            f"\n[{idx}/{len(duplicates)}] Duplicate Group (Hash: {hash_value[:16]}...)"
-        )
-        print(
-            f"    Files: {count} | Size each: {format_size(file_size * 1024 * 1024)} | "
-            f"Wasted: {format_size(wasted * 1024 * 1024)}"
-        )
-        print(f"    Title: {files[0][1][:60]}")
-        print(f"    Author: {files[0][2]}")
-
-        group_data = {
-            "hash": hash_value,
-            "count": count,
-            "file_size_mb": file_size,
-            "wasted_mb": wasted,
-            "title": files[0][1],
-            "author": files[0][2],
-            "suggested_keep_id": keep_id,
-            "files": [],
-        }
-
-        for f in files:
-            file_id, title, author, path, size, fmt, duration, created = f
-            is_keep = file_id == keep_id
-
-            marker = "KEEP" if is_keep else "    "
-            print(f"    [{marker}] ID:{file_id} | {fmt.upper():4} | {path}")
-
-            group_data["files"].append(
-                {
-                    "id": file_id,
-                    "path": path,
-                    "format": fmt,
-                    "suggested_action": "keep" if is_keep else "remove",
-                }
-            )
-
-        export_data.append(group_data)
+        group = _build_duplicate_group(conn, hash_value, count, idx, len(duplicates))
+        export_data.append(group)
+        total_wasted_space += group["wasted_mb"]
 
     print(f"\n{'=' * 70}")
     print("SUMMARY")
@@ -202,25 +211,118 @@ def generate_report(export_json: bool = False, export_path: str | None = None):
     print(f"Potential savings: {total_wasted_space * 100 / total_size:.1f}% of library")
 
     if export_json:
-        output_path = Path(export_path) if export_path else Path("duplicates.json")
-        with open(output_path, "w") as f:
-            json.dump(
-                {
-                    "generated_at": datetime.now().isoformat(),
-                    "summary": {
-                        "total_audiobooks": total_books,
-                        "duplicate_groups": len(duplicates),
-                        "extra_copies": total_wasted_files,
-                        "wasted_space_mb": total_wasted_space,
-                    },
-                    "duplicates": export_data,
-                },
-                f,
-                indent=2,
-            )
-        print(f"\n✓ Exported to: {output_path}")
+        _export_report(
+            export_data, total_books, duplicates,
+            total_wasted_files, total_wasted_space, export_path,
+        )
 
     conn.close()
+
+
+def _build_removal_plan(duplicates, conn):
+    """Build lists of files to remove and keepers from duplicate groups.
+
+    Returns (files_to_remove, protected_keepers, space_to_free).
+    """
+    files_to_remove = []
+    protected_keepers = []
+    space_to_free = 0
+
+    for hash_value, count in duplicates:
+        files = get_duplicate_details(conn, hash_value)
+        if len(files) < 2:
+            continue
+
+        files_sorted = sorted(files, key=lambda x: x[0])
+        keeper = files_sorted[0]
+        protected_keepers.append(
+            {"id": keeper[0], "title": keeper[1], "path": keeper[3], "hash": hash_value}
+        )
+
+        for f in files_sorted[1:]:
+            file_id, title, _author, path, size, _fmt, _duration, _created = f
+            files_to_remove.append({
+                "id": file_id, "path": path, "size_mb": size,
+                "hash": hash_value, "title": title,
+            })
+            space_to_free += size
+
+    return files_to_remove, protected_keepers, space_to_free
+
+
+def _print_removal_plan(files_to_remove, protected_keepers, space_to_free):
+    """Print the dry-run removal plan."""
+    print("\n" + "=" * 70)
+    print("PROTECTED FILES (will be kept):")
+    print("=" * 70)
+    for k in protected_keepers[:10]:
+        print(f"  [KEEP] ID:{k['id']} | {k['title'][:50]}")
+    if len(protected_keepers) > 10:
+        print(f"  ... and {len(protected_keepers) - 10} more keepers")
+
+    print("\n" + "=" * 70)
+    print("FILES TO REMOVE:")
+    print("=" * 70)
+    for f in files_to_remove[:20]:
+        print(f"  [DEL]  ID:{f['id']} | {f['title'][:50]}")
+    if len(files_to_remove) > 20:
+        print(f"  ... and {len(files_to_remove) - 20} more")
+
+    print("\n" + "=" * 70)
+    print("\u26a0 This is a DRY RUN. No files were removed.")
+    print("  Run with --execute to actually remove files.")
+    print("=" * 70)
+
+
+def _verify_safe_deletions(cursor, files_to_remove):
+    """Verify each file still has remaining copies before deletion.
+
+    Returns (verified_safe, blocked).
+    """
+    verified_safe = []
+    blocked = []
+
+    for f in files_to_remove:
+        cursor.execute(
+            "SELECT COUNT(*) as count FROM audiobooks "
+            "WHERE sha256_hash = ? AND id != ?",
+            (f["hash"], f["id"]),
+        )
+        remaining = cursor.fetchone()[0]
+        if remaining >= 1:
+            verified_safe.append(f)
+        else:
+            blocked.append(f)
+            print(f"  \u26a0 BLOCKED: {f['title'][:50]} - would delete last copy!")
+
+    return verified_safe, blocked
+
+
+def _delete_audiobook_entry(cursor, file_id):
+    """Delete an audiobook and its related junction table rows."""
+    for table in ("audiobook_topics", "audiobook_eras", "audiobook_genres"):
+        cursor.execute(f"DELETE FROM {table} WHERE audiobook_id = ?", (file_id,))  # nosec B608
+    cursor.execute("DELETE FROM audiobooks WHERE id = ?", (file_id,))
+
+
+def _execute_deletions(cursor, verified_safe):
+    """Delete verified-safe files and DB entries. Returns (removed, errors)."""
+    removed = 0
+    errors = 0
+
+    for f in verified_safe:
+        try:
+            path = Path(f["path"])
+            if path.exists():
+                path.unlink()
+                print(f"  \u2713 Deleted file: {path.name}")
+            _delete_audiobook_entry(cursor, f["id"])
+            removed += 1
+        except Exception as e:
+            errors += 1
+            print(f"  \u2717 Error: {f['path']}: {e}")
+
+    return removed, errors
 
 
 def remove_duplicates(dry_run: bool = True):
@@ -246,37 +348,9 @@ def remove_duplicates(dry_run: bool = True):
         conn.close()
         return
 
-    files_to_remove = []
-    protected_keepers = []
-    space_to_free = 0
-
-    for hash_value, count in duplicates:
-        files = get_duplicate_details(conn, hash_value)
-
-        if len(files) < 2:
-            # Safety: skip if somehow only one file
-            continue
-
-        # Sort by ID - keep the lowest ID (first imported)
-        files_sorted = sorted(files, key=lambda x: x[0])
-        keeper = files_sorted[0]
-        protected_keepers.append(
-            {"id": keeper[0], "title": keeper[1], "path": keeper[3], "hash": hash_value}
-        )
-
-        # All others are candidates for removal
-        for f in files_sorted[1:]:
-            file_id, title, author, path, size, fmt, duration, created = f
-            files_to_remove.append(
-                {
-                    "id": file_id,
-                    "path": path,
-                    "size_mb": size,
-                    "hash": hash_value,
-                    "title": title,
-                }
-            )
-            space_to_free += size
+    files_to_remove, protected_keepers, space_to_free = _build_removal_plan(
+        duplicates, conn
+    )
 
     print(f"\n{'=' * 70}")
     print("DUPLICATE REMOVAL PLAN" + (" (DRY RUN)" if dry_run else ""))
@@ -286,106 +360,41 @@ def remove_duplicates(dry_run: bool = True):
     print(f"Space to free: {format_size(space_to_free * 1024 * 1024)}")
 
     if dry_run:
-        print("\n" + "=" * 70)
-        print("PROTECTED FILES (will be kept):")
-        print("=" * 70)
-        for k in protected_keepers[:10]:
-            print(f"  [KEEP] ID:{k['id']} | {k['title'][:50]}")
-        if len(protected_keepers) > 10:
-            print(f"  ... and {len(protected_keepers) - 10} more keepers")
+        _print_removal_plan(files_to_remove, protected_keepers, space_to_free)
+        conn.close()
+        return
 
-        print("\n" + "=" * 70)
-        print("FILES TO REMOVE:")
-        print("=" * 70)
-        for f in files_to_remove[:20]:
-            print(f"  [DEL]  ID:{f['id']} | {f['title'][:50]}")
-        if len(files_to_remove) > 20:
-            print(f"  ... and {len(files_to_remove) - 20} more")
+    # Execute mode: verify then delete
+    print("\n" + "=" * 70)
+    print("SAFETY VERIFICATION")
+    print("=" * 70)
 
-        print("\n" + "=" * 70)
-        print("⚠ This is a DRY RUN. No files were removed.")
-        print("  Run with --execute to actually remove files.")
-        print("=" * 70)
-    else:
-        # CRITICAL: Final safety verification before deletion
-        print("\n" + "=" * 70)
-        print("SAFETY VERIFICATION")
-        print("=" * 70)
+    verified_safe, blocked = _verify_safe_deletions(cursor, files_to_remove)
 
-        verified_safe = []
-        blocked = []
+    if blocked:
+        print(f"\n  {len(blocked)} files blocked from deletion (last copies)")
+    print(f"  {len(verified_safe)} files verified safe to delete")
 
-        for f in files_to_remove:
-            # Verify this hash still has other copies
-            cursor.execute(
-                """
-                SELECT COUNT(*) as count FROM audiobooks
-                WHERE sha256_hash = ? AND id != ?
-            """,
-                (f["hash"], f["id"]),
-            )
-            remaining = cursor.fetchone()[0]
+    if not verified_safe:
+        print("\n\u2717 No files safe to delete.")
+        conn.close()
+        return
 
-            if remaining >= 1:
-                verified_safe.append(f)
-            else:
-                blocked.append(f)
-                print(f"  ⚠ BLOCKED: {f['title'][:50]} - would delete last copy!")
+    print("\n" + "=" * 70)
+    print("REMOVING FILES...")
+    print("=" * 70)
 
-        if blocked:
-            print(f"\n  {len(blocked)} files blocked from deletion (last copies)")
+    removed, errors = _execute_deletions(cursor, verified_safe)
+    conn.commit()
 
-        print(f"  {len(verified_safe)} files verified safe to delete")
-
-        if not verified_safe:
-            print("\n✗ No files safe to delete.")
-            conn.close()
-            return
-
-        # Proceed with verified deletions
-        print("\n" + "=" * 70)
-        print("REMOVING FILES...")
-        print("=" * 70)
-
-        removed = 0
-        errors = 0
-
-        for f in verified_safe:
-            path = Path(f["path"])
-            try:
-                # Delete physical file
-                if path.exists():
-                    path.unlink()
-                    print(f"  ✓ Deleted file: {path.name}")
-
-                # Remove from database (including related tables)
-                cursor.execute(
-                    "DELETE FROM audiobook_topics WHERE audiobook_id = ?", (f["id"],)
-                )
-                cursor.execute(
-                    "DELETE FROM audiobook_eras WHERE audiobook_id = ?", (f["id"],)
-                )
-                cursor.execute(
-                    "DELETE FROM audiobook_genres WHERE audiobook_id = ?", (f["id"],)
-                )
-                cursor.execute("DELETE FROM audiobooks WHERE id = ?", (f["id"],))
-
-                removed += 1
-
-            except Exception as e:
-                errors += 1
-                print(f"  ✗ Error: {f['path']}: {e}")
-
-        conn.commit()
-
-        print("\n" + "=" * 70)
-        print("COMPLETE")
-        print("=" * 70)
-        print(f"✓ Removed: {removed} files")
-        print(f"✗ Errors: {errors}")
-        print(f"⊘ Blocked: {len(blocked)} (protected last copies)")
-        freed = sum(f["size_mb"] for f in verified_safe if f in verified_safe)
-        print(f"💾 Space freed: {format_size(freed * 1024 * 1024)}")
+    print("\n" + "=" * 70)
+    print("COMPLETE")
+    print("=" * 70)
+    print(f"\u2713 Removed: {removed} files")
+    print(f"\u2717 Errors: {errors}")
+    print(f"\u2298 Blocked: {len(blocked)} (protected last copies)")
+    freed = sum(f["size_mb"] for f in verified_safe)
+    print(f"\U0001f4be Space freed: {format_size(freed * 1024 * 1024)}")
 
     conn.close()
 

@@ -77,7 +77,7 @@ def _create_test_db(db_path: Path, books: list[dict] | None = None) -> Path:
             cols = ", ".join(b.keys())
             placeholders = ", ".join(["?"] * len(b))
             conn.execute(
-                f"INSERT INTO audiobooks ({cols}) VALUES ({placeholders})",
+                f"INSERT INTO audiobooks ({cols}) VALUES ({placeholders})",  # nosec B608
                 list(b.values()),
             )
     conn.commit()
