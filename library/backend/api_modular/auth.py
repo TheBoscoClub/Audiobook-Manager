@@ -5295,6 +5295,38 @@ def admin_change_roles(user_id: int):
     return jsonify({"success": True, "user": _user_dict(updated)})
 
 
+@auth_bp.route("/admin/settings", methods=["GET"])
+@admin_required
+def get_admin_settings():
+    """Get all system settings (admin only)."""
+    db = get_auth_db()
+    repo = SystemSettingsRepository(db)
+    return jsonify(repo.get_all())
+
+
+@auth_bp.route("/admin/settings", methods=["PATCH"])
+@admin_required
+def update_admin_settings():
+    """Update one or more system settings (admin only).
+
+    JSON body: {"setting_key": "value", ...}
+    Only known setting keys are accepted.
+    """
+    ALLOWED_KEYS = {"multi_session_default"}
+
+    data = request.get_json() or {}
+    updates = {k: v for k, v in data.items() if k in ALLOWED_KEYS}
+    if not updates:
+        return jsonify({"error": "No valid settings provided"}), 400
+
+    db = get_auth_db()
+    repo = SystemSettingsRepository(db)
+    for key, value in updates.items():
+        repo.set(key, str(value))
+
+    return jsonify({"success": True, "updated": updates})
+
+
 @auth_bp.route("/admin/users/<int:user_id>/auth-method", methods=["PUT"])
 @admin_required
 def admin_change_auth_method(user_id: int):
