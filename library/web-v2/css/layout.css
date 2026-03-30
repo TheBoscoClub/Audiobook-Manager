@@ -137,7 +137,7 @@
     text-decoration: none;
     border: 2px solid var(--gold-dark);
     font-size: 0.9rem;
-    transition: all 0.3s;
+    transition: all var(--transition-normal);
     box-shadow: var(--btn-3d-raised);
     text-shadow: var(--text-3d-light);
 }
@@ -174,7 +174,7 @@
 
 .knocker-icon svg {
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
-    transition: filter 0.3s;
+    transition: filter var(--transition-normal);
 }
 
 .help-knocker:hover .knocker-icon svg {
@@ -183,7 +183,7 @@
 
 .knocker-ring {
     transform-origin: 12px 12px;
-    transition: transform 0.15s ease-in-out;
+    transition: transform var(--transition-fast) ease-in-out;
 }
 
 .help-knocker:hover .knocker-ring {
@@ -219,7 +219,7 @@
 
 .backoffice-keyhole svg {
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
-    transition: filter 0.3s, transform 0.3s;
+    transition: filter var(--transition-normal), transform var(--transition-normal);
 }
 
 .backoffice-link:hover .backoffice-keyhole svg {
@@ -279,6 +279,13 @@
     display: flex;
     gap: var(--spacing-md);
     flex-wrap: wrap;
+}
+
+.filter-actions {
+    flex-basis: 100%;
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
 }
 
 /* ============================================
@@ -416,7 +423,7 @@
     background: var(--deco-charcoal);
     color: var(--deco-gray);
     border: 2px solid var(--deco-gray);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-soft-inset-deep);
     cursor: default;
     transform: translateY(2px);
 }

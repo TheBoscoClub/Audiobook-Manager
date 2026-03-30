@@ -311,6 +311,35 @@ def cmd_kick(args) -> int:
         return 1
 
 
+def _format_timestamp(ts, default: str = "Unknown") -> str:
+    """Format a datetime to string, returning default if None."""
+    return ts.strftime("%Y-%m-%d %H:%M:%S") if ts else default
+
+
+def _print_user_details(user) -> None:
+    """Print user account details."""
+    print(f"User: {user.username}")
+    print(f"  ID: {user.id}")
+    print(f"  Auth type: {user.auth_type.value}")
+    print(f"  Can download: {'Yes' if user.can_download else 'No'}")
+    print(f"  Is admin: {'Yes' if user.is_admin else 'No'}")
+    print(f"  Created: {_format_timestamp(user.created_at)}")
+    print(f"  Last login: {_format_timestamp(user.last_login, 'Never')}")
+
+
+def _print_session_details(session) -> None:
+    """Print active session details, or 'No active session.'."""
+    print()
+    if not session:
+        print("No active session.")
+        return
+    print("Active session:")
+    print(f"  Created: {_format_timestamp(session.created_at)}")
+    print(f"  Last seen: {_format_timestamp(session.last_seen)}")
+    print(f"  User agent: {session.user_agent or 'Unknown'}")
+    print(f"  IP address: {session.ip_address or 'Unknown'}")
+
+
 def cmd_info(args) -> int:
     """Show user details."""
     db = get_db(args)
@@ -325,46 +354,8 @@ def cmd_info(args) -> int:
             print(f"Error: User '{args.username}' not found", file=sys.stderr)
             return 1
 
-        session = session_repo.get_by_user_id(user.id)
-
-        print(f"User: {user.username}")
-        print(f"  ID: {user.id}")
-        print(f"  Auth type: {user.auth_type.value}")
-        print(f"  Can download: {'Yes' if user.can_download else 'No'}")
-        print(f"  Is admin: {'Yes' if user.is_admin else 'No'}")
-        created_str = (
-            user.created_at.strftime("%Y-%m-%d %H:%M:%S")
-            if user.created_at
-            else "Unknown"
-        )
-        print(f"  Created: {created_str}")
-        last_login_str = (
-            user.last_login.strftime("%Y-%m-%d %H:%M:%S")
-            if user.last_login
-            else "Never"
-        )
-        print(f"  Last login: {last_login_str}")
-
-        print()
-        if session:
-            print("Active session:")
-            sess_created = (
-                session.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                if session.created_at
-                else "Unknown"
-            )
-            print(f"  Created: {sess_created}")
-            sess_seen = (
-                session.last_seen.strftime("%Y-%m-%d %H:%M:%S")
-                if session.last_seen
-                else "Unknown"
-            )
-            print(f"  Last seen: {sess_seen}")
-            print(f"  User agent: {session.user_agent or 'Unknown'}")
-            print(f"  IP address: {session.ip_address or 'Unknown'}")
-        else:
-            print("No active session.")
-
+        _print_user_details(user)
+        _print_session_details(session_repo.get_by_user_id(user.id))
         return 0
 
     except Exception as e:

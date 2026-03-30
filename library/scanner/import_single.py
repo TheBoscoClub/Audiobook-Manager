@@ -19,11 +19,14 @@ from config import COVER_DIR, DATABASE_PATH
 
 # Import shared utilities
 from scanner.metadata_utils import (
-    categorize_genre,
-    determine_literary_era,
     extract_cover_art,
-    extract_topics,
     get_file_metadata,
+)
+from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
+from scanner.utils.db_helpers import (
+    ALLOWED_LOOKUP_TABLES,  # noqa: F401 — re-exported for backward compatibility
+    get_or_create_lookup_id,  # noqa: F401 — re-exported for backward compatibility
+    insert_audiobook,
 )
 
 # Auto-enrichment and verification (imported lazily to avoid circular deps)
@@ -55,107 +58,72 @@ def _get_verify_module():
     return _verify_module if _verify_module else None
 
 
-SUPPORTED_FORMATS = [".m4b", ".opus", ".m4a", ".mp3"]
-
-# Whitelist of allowed lookup tables for SQL queries - prevents SQL injection
-ALLOWED_LOOKUP_TABLES = frozenset({"genres", "eras", "topics"})
-
-
-def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> int:
-    """Get or create an ID in a lookup table.
-
-    Args:
-        cursor: Database cursor
-        table: Table name - MUST be one of: genres, eras, topics
-        name: Value to insert/lookup
-
-    Raises:
-        ValueError: If table name is not in the whitelist
-    """
-    # SQL injection prevention: validate table name against whitelist
-    if table not in ALLOWED_LOOKUP_TABLES:
-        raise ValueError(
-            f"Invalid table name: {table}. Must be one of: {ALLOWED_LOOKUP_TABLES}"
-        )
-
-    cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))  # nosec B608 - table validated above
-    row = cursor.fetchone()
-    if row:
-        return row[0]
-    cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (name,))  # nosec B608 - table validated above
-    lastrowid = cursor.lastrowid
-    if lastrowid is None:
-        raise RuntimeError(f"Failed to insert into {table}")
-    return lastrowid
+def _find_audio_files(dir_path: Path) -> list[Path]:
+    """Find audio files in directory, filtering out cover art."""
+    audio_files: list[Path] = []
+    for ext in SUPPORTED_FORMATS:
+        audio_files.extend(dir_path.rglob(f"*{ext}"))
+    return [f for f in audio_files if not is_cover_art_file(f)]
 
 
-def insert_audiobook(
-    conn: sqlite3.Connection, metadata: dict, cover_path: str | None
-) -> int | None:
-    """Insert a single audiobook into the database."""
-    cursor = conn.cursor()
+def _get_existing_paths_for_dir(cursor, audio_files: list[Path]) -> set[str]:
+    """Return set of file paths that already exist in the database."""
+    existing = set()
+    for f in audio_files:
+        cursor.execute("SELECT 1 FROM audiobooks WHERE file_path = ?", (str(f),))
+        if cursor.fetchone():
+            existing.add(str(f))
+    return existing
 
-    cursor.execute(
-        """
-        INSERT INTO audiobooks (
-            title, author, narrator, publisher, series,
-            duration_hours, duration_formatted, file_size_mb,
-            file_path, cover_path, format, description,
-            sha256_hash, hash_verified_at, asin,
-            published_year, published_date, acquired_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
-        (
-            metadata.get("title"),
-            metadata.get("author"),
-            metadata.get("narrator"),
-            metadata.get("publisher"),
-            metadata.get("series"),
-            metadata.get("duration_hours"),
-            metadata.get("duration_formatted"),
-            metadata.get("file_size_mb"),
-            metadata.get("file_path"),
-            cover_path,
-            metadata.get("format"),
-            metadata.get("description", ""),
-            metadata.get("sha256_hash"),
-            metadata.get("hash_verified_at"),
-            metadata.get("asin"),
-            metadata.get("published_year"),
-            metadata.get("published_date"),
-            metadata.get("acquired_date"),
-        ),
+
+def _post_import_hooks(audiobook_id: int, db_path: Path) -> None:
+    """Run enrichment and verification after a successful import."""
+    enrich_fn = _get_enrich_module()
+    if enrich_fn and audiobook_id:
+        try:
+            enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=False)
+        except Exception as e:
+            print(f"  ⚠ Enrichment error (non-fatal): {e}", file=sys.stderr)
+
+    verify_fn = _get_verify_module()
+    if verify_fn and audiobook_id:
+        try:
+            verify_fn(
+                book_id=audiobook_id,
+                db_path=db_path,
+                auto_fix=True,
+                quiet=True,
+            )
+        except Exception as e:
+            print(f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr)
+
+
+def _import_single_file(
+    filepath: Path, conn, dir_path: Path, cover_dir: Path, db_path: Path
+) -> str:
+    """Import one audiobook file. Returns 'added', 'skipped', or 'error'."""
+    metadata = get_file_metadata(
+        filepath, audiobook_dir=dir_path.parent, calculate_hash=False
     )
+    if not metadata:
+        return "error"
 
-    audiobook_id = cursor.lastrowid
+    cover_path = extract_cover_art(filepath, cover_dir, metadata=metadata)
 
-    # Insert genre
-    genre = metadata.get("genre", "Uncategorized")
-    genre_cat = categorize_genre(genre)
-    genre_id = get_or_create_lookup_id(cursor, "genres", genre_cat["sub"])
-    cursor.execute(
-        "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-        (audiobook_id, genre_id),
-    )
-
-    # Insert era
-    era = determine_literary_era(metadata.get("year", ""))
-    era_id = get_or_create_lookup_id(cursor, "eras", era)
-    cursor.execute(
-        "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-        (audiobook_id, era_id),
-    )
-
-    # Insert topics
-    topics = extract_topics(metadata.get("description", ""))
-    for topic_name in topics:
-        topic_id = get_or_create_lookup_id(cursor, "topics", topic_name)
-        cursor.execute(
-            "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
-            (audiobook_id, topic_id),
-        )
-
-    return audiobook_id
+    try:
+        audiobook_id = insert_audiobook(conn, metadata, cover_path)
+        conn.commit()
+        print(f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}")
+        if audiobook_id is not None:
+            _post_import_hooks(audiobook_id, db_path)
+        return "added"
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return "skipped"
+    except Exception as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        conn.rollback()
+        return "error"
 
 
 def import_directory(
@@ -172,10 +140,6 @@ def import_directory(
     Returns:
         dict with {added: int, skipped: int, errors: int}
     """
-    added = 0
-    skipped = 0
-    errors = 0
-
     if not dir_path.is_dir():
         return {
             "added": 0,
@@ -184,14 +148,7 @@ def import_directory(
             "error": f"Not a directory: {dir_path}",
         }
 
-    # Find audio files in this directory (recursive for nested structure)
-    audio_files: list[Path] = []
-    for ext in SUPPORTED_FORMATS:
-        audio_files.extend(dir_path.rglob(f"*{ext}"))
-
-    # Filter out cover art files
-    audio_files = [f for f in audio_files if ".cover." not in f.name.lower()]
-
+    audio_files = _find_audio_files(dir_path)
     if not audio_files:
         return {
             "added": 0,
@@ -200,16 +157,9 @@ def import_directory(
             "message": "No audio files found",
         }
 
-    # Check which files are already in DB
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
-    existing = set()
-    for f in audio_files:
-        cursor.execute("SELECT 1 FROM audiobooks WHERE file_path = ?", (str(f),))
-        if cursor.fetchone():
-            existing.add(str(f))
-
+    existing = _get_existing_paths_for_dir(cursor, audio_files)
     new_files = [f for f in audio_files if str(f) not in existing]
     skipped = len(existing)
 
@@ -217,59 +167,19 @@ def import_directory(
         conn.close()
         return {"added": 0, "skipped": skipped, "errors": 0}
 
-    # Ensure cover directory exists
     cover_dir.mkdir(parents=True, exist_ok=True)
+    added = 0
+    errors = 0
 
     try:
         for filepath in new_files:
-            # Extract metadata (skip hash for speed - mover already validated)
-            metadata = get_file_metadata(
-                filepath, audiobook_dir=dir_path.parent, calculate_hash=False
-            )
-            if not metadata:
-                errors += 1
-                continue
-
-            # Extract cover art (tiers: embedded → sidecar → external API)
-            cover_path = extract_cover_art(filepath, cover_dir, metadata=metadata)
-
-            try:
-                audiobook_id = insert_audiobook(conn, metadata, cover_path)
-                conn.commit()
+            result = _import_single_file(filepath, conn, dir_path, cover_dir, db_path)
+            if result == "added":
                 added += 1
-                print(
-                    f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}"
-                )
-
-                # Auto-enrich from Audible + ISBN sources
-                enrich_fn = _get_enrich_module()
-                if enrich_fn and audiobook_id:
-                    try:
-                        enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=False)
-                    except Exception as e:
-                        print(f"  ⚠ Enrichment error (non-fatal): {e}", file=sys.stderr)
-
-                # Verify metadata consistency
-                verify_fn = _get_verify_module()
-                if verify_fn and audiobook_id:
-                    try:
-                        verify_fn(
-                            book_id=audiobook_id,
-                            db_path=db_path,
-                            auto_fix=True,
-                            quiet=True,
-                        )
-                    except Exception as e:
-                        print(
-                            f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr
-                        )
-            except sqlite3.IntegrityError:
+            elif result == "skipped":
                 skipped += 1
-                conn.rollback()
-            except Exception as e:
-                print(f"✗ Error: {e}", file=sys.stderr)
+            else:
                 errors += 1
-                conn.rollback()
     finally:
         conn.close()
 

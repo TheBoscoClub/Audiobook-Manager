@@ -220,7 +220,7 @@ class TestMigrationRunner:
         conn.commit()
 
     def _run_migration_runner(
-        self, conn: sqlite3.Connection, max_version: int = None
+        self, conn: sqlite3.Connection, max_version: int | None = None
     ) -> None:
         """
         Reproduce the _apply_migrations() logic from AuthDatabase using a

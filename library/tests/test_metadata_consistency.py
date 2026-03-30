@@ -72,13 +72,14 @@ def sample_audiobooks(prod_db):
     """Get a sample of audiobooks for testing."""
     cursor = prod_db.cursor()
     # Note: source_asin requires migration 007 - query only columns that exist
-    cursor.execute(f"""
-        SELECT id, title, author, narrator, file_path, sha256_hash, asin
-        FROM audiobooks
-        WHERE file_path IS NOT NULL
-        ORDER BY RANDOM()
-        LIMIT {SAMPLE_SIZE}
-    """)
+    query = (
+        "SELECT id, title, author, narrator, file_path, sha256_hash, asin"  # nosec B608
+        " FROM audiobooks"
+        " WHERE file_path IS NOT NULL"
+        " ORDER BY RANDOM()"
+        f" LIMIT {SAMPLE_SIZE}"
+    )
+    cursor.execute(query)
     return [dict(row) for row in cursor.fetchall()]
 
 
@@ -161,6 +162,27 @@ class TestFileToDbConsistency:
                 + "\n".join(f"  ID {f['id']}: {f['title']}" for f in missing_files[:10])
             )
 
+    @staticmethod
+    def _titles_match(db_title: str, file_title: str) -> bool:
+        """Check if two titles match, allowing substring containment."""
+        if not db_title or not file_title:
+            return True
+        if db_title == file_title:
+            return True
+        return db_title in file_title or file_title in db_title
+
+    @staticmethod
+    def _authors_match(db_author: str, file_author: str) -> bool:
+        """Check if two authors match, allowing 50%+ word overlap."""
+        if not db_author or not file_author:
+            return True
+        if db_author == file_author:
+            return True
+        db_words = set(db_author.split())
+        file_words = set(file_author.split())
+        overlap = len(db_words & file_words) / max(len(db_words), len(file_words), 1)
+        return overlap >= 0.5
+
     def test_title_matches_file_metadata(self, sample_audiobooks):
         """Verify database title matches embedded file metadata."""
         mismatches = []
@@ -177,17 +199,14 @@ class TestFileToDbConsistency:
             db_title = normalize_for_comparison(book["title"])
             file_title = normalize_for_comparison(file_meta["title"])
 
-            # Allow for minor differences (subtitles, etc.)
-            if db_title and file_title and db_title != file_title:
-                # Check if one contains the other (common for subtitle differences)
-                if db_title not in file_title and file_title not in db_title:
-                    mismatches.append(
-                        {
-                            "id": book["id"],
-                            "db_title": book["title"],
-                            "file_title": file_meta["title"],
-                        }
-                    )
+            if not self._titles_match(db_title, file_title):
+                mismatches.append(
+                    {
+                        "id": book["id"],
+                        "db_title": book["title"],
+                        "file_title": file_meta["title"],
+                    }
+                )
 
         if mismatches:
             msg = f"{len(mismatches)} title mismatches found:\n"
@@ -213,22 +232,14 @@ class TestFileToDbConsistency:
             db_author = normalize_for_comparison(book["author"] or "")
             file_author = normalize_for_comparison(file_meta["author"])
 
-            if db_author and file_author and db_author != file_author:
-                # Check for partial matches (first/last name variations)
-                db_words = set(db_author.split())
-                file_words = set(file_author.split())
-                overlap = len(db_words & file_words) / max(
-                    len(db_words), len(file_words), 1
+            if not self._authors_match(db_author, file_author):
+                mismatches.append(
+                    {
+                        "id": book["id"],
+                        "db_author": book["author"],
+                        "file_author": file_meta["author"],
+                    }
                 )
-
-                if overlap < 0.5:  # Less than 50% word overlap
-                    mismatches.append(
-                        {
-                            "id": book["id"],
-                            "db_author": book["author"],
-                            "file_author": file_meta["author"],
-                        }
-                    )
 
         if mismatches:
             msg = f"{len(mismatches)} author mismatches found:\n"
@@ -257,37 +268,41 @@ class TestFtsIndexConsistency:
             f"FTS index count ({fts_count}) doesn't match main table ({main_count})"
         )
 
+    @staticmethod
+    def _build_fts_search_term(title: str) -> str | None:
+        """Build an FTS5 search term from a book title."""
+        words = [w for w in title.split()[:2] if w.isalnum()]
+        if not words:
+            return None
+        return " ".join(f'"{w}"' for w in words)
+
+    @staticmethod
+    def _fts_search(cursor, search_term: str) -> list[int]:
+        """Search FTS index and return matching rowids."""
+        try:
+            cursor.execute(
+                "SELECT rowid FROM audiobooks_fts WHERE title MATCH ?",
+                (search_term,),
+            )
+            return [r[0] for r in cursor.fetchall()]
+        except sqlite3.OperationalError:
+            return []
+
     def test_fts_title_searchable(self, prod_db, sample_audiobooks):
         """Verify titles are searchable in FTS index."""
         cursor = prod_db.cursor()
         not_found = []
 
-        for book in sample_audiobooks[:10]:  # Test subset for speed
-            # Extract only alphanumeric words for FTS search
-            title_words = [w for w in book["title"].split()[:2] if w.isalnum()]
-            if not title_words:
+        for book in sample_audiobooks[:10]:
+            search_term = self._build_fts_search_term(book["title"])
+            if not search_term:
                 continue
 
-            # Quote terms to handle special characters in FTS5
-            search_term = " ".join(f'"{w}"' for w in title_words)
-            try:
-                cursor.execute(
-                    "SELECT rowid FROM audiobooks_fts WHERE title MATCH ?",
-                    (search_term,),
+            result_ids = self._fts_search(cursor, search_term)
+            if book["id"] not in result_ids:
+                not_found.append(
+                    {"id": book["id"], "title": book["title"], "search": search_term}
                 )
-                results = cursor.fetchall()
-
-                if book["id"] not in [r[0] for r in results]:
-                    not_found.append(
-                        {
-                            "id": book["id"],
-                            "title": book["title"],
-                            "search": search_term,
-                        }
-                    )
-            except sqlite3.OperationalError:
-                # Skip problematic search terms
-                continue
 
         if not_found:
             msg = f"{len(not_found)} titles not found in FTS:\n"

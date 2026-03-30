@@ -6,22 +6,34 @@ operations including subprocess.Popen mocking, progress parsing, and error paths
 """
 
 import subprocess
-import time
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
+from tests.helpers import wait_for_thread_completion
+
 
 MODULE = "backend.api_modular.utilities_ops.library"
+SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
+HELPERS_MODULE = "backend.api_modular.utilities_ops._helpers"
 
 
 def _make_mock_popen_charread(chars, returncode=0, stderr_text=""):
-    """Create a mock Popen whose stdout.read(1) yields one char at a time.
+    """Create a mock Popen whose stdout supports select() + chunk reading.
 
-    Used for rescan and download endpoints that read char-by-char.
+    Used for rescan endpoints that use select.select() and read(4096).
+    Returns entire content on first read, then empty string (EOF).
     """
     mock_proc = MagicMock()
-    char_iter = iter(chars)
-    mock_proc.stdout.read = lambda n: next(char_iter, "")
+    read_calls = [0]
+
+    def _read(n):
+        if read_calls[0] == 0:
+            read_calls[0] = 1
+            return chars
+        return ""
+
+    mock_proc.stdout.read = _read
+    mock_proc.stdout.fileno.return_value = 99  # fake fd
     mock_proc.stderr = MagicMock()
     mock_proc.stderr.read.return_value = stderr_text
     mock_proc.returncode = returncode
@@ -43,20 +55,10 @@ def _make_mock_popen(stdout_lines, returncode=0, stderr_text=""):
     return mock_proc
 
 
-def _wait_for_thread_completion(tracker_mock, timeout=2.0):
-    """Wait until tracker's complete_operation or fail_operation is called."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if tracker_mock.complete_operation.called or tracker_mock.fail_operation.called:
-            return True
-        time.sleep(0.02)
-    return False
-
-
 class TestAddNewBackgroundThread:
     """Test the run_add_new() background thread function."""
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     @patch(f"{MODULE}.create_progress_callback")
     def test_add_new_success(self, mock_create_cb, mock_get_tracker, flask_app):
         """Successful add_new completes operation with results."""
@@ -89,12 +91,12 @@ class TestAddNewBackgroundThread:
                     )
 
         assert resp.status_code == 200
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
 
         # Thread may or may not have run yet due to import mocking complexity.
         # The endpoint response itself verifies the API layer.
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     @patch(f"{MODULE}.create_progress_callback")
     def test_add_new_exception_calls_fail(
         self, mock_create_cb, mock_get_tracker, flask_app
@@ -111,10 +113,10 @@ class TestAddNewBackgroundThread:
 
         assert resp.status_code == 200
         # Thread will fail since add_new_audiobooks can't be imported in test env
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # Either complete or fail - we verify the endpoint returned 200
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_add_new_empty_json_body(self, mock_get_tracker, flask_app):
         """Empty JSON body defaults calculate_hashes to True."""
         mock_tracker = MagicMock()
@@ -132,7 +134,7 @@ class TestAddNewBackgroundThread:
         data = resp.get_json()
         assert data["success"] is True
 
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_add_new_response_format(self, mock_get_tracker, flask_app):
         """Response has correct format with success, message, operation_id."""
         mock_tracker = MagicMock()
@@ -150,13 +152,19 @@ class TestAddNewBackgroundThread:
         assert data["message"] == "Add operation started"
 
 
+def _mock_select_ready(*_args, **_kwargs):
+    """Mock select.select that always says fd is ready."""
+    return ([True], [], [])
+
+
 class TestRescanLibraryWorkerThread:
     """Test the run_rescan() background thread function."""
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rescan_success_with_progress(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Rescan parses percent progress from scanner output."""
         mock_tracker = MagicMock()
@@ -172,15 +180,16 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1800
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rescan_strips_ansi_codes(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """ANSI escape codes are stripped before regex matching."""
         mock_tracker = MagicMock()
@@ -195,13 +204,16 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1000
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
-    def test_rescan_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
+    def test_rescan_failure(
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
+    ):
         """Non-zero return code calls fail_operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -216,14 +228,15 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "Scanner crashed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rescan_empty_stderr_fallback(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Empty stderr on failure uses fallback message."""
         mock_tracker = MagicMock()
@@ -237,12 +250,15 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
-        assert "Scanner failed" in mock_tracker.fail_operation.call_args[0][1]
+        wait_for_thread_completion(mock_tracker)
+        assert "failed" in mock_tracker.fail_operation.call_args[0][1].lower()
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
-    def test_rescan_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
+    def test_rescan_timeout(
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
+    ):
         """Timeout kills process and fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -258,12 +274,12 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
         assert "did not exit cleanly" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rescan_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -278,14 +294,15 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_tracker.fail_operation.assert_called_once()
         assert "scanner not found" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rescan_output_truncation(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Output longer than 2000 chars is truncated."""
         mock_tracker = MagicMock()
@@ -300,14 +317,15 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_rescan_total_files_parsing_error(
-        self, mock_get_tracker, mock_popen_cls, flask_app
+        self, mock_get_tracker, mock_popen_cls, _mock_sel, flask_app
     ):
         """Malformed 'Total files:' line handled gracefully."""
         mock_tracker = MagicMock()
@@ -322,7 +340,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         # Should still complete without crashing
         mock_tracker.complete_operation.assert_called_once()
 
@@ -330,8 +348,9 @@ class TestRescanLibraryWorkerThread:
 class TestReimportDatabaseWorkerThread:
     """Test the run_reimport() background thread function."""
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_success_with_progress(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -341,29 +360,28 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-001"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            [
-                "Found 500 audiobooks",
-                "Preserving existing metadata",
-                "Processed 250/500 audiobooks",
-                "Processed 500/500 audiobooks",
-                "Imported 500 audiobooks",
-                "Optimizing database",
-            ],
-            returncode=0,
+        output = (
+            "Found 500 audiobooks\n"
+            "Preserving existing metadata\n"
+            "Processed 250/500 audiobooks\n"
+            "Processed 500/500 audiobooks\n"
+            "Imported 500 audiobooks\n"
+            "Optimizing database\n"
         )
+        mock_proc = _make_mock_popen_charread(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["imported_count"] == 500
         assert result["total_audiobooks"] == 500
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_creating_database(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -373,28 +391,27 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-002"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            [
-                "Creating database",
-                "Database schema created",
-                "Found 10 audiobooks",
-                "Imported 10 audiobooks",
-            ],
-            returncode=0,
+        output = (
+            "Creating database\n"
+            "Database schema created\n"
+            "Found 10 audiobooks\n"
+            "Imported 10 audiobooks\n"
         )
+        mock_proc = _make_mock_popen_charread(output, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         progress_calls = mock_tracker.update_progress.call_args_list
         progress_messages = [str(c) for c in progress_calls]
         assert any("Creating database" in m for m in progress_messages)
         assert any("schema ready" in m for m in progress_messages)
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_failure(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Non-zero return code calls fail_operation."""
         mock_tracker = MagicMock()
@@ -402,17 +419,20 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=1, stderr_text="Database error")
+        mock_proc = _make_mock_popen_charread(
+            "", returncode=1, stderr_text="Database error"
+        )
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Database error" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_empty_stderr_fallback(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -422,17 +442,18 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-004"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=1, stderr_text="")
+        mock_proc = _make_mock_popen_charread("", returncode=1, stderr_text="")
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "Import failed" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_timeout(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Timeout kills process."""
         mock_tracker = MagicMock()
@@ -440,21 +461,20 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-005"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen([], returncode=0)
-        mock_proc.wait.side_effect = subprocess.TimeoutExpired(
-            cmd="python", timeout=600
-        )
+        mock_proc = _make_mock_popen_charread("", returncode=0)
+        mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=60)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         mock_proc.kill.assert_called_once()
-        assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
+        error_msg = mock_tracker.fail_operation.call_args[0][1]
+        assert "timed out" in error_msg or "did not exit cleanly" in error_msg
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_generic_exception(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -469,11 +489,12 @@ class TestReimportDatabaseWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         assert "access denied" in mock_tracker.fail_operation.call_args[0][1]
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_output_truncation(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -483,19 +504,22 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-007"
         mock_get_tracker.return_value = mock_tracker
 
-        long_lines = [f"Processed {i}/2000 audiobooks" for i in range(100)]
-        mock_proc = _make_mock_popen(long_lines, returncode=0)
+        long_lines = (
+            "\n".join(f"Processed {i}/2000 audiobooks" for i in range(100)) + "\n"
+        )
+        mock_proc = _make_mock_popen_charread(long_lines, returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_preserving_metadata(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -505,22 +529,22 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-008"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            ["Preserving existing metadata"],
-            returncode=0,
+        mock_proc = _make_mock_popen_charread(
+            "Preserving existing metadata\n", returncode=0
         )
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         progress_calls = mock_tracker.update_progress.call_args_list
         percents = [c[0][1] for c in progress_calls]
         assert 8 in percents
 
-    @patch(f"{MODULE}.subprocess.Popen")
-    @patch(f"{MODULE}.get_tracker")
+    @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
+    @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
+    @patch(f"{HELPERS_MODULE}.get_tracker")
     def test_reimport_optimizing_database(
         self, mock_get_tracker, mock_popen_cls, flask_app
     ):
@@ -530,16 +554,13 @@ class TestReimportDatabaseWorkerThread:
         mock_tracker.create_operation.return_value = "reimp-009"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            ["Optimizing database"],
-            returncode=0,
-        )
+        mock_proc = _make_mock_popen_charread("Optimizing database\n", returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        _wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker)
         progress_calls = mock_tracker.update_progress.call_args_list
         percents = [c[0][1] for c in progress_calls]
         assert 95 in percents

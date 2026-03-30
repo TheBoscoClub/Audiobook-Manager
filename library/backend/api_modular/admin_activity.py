@@ -74,6 +74,111 @@ def _parse_date(value: str | None) -> date | None:
 # ============================================================
 
 
+def _parse_pagination(args):
+    """Parse limit and offset from request args with defaults and bounds."""
+    try:
+        limit = max(1, min(int(args.get("limit", 50)), 200))
+    except (ValueError, TypeError):
+        limit = 50
+    try:
+        offset = max(0, int(args.get("offset", 0)))
+    except (ValueError, TypeError):
+        offset = 0
+    return limit, offset
+
+
+def _build_activity_filters(user_id, audiobook_id, from_date, to_date):
+    """Build parallel WHERE clause components for listen and download subqueries.
+
+    Returns (listen_wheres, listen_params, download_wheres, download_params).
+    """
+    listen_w, listen_p = [], []
+    download_w, download_p = [], []
+
+    _filter_pairs = [
+        (user_id, "h.user_id = ?", "d.user_id = ?"),
+        (audiobook_id, "h.audiobook_id = ?", "d.audiobook_id = ?"),
+    ]
+    for value, listen_clause, download_clause in _filter_pairs:
+        if value is not None:
+            listen_w.append(listen_clause)
+            listen_p.append(value)
+            download_w.append(download_clause)
+            download_p.append(value)
+
+    if from_date is not None:
+        from_iso = from_date.isoformat()
+        listen_w.append("h.started_at >= ?")
+        listen_p.append(from_iso)
+        download_w.append("d.downloaded_at >= ?")
+        download_p.append(from_iso)
+
+    if to_date is not None:
+        to_boundary = (to_date + timedelta(days=1)).isoformat()
+        listen_w.append("h.started_at < ?")
+        listen_p.append(to_boundary)
+        download_w.append("d.downloaded_at < ?")
+        download_p.append(to_boundary)
+
+    return listen_w, listen_p, download_w, download_p
+
+
+def _build_union_sql(
+    type_filter, listen_wheres, listen_params, download_wheres, download_params
+):
+    """Build the UNION ALL SQL and combined params.
+
+    Returns (union_sql, all_params).
+    """
+    subqueries = []
+    all_params: list = []
+
+    if type_filter is None or type_filter == "listen":
+        where = (" AND " + " AND ".join(listen_wheres)) if listen_wheres else ""
+        subqueries.append(
+            "SELECT 'listen' AS type, h.id, h.user_id, u.username, "  # nosec B608
+            "h.audiobook_id, h.title AS stored_title, h.started_at AS timestamp, "
+            "h.duration_listened_ms, NULL AS file_format "
+            "FROM user_listening_history h "
+            "JOIN users u ON h.user_id = u.id "
+            f"WHERE 1=1{where}"
+        )
+        all_params.extend(listen_params)
+
+    if type_filter is None or type_filter == "download":
+        where = (" AND " + " AND ".join(download_wheres)) if download_wheres else ""
+        subqueries.append(
+            "SELECT 'download' AS type, d.id, d.user_id, u.username, "  # nosec B608
+            "d.audiobook_id, d.title AS stored_title, d.downloaded_at AS timestamp, "
+            "NULL AS duration_listened_ms, d.file_format "
+            "FROM user_downloads d "
+            "JOIN users u ON d.user_id = u.id "
+            f"WHERE 1=1{where}"
+        )
+        all_params.extend(download_params)
+
+    return " UNION ALL ".join(subqueries), all_params
+
+
+def _row_to_activity_item(row, titles):
+    """Convert a single activity row dict to an API response item."""
+    aid = str(row["audiobook_id"])
+    item = {
+        "type": row["type"],
+        "id": row["id"],
+        "user_id": row["user_id"],
+        "username": row["username"],
+        "audiobook_id": aid,
+        "title": titles.get(aid) or row.get("stored_title"),
+        "timestamp": row["timestamp"] or "",
+    }
+    if row["type"] == "listen":
+        item["duration_listened_ms"] = row["duration_listened_ms"]
+    else:
+        item["file_format"] = row["file_format"]
+    return item
+
+
 @admin_activity_bp.route("/activity", methods=["GET"])
 @admin_required
 def get_activity():
@@ -89,15 +194,7 @@ def get_activity():
         from:         Start date (ISO format, inclusive)
         to:           End date (ISO format, inclusive — extended to next day)
     """
-    # Parse pagination
-    try:
-        limit = max(1, min(int(request.args.get("limit", 50)), 200))
-    except (ValueError, TypeError):
-        limit = 50
-    try:
-        offset = max(0, int(request.args.get("offset", 0)))
-    except (ValueError, TypeError):
-        offset = 0
+    limit, offset = _parse_pagination(request.args)
 
     # Parse filters
     user_id_filter = request.args.get("user_id", type=int)
@@ -106,129 +203,39 @@ def get_activity():
     from_date = _parse_date(request.args.get("from"))
     to_date = _parse_date(request.args.get("to"))
 
-    # Validate type filter — only "listen" and "download" are valid
+    # Validate type filter
     if type_filter and type_filter not in ("listen", "download"):
         return jsonify({"activity": [], "total": 0, "limit": limit, "offset": offset})
 
-    # Validate audiobook_id — must be numeric if provided
+    # Validate audiobook_id
     if audiobook_id_filter is not None:
         try:
             audiobook_id_filter = str(int(audiobook_id_filter))
         except (ValueError, TypeError):
             return jsonify({"error": "audiobook_id must be a number"}), 400
 
-    # Build WHERE clause components shared by both subqueries
-    listen_wheres: list[str] = []
-    listen_params: list = []
-    download_wheres: list[str] = []
-    download_params: list = []
+    # Build filters and SQL
+    lw, lp, dw, dp = _build_activity_filters(
+        user_id_filter, audiobook_id_filter, from_date, to_date
+    )
+    union_sql, all_params = _build_union_sql(type_filter, lw, lp, dw, dp)
 
-    if user_id_filter is not None:
-        listen_wheres.append("h.user_id = ?")
-        listen_params.append(user_id_filter)
-        download_wheres.append("d.user_id = ?")
-        download_params.append(user_id_filter)
-
-    if audiobook_id_filter is not None:
-        listen_wheres.append("h.audiobook_id = ?")
-        listen_params.append(audiobook_id_filter)
-        download_wheres.append("d.audiobook_id = ?")
-        download_params.append(audiobook_id_filter)
-
-    if from_date is not None:
-        from_iso = from_date.isoformat()
-        listen_wheres.append("h.started_at >= ?")
-        listen_params.append(from_iso)
-        download_wheres.append("d.downloaded_at >= ?")
-        download_params.append(from_iso)
-
-    if to_date is not None:
-        # Use next day with strict < for correct boundary
-        to_boundary = (to_date + timedelta(days=1)).isoformat()
-        listen_wheres.append("h.started_at < ?")
-        listen_params.append(to_boundary)
-        download_wheres.append("d.downloaded_at < ?")
-        download_params.append(to_boundary)
-
-    # Build UNION ALL query based on type filter
-    subqueries = []
-    all_params: list = []
-
-    if type_filter is None or type_filter == "listen":
-        listen_where = (" AND " + " AND ".join(listen_wheres)) if listen_wheres else ""
-        subqueries.append(
-            "SELECT 'listen' AS type, h.id, h.user_id, u.username, "  # nosec B608
-            "h.audiobook_id, h.title AS stored_title, h.started_at AS timestamp, "
-            "h.duration_listened_ms, NULL AS file_format "
-            "FROM user_listening_history h "
-            "JOIN users u ON h.user_id = u.id "
-            f"WHERE 1=1{listen_where}"
-        )
-        all_params.extend(listen_params)
-
-    if type_filter is None or type_filter == "download":
-        download_where = (
-            (" AND " + " AND ".join(download_wheres)) if download_wheres else ""
-        )
-        subqueries.append(
-            "SELECT 'download' AS type, d.id, d.user_id, u.username, "  # nosec B608
-            "d.audiobook_id, d.title AS stored_title, d.downloaded_at AS timestamp, "
-            "NULL AS duration_listened_ms, d.file_format "
-            "FROM user_downloads d "
-            "JOIN users u ON d.user_id = u.id "
-            f"WHERE 1=1{download_where}"
-        )
-        all_params.extend(download_params)
-
-    union_sql = " UNION ALL ".join(subqueries)
-
-    # Data query with ORDER BY + LIMIT/OFFSET in SQL
     data_sql = f"{union_sql} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
     data_params = all_params + [limit, offset]
-
-    # Count query for true total
     count_sql = f"SELECT COUNT(*) FROM ({union_sql})"  # nosec B608
-    count_params = list(all_params)
 
     auth_db = get_auth_db()
-
     with auth_db.connection() as conn:
         rows = _rows_to_dicts(conn.execute(data_sql, data_params))
-        total = conn.execute(count_sql, count_params).fetchone()[0]
+        total = conn.execute(count_sql, list(all_params)).fetchone()[0]
 
-    # Look up titles from library DB for all audiobook IDs in this page
+    # Resolve titles from library DB
     book_ids = {str(row["audiobook_id"]) for row in rows}
     titles = _get_book_titles(book_ids)
-
-    # Build response items using named column access
-    activity = []
-    for row in rows:
-        aid = str(row["audiobook_id"])
-        # Prefer library DB title (current), fall back to denormalized title
-        # stored at event-creation time (survives library reimports)
-        title = titles.get(aid) or row.get("stored_title")
-        item = {
-            "type": row["type"],
-            "id": row["id"],
-            "user_id": row["user_id"],
-            "username": row["username"],
-            "audiobook_id": aid,
-            "title": title,
-            "timestamp": row["timestamp"] or "",
-        }
-        if row["type"] == "listen":
-            item["duration_listened_ms"] = row["duration_listened_ms"]
-        else:
-            item["file_format"] = row["file_format"]
-        activity.append(item)
+    activity = [_row_to_activity_item(row, titles) for row in rows]
 
     return jsonify(
-        {
-            "activity": activity,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        }
+        {"activity": activity, "total": total, "limit": limit, "offset": offset}
     )
 
 

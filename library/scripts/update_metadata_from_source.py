@@ -86,61 +86,41 @@ def find_source_file(book_title, book_path):
     return None
 
 
-def extract_metadata_from_source(aaxc_file):
-    """Extract metadata from AAXC file using mediainfo and ffprobe"""
-    metadata = {
-        "narrator": None,
-        "publisher": None,
-        "description": None,
-        "series": None,
-        "genre": None,
-        "published_year": None,
-    }
-
-    # Extract narrator using mediainfo
+def _run_mediainfo(aaxc_file, inform_template):
+    """Run mediainfo with a given --Inform template. Returns stdout or None."""
     try:
         result = subprocess.run(
-            ["mediainfo", "--Inform=General;%nrt%", str(aaxc_file)],
+            ["mediainfo", f"--Inform=General;{inform_template}", str(aaxc_file)],
             capture_output=True,
             text=True,
             timeout=10,
         )
         if result.returncode == 0 and result.stdout.strip():
-            metadata["narrator"] = result.stdout.strip()
+            return result.stdout.strip()
     except Exception as e:
-        print(f"  Warning: Could not extract narrator: {e}", file=sys.stderr)
+        print(f"  Warning: mediainfo extraction failed: {e}", file=sys.stderr)
+    return None
 
-    # Extract publisher using mediainfo
-    try:
-        result = subprocess.run(
-            ["mediainfo", "--Inform=General;%pub%", str(aaxc_file)],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            metadata["publisher"] = result.stdout.strip()
-    except Exception as e:
-        print(f"  Warning: Could not extract publisher: {e}", file=sys.stderr)
 
-    # Extract description using mediainfo
-    try:
-        result = subprocess.run(
-            ["mediainfo", "--Inform=General;%Track_More%", str(aaxc_file)],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            description = result.stdout.strip()
-            # Limit to reasonable length (5000 chars)
-            if len(description) > 5000:
-                description = description[:5000] + "..."
-            metadata["description"] = description
-    except Exception as e:
-        print(f"  Warning: Could not extract description: {e}", file=sys.stderr)
+def _extract_mediainfo_fields(aaxc_file, metadata):
+    """Extract narrator, publisher, description via mediainfo."""
+    narrator = _run_mediainfo(aaxc_file, "%nrt%")
+    if narrator:
+        metadata["narrator"] = narrator
 
-    # Extract genre, date, series using ffprobe
+    publisher = _run_mediainfo(aaxc_file, "%pub%")
+    if publisher:
+        metadata["publisher"] = publisher
+
+    description = _run_mediainfo(aaxc_file, "%Track_More%")
+    if description:
+        if len(description) > 5000:
+            description = description[:5000] + "..."
+        metadata["description"] = description
+
+
+def _extract_ffprobe_fields(aaxc_file, metadata):
+    """Extract genre, date, series from ffprobe JSON output."""
     try:
         result = subprocess.run(
             [
@@ -156,179 +136,133 @@ def extract_metadata_from_source(aaxc_file):
             text=True,
             timeout=10,
         )
-        if result.returncode == 0:
-            import json
-
-            data = json.loads(result.stdout)
-            tags = data.get("format", {}).get("tags", {})
-
-            # Normalize tag keys
-            tags_norm = {k.lower(): v for k, v in tags.items()}
-
-            # Extract genre
-            if "genre" in tags_norm:
-                metadata["genre"] = tags_norm["genre"]
-
-            # Extract year
-            if "date" in tags_norm:
-                year_str = tags_norm["date"]
-                # Extract 4-digit year
-                year_match = re.search(r"\d{4}", year_str)
-                if year_match:
-                    metadata["published_year"] = int(year_match.group())
-
-            # Extract series
-            if "series" in tags_norm:
-                metadata["series"] = tags_norm["series"]
-
+        if result.returncode != 0:
+            return
     except Exception as e:
         print(f"  Warning: Could not extract ffprobe metadata: {e}", file=sys.stderr)
+        return
+
+    import json
+
+    data = json.loads(result.stdout)
+    tags = data.get("format", {}).get("tags", {})
+    tags_norm = {k.lower(): v for k, v in tags.items()}
+
+    if "genre" in tags_norm:
+        metadata["genre"] = tags_norm["genre"]
+
+    if "date" in tags_norm:
+        year_match = re.search(r"\d{4}", tags_norm["date"])
+        if year_match:
+            metadata["published_year"] = int(year_match.group())
+
+    if "series" in tags_norm:
+        metadata["series"] = tags_norm["series"]
+
+
+def extract_metadata_from_source(aaxc_file):
+    """Extract metadata from AAXC file using mediainfo and ffprobe"""
+    metadata = {
+        "narrator": None,
+        "publisher": None,
+        "description": None,
+        "series": None,
+        "genre": None,
+        "published_year": None,
+    }
+
+    _extract_mediainfo_fields(aaxc_file, metadata)
+    _extract_ffprobe_fields(aaxc_file, metadata)
 
     return metadata
 
 
-def update_database():
-    """Main function to update database with metadata from source files"""
-    print("=" * 70)
-    print("AUDIOBOOK METADATA UPDATE FROM SOURCE FILES")
-    print("=" * 70)
-    print()
+def _build_update_params(metadata, book):
+    """Build the SQL update fields and params from extracted metadata.
 
-    # Connect to database
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    Returns (updates_list, params_list, stats_dict).
+    """
+    updates = []
+    params = []
+    stats = {}
 
-    # Get all audiobooks
-    cursor.execute("""
-        SELECT id, title, author, narrator, publisher, file_path, description
-        FROM audiobooks
-        ORDER BY id
-    """)
+    field_checks = [
+        (
+            "narrator",
+            "narrator",
+            lambda b: not b["narrator"] or b["narrator"] == "Unknown Narrator",
+        ),
+        (
+            "publisher",
+            "publisher",
+            lambda b: not b["publisher"] or b["publisher"] == "Unknown Publisher",
+        ),
+        (
+            "description",
+            "description",
+            lambda b: not b["description"] or not b["description"].strip(),
+        ),
+        ("published_year", "published_year", lambda _b: True),
+        ("series", "series", lambda _b: True),
+    ]
 
-    books = cursor.fetchall()
-    total_books = len(books)
+    for meta_key, column, should_update in field_checks:
+        value = metadata[meta_key]
+        if value and should_update(book):
+            updates.append(f"{column} = ?")
+            params.append(value)
+            stats[f"{meta_key}_updated"] = 1
+            label = str(value)[:60]
+            if meta_key == "description":
+                label = label + "..."
+            print(f"  \u2192 {meta_key.title()}: {label}")
 
-    print(f"Total books in database: {total_books}")
-    print(f"Source directory: {SOURCES_DIR}")
-    print()
+    return updates, params, stats
 
-    # Statistics
-    stats = {
-        "processed": 0,
-        "source_found": 0,
-        "source_not_found": 0,
-        "narrator_updated": 0,
-        "publisher_updated": 0,
-        "description_updated": 0,
-        "genre_updated": 0,
-        "year_updated": 0,
-        "series_updated": 0,
-        "errors": 0,
-    }
 
-    for idx, book in enumerate(books, 1):
-        book_id = book["id"]
-        title = book["title"]
-        current_narrator = book["narrator"]
-        current_publisher = book["publisher"]
-        file_path = book["file_path"]
+def _process_single_book(book, cursor, conn, stats):
+    """Process a single audiobook: find source, extract metadata, update DB."""
+    title = book["title"]
+    file_path = book["file_path"]
 
-        print(f"[{idx}/{total_books}] Processing: {title}")
+    source_file = find_source_file(title, file_path)
+    if not source_file:
+        print("  \u26a0 Source file not found")
+        stats["source_not_found"] += 1
+        return
 
-        # Find source file
-        source_file = find_source_file(title, file_path)
+    print(f"  \u2713 Found source: {source_file.name}")
+    stats["source_found"] += 1
 
-        if not source_file:
-            print("  ⚠ Source file not found")
-            stats["source_not_found"] += 1
-            stats["processed"] += 1
-            continue
+    try:
+        metadata = extract_metadata_from_source(source_file)
+        updates, params, field_stats = _build_update_params(metadata, book)
 
-        print(f"  ✓ Found source: {source_file.name}")
-        stats["source_found"] += 1
+        for key in field_stats:
+            stats[key] = stats.get(key, 0) + 1
 
-        # Extract metadata
+        if not updates:
+            print("  - No updates needed")
+            return
+
+        params.append(book["id"])
+        update_query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+
         try:
-            metadata = extract_metadata_from_source(source_file)
-
-            # Prepare update fields
-            updates = []
-            params = []
-
-            # Update narrator if missing or "Unknown Narrator"
-            if metadata["narrator"] and (
-                not current_narrator or current_narrator == "Unknown Narrator"
-            ):
-                updates.append("narrator = ?")
-                params.append(metadata["narrator"])
-                stats["narrator_updated"] += 1
-                print(f"  → Narrator: {metadata['narrator']}")
-
-            # Update publisher if missing or "Unknown Publisher"
-            if metadata["publisher"] and (
-                not current_publisher or current_publisher == "Unknown Publisher"
-            ):
-                updates.append("publisher = ?")
-                params.append(metadata["publisher"])
-                stats["publisher_updated"] += 1
-                print(f"  → Publisher: {metadata['publisher']}")
-
-            # Update description if missing or empty
-            if metadata["description"] and (
-                not book["description"] or not book["description"].strip()
-            ):
-                updates.append("description = ?")
-                params.append(metadata["description"])
-                stats["description_updated"] += 1
-                print(f"  → Description: {metadata['description'][:60]}...")
-
-            # Note: Genre is in a separate table, skip for now
-
-            # Update year if available
-            if metadata["published_year"]:
-                updates.append("published_year = ?")
-                params.append(metadata["published_year"])
-                stats["year_updated"] += 1
-                print(f"  → Year: {metadata['published_year']}")
-
-            # Update series if available
-            if metadata["series"]:
-                updates.append("series = ?")
-                params.append(metadata["series"])
-                stats["series_updated"] += 1
-                print(f"  → Series: {metadata['series']}")
-
-            # Execute update if there are changes
-            if updates:
-                params.append(book_id)
-                update_query = (
-                    f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"
-                )
-
-                try:
-                    cursor.execute(update_query, params)
-                    conn.commit()
-                    print(f"  ✓ Updated {len(updates)} fields")
-                except sqlite3.Error as sql_err:
-                    print(f"  ✗ SQL Error: {sql_err}")
-                    print(f"  Query: {update_query}")
-                    print(f"  Params ({len(params)}): {params}")
-                    stats["errors"] += 1
-            else:
-                print("  - No updates needed")
-
-        except Exception as e:
-            print(f"  ✗ Error: {e}")
+            cursor.execute(update_query, params)
+            conn.commit()
+            print(f"  \u2713 Updated {len(updates)} fields")
+        except Exception as sql_err:
+            print(f"  \u2717 SQL Error: {sql_err}")
             stats["errors"] += 1
 
-        stats["processed"] += 1
-        print()
+    except Exception as e:
+        print(f"  \u2717 Error: {e}")
+        stats["errors"] += 1
 
-    # Close database
-    conn.close()
 
-    # Print summary
+def _print_update_summary(stats):
+    """Print the metadata update summary."""
     print()
     print("=" * 70)
     print("UPDATE COMPLETE")
@@ -338,14 +272,53 @@ def update_database():
     print(f"Source files not found: {stats['source_not_found']}")
     print()
     print("Updates:")
-    print(f"  Narrators updated: {stats['narrator_updated']}")
-    print(f"  Publishers updated: {stats['publisher_updated']}")
-    print(f"  Descriptions updated: {stats['description_updated']}")
-    print(f"  Years updated: {stats['year_updated']}")
-    print(f"  Series updated: {stats['series_updated']}")
+    print(f"  Narrators updated: {stats.get('narrator_updated', 0)}")
+    print(f"  Publishers updated: {stats.get('publisher_updated', 0)}")
+    print(f"  Descriptions updated: {stats.get('description_updated', 0)}")
+    print(f"  Years updated: {stats.get('published_year_updated', 0)}")
+    print(f"  Series updated: {stats.get('series_updated', 0)}")
     print()
     print(f"Errors: {stats['errors']}")
     print("=" * 70)
+
+
+def update_database():
+    """Main function to update database with metadata from source files"""
+    print("=" * 70)
+    print("AUDIOBOOK METADATA UPDATE FROM SOURCE FILES")
+    print("=" * 70)
+    print()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, title, author, narrator, publisher, file_path, description
+        FROM audiobooks
+        ORDER BY id
+    """)
+    books = cursor.fetchall()
+
+    print(f"Total books in database: {len(books)}")
+    print(f"Source directory: {SOURCES_DIR}")
+    print()
+
+    stats = {
+        "processed": 0,
+        "source_found": 0,
+        "source_not_found": 0,
+        "errors": 0,
+    }
+
+    for idx, book in enumerate(books, 1):
+        print(f"[{idx}/{len(books)}] Processing: {book['title']}")
+        _process_single_book(book, cursor, conn, stats)
+        stats["processed"] += 1
+        print()
+
+    conn.close()
+    _print_update_summary(stats)
 
 
 if __name__ == "__main__":

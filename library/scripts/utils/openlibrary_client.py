@@ -28,6 +28,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+from urllib.parse import quote
+
 import requests
 
 
@@ -179,11 +181,11 @@ class OpenLibraryClient:
         """
         params = []
         if title:
-            params.append(f"title={requests.utils.quote(title)}")
+            params.append(f"title={quote(title)}")
         if author:
-            params.append(f"author={requests.utils.quote(author)}")
+            params.append(f"author={quote(author)}")
         if isbn:
-            params.append(f"isbn={requests.utils.quote(isbn)}")
+            params.append(f"isbn={quote(isbn)}")
         params.append(f"limit={limit}")
 
         if not params:

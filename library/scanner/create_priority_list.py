@@ -5,7 +5,12 @@ that need re-downloading
 """
 
 import csv
+import sys
 from pathlib import Path
+
+# Add parent directory to path for scanner imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from scanner.utils.constants import is_cover_art_file
 
 INPUT_CSV = Path("missing_audiobooks.csv")
 OUTPUT_TXT = Path("priority_audiobooks_to_redownload.txt")
@@ -19,7 +24,7 @@ def main():
         reader = csv.DictReader(f)
         for row in reader:
             # Skip cover files
-            if ".cover." not in row["filename"]:
+            if not is_cover_art_file(row["filename"]):
                 priority_books.append(row)
 
     # Write priority list

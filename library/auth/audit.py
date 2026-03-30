@@ -110,7 +110,8 @@ def notify_admins(action: str, details: dict, db) -> None:
 
     subject, body = _format_notification(action, details)
     for admin in admins:
-        _send_notification_email(admin.recovery_email, subject, body)
+        if admin.recovery_email is not None:
+            _send_notification_email(admin.recovery_email, subject, body)
 
 
 def _format_notification(action: str, details: dict) -> tuple:

@@ -239,6 +239,107 @@ def rename_author(author_id: int):
         conn.close()
 
 
+def _merge_entities(
+    conn,
+    source_ids,
+    target_id,
+    junction_table,
+    entity_id_col,
+    entity_table,
+    regenerate_fn,
+):
+    """Merge duplicate authors/narrators by reassigning junctions.
+
+    Returns (books_reassigned, affected_book_ids).
+    """
+    books_reassigned = 0
+    affected_book_ids = set()
+
+    for sid in source_ids:
+        links = conn.execute(
+            f"SELECT book_id, position FROM {junction_table} "  # nosec B608
+            f"WHERE {entity_id_col} = ?",
+            (sid,),
+        ).fetchall()
+
+        for link in links:
+            bid = link["book_id"]
+            affected_book_ids.add(bid)
+
+            existing = conn.execute(
+                f"SELECT 1 FROM {junction_table} "  # nosec B608
+                f"WHERE book_id = ? AND {entity_id_col} = ?",
+                (bid, target_id),
+            ).fetchone()
+
+            if existing:
+                conn.execute(
+                    f"DELETE FROM {junction_table} "  # nosec B608
+                    f"WHERE book_id = ? AND {entity_id_col} = ?",
+                    (bid, sid),
+                )
+            else:
+                conn.execute(
+                    f"UPDATE {junction_table} SET {entity_id_col} = ? "  # nosec B608
+                    f"WHERE book_id = ? AND {entity_id_col} = ?",
+                    (target_id, bid, sid),
+                )
+            books_reassigned += 1
+
+        conn.execute(
+            f"DELETE FROM {entity_table} WHERE id = ?",  # nosec B608
+            (sid,),
+        )
+
+    for bid in affected_book_ids:
+        regenerate_fn(conn, bid)
+
+    return books_reassigned
+
+
+def _validate_merge_request(data, entity_label):
+    """Validate merge request body. Returns (source_ids, target_id, error_response)."""
+    if not data:
+        return None, None, (jsonify({"error": "Request body required"}), 400)
+
+    source_ids = data.get("source_ids", [])
+    target_id = data.get("target_id")
+
+    if not source_ids or target_id is None:
+        return (
+            None,
+            None,
+            (jsonify({"error": "'source_ids' and 'target_id' required"}), 400),
+        )
+    if target_id in source_ids:
+        return (
+            None,
+            None,
+            (jsonify({"error": "target_id cannot be in source_ids"}), 400),
+        )
+    return source_ids, target_id, None
+
+
+def _verify_entities_exist(conn, entity_table, target_id, source_ids, label):
+    """Verify target and all source entities exist. Returns error response or None."""
+    target = conn.execute(
+        f"SELECT * FROM {entity_table} WHERE id = ?",  # nosec B608
+        (target_id,),
+    ).fetchone()
+    if not target:
+        return jsonify({"error": f"Target {label} not found"}), 404
+
+    for sid in source_ids:
+        src = conn.execute(
+            f"SELECT id FROM {entity_table} WHERE id = ?",  # nosec B608
+            (sid,),
+        ).fetchone()
+        if not src:
+            return jsonify({"error": f"Source {label} {sid} not found"}), 404
+
+    return None
+
+
 @admin_authors_bp.route("/authors/merge", methods=["POST"])
 @admin_if_enabled
 def merge_authors():
@@ -252,91 +353,37 @@ def merge_authors():
 
     Returns 200 with target author and count of books reassigned.
     """
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body required"}), 400
-
-    source_ids = data.get("source_ids", [])
-    target_id = data.get("target_id")
-
-    if not source_ids or target_id is None:
-        return jsonify({"error": "'source_ids' and 'target_id' required"}), 400
-    if target_id in source_ids:
-        return jsonify({"error": "target_id cannot be in source_ids"}), 400
+    source_ids, target_id, err = _validate_merge_request(request.get_json(), "author")
+    if err:
+        return err
 
     conn = _get_db()
     try:
-        # Verify target exists
-        target = conn.execute(
-            "SELECT * FROM authors WHERE id = ?", (target_id,)
-        ).fetchone()
-        if not target:
-            return jsonify({"error": "Target author not found"}), 404
+        err = _verify_entities_exist(conn, "authors", target_id, source_ids, "author")
+        if err:
+            return err
 
-        # Verify all sources exist
-        for sid in source_ids:
-            src = conn.execute("SELECT id FROM authors WHERE id = ?", (sid,)).fetchone()
-            if not src:
-                return jsonify({"error": f"Source author {sid} not found"}), 404
-
-        books_reassigned = 0
-        affected_book_ids = set()
-
-        for sid in source_ids:
-            # Get books linked to this source
-            links = conn.execute(
-                "SELECT book_id, position FROM book_authors WHERE author_id = ?",
-                (sid,),
-            ).fetchall()
-
-            for link in links:
-                bid = link["book_id"]
-                affected_book_ids.add(bid)
-
-                # Check if target is already linked to this book
-                existing = conn.execute(
-                    "SELECT 1 FROM book_authors WHERE book_id = ? AND author_id = ?",
-                    (bid, target_id),
-                ).fetchone()
-
-                if existing:
-                    # Target already linked — just remove the source link
-                    conn.execute(
-                        "DELETE FROM book_authors WHERE book_id = ? AND author_id = ?",
-                        (bid, sid),
-                    )
-                else:
-                    # Reassign: update source link to point to target
-                    conn.execute(
-                        "UPDATE book_authors SET author_id = ? "
-                        "WHERE book_id = ? AND author_id = ?",
-                        (target_id, bid, sid),
-                    )
-                books_reassigned += 1
-
-            # Delete the source author
-            conn.execute("DELETE FROM authors WHERE id = ?", (sid,))
-
-        # Regenerate flat columns on all affected books
-        for bid in affected_book_ids:
-            regenerate_flat_author(conn, bid)
-
+        books_reassigned = _merge_entities(
+            conn,
+            source_ids,
+            target_id,
+            "book_authors",
+            "author_id",
+            "authors",
+            regenerate_flat_author,
+        )
         conn.commit()
 
-        # Refresh target after merge
         updated_target = conn.execute(
             "SELECT * FROM authors WHERE id = ?", (target_id,)
         ).fetchone()
 
-        return (
-            jsonify(
-                {
-                    "author": _author_to_dict(updated_target),
-                    "books_reassigned": books_reassigned,
-                }
-            ),
-            200,
-        )
+        return jsonify(
+            {
+                "author": _author_to_dict(updated_target),
+                "books_reassigned": books_reassigned,
+            }
+        ), 200
     finally:
         conn.close()
 
@@ -477,86 +524,39 @@ def merge_narrators():
 
     Returns 200 with target narrator and count of books reassigned.
     """
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body required"}), 400
-
-    source_ids = data.get("source_ids", [])
-    target_id = data.get("target_id")
-
-    if not source_ids or target_id is None:
-        return jsonify({"error": "'source_ids' and 'target_id' required"}), 400
-    if target_id in source_ids:
-        return jsonify({"error": "target_id cannot be in source_ids"}), 400
+    source_ids, target_id, err = _validate_merge_request(request.get_json(), "narrator")
+    if err:
+        return err
 
     conn = _get_db()
     try:
-        target = conn.execute(
-            "SELECT * FROM narrators WHERE id = ?", (target_id,)
-        ).fetchone()
-        if not target:
-            return jsonify({"error": "Target narrator not found"}), 404
+        err = _verify_entities_exist(
+            conn, "narrators", target_id, source_ids, "narrator"
+        )
+        if err:
+            return err
 
-        for sid in source_ids:
-            src = conn.execute(
-                "SELECT id FROM narrators WHERE id = ?", (sid,)
-            ).fetchone()
-            if not src:
-                return jsonify({"error": f"Source narrator {sid} not found"}), 404
-
-        books_reassigned = 0
-        affected_book_ids = set()
-
-        for sid in source_ids:
-            links = conn.execute(
-                "SELECT book_id, position FROM book_narrators WHERE narrator_id = ?",
-                (sid,),
-            ).fetchall()
-
-            for link in links:
-                bid = link["book_id"]
-                affected_book_ids.add(bid)
-
-                existing = conn.execute(
-                    "SELECT 1 FROM book_narrators"
-                    " WHERE book_id = ? AND narrator_id = ?",
-                    (bid, target_id),
-                ).fetchone()
-
-                if existing:
-                    conn.execute(
-                        "DELETE FROM book_narrators"
-                        " WHERE book_id = ? AND narrator_id = ?",
-                        (bid, sid),
-                    )
-                else:
-                    conn.execute(
-                        "UPDATE book_narrators SET narrator_id = ? "
-                        "WHERE book_id = ? AND narrator_id = ?",
-                        (target_id, bid, sid),
-                    )
-                books_reassigned += 1
-
-            conn.execute("DELETE FROM narrators WHERE id = ?", (sid,))
-
-        for bid in affected_book_ids:
-            regenerate_flat_narrator(conn, bid)
-
+        books_reassigned = _merge_entities(
+            conn,
+            source_ids,
+            target_id,
+            "book_narrators",
+            "narrator_id",
+            "narrators",
+            regenerate_flat_narrator,
+        )
         conn.commit()
 
         updated_target = conn.execute(
             "SELECT * FROM narrators WHERE id = ?", (target_id,)
         ).fetchone()
 
-        return (
-            jsonify(
-                {
-                    "narrator": _narrator_to_dict(updated_target),
-                    "books_reassigned": books_reassigned,
-                }
-            ),
-            200,
-        )
+        return jsonify(
+            {
+                "narrator": _narrator_to_dict(updated_target),
+                "books_reassigned": books_reassigned,
+            }
+        ), 200
     finally:
         conn.close()
 

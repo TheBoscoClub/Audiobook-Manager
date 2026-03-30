@@ -1,0 +1,289 @@
+/* Accessibility quick-panel — Art Deco themed */
+
+/* ── Gear button in header ─────────────────────────────────────────────────── */
+
+.a11y-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    background: none;
+    border: 1px solid var(--gold, #c9a84c);
+    cursor: pointer;
+    padding: 0.25em 0.6em;
+    color: var(--parchment, #f0e6d3);
+    font-size: 0.85em;
+    opacity: 0.7;
+    transition: opacity 0.2s, color 0.2s, background 0.2s;
+    font-family: inherit;
+}
+
+.a11y-label {
+    font-size: 0.8em;
+    letter-spacing: 0.03em;
+}
+
+.a11y-btn:hover {
+    opacity: 1;
+    color: var(--gold, #DAA520);
+    background: rgba(201, 168, 76, 0.15);
+}
+
+.a11y-btn.active {
+    color: var(--gold, #DAA520);
+    opacity: 1;
+}
+
+.a11y-icon {
+    display: inline-block;
+}
+
+/* ── Panel ──────────────────────────────────────────────────────────────────── */
+
+.a11y-panel {
+    position: fixed;
+    top: 44px;
+    right: 0;
+    width: 320px;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+    background: linear-gradient(
+        180deg,
+        rgba(20, 20, 20, 0.97) 0%,
+        rgba(10, 10, 10, 0.98) 100%
+    );
+    border-left: 2px solid var(--gold-dark, #B8860B);
+    border-bottom: 2px solid var(--gold-dark, #B8860B);
+    box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.6);
+    z-index: 1100;
+    font-size: 0.9rem;
+}
+
+.a11y-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7em 1em;
+    border-bottom: 1px solid rgba(201, 168, 76, 0.25);
+}
+
+.a11y-panel-header h3 {
+    margin: 0;
+    color: var(--gold, #DAA520);
+    font-size: 0.95em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.a11y-panel-body {
+    padding: 0.8em 1em 1em;
+}
+
+/* ── Controls ───────────────────────────────────────────────────────────────── */
+
+.a11y-control {
+    margin-bottom: 1em;
+}
+
+.a11y-control > label {
+    display: block;
+    color: rgba(240, 230, 211, 0.65);
+    font-size: 0.8em;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.4em;
+}
+
+/* Segmented button group */
+.a11y-segmented {
+    display: flex;
+    gap: 0;
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    border-radius: 0;
+    overflow: hidden;
+}
+
+.a11y-segmented button {
+    flex: 1;
+    padding: 0.35em 0.5em;
+    background: rgba(0, 0, 0, 0.3);
+    border: none;
+    border-right: 1px solid rgba(201, 168, 76, 0.2);
+    color: var(--parchment, #f0e6d3);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85em;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.a11y-segmented button:last-child {
+    border-right: none;
+}
+
+.a11y-segmented button:hover {
+    background: rgba(201, 168, 76, 0.15);
+}
+
+.a11y-segmented button.active {
+    background: linear-gradient(180deg, rgba(218, 165, 32, 0.35) 0%, rgba(184, 134, 11, 0.25) 100%);
+    color: var(--gold, #DAA520);
+    font-weight: 600;
+}
+
+/* Font size has increasing letter sizes */
+#a11y-font-size button:nth-child(1) { font-size: 0.75em; }
+#a11y-font-size button:nth-child(2) { font-size: 0.85em; }
+#a11y-font-size button:nth-child(3) { font-size: 1em; }
+#a11y-font-size button:nth-child(4) { font-size: 1.15em; }
+
+/* Range slider */
+.a11y-control input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: calc(100% - 50px);
+    height: 4px;
+    background: rgba(201, 168, 76, 0.2);
+    outline: none;
+    border-radius: 0;
+    vertical-align: middle;
+}
+
+.a11y-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--gold, #DAA520);
+    border: 2px solid var(--gold-dark, #B8860B);
+    cursor: pointer;
+}
+
+.a11y-control input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--gold, #DAA520);
+    border: 2px solid var(--gold-dark, #B8860B);
+    cursor: pointer;
+    border-radius: 0;
+}
+
+.a11y-range-val {
+    display: inline-block;
+    width: 40px;
+    text-align: right;
+    color: var(--gold, #DAA520);
+    font-size: 0.85em;
+    vertical-align: middle;
+}
+
+/* Toggle rows */
+.a11y-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.a11y-toggle-row label {
+    margin-bottom: 0;
+}
+
+.a11y-toggle-row input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 40px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.a11y-toggle-row input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: rgba(240, 230, 211, 0.5);
+    transition: transform 0.2s, background 0.2s;
+}
+
+.a11y-toggle-row input[type="checkbox"]:checked {
+    background: rgba(218, 165, 32, 0.3);
+    border-color: var(--gold, #DAA520);
+}
+
+.a11y-toggle-row input[type="checkbox"]:checked::after {
+    transform: translateX(20px);
+    background: var(--gold, #DAA520);
+}
+
+/* Reset button */
+.a11y-reset {
+    padding-top: 0.5em;
+    border-top: 1px solid rgba(201, 168, 76, 0.15);
+    text-align: center;
+}
+
+.a11y-reset .btn {
+    font-size: 0.8em;
+    padding: 0.3em 1.2em;
+}
+
+/* ── CSS custom properties driven by preferences ────────────────────────────── */
+
+:root {
+    --user-font-size: 16px;
+    --user-line-spacing: 1.5;
+    --user-bg-opacity: 1;
+}
+
+/* High contrast mode */
+body.a11y-high-contrast {
+    --parchment: #ffffff;
+    --gold: #ffd700;
+    --gold-dark: #daa520;
+}
+
+body.a11y-high-contrast .card,
+body.a11y-high-contrast .modal-content {
+    border-width: 2px;
+}
+
+/* Reduce animations */
+body.a11y-reduce-motion,
+body.a11y-reduce-motion * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+}
+
+/* Color temperature — use CSS filters for visible effect on dark theme */
+body.a11y-temp-warm {
+    filter: sepia(15%) saturate(110%);
+}
+
+body.a11y-temp-cool {
+    filter: saturate(90%) hue-rotate(10deg);
+}
+
+/* Contrast levels — use CSS filters for visible effect on dark theme */
+body.a11y-contrast-medium {
+    --parchment: #f5f0e6;
+    filter: contrast(1.1);
+}
+
+body.a11y-contrast-high {
+    --parchment: #ffffff;
+    filter: contrast(1.25);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .a11y-panel {
+        width: 100%;
+        border-left: none;
+    }
+}

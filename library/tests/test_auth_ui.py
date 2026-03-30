@@ -371,13 +371,18 @@ class TestIndexPageAuthIntegration:
             "Should have account avatar initial"
         )
 
-    def test_index_page_has_login_link(self):
-        """Verify index.html has login link for unauthenticated users."""
-        index_content = (WEB_DIR / "index.html").read_text()
+    def test_shell_has_account_btn_for_auth(self):
+        """Verify shell.html account button handles auth (sign in / account).
 
-        assert 'id="login-link"' in index_content, "Should have login link"
-        assert 'href="login.html"' in index_content, (
-            "Login link should point to login.html"
+        In v8, the shell header's account button serves as the login entry point
+        for unauthenticated users (redirects to /auth/login) and account access
+        for authenticated users. The separate login-link in index.html was removed
+        as redundant.
+        """
+        shell_content = (WEB_DIR / "shell.html").read_text()
+
+        assert 'id="my-account-btn"' in shell_content, (
+            "Shell should have account button for auth"
         )
 
     def test_shell_page_has_sign_out(self):
@@ -596,13 +601,14 @@ class TestSecurityAttributes:
     def test_credentials_use_include(self):
         """Verify fetch calls include credentials for cookies."""
         login_content = (WEB_DIR / "login.html").read_text()
-        library_js_content = (JS_DIR / "library.js").read_text()
+        api_js_content = (JS_DIR / "api.js").read_text()
 
         assert (
             "credentials: 'include'" in login_content
             or 'credentials: "include"' in login_content
         ), "Login should include credentials"
-        assert (
-            "credentials: 'include'" in library_js_content
-            or 'credentials: "include"' in library_js_content
-        ), "Library.js should include credentials"
+        # api.js is the shared fetch wrapper used by library.js and others.
+        # It must set credentials on every request (same-origin or include).
+        assert "credentials" in api_js_content, (
+            "Shared api.js client should configure credentials"
+        )

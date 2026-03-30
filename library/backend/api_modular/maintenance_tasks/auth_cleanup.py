@@ -23,6 +23,72 @@ def _get_auth_db():
     return AuthDatabase()
 
 
+def _cleanup_stale_sessions(db, results, progress_callback):
+    """Clean up non-persistent sessions inactive > 30 min."""
+    if progress_callback:
+        progress_callback(0.1, "Cleaning stale sessions...")
+
+    from models import SessionRepository
+
+    sessions = SessionRepository(db)
+    results["stale_sessions"] = sessions.cleanup_stale(grace_minutes=30)
+
+
+def _cleanup_expired_registrations(db, results, progress_callback):
+    """Clean up expired pending registrations."""
+    if progress_callback:
+        progress_callback(0.3, "Cleaning expired registrations...")
+
+    from models import PendingRegistrationRepository
+
+    registrations = PendingRegistrationRepository(db)
+    results["expired_registrations"] = registrations.cleanup_expired()
+
+
+def _cleanup_expired_recoveries(db, results, progress_callback):
+    """Clean up expired pending recoveries."""
+    if progress_callback:
+        progress_callback(0.5, "Cleaning expired recovery tokens...")
+
+    from models import PendingRecoveryRepository
+
+    recoveries = PendingRecoveryRepository(db)
+    results["expired_recoveries"] = recoveries.cleanup_expired()
+
+
+def _cleanup_old_access_requests(db, results, progress_callback):
+    """Clean up old completed/denied access requests."""
+    if progress_callback:
+        progress_callback(0.7, "Cleaning old access requests...")
+
+    from datetime import datetime, timedelta
+
+    cutoff = datetime.now() - timedelta(days=_ACCESS_REQUEST_RETENTION_DAYS)
+    with db.connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM access_requests "
+            "WHERE status IN ('approved', 'denied') "
+            "AND requested_at < ?",
+            (cutoff.isoformat(),),
+        )
+        results["old_access_requests"] = cursor.rowcount
+
+
+def _build_summary(results):
+    """Build human-readable summary from cleanup results."""
+    labels = {
+        "stale_sessions": "stale sessions",
+        "expired_registrations": "expired registrations",
+        "expired_recoveries": "expired recoveries",
+        "old_access_requests": "old access requests",
+    }
+    parts = [f"{results[k]} {label}" for k, label in labels.items() if results.get(k)]
+    total = sum(results.values())
+    if parts:
+        return f"Cleaned {total} records: {', '.join(parts)}"
+    return "No stale auth data found"
+
+
 @registry.register
 class AuthCleanupTask(MaintenanceTask):
     name = "auth_cleanup"
@@ -43,79 +109,20 @@ class AuthCleanupTask(MaintenanceTask):
         except Exception as e:
             return ExecutionResult(success=False, message=f"Cannot open auth DB: {e}")
 
-        results = {}
+        results: dict[str, int] = {}
         try:
-            if progress_callback:
-                progress_callback(0.1, "Cleaning stale sessions...")
-
-            # 1. Stale sessions (non-persistent, inactive > 30 min)
-            from models import (
-                PendingRecoveryRepository,
-                PendingRegistrationRepository,
-                SessionRepository,
-            )
-
-            sessions = SessionRepository(db)
-            stale = sessions.cleanup_stale(grace_minutes=30)
-            results["stale_sessions"] = stale
-
-            if progress_callback:
-                progress_callback(0.3, "Cleaning expired registrations...")
-
-            # 2. Expired pending registrations
-            registrations = PendingRegistrationRepository(db)
-            expired_regs = registrations.cleanup_expired()
-            results["expired_registrations"] = expired_regs
-
-            if progress_callback:
-                progress_callback(0.5, "Cleaning expired recovery tokens...")
-
-            # 3. Expired pending recoveries
-            recoveries = PendingRecoveryRepository(db)
-            expired_rec = recoveries.cleanup_expired()
-            results["expired_recoveries"] = expired_rec
-
-            if progress_callback:
-                progress_callback(0.7, "Cleaning old access requests...")
-
-            # 4. Old completed/denied access requests
-            from datetime import datetime, timedelta
-
-            cutoff = datetime.now() - timedelta(days=_ACCESS_REQUEST_RETENTION_DAYS)
-            cutoff_str = cutoff.isoformat()
-            with db.connection() as conn:
-                cursor = conn.execute(
-                    "DELETE FROM access_requests "
-                    "WHERE status IN ('approved', 'denied') "
-                    "AND requested_at < ?",
-                    (cutoff_str,),
-                )
-                results["old_access_requests"] = cursor.rowcount
+            _cleanup_stale_sessions(db, results, progress_callback)
+            _cleanup_expired_registrations(db, results, progress_callback)
+            _cleanup_expired_recoveries(db, results, progress_callback)
+            _cleanup_old_access_requests(db, results, progress_callback)
 
             if progress_callback:
                 progress_callback(1.0, "Complete")
 
-            total = sum(results.values())
-            parts = []
-            if results["stale_sessions"]:
-                parts.append(f"{results['stale_sessions']} stale sessions")
-            if results["expired_registrations"]:
-                parts.append(
-                    f"{results['expired_registrations']} expired registrations"
-                )
-            if results["expired_recoveries"]:
-                parts.append(f"{results['expired_recoveries']} expired recoveries")
-            if results["old_access_requests"]:
-                parts.append(f"{results['old_access_requests']} old access requests")
-
-            message = (
-                f"Cleaned {total} records: {', '.join(parts)}"
-                if parts
-                else "No stale auth data found"
-            )
-
             db.close()
-            return ExecutionResult(success=True, message=message, data=results)
+            return ExecutionResult(
+                success=True, message=_build_summary(results), data=results
+            )
 
         except Exception as e:
             db.close()

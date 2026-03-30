@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>The Library - Audiobook Collection</title>
+    <!-- Redirect to shell wrapper when loaded as top-level page (not in iframe) -->
+    <script>if (window === window.parent) window.location.replace('/');</script>
     <link rel="stylesheet" href="css/library.css?v=1774616000">
     <link rel="stylesheet" href="css/auth.css?v=1774616000">
     <link rel="stylesheet" href="css/notifications.css?v=1774616000">
@@ -17,67 +19,9 @@
     <!-- Header -->
     <header class="library-header">
         <div class="header-content">
-            <!-- Left nav: help link -->
-            <div class="header-nav header-nav-left">
-                <!-- Help link — door knocker (always visible) -->
-                <a href="help.html" class="nav-link help-knocker" id="help-knocker-link" title="Knock to enter the Help &amp; User Guide">
-                    <span class="nav-icon knocker-icon">
-                        <svg viewBox="0 0 24 30" width="16" height="20" aria-hidden="true">
-                            <!-- Mounting plate -->
-                            <ellipse cx="12" cy="8" rx="6" ry="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                            <!-- Ring (the knocker) -->
-                            <circle cx="12" cy="18" r="6" fill="none" stroke="currentColor" stroke-width="2.5" class="knocker-ring"/>
-                            <!-- Hinge pin -->
-                            <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                            <!-- Strike plate -->
-                            <rect x="10" y="26" width="4" height="3" rx="1" fill="currentColor" opacity="0.6"/>
-                        </svg>
-                    </span>
-                    <span class="utilities-text">Help</span>
-                </a>
-            </div>
-
-            <!-- Center: title -->
             <div class="title-section">
                 <h1 class="library-title">The Library</h1>
                 <p class="library-subtitle">A Private Collection of Audiobooks</p>
-            </div>
-
-            <!-- Right nav: account + sign in + back office -->
-            <div class="header-nav header-nav-right">
-                <!-- My Account button (shown when logged in — opens account modal) -->
-                <button id="my-account-btn" class="nav-link" hidden title="My Account settings">
-                    <span class="nav-icon" id="account-initial">&#128100;</span>
-                    <span class="utilities-text" id="account-username">Account</span>
-                </button>
-
-                <!-- Login link (shown when auth enabled but not logged in) -->
-                <a href="login.html" id="login-link" class="utilities-link" hidden target="_top" title="Sign in to access The Library">
-                    <span class="utilities-text">Existing User Sign In</span>
-                </a>
-
-                <!-- Request Access link (shown for guests) -->
-                <a href="register.html" id="request-access-link" class="utilities-link" hidden
-                   target="_top" title="Request an account to play and download audiobooks">
-                    <span class="utilities-icon">&#9993;</span>
-                    <span class="utilities-text">Request a User Account</span>
-                </a>
-
-                <!-- Back Office link (visible to all, actionable by admins only) -->
-                <a href="utilities.html?v=1774616000" id="admin-backoffice-link" class="utilities-link backoffice-link" title="Library Administration — Staff Only">
-                    <span class="utilities-icon backoffice-keyhole">
-                        <svg viewBox="0 0 24 32" width="18" height="24" aria-hidden="true">
-                            <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
-                            <rect x="9" y="16" width="6" height="12" rx="1" fill="currentColor"/>
-                            <ellipse cx="12" cy="10" rx="3" ry="3.5" fill="var(--deco-charcoal, #161616)"/>
-                            <rect x="10.5" y="12" width="3" height="5" fill="var(--deco-charcoal, #161616)"/>
-                        </svg>
-                    </span>
-                    <span class="backoffice-text-wrap">
-                        <span class="utilities-text">Back Office</span>
-                        <span class="backoffice-subtext">Staff Only</span>
-                    </span>
-                </a>
             </div>
         </div>
 
@@ -164,45 +108,46 @@
                 <div class="narrator-dropdown" id="narrator-dropdown"></div>
             </div>
 
-            <select id="sort-filter" class="filter-select">
-                <optgroup label="Title">
-                    <option value="title:asc">Title (A-Z)</option>
-                    <option value="title:desc">Title (Z-A)</option>
-                </optgroup>
-                <optgroup label="Author">
-                    <option value="author_last:asc">Author Last Name (A-Z)</option>
-                    <option value="author_last:desc">Author Last Name (Z-A)</option>
-                    <option value="author_first:asc">Author First Name (A-Z)</option>
-                    <option value="author_first:desc">Author First Name (Z-A)</option>
-                    <option value="author:asc">Author Full Name (A-Z)</option>
-                    <option value="author:desc">Author Full Name (Z-A)</option>
-                    <option value="grouped_author:asc">Author (Grouped A-Z)</option>
-                </optgroup>
-                <optgroup label="Narrator">
-                    <option value="narrator_last:asc">Narrator Last Name (A-Z)</option>
-                    <option value="narrator_last:desc">Narrator Last Name (Z-A)</option>
-                    <option value="narrator_first:asc">Narrator First Name (A-Z)</option>
-                    <option value="narrator_first:desc">Narrator First Name (Z-A)</option>
-                    <option value="grouped_narrator:asc">Narrator (Grouped A-Z)</option>
-                </optgroup>
-                <optgroup label="Duration">
-                    <option value="duration_hours:desc">Longest First</option>
-                    <option value="duration_hours:asc">Shortest First</option>
-                </optgroup>
-                <optgroup label="Dates">
-                    <option value="acquired_date:desc">Recently Acquired</option>
-                    <option value="acquired_date:asc">Oldest Acquired</option>
-                    <option value="published_year:desc">Newest Published</option>
-                    <option value="published_year:asc">Oldest Published</option>
-                </optgroup>
-                <optgroup label="Series &amp; Editions">
-                    <option value="series:asc">Series (A-Z, books in order)</option>
-                    <option value="series:desc">Series (Z-A, books in order)</option>
-                    <option value="edition:asc">Multiple Editions Only</option>
-                </optgroup>
-            </select>
-
-            <button id="refresh-btn" class="refresh-btn">↻ Refresh</button>
+            <div class="filter-actions">
+                <select id="sort-filter" class="filter-select">
+                    <optgroup label="Title">
+                        <option value="title:asc">Title (A-Z)</option>
+                        <option value="title:desc">Title (Z-A)</option>
+                    </optgroup>
+                    <optgroup label="Author">
+                        <option value="author_last:asc">Author Last Name (A-Z)</option>
+                        <option value="author_last:desc">Author Last Name (Z-A)</option>
+                        <option value="author_first:asc">Author First Name (A-Z)</option>
+                        <option value="author_first:desc">Author First Name (Z-A)</option>
+                        <option value="author:asc">Author Full Name (A-Z)</option>
+                        <option value="author:desc">Author Full Name (Z-A)</option>
+                        <option value="grouped_author:asc">Author (Grouped A-Z)</option>
+                    </optgroup>
+                    <optgroup label="Narrator">
+                        <option value="narrator_last:asc">Narrator Last Name (A-Z)</option>
+                        <option value="narrator_last:desc">Narrator Last Name (Z-A)</option>
+                        <option value="narrator_first:asc">Narrator First Name (A-Z)</option>
+                        <option value="narrator_first:desc">Narrator First Name (Z-A)</option>
+                        <option value="grouped_narrator:asc">Narrator (Grouped A-Z)</option>
+                    </optgroup>
+                    <optgroup label="Duration">
+                        <option value="duration_hours:desc">Longest First</option>
+                        <option value="duration_hours:asc">Shortest First</option>
+                    </optgroup>
+                    <optgroup label="Dates">
+                        <option value="acquired_date:desc">Recently Acquired</option>
+                        <option value="acquired_date:asc">Oldest Acquired</option>
+                        <option value="published_year:desc">Newest Published</option>
+                        <option value="published_year:asc">Oldest Published</option>
+                    </optgroup>
+                    <optgroup label="Series &amp; Editions">
+                        <option value="series:asc">Series (A-Z, books in order)</option>
+                        <option value="series:desc">Series (Z-A, books in order)</option>
+                        <option value="edition:asc">Multiple Editions Only</option>
+                    </optgroup>
+                </select>
+                <button id="refresh-btn" class="refresh-btn">↻ Refresh</button>
+            </div>
         </div>
     </div>
 
@@ -330,6 +275,8 @@
         </div>
     </div>
 
+    <script data-cfasync="false" src="js/api.js?v=1774616000"></script>
+    <script data-cfasync="false" src="js/utils.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/knife-switch.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/webauthn.js?v=1774616000"></script>
     <script data-cfasync="false" src="js/marquee.js?v=1774616000"></script>

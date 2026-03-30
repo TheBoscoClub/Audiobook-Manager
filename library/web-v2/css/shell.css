@@ -117,7 +117,7 @@ body {
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
         inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-        0 2px 4px rgba(0, 0, 0, 0.3);
+        var(--shadow-soft-sm);
     text-shadow: 0 1px 0 rgba(255, 215, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
@@ -206,11 +206,11 @@ body {
     flex-shrink: 0;
 }
 
-.header-title {
-    font-family: 'Georgia', 'Times New Roman', serif;
-    color: var(--gold);
-    font-size: 0.95em;
-    letter-spacing: 0.05em;
+.header-group-left,
+.header-group-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
 }
 
 .header-btn {
@@ -267,12 +267,66 @@ body {
     flex-shrink: 0;
 }
 
+/* Help button — matches backoffice-btn styling */
+.help-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    text-decoration: none;
+    padding: 0.25em 0.6em;
+}
+
+.help-btn .help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: 0.85em;
+    flex-shrink: 0;
+}
+
+.help-btn .help-label {
+    font-size: 0.8em;
+    letter-spacing: 0.03em;
+}
+
+/* Back Office button */
+.backoffice-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    text-decoration: none;
+    padding: 0.25em 0.6em;
+}
+
+.backoffice-btn .backoffice-icon svg {
+    display: block;
+}
+
+.backoffice-btn .backoffice-label {
+    font-size: 0.8em;
+    letter-spacing: 0.03em;
+}
+
+.backoffice-btn.backoffice-locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.backoffice-btn.backoffice-locked:hover {
+    background: transparent;
+}
+
 /* Mobile: hide username text, enlarge icon, stack account fields */
 @media (max-width: 480px) {
     #account-username { display: none; }
     .account-icon { width: 26px; height: 26px; font-size: 0.85em; }
     .account-btn { padding: 0.25em 0.5em; }
     .header-title { font-size: 0.8em; }
+    .backoffice-label { display: none; }
+    .help-label { display: none; }
+    .a11y-label { display: none; }
     .account-field { flex-direction: column; align-items: flex-start; gap: 0.2em; }
     .account-field label { min-width: unset; }
     .auth-actions { flex-direction: column; }
@@ -280,215 +334,4 @@ body {
 
 /* Account modal and section styles are in account.css (shared with index.html) */
 
-/* ============================================
-   Admin Suggestion Alert Badge
-   ============================================ */
-
-.suggestion-alert {
-    position: relative;
-    background: none;
-    border: 1px solid rgba(218, 165, 32, 0.4);
-    color: var(--gold, #DAA520);
-    cursor: pointer;
-    padding: 0.25em 0.6em;
-    font-size: 0.9rem;
-    border-radius: 4px;
-    transition: all 0.3s;
-    margin-left: 0.5em;
-}
-
-.suggestion-alert:hover {
-    background: rgba(218, 165, 32, 0.15);
-    border-color: var(--gold, #DAA520);
-}
-
-.suggestion-alert .alert-icon {
-    font-size: 1.1em;
-}
-
-.suggestion-alert .alert-count {
-    font-size: 0.75em;
-    font-weight: 700;
-    background: rgba(218, 165, 32, 0.2);
-    padding: 0.1em 0.4em;
-    border-radius: 8px;
-    margin-left: 0.25em;
-    min-width: 1.2em;
-    text-align: center;
-    display: inline-block;
-}
-
-/* Throbbing animation when unread suggestions exist */
-.suggestion-alert.has-unread {
-    animation: suggestionThrob 2s ease-in-out infinite;
-    border-color: var(--gold-bright, #FFD700);
-}
-
-.suggestion-alert.has-unread .alert-count {
-    background: var(--gold, #DAA520);
-    color: #080400;
-}
-
-@keyframes suggestionThrob {
-    0%, 100% {
-        box-shadow: 0 0 0 0 rgba(218, 165, 32, 0.4);
-    }
-    50% {
-        box-shadow: 0 0 8px 3px rgba(218, 165, 32, 0.6);
-    }
-}
-
-/* ============================================
-   Suggestion Drawer (admin)
-   ============================================ */
-
-.suggestion-drawer[hidden] {
-    display: none !important;
-}
-
-.suggestion-drawer {
-    position: fixed;
-    top: 44px; /* below shell header */
-    right: 0;
-    width: 420px;
-    max-width: 95vw;
-    max-height: calc(100vh - 44px);
-    background: #1a1208;
-    border-left: 2px solid var(--gold-dark, #B8860B);
-    border-bottom: 2px solid var(--gold-dark, #B8860B);
-    box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.5);
-    z-index: 8000;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    animation: drawerSlideIn 0.25s ease-out;
-}
-
-@keyframes drawerSlideIn {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
-}
-
-.suggestion-drawer-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid rgba(218, 165, 32, 0.3);
-    flex-shrink: 0;
-}
-
-.suggestion-drawer-header h3 {
-    font-family: Georgia, serif;
-    font-size: 0.95rem;
-    color: var(--gold, #DAA520);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    margin: 0;
-    white-space: nowrap;
-}
-
-.suggestion-drawer-tabs {
-    display: flex;
-    gap: 0.25rem;
-    margin-left: auto;
-}
-
-.sdtab {
-    background: none;
-    border: 1px solid rgba(218, 165, 32, 0.3);
-    color: #aaa;
-    font-size: 0.75rem;
-    padding: 0.2rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.sdtab:hover { color: #ddd; border-color: rgba(218, 165, 32, 0.5); }
-.sdtab.active { color: var(--gold, #DAA520); border-color: var(--gold, #DAA520); background: rgba(218, 165, 32, 0.1); }
-
-.drawer-close-btn {
-    background: none;
-    border: none;
-    color: #888;
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 0 0.25rem;
-    line-height: 1;
-}
-
-.drawer-close-btn:hover { color: #fff; }
-
-.suggestion-drawer-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0.5rem;
-}
-
-.suggestion-empty {
-    color: #888;
-    font-style: italic;
-    text-align: center;
-    padding: 2rem;
-    font-size: 0.9rem;
-}
-
-/* Individual suggestion card */
-.suggestion-card {
-    background: #2d2015;
-    border-left: 3px solid var(--gold, #DAA520);
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
-}
-
-.suggestion-card.suggestion-read {
-    opacity: 0.55;
-    border-left-color: #555;
-}
-
-.suggestion-meta {
-    font-size: 0.8rem;
-    color: var(--gold, #DAA520);
-    margin-bottom: 0.4rem;
-}
-
-.suggestion-time {
-    color: #888;
-    font-size: 0.75rem;
-}
-
-.suggestion-body {
-    font-size: 0.9rem;
-    color: #e8dcc8;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-word;
-    margin-bottom: 0.5rem;
-}
-
-.suggestion-actions {
-    display: flex;
-    gap: 0.4rem;
-}
-
-.sug-btn {
-    background: none;
-    border: 1px solid rgba(218, 165, 32, 0.3);
-    color: #aaa;
-    font-size: 0.7rem;
-    padding: 0.15rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.sug-btn:hover { color: #fff; border-color: rgba(218, 165, 32, 0.6); }
-
-.sug-btn-danger:hover {
-    color: #ff6b6b;
-    border-color: #ff6b6b;
-}
-
-@media (max-width: 480px) {
-    .suggestion-drawer { width: 100vw; max-width: 100vw; }
-    .suggestion-alert .alert-icon { font-size: 1em; }
-}
+/* Suggestion alert/drawer styles: see css/suggestions.css (used by utilities.html) */

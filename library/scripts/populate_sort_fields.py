@@ -22,6 +22,71 @@ from config import DATABASE_PATH
 
 DB_PATH = DATABASE_PATH
 
+# Prefixes that belong to the last name (e.g., "le Carre", "van Gogh")
+_LAST_NAME_PREFIXES = {"le", "de", "la", "van", "von", "der", "den", "del", "da"}
+
+
+def _parse_last_first_format(full_name):
+    """Handle 'Last, First' format. Returns (first, last) or None."""
+    parts = full_name.split(",")
+    if (
+        len(parts) == 2
+        and len(parts[0].split()) == 1
+        and len(parts[1].strip().split()) == 1
+    ):
+        return (parts[1].strip(), parts[0].strip())
+    return None
+
+
+def _clean_name_input(full_name):
+    """Clean and normalize a full name string. Returns cleaned name or None."""
+    if not full_name or full_name.lower() in [
+        "unknown author",
+        "unknown narrator",
+        "audiobook",
+    ]:
+        return None
+
+    # Remove role suffixes like "(editor)", "(translator)"
+    full_name = re.sub(r"\s*\([^)]*\)\s*$", "", full_name).strip()
+    return full_name
+
+
+def _handle_multiple_authors(full_name):
+    """Handle comma-separated or dash-separated names. Returns the primary name."""
+    if "," in full_name and " - " not in full_name:
+        result = _parse_last_first_format(full_name)
+        if result:
+            return result  # Tuple signals early return
+
+        # Multiple authors - use first
+        full_name = full_name.split(",")[0].strip()
+        full_name = re.sub(r"\s*\([^)]*\)\s*$", "", full_name).strip()
+
+    if " - " in full_name:
+        full_name = full_name.split(" - ")[0].strip()
+
+    return full_name
+
+
+def _split_first_last(words):
+    """Split a list of name words into (first_name, last_name)."""
+    if not words:
+        return (None, None)
+    if len(words) == 1:
+        return (None, words[0])
+
+    last_name_parts = [words[-1]]
+    first_name_parts = words[:-1]
+
+    if len(words) > 2 and words[-2].lower() in _LAST_NAME_PREFIXES:
+        last_name_parts.insert(0, words[-2])
+        first_name_parts = words[:-2]
+
+    first_name = " ".join(first_name_parts) if first_name_parts else None
+    last_name = " ".join(last_name_parts)
+    return (first_name, last_name)
+
 
 def extract_name_parts(full_name):
     """
@@ -30,67 +95,21 @@ def extract_name_parts(full_name):
     - "John Smith" -> ("John", "Smith")
     - "J.R.R. Tolkien" -> ("J.R.R.", "Tolkien")
     - "Stephen King" -> ("Stephen", "King")
-    - "John le Carré" -> ("John", "le Carré")
+    - "John le Carre" -> ("John", "le Carre")
     - "P. G. Wodehouse" -> ("P. G.", "Wodehouse")
     - "Arthur Conan Doyle" -> ("Arthur Conan", "Doyle")
     - "Nelson Mandela (editor)" -> ("Nelson", "Mandela")
     - Multiple authors: "John Smith, Jane Doe" -> use first author
     """
-    if not full_name or full_name.lower() in [
-        "unknown author",
-        "unknown narrator",
-        "audiobook",
-    ]:
+    cleaned = _clean_name_input(full_name)
+    if cleaned is None:
         return (None, None)
 
-    # Remove role suffixes like "(editor)", "(translator)", "(contributor)", etc.
-    full_name = re.sub(r"\s*\([^)]*\)\s*$", "", full_name).strip()
+    result = _handle_multiple_authors(cleaned)
+    if isinstance(result, tuple):
+        return result  # "Last, First" format was detected
 
-    # Handle multiple authors - use first one
-    if "," in full_name and " - " not in full_name:
-        # Check if it's actually multiple authors vs "Last, First" format
-        parts = full_name.split(",")
-        if (
-            len(parts) == 2
-            and len(parts[0].split()) == 1
-            and len(parts[1].strip().split()) == 1
-        ):
-            # Likely "Last, First" format
-            return (parts[1].strip(), parts[0].strip())
-        else:
-            # Multiple authors - use first
-            full_name = parts[0].strip()
-            # Remove role suffix from first author too
-            full_name = re.sub(r"\s*\([^)]*\)\s*$", "", full_name).strip()
-
-    # Handle "Author - role" format (e.g., "Stephen Fry - introductions")
-    if " - " in full_name:
-        full_name = full_name.split(" - ")[0].strip()
-
-    # Split into words
-    words = full_name.split()
-
-    if len(words) == 0:
-        return (None, None)
-    elif len(words) == 1:
-        return (None, words[0])  # Only last name
-    else:
-        # Last word is usually the last name
-        # But handle prefixes like "le", "de", "van", "von"
-        last_name_prefixes = ["le", "de", "la", "van", "von", "der", "den", "del", "da"]
-
-        last_name_parts = [words[-1]]
-        first_name_parts = words[:-1]
-
-        # Check if second-to-last word is a prefix
-        if len(words) > 2 and words[-2].lower() in last_name_prefixes:
-            last_name_parts.insert(0, words[-2])
-            first_name_parts = words[:-2]
-
-        first_name = " ".join(first_name_parts) if first_name_parts else None
-        last_name = " ".join(last_name_parts)
-
-        return (first_name, last_name)
+    return _split_first_last(result.split())
 
 
 def extract_series_sequence(series, title):
@@ -115,7 +134,7 @@ def extract_series_sequence(series, title):
         r"vol(?:ume)?\.?\s*(\d+(?:\.\d+)?)",
         r"season\s*(\d+(?:\.\d+)?)",
         r"episode\s*(\d+(?:\.\d+)?)",
-        r"books?\s*(\d+)\s*[-–]\s*\d+",  # "Books 1-3" -> 1
+        r"books?\s*(\d+)\s*[-\u2013]\s*\d+",  # "Books 1-3" -> 1
         r",\s*book\s*(\d+)",
         r";\s*book\s*(\d+)",
     ]
@@ -126,30 +145,22 @@ def extract_series_sequence(series, title):
             return float(match.group(1))
 
     # Try Roman numerals
-    roman_patterns = [
-        (
-            r"book\s+(i{1,3}|iv|v|vi{0,3}|ix|x)(?:\s|$|:)",
-            {
-                "i": 1,
-                "ii": 2,
-                "iii": 3,
-                "iv": 4,
-                "v": 5,
-                "vi": 6,
-                "vii": 7,
-                "viii": 8,
-                "ix": 9,
-                "x": 10,
-            },
-        )
-    ]
-
-    for pattern, numerals in roman_patterns:
-        match = re.search(pattern, text)
-        if match:
-            roman = match.group(1).lower()
-            if roman in numerals:
-                return float(numerals[roman])
+    roman_numerals = {
+        "i": 1,
+        "ii": 2,
+        "iii": 3,
+        "iv": 4,
+        "v": 5,
+        "vi": 6,
+        "vii": 7,
+        "viii": 8,
+        "ix": 9,
+        "x": 10,
+    }
+    match = re.search(r"book\s+(i{1,3}|iv|v|vi{0,3}|ix|x)(?:\s|$|:)", text)
+    if match:
+        roman = match.group(1).lower()
+        return float(roman_numerals.get(roman, 0)) or None
 
     return None
 
@@ -206,110 +217,77 @@ def get_file_acquired_date(file_path):
     return None
 
 
-def populate_sort_fields(dry_run=True):
-    """Populate sort fields for all audiobooks."""
-    if not DB_PATH.exists():
-        print(f"Error: Database not found at {DB_PATH}")
-        sys.exit(1)
+def _try_extract_name(book, role):
+    """Extract name parts for a role ('author' or 'narrator') if not already set.
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    Returns a dict of column updates (may be empty).
+    """
+    last_col = f"{role}_last_name"
+    first_col = f"{role}_first_name"
+    if book[last_col]:
+        return {}
+    first, last = extract_name_parts(book[role])
+    if not last:
+        return {}
+    return {last_col: last, first_col: first}
 
-    print("=" * 70)
-    print("POPULATE SORT FIELDS")
-    print("=" * 70)
-    print(f"Database: {DB_PATH}")
-    print(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}")
-    print()
 
-    # Get all audiobooks
-    cursor.execute("""
-        SELECT id, title, author, narrator, series, file_path,
-               author_last_name, author_first_name,
-               narrator_last_name, narrator_first_name,
-               series_sequence, edition, acquired_date
-        FROM audiobooks
-        ORDER BY id
-    """)
-    audiobooks = cursor.fetchall()
+def _compute_book_updates(book):
+    """Compute field updates for a single audiobook row.
 
-    print(f"Processing {len(audiobooks)} audiobooks...")
-    print()
+    Returns a dict of column->value pairs to update (may be empty).
+    """
+    updates = {}
+    updates.update(_try_extract_name(book, "author"))
+    updates.update(_try_extract_name(book, "narrator"))
 
-    updates = {
-        "author_names": 0,
-        "narrator_names": 0,
-        "series_seq": 0,
-        "edition": 0,
-        "acquired": 0,
+    if book["series_sequence"] is None:
+        seq = extract_series_sequence(book["series"], book["title"])
+        if seq:
+            updates["series_sequence"] = seq
+
+    if not book["edition"]:
+        ed = extract_edition(book["title"])
+        if ed:
+            updates["edition"] = ed
+
+    if not book["acquired_date"]:
+        acq = get_file_acquired_date(book["file_path"])
+        if acq:
+            updates["acquired_date"] = acq
+
+    return updates
+
+
+def _count_update_categories(book_updates):
+    """Count which categories a book_updates dict touches."""
+    counts = {
+        "author_names": 1 if "author_last_name" in book_updates else 0,
+        "narrator_names": 1 if "narrator_last_name" in book_updates else 0,
+        "series_seq": 1 if "series_sequence" in book_updates else 0,
+        "edition": 1 if "edition" in book_updates else 0,
+        "acquired": 1 if "acquired_date" in book_updates else 0,
     }
+    return counts
 
-    sample_updates = []
 
-    for book in audiobooks:
-        book_updates = {}
+def _apply_book_update(cursor, book_id, book_updates):
+    """Execute a single UPDATE for one audiobook's sort fields."""
+    set_clauses = ", ".join(f"{k} = ?" for k in book_updates.keys())
+    values = list(book_updates.values()) + [book_id]
+    cursor.execute(f"UPDATE audiobooks SET {set_clauses} WHERE id = ?", values)  # nosec B608
 
-        # Extract author names if not already set
-        if not book["author_last_name"]:
-            first, last = extract_name_parts(book["author"])
-            if last:
-                book_updates["author_last_name"] = last
-                book_updates["author_first_name"] = first
-                updates["author_names"] += 1
 
-        # Extract narrator names if not already set
-        if not book["narrator_last_name"]:
-            first, last = extract_name_parts(book["narrator"])
-            if last:
-                book_updates["narrator_last_name"] = last
-                book_updates["narrator_first_name"] = first
-                updates["narrator_names"] += 1
-
-        # Extract series sequence if not already set
-        if book["series_sequence"] is None:
-            seq = extract_series_sequence(book["series"], book["title"])
-            if seq:
-                book_updates["series_sequence"] = seq
-                updates["series_seq"] += 1
-
-        # Extract edition if not already set
-        if not book["edition"]:
-            ed = extract_edition(book["title"])
-            if ed:
-                book_updates["edition"] = ed
-                updates["edition"] += 1
-
-        # Get acquired date if not already set
-        if not book["acquired_date"]:
-            acq = get_file_acquired_date(book["file_path"])
-            if acq:
-                book_updates["acquired_date"] = acq
-                updates["acquired"] += 1
-
-        # Apply updates
-        if book_updates and not dry_run:
-            set_clauses = ", ".join(f"{k} = ?" for k in book_updates.keys())
-            values = list(book_updates.values()) + [book["id"]]
-            cursor.execute(f"UPDATE audiobooks SET {set_clauses} WHERE id = ?", values)
-
-        # Save samples for display
-        if book_updates and len(sample_updates) < 10:
-            sample_updates.append(
-                {"title": book["title"][:50], "updates": book_updates}
-            )
-
-    if not dry_run:
-        conn.commit()
-
+def _print_sort_summary(totals, sample_updates, dry_run):
+    """Print the populate_sort_fields summary."""
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"Author names extracted: {updates['author_names']}")
-    print(f"Narrator names extracted: {updates['narrator_names']}")
-    print(f"Series sequences found: {updates['series_seq']}")
-    print(f"Editions detected: {updates['edition']}")
-    print(f"Acquired dates set: {updates['acquired']}")
+    print(f"Author names extracted: {totals['author_names']}")
+    print(f"Narrator names extracted: {totals['narrator_names']}")
+    print(f"Series sequences found: {totals['series_seq']}")
+    print(f"Editions detected: {totals['edition']}")
+    print(f"Acquired dates set: {totals['acquired']}")
     print()
 
     if sample_updates:
@@ -328,6 +306,66 @@ def populate_sort_fields(dry_run=True):
         print("=" * 70)
         print("Run with --execute to apply changes")
 
+
+def populate_sort_fields(dry_run=True):
+    """Populate sort fields for all audiobooks."""
+    if not DB_PATH.exists():
+        print(f"Error: Database not found at {DB_PATH}")
+        sys.exit(1)
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    print("=" * 70)
+    print("POPULATE SORT FIELDS")
+    print("=" * 70)
+    print(f"Database: {DB_PATH}")
+    print(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}")
+    print()
+
+    cursor.execute("""
+        SELECT id, title, author, narrator, series, file_path,
+               author_last_name, author_first_name,
+               narrator_last_name, narrator_first_name,
+               series_sequence, edition, acquired_date
+        FROM audiobooks
+        ORDER BY id
+    """)
+    audiobooks = cursor.fetchall()
+    print(f"Processing {len(audiobooks)} audiobooks...")
+    print()
+
+    totals = {
+        "author_names": 0,
+        "narrator_names": 0,
+        "series_seq": 0,
+        "edition": 0,
+        "acquired": 0,
+    }
+    sample_updates = []
+
+    for book in audiobooks:
+        book_updates = _compute_book_updates(book)
+        if not book_updates:
+            continue
+
+        # Accumulate category counts
+        for key, count in _count_update_categories(book_updates).items():
+            totals[key] += count
+
+        if not dry_run:
+            _apply_book_update(cursor, book["id"], book_updates)
+
+        if len(sample_updates) < 10:
+            sample_updates.append(
+                {"title": book["title"][:50], "updates": book_updates}
+            )
+
+    if not dry_run:
+        conn.commit()
+
+    _print_sort_summary(totals, sample_updates, dry_run)
     conn.close()
 
 

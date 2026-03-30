@@ -1,8 +1,14 @@
 """Verify preflight check infrastructure exists in upgrade.sh."""
 
+import pytest
 from pathlib import Path
 
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
+
+pytestmark = pytest.mark.skipif(
+    not UPGRADE_SH.is_file(),
+    reason="upgrade.sh not present (deployed installation)",
+)
 
 
 def test_preflight_functions_exist():
