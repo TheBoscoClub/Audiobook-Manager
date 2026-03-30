@@ -53,36 +53,16 @@ def find_corrupted_files():
     return corrupted
 
 
-def main():
-    print("Scanning for corrupted/empty audiobook files...")
-    print()
-
-    corrupted = find_corrupted_files()
-
-    if not corrupted:
-        print("✓ No corrupted files found! All audiobooks are valid.")
-        return
-
-    # Sort by title
-    corrupted.sort(key=lambda x: x["title"].lower())
-
-    print(f"Found {len(corrupted)} corrupted/empty audiobook files")
-    print()
-
-    # Group by directory
-    by_directory = {}
+def _group_by_directory(corrupted: list[dict]) -> dict[str, list[dict]]:
+    """Group corrupted file entries by their parent directory name."""
+    by_directory: dict[str, list[dict]] = {}
     for item in corrupted:
-        dir_name = item["directory"]
-        if dir_name not in by_directory:
-            by_directory[dir_name] = []
-        by_directory[dir_name].append(item)
+        by_directory.setdefault(item["directory"], []).append(item)
+    return by_directory
 
-    print("Breakdown by directory:")
-    for dir_name, items in sorted(by_directory.items()):
-        print(f"  {dir_name}: {len(items)} files")
-    print()
 
-    # Save to CSV
+def _save_csv(corrupted: list[dict]) -> None:
+    """Save corrupted files list to CSV."""
     print(f"Saving list to {OUTPUT_CSV}...")
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
@@ -91,7 +71,9 @@ def main():
         writer.writeheader()
         writer.writerows(corrupted)
 
-    # Save to text file (easier to read)
+
+def _save_txt(corrupted: list[dict], by_directory: dict[str, list[dict]]) -> None:
+    """Save corrupted files list to human-readable text file."""
     print(f"Saving list to {OUTPUT_TXT}...")
     with open(OUTPUT_TXT, "w", encoding="utf-8") as f:
         f.write("MISSING/CORRUPTED AUDIOBOOKS\n")
@@ -105,7 +87,6 @@ def main():
         f.write("5. Run the scanner again to update your library\n\n")
         f.write("=" * 80 + "\n\n")
 
-        # Group by directory for readability
         for dir_name, items in sorted(by_directory.items()):
             f.write(f"\n{'=' * 80}\n")
             f.write(f"DIRECTORY: {dir_name} ({len(items)} files)\n")
@@ -117,7 +98,9 @@ def main():
                 f.write(f"   Path: {item['path']}\n")
                 f.write("\n")
 
-    # Display sample
+
+def _print_sample(corrupted: list[dict]) -> None:
+    """Print a sample of corrupted files and output file locations."""
     print()
     print("=" * 80)
     print("SAMPLE OF MISSING AUDIOBOOKS (first 20):")
@@ -140,6 +123,32 @@ def main():
     print("TIP: You can import the CSV file into a spreadsheet to track")
     print("     which audiobooks you've re-downloaded.")
     print()
+
+
+def main():
+    print("Scanning for corrupted/empty audiobook files...")
+    print()
+
+    corrupted = find_corrupted_files()
+
+    if not corrupted:
+        print("✓ No corrupted files found! All audiobooks are valid.")
+        return
+
+    corrupted.sort(key=lambda x: x["title"].lower())
+    print(f"Found {len(corrupted)} corrupted/empty audiobook files")
+    print()
+
+    by_directory = _group_by_directory(corrupted)
+
+    print("Breakdown by directory:")
+    for dir_name, items in sorted(by_directory.items()):
+        print(f"  {dir_name}: {len(items)} files")
+    print()
+
+    _save_csv(corrupted)
+    _save_txt(corrupted, by_directory)
+    _print_sample(corrupted)
 
 
 if __name__ == "__main__":
