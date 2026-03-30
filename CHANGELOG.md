@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Shell header restructure**: Shell header reorganized per user feedback — navigation and controls reordered for improved usability
 - **`index.html` redirect**: Direct access to `index.html` now redirects to shell wrapper; all shell navigation links target the iframe
+- **Complexity refactoring**: Refactored 84 functions from C/D/E/F-grade cyclomatic complexity down to A/B-grade across 47 files — decomposed using helper extraction, table-driven dispatch, and guard clauses for improved maintainability, readability, and testability
+- **Architecture documentation**: Added "Code Quality & Complexity Management" section to ARCHITECTURE.md documenting the complexity policy, refactoring patterns used, and enforcement via `/test` audits
 
 ### Fixed
 
@@ -24,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shell navigation links**: Shell header links now correctly target the iframe instead of the top-level window
 - **Sort preference persistence**: Sort preference now persists correctly in shell header; Help and Back Office buttons restored
 - **Audit fixes**: SC2024 sudo redirect corrections, script permissions, markdown formatting, and Caddy config formatting
+- **Bandit B608 cleanup**: Removed 12 stale `nosec B608` annotations from non-f-string lines; added proper suppression to 40 false-positive SQL f-strings using module constants
+- **Converter service**: Added `LimitNOFILE=65536` to `audiobook-converter.service` matching API service configuration
 
 ## [8.0.1] - 2026-03-29
 
