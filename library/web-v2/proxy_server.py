@@ -221,6 +221,12 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error(405, "Method Not Allowed")
 
+    def do_PATCH(self):
+        if self._is_proxy_path():
+            self.proxy_to_api("PATCH")
+        else:
+            self.send_error(405, "Method Not Allowed")
+
     def do_DELETE(self):
         if self._is_proxy_path():
             self.proxy_to_api("DELETE")
@@ -232,7 +238,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
         self.send_header(
-            "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"
+            "Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         )
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Range")
         self.send_header(
@@ -340,8 +346,8 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         return headers
 
     def _read_request_body(self, method: str) -> bytes | None:
-        """Read request body for POST/PUT methods."""
-        if method not in ("POST", "PUT"):
+        """Read request body for POST/PUT/PATCH methods."""
+        if method not in ("POST", "PUT", "PATCH"):
             return None
         content_length = int(self.headers.get("Content-Length", 0))
         return self.rfile.read(content_length) if content_length > 0 else None
