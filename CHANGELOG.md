@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.2] - 2026-03-31
+
+### Fixed
+
+- **Live Connections race condition**: Shell and iframe both opened competing WebSocket connections with the same session cookie. When the iframe's WS replaced the shell's in ConnectionManager, the shell's finally-block unregistered by session_id — nuking the iframe's connection too, resulting in "Live Connections: 0" even with active users. Server-side `unregister()` is now ownership-aware (only removes if WS object matches). Client-side iframe now receives events via `postMessage` bridge from the parent shell instead of opening a duplicate WebSocket.
+
 ## [8.0.1.5] - 2026-03-31
 
 ### Added
@@ -2433,7 +2439,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.5...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2...HEAD
+[8.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.5...v8.0.2
 [8.0.1.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.4...v8.0.1.5
 [8.0.1.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.3...v8.0.1.4
 [8.0.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.2...v8.0.1.3
