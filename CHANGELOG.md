@@ -15,8 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [8.0.3] - 2026-03-31
 
+### Added
+
+- **Logrotate configuration**: `config/logrotate-audiobooks` added to project and installed to `/etc/logrotate.d/audiobooks` by both `install.sh` and `upgrade.sh`; `uninstall.sh` removes it on teardown. Prevents `/var/log/audiobooks/` from growing unbounded.
+
 ### Fixed
 
+- **Database path consistency**: `install.sh` was initializing the database at `/var/lib/audiobooks/audiobooks.db` instead of `/var/lib/audiobooks/db/audiobooks.db` (the canonical path used by all other components). Now creates the `db/` subdirectory and places the database there.
+- **Systemd service cleanup**: Removed legacy `ExecStartPre` from `audiobook-api.service` that attempted to create `/opt/audiobooks/library/data/` at service start — this conflicted with `ProtectSystem=strict` which makes the filesystem read-only at runtime.
 - **User preferences not applied on page load**: View mode (grid/list) and items per page were saved to the server but never loaded or applied when the library page loaded — only sort order was being restored. Added preference loading from both localStorage (instant) and server API (cross-device sync) for all browsing preferences
 - **List view mode**: Added full list-view CSS layout — single-column grid with horizontal card layout (cover, title/author, actions), responsive mobile breakpoints
 - **Items per page option mismatch**: Shell.html preferences modal offered 20/24/50/100 while the library page selector offered 25/50/100/200; unified to 25/50/100/200 across both locations
