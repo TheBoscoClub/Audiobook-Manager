@@ -1,0 +1,18 @@
+# Audiobook Manager log rotation
+# Installed to /etc/logrotate.d/audiobooks by install.sh
+# Paths are configured via AUDIOBOOKS_LOGS in /etc/audiobooks/audiobooks.conf
+
+/var/log/audiobooks/*.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 audiobooks audiobooks
+    sharedscripts
+    postrotate
+        # Signal services to reopen log files if they hold file handles
+        systemctl try-reload-or-restart audiobook-converter.service 2>/dev/null || true
+    endscript
+}

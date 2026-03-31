@@ -262,6 +262,11 @@
       "path": "/var/lib/audiobooks/db/audiobooks.db",
       "required": true,
       "description": "SQLite database (canonical, in db/ subdirectory)"
+    },
+    {
+      "path": "/etc/logrotate.d/audiobooks",
+      "required": false,
+      "description": "Log rotation configuration"
     }
   ],
 
