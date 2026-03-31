@@ -312,7 +312,7 @@ def _check_preflight_gate(force: bool) -> FlaskResponse | None:
     return None
 
 
-def _write_request_or_error() -> FlaskResponse | None:
+def _write_request_or_error() -> FlaskResponse:
     """Shared error response for failed request writes."""
     return (
         jsonify({"error": "Failed to write request (permission denied)"}),

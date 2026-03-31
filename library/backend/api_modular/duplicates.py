@@ -16,7 +16,7 @@ from .core import FlaskResponse, get_db
 duplicates_bp = Blueprint("duplicates", __name__)
 
 # Module-level db_path, set by init_duplicates_routes()
-_db_path: str = ""
+_db_path: Path = Path()
 
 
 def _sanitize_for_log(value: str) -> str:

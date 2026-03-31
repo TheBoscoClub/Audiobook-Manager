@@ -19,7 +19,7 @@ from config import COVER_DIR
 utilities_crud_bp = Blueprint("utilities_crud", __name__)
 
 # Module-level db_path, set once by init_crud_routes()
-_db_path: str = ""
+_db_path: Path = Path()
 
 # Fields allowed for single-audiobook update
 _UPDATE_ALLOWED_FIELDS = [
