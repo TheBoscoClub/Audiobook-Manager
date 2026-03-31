@@ -29,22 +29,33 @@ class TestRegisterEdgeCases:
         conn = self.mgr.get_connection("s1")
         assert conn["username"] == "anonymous"
 
-    def test_register_replaces_old_and_closes(self):
+    def test_register_replaces_old_silently(self):
         old_ws = MagicMock()
         new_ws = MagicMock()
         self.mgr.register("s1", old_ws, "alice")
         self.mgr.register("s1", new_ws, "alice")
-        old_ws.close.assert_called_once()
+        # Old WS is NOT force-closed — its handler will notice
+        # the disconnect naturally and call ownership-aware unregister
+        old_ws.close.assert_not_called()
         assert self.mgr.active_count() == 1
 
-    def test_register_old_close_exception_ignored(self):
+    def test_unregister_ownership_aware(self):
         old_ws = MagicMock()
-        old_ws.close.side_effect = Exception("already closed")
         new_ws = MagicMock()
         self.mgr.register("s1", old_ws, "alice")
-        # Should not raise
         self.mgr.register("s1", new_ws, "alice")
+        # Old handler tries to unregister — should NOT remove the new WS
+        self.mgr.unregister("s1", ws=old_ws)
         assert self.mgr.active_count() == 1
+        # New handler unregisters with matching WS — should succeed
+        self.mgr.unregister("s1", ws=new_ws)
+        assert self.mgr.active_count() == 0
+
+    def test_unregister_without_ws_removes_unconditionally(self):
+        ws = MagicMock()
+        self.mgr.register("s1", ws, "alice")
+        self.mgr.unregister("s1")
+        assert self.mgr.active_count() == 0
 
     def test_register_sets_connected_at(self):
         ws = MagicMock()
