@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.2.1] - 2026-03-31
+
+### Changed
+
+- **Favicon updated to smile-book variant**: Replaced all 8 favicon/PWA assets (SVG, ICO, 16/32px PNG, apple-touch-icon, Android Chrome 192/512px) with upward-flipped book chevron ("smile") design. Updated Caddy maintenance page inline SVG data URI to match.
+
 ## [8.0.2] - 2026-03-31
 
 ### Fixed
@@ -2439,7 +2445,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.1...HEAD
+[8.0.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2...v8.0.2.1
 [8.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.5...v8.0.2
 [8.0.1.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.4...v8.0.1.5
 [8.0.1.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.3...v8.0.1.4
