@@ -1288,6 +1288,7 @@ do_system_install() {
     sudo mkdir -p "${data_dir}/Supplements"
     sudo mkdir -p "/var/lib/audiobooks"
     sudo mkdir -p "/var/lib/audiobooks/data"
+    sudo mkdir -p "/var/lib/audiobooks/db"
     sudo mkdir -p "/var/log/audiobooks"
     sudo mkdir -p "${data_dir}/.index"
     sudo chown -R audiobooks:audiobooks "/var/lib/audiobooks"
@@ -1297,6 +1298,13 @@ do_system_install() {
     sudo chown audiobooks:audiobooks "${data_dir}/Sources"
     sudo chown audiobooks:audiobooks "${data_dir}/Supplements"
     sudo chown audiobooks:audiobooks "${data_dir}/.index"
+
+    # Install logrotate configuration
+    if [[ -f "${SCRIPT_DIR}/config/logrotate-audiobooks" ]]; then
+        sudo cp "${SCRIPT_DIR}/config/logrotate-audiobooks" /etc/logrotate.d/audiobooks
+        sudo chmod 644 /etc/logrotate.d/audiobooks
+        echo "  Installed: /etc/logrotate.d/audiobooks"
+    fi
 
     # Install library files
     echo -e "${BLUE}Installing library files...${NC}"
@@ -1349,7 +1357,7 @@ AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
 
 # Application directories
 AUDIOBOOKS_HOME="${APP_DIR}"
-AUDIOBOOKS_DATABASE="/var/lib/audiobooks/audiobooks.db"
+AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
 AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
 AUDIOBOOKS_CERTS="\${AUDIOBOOKS_HOME}/library/certs"
 AUDIOBOOKS_LOGS="/var/log/audiobooks"
@@ -1419,7 +1427,7 @@ CFEOF
     sudo chown audiobooks:audiobooks "/var/lib/audiobooks"
 
     # Initialize audiobook database if it doesn't exist
-    local db_file="/var/lib/audiobooks/audiobooks.db"
+    local db_file="/var/lib/audiobooks/db/audiobooks.db"
     if [[ ! -f "$db_file" ]]; then
         echo -e "${BLUE}Initializing database...${NC}"
         local schema_file="${APP_DIR}/library/backend/schema.sql"
@@ -1820,6 +1828,7 @@ do_user_install() {
     mkdir -p "${data_dir}/Sources"
     mkdir -p "${data_dir}/Supplements"
     mkdir -p "${STATE_DIR}"
+    mkdir -p "${STATE_DIR}/db"
     mkdir -p "${LOG_DIR}"
     mkdir -p "${SYSTEMD_DIR}"
 
@@ -1862,7 +1871,7 @@ AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
 
 # Application directories
 AUDIOBOOKS_HOME="${LIB_DIR}"
-AUDIOBOOKS_DATABASE="${STATE_DIR}/audiobooks.db"
+AUDIOBOOKS_DATABASE="${STATE_DIR}/db/audiobooks.db"
 AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
 AUDIOBOOKS_CERTS="${CONFIG_DIR}/certs"
 AUDIOBOOKS_LOGS="${LOG_DIR}"
@@ -2133,7 +2142,7 @@ Environment=AUDIOBOOKS_DATA=${data_dir}
 Environment=AUDIOBOOKS_LIBRARY=${data_dir}/Library
 Environment=AUDIOBOOKS_SOURCES=${data_dir}/Sources
 Environment=AUDIOBOOKS_SUPPLEMENTS=${data_dir}/Supplements
-Environment=AUDIOBOOKS_DATABASE=${STATE_DIR}/audiobooks.db
+Environment=AUDIOBOOKS_DATABASE=${STATE_DIR}/db/audiobooks.db
 Environment=AUDIOBOOKS_COVERS=${LIB_DIR}/library/web-v2/covers
 Environment=AUDIOBOOKS_CERTS=${CONFIG_DIR}/certs
 Environment=AUDIOBOOKS_LOGS=${LOG_DIR}

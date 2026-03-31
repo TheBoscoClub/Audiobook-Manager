@@ -1372,6 +1372,17 @@ do_upgrade() {
             fi
         fi
 
+        # Install/update logrotate configuration
+        if [[ -f "${project}/config/logrotate-audiobooks" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would update logrotate configuration"
+            else
+                sudo cp "${project}/config/logrotate-audiobooks" /etc/logrotate.d/audiobooks
+                sudo chmod 644 /etc/logrotate.d/audiobooks
+                echo "  Updated: /etc/logrotate.d/audiobooks"
+            fi
+        fi
+
         # Install/update tmpfiles.d configuration for runtime directories
         if [[ -f "${project}/systemd/audiobooks-tmpfiles.conf" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then

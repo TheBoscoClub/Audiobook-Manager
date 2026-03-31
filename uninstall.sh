@@ -210,7 +210,7 @@ confirm_uninstall() {
         echo "  - State/database: /var/lib/audiobooks/"
         echo "  - Logs: /var/log/audiobooks/"
         echo "  - Shared library: /usr/local/lib/audiobooks"
-        echo "  - tmpfiles.d and profile.d configs"
+        echo "  - tmpfiles.d, logrotate, and profile.d configs"
         echo "  - Runtime/temp files in /tmp/"
         echo "  - System user and group: audiobooks"
     else
@@ -413,6 +413,9 @@ remove_system_configs() {
     for f in /usr/lib/tmpfiles.d/audiobook*; do
         remove_file "$f" "$use_sudo"
     done
+
+    # logrotate
+    remove_file "/etc/logrotate.d/audiobooks" "$use_sudo"
 
     # profile.d
     remove_file "/etc/profile.d/audiobooks.sh" "$use_sudo"

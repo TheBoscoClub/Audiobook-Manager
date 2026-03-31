@@ -25,8 +25,6 @@ Environment=PYTHONUNBUFFERED=1
 # HOME is needed for audible-cli to find its config at ~/.audible/
 Environment=HOME=/var/lib/audiobooks
 
-# Ensure library/data dir exists (older installs may reference it in ReadWritePaths)
-ExecStartPre=+/bin/sh -c 'mkdir -p /opt/audiobooks/library/data && chown audiobooks:audiobooks /opt/audiobooks/library/data'
 # Only start if port is not already in use (uses ss from iproute2, always available)
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_API_PORT} "'
 # Gunicorn with gevent worker for cooperative I/O + WebSocket support.
