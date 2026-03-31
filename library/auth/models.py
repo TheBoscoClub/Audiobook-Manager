@@ -1932,7 +1932,7 @@ class UserSettingsRepository:
     DEFAULTS = {
         "sort_order": "title_asc",
         "view_mode": "grid",
-        "items_per_page": "24",
+        "items_per_page": "50",
         "default_collection": "",
         "content_filter": "all",
         "playback_speed": "1",

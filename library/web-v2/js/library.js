@@ -8,6 +8,7 @@ class AudiobookLibraryV2 {
   constructor() {
     this.currentPage = 1;
     this.perPage = 50;
+    this.viewMode = "grid"; // "grid" or "list"
     this.totalPages = 1;
     this.totalCount = 0;
     this.currentFilters = {
@@ -597,27 +598,76 @@ class AudiobookLibraryV2 {
     const localSort = localStorage.getItem("audiobook_sort_order");
     this._applySortString(localSort);
 
+    // Apply locally-cached view_mode and items_per_page immediately (no flash)
+    const localViewMode = localStorage.getItem("audiobook_view_mode");
+    if (localViewMode === "grid" || localViewMode === "list") {
+      this._applyViewMode(localViewMode);
+    }
+    const localPerPage = localStorage.getItem("audiobook_items_per_page");
+    if (localPerPage) {
+      this._applyItemsPerPage(localPerPage);
+    }
+
     if (!this.user) return;
     try {
       const prefs = await api.get("/api/user/preferences", { toast: false });
-      const serverSort = prefs && prefs.sort_order;
-      if (!serverSort) return;
+      if (!prefs) return;
 
-      if (localSort && localSort !== serverSort) {
-        // localStorage disagrees with server — a previous PATCH may have been
-        // cancelled during iframe navigation.  Push local value to server so
-        // they converge (localStorage was the most recent write in this browser).
-        api.patch("/api/user/preferences", { sort_order: localSort },
-          { toast: false, keepalive: true }).catch(() => {});
-      } else if (!localSort) {
-        // No local preference yet (new device / cleared cache) — seed from server
-        this._applySortString(serverSort);
-        localStorage.setItem("audiobook_sort_order", serverSort);
+      // --- sort_order ---
+      const serverSort = prefs.sort_order;
+      if (serverSort) {
+        if (localSort && localSort !== serverSort) {
+          api.patch("/api/user/preferences", { sort_order: localSort },
+            { toast: false, keepalive: true }).catch(() => {});
+        } else if (!localSort) {
+          this._applySortString(serverSort);
+          localStorage.setItem("audiobook_sort_order", serverSort);
+        }
       }
-      // If they already agree, nothing to do — localStorage was applied above
+
+      // --- view_mode ---
+      const serverViewMode = prefs.view_mode;
+      if (serverViewMode) {
+        if (localViewMode && localViewMode !== serverViewMode) {
+          api.patch("/api/user/preferences", { view_mode: localViewMode },
+            { toast: false, keepalive: true }).catch(() => {});
+        } else if (!localViewMode) {
+          this._applyViewMode(serverViewMode);
+          localStorage.setItem("audiobook_view_mode", serverViewMode);
+        }
+      }
+
+      // --- items_per_page ---
+      const serverPerPage = prefs.items_per_page;
+      if (serverPerPage) {
+        if (localPerPage && localPerPage !== serverPerPage) {
+          api.patch("/api/user/preferences", { items_per_page: localPerPage },
+            { toast: false, keepalive: true }).catch(() => {});
+        } else if (!localPerPage) {
+          this._applyItemsPerPage(serverPerPage);
+          localStorage.setItem("audiobook_items_per_page", serverPerPage);
+        }
+      }
     } catch (_e) {
-      // API unavailable — localStorage value already applied above
+      // API unavailable — localStorage values already applied above
     }
+  }
+
+  _applyViewMode(mode) {
+    if (mode !== "grid" && mode !== "list") return;
+    this.viewMode = mode;
+    const grid = document.getElementById("books-grid");
+    if (grid) {
+      grid.classList.toggle("list-view", mode === "list");
+    }
+  }
+
+  _applyItemsPerPage(value) {
+    const num = parseInt(value);
+    if (![25, 50, 100, 200].includes(num)) return;
+    this.perPage = num;
+    const perPageSelect = document.getElementById("per-page");
+    if (perPageSelect) perPageSelect.value = String(num);
   }
 
   showLoading(show = true) {
@@ -1494,6 +1544,7 @@ class AudiobookLibraryV2 {
   renderBooks(books) {
     const grid = document.getElementById("books-grid");
     grid.classList.remove("grouped-view");
+    grid.classList.toggle("list-view", this.viewMode === "list");
 
     if (books.length === 0) {
       grid.innerHTML = `
@@ -2580,6 +2631,11 @@ class AudiobookLibraryV2 {
     document.getElementById("per-page").addEventListener("change", (e) => {
       this.perPage = parseInt(e.target.value);
       this.currentPage = 1;
+      localStorage.setItem("audiobook_items_per_page", e.target.value);
+      if (this.user) {
+        api.patch("/api/user/preferences", { items_per_page: e.target.value },
+          { toast: false, keepalive: true }).catch(() => {});
+      }
       this.loadAudiobooks();
     });
 

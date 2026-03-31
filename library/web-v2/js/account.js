@@ -389,7 +389,7 @@
   // ── Preferences: load, bind, save ──
 
   var PREF_DEFAULTS = {
-    sort_order: 'title_asc', view_mode: 'grid', items_per_page: '24',
+    sort_order: 'title_asc', view_mode: 'grid', items_per_page: '50',
     content_filter: 'all', playback_speed: '1', sleep_timer: '0',
     auto_play_series: 'false'
   };
@@ -430,9 +430,13 @@
   function saveBrowsingPref(key, value) {
     var body = {};
     body[key] = value;
-    // Keep localStorage in sync so the main page sort restores correctly
+    // Keep localStorage in sync so the main page restores preferences correctly
     if (key === 'sort_order') {
       localStorage.setItem('audiobook_sort_order', value);
+    } else if (key === 'view_mode') {
+      localStorage.setItem('audiobook_view_mode', value);
+    } else if (key === 'items_per_page') {
+      localStorage.setItem('audiobook_items_per_page', value);
     }
     api.patch('/api/user/preferences', body, { toast: false, keepalive: true }).catch(function () {});
   }
