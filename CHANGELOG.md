@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.3] - 2026-03-31
+
+### Fixed
+
+- **User preferences not applied on page load**: View mode (grid/list) and items per page were saved to the server but never loaded or applied when the library page loaded — only sort order was being restored. Added preference loading from both localStorage (instant) and server API (cross-device sync) for all browsing preferences
+- **List view mode**: Added full list-view CSS layout — single-column grid with horizontal card layout (cover, title/author, actions), responsive mobile breakpoints
+- **Items per page option mismatch**: Shell.html preferences modal offered 20/24/50/100 while the library page selector offered 25/50/100/200; unified to 25/50/100/200 across both locations
+- **Default items_per_page**: Fixed backend and frontend defaults from "24" (not a valid option) to "50"
+- **Accessibility settings not applied in iframe pages**: `a11y-consumer.css` was created with font-size, line-spacing, contrast, color temperature, and panel darkness rules, but was never linked in any iframe-loadable page (index, utilities, admin, help, about, contact). The shell's `accessibility.js` injected CSS custom properties into the iframe DOM on every load, but without the consuming stylesheet they had zero visual effect
+
 ## [8.0.2.2] - 2026-03-31
 
 ### Fixed
@@ -2452,7 +2462,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3...HEAD
+[8.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.2...v8.0.3
 [8.0.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.1...v8.0.2.2
 [8.0.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2...v8.0.2.1
 [8.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.5...v8.0.2
