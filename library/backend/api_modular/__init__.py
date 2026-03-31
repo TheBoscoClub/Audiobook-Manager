@@ -218,7 +218,7 @@ def _setup_websocket(flask_app, database_path):
         except Exception:
             pass
         finally:
-            connection_manager.unregister(session_id)
+            connection_manager.unregister(session_id, ws=ws)
 
     @flask_app.route("/api/admin/connections")
     @admin_if_enabled

@@ -28,15 +28,14 @@ class ConnectionManager:
         self._lock = threading.Lock()
 
     def register(self, session_id, ws, username=None):
-        """Register a new WebSocket connection."""
+        """Register a new WebSocket connection.
+
+        If a connection already exists for this session_id, it is
+        silently replaced.  The old WS is NOT closed here — the old
+        handler's receive loop will notice the timeout or disconnect
+        on its own and call unregister (which is ownership-aware).
+        """
         with self._lock:
-            if session_id in self._connections:
-                old_ws = self._connections[session_id].get("ws")
-                try:
-                    if old_ws:
-                        old_ws.close()
-                except Exception:
-                    pass
             self._connections[session_id] = {
                 "ws": ws,
                 "username": username or "anonymous",
@@ -45,9 +44,18 @@ class ConnectionManager:
                 "connected_at": time.time(),
             }
 
-    def unregister(self, session_id):
-        """Remove a WebSocket connection."""
+    def unregister(self, session_id, ws=None):
+        """Remove a WebSocket connection.
+
+        If *ws* is given, only remove the entry when the stored WS
+        object matches.  This prevents a stale handler from removing
+        a replacement connection that was registered after it.
+        """
         with self._lock:
+            if ws is not None:
+                conn = self._connections.get(session_id)
+                if conn and conn["ws"] is not ws:
+                    return
             self._connections.pop(session_id, None)
 
     def heartbeat(self, session_id, state="idle"):

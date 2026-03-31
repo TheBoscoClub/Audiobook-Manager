@@ -5,6 +5,8 @@
  * - Auto-reconnects with exponential backoff (1s -> 30s max)
  * - Falls back to REST polling after 3 failed WebSocket attempts
  * - Dispatches custom DOM events for downstream consumers
+ * - In iframe context: receives events from parent shell via postMessage
+ *   instead of opening a duplicate WebSocket connection
  */
 (function () {
   "use strict";
@@ -20,6 +22,7 @@
   var retryCount = 0;
   var retryTimer = null;
   var usingPolling = false;
+  var isIframe = window.parent !== window;
 
   function getPlayerState() {
     var audio = document.getElementById("audio-player");
@@ -30,7 +33,48 @@
 
   function dispatch(eventName, detail) {
     document.dispatchEvent(new CustomEvent(eventName, { detail: detail }));
+    // Forward events to iframe so its scripts receive them too
+    if (!isIframe) {
+      var iframe = document.getElementById("content-frame");
+      if (iframe && iframe.contentWindow) {
+        try {
+          iframe.contentWindow.postMessage(
+            { source: "audiobook-ws", eventName: eventName, detail: detail },
+            location.origin
+          );
+        } catch (e) { /* iframe may not be ready */ }
+      }
+    }
   }
+
+  // --- Iframe mode: relay events from parent shell, no own WebSocket ---
+  if (isIframe) {
+    window.addEventListener("message", function (e) {
+      if (e.origin !== location.origin) return;
+      if (e.data && e.data.source === "audiobook-ws") {
+        document.dispatchEvent(
+          new CustomEvent(e.data.eventName, { detail: e.data.detail })
+        );
+      }
+    });
+    window.audioWs = {
+      isConnected: function () {
+        try { return window.parent.audioWs && window.parent.audioWs.isConnected(); }
+        catch (e) { return false; }
+      },
+      isPolling: function () {
+        try { return window.parent.audioWs && window.parent.audioWs.isPolling(); }
+        catch (e) { return false; }
+      },
+      reconnect: function () {
+        try { if (window.parent.audioWs) window.parent.audioWs.reconnect(); }
+        catch (e) { /* cross-frame access failed */ }
+      },
+    };
+    return; // Do not open a WebSocket from iframe
+  }
+
+  // --- Shell mode: own WebSocket connection ---
 
   function connect() {
     if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
