@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.2.2] - 2026-03-31
+
+### Fixed
+
+- **Mypy type errors resolved**: Fixed 47 type errors across 5 api_modular files — `get_db()` calls now use `Path` instead of `str`/`None`, added None guards for unconfigured database paths, removed implicit `None` returns from Flask route handlers
+- **Dependabot auto-merge workflow**: Updated `dependabot/fetch-metadata` from invalid SHA (v2.4.0) to `v3.0.0` — workflow was failing on every Dependabot PR due to unresolvable action reference
+
 ## [8.0.2.1] - 2026-03-31
 
 ### Changed
@@ -2445,7 +2452,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.2...HEAD
+[8.0.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.1...v8.0.2.2
 [8.0.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2...v8.0.2.1
 [8.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.5...v8.0.2
 [8.0.1.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.4...v8.0.1.5

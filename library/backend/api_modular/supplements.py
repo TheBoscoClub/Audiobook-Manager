@@ -4,7 +4,7 @@ Supplement endpoints - PDF, ebook, and other companion files for audiobooks.
 
 from pathlib import Path
 
-from flask import Blueprint, Response, jsonify, send_file
+from flask import Blueprint, jsonify, send_file
 
 from .core import FlaskResponse, get_db
 from .auth import guest_allowed, download_permission_required, admin_if_enabled
@@ -12,8 +12,8 @@ from .auth import guest_allowed, download_permission_required, admin_if_enabled
 supplements_bp = Blueprint("supplements", __name__)
 
 # Module-level state set by init_supplements_routes()
-_db_path = None
-_supplements_dir = None
+_db_path: Path | None = None
+_supplements_dir: Path | None = None
 
 # Extension-to-type mapping for supplement files
 _SUPPLEMENT_TYPE_MAP = {
@@ -93,8 +93,10 @@ def _process_supplement_file(file_path: Path, cursor, existing_paths: set[str]) 
 
 @supplements_bp.route("/api/supplements", methods=["GET"])
 @guest_allowed
-def get_all_supplements() -> Response:
+def get_all_supplements() -> FlaskResponse:
     """Get all supplements in the library"""
+    if _db_path is None:
+        return jsonify({"error": "database not configured"}), 500
     conn = get_db(_db_path)
     cursor = conn.cursor()
 
@@ -113,8 +115,10 @@ def get_all_supplements() -> Response:
 
 @supplements_bp.route("/api/supplements/stats", methods=["GET"])
 @guest_allowed
-def get_supplement_stats() -> Response:
+def get_supplement_stats() -> FlaskResponse:
     """Get supplement statistics"""
+    if _db_path is None:
+        return jsonify({"error": "database not configured"}), 500
     conn = get_db(_db_path)
     cursor = conn.cursor()
 
@@ -147,8 +151,10 @@ def get_supplement_stats() -> Response:
 
 @supplements_bp.route("/api/audiobooks/<int:audiobook_id>/supplements", methods=["GET"])
 @guest_allowed
-def get_audiobook_supplements(audiobook_id: int) -> Response:
+def get_audiobook_supplements(audiobook_id: int) -> FlaskResponse:
     """Get supplements for a specific audiobook"""
+    if _db_path is None:
+        return jsonify({"error": "database not configured"}), 500
     conn = get_db(_db_path)
     cursor = conn.cursor()
 
@@ -176,6 +182,8 @@ def get_audiobook_supplements(audiobook_id: int) -> Response:
 @download_permission_required
 def download_supplement(supplement_id: int) -> FlaskResponse:
     """Download/serve a supplement file"""
+    if _db_path is None:
+        return jsonify({"error": "database not configured"}), 500
     conn = get_db(_db_path)
     cursor = conn.cursor()
 
@@ -208,9 +216,11 @@ def scan_supplements() -> FlaskResponse:
     Scan the supplements directory and update the database.
     Links supplements to audiobooks by matching filenames to titles.
     """
-    if not _supplements_dir.exists():
+    if _supplements_dir is None or not _supplements_dir.exists():
         return jsonify({"error": "Supplements directory not found"}), 404
 
+    if _db_path is None:
+        return jsonify({"error": "database not configured"}), 500
     conn = get_db(_db_path)
     cursor = conn.cursor()
 

@@ -6,8 +6,9 @@ Handles rescan, reimport, hash generation, vacuum, and export operations.
 import logging
 import subprocess
 import sys
+from pathlib import Path
 
-from flask import Blueprint, Response, jsonify, send_file
+from flask import Blueprint, jsonify, send_file
 
 from .auth import admin_if_enabled
 from .core import FlaskResponse, get_db
@@ -15,8 +16,8 @@ from .core import FlaskResponse, get_db
 utilities_db_bp = Blueprint("utilities_db", __name__)
 
 # Module-level state, set by init_db_routes()
-_db_path = None
-_project_root = None
+_db_path: Path | None = None
+_project_root: Path | None = None
 
 
 def _truncate_output(output: str, max_len: int = 2000) -> str:
@@ -103,6 +104,8 @@ def _error_response(message: str, status: int = 500) -> FlaskResponse:
 @admin_if_enabled
 def rescan_library() -> FlaskResponse:
     """Trigger a library rescan."""
+    if _project_root is None:
+        return _error_response("Project root not configured")
     scanner_path = _project_root / "scanner" / "scan_audiobooks.py"
     if not scanner_path.exists():
         return _error_response("Scanner script not found")
@@ -122,6 +125,8 @@ def rescan_library() -> FlaskResponse:
 @admin_if_enabled
 def reimport_database() -> FlaskResponse:
     """Reimport audiobooks to database."""
+    if _project_root is None:
+        return _error_response("Project root not configured")
     import_path = _project_root / "backend" / "import_to_db.py"
     if not import_path.exists():
         return _error_response("Import script not found")
@@ -143,6 +148,8 @@ def reimport_database() -> FlaskResponse:
 @admin_if_enabled
 def generate_hashes() -> FlaskResponse:
     """Generate SHA-256 hashes for audiobooks."""
+    if _project_root is None:
+        return _error_response("Project root not configured")
     hash_script = _project_root / "scripts" / "generate_hashes.py"
     if not hash_script.exists():
         return _error_response("Hash generation script not found")
@@ -164,6 +171,8 @@ def generate_hashes() -> FlaskResponse:
 @admin_if_enabled
 def vacuum_database() -> FlaskResponse:
     """Vacuum the SQLite database to reclaim space."""
+    if _db_path is None:
+        return _error_response("Database not configured")
     conn = get_db(_db_path)
     try:
         size_before = _db_path.stat().st_size
@@ -189,6 +198,8 @@ def vacuum_database() -> FlaskResponse:
 @admin_if_enabled
 def export_database() -> FlaskResponse:
     """Download the SQLite database file."""
+    if _db_path is None:
+        return jsonify({"error": "Database not found"}), 404
     if _db_path.exists():
         return send_file(
             _db_path,
@@ -201,13 +212,15 @@ def export_database() -> FlaskResponse:
 
 @utilities_db_bp.route("/api/utilities/export-json", methods=["GET"])
 @admin_if_enabled
-def export_json() -> Response:
+def export_json() -> FlaskResponse:
     """Export library as JSON."""
     import json
     from datetime import datetime
 
     from flask import current_app
 
+    if _db_path is None:
+        return jsonify({"error": "Database not configured"}), 500
     conn = get_db(_db_path)
     cursor = conn.cursor()
     cursor.execute("""
@@ -238,7 +251,7 @@ def export_json() -> Response:
 
 @utilities_db_bp.route("/api/utilities/export-csv", methods=["GET"])
 @admin_if_enabled
-def export_csv() -> Response:
+def export_csv() -> FlaskResponse:
     """Export library as CSV."""
     import csv
     import io
@@ -246,6 +259,8 @@ def export_csv() -> Response:
 
     from flask import current_app
 
+    if _db_path is None:
+        return jsonify({"error": "Database not configured"}), 500
     conn = get_db(_db_path)
     cursor = conn.cursor()
     cursor.execute("""
