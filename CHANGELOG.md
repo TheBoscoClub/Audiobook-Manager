@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.1.5] - 2026-03-31
+
+### Added
+
+- **Favicon and PWA icons**: Custom headphones+book SVG favicon with full browser coverage — SVG, ICO, 16/32px PNG, apple-touch-icon (180px), Android Chrome icons (192/512px), and web app manifest for PWA home screen shortcuts. All 13 standalone HTML pages include favicon link tags. Caddy maintenance page uses inline data URI for self-contained favicon display.
+
 ## [8.0.1.4] - 2026-03-30
 
 ### Changed
@@ -2427,7 +2433,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.4...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.5...HEAD
+[8.0.1.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.4...v8.0.1.5
 [8.0.1.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.3...v8.0.1.4
 [8.0.1.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.2...v8.0.1.3
 [8.0.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.1.1...v8.0.1.2
