@@ -1296,7 +1296,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                                   ▼
                     ┌───────────────────────────────┐
                     │   Initialize database         │
-                    │   /var/lib/audiobooks/        │
+                    │   /var/lib/audiobooks/db/     │
                     │   audiobooks.db               │
                     │   (from schema.sql)           │
                     └───────────────────────────────┘
@@ -1345,6 +1345,13 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                     │   • audiobook-api.service     │
                     │   • audiobook-proxy.service   │
                     │   • audiobook.target          │
+                    └───────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────────┐
+                    │   Install logrotate config    │
+                    │   /etc/logrotate.d/           │
+                    │   audiobooks                  │
                     └───────────────────────────────┘
                                   │
                                   ▼

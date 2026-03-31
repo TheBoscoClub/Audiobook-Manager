@@ -758,6 +758,8 @@ Audiobooks/
 │       │   └── help.css         # Help page styling
 │       ├── proxy_server.py      # HTTPS reverse proxy (serves / as shell.html)
 │       └── redirect_server.py   # HTTP→HTTPS redirect
+├── config/                      # System configuration files installed by install.sh
+│   └── logrotate-audiobooks     # Logrotate config → /etc/logrotate.d/audiobooks
 ├── Dockerfile                   # Docker build file
 ├── docker-compose.yml           # Docker Compose config
 └── README.md
