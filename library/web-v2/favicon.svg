@@ -9,7 +9,7 @@
   <rect x="8" y="30" width="11" height="16" rx="5.5" fill="#e8b84a"/>
   <rect x="45" y="30" width="11" height="16" rx="5.5" fill="#e8b84a"/>
   
-  <!-- Open book - filled chevron shape -->
-  <path d="M13 55 L13 47 L32 41 L51 47 L51 55 L32 49Z" fill="#f0ece4"/>
-  <line x1="32" y1="41" x2="32" y2="49" stroke="#1a5c4c" stroke-width="2"/>
+  <!-- Open book - smile chevron: pages sweep UP, spine at bottom center -->
+  <path d="M13 46 L32 56 L51 46 L51 52 L32 59 L13 52Z" fill="#f0ece4"/>
+  <line x1="32" y1="56" x2="32" y2="59" stroke="#1a5c4c" stroke-width="2"/>
 </svg>
