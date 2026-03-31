@@ -382,6 +382,10 @@ vm-ips.txt
 .session-count
 .playwright-mcp/
 *.png
+# But track favicon/PWA assets
+!library/web-v2/favicon-*.png
+!library/web-v2/apple-touch-icon.png
+!library/web-v2/android-chrome-*.png
 
 # Staged release breadcrumb (two-phase release workflow)
 .staged-release
