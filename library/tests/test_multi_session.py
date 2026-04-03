@@ -248,6 +248,7 @@ class TestUserAllowsMultiSession:
         assert _user_allows_multi_session(user, temp_db) is True
 
 
+@pytest.mark.filterwarnings("ignore::ResourceWarning")
 class TestAdminSettingsAPI:
     """Tests for GET/PATCH /auth/admin/settings endpoints."""
 

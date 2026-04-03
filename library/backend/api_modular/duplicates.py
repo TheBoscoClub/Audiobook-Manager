@@ -14,6 +14,7 @@ from .auth import admin_if_enabled, auth_if_enabled
 from .core import FlaskResponse, get_db
 
 duplicates_bp = Blueprint("duplicates", __name__)
+logger = logging.getLogger(__name__)
 
 # Module-level db_path, set by init_duplicates_routes()
 _db_path: Path = Path()
@@ -96,7 +97,7 @@ def remove_from_indexes(filepath: Path) -> dict:
                 removed[idx_name] = original_count - new_count
         except Exception as e:
             # Use %s formatting to prevent log injection via exception messages
-            logging.warning("Failed to update index %s: %s", idx_name, e)
+            logger.warning("Failed to update index %s: %s", idx_name, e)
 
     return removed
 
@@ -144,7 +145,8 @@ def _build_file_info(fpath: str) -> dict[str, Any]:
             "size_mb": round(size / 1048576, 2),
             "exists": os.path.exists(fpath),
         }
-    except Exception:
+    except Exception as e:
+        logger.debug("Error building file info for %s: %s", fpath, e)
         return {
             "path": fpath,
             "basename": basename,
@@ -170,7 +172,8 @@ def _parse_checksum_index(index_file: str) -> dict[str, list[str]] | None:
                     if checksum not in checksums:
                         checksums[checksum] = []
                     checksums[checksum].append(filepath)
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to parse checksum index %s: %s", index_file, e)
         return None
     return checksums
 
@@ -264,7 +267,8 @@ def _generate_checksums(scan_dir: str, output_file: str, pattern: str) -> dict:
         return {"success": True, "count": count, "file": output_file}
     except subprocess.TimeoutExpired:
         return {"success": False, "error": "Timeout after 10 minutes"}
-    except Exception:
+    except Exception as e:
+        logger.error("Checksum generation failed: %s", e)
         return {"success": False, "error": "Checksum generation failed"}
 
 
@@ -368,8 +372,8 @@ def _perform_deletions(cursor, safe_to_delete: list[int]) -> tuple[list, list]:
             deleted_files.append(
                 {"id": audiobook_id, "title": title, "path": str(file_path)}
             )
-        except Exception:
-            logging.exception("Error deleting audiobook %d", audiobook_id)
+        except Exception as e:
+            logger.exception("Error deleting audiobook %d: %s", audiobook_id, e)
             errors.append(
                 {"id": audiobook_id, "title": title, "error": "Deletion failed"}
             )
@@ -400,11 +404,12 @@ def _delete_library_file_with_db(
             deleted_files.append(
                 {"path": filepath_str, "title": title, "id": audiobook_id}
             )
-        except Exception:
+        except Exception as e:
             # CodeQL: _sanitize_for_log removes control chars (log injection safe)
-            logging.exception(
-                "Error deleting library file %s",
+            logger.exception(
+                "Error deleting library file %s: %s",
                 _sanitize_for_log(filepath_str),
+                e,
             )
             errors.append({"path": filepath_str, "error": "Deletion failed"})
     elif filepath.exists():
@@ -413,11 +418,12 @@ def _delete_library_file_with_db(
             deleted_files.append(
                 {"path": filepath_str, "title": filepath.name, "id": None}
             )
-        except Exception:
+        except Exception as e:
             # CodeQL: _sanitize_for_log removes control chars (log injection safe)
-            logging.exception(
-                "Error deleting file %s",
+            logger.exception(
+                "Error deleting file %s: %s",
                 _sanitize_for_log(filepath_str),
+                e,
             )
             errors.append({"path": filepath_str, "error": "Deletion failed"})
     else:
@@ -439,11 +445,12 @@ def _delete_source_file(filepath: Path, filepath_str: str) -> tuple[list, list, 
             deleted_files.append(
                 {"path": filepath_str, "title": filepath.name, "id": None}
             )
-        except Exception:
+        except Exception as e:
             # CodeQL: _sanitize_for_log removes control chars (log injection safe)
-            logging.exception(
-                "Error deleting source file %s",
+            logger.exception(
+                "Error deleting source file %s: %s",
                 _sanitize_for_log(filepath_str),
+                e,
             )
             errors.append({"path": filepath_str, "error": "Deletion failed"})
     else:

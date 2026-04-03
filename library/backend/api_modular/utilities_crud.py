@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import COVER_DIR
 
 utilities_crud_bp = Blueprint("utilities_crud", __name__)
+logger = logging.getLogger(__name__)
 
 # Module-level db_path, set once by init_crud_routes()
 _db_path: Path = Path()
@@ -120,8 +121,9 @@ def _delete_audiobook_files(file_paths):
         try:
             file_path.unlink()
             deleted_files.append(str(file_path))
-        except Exception:
+        except Exception as e:
             # Log but don't fail - DB deletion already succeeded
+            logger.warning("File deletion failed for %s: %s", file_path, e)
             failed_files.append(
                 {"path": str(file_path), "error": "File deletion failed"}
             )
@@ -314,8 +316,8 @@ def update_audiobook(id: int) -> FlaskResponse:
             return jsonify({"success": True, "updated": rows_affected})
         else:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
-    except Exception:
-        logging.exception("Error updating audiobook %d", id)
+    except Exception as e:
+        logger.exception("Error updating audiobook %d: %s", id, e)
         conn.close()
         return jsonify({"success": False, "error": "Database update failed"}), 500
 
@@ -355,8 +357,8 @@ def delete_audiobook(id: int) -> FlaskResponse:
             conn.rollback()
             conn.close()
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
-    except Exception:
-        logging.exception("Error deleting audiobook %d", id)
+    except Exception as e:
+        logger.exception("Error deleting audiobook %d: %s", id, e)
         conn.rollback()
         conn.close()
         return jsonify({"success": False, "error": "Database deletion failed"}), 500
@@ -413,8 +415,8 @@ def bulk_update_audiobooks() -> FlaskResponse:
         conn.close()
 
         return jsonify({"success": True, "updated_count": updated_count})
-    except Exception:
-        logging.exception("Error in bulk update")
+    except Exception as e:
+        logger.exception("Error in bulk update: %s", e)
         conn.close()
         return jsonify({"success": False, "error": "Bulk update failed"}), 500
 
@@ -484,8 +486,8 @@ def bulk_delete_audiobooks() -> FlaskResponse:
                 "files_failed": failed_files if failed_files else None,
             }
         )
-    except Exception:
-        logging.exception("Error in bulk delete")
+    except Exception as e:
+        logger.exception("Error in bulk delete: %s", e)
         conn.rollback()
         conn.close()
         return jsonify({"success": False, "error": "Bulk deletion failed"}), 500
@@ -590,8 +592,8 @@ def set_audiobook_genres(id: int) -> FlaskResponse:
         conn.close()
 
         return jsonify({"success": True, "genres": genre_names})
-    except Exception:
-        logging.exception("Error setting genres for audiobook %d", int(id))
+    except Exception as e:
+        logger.exception("Error setting genres for audiobook %d: %s", int(id), e)
         conn.rollback()
         conn.close()
         return (
@@ -642,8 +644,8 @@ def bulk_manage_genres() -> FlaskResponse:
                 "book_count": len(ids),
             }
         )
-    except Exception:
-        logging.exception("Error in bulk genre %s", mode)
+    except Exception as e:
+        logger.exception("Error in bulk genre %s: %s", mode, e)
         conn.rollback()
         conn.close()
         return (
@@ -702,8 +704,8 @@ def set_audiobook_topics(id: int) -> FlaskResponse:
         conn.commit()
         conn.close()
         return jsonify({"success": True, "topics": topic_names})
-    except Exception:
-        logging.exception("Error setting topics for audiobook %d", int(id))
+    except Exception as e:
+        logger.exception("Error setting topics for audiobook %d: %s", int(id), e)
         conn.rollback()
         conn.close()
         return jsonify({"success": False, "error": "Failed to update topics"}), 500
@@ -735,8 +737,8 @@ def bulk_manage_topics() -> FlaskResponse:
         conn.commit()
         conn.close()
         return jsonify({"success": True, "mode": mode, "affected": affected})
-    except Exception:
-        logging.exception("Error in bulk topic %s", mode)
+    except Exception as e:
+        logger.exception("Error in bulk topic %s: %s", mode, e)
         conn.rollback()
         conn.close()
         return jsonify({"success": False, "error": "Bulk topic operation failed"}), 500
@@ -790,8 +792,8 @@ def set_audiobook_eras(id: int) -> FlaskResponse:
         conn.commit()
         conn.close()
         return jsonify({"success": True, "eras": era_names})
-    except Exception:
-        logging.exception("Error setting eras for audiobook %d", int(id))
+    except Exception as e:
+        logger.exception("Error setting eras for audiobook %d: %s", int(id), e)
         conn.rollback()
         conn.close()
         return jsonify({"success": False, "error": "Failed to update eras"}), 500
@@ -838,8 +840,8 @@ def add_editorial_review(id: int) -> FlaskResponse:
         review_id = cursor.lastrowid
         conn.close()
         return jsonify({"success": True, "id": review_id})
-    except Exception:
-        logging.exception("Error adding review for audiobook %d", int(id))
+    except Exception as e:
+        logger.exception("Error adding review for audiobook %d: %s", int(id), e)
         conn.close()
         return jsonify({"success": False, "error": "Failed to add review"}), 500
 

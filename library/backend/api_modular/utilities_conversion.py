@@ -3,6 +3,7 @@ Conversion monitoring for audiobook format conversion.
 Provides real-time status of FFmpeg conversion processes.
 """
 
+import logging
 import re
 import subprocess
 import sys
@@ -14,6 +15,7 @@ from .auth import auth_if_enabled
 from .core import FlaskResponse
 
 utilities_conversion_bp = Blueprint("utilities_conversion", __name__)
+logger = logging.getLogger(__name__)
 
 
 def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
@@ -39,8 +41,8 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
                         cmdlines[pid] = parts[10]  # The command line
                     except (ValueError, IndexError):
                         pass  # Non-critical: skip malformed line
-    except Exception:
-        pass  # Non-critical: process listing is best-effort
+    except Exception as e:
+        logger.debug("Process listing failed (non-critical): %s", e)
 
     return pids, cmdlines
 
@@ -54,8 +56,8 @@ def get_ffmpeg_nice_value() -> str | None:
                 parts = line.strip().split()
                 if parts:
                     return parts[0]
-    except Exception:
-        pass  # Non-critical: FFmpeg PID detection is best-effort
+    except Exception as e:
+        logger.debug("FFmpeg PID detection failed (non-critical): %s", e)
     return None
 
 
@@ -166,8 +168,8 @@ def get_system_stats() -> dict:
                 if len(parts) >= 5:
                     tmpfs_usage = parts[4]  # e.g., "15%"
                     tmpfs_avail = parts[3]  # e.g., "7.5G"
-    except Exception:
-        pass  # Non-critical stats; return None values
+    except Exception as e:
+        logger.debug("Failed to get tmpfs stats (non-critical): %s", e)
 
     return {
         "load_avg": load_avg,
@@ -290,10 +292,8 @@ def init_conversion_routes(project_root: str | Path):
             return _build_conversion_response(
                 AUDIOBOOKS_SOURCES, AUDIOBOOKS_STAGING, AUDIOBOOKS_LIBRARY
             )
-        except Exception:
-            import logging
-
-            logging.exception("Error getting conversion status")
+        except Exception as e:
+            logger.exception("Error getting conversion status: %s", e)
             return (
                 jsonify({"success": False, "error": "Failed to get conversion status"}),
                 500,

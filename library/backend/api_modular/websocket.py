@@ -101,7 +101,8 @@ class ConnectionManager:
             for sid, conn in self._connections.items():
                 try:
                     conn["ws"].send(payload)
-                except Exception:
+                except Exception as e:
+                    logger.debug("WebSocket send failed for %s: %s", sid, e)
                     dead.append(sid)
         for sid in dead:
             self.unregister(sid)

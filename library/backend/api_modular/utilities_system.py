@@ -32,6 +32,7 @@ from .auth import admin_or_localhost
 from .core import FlaskResponse
 
 utilities_system_bp = Blueprint("utilities_system", __name__)
+logger = logging.getLogger(__name__)
 
 # Paths for privilege-separated helper communication
 # Using $AUDIOBOOKS_VAR_DIR/.control/ to avoid /run namespace issues with sandboxing
@@ -90,7 +91,8 @@ def _write_request(request_data: dict) -> bool:
         return True
     except PermissionError:
         return False
-    except Exception:
+    except Exception as e:
+        logger.debug("Helper directory check failed: %s", e)
         return False
 
 
@@ -353,8 +355,8 @@ def _get_service_status_entry(service: str) -> dict:
             "status": "timeout",
             "error": "Timeout checking service status",
         }
-    except Exception:
-        logging.exception("Error checking service status for %s", service)
+    except Exception as e:
+        logger.exception("Error checking service status for %s: %s", service, e)
         return {
             "name": service,
             "active": False,
@@ -395,8 +397,8 @@ def _read_version_file() -> str:
     try:
         if version_file.exists():
             return version_file.read_text().strip()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to read version file: %s", e)
     return "unknown"
 
 
@@ -415,7 +417,8 @@ def _scan_projects_in_dir(
         return results
     try:
         entries = sorted(os.listdir(base_dir))
-    except Exception:
+    except Exception as e:
+        logger.debug("Cannot list directory %s: %s", base_dir, e)
         return results  # Skip inaccessible directories
     for name in entries:
         entry = _scan_single_project(base_dir, name, seen_paths)
@@ -443,8 +446,8 @@ def _scan_single_project(
         try:
             with open(ver_file) as f:
                 version = f.read().strip()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to read project version for %s: %s", name, e)
     return {"name": name, "path": proj_path, "version": version}
 
 
@@ -506,7 +509,7 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
                 {"success": False, "error": "Cloudflare API returned failure"}
             ), 502
     except (urllib.error.HTTPError, urllib.error.URLError) as e:
-        logging.error("Cloudflare API error: %s", e)
+        logger.error("Cloudflare API error: %s", e)
         return jsonify(
             {"success": False, "error": "Cloudflare API request failed"}
         ), 502

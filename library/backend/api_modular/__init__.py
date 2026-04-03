@@ -16,6 +16,7 @@ For backward compatibility, this module also exports:
 - All the constants from the old api.py
 """
 
+import logging
 import sys
 from pathlib import Path
 
@@ -181,6 +182,8 @@ def _setup_websocket(flask_app, database_path):
     from .websocket import connection_manager
     import json as _json
 
+    _ws_logger = logging.getLogger(__name__ + ".websocket")
+
     sock = Sock(flask_app)
 
     @sock.route("/api/ws")
@@ -215,8 +218,8 @@ def _setup_websocket(flask_app, database_path):
                         )
                 except (ValueError, KeyError):
                     pass
-        except Exception:
-            pass
+        except Exception as e:
+            _ws_logger.debug("WebSocket connection closed: %s", e)
         finally:
             connection_manager.unregister(session_id, ws=ws)
 
