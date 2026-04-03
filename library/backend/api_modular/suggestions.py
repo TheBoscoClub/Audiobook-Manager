@@ -5,6 +5,7 @@ Authenticated users can submit suggestions from the Help page.
 Admins can view, mark read/unread, and delete suggestions.
 """
 
+import logging
 import re
 import sqlite3
 import unicodedata
@@ -15,6 +16,7 @@ from flask import Blueprint, jsonify, request
 from .auth import admin_if_enabled, login_required
 
 suggestions_bp = Blueprint("suggestions", __name__)
+logger = logging.getLogger(__name__)
 
 _db_path = None
 MAX_MESSAGE_LENGTH = 2048
@@ -178,8 +180,8 @@ def submit_suggestion():
                 "username": user.username,
             }
         )
-    except Exception:
-        pass  # WebSocket is optional
+    except Exception as e:
+        logger.debug("WebSocket notification failed (optional): %s", e)
 
     return jsonify({"message": "Thank you for your suggestion"}), 201
 

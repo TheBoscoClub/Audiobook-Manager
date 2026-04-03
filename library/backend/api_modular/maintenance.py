@@ -40,7 +40,8 @@ def _get_username():
     try:
         user = get_current_user()
         return user.username if user else "system"
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to get current user: %s", e)
         return "system"
 
 

@@ -80,6 +80,7 @@ from auth.backup_codes import BackupCodeRepository
 
 # Blueprint
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+logger = logging.getLogger(__name__)
 
 # Module-level state (initialized by init_auth_routes)
 _auth_db: Optional[AuthDatabase] = None
@@ -524,7 +525,8 @@ def _verify_webauthn_credential(data, origin, rp_id):
 
     try:
         challenge = base64url_to_bytes(challenge_b64)
-    except Exception:
+    except Exception as e:
+        logger.warning("Invalid challenge format: %s", e)
         return None, None, (jsonify({"error": "Invalid challenge format"}), 400)
 
     credential_json = (
@@ -572,7 +574,7 @@ def init_auth_routes(
 
     # Log WebAuthn configuration at startup
     rp_id, rp_name, origin = get_webauthn_config()
-    logging.getLogger(__name__).info(
+    logger.info(
         "WebAuthn config: rp_id=%s, origin=%s, rp_name=%s", rp_id, origin, rp_name
     )
 
@@ -2419,7 +2421,8 @@ def login_webauthn_begin():
         webauthn_cred = WebAuthnCredential.from_json(
             user.auth_credential.decode("utf-8")
         )
-    except Exception:
+    except Exception as e:
+        logger.error("Invalid stored credential for user: %s", e)
         return jsonify({"error": "Invalid stored credential"}), 500
 
     # Get WebAuthn configuration
@@ -2533,11 +2536,13 @@ def _parse_webauthn_login(user, challenge_b64):
         webauthn_cred = WebAuthnCredential.from_json(
             user.auth_credential.decode("utf-8")
         )
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to parse WebAuthn credential: %s", e)
         return None, None
     try:
         challenge = base64url_to_bytes(challenge_b64)
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to parse WebAuthn challenge: %s", e)
         return None, None
     return webauthn_cred, challenge
 
@@ -3534,7 +3539,8 @@ def auth_health():
                 "user_count": status["user_count"],
             }
         )
-    except Exception:
+    except Exception as e:
+        logger.error("Auth database health check failed: %s", e)
         return (
             jsonify(
                 {

@@ -14,6 +14,7 @@ from .auth import admin_if_enabled
 from .core import FlaskResponse, get_db
 
 utilities_db_bp = Blueprint("utilities_db", __name__)
+logger = logging.getLogger(__name__)
 
 # Module-level state, set by init_db_routes()
 _db_path: Path | None = None
@@ -116,8 +117,8 @@ def rescan_library() -> FlaskResponse:
         return jsonify(_subprocess_result_payload(result, "files_found", files_found))
     except subprocess.TimeoutExpired:
         return _error_response("Scan timed out after 30 minutes")
-    except Exception:
-        logging.exception("Error during library rescan")
+    except Exception as e:
+        logger.exception("Error during library rescan: %s", e)
         return _error_response("Library rescan failed")
 
 
@@ -139,8 +140,8 @@ def reimport_database() -> FlaskResponse:
         )
     except subprocess.TimeoutExpired:
         return _error_response("Import timed out after 5 minutes")
-    except Exception:
-        logging.exception("Error during database reimport")
+    except Exception as e:
+        logger.exception("Error during database reimport: %s", e)
         return _error_response("Database reimport failed")
 
 
@@ -162,8 +163,8 @@ def generate_hashes() -> FlaskResponse:
         )
     except subprocess.TimeoutExpired:
         return _error_response("Hash generation timed out after 30 minutes")
-    except Exception:
-        logging.exception("Error during hash generation")
+    except Exception as e:
+        logger.exception("Error during hash generation: %s", e)
         return _error_response("Hash generation failed")
 
 
@@ -189,8 +190,8 @@ def vacuum_database() -> FlaskResponse:
                 "space_reclaimed_mb": max(0, space_reclaimed),
             }
         )
-    except Exception:
-        logging.exception("Error during database vacuum")
+    except Exception as e:
+        logger.exception("Error during database vacuum: %s", e)
         return _error_response("Database vacuum failed")
 
 

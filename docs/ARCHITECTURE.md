@@ -87,7 +87,12 @@ Every function in the codebase is held to a strict cyclomatic complexity standar
 | **C** | 11–15 | **Prohibited** — must be decomposed |
 | **D–F** | 16+ | **Prohibited** — must be decomposed |
 
-**Why this matters.** The v8.0.1.2 audit found 84 functions at C-grade or worse (up to F-62). The v8.0.1.4 audit completed the work: all nested Flask route handlers across 14 `api_modular` files were extracted to module level and complex functions were decomposed into focused helpers. After both passes, 1353 functions were scanned — zero at C-grade or worse. High complexity makes code harder to understand, test, review, and maintain. A function that scores F-62 cannot be held in a single person's working memory — bugs hide in branches that no test exercises and no reviewer reads. The refactoring was driven by four principles:
+**Why this matters.** The v8.0.1.2 audit found 84 functions at C-grade or worse (up to F-62). The v8.0.1.4 audit
+completed the work: all nested Flask route handlers across 14 `api_modular` files were extracted to module level and
+complex functions were decomposed into focused helpers. After both passes, 1353 functions were scanned — zero at
+C-grade or worse. High complexity makes code harder to understand, test, review, and maintain. A function that scores
+F-62 cannot be held in a single person's working memory — bugs hide in branches that no test exercises and no reviewer
+reads. The refactoring was driven by four principles:
 
 - **Manageability**: Small functions with clear inputs and outputs are easier to modify without breaking adjacent logic
 - **Sustainability**: Lower complexity correlates with fewer defects per function and lower cost-of-change over the project's lifetime
@@ -1470,6 +1475,13 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                     │  └─────────────┘  └─────────────┘  └─────────────┘     │
                     │                                                         │
                     └─────────────────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                                          ┌───────────────────┐
+                                          │  Deploy config    │
+                                          │  files (e.g.      │
+                                          │  logrotate)       │
+                                          └─────────┬─────────┘
                                                     │
                                                     ▼
                                           ┌───────────────────┐

@@ -46,7 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Live Connections race condition**: Shell and iframe both opened competing WebSocket connections with the same session cookie. When the iframe's WS replaced the shell's in ConnectionManager, the shell's finally-block unregistered by session_id — nuking the iframe's connection too, resulting in "Live Connections: 0" even with active users. Server-side `unregister()` is now ownership-aware (only removes if WS object matches). Client-side iframe now receives events via `postMessage` bridge from the parent shell instead of opening a duplicate WebSocket.
+- **Live Connections race condition**: Shell and iframe both opened competing WebSocket connections with the same session cookie.
+  When the iframe's WS replaced the shell's in ConnectionManager, the shell's finally-block unregistered by session_id —
+  nuking the iframe's connection too, resulting in "Live Connections: 0" even with active users. Server-side `unregister()`
+  is now ownership-aware (only removes if WS object matches). Client-side iframe now receives events via `postMessage`
+  bridge from the parent shell instead of opening a duplicate WebSocket.
 
 ## [8.0.1.5] - 2026-03-31
 

@@ -414,9 +414,9 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
                     "position": r["position"],
                 }
             )
-    except Exception:
+    except Exception as e:
         # Tables may not exist yet (pre-migration)
-        pass
+        logger.debug("Authors query failed (pre-migration?): %s", e)
 
     # Batch: narrators for all books in one query (normalized many-to-many)
     narrators_map: dict[int, list[dict]] = {}
@@ -441,9 +441,9 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
                     "position": r["position"],
                 }
             )
-    except Exception:
+    except Exception as e:
         # Tables may not exist yet (pre-migration)
-        pass
+        logger.debug("Narrators query failed (pre-migration?): %s", e)
 
     return {
         "genres": genres_map,

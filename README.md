@@ -1656,6 +1656,35 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 
 ## Changelog
 
+### v8.0.3
+
+- **Logrotate config**: `config/logrotate-audiobooks` added to project, installed to `/etc/logrotate.d/audiobooks` by `install.sh` and `upgrade.sh`; prevents `/var/log/audiobooks/` from growing unbounded
+- **Database path fix**: `install.sh` now creates the `db/` subdirectory and places the database at `/var/lib/audiobooks/db/audiobooks.db` (matching the canonical path used everywhere else)
+- **Systemd fix**: Removed legacy `ExecStartPre` from `audiobook-api.service` that conflicted with `ProtectSystem=strict`
+- **User preferences on page load**: View mode (grid/list) and items-per-page are now loaded and applied on library page load (from localStorage for speed + server API for cross-device sync)
+- **List view mode**: Full CSS layout for list view — single-column cards with cover, title/author, actions; responsive mobile breakpoints
+- **Accessibility**: `a11y-consumer.css` now linked in all iframe-loadable pages (index, utilities, admin, help, about, contact) so accessibility settings take visual effect
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v8.0.0
+
+- **Per-user preferences**: Key-value preference system with full CRUD API (`/api/preferences`) — theme, layout, view mode, playback speed, accessibility settings per user
+- **Dynamic collections**: Auto-generated browsable groupings from enrichment data (genres, narrators, decades, ratings) via `/api/collections`
+- **Accessibility quick panel**: Slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls — persists via preferences API
+- **Series metadata on library cards**: Series name and book order number displayed on card overlays
+- **Account preferences UI**: User-facing settings page for display, notification, and accessibility preferences
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
+### v7.0.0
+
+- **Multi-author/narrator normalization**: Proper many-to-many relationships via new `authors`, `narrators`, `book_authors`, `book_narrators` tables — books with multiple authors have each author as a separate sortable entity
+- **Name parser**: Three-tier metadata extraction — structured tags, delimiter splitting, comma disambiguation; handles group names (Full Cast, BBC Radio) and compound last names
+- **Grouped sort view**: "Author (Grouped A-Z)" and "Narrator (Grouped A-Z)" sort options; books appear under collapsible author/narrator headers
+- **Grouped API endpoint**: `GET /api/audiobooks/grouped?by=author|narrator` with Art Deco-styled collapsible headers
+- **Admin correction endpoints**: Author/narrator rename, merge, and reassignment endpoints
+- **Auto-migration**: `upgrade.sh` automatically detects and applies schema migrations including the new normalization migration
+- See [CHANGELOG.md](CHANGELOG.md) for full details
+
 ### v6.6.6
 
 - **Auth**: Username limits changed from 5-16 to 3-24 characters
