@@ -418,7 +418,7 @@ def _scan_projects_in_dir(
     try:
         entries = sorted(os.listdir(base_dir))
     except Exception as e:
-        logger.debug("Cannot list directory %s: %s", base_dir, e)
+        logger.debug("Cannot list directory: %s", e)
         return results  # Skip inaccessible directories
     for name in entries:
         entry = _scan_single_project(base_dir, name, seen_paths)
@@ -447,7 +447,7 @@ def _scan_single_project(
             with open(ver_file) as f:
                 version = f.read().strip()
         except Exception as e:
-            logger.debug("Failed to read project version for %s: %s", name, e)
+            logger.debug("Failed to read project version: %s", e)
     return {"name": name, "path": proj_path, "version": version}
 
 

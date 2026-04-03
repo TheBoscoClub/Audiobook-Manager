@@ -163,6 +163,18 @@ def _validate_bulk_request(data, required_key, entity_label):
     ids = data.get("ids", [])
     names = data.get(required_key, [])
     mode = data.get("mode", "add")
+    if mode not in ("add", "remove"):
+        return (
+            None,
+            None,
+            None,
+            (
+                jsonify(
+                    {"success": False, "error": "Invalid mode: must be 'add' or 'remove'"}
+                ),
+                400,
+            ),
+        )
 
     if not ids:
         return (
@@ -316,8 +328,8 @@ def update_audiobook(id: int) -> FlaskResponse:
             return jsonify({"success": True, "updated": rows_affected})
         else:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
-    except Exception as e:
-        logger.exception("Error updating audiobook %d: %s", id, e)
+    except Exception:
+        logger.exception("Error updating audiobook %d", id)
         conn.close()
         return jsonify({"success": False, "error": "Database update failed"}), 500
 
@@ -357,8 +369,8 @@ def delete_audiobook(id: int) -> FlaskResponse:
             conn.rollback()
             conn.close()
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
-    except Exception as e:
-        logger.exception("Error deleting audiobook %d: %s", id, e)
+    except Exception:
+        logger.exception("Error deleting audiobook %d", id)
         conn.rollback()
         conn.close()
         return jsonify({"success": False, "error": "Database deletion failed"}), 500
@@ -644,8 +656,8 @@ def bulk_manage_genres() -> FlaskResponse:
                 "book_count": len(ids),
             }
         )
-    except Exception as e:
-        logger.exception("Error in bulk genre %s: %s", mode, e)
+    except Exception:
+        logger.exception("Error in bulk genre %s", mode)
         conn.rollback()
         conn.close()
         return (
@@ -737,8 +749,8 @@ def bulk_manage_topics() -> FlaskResponse:
         conn.commit()
         conn.close()
         return jsonify({"success": True, "mode": mode, "affected": affected})
-    except Exception as e:
-        logger.exception("Error in bulk topic %s: %s", mode, e)
+    except Exception:
+        logger.exception("Error in bulk topic %s", mode)
         conn.rollback()
         conn.close()
         return jsonify({"success": False, "error": "Bulk topic operation failed"}), 500
