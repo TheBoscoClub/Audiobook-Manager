@@ -14,8 +14,8 @@ echo ""
 systemctl daemon-reload
 
 # Enable services
-systemctl enable audiobooks-converter.service
-systemctl enable audiobooks-mover.service
+systemctl enable audiobook-converter.service
+systemctl enable audiobook-mover.service
 
 echo ""
 echo -e "${GREEN}✓ Auto-start enabled${NC}"

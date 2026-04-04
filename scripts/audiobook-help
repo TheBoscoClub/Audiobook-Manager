@@ -31,7 +31,7 @@ cat <<EOF
 💾 DATA MANAGEMENT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   audiobook-save-staging        Save staged files before reboot
-  audiobooks-download           Download new audiobooks from Audible
+  audiobook-download            Download new audiobooks from Audible
 
 📁 DIRECTORIES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -41,10 +41,10 @@ cat <<EOF
 
 ⚙️ SERVICES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  audiobooks-converter    Converts AAXC to Opus (8 parallel jobs)
-  audiobooks-mover        Moves completed files to library
-  audiobooks-downloader   Downloads new audiobooks periodically
-  audiobooks-api          Web API for library browsing
+  audiobook-converter     Converts AAXC to Opus (8 parallel jobs)
+  audiobook-mover         Moves completed files to library
+  audiobook-downloader    Downloads new audiobooks periodically
+  audiobook-api           Web API for library browsing
 
 📖 MORE INFORMATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
