@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![8](https://img.shields.io/badge/8-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![3](https://img.shields.io/badge/3-green) | Latest patch | [v8.0.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v8.0.3) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![0](https://img.shields.io/badge/0-darkgreen)![3](https://img.shields.io/badge/3-green)![1](https://img.shields.io/badge/1-yellow) | Latest tweak | [v8.0.3.1](../../releases/tag/v8.0.3.1) |
+| ![8](https://img.shields.io/badge/8-brightred)![0](https://img.shields.io/badge/0-darkred)![3](https://img.shields.io/badge/3-red) | Prior patch | [v8.0.3](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v8.0.3) |
 | ![8](https://img.shields.io/badge/8-brightred)![0](https://img.shields.io/badge/0-darkred)![2](https://img.shields.io/badge/2-red)![2](https://img.shields.io/badge/2-orange) | Prior tweak | [v8.0.2.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v8.0.2.2) |
 | ![8](https://img.shields.io/badge/8-brightred)![0](https://img.shields.io/badge/0-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v8.0.2](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v8.0.2) |
 | ![8](https://img.shields.io/badge/8-brightred)![0](https://img.shields.io/badge/0-darkred)![1](https://img.shields.io/badge/1-red)![5](https://img.shields.io/badge/5-orange) | Prior tweak | [v8.0.1.5](https://github.com/TheBoscoClub/Audiobook-Manager/releases/tag/v8.0.1.5) |
@@ -1655,6 +1656,14 @@ Special thanks to the broader audiobook and self-hosting communities on Reddit (
 *This project is a personal tool shared in the hope that others might find it useful. All credit for the underlying technologies belongs to their respective creators and communities.*
 
 ## Changelog
+
+### v8.0.3.1
+
+- **Error handling hardened**: Replaced bare `except` across 11 API modules with specific exceptions and logged tracebacks
+- **10 CodeQL alerts resolved**: Fixed log-injection and path-injection vulnerabilities; bulk operation mode validated against allowlist
+- **10 pip dependencies updated**: `certifi`, `charset-normalizer`, `idna`, `Jinja2`, `MarkupSafe`, `packaging`, `pip`, `setuptools`, `urllib3`, `Werkzeug`
+- **Documentation sync**: README changelog, ARCHITECTURE upgrade workflow
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ### v8.0.3
 
