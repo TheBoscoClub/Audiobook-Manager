@@ -170,7 +170,10 @@ def _validate_bulk_request(data, required_key, entity_label):
             None,
             (
                 jsonify(
-                    {"success": False, "error": "Invalid mode: must be 'add' or 'remove'"}
+                    {
+                        "success": False,
+                        "error": "Invalid mode: must be 'add' or 'remove'",
+                    }
                 ),
                 400,
             ),
