@@ -11,18 +11,18 @@ echo -e "${CYAN}Starting audiobook conversion services...${NC}"
 echo ""
 
 # Start conversion
-systemctl start audiobooks-converter.service
+systemctl start audiobook-converter.service
 sleep 1
 
 # Start mover
-systemctl start audiobooks-mover.service
+systemctl start audiobook-mover.service
 sleep 1
 
 # Show status
 echo ""
-systemctl status audiobooks-converter.service --no-pager -l 2>&1 | head -5
+systemctl status audiobook-converter.service --no-pager -l 2>&1 | head -5
 echo ""
-systemctl status audiobooks-mover.service --no-pager -l 2>&1 | head -5
+systemctl status audiobook-mover.service --no-pager -l 2>&1 | head -5
 
 echo ""
 echo -e "${GREEN}✓ Services started${NC}"

@@ -12,11 +12,11 @@ echo -e "${YELLOW}Stopping audiobook conversion services...${NC}"
 echo ""
 
 # Stop conversion
-systemctl stop audiobooks-converter.service
+systemctl stop audiobook-converter.service
 echo -e "${GREEN}✓ Converter stopped${NC}"
 
 # Stop mover
-systemctl stop audiobooks-mover.service
+systemctl stop audiobook-mover.service
 echo -e "${GREEN}✓ Mover stopped${NC}"
 
 echo ""

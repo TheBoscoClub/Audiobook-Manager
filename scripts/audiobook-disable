@@ -10,8 +10,8 @@ echo -e "${YELLOW}Disabling audiobook conversion auto-start...${NC}"
 echo ""
 
 # Disable services
-systemctl disable audiobooks-converter.service
-systemctl disable audiobooks-mover.service
+systemctl disable audiobook-converter.service
+systemctl disable audiobook-mover.service
 
 echo ""
 echo "✓ Auto-start disabled"
