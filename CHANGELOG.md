@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.3.1] - 2026-04-03
+
+### Changed
+
+- **Error handling hardened across 11 API modules**: Replaced bare `except` clauses with specific exception types and logged tracebacks in `utilities_ops`, `utilities_system`, `library_ops`, `conversion_ops`, `enrichment_ops`, `maintenance_tasks`, `collection_ops`, `preference_ops`, `download_ops`, `auth`, and `admin`
+- **Standardized module-level logging**: All API modules now use consistent `logger = logging.getLogger(__name__)` patterns
+- **Updated 10 outdated pip dependencies**: Bumped `certifi`, `charset-normalizer`, `idna`, `Jinja2`, `MarkupSafe`, `packaging`, `pip`, `setuptools`, `urllib3`, `Werkzeug` to latest versions
+
+### Security
+
+- **Resolved 10 CodeQL security alerts**: Fixed log-injection vulnerabilities (unsanitized user input in log statements) and path-injection vulnerabilities (unsanitized path construction) across API modules
+- **Bulk operation mode validation**: `mode` parameter in bulk operations now validated against an explicit allowlist to prevent injection
+
+### Fixed
+
+- **Documentation sync**: Updated README changelog section, ARCHITECTURE upgrade workflow documentation
+
 ## [8.0.3] - 2026-03-31
 
 ### Added
@@ -2472,7 +2489,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.1...HEAD
+[8.0.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3...v8.0.3.1
 [8.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.2...v8.0.3
 [8.0.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.1...v8.0.2.2
 [8.0.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2...v8.0.2.1
