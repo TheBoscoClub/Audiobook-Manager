@@ -23,16 +23,16 @@ REMOVE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --remove)
-        REMOVE=true
-        DRY_RUN=false
-        shift
-        ;;
-    --dry-run)
-        DRY_RUN=true
-        shift
-        ;;
-    *) shift ;;
+        --remove)
+            REMOVE=true
+            DRY_RUN=false
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        *) shift ;;
     esac
 done
 
@@ -83,7 +83,10 @@ done < <(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null)
 echo "=== Summary ==="
 echo "Total source files: $(find "$SOURCES_DIR" -name "*.aaxc" -type f 2>/dev/null | wc -l)"
 # Guard against empty associative array under set -u (bash treats empty declared assoc arrays as unbound)
-echo "Unique titles: $(set +u; echo "${#title_files[@]}")"
+echo "Unique titles: $(
+    set +u
+    echo "${#title_files[@]}"
+)"
 echo "Duplicates found: ${#duplicates_to_remove[@]}"
 echo ""
 

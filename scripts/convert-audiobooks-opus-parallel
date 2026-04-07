@@ -100,8 +100,8 @@ convert_file() {
     # Only convert DRM-encrypted formats — skip anything playable as-is
     case "$SOURCE_FILE" in
         *.aaxc) BASENAME=$(basename "$SOURCE_FILE" .aaxc) ;;
-        *.aax)  BASENAME=$(basename "$SOURCE_FILE" .aax) ;;
-        *.aa)   BASENAME=$(basename "$SOURCE_FILE" .aa) ;;
+        *.aax) BASENAME=$(basename "$SOURCE_FILE" .aax) ;;
+        *.aa) BASENAME=$(basename "$SOURCE_FILE" .aa) ;;
         *)
             echo -e "${YELLOW}⊘ SKIP${NC}: $(basename "$SOURCE_FILE") (playable format, no conversion needed)"
             return 0

@@ -132,7 +132,7 @@ fi
 : "${AUDIOBOOKS_AUDIBLE_CMD:=${AUDIOBOOKS_AUDIBLE_VENV}/bin/audible}"
 
 # Cloudflare CDN cache purge (credentials from ~/.config/api-keys.env)
-: "${CF_ZONE_ID:=}"  # Set in /etc/audiobooks/audiobooks.conf or environment
+: "${CF_ZONE_ID:=}" # Set in /etc/audiobooks/audiobooks.conf or environment
 
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
