@@ -43,18 +43,18 @@ for SERVICE in audiobook-converter audiobook-mover audiobook-api; do
     fi
 
     case "$STATUS" in
-    active)
-        echo -e "  $SERVICE: ${GREEN}●${NC} running"
-        ;;
-    inactive)
-        echo -e "  $SERVICE: ${YELLOW}○${NC} stopped"
-        ;;
-    failed)
-        echo -e "  $SERVICE: ${RED}✗${NC} failed"
-        ;;
-    *)
-        echo -e "  $SERVICE: ${YELLOW}?${NC} $STATUS"
-        ;;
+        active)
+            echo -e "  $SERVICE: ${GREEN}●${NC} running"
+            ;;
+        inactive)
+            echo -e "  $SERVICE: ${YELLOW}○${NC} stopped"
+            ;;
+        failed)
+            echo -e "  $SERVICE: ${RED}✗${NC} failed"
+            ;;
+        *)
+            echo -e "  $SERVICE: ${YELLOW}?${NC} $STATUS"
+            ;;
     esac
 done
 
@@ -72,15 +72,15 @@ for TIMER in audiobook-downloader; do
     fi
 
     case "$STATUS" in
-    active)
-        echo -e "  $TIMER: ${GREEN}●${NC} active"
-        ;;
-    inactive)
-        echo -e "  $TIMER: ${YELLOW}○${NC} inactive"
-        ;;
-    *)
-        echo -e "  $TIMER: ${YELLOW}?${NC} $STATUS"
-        ;;
+        active)
+            echo -e "  $TIMER: ${GREEN}●${NC} active"
+            ;;
+        inactive)
+            echo -e "  $TIMER: ${YELLOW}○${NC} inactive"
+            ;;
+        *)
+            echo -e "  $TIMER: ${YELLOW}?${NC} $STATUS"
+            ;;
     esac
 done
 

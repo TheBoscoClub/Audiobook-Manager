@@ -33,15 +33,15 @@ VERBOSE=false
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --dry-run)
-        DRY_RUN=true
-        shift
-        ;;
-    --verbose | -v)
-        VERBOSE=true
-        shift
-        ;;
-    *) shift ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --verbose | -v)
+            VERBOSE=true
+            shift
+            ;;
+        *) shift ;;
     esac
 done
 

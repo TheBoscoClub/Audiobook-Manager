@@ -86,7 +86,7 @@ class AudiobookLibraryV2 {
       return true;
     } catch (error) {
       // Network error or auth not configured - allow access
-      console.log("Auth check skipped:", error.message);
+      console.debug("Auth check skipped:", error.message);
       this.authEnabled = false;
       return true;
     }

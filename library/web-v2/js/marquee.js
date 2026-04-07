@@ -36,7 +36,7 @@ function initMarquee() {
       buildMarquee(container, data.books);
     })
     .catch(function (err) {
-      console.log("Marquee: could not load new books:", err.message);
+      console.warn("Marquee: could not load new books:", err.message);
     });
 }
 
@@ -167,6 +167,6 @@ function dismissMarquee(container) {
     method: "POST",
     credentials: "include",
   }).catch(function (err) {
-    console.log("Marquee: dismiss failed:", err.message);
+    console.warn("Marquee: dismiss failed:", err.message);
   });
 }

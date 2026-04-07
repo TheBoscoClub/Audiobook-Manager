@@ -35,24 +35,24 @@ QUICK_OUTPUT=""
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --rebuild)
-        REBUILD=true
-        shift
-        ;;
-    --verbose | -v)
-        VERBOSE=true
-        shift
-        ;;
-    --quick-update)
-        # Quick update mode: --quick-update SOURCE_AAXC OUTPUT_OPUS
-        QUICK_UPDATE=true
-        shift
-        QUICK_SOURCE="${1:-}"
-        shift
-        QUICK_OUTPUT="${1:-}"
-        shift
-        ;;
-    *) shift ;;
+        --rebuild)
+            REBUILD=true
+            shift
+            ;;
+        --verbose | -v)
+            VERBOSE=true
+            shift
+            ;;
+        --quick-update)
+            # Quick update mode: --quick-update SOURCE_AAXC OUTPUT_OPUS
+            QUICK_UPDATE=true
+            shift
+            QUICK_SOURCE="${1:-}"
+            shift
+            QUICK_OUTPUT="${1:-}"
+            shift
+            ;;
+        *) shift ;;
     esac
 done
 

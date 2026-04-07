@@ -499,12 +499,12 @@ class ShellPlayer {
 
     // Furthest ahead wins
     if (apiPos.position > localPos.position) {
-      console.log(
+      console.debug(
         `Using API position (${apiPos.position}s) over local (${localPos.position}s)`,
       );
       return apiPos;
     }
-    console.log(
+    console.debug(
       `Using local position (${localPos.position}s) over API (${apiPos.position}s)`,
     );
     return localPos;
