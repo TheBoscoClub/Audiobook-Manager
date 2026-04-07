@@ -50,9 +50,14 @@ class ShellPlayer {
       );
       this.saveAfterSeek();
     });
-    document
-      .getElementById("sp-speed")
-      .addEventListener("click", () => this.cycleSpeed());
+    const speedBtn = document.getElementById("sp-speed");
+    speedBtn.addEventListener("click", (e) =>
+      this.cycleSpeed(e.shiftKey ? -1 : 1),
+    );
+    speedBtn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.cycleSpeed(-1);
+    });
     const volumeSlider = document.getElementById("sp-volume");
     volumeSlider.addEventListener("input", (e) => {
       this.audio.volume = e.target.value / 100;
@@ -342,9 +347,9 @@ class ShellPlayer {
     }
   }
 
-  cycleSpeed() {
-    this.currentRateIndex =
-      (this.currentRateIndex + 1) % this.playbackRates.length;
+  cycleSpeed(direction = 1) {
+    const len = this.playbackRates.length;
+    this.currentRateIndex = (this.currentRateIndex + direction + len) % len;
     const rate = this.playbackRates[this.currentRateIndex];
     this.audio.playbackRate = rate;
     document.getElementById("sp-speed-display").textContent = rate + "x";
