@@ -1997,6 +1997,9 @@ class AudiobookLibraryV2 {
       ).matches;
       if (!isCompact) return;
 
+      // Ignore clicks on the hide/unhide checkbox
+      if (e.target.classList.contains("library-card-checkbox")) return;
+
       const card = e.target.closest(".book-card");
       if (!card) return;
 

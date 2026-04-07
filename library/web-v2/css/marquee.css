@@ -62,6 +62,20 @@
     cursor: default;
 }
 
+/* Clickable marquee titles */
+.marquee-item-clickable {
+    cursor: pointer;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.marquee-item-clickable:hover {
+    color: #fff;
+    text-shadow:
+        0 0 6px rgba(255, 255, 255, 0.8),
+        0 0 12px rgba(255, 215, 0, 0.6),
+        0 0 20px rgba(218, 165, 32, 0.4);
+}
+
 /* Decorative separator between titles */
 .marquee-separator {
     display: inline-block;

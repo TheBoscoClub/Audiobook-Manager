@@ -56,8 +56,20 @@ function buildCycle(books) {
 
   for (var i = 0; i < books.length; i++) {
     var item = document.createElement("span");
-    item.className = "marquee-item";
+    item.className = "marquee-item marquee-item-clickable";
     item.textContent = books[i].title || "Untitled";
+    item.dataset.bookId = books[i].id;
+    item.title = "Play " + (books[i].title || "Untitled");
+    (function (book) {
+      item.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (typeof shellPlay === "function") {
+          shellPlay(book, false);
+        } else if (typeof library !== "undefined" && library.showBookDetail) {
+          library.showBookDetail(book.id);
+        }
+      });
+    })(books[i]);
     cycle.appendChild(item);
 
     var sep = document.createElement("span");
