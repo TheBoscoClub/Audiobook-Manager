@@ -555,23 +555,23 @@ check_for_updates() {
     local result=$?
 
     case $result in
-        0)
-            if [[ "$FORCE" == "true" ]]; then
-                echo -e "${YELLOW}Versions are identical, but --force specified. Proceeding.${NC}"
-                return 0
-            fi
-            echo -e "${GREEN}Versions are identical. No upgrade needed.${NC}"
-            return 1
-            ;;
-        1)
-            echo -e "${YELLOW}Warning: Installed version ($inst_ver) is newer than project ($proj_ver)${NC}"
-            echo "This might indicate the installed application was modified directly."
-            return 2
-            ;;
-        2)
-            echo -e "${GREEN}Upgrade available: $inst_ver → $proj_ver${NC}"
+    0)
+        if [[ "$FORCE" == "true" ]]; then
+            echo -e "${YELLOW}Versions are identical, but --force specified. Proceeding.${NC}"
             return 0
-            ;;
+        fi
+        echo -e "${GREEN}Versions are identical. No upgrade needed.${NC}"
+        return 1
+        ;;
+    1)
+        echo -e "${YELLOW}Warning: Installed version ($inst_ver) is newer than project ($proj_ver)${NC}"
+        echo "This might indicate the installed application was modified directly."
+        return 2
+        ;;
+    2)
+        echo -e "${GREEN}Upgrade available: $inst_ver → $proj_ver${NC}"
+        return 0
+        ;;
     esac
 }
 
@@ -1216,7 +1216,7 @@ do_upgrade() {
             if [[ -f "$script" ]] && [[ "$(basename "$script")" != "__pycache__" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
+                install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
                 esac
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would update: $script_name"
@@ -2356,79 +2356,79 @@ fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --from-project)
-            PROJECT_DIR="$2"
-            shift 2
-            ;;
-        --from-github)
-            UPGRADE_SOURCE="github"
-            shift
-            ;;
-        --version)
-            REQUESTED_VERSION="$2"
-            shift 2
-            ;;
-        --target)
-            TARGET_DIR="$2"
-            shift 2
-            ;;
-        --check)
-            CHECK_ONLY=true
-            shift
-            ;;
-        --backup)
-            # Backup now runs unconditionally on every upgrade; this flag is a no-op
-            # kept for backwards compatibility.
-            CREATE_BACKUP=true
-            shift
-            ;;
-        --switch-to-modular)
-            SWITCH_ARCHITECTURE="modular"
-            shift
-            ;;
-        --switch-to-monolithic)
-            SWITCH_ARCHITECTURE="monolithic"
-            shift
-            ;;
-        --remote)
-            REMOTE_HOST="$2"
-            shift 2
-            ;;
-        --user)
-            REMOTE_USER="$2"
-            shift 2
-            ;;
-        --yes | -y)
-            AUTO_YES=true
-            shift
-            ;;
-        --force)
-            FORCE=true
-            shift
-            ;;
-        --major-version | --mv)
-            MAJOR_VERSION=true
-            shift
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --skip-service-lifecycle)
-            # Internal flag: upgrade-helper-process manages service start/stop.
-            # Not shown in --help — callers must know this flag explicitly.
-            SKIP_SERVICE_LIFECYCLE=true
-            shift
-            ;;
-        --help | -h)
-            show_usage
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Use --help for usage information."
-            exit 1
-            ;;
+    --from-project)
+        PROJECT_DIR="$2"
+        shift 2
+        ;;
+    --from-github)
+        UPGRADE_SOURCE="github"
+        shift
+        ;;
+    --version)
+        REQUESTED_VERSION="$2"
+        shift 2
+        ;;
+    --target)
+        TARGET_DIR="$2"
+        shift 2
+        ;;
+    --check)
+        CHECK_ONLY=true
+        shift
+        ;;
+    --backup)
+        # Backup now runs unconditionally on every upgrade; this flag is a no-op
+        # kept for backwards compatibility.
+        CREATE_BACKUP=true
+        shift
+        ;;
+    --switch-to-modular)
+        SWITCH_ARCHITECTURE="modular"
+        shift
+        ;;
+    --switch-to-monolithic)
+        SWITCH_ARCHITECTURE="monolithic"
+        shift
+        ;;
+    --remote)
+        REMOTE_HOST="$2"
+        shift 2
+        ;;
+    --user)
+        REMOTE_USER="$2"
+        shift 2
+        ;;
+    --yes | -y)
+        AUTO_YES=true
+        shift
+        ;;
+    --force)
+        FORCE=true
+        shift
+        ;;
+    --major-version | --mv)
+        MAJOR_VERSION=true
+        shift
+        ;;
+    --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+    --skip-service-lifecycle)
+        # Internal flag: upgrade-helper-process manages service start/stop.
+        # Not shown in --help — callers must know this flag explicitly.
+        SKIP_SERVICE_LIFECYCLE=true
+        shift
+        ;;
+    --help | -h)
+        show_usage
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Unknown option: $1${NC}"
+        echo "Use --help for usage information."
+        exit 1
+        ;;
     esac
 done
 

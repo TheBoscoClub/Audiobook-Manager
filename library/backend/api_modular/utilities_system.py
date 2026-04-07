@@ -402,6 +402,18 @@ def _read_version_file() -> str:
     return "unknown"
 
 
+def _read_project_version(version_path: str) -> str | None:
+    """Read version string from a validated VERSION file path.
+
+    Returns the version string or None on any error.
+    """
+    try:
+        with open(version_path) as f:  # noqa: S108
+            return f.read().strip() or None
+    except Exception:
+        return None
+
+
 def _scan_projects_in_dir(
     base_dir: str,
     seen_paths: set[str],
@@ -441,13 +453,7 @@ def _scan_single_project(
     if not has_version and not name.startswith("Audiobook"):
         return None
     seen_paths.add(proj_path)
-    version = None
-    if has_version:
-        try:
-            with open(ver_file) as f:
-                version = f.read().strip()
-        except Exception as e:
-            logger.debug("Failed to read project version: %s", e)
+    version = _read_project_version(ver_file) if has_version else None
     return {"name": name, "path": proj_path, "version": version}
 
 
@@ -780,22 +786,23 @@ def list_projects() -> FlaskResponse:
     # Paths to check: user-provided first, then configured default
     paths_to_check = []
     if user_path:
-        paths_to_check.append(os.path.realpath(user_path))
+        resolved_user = os.path.realpath(user_path)
+        # Validate: must be absolute, no null bytes, must exist
+        if (
+            os.path.isabs(resolved_user)
+            and "\x00" not in user_path
+            and os.path.isdir(resolved_user)
+        ):
+            paths_to_check.append(resolved_user)
     if configured_dir:
         paths_to_check.append(os.path.realpath(configured_dir))
 
     for resolved in paths_to_check:
         # Check if the path itself IS a project (has VERSION file)
-        if os.path.isdir(resolved) and os.path.exists(
-            os.path.join(resolved, "VERSION")
-        ):
+        version_file = os.path.join(resolved, "VERSION")
+        if os.path.isdir(resolved) and os.path.isfile(version_file):
             if resolved not in seen:
-                version = None
-                try:
-                    with open(os.path.join(resolved, "VERSION")) as f:
-                        version = f.read().strip()
-                except Exception:
-                    pass
+                version = _read_project_version(version_file)
                 seen.add(resolved)
                 projects.append(
                     {

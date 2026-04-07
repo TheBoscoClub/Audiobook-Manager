@@ -277,19 +277,19 @@ prompt_architecture_choice() {
         arch_choice="${arch_choice:-1}"
 
         case "$arch_choice" in
-            1)
-                API_ARCHITECTURE="monolithic"
-                echo -e "${GREEN}Selected: Monolithic architecture${NC}"
-                break
-                ;;
-            2)
-                API_ARCHITECTURE="modular"
-                echo -e "${BLUE}Selected: Modular architecture${NC}"
-                break
-                ;;
-            *)
-                echo -e "${RED}Invalid choice. Please enter 1 or 2.${NC}"
-                ;;
+        1)
+            API_ARCHITECTURE="monolithic"
+            echo -e "${GREEN}Selected: Monolithic architecture${NC}"
+            break
+            ;;
+        2)
+            API_ARCHITECTURE="modular"
+            echo -e "${BLUE}Selected: Modular architecture${NC}"
+            break
+            ;;
+        *)
+            echo -e "${RED}Invalid choice. Please enter 1 or 2.${NC}"
+            ;;
         esac
     done
     echo ""
@@ -465,11 +465,11 @@ detect_storage_tier() {
 storage_tier_name() {
     local tier="$1"
     case "$tier" in
-        nvme) echo "NVMe SSD" ;;
-        ssd) echo "SATA SSD" ;;
-        hdd) echo "HDD" ;;
-        tmpfs) echo "RAM (tmpfs)" ;;
-        *) echo "Unknown" ;;
+    nvme) echo "NVMe SSD" ;;
+    ssd) echo "SATA SSD" ;;
+    hdd) echo "HDD" ;;
+    tmpfs) echo "RAM (tmpfs)" ;;
+    *) echo "Unknown" ;;
     esac
 }
 
@@ -477,11 +477,11 @@ storage_tier_name() {
 storage_tier_color() {
     local tier="$1"
     case "$tier" in
-        nvme) echo "${GREEN}" ;;
-        ssd) echo "${BLUE}" ;;
-        tmpfs) echo "${GREEN}" ;;
-        hdd) echo "${YELLOW}" ;;
-        *) echo "${NC}" ;;
+    nvme) echo "${GREEN}" ;;
+    ssd) echo "${BLUE}" ;;
+    tmpfs) echo "${GREEN}" ;;
+    hdd) echo "${YELLOW}" ;;
+    *) echo "${NC}" ;;
     esac
 }
 
@@ -496,28 +496,28 @@ find_fastest_mount() {
 
     # Define candidate paths based on component type
     case "$component" in
-        database)
-            # Database needs fastest possible storage
-            candidates=("/var/lib" "/opt" "/")
-            ;;
-        application)
-            # Application benefits from fast storage but less critical
-            candidates=("/opt" "/usr/local" "/")
-            ;;
-        data)
-            # Bulk audio data - HDD is fine, SSD/NVMe is bonus
-            candidates=("/srv" "/data" "/home" "/")
-            ;;
+    database)
+        # Database needs fastest possible storage
+        candidates=("/var/lib" "/opt" "/")
+        ;;
+    application)
+        # Application benefits from fast storage but less critical
+        candidates=("/opt" "/usr/local" "/")
+        ;;
+    data)
+        # Bulk audio data - HDD is fine, SSD/NVMe is bonus
+        candidates=("/srv" "/data" "/home" "/")
+        ;;
     esac
 
     # Score tiers: nvme=3, ssd=2, hdd=1, unknown=0
     local tier_score
     tier_score() {
         case "$1" in
-            nvme) echo 3 ;;
-            ssd) echo 2 ;;
-            hdd) echo 1 ;;
-            *) echo 0 ;;
+        nvme) echo 3 ;;
+        ssd) echo 2 ;;
+        hdd) echo 1 ;;
+        *) echo 0 ;;
         esac
     }
 
@@ -573,21 +573,21 @@ warn_storage_tier() {
     local warning=""
 
     case "$component" in
-        database | index)
-            if [[ "$tier" == "hdd" ]]; then
-                recommended="NVMe or SSD"
-                warning="Database on HDD will significantly impact query performance"
-            fi
-            ;;
-        covers)
-            if [[ "$tier" == "hdd" ]]; then
-                recommended="SSD"
-                warning="Cover art on HDD may slow down UI loading"
-            fi
-            ;;
-        library | sources)
-            # HDD is acceptable for bulk audio files
-            ;;
+    database | index)
+        if [[ "$tier" == "hdd" ]]; then
+            recommended="NVMe or SSD"
+            warning="Database on HDD will significantly impact query performance"
+        fi
+        ;;
+    covers)
+        if [[ "$tier" == "hdd" ]]; then
+            recommended="SSD"
+            warning="Cover art on HDD may slow down UI loading"
+        fi
+        ;;
+    library | sources)
+        # HDD is acceptable for bulk audio files
+        ;;
     esac
 
     if [[ -n "$warning" ]]; then
@@ -705,18 +705,18 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete converted audiobooks in $library_dir? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_LIBRARY=true
-                    echo -e "  ${RED}→ Will delete converted audiobooks${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"
-                    break
-                    ;;
-                *)
-                    echo "  Please answer y(es) or n(o)"
-                    ;;
+            y | yes)
+                DELETE_LIBRARY=true
+                echo -e "  ${RED}→ Will delete converted audiobooks${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping converted audiobooks${NC}"
+                break
+                ;;
+            *)
+                echo "  Please answer y(es) or n(o)"
+                ;;
             esac
         done
         echo ""
@@ -726,18 +726,18 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete source files (AAX/AAXC) in $sources_dir? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_SOURCES=true
-                    echo -e "  ${RED}→ Will delete source files${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping source files${NC}"
-                    break
-                    ;;
-                *)
-                    echo "  Please answer y(es) or n(o)"
-                    ;;
+            y | yes)
+                DELETE_SOURCES=true
+                echo -e "  ${RED}→ Will delete source files${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping source files${NC}"
+                break
+                ;;
+            *)
+                echo "  Please answer y(es) or n(o)"
+                ;;
             esac
         done
         echo ""
@@ -747,18 +747,18 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete supplemental PDFs in $supplements_dir? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_SUPPLEMENTS=true
-                    echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"
-                    break
-                    ;;
-                *)
-                    echo "  Please answer y(es) or n(o)"
-                    ;;
+            y | yes)
+                DELETE_SUPPLEMENTS=true
+                echo -e "  ${RED}→ Will delete supplemental PDFs${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping supplemental PDFs${NC}"
+                break
+                ;;
+            *)
+                echo "  Please answer y(es) or n(o)"
+                ;;
             esac
         done
         echo ""
@@ -768,18 +768,18 @@ prompt_delete_data() {
         while true; do
             read -r -p "Delete configuration files? [y/N]: " answer
             case "${answer,,}" in
-                y | yes)
-                    DELETE_CONFIG=true
-                    echo -e "  ${RED}→ Will delete configuration${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "  ${GREEN}→ Keeping configuration${NC}"
-                    break
-                    ;;
-                *)
-                    echo "  Please answer y(es) or n(o)"
-                    ;;
+            y | yes)
+                DELETE_CONFIG=true
+                echo -e "  ${RED}→ Will delete configuration${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "  ${GREEN}→ Keeping configuration${NC}"
+                break
+                ;;
+            *)
+                echo "  Please answer y(es) or n(o)"
+                ;;
             esac
         done
         echo ""
@@ -803,70 +803,70 @@ prompt_delete_data() {
         while true; do
             read -r -p "Are you sure you want to proceed? [y/N]: " confirm
             case "${confirm,,}" in
-                y | yes)
-                    echo ""
-                    echo -e "${YELLOW}Proceeding with deletion...${NC}"
+            y | yes)
+                echo ""
+                echo -e "${YELLOW}Proceeding with deletion...${NC}"
 
-                    # Perform deletions
-                    if [[ "$DELETE_LIBRARY" == "true" ]] && [[ -d "$library_dir" ]]; then
-                        echo "Deleting converted audiobooks..."
+                # Perform deletions
+                if [[ "$DELETE_LIBRARY" == "true" ]] && [[ -d "$library_dir" ]]; then
+                    echo "Deleting converted audiobooks..."
+                    if [[ "$use_sudo" == "sudo" ]]; then
+                        sudo rm -rf "$library_dir"
+                    else
+                        rm -rf "$library_dir"
+                    fi
+                fi
+
+                if [[ "$DELETE_SOURCES" == "true" ]] && [[ -d "$sources_dir" ]]; then
+                    echo "Deleting source files..."
+                    if [[ "$use_sudo" == "sudo" ]]; then
+                        sudo rm -rf "$sources_dir"
+                    else
+                        rm -rf "$sources_dir"
+                    fi
+                fi
+
+                if [[ "$DELETE_SUPPLEMENTS" == "true" ]] && [[ -d "$supplements_dir" ]]; then
+                    echo "Deleting supplemental PDFs..."
+                    if [[ "$use_sudo" == "sudo" ]]; then
+                        sudo rm -rf "$supplements_dir"
+                    else
+                        rm -rf "$supplements_dir"
+                    fi
+                fi
+
+                if [[ "$DELETE_CONFIG" == "true" ]]; then
+                    local config_dir=$(dirname "$config_file")
+                    echo "Deleting configuration..."
+                    if [[ "$use_sudo" == "sudo" ]]; then
+                        sudo rm -rf "$config_dir"
+                    else
+                        rm -rf "$config_dir"
+                    fi
+                fi
+
+                # Also delete empty parent data directory if it exists and is empty
+                if [[ -n "$data_dir" ]] && [[ -d "$data_dir" ]]; then
+                    if [[ -z "$(ls -A "$data_dir" 2>/dev/null)" ]]; then
+                        echo "Removing empty data directory..."
                         if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$library_dir"
+                            sudo rmdir "$data_dir" 2>/dev/null || true
                         else
-                            rm -rf "$library_dir"
+                            rmdir "$data_dir" 2>/dev/null || true
                         fi
                     fi
+                fi
 
-                    if [[ "$DELETE_SOURCES" == "true" ]] && [[ -d "$sources_dir" ]]; then
-                        echo "Deleting source files..."
-                        if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$sources_dir"
-                        else
-                            rm -rf "$sources_dir"
-                        fi
-                    fi
-
-                    if [[ "$DELETE_SUPPLEMENTS" == "true" ]] && [[ -d "$supplements_dir" ]]; then
-                        echo "Deleting supplemental PDFs..."
-                        if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$supplements_dir"
-                        else
-                            rm -rf "$supplements_dir"
-                        fi
-                    fi
-
-                    if [[ "$DELETE_CONFIG" == "true" ]]; then
-                        local config_dir=$(dirname "$config_file")
-                        echo "Deleting configuration..."
-                        if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$config_dir"
-                        else
-                            rm -rf "$config_dir"
-                        fi
-                    fi
-
-                    # Also delete empty parent data directory if it exists and is empty
-                    if [[ -n "$data_dir" ]] && [[ -d "$data_dir" ]]; then
-                        if [[ -z "$(ls -A "$data_dir" 2>/dev/null)" ]]; then
-                            echo "Removing empty data directory..."
-                            if [[ "$use_sudo" == "sudo" ]]; then
-                                sudo rmdir "$data_dir" 2>/dev/null || true
-                            else
-                                rmdir "$data_dir" 2>/dev/null || true
-                            fi
-                        fi
-                    fi
-
-                    echo -e "${GREEN}Data deletion complete.${NC}"
-                    break
-                    ;;
-                n | no | "")
-                    echo -e "${GREEN}Deletion cancelled. All data preserved.${NC}"
-                    break
-                    ;;
-                *)
-                    echo "Please answer y(es) or n(o)"
-                    ;;
+                echo -e "${GREEN}Data deletion complete.${NC}"
+                break
+                ;;
+            n | no | "")
+                echo -e "${GREEN}Deletion cancelled. All data preserved.${NC}"
+                break
+                ;;
+            *)
+                echo "Please answer y(es) or n(o)"
+                ;;
             esac
         done
     else
@@ -1154,43 +1154,43 @@ check_all_ports() {
     while true; do
         read -r -p "Enter your choice [1-3]: " choice
         case "$choice" in
-            1)
-                # Prompt for alternate ports for each conflict
-                if [[ "$api_conflict" == "true" ]]; then
-                    local new_api=$(prompt_alternate_port "API server" "$API_PORT" "$((API_PORT + 1))")
-                    API_PORT="$new_api"
-                    echo -e "${GREEN}  API port set to: $API_PORT${NC}"
-                fi
+        1)
+            # Prompt for alternate ports for each conflict
+            if [[ "$api_conflict" == "true" ]]; then
+                local new_api=$(prompt_alternate_port "API server" "$API_PORT" "$((API_PORT + 1))")
+                API_PORT="$new_api"
+                echo -e "${GREEN}  API port set to: $API_PORT${NC}"
+            fi
 
-                if [[ "$web_conflict" == "true" ]]; then
-                    local new_web=$(prompt_alternate_port "HTTPS web server" "$WEB_PORT" "$((WEB_PORT + 1))")
-                    WEB_PORT="$new_web"
-                    echo -e "${GREEN}  HTTPS port set to: $WEB_PORT${NC}"
-                fi
+            if [[ "$web_conflict" == "true" ]]; then
+                local new_web=$(prompt_alternate_port "HTTPS web server" "$WEB_PORT" "$((WEB_PORT + 1))")
+                WEB_PORT="$new_web"
+                echo -e "${GREEN}  HTTPS port set to: $WEB_PORT${NC}"
+            fi
 
-                if [[ "$redirect_conflict" == "true" ]]; then
-                    local new_redirect=$(prompt_alternate_port "HTTP redirect" "$HTTP_REDIRECT_PORT" "$((HTTP_REDIRECT_PORT + 1))")
-                    HTTP_REDIRECT_PORT="$new_redirect"
-                    echo -e "${GREEN}  HTTP redirect port set to: $HTTP_REDIRECT_PORT${NC}"
-                fi
+            if [[ "$redirect_conflict" == "true" ]]; then
+                local new_redirect=$(prompt_alternate_port "HTTP redirect" "$HTTP_REDIRECT_PORT" "$((HTTP_REDIRECT_PORT + 1))")
+                HTTP_REDIRECT_PORT="$new_redirect"
+                echo -e "${GREEN}  HTTP redirect port set to: $HTTP_REDIRECT_PORT${NC}"
+            fi
 
-                echo ""
-                echo -e "${GREEN}Port configuration updated.${NC}"
-                return 0
-                ;;
-            2)
-                echo ""
-                echo -e "${YELLOW}Continuing with installation. Note: Services may fail to start if ports are in use.${NC}"
-                return 0
-                ;;
-            3)
-                echo ""
-                echo -e "${RED}Installation aborted.${NC}"
-                return 1
-                ;;
-            *)
-                echo "Please enter 1, 2, or 3."
-                ;;
+            echo ""
+            echo -e "${GREEN}Port configuration updated.${NC}"
+            return 0
+            ;;
+        2)
+            echo ""
+            echo -e "${YELLOW}Continuing with installation. Note: Services may fail to start if ports are in use.${NC}"
+            return 0
+            ;;
+        3)
+            echo ""
+            echo -e "${RED}Installation aborted.${NC}"
+            return 1
+            ;;
+        *)
+            echo "Please enter 1, 2, or 3."
+            ;;
         esac
     done
 }
@@ -1454,7 +1454,7 @@ CFEOF
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
+                install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
                 esac
                 sudo cp "$script" "${APP_SCRIPTS_DIR}/"
                 sudo chmod 755 "${APP_SCRIPTS_DIR}/${script_name}"
@@ -1939,68 +1939,68 @@ EOF
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
+                install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
                 esac
                 # Map script names to consistent audiobook- prefix
                 local target_name
                 case "$script_name" in
-                    convert-audiobooks-opus-parallel)
-                        target_name="audiobook-convert"
-                        ;;
-                    move-staged-audiobooks)
-                        target_name="audiobook-move-staged"
-                        ;;
-                    download-new-audiobooks)
-                        target_name="audiobook-download"
-                        ;;
-                    audiobook-save-staging)
-                        target_name="audiobook-save-staging"
-                        ;;
-                    audiobook-save-staging-auto)
-                        target_name="audiobook-save-staging-auto"
-                        ;;
-                    audiobook-status)
-                        target_name="audiobook-status"
-                        ;;
-                    audiobook-start)
-                        target_name="audiobook-start"
-                        ;;
-                    audiobook-stop)
-                        target_name="audiobook-stop"
-                        ;;
-                    audiobook-enable)
-                        target_name="audiobook-enable"
-                        ;;
-                    audiobook-disable)
-                        target_name="audiobook-disable"
-                        ;;
-                    audiobook-help)
-                        target_name="audiobook-help"
-                        ;;
-                    monitor-audiobook-conversion)
-                        target_name="audiobook-monitor"
-                        ;;
-                    copy-audiobook-metadata)
-                        target_name="audiobook-copy-metadata"
-                        ;;
-                    audiobook-download-monitor)
-                        target_name="audiobook-download-monitor"
-                        ;;
-                    embed-cover-art.py)
-                        # Python script needs venv wrapper — create bash wrapper instead of raw copy
-                        cat >"${BIN_DIR}/audiobook-embed-cover" <<PYEOF
+                convert-audiobooks-opus-parallel)
+                    target_name="audiobook-convert"
+                    ;;
+                move-staged-audiobooks)
+                    target_name="audiobook-move-staged"
+                    ;;
+                download-new-audiobooks)
+                    target_name="audiobook-download"
+                    ;;
+                audiobook-save-staging)
+                    target_name="audiobook-save-staging"
+                    ;;
+                audiobook-save-staging-auto)
+                    target_name="audiobook-save-staging-auto"
+                    ;;
+                audiobook-status)
+                    target_name="audiobook-status"
+                    ;;
+                audiobook-start)
+                    target_name="audiobook-start"
+                    ;;
+                audiobook-stop)
+                    target_name="audiobook-stop"
+                    ;;
+                audiobook-enable)
+                    target_name="audiobook-enable"
+                    ;;
+                audiobook-disable)
+                    target_name="audiobook-disable"
+                    ;;
+                audiobook-help)
+                    target_name="audiobook-help"
+                    ;;
+                monitor-audiobook-conversion)
+                    target_name="audiobook-monitor"
+                    ;;
+                copy-audiobook-metadata)
+                    target_name="audiobook-copy-metadata"
+                    ;;
+                audiobook-download-monitor)
+                    target_name="audiobook-download-monitor"
+                    ;;
+                embed-cover-art.py)
+                    # Python script needs venv wrapper — create bash wrapper instead of raw copy
+                    cat >"${BIN_DIR}/audiobook-embed-cover" <<PYEOF
 #!/bin/bash
 # Audiobook Library Cover Art Embedder
 # Wrapper — uses venv Python for mutagen dependency
 exec "${LIB_DIR}/library/venv/bin/python" "${LIB_DIR}/scripts/embed-cover-art.py" "\$@"
 PYEOF
-                        chmod 755 "${BIN_DIR}/audiobook-embed-cover"
-                        echo "  Installed: audiobook-embed-cover (venv wrapper)"
-                        continue
-                        ;;
-                    *)
-                        target_name="audiobook-${script_name}"
-                        ;;
+                    chmod 755 "${BIN_DIR}/audiobook-embed-cover"
+                    echo "  Installed: audiobook-embed-cover (venv wrapper)"
+                    continue
+                    ;;
+                *)
+                    target_name="audiobook-${script_name}"
+                    ;;
                 esac
                 cp "$script" "${BIN_DIR}/${target_name}"
                 chmod 755 "${BIN_DIR}/${target_name}"
@@ -2335,19 +2335,19 @@ do_fresh_install() {
             key=$(echo "$key" | xargs)
             value=$(echo "$value" | sed 's/^["'"'"']//; s/["'"'"']$//' | xargs)
             case "$key" in
-                AUDIOBOOKS_DATA) saved_AUDIOBOOKS_DATA="$value" ;;
-                AUDIOBOOKS_LIBRARY) saved_AUDIOBOOKS_LIBRARY="$value" ;;
-                AUDIOBOOKS_SOURCES) saved_AUDIOBOOKS_SOURCES="$value" ;;
-                AUDIOBOOKS_SUPPLEMENTS) saved_AUDIOBOOKS_SUPPLEMENTS="$value" ;;
-                AUDIOBOOKS_DATABASE) saved_AUDIOBOOKS_DATABASE="$value" ;;
-                AUDIOBOOKS_API_PORT) saved_AUDIOBOOKS_API_PORT="$value" ;;
-                AUDIOBOOKS_WEB_PORT) saved_AUDIOBOOKS_WEB_PORT="$value" ;;
-                AUDIOBOOKS_HTTP_REDIRECT_PORT) saved_AUDIOBOOKS_HTTP_REDIRECT_PORT="$value" ;;
-                AUDIOBOOKS_BIND_ADDRESS) saved_AUDIOBOOKS_BIND_ADDRESS="$value" ;;
-                AUDIOBOOKS_HTTPS_ENABLED) saved_AUDIOBOOKS_HTTPS_ENABLED="$value" ;;
-                AUTH_ENABLED) saved_AUTH_ENABLED="$value" ;;
-                AUTH_DATABASE) saved_AUTH_DATABASE="$value" ;;
-                AUTH_KEY_FILE) saved_AUTH_KEY_FILE="$value" ;;
+            AUDIOBOOKS_DATA) saved_AUDIOBOOKS_DATA="$value" ;;
+            AUDIOBOOKS_LIBRARY) saved_AUDIOBOOKS_LIBRARY="$value" ;;
+            AUDIOBOOKS_SOURCES) saved_AUDIOBOOKS_SOURCES="$value" ;;
+            AUDIOBOOKS_SUPPLEMENTS) saved_AUDIOBOOKS_SUPPLEMENTS="$value" ;;
+            AUDIOBOOKS_DATABASE) saved_AUDIOBOOKS_DATABASE="$value" ;;
+            AUDIOBOOKS_API_PORT) saved_AUDIOBOOKS_API_PORT="$value" ;;
+            AUDIOBOOKS_WEB_PORT) saved_AUDIOBOOKS_WEB_PORT="$value" ;;
+            AUDIOBOOKS_HTTP_REDIRECT_PORT) saved_AUDIOBOOKS_HTTP_REDIRECT_PORT="$value" ;;
+            AUDIOBOOKS_BIND_ADDRESS) saved_AUDIOBOOKS_BIND_ADDRESS="$value" ;;
+            AUDIOBOOKS_HTTPS_ENABLED) saved_AUDIOBOOKS_HTTPS_ENABLED="$value" ;;
+            AUTH_ENABLED) saved_AUTH_ENABLED="$value" ;;
+            AUTH_DATABASE) saved_AUTH_DATABASE="$value" ;;
+            AUTH_KEY_FILE) saved_AUTH_KEY_FILE="$value" ;;
             esac
         done <"$config_file"
     fi
@@ -2518,47 +2518,47 @@ do_fresh_install() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --system)
-            INSTALL_MODE="system"
-            shift
-            ;;
-        --user)
-            INSTALL_MODE="user"
-            shift
-            ;;
-        --data-dir)
-            DATA_DIR="$2"
-            shift 2
-            ;;
-        --modular)
-            API_ARCHITECTURE="modular"
-            shift
-            ;;
-        --monolithic)
-            API_ARCHITECTURE="monolithic"
-            shift
-            ;;
-        --uninstall)
-            UNINSTALL=true
-            shift
-            ;;
-        --no-services)
-            INSTALL_SERVICES=false
-            shift
-            ;;
-        --fresh-install | -fi)
-            FRESH_INSTALL=true
-            shift
-            ;;
-        --help | -h)
-            show_usage
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Use --help for usage information."
-            exit 1
-            ;;
+    --system)
+        INSTALL_MODE="system"
+        shift
+        ;;
+    --user)
+        INSTALL_MODE="user"
+        shift
+        ;;
+    --data-dir)
+        DATA_DIR="$2"
+        shift 2
+        ;;
+    --modular)
+        API_ARCHITECTURE="modular"
+        shift
+        ;;
+    --monolithic)
+        API_ARCHITECTURE="monolithic"
+        shift
+        ;;
+    --uninstall)
+        UNINSTALL=true
+        shift
+        ;;
+    --no-services)
+        INSTALL_SERVICES=false
+        shift
+        ;;
+    --fresh-install | -fi)
+        FRESH_INSTALL=true
+        shift
+        ;;
+    --help | -h)
+        show_usage
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Unknown option: $1${NC}"
+        echo "Use --help for usage information."
+        exit 1
+        ;;
     esac
 done
 
@@ -2615,77 +2615,77 @@ while true; do
     echo ""
 
     case "$choice" in
-        1)
-            # System installation
-            echo -e "${BLUE}Checking sudo privileges...${NC}"
-            echo ""
+    1)
+        # System installation
+        echo -e "${BLUE}Checking sudo privileges...${NC}"
+        echo ""
 
-            if ! check_sudo_access; then
-                show_sudo_error
-                wait_for_keypress
-                continue
-            fi
-
-            if ! verify_sudo; then
-                show_sudo_error
-                wait_for_keypress
-                continue
-            fi
-
-            # Prompt for data directory if not set
-            if [[ -z "$DATA_DIR" ]]; then
-                echo ""
-                read -r -p "Audiobook data directory [/srv/audiobooks]: " input_dir
-                DATA_DIR="${input_dir:-/srv/audiobooks}"
-            fi
-
-            # Prompt for API architecture choice
-            if [[ "$UNINSTALL" != "true" ]]; then
-                prompt_architecture_choice
-            fi
-
-            if [[ "$UNINSTALL" == "true" ]]; then
-                do_system_uninstall
-            else
-                do_system_install
-            fi
-
-            echo ""
+        if ! check_sudo_access; then
+            show_sudo_error
             wait_for_keypress
-            exit 0
-            ;;
-        2)
-            # User installation
-            # Prompt for data directory if not set
-            if [[ -z "$DATA_DIR" ]]; then
-                echo ""
-                read -r -p "Audiobook data directory [$HOME/Audiobooks]: " input_dir
-                DATA_DIR="${input_dir:-$HOME/Audiobooks}"
-            fi
+            continue
+        fi
 
-            # Prompt for API architecture choice
-            if [[ "$UNINSTALL" != "true" ]]; then
-                prompt_architecture_choice
-            fi
-
-            if [[ "$UNINSTALL" == "true" ]]; then
-                do_user_uninstall
-            else
-                do_user_install
-            fi
-
-            echo ""
+        if ! verify_sudo; then
+            show_sudo_error
             wait_for_keypress
-            exit 0
-            ;;
-        3)
-            # Exit
-            echo -e "${GREEN}Exiting installer.${NC}"
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Invalid choice. Please enter 1, 2, or 3.${NC}"
-            sleep 1
-            ;;
+            continue
+        fi
+
+        # Prompt for data directory if not set
+        if [[ -z "$DATA_DIR" ]]; then
+            echo ""
+            read -r -p "Audiobook data directory [/srv/audiobooks]: " input_dir
+            DATA_DIR="${input_dir:-/srv/audiobooks}"
+        fi
+
+        # Prompt for API architecture choice
+        if [[ "$UNINSTALL" != "true" ]]; then
+            prompt_architecture_choice
+        fi
+
+        if [[ "$UNINSTALL" == "true" ]]; then
+            do_system_uninstall
+        else
+            do_system_install
+        fi
+
+        echo ""
+        wait_for_keypress
+        exit 0
+        ;;
+    2)
+        # User installation
+        # Prompt for data directory if not set
+        if [[ -z "$DATA_DIR" ]]; then
+            echo ""
+            read -r -p "Audiobook data directory [$HOME/Audiobooks]: " input_dir
+            DATA_DIR="${input_dir:-$HOME/Audiobooks}"
+        fi
+
+        # Prompt for API architecture choice
+        if [[ "$UNINSTALL" != "true" ]]; then
+            prompt_architecture_choice
+        fi
+
+        if [[ "$UNINSTALL" == "true" ]]; then
+            do_user_uninstall
+        else
+            do_user_install
+        fi
+
+        echo ""
+        wait_for_keypress
+        exit 0
+        ;;
+    3)
+        # Exit
+        echo -e "${GREEN}Exiting installer.${NC}"
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Invalid choice. Please enter 1, 2, or 3.${NC}"
+        sleep 1
+        ;;
     esac
 done

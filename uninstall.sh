@@ -223,9 +223,9 @@ confirm_uninstall() {
     fi
 
     case "$DATA_MODE" in
-        keep) echo -e "\n  ${GREEN}Data directories will be KEPT${NC}" ;;
-        delete) echo -e "\n  ${RED}Data directories will be DELETED${NC}" ;;
-        *) echo -e "\n  Data directories: will prompt individually" ;;
+    keep) echo -e "\n  ${GREEN}Data directories will be KEPT${NC}" ;;
+    delete) echo -e "\n  ${RED}Data directories will be DELETED${NC}" ;;
+    *) echo -e "\n  Data directories: will prompt individually" ;;
     esac
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -236,16 +236,16 @@ confirm_uninstall() {
     while true; do
         read -r -p "Type 'yes' to proceed with uninstall: " answer
         case "${answer,,}" in
-            yes)
-                return 0
-                ;;
-            no | n | "")
-                echo -e "${GREEN}Uninstall cancelled.${NC}"
-                exit 0
-                ;;
-            *)
-                echo "Please type 'yes' to confirm or press Enter to cancel."
-                ;;
+        yes)
+            return 0
+            ;;
+        no | n | "")
+            echo -e "${GREEN}Uninstall cancelled.${NC}"
+            exit 0
+            ;;
+        *)
+            echo "Please type 'yes' to confirm or press Enter to cancel."
+            ;;
         esac
     done
 }
@@ -631,9 +631,9 @@ _prompt_delete() {
     while true; do
         read -r -p "${prompt_text} [y/N]: " answer
         case "${answer,,}" in
-            y | yes) return 0 ;;
-            n | no | "") return 1 ;;
-            *) echo "  Please answer y(es) or n(o)" ;;
+        y | yes) return 0 ;;
+        n | no | "") return 1 ;;
+        *) echo "  Please answer y(es) or n(o)" ;;
         esac
     done
 }
@@ -886,39 +886,39 @@ do_user_uninstall() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --system)
-            INSTALL_MODE="system"
-            shift
-            ;;
-        --user)
-            INSTALL_MODE="user"
-            shift
-            ;;
-        --keep-data)
-            DATA_MODE="keep"
-            shift
-            ;;
-        --delete-data)
-            DATA_MODE="delete"
-            shift
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --force)
-            FORCE=true
-            shift
-            ;;
-        --help | -h)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Use --help for usage information."
-            exit 1
-            ;;
+    --system)
+        INSTALL_MODE="system"
+        shift
+        ;;
+    --user)
+        INSTALL_MODE="user"
+        shift
+        ;;
+    --keep-data)
+        DATA_MODE="keep"
+        shift
+        ;;
+    --delete-data)
+        DATA_MODE="delete"
+        shift
+        ;;
+    --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+    --force)
+        FORCE=true
+        shift
+        ;;
+    --help | -h)
+        show_help
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Unknown option: $1${NC}"
+        echo "Use --help for usage information."
+        exit 1
+        ;;
     esac
 done
 
@@ -930,45 +930,45 @@ done
 if [[ -z "$INSTALL_MODE" ]]; then
     detected=$(detect_install_type)
     case "$detected" in
-        system)
-            INSTALL_MODE="system"
-            log_info "Auto-detected system installation"
-            ;;
-        user)
-            INSTALL_MODE="user"
-            log_info "Auto-detected user installation"
-            ;;
-        both)
-            echo -e "${YELLOW}Both system and user installations detected.${NC}"
-            while true; do
-                read -r -p "Uninstall [s]ystem, [u]ser, or [b]oth? " answer
-                case "${answer,,}" in
-                    s | system)
-                        INSTALL_MODE="system"
-                        break
-                        ;;
-                    u | user)
-                        INSTALL_MODE="user"
-                        break
-                        ;;
-                    b | both)
-                        INSTALL_MODE="both"
-                        break
-                        ;;
-                    *)
-                        echo "Please enter s, u, or b"
-                        ;;
-                esac
-            done
-            ;;
-        none)
-            echo -e "${GREEN}No Audiobook Manager installation detected.${NC}"
-            echo ""
-            echo "Checked:"
-            echo "  System: /opt/audiobooks, /usr/local/bin/audiobook-*, /etc/systemd/system/audiobook*"
-            echo "  User:   ~/.local/lib/audiobooks, ~/.local/bin/audiobook-*, ~/.config/systemd/user/audiobook*"
-            exit 0
-            ;;
+    system)
+        INSTALL_MODE="system"
+        log_info "Auto-detected system installation"
+        ;;
+    user)
+        INSTALL_MODE="user"
+        log_info "Auto-detected user installation"
+        ;;
+    both)
+        echo -e "${YELLOW}Both system and user installations detected.${NC}"
+        while true; do
+            read -r -p "Uninstall [s]ystem, [u]ser, or [b]oth? " answer
+            case "${answer,,}" in
+            s | system)
+                INSTALL_MODE="system"
+                break
+                ;;
+            u | user)
+                INSTALL_MODE="user"
+                break
+                ;;
+            b | both)
+                INSTALL_MODE="both"
+                break
+                ;;
+            *)
+                echo "Please enter s, u, or b"
+                ;;
+            esac
+        done
+        ;;
+    none)
+        echo -e "${GREEN}No Audiobook Manager installation detected.${NC}"
+        echo ""
+        echo "Checked:"
+        echo "  System: /opt/audiobooks, /usr/local/bin/audiobook-*, /etc/systemd/system/audiobook*"
+        echo "  User:   ~/.local/lib/audiobooks, ~/.local/bin/audiobook-*, ~/.config/systemd/user/audiobook*"
+        exit 0
+        ;;
     esac
 fi
 
@@ -991,17 +991,17 @@ fi
 
 # Execute
 case "$INSTALL_MODE" in
-    system)
-        do_system_uninstall
-        ;;
-    user)
-        do_user_uninstall
-        ;;
-    both)
-        do_system_uninstall
-        # Reset counters for user
-        REMOVED_COUNT=0
-        SKIPPED_COUNT=0
-        do_user_uninstall
-        ;;
+system)
+    do_system_uninstall
+    ;;
+user)
+    do_user_uninstall
+    ;;
+both)
+    do_system_uninstall
+    # Reset counters for user
+    REMOVED_COUNT=0
+    SKIPPED_COUNT=0
+    do_user_uninstall
+    ;;
 esac

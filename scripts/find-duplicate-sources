@@ -23,16 +23,16 @@ REMOVE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --remove)
-            REMOVE=true
-            DRY_RUN=false
-            shift
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        *) shift ;;
+    --remove)
+        REMOVE=true
+        DRY_RUN=false
+        shift
+        ;;
+    --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+    *) shift ;;
     esac
 done
 

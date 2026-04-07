@@ -641,51 +641,51 @@ REQUEST_TYPE=$(get_json_field "$REQUEST" "type")
 [[ -z "$REQUEST_TYPE" ]] && REQUEST_TYPE="upgrade"
 
 case "$REQUEST_TYPE" in
-    upgrade)
-        SOURCE=$(get_json_field "$REQUEST" "source")
-        PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
-        FORCE=$(get_json_bool "$REQUEST" "force")
-        MAJOR_VERSION=$(get_json_bool "$REQUEST" "major_version")
-        VERSION=$(get_json_field "$REQUEST" "version")
-        [[ -z "$SOURCE" ]] && SOURCE="github"
-        do_upgrade "$SOURCE" "$PROJECT_PATH" "$FORCE" "$MAJOR_VERSION" "$VERSION"
-        ;;
+upgrade)
+    SOURCE=$(get_json_field "$REQUEST" "source")
+    PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
+    FORCE=$(get_json_bool "$REQUEST" "force")
+    MAJOR_VERSION=$(get_json_bool "$REQUEST" "major_version")
+    VERSION=$(get_json_field "$REQUEST" "version")
+    [[ -z "$SOURCE" ]] && SOURCE="github"
+    do_upgrade "$SOURCE" "$PROJECT_PATH" "$FORCE" "$MAJOR_VERSION" "$VERSION"
+    ;;
 
-    upgrade_check)
-        SOURCE=$(get_json_field "$REQUEST" "source")
-        PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
-        [[ -z "$SOURCE" ]] && SOURCE="github"
-        do_upgrade_check "$SOURCE" "$PROJECT_PATH"
-        ;;
+upgrade_check)
+    SOURCE=$(get_json_field "$REQUEST" "source")
+    PROJECT_PATH=$(get_json_field "$REQUEST" "project_path")
+    [[ -z "$SOURCE" ]] && SOURCE="github"
+    do_upgrade_check "$SOURCE" "$PROJECT_PATH"
+    ;;
 
-    service_start)
-        SERVICE=$(get_json_field "$REQUEST" "service")
-        do_service_start "$SERVICE"
-        ;;
+service_start)
+    SERVICE=$(get_json_field "$REQUEST" "service")
+    do_service_start "$SERVICE"
+    ;;
 
-    service_stop)
-        SERVICE=$(get_json_field "$REQUEST" "service")
-        do_service_stop "$SERVICE"
-        ;;
+service_stop)
+    SERVICE=$(get_json_field "$REQUEST" "service")
+    do_service_stop "$SERVICE"
+    ;;
 
-    service_restart)
-        SERVICE=$(get_json_field "$REQUEST" "service")
-        do_service_restart "$SERVICE"
-        ;;
+service_restart)
+    SERVICE=$(get_json_field "$REQUEST" "service")
+    do_service_restart "$SERVICE"
+    ;;
 
-    services_start_all)
-        do_services_start_all
-        ;;
+services_start_all)
+    do_services_start_all
+    ;;
 
-    services_stop_all)
-        INCLUDE_API=$(get_json_bool "$REQUEST" "include_api")
-        do_services_stop_all "$INCLUDE_API"
-        ;;
+services_stop_all)
+    INCLUDE_API=$(get_json_bool "$REQUEST" "include_api")
+    do_services_stop_all "$INCLUDE_API"
+    ;;
 
-    *)
-        write_status "false" "error" "Unknown request type: $REQUEST_TYPE" "false" "null"
-        exit 1
-        ;;
+*)
+    write_status "false" "error" "Unknown request type: $REQUEST_TYPE" "false" "null"
+    exit 1
+    ;;
 esac
 
 exit 0
