@@ -15,6 +15,7 @@ class ShellPlayer {
     this._lastMediaSessionSecond = -1;
     this._isScrubbing = false;
     this._lastSaveTime = 0;
+    this._lastVolume = 1;
 
     // Position persistence
     this.storagePrefix = "audiobook_";
@@ -52,9 +53,15 @@ class ShellPlayer {
     document
       .getElementById("sp-speed")
       .addEventListener("click", () => this.cycleSpeed());
-    document.getElementById("sp-volume").addEventListener("input", (e) => {
+    const volumeSlider = document.getElementById("sp-volume");
+    volumeSlider.addEventListener("input", (e) => {
       this.audio.volume = e.target.value / 100;
+      this._lastVolume = this.audio.volume;
+      this.updateVolumeIcon();
     });
+    document
+      .getElementById("sp-volume-icon")
+      .addEventListener("click", () => this.toggleMute());
     const progressBar = document.getElementById("sp-progress");
     progressBar.addEventListener("mousedown", () => {
       this._isScrubbing = true;
@@ -342,6 +349,39 @@ class ShellPlayer {
     this.audio.playbackRate = rate;
     document.getElementById("sp-speed-display").textContent = rate + "x";
     this.saveSpeed(rate);
+  }
+
+  toggleMute() {
+    if (this.audio.volume > 0) {
+      this._lastVolume = this.audio.volume;
+      this.audio.volume = 0;
+      document.getElementById("sp-volume").value = 0;
+    } else {
+      this.audio.volume = this._lastVolume || 1;
+      document.getElementById("sp-volume").value = this.audio.volume * 100;
+    }
+    this.updateVolumeIcon();
+  }
+
+  updateVolumeIcon() {
+    const vol = this.audio.volume;
+    const path = document.getElementById("sp-volume-path");
+    if (vol === 0) {
+      path.setAttribute(
+        "d",
+        "M16.5 12A4.5 4.5 0 0012 8.5v1.5a3 3 0 010 4V15.5a4.5 4.5 0 004.5-4.5zM19 12a7 7 0 00-7-7v2a5 5 0 010 10v2a7 7 0 007-7zM3 9v6h4l5 5V4L7 9H3zm14.59 3l2.12-2.12-1.41-1.42L16.17 10.6l-2.12-2.12-1.42 1.41L14.76 12l-2.13 2.12 1.42 1.41 2.12-2.12 2.12 2.12 1.41-1.42L17.59 12z",
+      );
+    } else if (vol < 0.5) {
+      path.setAttribute(
+        "d",
+        "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v7A4.5 4.5 0 0016.5 12z",
+      );
+    } else {
+      path.setAttribute(
+        "d",
+        "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v1.5a3 3 0 010 4V15.5a4.5 4.5 0 004.5-4.5zM12 3.23v2.06a7 7 0 010 13.42v2.06A9 9 0 0021 12 9 9 0 0012 3.23z",
+      );
+    }
   }
 
   close() {

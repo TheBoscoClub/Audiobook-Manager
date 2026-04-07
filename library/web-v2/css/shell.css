@@ -169,6 +169,13 @@ body {
     color: var(--parchment);
 }
 
+.sp-volume-icon {
+    padding: 2px 4px;
+    line-height: 1;
+    color: var(--parchment);
+}
+.sp-volume-icon:hover { color: var(--gold); }
+
 .sp-volume {
     width: 70px;
     accent-color: var(--gold);
