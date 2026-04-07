@@ -309,8 +309,21 @@ class TestScanProjectsDirectoryError:
 class TestPurgeCdnCache:
     """Lines 731-804: Cloudflare CDN cache purge endpoint."""
 
+    def test_missing_zone_id_returns_503(self, flask_app, monkeypatch):
+        """Missing CF_ZONE_ID returns 503."""
+        monkeypatch.delenv("CF_ZONE_ID", raising=False)
+
+        with flask_app.test_client() as client:
+            response = client.post("/api/system/purge-cache")
+
+        assert response.status_code == 503
+        data = response.get_json()
+        assert data["success"] is False
+        assert "CF_ZONE_ID" in data["error"]
+
     def test_no_credentials_returns_503(self, flask_app, monkeypatch):
         """Missing credentials returns 503."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.delenv("CF_GLOBAL_API_KEY", raising=False)
         monkeypatch.delenv("CF_AUTH_EMAIL", raising=False)
         # Point to a non-existent token file
@@ -326,6 +339,7 @@ class TestPurgeCdnCache:
 
     def test_credentials_from_env_vars(self, flask_app, monkeypatch):
         """Credentials read from environment variables."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.setenv("CF_GLOBAL_API_KEY", "test-api-key")
         monkeypatch.setenv("CF_AUTH_EMAIL", "test@example.com")
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent/token-file")
@@ -345,6 +359,7 @@ class TestPurgeCdnCache:
 
     def test_credentials_from_token_file(self, flask_app, temp_dir, monkeypatch):
         """Credentials read from token file."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         token_file = temp_dir / "cf-token"
         token_file.write_text(
             "# Cloudflare credentials\n"
@@ -376,6 +391,7 @@ class TestPurgeCdnCache:
         self, flask_app, temp_dir, monkeypatch
     ):
         """Token file with quotes and comment lines parsed correctly."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         token_file = temp_dir / "cf-token"
         token_file.write_text(
             "# Comment line\n"
@@ -408,6 +424,7 @@ class TestPurgeCdnCache:
         self, flask_app, temp_dir, monkeypatch
     ):
         """Token file read failure falls back to env vars."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         # Create a token file path that exists but patch open to fail
         token_file = temp_dir / "cf-token"
         token_file.write_text("CF_GLOBAL_API_KEY=should-not-read")
@@ -440,6 +457,7 @@ class TestPurgeCdnCache:
 
     def test_cloudflare_api_returns_failure(self, flask_app, monkeypatch):
         """Cloudflare API returns success=false."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.setenv("CF_GLOBAL_API_KEY", "test-key")
         monkeypatch.setenv("CF_AUTH_EMAIL", "test@example.com")
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
@@ -462,6 +480,7 @@ class TestPurgeCdnCache:
         """Cloudflare API HTTP error returns 502."""
         import urllib.error
 
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.setenv("CF_GLOBAL_API_KEY", "test-key")
         monkeypatch.setenv("CF_AUTH_EMAIL", "test@example.com")
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
@@ -488,6 +507,7 @@ class TestPurgeCdnCache:
         """Cloudflare API URL error (network) returns 502."""
         import urllib.error
 
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.setenv("CF_GLOBAL_API_KEY", "test-key")
         monkeypatch.setenv("CF_AUTH_EMAIL", "test@example.com")
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
@@ -506,6 +526,7 @@ class TestPurgeCdnCache:
 
     def test_cloudflare_timeout_error(self, flask_app, monkeypatch):
         """Cloudflare API timeout returns 504."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.setenv("CF_GLOBAL_API_KEY", "test-key")
         monkeypatch.setenv("CF_AUTH_EMAIL", "test@example.com")
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
@@ -524,6 +545,7 @@ class TestPurgeCdnCache:
 
     def test_only_api_key_without_email_returns_503(self, flask_app, monkeypatch):
         """Having only API key but no email returns 503."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.setenv("CF_GLOBAL_API_KEY", "test-key")
         monkeypatch.delenv("CF_AUTH_EMAIL", raising=False)
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
@@ -559,6 +581,7 @@ class TestPurgeCdnCache:
         self, flask_app, temp_dir, monkeypatch
     ):
         """Env vars fill in missing values from partial token file."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         # Token file only has API key, email comes from env
         token_file = temp_dir / "cf-token"
         token_file.write_text("CF_GLOBAL_API_KEY=file-key\n")

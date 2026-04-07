@@ -189,22 +189,23 @@ PROJECT_ROOT = LIBRARY_DIR.parent
 # Path to the database schema
 SCHEMA_PATH = LIBRARY_DIR / "backend" / "schema.sql"
 
-# VM connection details - test-audiobook-cachyos dedicated isolation VM
-VM_HOST = "192.168.122.104"
-VM_API_PORT = 5001
-VM_NAME = "test-audiobook-cachyos"
+# VM connection details — override via environment for your own test VM
+# Example: VM_HOST=10.0.0.50 VM_NAME=my-test-vm pytest ...
+VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
+VM_API_PORT = int(os.environ.get("VM_API_PORT", "5001"))
+VM_NAME = os.environ.get("VM_NAME", "test-audiobook-cachyos")
 
 
 @pytest.fixture(scope="session", autouse=False)
 def ensure_vm_running():
-    """Start test-audiobook-cachyos if it's powered off.
+    """Start the test VM if it's powered off.
 
     Checks VM state via virsh and starts it if needed, then waits
     for SSH connectivity before allowing tests to proceed.
     """
     try:
         result = subprocess.run(
-            ["sudo", "virsh", "domstate", "test-audiobook-cachyos"],
+            ["sudo", "virsh", "domstate", VM_NAME],
             capture_output=True,
             text=True,
             timeout=10,
@@ -214,7 +215,7 @@ def ensure_vm_running():
         return
 
     if result.returncode != 0:
-        pytest.skip("test-audiobook-cachyos not found in libvirt")
+        pytest.skip(f"{VM_NAME} not found in libvirt")
         return
 
     state = result.stdout.strip()
@@ -224,7 +225,7 @@ def ensure_vm_running():
 
     # Start the VM
     start_result = subprocess.run(
-        ["sudo", "virsh", "start", "test-audiobook-cachyos"],
+        ["sudo", "virsh", "start", VM_NAME],
         capture_output=True,
         text=True,
         timeout=30,

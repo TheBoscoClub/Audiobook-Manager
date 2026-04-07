@@ -276,7 +276,7 @@ Seed test library with files containing structured multi-artist tags. Verify Tie
 
 ### Parallel Testing
 
-Clone qa-audiobooks-cachyos for parallel test streams against a production-sized dataset (801 books, 492 authors). Validates data-dependent parsing on real metadata while test-audiobook-cachyos handles fresh-install and schema-migration scenarios.
+Clone qa-audiobook-cachyos for parallel test streams against a production-sized dataset (801 books, 492 authors). Validates data-dependent parsing on real metadata while test-audiobook-cachyos handles fresh-install and schema-migration scenarios.
 
 ## Future Work
 

@@ -31,8 +31,12 @@ if [[ -f "$CF_KEYS_FILE" ]]; then
     source "$CF_KEYS_FILE"
 fi
 
-# thebosco.club zone ID (from cloudflare-manager project)
-CF_ZONE_ID="${CF_ZONE_ID:-24558cb1f70c1a803c249d79a56bde7c}"
+# Cloudflare zone ID — set in /etc/audiobooks/audiobooks.conf or environment
+CF_ZONE_ID="${CF_ZONE_ID:-}"
+if [[ -z "$CF_ZONE_ID" ]]; then
+    echo "ERROR: CF_ZONE_ID not set. Configure in /etc/audiobooks/audiobooks.conf or environment." >&2
+    exit 1
+fi
 QUIET=false
 PURGE_FILES=""
 

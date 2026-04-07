@@ -1643,8 +1643,6 @@ This project would not be possible without the incredible work of many developer
 
 ### Development Tools
 
-- **[Claude Code](https://claude.ai/code)** (Anthropic) - AI coding assistant that helped with implementation details, debugging, and documentation throughout development.
-
 - **[CachyOS](https://cachyos.org/)** - The Arch-based Linux distribution where this project was developed and tested. CachyOS provides an excellent development environment with up-to-date packages and performance optimizations.
 
 ### The Audiobook Community

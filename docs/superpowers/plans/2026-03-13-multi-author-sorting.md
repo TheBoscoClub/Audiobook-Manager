@@ -1413,10 +1413,10 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 
 **Files:** No new files
 
-- [ ] **Step 1: Clone qa-audiobooks-cachyos for parallel testing**
+- [ ] **Step 1: Clone qa-audiobook-cachyos for parallel testing**
 
 ```bash
-sudo virt-clone --original qa-audiobooks-cachyos --name sort-fix-validation --auto-clone
+sudo virt-clone --original qa-audiobook-cachyos --name sort-fix-validation --auto-clone
 sudo virsh start sort-fix-validation
 ```
 

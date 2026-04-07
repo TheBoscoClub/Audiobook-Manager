@@ -1,14 +1,14 @@
 ---
 model: opus
 type: project-specific QA module
-target: qa-audiobooks-cachyos (192.168.122.63)
+target: qa-audiobook-cachyos (192.168.122.63)
 ssh: ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63
 trigger: /test qaapp
 ---
 
 # QA Native App Regression Test Module
 
-You are a subagent responsible for running a full regression test of the Audiobook-Manager native application on the QA VM (`qa-audiobooks-cachyos`). Execute every step below autonomously. Collect results into variables and produce a structured report at the end.
+You are a subagent responsible for running a full regression test of the Audiobook-Manager native application on the QA VM (`qa-audiobook-cachyos`). Execute every step below autonomously. Collect results into variables and produce a structured report at the end.
 
 **Session Record**: After completing all steps, append a summary of your work to the session record file at the project root (`SESSION_RECORD_YYYY-MM-DD.md` where YYYY-MM-DD is today's date). Use `flock` for write coordination:
 
@@ -27,7 +27,7 @@ Load from `vm-test-manifest.json` in the project root. Fallback values if the fi
 
 | Key | Value |
 |-----|-------|
-| VM name | `qa-audiobooks-cachyos` |
+| VM name | `qa-audiobook-cachyos` |
 | VM IP | `192.168.122.63` |
 | SSH user | `claude` |
 | SSH key | `~/.ssh/id_ed25519` |
@@ -50,7 +50,7 @@ Load from `vm-test-manifest.json` in the project root. Fallback values if the fi
 Define these as shell variables at the start for reuse:
 
 ```bash
-QA_VM="qa-audiobooks-cachyos"
+QA_VM="qa-audiobook-cachyos"
 QA_IP="192.168.122.63"
 SSH_KEY="~/.ssh/id_ed25519"
 SSH_USER="claude"

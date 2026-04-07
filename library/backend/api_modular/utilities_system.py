@@ -799,7 +799,14 @@ def purge_cdn_cache() -> FlaskResponse:
     /etc/audiobooks/cloudflare-api-token) or falls back to
     CF_GLOBAL_API_KEY + CF_AUTH_EMAIL environment variables.
     """
-    zone_id = os.environ.get("CF_ZONE_ID", "24558cb1f70c1a803c249d79a56bde7c")
+    zone_id = os.environ.get("CF_ZONE_ID", "")
+    if not zone_id:
+        return jsonify(
+            {
+                "success": False,
+                "error": "CF_ZONE_ID not configured",
+            }
+        ), 503
     api_key, auth_email = _resolve_cf_credentials()
 
     if not api_key or not auth_email:

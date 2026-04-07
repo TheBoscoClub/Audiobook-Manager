@@ -1,7 +1,7 @@
 ---
 model: opus
 type: project-specific QA orchestrator
-target: qa-audiobooks-cachyos (192.168.122.63)
+target: qa-audiobook-cachyos (192.168.122.63)
 ssh: ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63
 trigger: /test qaall
 ---

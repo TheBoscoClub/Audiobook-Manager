@@ -6,7 +6,7 @@
 
 ## Overview
 
-Add project-specific test modules that provide `qaapp`, `qadocker`, and `qaall` shortcuts to `/test` for complete autonomous testing of the QA VM (qa-audiobooks-cachyos at 192.168.122.63).
+Add project-specific test modules that provide `qaapp`, `qadocker`, and `qaall` shortcuts to `/test` for complete autonomous testing of the QA VM (qa-audiobook-cachyos at 192.168.122.63).
 
 ## QA Philosophy
 
@@ -183,7 +183,7 @@ Add a `qa_vm` section alongside existing `vm_testing`:
 {
   "qa_vm": {
     "enabled": true,
-    "vm_name": "qa-audiobooks-cachyos",
+    "vm_name": "qa-audiobook-cachyos",
     "static_ip": "192.168.122.63",
     "snapshot": "return-to-base-2026-02-23",
     "ports": {

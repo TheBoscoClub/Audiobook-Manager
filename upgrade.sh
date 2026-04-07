@@ -1637,7 +1637,11 @@ purge_cloudflare_cache() {
         fi
     else
         # Inline fallback if script not found
-        local zone_id="${CF_ZONE_ID:-24558cb1f70c1a803c249d79a56bde7c}"
+        local zone_id="${CF_ZONE_ID:-}"
+        if [[ -z "$zone_id" ]]; then
+            echo -e "${YELLOW}  CDN cache purge skipped (CF_ZONE_ID not set)${NC}"
+            return 0
+        fi
 
         local result
         result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/purge_cache" \

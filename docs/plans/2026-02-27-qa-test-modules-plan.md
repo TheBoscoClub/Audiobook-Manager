@@ -25,7 +25,7 @@ Add this JSON block after the existing `ssh_config` section (before the closing 
 
   "qa_vm": {
     "enabled": true,
-    "vm_name": "qa-audiobooks-cachyos",
+    "vm_name": "qa-audiobook-cachyos",
     "static_ip": "192.168.122.63",
     "snapshot": "return-to-base-2026-02-23",
     "ports": {
@@ -95,7 +95,7 @@ The module structure:
 # QA Native App Test Module
 
 > **Model**: `opus` | **Type**: Project-specific QA module
-> **Target VM**: qa-audiobooks-cachyos (192.168.122.63)
+> **Target VM**: qa-audiobook-cachyos (192.168.122.63)
 > **SSH**: ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63
 
 ## Purpose
@@ -230,7 +230,7 @@ This module coordinates sequential execution of both QA modules:
 # QA All Test Module (Orchestrator)
 
 > **Model**: `opus` | **Type**: Project-specific QA orchestrator
-> **Target VM**: qa-audiobooks-cachyos (192.168.122.63)
+> **Target VM**: qa-audiobook-cachyos (192.168.122.63)
 
 ## Purpose
 

@@ -144,6 +144,11 @@ AUDIOBOOKS_DEV_MODE="false"
 # Default: auto-detected from request
 #BASE_URL=""
 
+# Cloudflare CDN cache purge (optional)
+# Set your Cloudflare zone ID to enable automatic cache purging after upgrades.
+# Find it in the Cloudflare dashboard: zone overview → API → Zone ID
+#CF_ZONE_ID=""
+
 # CORS allowed origin (restricts which domains can make API requests)
 # Set this to your public URL for security when exposed to the internet
 # Example: https://library.example.com
