@@ -175,6 +175,15 @@ AUDIOBOOKS_DEV_MODE="false"
 #ADMIN_EMAIL=""
 
 # =============================================================================
+# Instance Identification
+# =============================================================================
+
+# Badge label shown in the web UI header (e.g., "QA", "DEV", "TEST")
+# Helps distinguish non-production environments at a glance
+# Leave empty or unset for production (no badge shown)
+#INSTANCE_BADGE=""
+
+# =============================================================================
 # Performance & Advanced Settings
 # =============================================================================
 
