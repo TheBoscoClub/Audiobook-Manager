@@ -22,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pyotp
@@ -141,39 +142,69 @@ def cleanup_pending_request(session: requests.Session, username: str) -> None:
             _cleanup_access_request_db(username)
 
 
-SSH_KEY = os.path.expanduser("~/.ssh/id_ed25519")
-SSH_USER = "claude"
+VM_NAME = os.environ.get("VM_NAME", "test-audiobook-cachyos")
 
 
 def _cleanup_access_request_db(username: str) -> None:
-    """Delete an access request directly from the VM database via SSH."""
-    # nosec B608: this is a Python script string sent via SSH, not a direct SQL query
-    script = f"""\
-import sys
-sys.path.insert(0, '/opt/audiobooks/library')
-from auth.database import AuthDatabase
-db = AuthDatabase(db_path='/var/lib/audiobooks/auth.db',
-    key_path='/etc/audiobooks/auth.key')
-db.initialize()
-with db.connection() as conn:
-    conn.execute('DELETE FROM access_requests WHERE username = ?', ('{username}',))
-"""  # nosec B608
+    """Delete an access request directly from the VM database via qemu-guest-agent."""
+    # nosec B608: this is a Python script sent to the VM, not a direct SQL query
+    script = (
+        "import sys; "
+        "sys.path.insert(0, '/opt/audiobooks/library'); "
+        "from auth.database import AuthDatabase; "
+        "db = AuthDatabase(db_path='/var/lib/audiobooks/auth.db', "
+        "key_path='/etc/audiobooks/auth.key'); "
+        "db.initialize(); "
+        "conn = db.connection().__enter__(); "
+        f"conn.execute('DELETE FROM access_requests WHERE username = ?', ('{username}',))"
+    )  # nosec B608
+    cmd_json = json.dumps(
+        {
+            "execute": "guest-exec",
+            "arguments": {
+                "path": "/opt/audiobooks/library/venv/bin/python3",
+                "arg": ["-c", script],
+                "capture-output": True,
+            },
+        }
+    )
     try:
-        subprocess.run(
+        result = subprocess.run(
             [
-                "ssh",
-                "-i",
-                SSH_KEY,
-                "-o",
-                "StrictHostKeyChecking=no",
-                f"{SSH_USER}@{VM_HOST}",
-                "sudo /opt/audiobooks/library/venv/bin/python3",
+                "sudo",
+                "virsh",
+                "qemu-agent-command",
+                VM_NAME,
+                cmd_json,
+                "--timeout",
+                "15",
             ],
-            input=script,
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=20,
         )
+        if result.returncode == 0:
+            pid_data = json.loads(result.stdout)
+            pid = pid_data.get("return", {}).get("pid")
+            if pid is not None:
+                time.sleep(2)
+                status_json = json.dumps(
+                    {"execute": "guest-exec-status", "arguments": {"pid": pid}}
+                )
+                subprocess.run(
+                    [
+                        "sudo",
+                        "virsh",
+                        "qemu-agent-command",
+                        VM_NAME,
+                        status_json,
+                        "--timeout",
+                        "10",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
     except Exception:
         pass
 
