@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mobile card checkbox placement**: Moved the hide/unhide checkbox from upper-left to upper-right on mobile book cards so tapping it selects the book without accidentally opening the detail view
 - **Marquee title interaction**: New Books marquee titles are now clickable — tapping a title plays the book directly. Titles glow white on hover and the marquee pauses for easy selection
 - **Project directory picker in upgrade UI**: The folder icon button implied a native file picker but only triggered an API scan against nonexistent allowlisted paths. Replaced with a "Scan" button, added `AUDIOBOOKS_PROJECT_DIR` config option, auto-populate and auto-scan when switching to project source, auto-select single results, and accept admin-typed paths directly
+- **Path validation on project scan API**: Added null-byte check, `isabs()`, and `isdir()` validation for user-supplied `base_path` in `/api/system/projects` endpoint — resolved 3 CodeQL `py/path-injection` alerts
+- **Shell script formatting**: Applied `shfmt` formatting to 12 shell scripts — standardized `case` statement indentation
 
 ### Changed
 
