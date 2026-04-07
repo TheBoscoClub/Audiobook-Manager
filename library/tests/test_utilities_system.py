@@ -618,16 +618,16 @@ class TestListProjects:
         data = response.get_json()
         assert isinstance(data["projects"], list)
 
-    def test_base_path_rejects_path_outside_allowlist(
+    def test_base_path_accepts_any_path_for_admin(
         self, flask_app, temp_dir, monkeypatch
     ):
-        """Test that base_path outside allowed directories is rejected."""
+        """Test that admin users can scan any directory via base_path."""
         import tempfile
 
         # Set AUDIOBOOKS_PROJECT_DIR to a specific directory
         monkeypatch.setenv("AUDIOBOOKS_PROJECT_DIR", str(temp_dir))
 
-        # Create a project in a DIFFERENT temp directory (outside allowlist)
+        # Create a project in a DIFFERENT temp directory
         with tempfile.TemporaryDirectory() as outside_dir:
             project_dir = Path(outside_dir) / "SecretProject"
             project_dir.mkdir()
@@ -638,9 +638,10 @@ class TestListProjects:
 
             data = response.get_json()
             assert response.status_code == 200
-            # The outside_dir should NOT be scanned — project must not appear
+            # Admin-only endpoint accepts any path — project should appear
             matching = [p for p in data["projects"] if p["name"] == "SecretProject"]
-            assert len(matching) == 0
+            assert len(matching) == 1
+            assert matching[0]["version"] == "1.0.0"
 
 
 class TestEnvironmentVariables:

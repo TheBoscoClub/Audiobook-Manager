@@ -184,6 +184,16 @@ AUDIOBOOKS_DEV_MODE="false"
 #INSTANCE_BADGE=""
 
 # =============================================================================
+# Development / Upgrade
+# =============================================================================
+
+# Path to the local development project directory for "From Project Directory"
+# upgrades. When set, the upgrade UI pre-populates this path and auto-discovers
+# the project. Only used by admins upgrading from a local source checkout.
+# Example: /home/youruser/projects/Audiobook-Manager
+#AUDIOBOOKS_PROJECT_DIR=""
+
+# =============================================================================
 # Performance & Advanced Settings
 # =============================================================================
 

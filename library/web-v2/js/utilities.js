@@ -188,7 +188,9 @@ async function reimportDatabase() {
 
   showProgress("Reimporting Database", "Importing audiobooks to database...");
   try {
-    const result = await api.post("/api/utilities/reimport", null, { toast: false });
+    const result = await api.post("/api/utilities/reimport", null, {
+      toast: false,
+    });
     hideProgress();
 
     if (result.success) {
@@ -212,7 +214,9 @@ async function generateHashes() {
     "Calculating SHA-256 hashes for all audiobooks...",
   );
   try {
-    const result = await api.post("/api/utilities/generate-hashes", null, { toast: false });
+    const result = await api.post("/api/utilities/generate-hashes", null, {
+      toast: false,
+    });
     hideProgress();
 
     if (result.success) {
@@ -233,7 +237,9 @@ async function vacuumDatabase() {
     "Optimizing database and reclaiming space...",
   );
   try {
-    const result = await api.post("/api/utilities/vacuum", null, { toast: false });
+    const result = await api.post("/api/utilities/vacuum", null, {
+      toast: false,
+    });
     hideProgress();
 
     if (result.success) {
@@ -297,7 +303,10 @@ async function searchForEdit(query) {
   resultsContainer.innerHTML = '<p class="placeholder-text">Searching...</p>';
 
   try {
-    const data = await api.get(`/api/audiobooks?search=${encodeURIComponent(query)}&per_page=20`, { toast: false });
+    const data = await api.get(
+      `/api/audiobooks?search=${encodeURIComponent(query)}&per_page=20`,
+      { toast: false },
+    );
 
     if (data.audiobooks?.length > 0) {
       resultsContainer.innerHTML = data.audiobooks
@@ -386,7 +395,9 @@ async function saveAudiobook(e) {
   };
 
   try {
-    const result = await api.put(`/api/audiobooks/${id}`, data, { toast: false });
+    const result = await api.put(`/api/audiobooks/${id}`, data, {
+      toast: false,
+    });
 
     if (result.success) {
       showToast("Audiobook updated successfully", "success");
@@ -413,7 +424,9 @@ async function deleteAudiobook() {
   if (!confirmed) return;
 
   try {
-    const result = await api.delete(`/api/audiobooks/${editingAudiobook.id}`, { toast: false });
+    const result = await api.delete(`/api/audiobooks/${editingAudiobook.id}`, {
+      toast: false,
+    });
 
     if (result.success) {
       showToast("Audiobook deleted from database", "success");
@@ -771,10 +784,14 @@ async function deleteSelectedDuplicates() {
     );
 
     try {
-      const result = await api.post("/api/duplicates/delete-by-path", {
+      const result = await api.post(
+        "/api/duplicates/delete-by-path",
+        {
           paths: Array.from(checksumPathSelection),
           type: checksumType,
-        }, { toast: false });
+        },
+        { toast: false },
+      );
       hideProgress();
 
       if (result.success) {
@@ -814,10 +831,14 @@ async function deleteSelectedDuplicates() {
     );
 
     try {
-      const result = await api.post("/api/audiobooks/bulk-delete", {
+      const result = await api.post(
+        "/api/audiobooks/bulk-delete",
+        {
           ids: Array.from(duplicateSelection),
           delete_files: true,
-        }, { toast: false });
+        },
+        { toast: false },
+      );
       hideProgress();
 
       if (result.success) {
@@ -1606,7 +1627,9 @@ async function pollOperationStatus() {
     // Handle error responses gracefully — don't treat error JSON as status
     if (!res.ok) {
       _pollErrorCount++;
-      console.warn(`Poll status ${res.status} (error ${_pollErrorCount}/${MAX_POLL_ERRORS})`);
+      console.warn(
+        `Poll status ${res.status} (error ${_pollErrorCount}/${MAX_POLL_ERRORS})`,
+      );
 
       if (_pollErrorCount >= MAX_POLL_ERRORS) {
         // Operation tracking lost — stop polling, show informational state
@@ -1617,7 +1640,8 @@ async function pollOperationStatus() {
           document.getElementById("progress-message").textContent =
             "Lost connection to operation tracker. The operation may still be running in the background.";
           document.getElementById("progress-spinner")?.classList.add("hidden");
-          document.getElementById("modal-close-progress")
+          document
+            .getElementById("modal-close-progress")
             ?.style.setProperty("display", "inline-block");
           document.getElementById("modal-operation-id").textContent = "";
         }
@@ -1773,7 +1797,9 @@ async function cancelActiveOperation() {
   if (!activeOperationId) return;
 
   try {
-    await api.post(`/api/operations/cancel/${activeOperationId}`, null, { toast: false });
+    await api.post(`/api/operations/cancel/${activeOperationId}`, null, {
+      toast: false,
+    });
     showToast("Cancellation requested", "info");
   } catch (error) {
     showToast("Failed to cancel operation", "error");
@@ -1794,7 +1820,11 @@ async function addNewAudiobooks() {
   showProgressModal("Adding New Audiobooks", "Scanning for new files...");
 
   try {
-    const result = await api.post("/api/utilities/add-new", { calculate_hashes: true }, { toast: false });
+    const result = await api.post(
+      "/api/utilities/add-new",
+      { calculate_hashes: true },
+      { toast: false },
+    );
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -1844,7 +1874,9 @@ async function rescanLibraryAsync() {
   showProgressModal("Scanning Library", "Starting full library scan...");
 
   try {
-    const result = await api.post("/api/utilities/rescan-async", null, { toast: false });
+    const result = await api.post("/api/utilities/rescan-async", null, {
+      toast: false,
+    });
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -1882,7 +1914,9 @@ async function reimportDatabaseAsync() {
   showProgressModal("Reimporting Database", "Starting database import...");
 
   try {
-    const result = await api.post("/api/utilities/reimport-async", null, { toast: false });
+    const result = await api.post("/api/utilities/reimport-async", null, {
+      toast: false,
+    });
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -1911,7 +1945,11 @@ async function generateHashesAsync() {
   showProgressModal("Generating Hashes", "Calculating SHA-256 hashes...");
 
   try {
-    const result = await api.post("/api/utilities/generate-hashes-async", null, { toast: false });
+    const result = await api.post(
+      "/api/utilities/generate-hashes-async",
+      null,
+      { toast: false },
+    );
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -1943,7 +1981,11 @@ async function generateChecksumsAsync() {
   );
 
   try {
-    const result = await api.post("/api/utilities/generate-checksums-async", null, { toast: false });
+    const result = await api.post(
+      "/api/utilities/generate-checksums-async",
+      null,
+      { toast: false },
+    );
 
     if (result.success) {
       activeOperationId = result.operation_id;
@@ -2493,7 +2535,8 @@ let activityOffset = 0;
 const ACTIVITY_PAGE_SIZE = 25;
 
 function refreshLiveConnections() {
-  api.get("/api/admin/connections", { toast: false })
+  api
+    .get("/api/admin/connections", { toast: false })
     .then(function (data) {
       var container = document.getElementById("activity-connections");
       if (!container) {
@@ -2699,7 +2742,8 @@ function populateUserFilter(statsData) {
 
   // We need to load actual users from the admin endpoint
   // Use the auth admin users endpoint if available
-  api.get("/auth/admin/users", { toast: false })
+  api
+    .get("/auth/admin/users", { toast: false })
     .then((data) => {
       if (data && data.users) {
         data.users.forEach((user) => {
@@ -2937,12 +2981,26 @@ function initSystemSection() {
         versionGroup.style.display =
           e.target.value === "github" ? "flex" : "none";
       }
+      // Auto-load project list when switching to project source
+      if (e.target.value === "project") {
+        loadProjectsList();
+      }
       // Source changed — invalidate preflight (check was for different source)
       preflightData = null;
       preflightTimestamp = null;
       updateUpgradeButtonState();
     });
   });
+
+  // Allow Enter key in project path input to trigger scan
+  document
+    .getElementById("project-path-input")
+    ?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        loadProjectsList();
+      }
+    });
 
   // Force checkbox toggle
   const forceCheckbox = document.getElementById("upgrade-force");
@@ -2994,7 +3052,7 @@ function initUsersSection() {
   // Load data when users tab is shown
   document
     .querySelector('.cabinet-tab[data-section="users"]')
-    ?.addEventListener("click", function() {
+    ?.addEventListener("click", function () {
       loadUsers();
       loadSystemSettings();
       loadAccessRequests();
@@ -3016,8 +3074,8 @@ function initCreateUserForm() {
   if (!form) return;
 
   // Show/hide email field based on auth method
-  form.querySelectorAll('input[name="auth_method"]').forEach(function(radio) {
-    radio.addEventListener("change", function() {
+  form.querySelectorAll('input[name="auth_method"]').forEach(function (radio) {
+    radio.addEventListener("change", function () {
       var emailInput = document.getElementById("new-email");
       if (this.value === "magic_link") {
         emailInput.required = true;
@@ -3029,7 +3087,7 @@ function initCreateUserForm() {
     });
   });
 
-  form.addEventListener("submit", async function(e) {
+  form.addEventListener("submit", async function (e) {
     e.preventDefault();
     var formData = new FormData(form);
     var body = {
@@ -3041,7 +3099,9 @@ function initCreateUserForm() {
     };
 
     try {
-      var data = await api.post("/auth/admin/users/create", body, { toast: false });
+      var data = await api.post("/auth/admin/users/create", body, {
+        toast: false,
+      });
 
       // Show setup data
       renderSetupData(data.setup_data, body.username, body.auth_method);
@@ -3067,13 +3127,18 @@ function renderSetupData(setupData, username, authMethod) {
   claimUrl.textContent = "";
   downloadBtn.hidden = true;
 
-  if (authMethod === "totp" && setupData && (setupData.qr_base64 || setupData.qr_uri)) {
+  if (
+    authMethod === "totp" &&
+    setupData &&
+    (setupData.qr_base64 || setupData.qr_uri)
+  ) {
     // Display QR code from base64 PNG data
     var img = document.createElement("img");
     if (setupData.qr_base64) {
       img.src = "data:image/png;base64," + setupData.qr_base64;
     } else {
-      img.src = "/auth/admin/users/qr?uri=" + encodeURIComponent(setupData.qr_uri);
+      img.src =
+        "/auth/admin/users/qr?uri=" + encodeURIComponent(setupData.qr_uri);
     }
     img.alt = "TOTP QR Code";
     img.style.maxWidth = "200px";
@@ -3083,7 +3148,7 @@ function renderSetupData(setupData, username, authMethod) {
     manualKey.textContent = "Manual key: " + setupData.manual_key;
 
     downloadBtn.hidden = false;
-    downloadBtn.onclick = function() {
+    downloadBtn.onclick = function () {
       downloadQrPng(username, img);
     };
   } else if (authMethod === "passkey" && setupData && setupData.claim_url) {
@@ -3100,24 +3165,31 @@ function renderSetupData(setupData, username, authMethod) {
     copyBtn.className = "btn btn-secondary";
     copyBtn.textContent = "Copy URL";
     copyBtn.title = "Copy claim URL to clipboard";
-    copyBtn.onclick = function() {
-      navigator.clipboard.writeText(window.location.origin + setupData.claim_url);
+    copyBtn.onclick = function () {
+      navigator.clipboard.writeText(
+        window.location.origin + setupData.claim_url,
+      );
       copyBtn.textContent = "Copied!";
-      setTimeout(function() { copyBtn.textContent = "Copy URL"; }, 2000);
+      setTimeout(function () {
+        copyBtn.textContent = "Copy URL";
+      }, 2000);
     };
     claimUrl.appendChild(copyBtn);
   } else if (authMethod === "magic_link") {
-    claimUrl.textContent = "Magic Link user created. They will receive a login link via email.";
+    claimUrl.textContent =
+      "Magic Link user created. They will receive a login link via email.";
   }
 }
 
 function downloadQrPng(username, imgElement) {
   var now = new Date();
-  var mmdd = String(now.getMonth() + 1).padStart(2, "0") +
-             String(now.getDate()).padStart(2, "0");
-  var hms = String(now.getHours()).padStart(2, "0") +
-            String(now.getMinutes()).padStart(2, "0") +
-            String(now.getSeconds()).padStart(2, "0");
+  var mmdd =
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
+  var hms =
+    String(now.getHours()).padStart(2, "0") +
+    String(now.getMinutes()).padStart(2, "0") +
+    String(now.getSeconds()).padStart(2, "0");
   var filename = username + "_" + mmdd + "-" + hms + ".png";
 
   var link = document.createElement("a");
@@ -3139,7 +3211,7 @@ function downloadQrPng(username, imgElement) {
 function initAuditLogFilter() {
   var filter = document.getElementById("audit-action-filter");
   if (!filter) return;
-  filter.addEventListener("change", function() {
+  filter.addEventListener("change", function () {
     loadAuditLog(this.value, 0);
   });
 }
@@ -3154,7 +3226,9 @@ async function loadAuditLog(actionFilter, offset) {
   if (actionFilter) params.set("action", actionFilter);
 
   try {
-    var data = await api.get("/auth/admin/audit-log?" + params.toString(), { toast: false });
+    var data = await api.get("/auth/admin/audit-log?" + params.toString(), {
+      toast: false,
+    });
 
     var tbody = document.getElementById("audit-table-body");
     tbody.innerHTML = "";
@@ -3170,10 +3244,19 @@ async function loadAuditLog(actionFilter, offset) {
       return;
     }
 
-    data.entries.forEach(function(entry) {
+    data.entries.forEach(function (entry) {
       var tr = document.createElement("tr");
-      var details = typeof entry.details === "string" ? JSON.parse(entry.details) : entry.details;
-      var isCritical = ["change_username", "switch_auth_method", "reset_credentials", "delete_account"].indexOf(entry.action) >= 0;
+      var details =
+        typeof entry.details === "string"
+          ? JSON.parse(entry.details)
+          : entry.details;
+      var isCritical =
+        [
+          "change_username",
+          "switch_auth_method",
+          "reset_credentials",
+          "delete_account",
+        ].indexOf(entry.action) >= 0;
 
       if (isCritical) tr.classList.add("audit-critical");
 
@@ -3182,11 +3265,13 @@ async function loadAuditLog(actionFilter, offset) {
       tr.appendChild(tdTime);
 
       var tdActor = document.createElement("td");
-      tdActor.textContent = (details && details.actor_username) ? details.actor_username : "System";
+      tdActor.textContent =
+        details && details.actor_username ? details.actor_username : "System";
       tr.appendChild(tdActor);
 
       var tdTarget = document.createElement("td");
-      tdTarget.textContent = (details && details.target_username) ? details.target_username : "-";
+      tdTarget.textContent =
+        details && details.target_username ? details.target_username : "-";
       tr.appendChild(tdTarget);
 
       var tdAction = document.createElement("td");
@@ -3257,8 +3342,8 @@ function renderAuditPagination(total, currentOffset, actionFilter) {
     btn.className = "pagination-btn" + (i === currentPage ? " active" : "");
     btn.textContent = i + 1;
     btn.title = "Page " + (i + 1);
-    (function(pageIdx) {
-      btn.onclick = function() {
+    (function (pageIdx) {
+      btn.onclick = function () {
         loadAuditLog(actionFilter, pageIdx * auditPageSize);
       };
     })(i);
@@ -3395,12 +3480,16 @@ function showInviteUserModal() {
     newSendBtn.textContent = "Sending...";
 
     try {
-      const data = await api.post("/auth/admin/users/invite", {
+      const data = await api.post(
+        "/auth/admin/users/invite",
+        {
           username: username,
           email: email,
           can_download: canDownload,
           auth_method: authMethod,
-        }, { toast: false });
+        },
+        { toast: false },
+      );
 
       closeModal();
       if (authMethod === "magic_link") {
@@ -3447,7 +3536,7 @@ async function loadSystemSettings() {
             checkbox.checked
               ? "Multiple sessions enabled by default"
               : "Multiple sessions disabled by default",
-            "success"
+            "success",
           );
         } catch (err) {
           checkbox.checked = !checkbox.checked;
@@ -3608,11 +3697,17 @@ function createUserItem(user) {
   const msSelect = document.createElement("select");
   msSelect.className = "user-action-btn";
   msSelect.title = `Multi-session setting for ${user.username}`;
-  msSelect.style.cssText = "padding: 4px 6px; font-size: 0.85em; cursor: pointer;";
+  msSelect.style.cssText =
+    "padding: 4px 6px; font-size: 0.85em; cursor: pointer;";
   ["default", "yes", "no"].forEach((val) => {
     const opt = document.createElement("option");
     opt.value = val;
-    opt.textContent = val === "default" ? "Sessions: Default" : val === "yes" ? "Sessions: Yes" : "Sessions: No";
+    opt.textContent =
+      val === "default"
+        ? "Sessions: Default"
+        : val === "yes"
+          ? "Sessions: Yes"
+          : "Sessions: No";
     if (user.multi_session === val) opt.selected = true;
     msSelect.appendChild(opt);
   });
@@ -3621,7 +3716,10 @@ function createUserItem(user) {
       await api.put(`/auth/admin/users/${user.id}/roles`, {
         multi_session: msSelect.value,
       });
-      showToast(`Multi-session set to '${msSelect.value}' for ${user.username}`, "success");
+      showToast(
+        `Multi-session set to '${msSelect.value}' for ${user.username}`,
+        "success",
+      );
     } catch (err) {
       showToast("Failed to update: " + err.message, "error");
       msSelect.value = user.multi_session;
@@ -3655,7 +3753,9 @@ function createUserItem(user) {
 
 async function viewUserSetup(user) {
   try {
-    const data = await api.get(`/auth/admin/users/${user.id}/setup-info`, { toast: false });
+    const data = await api.get(`/auth/admin/users/${user.id}/setup-info`, {
+      toast: false,
+    });
     if (data.setup_data) {
       renderSetupData(data.setup_data, user.username, user.auth_type || "totp");
       // Scroll to setup panel
@@ -3671,7 +3771,9 @@ async function viewUserSetup(user) {
 
 async function toggleUserDownload(userId, canDownload) {
   try {
-    await api.post(`/auth/admin/users/${userId}/toggle-download`, null, { toast: false });
+    await api.post(`/auth/admin/users/${userId}/toggle-download`, null, {
+      toast: false,
+    });
     showToast(
       `Download permission ${canDownload ? "enabled" : "disabled"}`,
       "success",
@@ -3699,7 +3801,11 @@ async function toggleUserAdmin(user) {
   if (!confirmed) return;
 
   try {
-    const data = await api.post(`/auth/admin/users/${user.id}/toggle-admin`, null, { toast: false });
+    const data = await api.post(
+      `/auth/admin/users/${user.id}/toggle-admin`,
+      null,
+      { toast: false },
+    );
     const status = data.is_admin ? "granted" : "revoked";
     showToast(`Admin privileges ${status} for ${user.username}`, "success");
     loadUsers();
@@ -3714,7 +3820,9 @@ function confirmDeleteUser(user) {
     `Are you sure you want to delete user "${user.username}"? This action cannot be undone.`,
     async () => {
       try {
-        await api.delete(`/auth/admin/users/${user.id}/delete`, { toast: false });
+        await api.delete(`/auth/admin/users/${user.id}/delete`, {
+          toast: false,
+        });
         showToast(`User ${user.username} deleted`, "success");
         loadUsers();
       } catch (error) {
@@ -3793,7 +3901,11 @@ function showEditUserModal(user, isProfile = false) {
       // Update username if changed
       if (newUsername !== user.username) {
         try {
-          await api.put(`${usernameBase}/username`, { username: newUsername }, { toast: false });
+          await api.put(
+            `${usernameBase}/username`,
+            { username: newUsername },
+            { toast: false },
+          );
         } catch (uErr) {
           errors.push(uErr.message || "Failed to update username");
         }
@@ -3803,7 +3915,11 @@ function showEditUserModal(user, isProfile = false) {
       var currentEmail = user.email || user.recovery_email || "";
       if (newEmail !== currentEmail) {
         try {
-          await api.put(`${usernameBase}/email`, { email: newEmail || null }, { toast: false });
+          await api.put(
+            `${usernameBase}/email`,
+            { email: newEmail || null },
+            { toast: false },
+          );
         } catch (eErr) {
           errors.push(eErr.message || "Failed to update email");
         }
@@ -3963,7 +4079,11 @@ function createRequestItem(req) {
 
 async function approveRequest(requestId, username) {
   try {
-    const data = await api.post(`/auth/admin/access-requests/${requestId}/approve`, null, { toast: false });
+    const data = await api.post(
+      `/auth/admin/access-requests/${requestId}/approve`,
+      null,
+      { toast: false },
+    );
     let msg = `Access approved for ${username}`;
     if (data.email_sent) {
       msg += " (notification email sent)";
@@ -4024,7 +4144,11 @@ function showDenyModal(requestId, username) {
     modal.classList.remove("active");
 
     try {
-      const data = await api.post(`/auth/admin/access-requests/${requestId}/deny`, { reason: reason || null }, { toast: false });
+      const data = await api.post(
+        `/auth/admin/access-requests/${requestId}/deny`,
+        { reason: reason || null },
+        { toast: false },
+      );
       let msg = `Access denied for ${username}`;
       if (data.email_sent) {
         msg += " (notification email sent)";
@@ -4163,7 +4287,11 @@ async function loadServicesStatus() {
 async function startService(serviceName) {
   try {
     showToast(`Starting ${serviceName}...`, "info");
-    const result = await api.post(`/api/system/services/${serviceName}/start`, null, { toast: false });
+    const result = await api.post(
+      `/api/system/services/${serviceName}/start`,
+      null,
+      { toast: false },
+    );
 
     if (result.success) {
       showToast(result.message, "success");
@@ -4179,7 +4307,11 @@ async function startService(serviceName) {
 async function stopService(serviceName) {
   try {
     showToast(`Stopping ${serviceName}...`, "info");
-    const result = await api.post(`/api/system/services/${serviceName}/stop`, null, { toast: false });
+    const result = await api.post(
+      `/api/system/services/${serviceName}/stop`,
+      null,
+      { toast: false },
+    );
 
     if (result.success) {
       showToast(result.message, "success");
@@ -4195,7 +4327,11 @@ async function stopService(serviceName) {
 async function restartService(serviceName) {
   try {
     showToast(`Restarting ${serviceName}...`, "info");
-    const result = await api.post(`/api/system/services/${serviceName}/restart`, null, { toast: false });
+    const result = await api.post(
+      `/api/system/services/${serviceName}/restart`,
+      null,
+      { toast: false },
+    );
 
     if (result.success) {
       showToast(result.message, "success");
@@ -4220,7 +4356,9 @@ async function startAllServices() {
 
   try {
     showToast("Starting all services...", "info");
-    const result = await api.post("/api/system/services/start-all", null, { toast: false });
+    const result = await api.post("/api/system/services/start-all", null, {
+      toast: false,
+    });
 
     if (result.success) {
       showToast("All services started", "success");
@@ -4249,7 +4387,11 @@ async function stopAllServices() {
 
   try {
     showToast("Stopping all services...", "info");
-    const result = await api.post("/api/system/services/stop-all?include_api=true", null, { toast: false });
+    const result = await api.post(
+      "/api/system/services/stop-all?include_api=true",
+      null,
+      { toast: false },
+    );
 
     if (result.success) {
       showToast(
@@ -4278,7 +4420,9 @@ async function stopBackgroundServices() {
 
   try {
     showToast("Stopping background services...", "info");
-    const result = await api.post("/api/system/services/stop-all", null, { toast: false });
+    const result = await api.post("/api/system/services/stop-all", null, {
+      toast: false,
+    });
 
     if (result.success) {
       showToast("Background services stopped", "success");
@@ -4314,7 +4458,14 @@ async function loadProjectsList() {
   try {
     const basePath = pathInput?.value?.trim() || "";
     const params = basePath ? `?base_path=${encodeURIComponent(basePath)}` : "";
-    const data = await api.get(`/api/system/projects${params}`, { toast: false });
+    const data = await api.get(`/api/system/projects${params}`, {
+      toast: false,
+    });
+
+    // Auto-populate the input with the configured default if empty
+    if (pathInput && !pathInput.value.trim() && data.default_path) {
+      pathInput.value = data.default_path;
+    }
 
     // Clear existing content
     while (projectsList.firstChild) {
@@ -4324,7 +4475,9 @@ async function loadProjectsList() {
     if (!data.projects || data.projects.length === 0) {
       const noProjects = document.createElement("p");
       noProjects.className = "placeholder-text";
-      noProjects.textContent = "No projects found";
+      noProjects.textContent = data.default_path
+        ? "No projects found at configured path"
+        : "No projects found — set AUDIOBOOKS_PROJECT_DIR in audiobooks.conf";
       projectsList.appendChild(noProjects);
       projectsList.style.display = "block";
       return;
@@ -4332,7 +4485,7 @@ async function loadProjectsList() {
 
     projectsList.style.display = "block";
 
-    data.projects.forEach((project) => {
+    data.projects.forEach((project, index) => {
       const optionDiv = document.createElement("div");
       optionDiv.className = "project-option";
 
@@ -4364,6 +4517,12 @@ async function loadProjectsList() {
       });
 
       projectsList.appendChild(optionDiv);
+
+      // Auto-select if only one project found
+      if (data.projects.length === 1) {
+        optionDiv.classList.add("selected");
+        if (pathInput) pathInput.value = project.path;
+      }
     });
   } catch (error) {
     console.error("Failed to load projects:", error);
@@ -4387,7 +4546,9 @@ let preflightTimestamp = null;
  */
 async function hydratePreflightState() {
   try {
-    const json = await api.get("/api/system/upgrade/preflight", { toast: false });
+    const json = await api.get("/api/system/upgrade/preflight", {
+      toast: false,
+    });
     const pf = json.preflight;
     if (!pf || pf.stale) return;
 
@@ -4430,7 +4591,8 @@ function updateUpgradeButtonState() {
   const ageMinutes = (Date.now() - preflightTimestamp) / 60000;
   if (ageMinutes > 30) {
     startBtn.disabled = true;
-    startBtn.title = "Preflight check is stale \u2014 run Check for Updates again";
+    startBtn.title =
+      "Preflight check is stale \u2014 run Check for Updates again";
     return;
   }
 
@@ -4463,7 +4625,9 @@ async function checkUpgrade() {
       body.version = versionInput.value.trim();
     }
 
-    const result = await api.post("/api/system/upgrade/check", body, { toast: false });
+    const result = await api.post("/api/system/upgrade/check", body, {
+      toast: false,
+    });
 
     if (result.success) {
       // Poll for check results
@@ -4517,7 +4681,9 @@ function startCheckPolling() {
         return;
       }
 
-      const status = await api.get("/api/system/upgrade/status", { toast: false });
+      const status = await api.get("/api/system/upgrade/status", {
+        toast: false,
+      });
 
       // Update progress modal
       const messageEl = document.getElementById("progress-message");
@@ -4580,8 +4746,10 @@ async function startUpgrade() {
   );
   const source = sourceRadio?.value || "github";
   const projectPath = document.getElementById("project-path-input")?.value;
-  const forceChecked = document.getElementById("upgrade-force")?.checked || false;
-  const majorChecked = document.getElementById("upgrade-major")?.checked || false;
+  const forceChecked =
+    document.getElementById("upgrade-force")?.checked || false;
+  const majorChecked =
+    document.getElementById("upgrade-major")?.checked || false;
 
   if (source === "project" && !projectPath) {
     showToast("Please enter or select a project directory", "error");
@@ -4595,7 +4763,9 @@ async function startUpgrade() {
       ? "This will download and install the latest version from GitHub. The browser will reload when complete. Continue?"
       : "This will install from the project directory. The browser will reload when complete. Continue?";
 
-  const title = forceChecked ? "Force Upgrade — Safety Checks Bypassed" : "Start Upgrade";
+  const title = forceChecked
+    ? "Force Upgrade — Safety Checks Bypassed"
+    : "Start Upgrade";
 
   if (!(await confirmAction(title, message))) {
     return;
@@ -4628,7 +4798,9 @@ async function startUpgrade() {
   }
 
   try {
-    const result = await api.post("/api/system/upgrade", body, { toast: false });
+    const result = await api.post("/api/system/upgrade", body, {
+      toast: false,
+    });
 
     if (result.success) {
       startResilientUpgradePolling();
@@ -4659,10 +4831,9 @@ function startResilientUpgradePolling() {
     try {
       if (apiDown) {
         // Recovery polling — hit health endpoint
-        const healthResp = await fetch(
-          `${API_BASE}/api/system/health`,
-          { signal: AbortSignal.timeout(3000) },
-        );
+        const healthResp = await fetch(`${API_BASE}/api/system/health`, {
+          signal: AbortSignal.timeout(3000),
+        });
         if (healthResp.ok) {
           apiDown = false;
           const statusResp = await fetch(
@@ -4676,10 +4847,9 @@ function startResilientUpgradePolling() {
         }
       } else {
         // Normal polling — hit status endpoint
-        const resp = await fetch(
-          `${API_BASE}/api/system/upgrade/status`,
-          { signal: AbortSignal.timeout(3000) },
-        );
+        const resp = await fetch(`${API_BASE}/api/system/upgrade/status`, {
+          signal: AbortSignal.timeout(3000),
+        });
         if (resp.ok) {
           const data = await resp.json();
           updateOverlayStages(data);
@@ -4695,7 +4865,8 @@ function startResilientUpgradePolling() {
         downSince = Date.now();
         const statusEl = document.getElementById("upgrade-overlay-status");
         if (statusEl) {
-          statusEl.textContent = "Services restarting \u2014 waiting for API...";
+          statusEl.textContent =
+            "Services restarting \u2014 waiting for API...";
         }
       }
       if (downSince && Date.now() - downSince > 120000) {
@@ -4867,8 +5038,13 @@ async function loadRoadmapAdmin() {
       list.appendChild(p);
       return;
     }
-    var statusLabels = { planned: "Planned", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" };
-    items.forEach(function(item) {
+    var statusLabels = {
+      planned: "Planned",
+      in_progress: "In Progress",
+      completed: "Completed",
+      cancelled: "Cancelled",
+    };
+    items.forEach(function (item) {
       var row = document.createElement("div");
       row.className = "roadmap-admin-row";
 
@@ -4905,14 +5081,18 @@ async function loadRoadmapAdmin() {
       editBtn.className = "office-btn secondary";
       editBtn.textContent = "Edit";
       editBtn.title = "Edit this item";
-      editBtn.addEventListener("click", function() { editRoadmapItem(item); });
+      editBtn.addEventListener("click", function () {
+        editRoadmapItem(item);
+      });
       actions.appendChild(editBtn);
 
       var delBtn = document.createElement("button");
       delBtn.className = "office-btn danger";
       delBtn.textContent = "Delete";
       delBtn.title = "Delete this item";
-      delBtn.addEventListener("click", function() { deleteRoadmapItem(item.id); });
+      delBtn.addEventListener("click", function () {
+        deleteRoadmapItem(item.id);
+      });
       actions.appendChild(delBtn);
 
       row.appendChild(info);
@@ -4926,7 +5106,8 @@ async function loadRoadmapAdmin() {
 
 function editRoadmapItem(item) {
   document.getElementById("roadmap-form").hidden = false;
-  document.getElementById("roadmap-form-title").textContent = "Edit Forthcoming Item";
+  document.getElementById("roadmap-form-title").textContent =
+    "Edit Forthcoming Item";
   document.getElementById("roadmap-edit-id").value = item.id;
   document.getElementById("roadmap-title").value = item.title;
   document.getElementById("roadmap-description").value = item.description || "";
@@ -4954,9 +5135,10 @@ function initRoadmapAdmin() {
 
   if (!addBtn) return;
 
-  addBtn.addEventListener("click", function() {
+  addBtn.addEventListener("click", function () {
     form.hidden = false;
-    document.getElementById("roadmap-form-title").textContent = "Add Forthcoming Item";
+    document.getElementById("roadmap-form-title").textContent =
+      "Add Forthcoming Item";
     document.getElementById("roadmap-edit-id").value = "";
     document.getElementById("roadmap-title").value = "";
     document.getElementById("roadmap-description").value = "";
@@ -4965,20 +5147,23 @@ function initRoadmapAdmin() {
     document.getElementById("roadmap-sort").value = "0";
   });
 
-  cancelBtn.addEventListener("click", function() {
+  cancelBtn.addEventListener("click", function () {
     form.hidden = true;
   });
 
-  saveBtn.addEventListener("click", async function() {
+  saveBtn.addEventListener("click", async function () {
     var title = document.getElementById("roadmap-title").value.trim();
-    if (!title) { showToast("Title is required", "error"); return; }
+    if (!title) {
+      showToast("Title is required", "error");
+      return;
+    }
 
     var payload = {
       title: title,
       description: document.getElementById("roadmap-description").value.trim(),
       status: document.getElementById("roadmap-status").value,
       priority: document.getElementById("roadmap-priority").value,
-      sort_order: parseInt(document.getElementById("roadmap-sort").value) || 0
+      sort_order: parseInt(document.getElementById("roadmap-sort").value) || 0,
     };
 
     var editId = document.getElementById("roadmap-edit-id").value;
@@ -4989,7 +5174,7 @@ function initRoadmapAdmin() {
       await safeFetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       showToast(editId ? "Updated" : "Created", "success");
       form.hidden = true;

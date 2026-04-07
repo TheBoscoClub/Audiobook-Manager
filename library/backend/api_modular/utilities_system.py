@@ -408,9 +408,9 @@ def _scan_projects_in_dir(
 ) -> list[dict]:
     """Scan a single directory for audiobook projects.
 
-    Only called with pre-validated, allowlisted directories — never
-    with raw user input.  This separation satisfies static analysis
-    taint tracking (CodeQL py/path-injection).
+    Called from the admin-only list_projects endpoint.  The caller is
+    authenticated via @admin_or_localhost, so directory traversal is
+    acceptable — the admin already has full system access.
     """
     results: list[dict] = []
     if not base_dir or not os.path.isdir(base_dir):
@@ -759,35 +759,61 @@ def get_health() -> FlaskResponse:
 @utilities_system_bp.route("/api/system/projects", methods=["GET"])
 @admin_or_localhost
 def list_projects() -> FlaskResponse:
-    """List available project directories for upgrade source."""
-    # Allowlisted base directories — only these may be scanned
-    allowed_bases = [
-        os.environ.get("AUDIOBOOKS_PROJECT_DIR", ""),
+    """List available project directories for upgrade source.
+
+    This endpoint is admin-only (@admin_or_localhost), so user-provided
+    paths are accepted directly — the admin already has full system access.
+    """
+    configured_dir = os.environ.get("AUDIOBOOKS_PROJECT_DIR", "")
+    # Default base directories to scan when no user path is given
+    default_bases = [
+        configured_dir,
         os.path.expanduser("~/projects"),
         "/opt/projects",
     ]
-    allowed_bases = [os.path.realpath(p) for p in allowed_bases if p]
+    default_bases = [os.path.realpath(p) for p in default_bases if p]
 
-    # Accept user-specified base path via query parameter.
-    # SECURITY: only accept paths that are under an allowed base.
-    user_path = request.args.get("base_path", "").strip()
-    extra_base: str | None = None
-    if user_path:
-        resolved = os.path.realpath(user_path)
-        if any(
-            resolved == ab or resolved.startswith(ab + os.sep) for ab in allowed_bases
-        ):
-            extra_base = resolved
-
-    # Scan allowed directories (user-validated path first if any)
     seen: set[str] = set()
     projects: list[dict] = []
-    if extra_base:
-        projects.extend(_scan_projects_in_dir(extra_base, seen))
-    for base in allowed_bases:
+
+    user_path = request.args.get("base_path", "").strip()
+    # Paths to check: user-provided first, then configured default
+    paths_to_check = []
+    if user_path:
+        paths_to_check.append(os.path.realpath(user_path))
+    if configured_dir:
+        paths_to_check.append(os.path.realpath(configured_dir))
+
+    for resolved in paths_to_check:
+        # Check if the path itself IS a project (has VERSION file)
+        if os.path.isdir(resolved) and os.path.exists(
+            os.path.join(resolved, "VERSION")
+        ):
+            if resolved not in seen:
+                version = None
+                try:
+                    with open(os.path.join(resolved, "VERSION")) as f:
+                        version = f.read().strip()
+                except Exception:
+                    pass
+                seen.add(resolved)
+                projects.append(
+                    {
+                        "name": os.path.basename(resolved),
+                        "path": resolved,
+                        "version": version,
+                    }
+                )
+        # Also scan it as a parent directory for child projects
+        projects.extend(_scan_projects_in_dir(resolved, seen))
+
+    # Scan remaining default directories
+    for base in default_bases:
         projects.extend(_scan_projects_in_dir(base, seen))
 
-    return jsonify({"projects": projects})
+    # Return configured default so UI can auto-populate the input
+    default_path = os.path.realpath(configured_dir) if configured_dir else ""
+    return jsonify({"projects": projects, "default_path": default_path})
 
 
 @utilities_system_bp.route("/api/system/purge-cache", methods=["POST"])
