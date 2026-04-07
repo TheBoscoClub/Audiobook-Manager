@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.3.2] - 2026-04-07
+
+### Fixed
+
+- **Mobile card checkbox placement**: Moved the hide/unhide checkbox from upper-left to upper-right on mobile book cards so tapping it selects the book without accidentally opening the detail view
+- **Marquee title interaction**: New Books marquee titles are now clickable — tapping a title plays the book directly. Titles glow white on hover and the marquee pauses for easy selection
+
+### Changed
+
+- **CI dependency bump**: Updated `docker/login-action` from 4.0.0 to 4.1.0 (Dependabot #30)
+- **Security dependency upgrades**: Updated `requests` to 2.33.1 (CVE-2026-25645), `Pygments` to 2.20.0 (CVE-2026-4539), `pip` to 26.0 (CVE-2026-1703)
+
 ## [8.0.3.1] - 2026-04-03
 
 ### Changed
@@ -2489,7 +2501,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...HEAD
+[8.0.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.1...v8.0.3.2
 [8.0.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3...v8.0.3.1
 [8.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.2...v8.0.3
 [8.0.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.1...v8.0.2.2
