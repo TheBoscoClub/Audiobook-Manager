@@ -24,7 +24,7 @@ TITLE_SERIES_PATTERNS = [
         re.IGNORECASE,
     ),
     re.compile(
-        r"^.+?:\s+(?:A\s+)?(.+?)\s+Novel\s*(?:\(|$)",
+        r"^.+?:\s+(?:An?\s+)?(.{2,}?)\s+Novel\s*(?:\(|$)",
         re.IGNORECASE,
     ),
 ]

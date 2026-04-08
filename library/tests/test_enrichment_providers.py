@@ -174,6 +174,19 @@ class TestLocalProvider:
         result = p.enrich(book)
         assert result.get("series") == "Jack Reacher"
 
+    def test_novel_format_ignores_plain_a_novel(self):
+        """'Title: A Novel' should NOT extract 'A' as series."""
+        p = LocalProvider()
+        book = {
+            "title": "The Night Tiger: A Novel",
+            "author": "Author",
+            "file_path": "/lib/a/b/c.opus",
+            "asin": None,
+            "series": "",
+        }
+        result = p.enrich(book)
+        assert "series" not in result
+
     def test_skips_series_if_already_populated(self):
         p = LocalProvider()
         book = {
