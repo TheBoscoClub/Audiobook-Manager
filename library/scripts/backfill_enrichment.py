@@ -135,8 +135,14 @@ def phase2_enrichment(
     sources_dir: Path | None = None,
     dry_run: bool = False,
     limit: int | None = None,
+    narrator_backfill: bool = False,
 ) -> dict:
-    """Run enrichment chain on un-enriched books."""
+    """Run enrichment chain on un-enriched books.
+
+    When narrator_backfill is True, re-enriches books that were previously
+    enriched but still have "Unknown Narrator" — fills in real narrator data
+    from the Audible API.
+    """
     # Import here to avoid circular deps at module load
     from scripts.enrichment import enrich_book
 
@@ -144,7 +150,16 @@ def phase2_enrichment(
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    query = "SELECT id, title, asin FROM audiobooks WHERE audible_enriched_at IS NULL"
+    if narrator_backfill:
+        query = (
+            "SELECT id, title, asin FROM audiobooks"
+            " WHERE asin IS NOT NULL AND asin != ''"
+            " AND (narrator = 'Unknown Narrator' OR narrator IS NULL OR narrator = '')"
+        )
+    else:
+        query = (
+            "SELECT id, title, asin FROM audiobooks WHERE audible_enriched_at IS NULL"
+        )
     if limit:
         query += f" LIMIT {int(limit)}"
     cursor.execute(query)
@@ -213,6 +228,11 @@ def main() -> int:
     parser.add_argument(
         "--limit", type=int, default=None, help="Limit Phase 2 to N books"
     )
+    parser.add_argument(
+        "--narrator-backfill",
+        action="store_true",
+        help="Re-enrich books with Unknown Narrator to backfill real narrator data",
+    )
     args = parser.parse_args()
 
     if not args.db.exists():
@@ -230,6 +250,7 @@ def main() -> int:
             sources_dir=args.sources,
             dry_run=args.dry_run,
             limit=args.limit,
+            narrator_backfill=args.narrator_backfill,
         )
 
     return 0
