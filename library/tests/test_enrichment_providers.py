@@ -4,6 +4,7 @@ All external API calls are mocked. Database operations use real
 in-memory SQLite initialized from schema.sql.
 """
 
+import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.enrichment.base import EnrichmentProvider
+from scripts.enrichment.provider_local import LocalProvider
 
 SCHEMA_PATH = Path(__file__).parent.parent / "backend" / "schema.sql"
 
@@ -89,12 +91,6 @@ class TestEnrichmentProviderBase:
         p = FieldProvider()
         result = p.enrich({"title": "X"})
         assert result == {"series": "Alpha", "series_sequence": 1.0}
-
-
-import json
-from unittest.mock import patch
-
-from scripts.enrichment.provider_local import LocalProvider
 
 
 class TestLocalProvider:
