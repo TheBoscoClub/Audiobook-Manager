@@ -9,14 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.0.4] - 2026-04-08
+
+### Added
+
 - **Enrichment provider chain**: Tiered metadata enrichment pipeline with four providers — Local (ASIN/series from files), Audible API (series, ratings, categories, editorial reviews), Google Books (ISBN, description, language, publisher), and Open Library (fallback series, subjects). Each provider fills only empty fields, never overwrites existing data
 - **Enrichment orchestrator** (`library/scripts/enrichment/__init__.py`): Merge-only-empty semantics, column name validation, side-table writes for `audible_categories` and `editorial_reviews`, backward-compatible result format
 - **Backfill enrichment script** (`library/scripts/backfill_enrichment.py`): Two-phase operation — Phase 1 recovers ASINs from `.voucher` files, Phase 2 runs the provider chain on all un-enriched books. CLI supports `--dry-run`, `--limit`, `--asin-only`
 - **ASIN extraction from voucher files**: `extract_asin()` in `scanner/metadata_utils.py` now checks three sources in order: `chapters.json`, `.voucher` files in Sources directory, and source filenames
 - **Systemd enrichment timer**: `audiobook-enrichment.timer` runs nightly at 3:00 AM with 10-minute random delay, `PartOf=audiobook.target`. The companion `audiobook-enrichment.service` runs the backfill script as a oneshot
 - **`enrichment_source` column**: Tracks which provider enriched each book (local, audible, google_books, open_library)
-
-### Changed
 
 ### Fixed
 
@@ -2513,7 +2519,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4...HEAD
+[8.0.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...v8.0.4
 [8.0.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.1...v8.0.3.2
 [8.0.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3...v8.0.3.1
 [8.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.2...v8.0.3
