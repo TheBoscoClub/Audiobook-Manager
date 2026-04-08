@@ -25,7 +25,7 @@
   var isIframe = window.parent !== window;
 
   function getPlayerState() {
-    var audio = document.getElementById("audio-player");
+    var audio = document.getElementById("audio-element");
     if (!audio) return "idle";
     if (audio.paused) return "paused";
     return "streaming";

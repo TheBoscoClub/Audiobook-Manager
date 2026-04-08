@@ -527,7 +527,9 @@ def get_audiobooks() -> Response:
 
     # Count total matching audiobooks
     count_query = f"SELECT COUNT(*) as total FROM audiobooks {where_sql}"  # nosec B608
-    cursor.execute(count_query, params)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(
+        count_query, params
+    )  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     total_count = cursor.fetchone()["total"]
 
     # Get paginated audiobooks
@@ -639,11 +641,11 @@ def get_filters() -> Response:
     narrators = [row["name"] for row in cursor.fetchall()]
 
     # Get unique publishers (audiobooks only)
-    cursor.execute(f"""  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
-        SELECT DISTINCT publisher FROM audiobooks
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        f"""SELECT DISTINCT publisher FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
-        ORDER BY publisher COLLATE NOCASE
-    """)  # nosec B608
+        ORDER BY publisher COLLATE NOCASE"""
+    )  # nosec B608
     publishers = [row["publisher"] for row in cursor.fetchall()]
 
     # Get genres
@@ -659,11 +661,11 @@ def get_filters() -> Response:
     topics = [row["name"] for row in cursor.fetchall()]
 
     # Get formats (audiobooks only)
-    cursor.execute(f"""  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
-        SELECT DISTINCT format FROM audiobooks
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        f"""SELECT DISTINCT format FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
-        ORDER BY format COLLATE NOCASE
-    """)  # nosec B608
+        ORDER BY format COLLATE NOCASE"""
+    )  # nosec B608
     formats = [row["format"] for row in cursor.fetchall()]
 
     conn.close()

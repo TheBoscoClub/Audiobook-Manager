@@ -51,8 +51,9 @@
   function showAuthenticatedState(data) {
     authenticated = true;
     var btn = document.getElementById("my-account-btn");
-    btn.onclick = null; // clear any sign-in handler; uses addEventListener
-    document.getElementById("account-username").textContent = data.username;
+    if (btn) btn.onclick = null; // clear any sign-in handler; uses addEventListener
+    var usernameEl = document.getElementById("account-username");
+    if (usernameEl) usernameEl.textContent = data.username;
     var initialEl = document.getElementById("account-initial");
     if (initialEl && data.username) {
       initialEl.textContent = data.username.charAt(0).toUpperCase();
@@ -63,8 +64,10 @@
   // ── Update button to show unauthenticated state ──
   function showSignInState() {
     authenticated = false;
-    document.getElementById("account-initial").textContent = "\u2192";
-    document.getElementById("account-username").textContent = "Sign In";
+    var initialEl = document.getElementById("account-initial");
+    if (initialEl) initialEl.textContent = "\u2192";
+    var usernameEl = document.getElementById("account-username");
+    if (usernameEl) usernameEl.textContent = "Sign In";
     updateBackOfficeButton(false);
   }
 
@@ -306,45 +309,56 @@
 
   // ── Event Listeners ──
   document.addEventListener("DOMContentLoaded", function () {
-    // Open/close modal
-    document.getElementById("my-account-btn").addEventListener("click", openAccountModal);
-    document.getElementById("account-modal-close").addEventListener("click", closeAccountModal);
+    // Open/close modal — my-account-btn only exists in shell.html, not in iframe pages
+    var accountBtn = document.getElementById("my-account-btn");
+    if (accountBtn) accountBtn.addEventListener("click", openAccountModal);
+    var modalClose = document.getElementById("account-modal-close");
+    if (modalClose) modalClose.addEventListener("click", closeAccountModal);
 
     // Close on backdrop click
-    document.getElementById("account-modal").addEventListener("click", function (e) {
-      if (e.target === this) closeAccountModal();
-    });
+    var accountModal = document.getElementById("account-modal");
+    if (accountModal) {
+      accountModal.addEventListener("click", function (e) {
+        if (e.target === this) closeAccountModal();
+      });
+    }
+
+    // Helper: safe addEventListener — only binds if element exists
+    function on(id, event, handler) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener(event, handler);
+    }
 
     // Username edit
-    document.getElementById("acct-username").addEventListener("click", showUsernameEdit);
-    document.getElementById("acct-username-save").addEventListener("click", saveUsername);
-    document.getElementById("acct-username-cancel").addEventListener("click", hideUsernameEdit);
-    document.getElementById("acct-username-input").addEventListener("keydown", function (e) {
+    on("acct-username", "click", showUsernameEdit);
+    on("acct-username-save", "click", saveUsername);
+    on("acct-username-cancel", "click", hideUsernameEdit);
+    on("acct-username-input", "keydown", function (e) {
       if (e.key === "Enter") saveUsername();
       if (e.key === "Escape") hideUsernameEdit();
     });
 
     // Email edit
-    document.getElementById("acct-email").addEventListener("click", showEmailEdit);
-    document.getElementById("acct-email-save").addEventListener("click", saveEmail);
-    document.getElementById("acct-email-cancel").addEventListener("click", hideEmailEdit);
-    document.getElementById("acct-email-input").addEventListener("keydown", function (e) {
+    on("acct-email", "click", showEmailEdit);
+    on("acct-email-save", "click", saveEmail);
+    on("acct-email-cancel", "click", hideEmailEdit);
+    on("acct-email-input", "keydown", function (e) {
       if (e.key === "Enter") saveEmail();
       if (e.key === "Escape") hideEmailEdit();
     });
 
     // Auth switch
-    document.getElementById("auth-switch-btn").addEventListener("click", initAuthSwitch);
-    document.getElementById("auth-switch-confirm").addEventListener("click", confirmAuthSwitch);
+    on("auth-switch-btn", "click", initAuthSwitch);
+    on("auth-switch-confirm", "click", confirmAuthSwitch);
 
     // Reset credentials
-    document.getElementById("auth-reset-btn").addEventListener("click", resetCredentials);
+    on("auth-reset-btn", "click", resetCredentials);
 
     // Delete account
-    document.getElementById("delete-account-btn").addEventListener("click", deleteOwnAccount);
+    on("delete-account-btn", "click", deleteOwnAccount);
 
     // Sign out
-    document.getElementById("sign-out-btn").addEventListener("click", function () {
+    on("sign-out-btn", "click", function () {
       closeAccountModal();
       // Use the iframe's library logout if available, otherwise direct API call
       var frame = document.getElementById("content-frame");

@@ -254,4 +254,16 @@ class AudibleProvider(EnrichmentProvider):
             if author_asins:
                 result["author_asins"] = author_asins
 
+        # Narrators — extract names for flat column + junction table backfill
+        narrators = product.get("narrators", [])
+        if narrators:
+            narrator_names = [n.get("name", "") for n in narrators if n.get("name")]
+            if narrator_names:
+                result["narrator"] = ", ".join(narrator_names)
+                result["narrator_list"] = [
+                    {"name": n.get("name", ""), "asin": n.get("asin", "")}
+                    for n in narrators
+                    if n.get("name")
+                ]
+
         return result

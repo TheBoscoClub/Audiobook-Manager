@@ -47,6 +47,7 @@ _SCALAR_COLUMNS = {
     "published_year",
     "publisher",
     "page_count",
+    "narrator",
 }
 
 # Side-table data keys (not columns on audiobooks)
@@ -54,6 +55,7 @@ _SIDE_TABLE_KEYS = {
     "categories",
     "editorial_reviews",
     "author_asins",
+    "narrator_list",
     "google_categories",
     "ol_subjects",
 }
@@ -63,6 +65,7 @@ _SIDE_TABLE_KEYS = {
 # a more specific type (Podcast, Show, Episode, Lecture, etc.).
 _DEFAULT_AS_EMPTY = {
     "content_type": "Product",
+    "narrator": "Unknown Narrator",
 }
 
 
@@ -262,6 +265,86 @@ def _apply_editorial_reviews(
         )
 
 
+def _apply_narrators(
+    cursor: sqlite3.Cursor, book_id: int, narrator_list: list[dict]
+) -> None:
+    """Backfill narrators into the normalized narrators/book_narrators tables.
+
+    Only adds narrators that don't already have junction entries for this book.
+    Replaces "Unknown Narrator" junction entries when real data is available.
+    """
+    if not narrator_list:
+        return
+
+    # Check if current junction entries are only "Unknown Narrator"
+    cursor.execute(
+        """SELECT n.name FROM narrators n
+           JOIN book_narrators bn ON n.id = bn.narrator_id
+           WHERE bn.book_id = ?""",
+        (book_id,),
+    )
+    existing = {row[0] for row in cursor.fetchall()}
+
+    # If we only have "Unknown Narrator" and now have real data, clear it
+    if existing == {"Unknown Narrator"} and narrator_list:
+        cursor.execute("DELETE FROM book_narrators WHERE book_id = ?", (book_id,))
+        existing = set()
+
+    for position, narrator_info in enumerate(narrator_list):
+        name = narrator_info.get("name", "").strip()
+        if not name or name in existing:
+            continue
+
+        # Get or create narrator
+        cursor.execute("SELECT id FROM narrators WHERE name = ?", (name,))
+        row = cursor.fetchone()
+        if row:
+            narrator_id = row[0]
+        else:
+            cursor.execute("INSERT INTO narrators (name) VALUES (?)", (name,))
+            narrator_id = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT OR IGNORE INTO book_narrators (book_id, narrator_id, position) VALUES (?, ?, ?)",
+            (book_id, narrator_id, position),
+        )
+        existing.add(name)
+
+
+# Known podcast publishers — items whose author matches these are podcasts,
+# even when the Audible API returns content_type='Product'.
+_PODCAST_PUBLISHERS = frozenset(
+    {
+        "wondery",
+        "movewith",
+        "aaptiv",
+        "higher ground",
+        "panoply",
+        "gimlet",
+        "stitcher",
+        "parcast",
+    }
+)
+
+
+def _detect_podcast_by_publisher(book: dict, updates: dict) -> str | None:
+    """Return 'Podcast' if the book's author matches a known podcast publisher.
+
+    Only triggers when content_type is 'Product' (the schema default that
+    real podcasts sometimes inherit from the Audible API).
+    """
+    content_type = updates.get("content_type") or book.get("content_type")
+    if content_type and content_type != "Product":
+        return None  # Already has a specific type
+
+    author = (book.get("author") or "").lower()
+    publisher = (book.get("publisher") or "").lower()
+    combined = author + " " + publisher
+    if any(pub in combined for pub in _PODCAST_PUBLISHERS):
+        return "Podcast"
+    return None
+
+
 def _default_providers(sources_dir: Path | None = None) -> list[EnrichmentProvider]:
     """Return the default provider chain."""
     return [
@@ -345,6 +428,15 @@ def enrich_book(
             if series_val and result["audible_enriched"]:
                 break
 
+        # Post-provider heuristics: detect podcasts by publisher name
+        podcast_override = _detect_podcast_by_publisher(book, all_updates)
+        if podcast_override:
+            all_updates["content_type"] = podcast_override
+            if not quiet:
+                logger.info(
+                    "  Publisher-based override: content_type → %s", podcast_override
+                )
+
         # Apply all accumulated updates
         if all_updates:
             fields = _apply_scalar_updates(
@@ -362,6 +454,9 @@ def enrich_book(
                 _apply_editorial_reviews(
                     cursor, book_id, all_updates["editorial_reviews"]
                 )
+
+            if "narrator_list" in all_updates:
+                _apply_narrators(cursor, book_id, all_updates["narrator_list"])
 
             # Extract topics from publisher_summary if available
             summary = all_updates.get("publisher_summary") or book.get(
