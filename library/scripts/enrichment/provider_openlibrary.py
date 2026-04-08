@@ -44,7 +44,9 @@ def _search_openlibrary(title: str, author: str) -> dict | None:
         url, headers={"User-Agent": "AudiobookManager/1.0 (library enrichment)"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+        with (
+            urllib.request.urlopen(req, timeout=10) as resp
+        ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
             data = json.loads(resp.read())
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
         return None

@@ -81,13 +81,9 @@ def phase1_asin_recovery(
         json_asin = None
         try:
             data = json.loads(voucher_path.read_text())
-            json_asin = (
-                data.get("content_license", {}).get("asin")
-                or data.get("content_license", {})
-                .get("content_metadata", {})
-                .get("content_reference", {})
-                .get("asin")
-            )
+            json_asin = data.get("content_license", {}).get("asin") or data.get(
+                "content_license", {}
+            ).get("content_metadata", {}).get("content_reference", {}).get("asin")
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -113,7 +109,9 @@ def phase1_asin_recovery(
 
         for book_id in book_ids:
             if dry_run:
-                logger.info("  [DRY RUN] Would set ASIN=%s for book ID %d", asin, book_id)
+                logger.info(
+                    "  [DRY RUN] Would set ASIN=%s for book ID %d", asin, book_id
+                )
             else:
                 cursor.execute(
                     "UPDATE audiobooks SET asin = ? WHERE id = ? AND (asin IS NULL OR asin = '')",
@@ -197,11 +195,21 @@ def phase2_enrichment(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backfill audiobook enrichment")
-    parser.add_argument("--db", type=Path, required=True, help="Path to SQLite database")
-    parser.add_argument("--sources", type=Path, default=None, help="Path to Sources directory")
-    parser.add_argument("--asin-only", action="store_true", help="Phase 1 only (ASIN recovery)")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
-    parser.add_argument("--limit", type=int, default=None, help="Limit Phase 2 to N books")
+    parser.add_argument(
+        "--db", type=Path, required=True, help="Path to SQLite database"
+    )
+    parser.add_argument(
+        "--sources", type=Path, default=None, help="Path to Sources directory"
+    )
+    parser.add_argument(
+        "--asin-only", action="store_true", help="Phase 1 only (ASIN recovery)"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Limit Phase 2 to N books"
+    )
     args = parser.parse_args()
 
     if not args.db.exists():

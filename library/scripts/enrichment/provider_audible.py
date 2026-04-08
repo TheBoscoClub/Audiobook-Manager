@@ -58,7 +58,9 @@ def _fetch_audible_product(asin: str) -> dict | None:
     )
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+        with (
+            urllib.request.urlopen(req, timeout=15) as resp
+        ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
@@ -67,7 +69,9 @@ def _fetch_audible_product(asin: str) -> dict | None:
         if e.code == 429:
             time.sleep(5)
             try:
-                with urllib.request.urlopen(req, timeout=15) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+                with (
+                    urllib.request.urlopen(req, timeout=15) as resp
+                ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
                     data = json.loads(resp.read())
                     return data.get("product")
             except Exception:

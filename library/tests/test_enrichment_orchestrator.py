@@ -7,9 +7,7 @@ All external providers are mocked.
 import sqlite3
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -76,7 +74,7 @@ class TestEnrichBookChain:
         conn.close()
 
         provider = StubProvider({"series": "Overwrite Attempt", "isbn": "978TEST"})
-        result = enrich_book(1, db_path=db, quiet=True, providers=[provider])
+        enrich_book(1, db_path=db, quiet=True, providers=[provider])
 
         conn = sqlite3.connect(db)
         conn.row_factory = sqlite3.Row
@@ -92,7 +90,7 @@ class TestEnrichBookChain:
         p2 = StubProvider({"series": "Second", "isbn": "978ISBN"})
         p2.name = "second"
 
-        result = enrich_book(1, db_path=db, quiet=True, providers=[p1, p2])
+        enrich_book(1, db_path=db, quiet=True, providers=[p1, p2])
 
         conn = sqlite3.connect(db)
         conn.row_factory = sqlite3.Row
@@ -105,7 +103,7 @@ class TestEnrichBookChain:
         db = _create_test_db(tmp_path)
         p_skip = StubProvider({"series": "Nope"}, can=False)
         p_fill = StubProvider({"series": "Yes"})
-        result = enrich_book(1, db_path=db, quiet=True, providers=[p_skip, p_fill])
+        enrich_book(1, db_path=db, quiet=True, providers=[p_skip, p_fill])
 
         conn = sqlite3.connect(db)
         conn.row_factory = sqlite3.Row

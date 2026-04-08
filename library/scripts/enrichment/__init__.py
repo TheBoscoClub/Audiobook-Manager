@@ -48,7 +48,13 @@ _SCALAR_COLUMNS = {
 }
 
 # Side-table data keys (not columns on audiobooks)
-_SIDE_TABLE_KEYS = {"categories", "editorial_reviews", "author_asins", "google_categories", "ol_subjects"}
+_SIDE_TABLE_KEYS = {
+    "categories",
+    "editorial_reviews",
+    "author_asins",
+    "google_categories",
+    "ol_subjects",
+}
 
 
 def _load_book(cursor: sqlite3.Cursor, book_id: int) -> dict | None:
@@ -88,7 +94,11 @@ def _apply_scalar_updates(
     enrichment_source: str,
 ) -> int:
     """Write scalar column updates to the audiobooks table."""
-    scalar = {k: v for k, v in updates.items() if k in _SCALAR_COLUMNS and k not in _SIDE_TABLE_KEYS}
+    scalar = {
+        k: v
+        for k, v in updates.items()
+        if k in _SCALAR_COLUMNS and k not in _SIDE_TABLE_KEYS
+    }
     if not scalar:
         return 0
 
@@ -98,7 +108,10 @@ def _apply_scalar_updates(
 
     # Column names are validated against _SCALAR_COLUMNS (hardcoded allowlist)
     for col in scalar:
-        if col not in _SCALAR_COLUMNS and col not in ("audible_enriched_at", "enrichment_source"):
+        if col not in _SCALAR_COLUMNS and col not in (
+            "audible_enriched_at",
+            "enrichment_source",
+        ):
             raise ValueError(f"Invalid column name: {col}")
     set_clause = ", ".join(f"{col} = ?" for col in scalar)
     params = list(scalar.values()) + [book_id]
@@ -109,7 +122,9 @@ def _apply_scalar_updates(
     return len(scalar) - 2  # Don't count timestamp + source as "fields"
 
 
-def _apply_categories(cursor: sqlite3.Cursor, book_id: int, categories: list[dict]) -> None:
+def _apply_categories(
+    cursor: sqlite3.Cursor, book_id: int, categories: list[dict]
+) -> None:
     """Write categories to the audible_categories side table."""
     cursor.execute("DELETE FROM audible_categories WHERE audiobook_id = ?", (book_id,))
     for cat in categories:
@@ -128,7 +143,9 @@ def _apply_categories(cursor: sqlite3.Cursor, book_id: int, categories: list[dic
         )
 
 
-def _apply_editorial_reviews(cursor: sqlite3.Cursor, book_id: int, reviews: list[dict]) -> None:
+def _apply_editorial_reviews(
+    cursor: sqlite3.Cursor, book_id: int, reviews: list[dict]
+) -> None:
     """Write editorial reviews to the editorial_reviews side table."""
     cursor.execute("DELETE FROM editorial_reviews WHERE audiobook_id = ?", (book_id,))
     for review in reviews:
@@ -197,7 +214,10 @@ def enrich_book(
                 continue
 
             # Pass the merged view (book + accumulated updates) to each provider
-            merged_view = {**book, **{k: v for k, v in all_updates.items() if k not in _SIDE_TABLE_KEYS}}
+            merged_view = {
+                **book,
+                **{k: v for k, v in all_updates.items() if k not in _SIDE_TABLE_KEYS},
+            }
             provider_data = provider.enrich(merged_view)
             if not provider_data:
                 continue
@@ -230,7 +250,9 @@ def enrich_book(
                 _apply_categories(cursor, book_id, all_updates["categories"])
 
             if "editorial_reviews" in all_updates:
-                _apply_editorial_reviews(cursor, book_id, all_updates["editorial_reviews"])
+                _apply_editorial_reviews(
+                    cursor, book_id, all_updates["editorial_reviews"]
+                )
 
             conn.commit()
 

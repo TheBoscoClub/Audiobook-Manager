@@ -46,11 +46,16 @@ def _get_enrich_module():
     global _enrich_module
     if _enrich_module is None:
         try:
-            from scripts.enrich_single import enrich_book
+            from scripts.enrichment import enrich_book
 
             _enrich_module = enrich_book
         except ImportError:
-            _enrich_module = False
+            try:
+                from scripts.enrich_single import enrich_book
+
+                _enrich_module = enrich_book
+            except ImportError:
+                _enrich_module = False
     return _enrich_module if _enrich_module else None
 
 

@@ -653,9 +653,9 @@ def enrich_book(
 ) -> dict:
     """Enrich a single audiobook by database ID.
 
-    Delegates to the new enrichment orchestrator (scripts.enrichment) which
-    runs a tiered provider chain: Local → Audible → Google Books → Open Library.
-    Maintains backward-compatible result format.
+    Uses the original Audible + ISBN enrichment path. The new orchestrator
+    (scripts.enrichment.enrich_book) is called from add_new_audiobooks.py
+    and backfill_enrichment.py for the tiered provider chain.
     """
     db_path = _resolve_enrich_db_path(db_path)
     if db_path is None:
@@ -663,18 +663,6 @@ def enrich_book(
         result["errors"].append("No database path")
         return result
 
-    try:
-        from scripts.enrichment import enrich_book as _orchestrator_enrich
-
-        return _orchestrator_enrich(
-            book_id=book_id,
-            db_path=db_path,
-            quiet=quiet,
-        )
-    except ImportError:
-        pass
-
-    # Fallback: original implementation if orchestrator unavailable
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     result = _make_empty_result()
 

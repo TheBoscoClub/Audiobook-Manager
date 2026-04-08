@@ -3,12 +3,10 @@
 All API calls are mocked — no network access during tests.
 """
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -110,7 +108,10 @@ class TestAudibleProviderEnrich:
     @patch("scripts.enrichment.provider_audible._fetch_audible_product")
     def test_extracts_image_url(self, mock_fetch):
         mock_fetch.return_value = {
-            "product_images": {"500": "https://example.com/500.jpg", "252": "https://example.com/252.jpg"}
+            "product_images": {
+                "500": "https://example.com/500.jpg",
+                "252": "https://example.com/252.jpg",
+            }
         }
         provider = AudibleProvider()
         result = provider.enrich({"asin": "B08G9PRS1K"})
@@ -134,7 +135,9 @@ class TestHelpers:
         assert _extract_categories({}) == []
 
     def test_extract_editorial_reviews(self):
-        product = {"editorial_reviews": ["Great book!", {"review": "Amazing", "source": "NYT"}]}
+        product = {
+            "editorial_reviews": ["Great book!", {"review": "Amazing", "source": "NYT"}]
+        }
         reviews = _extract_editorial_reviews(product)
         assert len(reviews) == 2
         assert reviews[0]["review_text"] == "Great book!"
