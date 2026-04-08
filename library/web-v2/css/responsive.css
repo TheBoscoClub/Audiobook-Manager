@@ -331,10 +331,12 @@ body {
     }
 
     .btn-play {
-        font-size: 0.55rem !important;
-        padding: 2px 4px !important;
+        font-size: 0.75rem !important;
+        padding: 6px 10px !important;
         border-width: 1px !important;
-        flex: 1 !important;
+        flex: 0 0 auto !important;
+        min-height: 36px !important;
+        min-width: 36px !important;
     }
 
     /* Hide verbose elements on mobile book cards (not modals) */
@@ -573,10 +575,12 @@ body {
     }
 
     .btn-play {
-        font-size: 0.55rem !important;
-        padding: 2px 4px !important;
+        font-size: 0.75rem !important;
+        padding: 6px 10px !important;
         border-width: 1px !important;
-        flex: 1 !important;
+        flex: 0 0 auto !important;
+        min-height: 36px !important;
+        min-width: 36px !important;
     }
 
     /* Hide verbose elements on mobile book cards (not modals) */
