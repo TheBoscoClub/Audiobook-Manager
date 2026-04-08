@@ -12,6 +12,7 @@ from pathlib import Path
 
 from scanner.metadata_utils import extract_topics
 
+from backend.name_parser import generate_sort_name
 from scripts.enrichment.base import EnrichmentProvider
 from scripts.enrichment.provider_audible import AudibleProvider
 from scripts.enrichment.provider_google import GoogleBooksProvider
@@ -301,7 +302,11 @@ def _apply_narrators(
         if row:
             narrator_id = row[0]
         else:
-            cursor.execute("INSERT INTO narrators (name) VALUES (?)", (name,))
+            sort_name = generate_sort_name(name) or name
+            cursor.execute(
+                "INSERT INTO narrators (name, sort_name) VALUES (?, ?)",
+                (name, sort_name),
+            )
             narrator_id = cursor.lastrowid
 
         cursor.execute(
