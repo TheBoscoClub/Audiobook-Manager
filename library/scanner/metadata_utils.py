@@ -285,27 +285,117 @@ def run_ffprobe(filepath: Path, timeout: int = 30) -> dict | None:
         return None
 
 
-def extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
-    """
-    Extract ASIN from chapters.json in the same directory as the audiobook.
-
-    AAXtoMP3 creates chapters.json alongside converted audiobooks containing
-    the original Audible ASIN, used for deduplication and edition tracking.
-    The ASIN is nested at: content_metadata.content_reference.asin
-    """
+def _extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
+    """Source 1: Extract ASIN from chapters.json alongside the audiobook."""
     chapters_path = filepath.parent / "chapters.json"
     if not chapters_path.exists():
         return None
-
     try:
         with open(chapters_path, "r") as f:
             chapters_data = json.load(f)
-        # ASIN is nested in content_metadata.content_reference
         content_metadata = chapters_data.get("content_metadata", {})
         content_reference = content_metadata.get("content_reference", {})
         return content_reference.get("asin")
     except (json.JSONDecodeError, IOError):
         return None
+
+
+def _normalize_title_for_matching(title: str) -> str:
+    """Strip punctuation and lowercase for fuzzy title matching."""
+    return re.sub(r"[^a-z0-9 ]", "", title.lower()).strip()
+
+
+def _extract_asin_from_voucher(filepath: Path, sources_dir: Path) -> Optional[str]:
+    """Source 2: Extract ASIN from .voucher files in Sources directory.
+
+    Matches voucher to library book by checking if the book's title appears
+    in the voucher filename (normalized comparison).
+    """
+    book_title = _normalize_title_for_matching(filepath.stem)
+    if not book_title:
+        return None
+
+    try:
+        voucher_files = list(sources_dir.glob("*.voucher"))
+    except OSError:
+        return None
+
+    for voucher_path in voucher_files:
+        voucher_title = _normalize_title_for_matching(
+            voucher_path.stem.split("_", 1)[-1].rsplit("-", 1)[0].replace("_", " ")
+        )
+        if not voucher_title or book_title not in voucher_title:
+            continue
+        try:
+            with open(voucher_path, "r") as f:
+                voucher_data = json.load(f)
+            asin = voucher_data.get("content_license", {}).get("asin")
+            if not asin:
+                asin = (
+                    voucher_data.get("content_license", {})
+                    .get("content_metadata", {})
+                    .get("content_reference", {})
+                    .get("asin")
+                )
+            if asin:
+                return asin
+        except (json.JSONDecodeError, IOError):
+            continue
+    return None
+
+
+_ASIN_FILENAME_RE = re.compile(r"^([B0-9][A-Z0-9]{9})_(.+)-AAX", re.IGNORECASE)
+
+
+def _extract_asin_from_filename(filepath: Path, sources_dir: Path) -> Optional[str]:
+    """Source 3: Extract ASIN from source filename pattern {ASIN}_Title-*.aaxc."""
+    book_title = _normalize_title_for_matching(filepath.stem)
+    if not book_title:
+        return None
+
+    try:
+        source_files = list(sources_dir.glob("*.aaxc"))
+    except OSError:
+        return None
+
+    for source_path in source_files:
+        m = _ASIN_FILENAME_RE.match(source_path.name)
+        if not m:
+            continue
+        candidate_asin = m.group(1)
+        source_title = _normalize_title_for_matching(
+            m.group(2).replace("_", " ")
+        )
+        if book_title in source_title or source_title in book_title:
+            return candidate_asin
+    return None
+
+
+def extract_asin(
+    filepath: Path, sources_dir: Optional[Path] = None
+) -> Optional[str]:
+    """Extract ASIN from any available source, checked in priority order.
+
+    1. chapters.json (same directory as audiobook)
+    2. .voucher file in Sources directory (if sources_dir provided)
+    3. Source filename pattern in Sources directory (if sources_dir provided)
+    """
+    # Source 1: chapters.json (always available)
+    asin = _extract_asin_from_chapters_json(filepath)
+    if asin:
+        return asin
+
+    # Sources 2 & 3 require sources_dir
+    if sources_dir and sources_dir.is_dir():
+        asin = _extract_asin_from_voucher(filepath, sources_dir)
+        if asin:
+            return asin
+
+        asin = _extract_asin_from_filename(filepath, sources_dir)
+        if asin:
+            return asin
+
+    return None
 
 
 def _merge_tags(data: dict) -> dict:
@@ -376,7 +466,7 @@ def _build_metadata_dict(
     narrator = extract_narrator_from_tags(tags_normalized, author)
 
     file_hash, hash_verified_at = _compute_hash(filepath, calculate_hash)
-    asin = extract_asin_from_chapters_json(filepath)
+    asin = extract_asin(filepath)
     raw_date = tags_normalized.get("date", tags_normalized.get("year", ""))
     published_year, published_date = _parse_publication_date(raw_date)
 

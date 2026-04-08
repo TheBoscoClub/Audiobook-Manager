@@ -1,8 +1,8 @@
 """
 Extended unit tests for scanner.metadata_utils — targeting uncovered lines.
 
-Covers: categorize_genre content type (line 122), extract_asin_from_chapters_json
-(lines 296-304), get_file_metadata relative_path ValueError (lines 387-388),
+Covers: categorize_genre content type (line 122), extract_asin / chapters.json
+path (lines 296-304), get_file_metadata relative_path ValueError (lines 387-388),
 extract_cover_art ffmpeg success but no file (line 443), standalone cover fallback
 (lines 455-459), external resolver fallback (lines 466-481), standalone cover OSError
 (lines 458-459*), extract_cover_art general exception (lines 490-492),
@@ -21,7 +21,7 @@ sys.path.insert(0, str(LIBRARY_DIR))
 from scanner.metadata_utils import (  # noqa: E402
     categorize_genre,
     is_content_type,
-    extract_asin_from_chapters_json,
+    extract_asin,
     get_file_metadata,
     extract_cover_art,
     _find_standalone_cover,
@@ -69,7 +69,7 @@ class TestCategorizeGenreContentType:
 
 
 class TestExtractAsinFromChaptersJson:
-    """Test lines 296-304: extract_asin_from_chapters_json."""
+    """Test lines 296-304: extract_asin (chapters.json path)."""
 
     def test_extracts_asin_from_valid_file(self, tmp_path):
         """Lines 296-302: Valid chapters.json returns ASIN."""
@@ -80,7 +80,7 @@ class TestExtractAsinFromChaptersJson:
         chapters_path = tmp_path / "chapters.json"
         chapters_path.write_text(json.dumps(chapters))
 
-        result = extract_asin_from_chapters_json(audio_file)
+        result = extract_asin(audio_file)
         assert result == "B01ABCDEFG"
 
     def test_returns_none_when_no_file(self, tmp_path):
@@ -88,7 +88,7 @@ class TestExtractAsinFromChaptersJson:
         audio_file = tmp_path / "book.opus"
         audio_file.touch()
 
-        result = extract_asin_from_chapters_json(audio_file)
+        result = extract_asin(audio_file)
         assert result is None
 
     def test_returns_none_on_invalid_json(self, tmp_path):
@@ -99,7 +99,7 @@ class TestExtractAsinFromChaptersJson:
         chapters_path = tmp_path / "chapters.json"
         chapters_path.write_text("not valid json{{{")
 
-        result = extract_asin_from_chapters_json(audio_file)
+        result = extract_asin(audio_file)
         assert result is None
 
     def test_returns_none_when_no_asin(self, tmp_path):
@@ -111,7 +111,7 @@ class TestExtractAsinFromChaptersJson:
         chapters_path = tmp_path / "chapters.json"
         chapters_path.write_text(json.dumps(chapters))
 
-        result = extract_asin_from_chapters_json(audio_file)
+        result = extract_asin(audio_file)
         assert result is None
 
     def test_returns_none_when_empty_structure(self, tmp_path):
@@ -122,7 +122,7 @@ class TestExtractAsinFromChaptersJson:
         chapters_path = tmp_path / "chapters.json"
         chapters_path.write_text("{}")
 
-        result = extract_asin_from_chapters_json(audio_file)
+        result = extract_asin(audio_file)
         assert result is None
 
 
