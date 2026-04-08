@@ -1438,6 +1438,19 @@ CFEOF
             echo -e "${YELLOW}  Warning: schema.sql not found, skipping database initialization${NC}"
         fi
     fi
+
+    # Schema migration: add enrichment_source column if missing (idempotent)
+    if [[ -f "$db_file" ]]; then
+        local has_enrichment_source
+        has_enrichment_source=$(sudo -u audiobooks sqlite3 "$db_file" \
+            "PRAGMA table_info(audiobooks);" 2>/dev/null | grep -c "enrichment_source" || true)
+        if [[ "$has_enrichment_source" == "0" ]]; then
+            echo -e "${BLUE}Migrating database: adding enrichment_source column...${NC}"
+            sudo -u audiobooks sqlite3 "$db_file" \
+                "ALTER TABLE audiobooks ADD COLUMN enrichment_source TEXT;" 2>/dev/null || true
+            echo "  Added: enrichment_source column to audiobooks table"
+        fi
+    fi
     echo ""
 
     # Install ALL scripts to /opt/audiobooks/scripts/ (canonical location)
@@ -1644,7 +1657,7 @@ EOF
 
         # Enable the target and all individual services
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
 

@@ -79,7 +79,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
     )
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
@@ -88,7 +88,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
         if e.code == 429:
             time.sleep(5)
             try:
-                with urllib.request.urlopen(req, timeout=15) as resp:
+                with urllib.request.urlopen(req, timeout=15) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
                     data = json.loads(resp.read())
                     return data.get("product")
             except Exception:
@@ -194,7 +194,8 @@ def _query_google_books(
     url = f"{GOOGLE_BOOKS_API}?q={urllib.parse.quote(q)}&maxResults=1"
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             data = json.loads(resp.read())
             items = data.get("items", [])
             if items:
@@ -211,7 +212,8 @@ def _query_openlibrary_search(title: str, author: str | None = None) -> dict | N
     url = f"{OPENLIBRARY_API}/search.json?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None
@@ -323,6 +325,7 @@ def _apply_audible_enrichment(
     if updates:
         params.append(book_id)
         sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         cursor.execute(sql, params)
         fields_updated = len(updates) - 1  # exclude timestamp
 
@@ -532,6 +535,7 @@ def _apply_isbn_enrichment(
     isbn_params.append(now)
     isbn_params.append(book_id)
     sql = f"UPDATE audiobooks SET {', '.join(isbn_updates)} WHERE id = ?"  # nosec B608
+    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     cursor.execute(sql, isbn_params)
 
     isbn_field_count = len(isbn_updates) - 1
@@ -649,8 +653,9 @@ def enrich_book(
 ) -> dict:
     """Enrich a single audiobook by database ID.
 
-    First tries Audible API (if ASIN exists), then falls back to
-    ISBN/Google Books/Open Library for remaining fields.
+    Delegates to the new enrichment orchestrator (scripts.enrichment) which
+    runs a tiered provider chain: Local → Audible → Google Books → Open Library.
+    Maintains backward-compatible result format.
     """
     db_path = _resolve_enrich_db_path(db_path)
     if db_path is None:
@@ -658,6 +663,18 @@ def enrich_book(
         result["errors"].append("No database path")
         return result
 
+    try:
+        from scripts.enrichment import enrich_book as _orchestrator_enrich
+
+        return _orchestrator_enrich(
+            book_id=book_id,
+            db_path=db_path,
+            quiet=quiet,
+        )
+    except ImportError:
+        pass
+
+    # Fallback: original implementation if orchestrator unavailable
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     result = _make_empty_result()
 
