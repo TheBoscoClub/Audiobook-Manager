@@ -89,3 +89,118 @@ class TestEnrichmentProviderBase:
         p = FieldProvider()
         result = p.enrich({"title": "X"})
         assert result == {"series": "Alpha", "series_sequence": 1.0}
+
+
+import json
+from unittest.mock import patch
+
+from scripts.enrichment.provider_local import LocalProvider
+
+
+class TestLocalProvider:
+    """Test local file-based enrichment (no API calls)."""
+
+    def test_can_enrich_always_true(self):
+        p = LocalProvider()
+        assert p.can_enrich({"title": "Any Book"}) is True
+
+    def test_extracts_asin_from_voucher(self, tmp_path):
+        sources_dir = tmp_path / "Sources"
+        sources_dir.mkdir()
+        voucher = {"content_license": {"asin": "B0D7JLGFST"}}
+        (sources_dir / "B0D7JLGFST_Revenge_Prey-AAX_44_128.voucher").write_text(
+            json.dumps(voucher)
+        )
+
+        p = LocalProvider(sources_dir=sources_dir)
+        book = {
+            "title": "Revenge Prey",
+            "author": "Author Name",
+            "file_path": "/lib/Author Name/Revenge Prey/Revenge Prey.opus",
+            "asin": None,
+            "series": "",
+        }
+        result = p.enrich(book)
+        assert result.get("asin") == "B0D7JLGFST"
+
+    def test_extracts_series_from_tags(self):
+        p = LocalProvider()
+        book = {
+            "title": "Book Title",
+            "author": "Author",
+            "file_path": "/lib/Author/Book Title/Book Title.opus",
+            "asin": "B123456789",
+            "series": "",
+            "series_part": "3",
+        }
+        result = p.enrich(book)
+        assert result.get("series_sequence") == 3.0
+
+    def test_parses_series_from_title_colon_format(self):
+        p = LocalProvider()
+        book = {
+            "title": "Dark Tower: The Gunslinger, Book 1",
+            "author": "Stephen King",
+            "file_path": "/lib/King/DT/dt.opus",
+            "asin": None,
+            "series": "",
+        }
+        result = p.enrich(book)
+        assert result.get("series") == "The Gunslinger"
+        assert result.get("series_sequence") == 1.0
+
+    def test_parses_series_from_title_paren_format(self):
+        p = LocalProvider()
+        book = {
+            "title": "Gone Girl (Amazing Amy Book 3)",
+            "author": "Author",
+            "file_path": "/lib/a/b/c.opus",
+            "asin": None,
+            "series": "",
+        }
+        result = p.enrich(book)
+        assert result.get("series") == "Amazing Amy"
+        assert result.get("series_sequence") == 3.0
+
+    def test_parses_series_novel_format(self):
+        p = LocalProvider()
+        book = {
+            "title": "Reckless: A Jack Reacher Novel",
+            "author": "Author",
+            "file_path": "/lib/a/b/c.opus",
+            "asin": None,
+            "series": "",
+        }
+        result = p.enrich(book)
+        assert result.get("series") == "Jack Reacher"
+
+    def test_skips_series_if_already_populated(self):
+        p = LocalProvider()
+        book = {
+            "title": "Book: Some Series, Book 5",
+            "author": "Author",
+            "file_path": "/lib/a/b/c.opus",
+            "asin": None,
+            "series": "Existing Series",
+        }
+        result = p.enrich(book)
+        assert "series" not in result
+
+    def test_skips_asin_if_already_populated(self, tmp_path):
+        sources_dir = tmp_path / "Sources"
+        sources_dir.mkdir()
+        voucher = {"content_license": {"asin": "B0NEWONE00"}}
+        (sources_dir / "B0NEWONE00_Book-AAX_44_128.voucher").write_text(
+            json.dumps(voucher)
+        )
+
+        p = LocalProvider(sources_dir=sources_dir)
+        book = {
+            "title": "Book",
+            "author": "Author",
+            "file_path": "/lib/a/Book/Book.opus",
+            "asin": "B0EXISTING",
+            "series": "",
+        }
+        result = p.enrich(book)
+        assert "asin" not in result
