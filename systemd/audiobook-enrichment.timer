@@ -1,0 +1,14 @@
+[Unit]
+Description=Audiobook Metadata Enrichment Timer (nightly catch-up)
+PartOf=audiobook.target
+
+[Timer]
+# Run daily at 3:00 AM with up to 10 min random delay
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=600
+
+# Persist timer across reboots (run missed events on next boot)
+Persistent=true
+
+[Install]
+WantedBy=audiobook.target timers.target

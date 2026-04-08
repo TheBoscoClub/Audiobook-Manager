@@ -1,0 +1,36 @@
+[Unit]
+Description=Audiobook Metadata Enrichment (backfill un-enriched books)
+After=network-online.target local-fs.target
+Wants=network-online.target
+PartOf=audiobook.target
+
+[Service]
+Type=oneshot
+User=audiobooks
+Group=audiobooks
+
+# Load configuration
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+# HOME directory for audiobooks user
+Environment=HOME=/var/lib/audiobooks
+
+# Run backfill enrichment (idempotent — only processes books where audible_enriched_at IS NULL)
+ExecStart=/bin/bash -c '${AUDIOBOOKS_HOME}/venv/bin/python ${AUDIOBOOKS_HOME}/library/scripts/backfill_enrichment.py --db ${AUDIOBOOKS_DATABASE} --sources ${AUDIOBOOKS_SOURCES}'
+
+# Allow up to 1 hour for large library enrichment
+TimeoutStartSec=3600
+
+# Don't restart automatically (triggered by timer)
+Restart=no
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectHome=read-only
+PrivateTmp=yes
+
+[Install]
+WantedBy=audiobook.target
