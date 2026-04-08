@@ -23,6 +23,9 @@ import sys
 import unicodedata
 from pathlib import Path
 
+# Ensure the library directory is on the path for scripts.enrichment imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
