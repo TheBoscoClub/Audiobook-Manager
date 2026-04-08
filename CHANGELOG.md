@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.3.3] - 2026-04-07
+
+### Fixed
+
+- **Mobile play/pause button too small**: Enlarged the play/pause button tap target on mobile from `0.55rem`/`2px 4px` padding (~15px) to `0.75rem`/`6px 10px` padding with `36px` minimum dimensions — both portrait and landscape breakpoints
+
 ## [8.0.3.2] - 2026-04-07
 
 ### Fixed
@@ -2504,7 +2510,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.3...HEAD
+[8.0.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...v8.0.3.3
 [8.0.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.1...v8.0.3.2
 [8.0.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3...v8.0.3.1
 [8.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.2.2...v8.0.3
