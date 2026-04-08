@@ -10,6 +10,8 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from scanner.metadata_utils import extract_topics
+
 from scripts.enrichment.base import EnrichmentProvider
 from scripts.enrichment.provider_audible import AudibleProvider
 from scripts.enrichment.provider_google import GoogleBooksProvider
@@ -56,6 +58,13 @@ _SIDE_TABLE_KEYS = {
     "ol_subjects",
 }
 
+# Fields where the schema default should be treated as "unfilled" during merge.
+# content_type defaults to 'Product' in schema, but the Audible API may return
+# a more specific type (Podcast, Show, Episode, Lecture, etc.).
+_DEFAULT_AS_EMPTY = {
+    "content_type": "Product",
+}
+
 
 def _load_book(cursor: sqlite3.Cursor, book_id: int) -> dict | None:
     """Load a book row as a plain dict."""
@@ -80,9 +89,15 @@ def _merge_updates(current: dict, provider_result: dict) -> dict:
             continue
         if key not in _SCALAR_COLUMNS:
             continue
-        # Only fill if book's current value is empty
+        # Only fill if book's current value is empty or matches a schema default
         current_val = current.get(key)
-        if current_val is None or current_val == "" or current_val == 0:
+        default_val = _DEFAULT_AS_EMPTY.get(key)
+        if (
+            current_val is None
+            or current_val == ""
+            or current_val == 0
+            or (default_val is not None and current_val == default_val)
+        ):
             merged[key] = value
     return merged
 
@@ -141,6 +156,97 @@ def _apply_categories(
                 cat.get("audible_category_id", ""),
             ),
         )
+
+
+def _apply_genres_from_categories(
+    cursor: sqlite3.Cursor, book_id: int, categories: list[dict]
+) -> None:
+    """Populate audiobook_genres from Audible category names.
+
+    Extracts all category_name values from the category hierarchy and inserts
+    them into the genres/audiobook_genres tables. Skips genres that already
+    exist for this book. This bridges the gap between the audible_categories
+    side table and the genres system that collections depend on.
+    """
+    # Get existing genres for this book
+    cursor.execute(
+        """SELECT g.name FROM genres g
+           JOIN audiobook_genres ag ON g.id = ag.genre_id
+           WHERE ag.audiobook_id = ?""",
+        (book_id,),
+    )
+    existing = {row[0] for row in cursor.fetchall()}
+
+    # Remove the generic "general" placeholder if we have real genre data
+    if existing == {"general"} and categories:
+        cursor.execute(
+            "DELETE FROM audiobook_genres WHERE audiobook_id = ?", (book_id,)
+        )
+        existing = set()
+
+    for cat in categories:
+        name = cat.get("category_name", "")
+        if not name or name in existing:
+            continue
+        # Get or create genre
+        cursor.execute("SELECT id FROM genres WHERE name = ?", (name,))
+        row = cursor.fetchone()
+        if row:
+            genre_id = row[0]
+        else:
+            cursor.execute("INSERT INTO genres (name) VALUES (?)", (name,))
+            genre_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT OR IGNORE INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+            (book_id, genre_id),
+        )
+        existing.add(name)
+
+
+def _apply_topics_from_summary(
+    cursor: sqlite3.Cursor, book_id: int, summary: str
+) -> None:
+    """Extract and populate topics from a book's publisher summary.
+
+    Uses the scanner's extract_topics() to pull keywords from the description,
+    then populates the topics/audiobook_topics tables. Replaces the generic
+    "general" topic if real topics are found.
+    """
+    topics = extract_topics(summary)
+    if not topics or topics == ["general"]:
+        return
+
+    # Check existing topics
+    cursor.execute(
+        """SELECT t.name FROM topics t
+           JOIN audiobook_topics at ON t.id = at.topic_id
+           WHERE at.audiobook_id = ?""",
+        (book_id,),
+    )
+    existing = {row[0] for row in cursor.fetchall()}
+
+    # Replace "general" placeholder with real topics
+    if existing == {"general"}:
+        cursor.execute(
+            "DELETE FROM audiobook_topics WHERE audiobook_id = ?", (book_id,)
+        )
+        existing = set()
+
+    for topic_name in topics:
+        if topic_name in existing or topic_name == "general":
+            continue
+        cursor.execute("SELECT id FROM topics WHERE name = ?", (topic_name,))
+        row = cursor.fetchone()
+        if row:
+            topic_id = row[0]
+        else:
+            cursor.execute("INSERT INTO topics (name) VALUES (?)", (topic_name,))
+            topic_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT OR IGNORE INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
+            (book_id, topic_id),
+        )
+        existing.add(topic_name)
 
 
 def _apply_editorial_reviews(
@@ -248,11 +354,21 @@ def enrich_book(
 
             if "categories" in all_updates:
                 _apply_categories(cursor, book_id, all_updates["categories"])
+                _apply_genres_from_categories(
+                    cursor, book_id, all_updates["categories"]
+                )
 
             if "editorial_reviews" in all_updates:
                 _apply_editorial_reviews(
                     cursor, book_id, all_updates["editorial_reviews"]
                 )
+
+            # Extract topics from publisher_summary if available
+            summary = all_updates.get("publisher_summary") or book.get(
+                "publisher_summary", ""
+            )
+            if summary:
+                _apply_topics_from_summary(cursor, book_id, summary)
 
             conn.commit()
 
