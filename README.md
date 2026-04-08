@@ -206,6 +206,7 @@ Web-based audiobook library browser with:
 - **Audit logging** for all user management actions with paginated, filterable log in the Back Office (v7.4.1+)
 - **Admin notifications** — in-app badge and email alerts to all admins for critical account changes (v7.4.1+)
 - **Series metadata on library cards** — series name and book order number displayed on card overlays for series audiobooks (v8.0+)
+- **Tiered metadata enrichment** — four-provider chain (Local → Audible → Google Books → Open Library) automatically enriches books with series, ratings, categories, ISBN, and descriptions. Nightly backfill via systemd timer (v8.0.3.3+)
 - **Dynamic collections** — auto-generated browsable groupings from enrichment data (genres, narrators, decades, ratings) via `/api/collections` (v8.0+)
 - **Per-user preferences** — key-value preference system persisting sort order, view mode, playback speed, and accessibility settings per user (v8.0+)
 - **Accessibility quick panel** — slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls (v8.0+)
@@ -716,10 +717,15 @@ Audiobooks/
 │   │   ├── librivox_downloader.py       # Download free Librivox audiobooks
 │   │   ├── cleanup_audiobook_duplicates.py   # Database cleanup
 │   │   ├── fix_audiobook_authors.py     # Author metadata repair
-│   │   ├── enrich_from_audible.py       # Enrich metadata from Audible API
-│   │   ├── enrich_from_isbn.py          # Enrich from Google Books / Open Library
-│   │   ├── enrich_single.py             # Inline enrichment for single book
-│   │   ├── populate_series_from_audible.py  # Bulk series data from Audible
+│   │   ├── enrichment/                  # Enrichment provider chain
+│   │   │   ├── __init__.py              # Orchestrator (enrich_book entry point)
+│   │   │   ├── base.py                  # EnrichmentProvider ABC
+│   │   │   ├── provider_local.py        # ASIN/series from local files
+│   │   │   ├── provider_audible.py      # Audible API provider
+│   │   │   ├── provider_google.py       # Google Books API provider
+│   │   │   └── provider_openlibrary.py  # Open Library API provider
+│   │   ├── backfill_enrichment.py       # Batch ASIN recovery + enrichment
+│   │   ├── enrich_single.py             # Legacy inline enrichment
 │   │   ├── verify_metadata.py           # Cross-reference & auto-correct metadata
 │   │   └── utils/
 │   │       └── openlibrary_client.py    # OpenLibrary API client
@@ -1504,6 +1510,7 @@ All services use the `audiobook-*` naming convention for easy management.
 | `audiobook-mover` | Move converted files from tmpfs to storage | always running |
 | `audiobook-scheduler` | Maintenance task scheduler daemon (croniter-based) | always running |
 | `audiobook-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
+| `audiobook-enrichment.timer` | Nightly metadata enrichment backfill (3 AM) | timer |
 | `audiobook-shutdown-saver` | Save staging files before shutdown | on shutdown |
 | `audiobook-upgrade-helper.path` | Watch for upgrade trigger files | path watcher |
 
@@ -1558,6 +1565,7 @@ journalctl -u 'audiobook-*' --since today
 | `audiobook-mover` | Moves converted files to library |
 | `audiobook-scheduler` | Maintenance task scheduler daemon |
 | `audiobook-downloader.timer` | Scheduled Audible downloads |
+| `audiobook-enrichment.timer` | Nightly metadata enrichment |
 
 ### Conversion Priority
 

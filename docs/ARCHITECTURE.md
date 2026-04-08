@@ -564,11 +564,16 @@ The scanner subsystem handles metadata extraction, library scanning, and databas
       └── db_helpers.py            # get_or_create_lookup_id() for author/narrator/genre tables
 
   library/scripts/           # Standalone utility and enrichment scripts
-  ├── enrich_from_audible.py      # Audible API enrichment (ratings, categories, reviews, series, 15+ fields)
-  ├── enrich_from_isbn.py         # Google Books / Open Library fallback for non-Audible books
-  ├── enrich_single.py            # Inline enrichment for a single book (called at import time)
-  ├── populate_series_from_audible.py  # Bulk series population from Audible API
-  ├── verify_metadata.py          # Cross-reference embedded tags vs API data, auto-correct conflicts
+  ├── enrichment/                  # Enrichment provider chain (v8.0.3.3+)
+  │   ├── __init__.py              # Orchestrator: enrich_book() entry point, merge-only-empty semantics
+  │   ├── base.py                  # EnrichmentProvider ABC (name, can_enrich, enrich)
+  │   ├── provider_local.py        # ASIN from vouchers/filenames, series from title parsing
+  │   ├── provider_audible.py      # Audible API: series, ratings, categories, editorial reviews
+  │   ├── provider_google.py       # Google Books API: ISBN, description, language, publisher
+  │   └── provider_openlibrary.py  # Open Library API: fallback series, subjects, cover
+  ├── backfill_enrichment.py       # Two-phase backfill: ASIN recovery + provider chain
+  ├── enrich_single.py             # Legacy inline enrichment (backward compat)
+  ├── verify_metadata.py           # Cross-reference embedded tags vs API data, auto-correct conflicts
   ├── generate_hashes.py          # SHA-256 hash generation (parallel)
   ├── find_duplicates.py          # Duplicate detection and removal
   ├── populate_sort_fields.py     # Extract name/series/edition sort fields

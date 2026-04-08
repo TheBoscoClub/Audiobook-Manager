@@ -9,9 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Enrichment provider chain**: Tiered metadata enrichment pipeline with four providers — Local (ASIN/series from files), Audible API (series, ratings, categories, editorial reviews), Google Books (ISBN, description, language, publisher), and Open Library (fallback series, subjects). Each provider fills only empty fields, never overwrites existing data
+- **Enrichment orchestrator** (`library/scripts/enrichment/__init__.py`): Merge-only-empty semantics, column name validation, side-table writes for `audible_categories` and `editorial_reviews`, backward-compatible result format
+- **Backfill enrichment script** (`library/scripts/backfill_enrichment.py`): Two-phase operation — Phase 1 recovers ASINs from `.voucher` files, Phase 2 runs the provider chain on all un-enriched books. CLI supports `--dry-run`, `--limit`, `--asin-only`
+- **ASIN extraction from voucher files**: `extract_asin()` in `scanner/metadata_utils.py` now checks three sources in order: `chapters.json`, `.voucher` files in Sources directory, and source filenames
+- **Systemd enrichment timer**: `audiobook-enrichment.timer` runs nightly at 3:00 AM with 10-minute random delay, `PartOf=audiobook.target`. The companion `audiobook-enrichment.service` runs the backfill script as a oneshot
+- **`enrichment_source` column**: Tracks which provider enriched each book (local, audible, google_books, open_library)
+
 ### Changed
 
 ### Fixed
+
+- **Novel regex false positive**: Title pattern "X: A Novel" was extracting "A" as series name — fixed by requiring ≥2 characters in the series name capture group
 
 ## [8.0.3.2] - 2026-04-07
 
