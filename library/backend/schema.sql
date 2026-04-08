@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS audiobooks (
     merchandising_summary TEXT,
     audible_enriched_at TIMESTAMP,      -- When metadata was last pulled from Audible
     isbn_enriched_at TIMESTAMP,         -- When metadata was last pulled from ISBN source
+    enrichment_source TEXT,             -- Which provider enriched: local, audible, google_books, openlibrary
     -- Integrity
     sha256_hash TEXT,
     hash_verified_at TIMESTAMP,
