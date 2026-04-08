@@ -194,6 +194,8 @@ SCHEMA_PATH = LIBRARY_DIR / "backend" / "schema.sql"
 VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
 VM_API_PORT = int(os.environ.get("VM_API_PORT", "5001"))
 VM_NAME = os.environ.get("VM_NAME", "test-audiobook-cachyos")
+VM_USER = os.environ.get("VM_USER", os.environ.get("USER", "root"))
+VM_SSH_KEY = os.environ.get("VM_SSH_KEY", "")
 
 
 @pytest.fixture(scope="session", autouse=False)
@@ -234,22 +236,20 @@ def ensure_vm_running():
         pytest.fail(f"Failed to start VM: {start_result.stderr}")
 
     # Wait for SSH connectivity (up to 60s)
-    ssh_key = os.path.expanduser("~/.ssh/id_ed25519")
+    ssh_cmd = ["ssh"]
+    if VM_SSH_KEY:
+        ssh_cmd += ["-i", VM_SSH_KEY]
+    ssh_cmd += [
+        "-o", "BatchMode=yes",
+        "-o", "ConnectTimeout=3",
+        "-o", "StrictHostKeyChecking=no",
+    ]
     deadline = time.time() + 60
     while time.time() < deadline:
         try:
             r = subprocess.run(
-                [
-                    "ssh",
-                    "-i",
-                    ssh_key,
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "ConnectTimeout=3",
-                    "-o",
-                    "StrictHostKeyChecking=no",
-                    f"claude@{VM_HOST}",
+                ssh_cmd + [
+                    f"{VM_USER}@{VM_HOST}",
                     "echo",
                     "ok",
                 ],

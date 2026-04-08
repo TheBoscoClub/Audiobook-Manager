@@ -93,11 +93,11 @@
 
     "deploy": {
       "script": "upgrade.sh",
-      "command": "./upgrade.sh --from-project . --remote 192.168.122.104 --yes",
+      "command": "./upgrade.sh --from-project . --remote {vm_ip} --yes",
       "requires_install_first": true,
       "verify": [
-        "ssh -i ~/.ssh/id_ed25519 claude@192.168.122.104 'cat /opt/audiobooks/VERSION'",
-        "curl -s http://192.168.122.104:5001/api/system/version"
+        "ssh {vm_user}@{vm_ip} 'cat /opt/audiobooks/VERSION'",
+        "curl -s http://{vm_ip}:5001/api/system/version"
       ]
     }
   },
@@ -118,9 +118,9 @@
   },
 
   "ssh_config": {
-    "user": "claude",
-    "key": "~/.ssh/id_ed25519",
-    "password": "REDACTED_VM_PASSWORD"
+    "user": "{configured via --user flag or $USER}",
+    "key": "{standard SSH key discovery or --ssh-key flag}",
+    "note": "No hardcoded credentials — uses standard SSH agent and key discovery"
   },
 
   "qa_vm": {
@@ -159,8 +159,8 @@
       "author_count_approx": 492
     },
     "upgrade": {
-      "native_command": "./upgrade.sh --from-project . --remote 192.168.122.63 --yes",
-      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
+      "native_command": "./upgrade.sh --from-project . --remote {qa_vm_ip} --yes",
+      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh {vm_user}@{qa_vm_ip} 'sudo docker load'"
     }
   }
 }
