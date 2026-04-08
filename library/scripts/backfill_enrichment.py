@@ -211,6 +211,54 @@ def phase2_enrichment(
     return stats
 
 
+def phase0_podcast_detection(db_path: Path, dry_run: bool = False) -> int:
+    """Reclassify known podcast publishers from 'Product' to 'Podcast'.
+
+    Scans ALL books (not just un-enriched ones) and sets content_type='Podcast'
+    for items whose author or publisher matches a known podcast network. This
+    catches items without ASINs that the enrichment pipeline can't reach.
+    """
+    from scripts.enrichment import _PODCAST_PUBLISHERS
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id, title, author, publisher FROM audiobooks WHERE content_type = 'Product'"
+    )
+    candidates = cursor.fetchall()
+    reclassified = 0
+
+    for book in candidates:
+        author = (book["author"] or "").lower()
+        publisher = (book["publisher"] or "").lower()
+        combined = author + " " + publisher
+        if any(pub in combined for pub in _PODCAST_PUBLISHERS):
+            if dry_run:
+                logger.info(
+                    "  [DRY RUN] Would reclassify as Podcast: %s (ID %d)",
+                    book["title"],
+                    book["id"],
+                )
+            else:
+                cursor.execute(
+                    "UPDATE audiobooks SET content_type = 'Podcast' WHERE id = ?",
+                    (book["id"],),
+                )
+            reclassified += 1
+
+    if not dry_run:
+        conn.commit()
+    conn.close()
+
+    if reclassified:
+        logger.info("Phase 0: Reclassified %d items as Podcast", reclassified)
+    else:
+        logger.info("Phase 0: No podcast reclassifications needed")
+    return reclassified
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backfill audiobook enrichment")
     parser.add_argument(
@@ -238,6 +286,9 @@ def main() -> int:
     if not args.db.exists():
         logger.error("Database not found: %s", args.db)
         return 1
+
+    # Phase 0: Podcast publisher detection (always runs)
+    phase0_podcast_detection(args.db, dry_run=args.dry_run)
 
     # Phase 1: ASIN recovery
     if args.sources:
