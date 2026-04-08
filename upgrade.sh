@@ -74,7 +74,8 @@ show_usage() {
     echo -e "${BOLD}TARGET${NC}"
     echo -e "  ${GREEN}--target${NC} PATH         Target installation directory (default: auto-detect)"
     echo -e "  ${GREEN}--remote${NC} HOST         Deploy to a remote host via SSH (requires --from-project)"
-    echo -e "  ${GREEN}--user${NC} USER           SSH username for remote deploy (default: claude)"
+    echo -e "  ${GREEN}--user${NC} USER           SSH username for remote deploy (default: current user)"
+    echo -e "  ${GREEN}--ssh-key${NC} PATH        SSH private key for remote deploy (default: standard SSH discovery)"
     echo ""
     echo -e "${BOLD}MODES${NC}"
     echo -e "  ${GREEN}--check${NC}               Check for available updates without upgrading"
@@ -151,7 +152,7 @@ SWITCH_ARCHITECTURE=""       # modular or monolithic
 UPGRADE_SOURCE="project"     # "project" or "github"
 REQUESTED_VERSION=""         # Specific version to install, or empty for latest
 REMOTE_HOST=""               # Remote host for SSH-based deployment
-REMOTE_USER="claude"         # SSH username for remote deployment
+REMOTE_USER="${USER:-$(whoami)}"  # SSH username for remote deployment (defaults to current user)
 AUTO_YES=false               # Skip confirmation prompts (--yes/-y)
 MAJOR_VERSION=false          # Force venv rebuild + config migration + service enablement
 SKIP_SERVICE_LIFECYCLE=false # Internal: caller (upgrade-helper) manages service start/stop
@@ -230,11 +231,10 @@ do_remote_upgrade() {
     # Requires --from-project to specify the local project directory.
     local project_dir="${PROJECT_DIR:-$SCRIPT_DIR}"
     local remote_tmp="/tmp/audiobook-upgrade-$$"
-    local ssh_key="${HOME}/.ssh/id_ed25519"
-
-    # Build SSH options
+    # Build SSH options — uses standard SSH key discovery (agent, ~/.ssh/)
+    # unless --ssh-key is explicitly provided
     local ssh_opts=(-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new)
-    [[ -f "$ssh_key" ]] && ssh_opts+=(-i "$ssh_key")
+    [[ -n "${SSH_KEY:-}" ]] && ssh_opts+=(-i "$SSH_KEY")
     local ssh_target="${REMOTE_USER}@${REMOTE_HOST}"
 
     echo -e "${BLUE}=== Remote Upgrade Mode ===${NC}"
@@ -247,8 +247,9 @@ do_remote_upgrade() {
     echo -e "${BLUE}Testing SSH connectivity...${NC}"
     if ! ssh "${ssh_opts[@]}" "$ssh_target" "echo 'SSH OK'" &>/dev/null; then
         echo -e "${RED}Error: Cannot connect to $ssh_target via SSH${NC}"
-        echo "  Ensure SSH key exists: $ssh_key"
-        echo "  Ensure VM is running and accessible"
+        echo "  Ensure the remote host is running and accessible"
+        echo "  Ensure your SSH key is authorized on the remote host"
+        [[ -n "${SSH_KEY:-}" ]] && echo "  SSH key: $SSH_KEY"
         return 1
     fi
     echo -e "${GREEN}  SSH connection OK${NC}"
@@ -2396,6 +2397,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --user)
         REMOTE_USER="$2"
+        shift 2
+        ;;
+    --ssh-key)
+        SSH_KEY="$2"
         shift 2
         ;;
     --yes | -y)

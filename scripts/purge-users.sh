@@ -3,31 +3,33 @@
 # Idempotent: safe to re-run after upgrades
 #
 # Usage:
-#   ./scripts/purge-users.sh --host 192.168.122.104 --keep bosco,frisco,admin,claudecode
-#   ./scripts/purge-users.sh --host 192.168.122.104  # uses default keep list
+#   ./scripts/purge-users.sh --host <vm-ip> --keep user1,user2,admin
+#   ./scripts/purge-users.sh --host <vm-ip>  # uses default keep list (admin only)
 
 set -euo pipefail
 
-# Defaults
-KEEP_LIST="bosco,frisco,admin,claudecode"
+# Defaults — override via flags or environment
+KEEP_LIST="${PURGE_KEEP_LIST:-admin}"
 HOST=""
-TOTP_SECRET_FILE="${HOME}/.claude/secrets/totp-secret"
-ADMIN_USER="claudecode"
+TOTP_SECRET_FILE="${PURGE_TOTP_SECRET:-}"
+ADMIN_USER="${PURGE_ADMIN_USER:-admin}"
 PROTOCOL="https"
 PORT="8443"
 DRY_RUN=false
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") --host <ip> [--keep user1,user2,...] [--dry-run]
+Usage: $(basename "$0") --host <ip> --totp-secret <path> [--keep user1,user2,...] [--dry-run]
 
 Options:
-  --host       VM host IP or hostname (required)
-  --keep       Comma-separated usernames to keep (default: ${KEEP_LIST})
-  --port       API port (default: ${PORT})
-  --protocol   http or https (default: ${PROTOCOL})
-  --dry-run    Show what would be deleted without deleting
-  -h, --help   Show this help
+  --host         VM host IP or hostname (required)
+  --totp-secret  Path to TOTP secret file (or set PURGE_TOTP_SECRET env var)
+  --admin-user   Admin username for login (default: ${ADMIN_USER})
+  --keep         Comma-separated usernames to keep (default: ${KEEP_LIST})
+  --port         API port (default: ${PORT})
+  --protocol     http or https (default: ${PROTOCOL})
+  --dry-run      Show what would be deleted without deleting
+  -h, --help     Show this help
 EOF
     exit 0
 }
@@ -49,6 +51,14 @@ while [[ $# -gt 0 ]]; do
         ;;
     --protocol)
         PROTOCOL="$2"
+        shift 2
+        ;;
+    --totp-secret)
+        TOTP_SECRET_FILE="$2"
+        shift 2
+        ;;
+    --admin-user)
+        ADMIN_USER="$2"
         shift 2
         ;;
     --dry-run)
@@ -83,9 +93,11 @@ is_kept() {
     return 1
 }
 
-# Step 1: Login as claudecode admin via TOTP
-if [[ ! -f "$TOTP_SECRET_FILE" ]]; then
-    echo "Error: TOTP secret not found at $TOTP_SECRET_FILE"
+# Step 1: Login as admin via TOTP
+if [[ -z "$TOTP_SECRET_FILE" || ! -f "$TOTP_SECRET_FILE" ]]; then
+    echo "Error: TOTP secret file not specified or not found"
+    echo "  Set via: PURGE_TOTP_SECRET=/path/to/totp-secret $0 ..."
+    echo "  Or:      --totp-secret /path/to/totp-secret"
     exit 1
 fi
 
