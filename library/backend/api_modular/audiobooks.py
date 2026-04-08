@@ -38,7 +38,9 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 # Exclude: Lecture, Podcast, Newspaper / Magazine, Show, Radio/TV Program, Episode
 # content_type IS NULL handles legacy entries before the field was added
 # This constant is safe for SQL - hardcoded, not user input
-AUDIOBOOK_FILTER = "(content_type = 'Product' OR content_type IS NULL)"
+AUDIOBOOK_FILTER = (
+    "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
+)
 
 
 def init_audiobooks_routes(db_path, project_root, database_path):
@@ -65,7 +67,7 @@ def get_stats() -> Response:
     cursor = conn.cursor()
 
     # Total audiobooks (audiobooks only)
-    cursor.execute(f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}")  # nosec B608
+    cursor.execute(f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}")  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     total_books = cursor.fetchone()["total"]
 
     # Total hours (audiobooks only)
@@ -342,7 +344,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
     placeholders = ",".join("?" * len(book_ids))
 
     # Batch: genres for all books in one query
-    cursor.execute(
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"""
         SELECT ag.audiobook_id, g.name FROM genres g
         JOIN audiobook_genres ag ON g.id = ag.genre_id
@@ -355,7 +357,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
         genres_map.setdefault(r["audiobook_id"], []).append(r["name"])
 
     # Batch: eras for all books in one query
-    cursor.execute(
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"""
         SELECT ae.audiobook_id, e.name FROM eras e
         JOIN audiobook_eras ae ON e.id = ae.era_id
@@ -368,7 +370,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
         eras_map.setdefault(r["audiobook_id"], []).append(r["name"])
 
     # Batch: topics for all books in one query
-    cursor.execute(
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"""
         SELECT at.audiobook_id, t.name FROM topics t
         JOIN audiobook_topics at ON t.id = at.topic_id
@@ -381,7 +383,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
         topics_map.setdefault(r["audiobook_id"], []).append(r["name"])
 
     # Batch: supplement counts in one query
-    cursor.execute(
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"""
         SELECT audiobook_id, COUNT(*) as count FROM supplements
         WHERE audiobook_id IN ({placeholders})
@@ -461,7 +463,7 @@ def _fetch_titles_by_author(cursor, audiobooks: list[dict]) -> dict[str, list[st
     if not authors:
         return {}
     author_placeholders = ",".join("?" * len(authors))
-    cursor.execute(
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"""
         SELECT author, title FROM audiobooks
         WHERE author IN ({author_placeholders})
@@ -525,7 +527,7 @@ def get_audiobooks() -> Response:
 
     # Count total matching audiobooks
     count_query = f"SELECT COUNT(*) as total FROM audiobooks {where_sql}"  # nosec B608
-    cursor.execute(count_query, params)
+    cursor.execute(count_query, params)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     total_count = cursor.fetchone()["total"]
 
     # Get paginated audiobooks
@@ -637,7 +639,7 @@ def get_filters() -> Response:
     narrators = [row["name"] for row in cursor.fetchall()]
 
     # Get unique publishers (audiobooks only)
-    cursor.execute(f"""
+    cursor.execute(f"""  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
         SELECT DISTINCT publisher FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
         ORDER BY publisher COLLATE NOCASE
@@ -657,7 +659,7 @@ def get_filters() -> Response:
     topics = [row["name"] for row in cursor.fetchall()]
 
     # Get formats (audiobooks only)
-    cursor.execute(f"""
+    cursor.execute(f"""  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
         SELECT DISTINCT format FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
         ORDER BY format COLLATE NOCASE
