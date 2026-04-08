@@ -286,8 +286,9 @@ def _apply_narrators(
     )
     existing = {row[0] for row in cursor.fetchall()}
 
-    # If we only have "Unknown Narrator" and now have real data, clear it
-    if existing == {"Unknown Narrator"} and narrator_list:
+    # If we only have placeholder narrators and now have real data, clear them
+    _UNKNOWN_NAMES = {"Unknown Narrator", "Unknown"}
+    if existing and existing <= _UNKNOWN_NAMES and narrator_list:
         cursor.execute("DELETE FROM book_narrators WHERE book_id = ?", (book_id,))
         existing = set()
 
