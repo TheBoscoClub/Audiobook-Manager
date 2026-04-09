@@ -52,6 +52,9 @@ from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .admin_authors import admin_authors_bp, init_admin_authors_routes
 from .suggestions import suggestions_bp, init_suggestions_routes
 from .i18n_routes import i18n_bp  # uses absolute import for i18n module (sibling to api_modular/)
+from .translations import translations_bp, init_translations_routes
+from .subtitles import subtitles_bp, init_subtitles_routes
+from .translated_audio import translated_audio_bp, init_translated_audio_routes
 from .user_state import init_user_state_routes, user_bp
 from .preferences import preferences_bp
 from .utilities import init_utilities_routes, utilities_bp
@@ -161,8 +164,8 @@ def _register_auth_blueprints(flask_app):
             flask_app.register_blueprint(bp)
 
 
-def _register_extension_blueprints(flask_app, database_path):
-    """Register maintenance, roadmap, and suggestions blueprints."""
+def _register_extension_blueprints(flask_app, database_path, project_root=None):
+    """Register maintenance, roadmap, suggestions, and localization blueprints."""
     from .maintenance import maintenance_bp, init_maintenance_routes
 
     init_maintenance_routes(database_path)
@@ -177,6 +180,15 @@ def _register_extension_blueprints(flask_app, database_path):
     flask_app.register_blueprint(suggestions_bp)
 
     flask_app.register_blueprint(i18n_bp)
+
+    init_translations_routes(database_path)
+    flask_app.register_blueprint(translations_bp)
+
+    init_subtitles_routes(database_path, project_root)
+    flask_app.register_blueprint(subtitles_bp)
+
+    init_translated_audio_routes(database_path, project_root)
+    flask_app.register_blueprint(translated_audio_bp)
 
 
 def _setup_websocket(flask_app, database_path):
@@ -292,7 +304,7 @@ def create_app(
     )
     _register_core_blueprints(flask_app)
     _register_auth_blueprints(flask_app)
-    _register_extension_blueprints(flask_app, database_path)
+    _register_extension_blueprints(flask_app, database_path, project_root)
     _setup_websocket(flask_app, database_path)
 
     return flask_app

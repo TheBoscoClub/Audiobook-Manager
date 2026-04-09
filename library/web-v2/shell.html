@@ -194,9 +194,26 @@
             <input type="range" id="sp-volume" class="sp-volume" min="0" max="100" value="100" title="Volume">
             <span id="sp-speed-display">1x</span>
             <button class="sp-btn sp-btn-sm" id="sp-speed" title="Click: faster · Right-click/Shift+click: slower" data-i18n="player.speed">Speed</button>
+            <button class="sp-btn sp-btn-sm" id="sp-subtitle-toggle" title="Toggle subtitles (CC)" data-i18n-title="player.toggleSubtitles" style="display:none;">CC</button>
+            <button class="sp-btn sp-btn-sm" id="sp-transcript-toggle" title="Toggle transcript panel" data-i18n-title="player.toggleTranscript" style="display:none;">&#9776;</button>
+            <button class="sp-btn sp-btn-sm" id="sp-lang-toggle" title="Switch audio language" data-i18n-title="player.switchLanguage" style="display:none;">&#127760;</button>
             <button class="sp-btn sp-btn-sm sp-close" id="sp-close" title="Close player">&times;</button>
         </div>
+        <!-- Subtitle display (below player controls) -->
+        <div id="subtitle-display" class="subtitle-display" style="display:none;">
+            <div id="subtitle-source" class="subtitle-line subtitle-source"></div>
+            <div id="subtitle-translated" class="subtitle-line subtitle-translated"></div>
+        </div>
         <audio id="audio-element"></audio>
+    </div>
+
+    <!-- Transcript side panel -->
+    <div id="transcript-panel" class="transcript-panel" style="display:none;">
+        <div class="transcript-header">
+            <h3 data-i18n="player.transcript">Transcript</h3>
+            <button class="transcript-close" id="transcript-close" title="Close transcript">&times;</button>
+        </div>
+        <div id="transcript-content" class="transcript-content"></div>
     </div>
 
     <!-- My Account Modal -->
@@ -364,6 +381,7 @@
     <script data-cfasync="false" src="js/maintenance-banner.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/session-persistence.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/shell.js?v=1775585227"></script>
+    <script data-cfasync="false" src="js/subtitles.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/account.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/accessibility.js?v=1775585227"></script>
     <!-- suggestions-admin.js moved to utilities.html (Back Office) -->

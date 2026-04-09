@@ -18,6 +18,12 @@
   "player.volume": "音量",
   "player.back30": "后退30秒",
   "player.forward30": "快进30秒",
+  "player.toggleSubtitles": "切换字幕（CC）",
+  "player.toggleTranscript": "切换字幕面板",
+  "player.switchLanguage": "切换音频语言",
+  "player.transcript": "字幕文本",
+  "player.originalAudio": "原声（英语）",
+  "player.translatedAudio": "翻译音频（{language}）",
 
   "a11y.title": "无障碍设置",
   "a11y.fontSize": "字体大小",

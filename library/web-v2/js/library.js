@@ -257,6 +257,56 @@ class AudiobookLibraryV2 {
     });
   }
 
+  async applyBookTranslations() {
+    const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+
+    // Restore originals when switching back to English
+    if (locale === "en") {
+      document.querySelectorAll(".book-card[data-id]").forEach((card) => {
+        const titleEl = card.querySelector(".book-title");
+        const orig = titleEl && titleEl.getAttribute("data-original-title");
+        if (orig) { titleEl.textContent = orig; titleEl.removeAttribute("data-original-title"); }
+        const authorEl = card.querySelector(".book-author");
+        const origA = authorEl && authorEl.getAttribute("data-original-author");
+        if (origA) { authorEl.textContent = origA; authorEl.removeAttribute("data-original-author"); }
+      });
+      return;
+    }
+
+    try {
+      const translations = await api.get(
+        `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}`,
+        { toast: false }
+      );
+      document.querySelectorAll(".book-card[data-id]").forEach((card) => {
+        const bookId = card.getAttribute("data-id");
+        const tr = translations[bookId];
+        if (!tr) return;
+
+        if (tr.title) {
+          const titleEl = card.querySelector(".book-title");
+          if (titleEl) {
+            if (!titleEl.hasAttribute("data-original-title")) {
+              titleEl.setAttribute("data-original-title", titleEl.textContent);
+            }
+            titleEl.textContent = tr.title;
+          }
+        }
+        if (tr.author_display) {
+          const authorEl = card.querySelector(".book-author");
+          if (authorEl) {
+            if (!authorEl.hasAttribute("data-original-author")) {
+              authorEl.setAttribute("data-original-author", authorEl.textContent);
+            }
+            authorEl.textContent = t("book.byAuthor", { author: tr.author_display });
+          }
+        }
+      });
+    } catch (e) {
+      // Translation overlay is non-critical — fail silently
+    }
+  }
+
   /**
    * Log out the current user.
    */
@@ -1534,6 +1584,9 @@ class AudiobookLibraryV2 {
       // Update download button visibility based on user permissions
       this.updateDownloadButtons();
 
+      // Overlay translated metadata on book cards if locale is non-English
+      this.applyBookTranslations();
+
       // Scroll to top
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
@@ -1634,6 +1687,7 @@ class AudiobookLibraryV2 {
       const data = await api.get(`${API_BASE}/audiobooks/grouped?by=${encodeURIComponent(groupBy)}`, { toast: false });
 
       this.renderGroupedBooks(data, groupBy);
+      this.applyBookTranslations();
 
       // Hide pagination — grouped view shows all books
       const paginationEl = document.getElementById("pagination");
@@ -2661,6 +2715,11 @@ class AudiobookLibraryV2 {
 
     // Setup sidebar events
     this.setupSidebarEvents();
+
+    // Re-apply book translations when locale changes
+    document.addEventListener("localeChanged", () => {
+      this.applyBookTranslations();
+    });
   }
 
   async refreshLibrary() {

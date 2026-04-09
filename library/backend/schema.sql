@@ -424,3 +424,39 @@ CREATE TABLE IF NOT EXISTS audiobook_translations (
 
 CREATE INDEX IF NOT EXISTS idx_audiobook_translations_locale ON audiobook_translations(locale);
 CREATE INDEX IF NOT EXISTS idx_audiobook_translations_book ON audiobook_translations(audiobook_id);
+
+-- Chapter subtitles (Phase 2: dual-language VTT files)
+CREATE TABLE IF NOT EXISTS chapter_subtitles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id INTEGER NOT NULL,
+    chapter_index INTEGER NOT NULL,
+    chapter_title TEXT,
+    locale TEXT NOT NULL,
+    vtt_path TEXT NOT NULL,
+    stt_provider TEXT,
+    translation_provider TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(audiobook_id, chapter_index, locale),
+    FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_chapter_subtitles_book ON chapter_subtitles(audiobook_id);
+CREATE INDEX IF NOT EXISTS idx_chapter_subtitles_locale ON chapter_subtitles(audiobook_id, locale);
+
+-- Translated chapter audio (Phase 3: TTS-generated audio per chapter)
+CREATE TABLE IF NOT EXISTS chapter_translations_audio (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id INTEGER NOT NULL,
+    chapter_index INTEGER NOT NULL,
+    locale TEXT NOT NULL,
+    audio_path TEXT NOT NULL,
+    tts_provider TEXT NOT NULL,
+    tts_voice TEXT,
+    duration_seconds REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(audiobook_id, chapter_index, locale),
+    FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_chapter_audio_book ON chapter_translations_audio(audiobook_id);
+CREATE INDEX IF NOT EXISTS idx_chapter_audio_locale ON chapter_translations_audio(audiobook_id, locale);

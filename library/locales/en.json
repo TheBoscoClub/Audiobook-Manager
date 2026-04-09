@@ -18,6 +18,12 @@
   "player.volume": "Volume",
   "player.back30": "Back 30 seconds",
   "player.forward30": "Forward 30 seconds",
+  "player.toggleSubtitles": "Toggle subtitles (CC)",
+  "player.toggleTranscript": "Toggle transcript panel",
+  "player.switchLanguage": "Switch audio language",
+  "player.transcript": "Transcript",
+  "player.originalAudio": "Original (English)",
+  "player.translatedAudio": "Translated ({language})",
 
   "a11y.title": "Accessibility",
   "a11y.fontSize": "Font Size",
