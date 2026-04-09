@@ -21,13 +21,21 @@ Three phases, built in order. Each phase is independently useful — Phase 1 del
 
 ## Phase 1: UI Internationalization
 
-### 1.1 Backend i18n (Flask-Babel + gettext)
+### 1.1 Backend i18n (Unified JSON Catalogs)
+
+**Decision (2026-04-08):** Flask-Babel rejected in favor of unified JSON catalogs.
+Flask-Babel's strength is Jinja template integration, which is irrelevant here (pure
+JSON API, no templates). Using Flask-Babel would require maintaining two parallel i18n
+systems (`.po` for Python, JSON for JS). Unified JSON catalogs let both backend and
+frontend share one set of translation files with zero compilation steps. If the project
+ever scales to 5+ languages with external translators, JSON can be mechanically
+converted to `.po` format at that point.
 
 **String extraction and catalogs:**
-- Add `Flask-Babel` to `requirements.txt`
-- Configure Babel in `api_modular/__init__.py`: locale selector reads user preference, falls back to `Accept-Language` header, defaults to `en`
-- Extract translatable strings from Python API modules (~150-200 strings) into a `.pot` template
-- Generate `messages.po` for `zh_Hans` locale
+- Create `library/localization/i18n.py` — lightweight module with `t(key, locale)` lookup, loads from shared JSON catalogs
+- Create `library/web-v2/locales/en.json` and `library/web-v2/locales/zh-Hans.json` — shared by both backend and frontend
+- Backend serves locale files via `GET /api/i18n/<locale>` for frontend consumption
+- Extract translatable strings from Python API modules (~600 strings across 19 files) into `en.json`
 - Translate via DeepL Pro API with a glossary for audiobook-specific terms:
 
 | English | Chinese | Notes |
@@ -41,8 +49,7 @@ Three phases, built in order. Each phase is independently useful — Phase 1 del
 | bookmark | 书签 | |
 | library | 图书馆 | |
 
-- Compile `.po` to `.mo` for runtime use
-- All API error/success messages wrapped in `gettext()` / `_()` calls
+- All API error/success messages wrapped in `t(key, locale)` calls
 
 **Locale detection priority (highest to lowest):**
 1. User's explicit setting in `user_settings` table
