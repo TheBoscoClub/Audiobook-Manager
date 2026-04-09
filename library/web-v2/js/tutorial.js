@@ -305,7 +305,7 @@ class LibraryTutorial {
     // Step counter
     const counter = document.createElement("div");
     counter.className = "tutorial-step-counter";
-    counter.textContent = `Step ${current} of ${total}`;
+    counter.textContent = typeof t === "function" ? t("tutorial.stepOf", { current: current, total: total }) : `Step ${current} of ${total}`;
     tooltip.appendChild(counter);
 
     // Title

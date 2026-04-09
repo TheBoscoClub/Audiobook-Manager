@@ -246,6 +246,7 @@
 
   "tutorial.step": "Step",
   "tutorial.of": "of",
+  "tutorial.stepOf": "Step {current} of {total}",
   "tutorial.previousStep": "Previous step",
   "tutorial.nextStep": "Next step",
   "tutorial.endTutorial": "Finish the tutorial",
