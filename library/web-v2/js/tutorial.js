@@ -328,23 +328,27 @@ class LibraryTutorial {
     if (this.currentStep > 0) {
       const backBtn = document.createElement("button");
       backBtn.className = "tutorial-btn tutorial-btn-back";
-      backBtn.title = "Previous step";
-      backBtn.textContent = "Back";
+      backBtn.title = typeof t === "function" ? t("tutorial.previousStep") : "Previous step";
+      backBtn.textContent = typeof t === "function" ? t("common.back") : "Back";
       backBtn.addEventListener("click", () => this.goTo(this.currentStep - 1));
       nav.appendChild(backBtn);
     }
 
     const nextBtn = document.createElement("button");
     nextBtn.className = "tutorial-btn tutorial-btn-next";
-    nextBtn.title = current === total ? "Finish the tutorial" : "Next step";
-    nextBtn.textContent = current === total ? "Finish" : "Next";
+    nextBtn.title = current === total
+      ? (typeof t === "function" ? t("tutorial.endTutorial") : "Finish the tutorial")
+      : (typeof t === "function" ? t("tutorial.nextStep") : "Next step");
+    nextBtn.textContent = current === total
+      ? (typeof t === "function" ? t("tutorial.finish") : "Finish")
+      : (typeof t === "function" ? t("common.next") : "Next");
     nextBtn.addEventListener("click", () => this.goTo(this.currentStep + 1));
     nav.appendChild(nextBtn);
 
     const skipBtn = document.createElement("button");
     skipBtn.className = "tutorial-btn tutorial-btn-skip";
-    skipBtn.title = "End the tutorial";
-    skipBtn.textContent = "Skip";
+    skipBtn.title = typeof t === "function" ? t("tutorial.endTutorial") : "End the tutorial";
+    skipBtn.textContent = typeof t === "function" ? t("tutorial.skip") : "Skip";
     skipBtn.addEventListener("click", () => this.end());
     nav.appendChild(skipBtn);
 

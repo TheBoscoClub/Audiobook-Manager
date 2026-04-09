@@ -25,6 +25,8 @@
   var transcriptVisible = false;
   var currentBookId = null;
   var currentChapterIndex = 0;
+  var playingTranslated = false;
+  var translatedAudioEntries = [];
 
   // ── VTT Parsing ──
 
@@ -143,21 +145,87 @@
         return r.ok ? r.json() : [];
       })
       .then(function (entries) {
+        translatedAudioEntries = entries;
         var langBtn = document.getElementById("sp-lang-toggle");
         if (langBtn) {
           langBtn.style.display = entries.length > 0 ? "" : "none";
+          // Reset state when loading a new book
+          playingTranslated = false;
+          langBtn.classList.remove("active");
         }
       })
       .catch(function () {});
   }
 
+  function toggleAudioLanguage() {
+    if (!currentBookId || translatedAudioEntries.length === 0) return;
+
+    var audio = document.getElementById("audio-element");
+    if (!audio) return;
+
+    var currentTime = audio.currentTime;
+    var wasPlaying = !audio.paused;
+    var locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+
+    playingTranslated = !playingTranslated;
+
+    if (playingTranslated) {
+      // Switch to translated audio
+      var entry = translatedAudioEntries[currentChapterIndex] || translatedAudioEntries[0];
+      if (entry) {
+        audio.src =
+          API_BASE +
+          "/audiobooks/" +
+          currentBookId +
+          "/translated-audio/" +
+          (entry.chapter_index || 0) +
+          "/" +
+          encodeURIComponent(locale);
+      }
+    } else {
+      // Switch back to original audio
+      var needsWebm = !audio.canPlayType("audio/ogg; codecs=opus");
+      audio.src =
+        API_BASE + "/stream/" + currentBookId + (needsWebm ? "?format=webm" : "");
+    }
+
+    // Restore position and play state after source change
+    audio.addEventListener(
+      "loadedmetadata",
+      function onLoaded() {
+        audio.removeEventListener("loadedmetadata", onLoaded);
+        // Seek to equivalent position (translated audio may have different duration)
+        if (currentTime > 0 && currentTime < audio.duration) {
+          audio.currentTime = currentTime;
+        }
+        if (wasPlaying) {
+          audio.play().catch(function () {});
+        }
+      }
+    );
+    audio.load();
+
+    // Update button state
+    var langBtn = document.getElementById("sp-lang-toggle");
+    if (langBtn) {
+      langBtn.classList.toggle("active", playingTranslated);
+      langBtn.title = playingTranslated
+        ? (typeof t === "function" ? t("player.switchToOriginal") : "Switch to original audio")
+        : (typeof t === "function" ? t("player.switchToTranslated") : "Switch to translated audio");
+    }
+  }
+
   // ── Inline Subtitle Display ──
+  // Inline shows translated (Chinese) text only.
+  // Falls back to source (English) when no translation exists.
+  // The side panel transcript shows both languages.
 
   function updateSubtitleDisplay(currentTimeMs) {
     if (!subtitlesVisible) return;
     if (sourceCues.length === 0 && translatedCues.length === 0) return;
 
-    var cues = sourceCues.length > 0 ? sourceCues : translatedCues;
+    // Use translated cues for timing when available, fall back to source
+    var cues = translatedCues.length > 0 ? translatedCues : sourceCues;
     var newIndex = -1;
 
     for (var i = 0; i < cues.length; i++) {
@@ -170,15 +238,20 @@
     if (newIndex === currentCueIndex) return;
     currentCueIndex = newIndex;
 
+    // Hide the source line in inline mode — only show translated text
+    if (subtitleSource) subtitleSource.style.display = "none";
+
     if (newIndex === -1) {
-      if (subtitleSource) subtitleSource.textContent = "";
       if (subtitleTranslated) subtitleTranslated.textContent = "";
     } else {
-      if (subtitleSource && sourceCues[newIndex]) {
-        subtitleSource.textContent = sourceCues[newIndex].text;
-      }
-      if (subtitleTranslated && translatedCues[newIndex]) {
-        subtitleTranslated.textContent = translatedCues[newIndex].text;
+      if (subtitleTranslated) {
+        // Show translated text; fall back to source if no translation
+        var text = translatedCues[newIndex]
+          ? translatedCues[newIndex].text
+          : sourceCues[newIndex]
+            ? sourceCues[newIndex].text
+            : "";
+        subtitleTranslated.textContent = text;
       }
     }
 
@@ -296,6 +369,9 @@
     var trBtn = document.getElementById("sp-transcript-toggle");
     if (trBtn) trBtn.addEventListener("click", toggleTranscript);
 
+    var langBtn = document.getElementById("sp-lang-toggle");
+    if (langBtn) langBtn.addEventListener("click", toggleAudioLanguage);
+
     var closeBtn = document.getElementById("transcript-close");
     if (closeBtn)
       closeBtn.addEventListener("click", function () {
@@ -320,5 +396,6 @@
     load: loadSubtitles,
     toggle: toggleSubtitles,
     toggleTranscript: toggleTranscript,
+    toggleLanguage: toggleAudioLanguage,
   };
 })();

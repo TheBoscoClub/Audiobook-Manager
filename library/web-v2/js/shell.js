@@ -293,6 +293,11 @@ class ShellPlayer {
     // Notify iframe to add bottom padding (prevent content hiding behind player)
     this.sendToIframe({ type: "playerVisible", visible: true });
 
+    // Load subtitles for this book (shows CC/transcript buttons if available)
+    if (typeof window.subtitles !== "undefined" && window.subtitles.load) {
+      window.subtitles.load(bookId, 0);
+    }
+
     // Media Session metadata
     this.updateMediaMetadata();
 
@@ -765,4 +770,16 @@ document.addEventListener("DOMContentLoaded", () => {
       i18n.setLocale(this.value);
     });
   }
+
+  // When locale changes in the shell, propagate to the iframe so its
+  // content re-renders without requiring a manual page refresh.
+  document.addEventListener("localeChanged", function (e) {
+    var iframe = document.getElementById("content-frame");
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage(
+        { type: "localeChanged", locale: e.detail.locale },
+        window.location.origin
+      );
+    }
+  });
 });

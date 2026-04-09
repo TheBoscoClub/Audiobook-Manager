@@ -22,5 +22,7 @@ werkzeug>=3.1.6     # CVE-2025-66221, CVE-2026-21860, GHSA-29vq-49wr-vm6x
 pillow>=12.1.1      # GHSA-cfh3-3jmp-rvhc (OOB write on PSD)
 defusedxml>=0.7.1   # S314: safe XML parsing for external/untrusted content
 cbor2>=5.9.0        # CVE-2026-26209 (DoS via CBOR recursion, used by webauthn)
+# Localization: TTS and translation
+edge-tts>=7.0.0     # Microsoft Neural TTS (free, no API key)
 # NOTE: audible-cli is installed in a separate venv (AUDIOBOOKS_AUDIBLE_VENV)
 # to avoid httpx version conflicts. See lib/audiobook-config.sh.

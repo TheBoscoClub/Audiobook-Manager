@@ -11,11 +11,12 @@ Endpoints:
 
 import logging
 import sqlite3
+import threading
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_file
 
-from .auth import admin_if_enabled, guest_allowed
+from .auth import admin_or_localhost, guest_allowed
 
 subtitles_bp = Blueprint("subtitles", __name__)
 logger = logging.getLogger(__name__)
@@ -98,49 +99,115 @@ def get_chapter_subtitle(book_id, chapter_index, locale):
 
 
 @subtitles_bp.route("/api/subtitles/generate", methods=["POST"])
-@admin_if_enabled
-def generate_subtitles():
-    """Generate subtitles for audiobook chapters.
+@admin_or_localhost
+def generate_subtitles_endpoint():
+    """Generate subtitles for an audiobook.
 
     Request body:
         {
             "audiobook_id": 42,
-            "locale": "zh-Hans",
-            "chapters": [0, 1, 2]  -- or "all"
+            "locale": "zh-Hans",       -- target translation locale
+            "provider": ""             -- "deepl", "whisper", "local", or "" for auto
         }
 
-    Returns job status. Actual generation happens synchronously for now;
-    a background job system will be added for large batches.
+    Single-file audiobooks use chapter_index 0.
+    Generation runs in a background thread; returns immediately with status.
     """
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body required"}), 400
 
     book_id = data.get("audiobook_id")
-    locale = data.get("locale")
-    chapters = data.get("chapters", "all")
+    locale = data.get("locale", "zh-Hans")
+    provider_name = data.get("provider", "")
 
-    if not book_id or not locale:
-        return jsonify({"error": "audiobook_id and locale are required"}), 400
+    if not book_id:
+        return jsonify({"error": "audiobook_id is required"}), 400
 
     conn = _get_db()
     try:
         book = conn.execute(
-            "SELECT id, title, folder_name FROM audiobooks WHERE id = ?",
+            "SELECT id, title, file_path FROM audiobooks WHERE id = ?",
             (book_id,),
         ).fetchone()
         if not book:
             return jsonify({"error": "Audiobook not found"}), 404
 
-        return jsonify({
-            "audiobook_id": book_id,
-            "locale": locale,
-            "chapters": chapters,
-            "status": "pending",
-            "message": "Subtitle generation pipeline ready but requires "
-                       "STT provider API keys to be configured. "
-                       "Set AUDIOBOOKS_DEEPL_API_KEY or AUDIOBOOKS_RUNPOD_API_KEY "
-                       "in your environment.",
-        })
+        audio_path = Path(book["file_path"])
+        if not audio_path.exists():
+            return jsonify({"error": "Audio file not found on disk"}), 404
+
+        # Check if subtitles already exist for this book
+        existing = conn.execute(
+            "SELECT id FROM chapter_subtitles "
+            "WHERE audiobook_id = ? AND locale = ?",
+            (book_id, "en"),
+        ).fetchone()
+        if existing:
+            return jsonify({
+                "audiobook_id": book_id,
+                "status": "exists",
+                "message": "Subtitles already exist for this book.",
+            })
     finally:
         conn.close()
+
+    # Run generation in background thread
+    db_path = str(_db_path)
+
+    def _generate():
+        try:
+            from ..localization.pipeline import generate_subtitles, get_stt_provider
+
+            # Determine output directory (alongside the audio file)
+            subtitle_dir = audio_path.parent / "subtitles"
+            subtitle_dir.mkdir(parents=True, exist_ok=True)
+
+            stt = get_stt_provider(provider_name)
+            source_vtt, translated_vtt = generate_subtitles(
+                audio_path=audio_path,
+                output_dir=subtitle_dir,
+                target_locale=locale,
+                stt_provider=stt,
+            )
+
+            # Insert results into database
+            gen_conn = sqlite3.connect(db_path)
+            gen_conn.execute("PRAGMA journal_mode=WAL")
+            gen_conn.execute("PRAGMA foreign_keys=ON")
+            try:
+                gen_conn.execute(
+                    "INSERT OR REPLACE INTO chapter_subtitles "
+                    "(audiobook_id, chapter_index, locale, vtt_path, "
+                    " stt_provider, translation_provider) "
+                    "VALUES (?, 0, 'en', ?, ?, NULL)",
+                    (book_id, str(source_vtt), stt.name),
+                )
+                if translated_vtt:
+                    gen_conn.execute(
+                        "INSERT OR REPLACE INTO chapter_subtitles "
+                        "(audiobook_id, chapter_index, locale, vtt_path, "
+                        " stt_provider, translation_provider) "
+                        "VALUES (?, 0, ?, ?, ?, 'deepl')",
+                        (book_id, locale, str(translated_vtt), stt.name),
+                    )
+                gen_conn.commit()
+                logger.info(
+                    "Subtitles saved for book %d: %s%s",
+                    book_id, source_vtt.name,
+                    f", {translated_vtt.name}" if translated_vtt else "",
+                )
+            finally:
+                gen_conn.close()
+        except Exception:
+            logger.exception("Subtitle generation failed for book %d", book_id)
+
+    thread = threading.Thread(target=_generate, daemon=True)
+    thread.start()
+
+    return jsonify({
+        "audiobook_id": book_id,
+        "locale": locale,
+        "status": "started",
+        "message": "Subtitle generation started in background.",
+    })

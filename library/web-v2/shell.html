@@ -107,58 +107,58 @@
     <div id="a11y-panel" class="a11y-panel" hidden>
         <div class="a11y-panel-header">
             <h3 data-i18n="a11y.title">Accessibility</h3>
-            <button id="a11y-panel-close" class="drawer-close-btn" title="Close">&times;</button>
+            <button id="a11y-panel-close" class="drawer-close-btn" title="Close" data-i18n-title="a11y.close">&times;</button>
         </div>
         <div class="a11y-panel-body">
             <div class="a11y-control">
                 <label for="a11y-font-size" data-i18n="a11y.fontSize">Font Size</label>
                 <div class="a11y-segmented" id="a11y-font-size" data-key="font_size">
-                    <button data-value="14" title="Small (14px)">A</button>
-                    <button data-value="16" title="Default (16px)" class="active">A</button>
-                    <button data-value="18" title="Large (18px)">A</button>
-                    <button data-value="20" title="Extra large (20px)">A</button>
+                    <button data-value="14" title="Small (14px)" data-i18n-title="a11y.fontSmall">A</button>
+                    <button data-value="16" title="Default (16px)" data-i18n-title="a11y.fontDefault" class="active">A</button>
+                    <button data-value="18" title="Large (18px)" data-i18n-title="a11y.fontLarge">A</button>
+                    <button data-value="20" title="Extra large (20px)" data-i18n-title="a11y.fontXLarge">A</button>
                 </div>
             </div>
             <div class="a11y-control">
                 <label for="a11y-line-spacing" data-i18n="a11y.lineSpacing">Line Spacing</label>
                 <div class="a11y-segmented" id="a11y-line-spacing" data-key="line_spacing">
-                    <button data-value="1.2" title="Compact">1.2</button>
-                    <button data-value="1.5" title="Default" class="active">1.5</button>
-                    <button data-value="1.8" title="Relaxed">1.8</button>
+                    <button data-value="1.2" title="Compact" data-i18n-title="a11y.spacingCompact">1.2</button>
+                    <button data-value="1.5" title="Default" data-i18n-title="a11y.spacingDefault" class="active">1.5</button>
+                    <button data-value="1.8" title="Relaxed" data-i18n-title="a11y.spacingRelaxed">1.8</button>
                 </div>
             </div>
             <div class="a11y-control">
                 <label for="a11y-contrast" data-i18n="a11y.contrast">Contrast</label>
                 <div class="a11y-segmented" id="a11y-contrast" data-key="contrast">
-                    <button data-value="normal" title="Normal contrast" class="active">Normal</button>
-                    <button data-value="medium" title="Medium contrast">Medium</button>
-                    <button data-value="high" title="High contrast">High</button>
+                    <button data-value="normal" title="Normal contrast" data-i18n-title="a11y.contrastNormal" class="active">Normal</button>
+                    <button data-value="medium" title="Medium contrast" data-i18n-title="a11y.contrastMedium">Medium</button>
+                    <button data-value="high" title="High contrast" data-i18n-title="a11y.contrastHigh">High</button>
                 </div>
             </div>
             <div class="a11y-control">
                 <label for="a11y-bg-opacity" data-i18n="a11y.bgOpacity">Panel Darkness</label>
                 <input type="range" id="a11y-bg-opacity" min="50" max="100" value="100"
-                       data-key="bg_opacity" title="Adjust background darkness">
+                       data-key="bg_opacity" title="Adjust background darkness" data-i18n-title="a11y.bgOpacityTitle">
                 <span id="a11y-bg-opacity-val" class="a11y-range-val">100%</span>
             </div>
             <div class="a11y-control">
                 <label for="a11y-color-temp" data-i18n="a11y.colorTemp">Color Tone</label>
                 <div class="a11y-segmented" id="a11y-color-temp" data-key="color_temperature">
-                    <button data-value="warm" title="Warm (golden)">Warm</button>
-                    <button data-value="neutral" title="Default" class="active">Neutral</button>
-                    <button data-value="cool" title="Cool (blue-white)">Cool</button>
+                    <button data-value="warm" title="Warm (golden)" data-i18n-title="a11y.toneWarm">Warm</button>
+                    <button data-value="neutral" title="Default" data-i18n-title="a11y.toneNeutral" class="active">Neutral</button>
+                    <button data-value="cool" title="Cool (blue-white)" data-i18n-title="a11y.toneCool">Cool</button>
                 </div>
             </div>
             <div class="a11y-control a11y-toggle-row">
                 <label for="a11y-reduce-motion" data-i18n="a11y.reduceMotion">Reduce Animations</label>
-                <input type="checkbox" id="a11y-reduce-motion" data-key="reduce_animations" title="Minimize motion and animations">
+                <input type="checkbox" id="a11y-reduce-motion" data-key="reduce_animations" title="Minimize motion and animations" data-i18n-title="a11y.reduceMotionTitle">
             </div>
             <div class="a11y-control a11y-toggle-row">
                 <label for="a11y-high-contrast" data-i18n="a11y.highContrast">High Contrast Mode</label>
-                <input type="checkbox" id="a11y-high-contrast" data-key="high_contrast" title="Increase text and border contrast">
+                <input type="checkbox" id="a11y-high-contrast" data-key="high_contrast" title="Increase text and border contrast" data-i18n-title="a11y.highContrastTitle">
             </div>
             <div class="a11y-control a11y-reset">
-                <button id="a11y-reset-btn" class="btn btn-secondary" title="Reset all accessibility settings to defaults">Reset Defaults</button>
+                <button id="a11y-reset-btn" class="btn btn-secondary" title="Reset all accessibility settings to defaults" data-i18n-title="a11y.resetDefaultsTitle" data-i18n="a11y.resetDefaults">Reset Defaults</button>
             </div>
         </div>
     </div>
@@ -186,18 +186,18 @@
             <span id="sp-total-time">0:00</span>
         </div>
         <div class="player-extras-bar">
-            <button class="sp-btn sp-btn-sm sp-volume-icon" id="sp-volume-icon" title="Mute / Unmute">
+            <button class="sp-btn sp-btn-sm sp-volume-icon" id="sp-volume-icon" title="Mute / Unmute" data-i18n-title="player.muteUnmute">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
                     <path id="sp-volume-path" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v1.5a3 3 0 010 4V15.5a4.5 4.5 0 004.5-4.5zM12 3.23v2.06a7 7 0 010 13.42v2.06A9 9 0 0021 12 9 9 0 0012 3.23z"/>
                 </svg>
             </button>
-            <input type="range" id="sp-volume" class="sp-volume" min="0" max="100" value="100" title="Volume">
+            <input type="range" id="sp-volume" class="sp-volume" min="0" max="100" value="100" title="Volume" data-i18n-title="player.volume">
             <span id="sp-speed-display">1x</span>
             <button class="sp-btn sp-btn-sm" id="sp-speed" title="Click: faster · Right-click/Shift+click: slower" data-i18n="player.speed">Speed</button>
             <button class="sp-btn sp-btn-sm" id="sp-subtitle-toggle" title="Toggle subtitles (CC)" data-i18n-title="player.toggleSubtitles" style="display:none;">CC</button>
             <button class="sp-btn sp-btn-sm" id="sp-transcript-toggle" title="Toggle transcript panel" data-i18n-title="player.toggleTranscript" style="display:none;">&#9776;</button>
             <button class="sp-btn sp-btn-sm" id="sp-lang-toggle" title="Switch audio language" data-i18n-title="player.switchLanguage" style="display:none;">&#127760;</button>
-            <button class="sp-btn sp-btn-sm sp-close" id="sp-close" title="Close player">&times;</button>
+            <button class="sp-btn sp-btn-sm sp-close" id="sp-close" title="Close player" data-i18n-title="player.close">&times;</button>
         </div>
         <!-- Subtitle display (below player controls) -->
         <div id="subtitle-display" class="subtitle-display" style="display:none;">
@@ -211,7 +211,7 @@
     <div id="transcript-panel" class="transcript-panel" style="display:none;">
         <div class="transcript-header">
             <h3 data-i18n="player.transcript">Transcript</h3>
-            <button class="transcript-close" id="transcript-close" title="Close transcript">&times;</button>
+            <button class="transcript-close" id="transcript-close" title="Close transcript" data-i18n-title="a11y.close">&times;</button>
         </div>
         <div id="transcript-content" class="transcript-content"></div>
     </div>
@@ -369,7 +369,7 @@
             if (d.instance_badge) {
                 var el = document.getElementById('instance-badge');
                 el.textContent = d.instance_badge;
-                el.title = d.instance_badge + ' instance';
+                el.title = typeof t === "function" ? t("shell.instanceTitle", { name: d.instance_badge }) : d.instance_badge + ' instance';
                 el.style.display = '';
             }
         }).catch(function(){});

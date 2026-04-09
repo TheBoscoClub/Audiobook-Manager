@@ -51,15 +51,16 @@ function buildCycle(books) {
 
   var label = document.createElement("span");
   label.className = "marquee-label";
-  label.textContent = "NEW";
+  label.textContent = typeof t === "function" ? t("marquee.new") : "NEW";
   cycle.appendChild(label);
 
   for (var i = 0; i < books.length; i++) {
+    var fallback = books[i].title || (typeof t === "function" ? t("book.unknownTitle") : "Untitled");
     var item = document.createElement("span");
     item.className = "marquee-item marquee-item-clickable";
-    item.textContent = books[i].title || "Untitled";
+    item.textContent = fallback;
     item.dataset.bookId = books[i].id;
-    item.title = "Play " + (books[i].title || "Untitled");
+    item.title = (typeof t === "function" ? t("marquee.playTitle", { title: fallback }) : "Play " + fallback);
     (function (book) {
       item.addEventListener("click", function (e) {
         e.stopPropagation();
@@ -147,13 +148,23 @@ function buildMarquee(container, books) {
 
   var ks = createKnifeSwitch({
     size: "full",
-    title: "Pull the switch to dismiss new books",
+    title: typeof t === "function" ? t("marquee.dismissTitle") : "Pull the switch to dismiss new books",
     onDismiss: function () { dismissMarquee(container); },
     delay: 400
   });
 
   switchWrap.appendChild(ks);
   container.appendChild(switchWrap);
+
+  // Re-render on locale change so labels translate without page refresh
+  if (!container._localeListener) {
+    container._localeListener = function () {
+      if (!container.classList.contains("hidden")) {
+        buildMarquee(container, books);
+      }
+    };
+    document.addEventListener("localeChanged", container._localeListener);
+  }
 }
 
 /**

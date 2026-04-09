@@ -134,6 +134,17 @@
     }
   }
 
+  // ── Cross-frame locale sync ──
+  // When this page is inside an iframe, the parent shell sends a
+  // postMessage on locale change so we can re-render without a refresh.
+  window.addEventListener("message", function (event) {
+    if (event.origin !== window.location.origin) return;
+    var msg = event.data;
+    if (msg && msg.type === "localeChanged" && msg.locale) {
+      setLocale(msg.locale);
+    }
+  });
+
   // ── Public API ──
 
   window.t = t;

@@ -82,8 +82,8 @@
   function buildIndicator() {
     indicator = document.createElement("button");
     indicator.className = "maintenance-indicator";
-    indicator.setAttribute("aria-label", "Maintenance announcements");
-    indicator.title = "Click to view maintenance announcements";
+    indicator.setAttribute("aria-label", typeof t === "function" ? t("maintenance.ariaLabel") : "Maintenance announcements");
+    indicator.title = typeof t === "function" ? t("maintenance.indicatorTitle") : "Click to view maintenance announcements";
     indicator.textContent = "!";
     indicator.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -108,7 +108,7 @@
     switchBtn.className = "knife-switch";
     switchBtn.setAttribute("role", "switch");
     switchBtn.setAttribute("aria-checked", "true");
-    switchBtn.title = "Dismiss maintenance announcements for this session";
+    switchBtn.title = typeof t === "function" ? t("maintenance.dismissTitle") : "Dismiss maintenance announcements for this session";
 
     // SVG knife switch
     var svgNS = "http://www.w3.org/2000/svg";
@@ -167,7 +167,7 @@
 
     var label = document.createElement("span");
     label.className = "knife-switch-label";
-    label.textContent = "Dismiss";
+    label.textContent = typeof t === "function" ? t("notification.dismissLabel") : "Dismiss";
     switchBtn.appendChild(label);
 
     switchBtn.addEventListener("click", function () {
@@ -338,6 +338,20 @@
     document.addEventListener("maintenance-announce", onAnnounce);
     document.addEventListener("maintenance-dismiss", onDismiss);
     document.addEventListener("maintenance-update", onUpdate);
+
+    // Re-translate dynamic text on locale change
+    document.addEventListener("localeChanged", function () {
+      if (indicator) {
+        indicator.setAttribute("aria-label", typeof t === "function" ? t("maintenance.ariaLabel") : "Maintenance announcements");
+        indicator.title = typeof t === "function" ? t("maintenance.indicatorTitle") : "Click to view maintenance announcements";
+      }
+      if (panel) {
+        var dismissLabel = panel.querySelector(".knife-switch-label");
+        if (dismissLabel) dismissLabel.textContent = typeof t === "function" ? t("notification.dismissLabel") : "Dismiss";
+        var switchBtn = panel.querySelector(".knife-switch");
+        if (switchBtn) switchBtn.title = typeof t === "function" ? t("maintenance.dismissTitle") : "Dismiss maintenance announcements for this session";
+      }
+    });
 
     // Initial fetch for page load (before WebSocket connects)
     fetchAnnouncements();

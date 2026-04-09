@@ -3,7 +3,7 @@ Audiobook Translations API blueprint.
 
 Manages per-locale metadata translations for book cards.
 Translations can be created manually by admins or auto-generated
-via DeepL machine translation.
+via DeepL machine translation on demand.
 
 Endpoints:
     GET  /api/audiobooks/<id>/translations          — all translations for a book
@@ -11,6 +11,7 @@ Endpoints:
     POST /api/audiobooks/<id>/translations           — create or update translation
     DELETE /api/audiobooks/<id>/translations/<locale> — delete a translation
     POST /api/translations/batch                     — batch translate multiple books
+    POST /api/translations/on-demand                 — on-demand translate visible books
 """
 
 import logging
@@ -177,6 +178,151 @@ def get_translations_by_locale(locale):
         conn.close()
 
 
+@translations_bp.route("/api/translations/on-demand", methods=["POST"])
+@guest_allowed
+def on_demand_translate():
+    """Translate book metadata on demand for visible book cards.
+
+    Called automatically by the frontend when a non-English locale is
+    active and book cards are missing translations. Translates titles
+    and author names via DeepL, caches results in the DB, and returns
+    the translations keyed by audiobook_id.
+
+    Request body:
+        {
+            "audiobook_ids": [1, 2, 3],
+            "locale": "zh-Hans"
+        }
+
+    Returns translations in the same format as GET /translations/by-locale,
+    so the frontend can apply them directly.
+    """
+    data = request.get_json()
+    if not data or not data.get("locale") or not data.get("audiobook_ids"):
+        return jsonify({"error": "locale and audiobook_ids are required"}), 400
+
+    locale = data["locale"]
+    if locale == "en":
+        return jsonify({})
+
+    try:
+        requested_ids = [int(bid) for bid in data["audiobook_ids"]]
+    except (ValueError, TypeError):
+        return jsonify({"error": "audiobook_ids must contain integers"}), 400
+    if not requested_ids:
+        return jsonify({})
+
+    # Cap per request to prevent abuse (a library page shows ~50 books max)
+    MAX_PER_REQUEST = 60
+    requested_ids = requested_ids[:MAX_PER_REQUEST]
+
+    conn = _get_db()
+    try:
+        # Find which books already have translations cached
+        all_translations = conn.execute(
+            "SELECT audiobook_id, title, author_display, description "
+            "FROM audiobook_translations WHERE locale = ?",
+            (locale,),
+        ).fetchall()
+        cached = {}
+        for r in all_translations:
+            if r["audiobook_id"] in requested_ids:
+                cached[str(r["audiobook_id"])] = {
+                    "title": r["title"],
+                    "author_display": r["author_display"],
+                    "description": r["description"],
+                }
+
+        # Determine which IDs still need translation
+        cached_ids = {int(k) for k in cached}
+        missing_ids = [bid for bid in requested_ids if bid not in cached_ids]
+
+        if not missing_ids:
+            return jsonify(cached)
+
+        # Load DeepL API key from localization config
+        from localization.config import DEEPL_API_KEY
+        if not DEEPL_API_KEY:
+            logger.warning("On-demand translation requested but no DeepL API key configured")
+            return jsonify(cached)
+
+        # Fetch book metadata for untranslated books
+        all_books = conn.execute(
+            "SELECT id, title, author FROM audiobooks"
+        ).fetchall()
+        books_to_translate = [dict(r) for r in all_books if r["id"] in missing_ids]
+
+        if not books_to_translate:
+            return jsonify(cached)
+
+        # Batch translate titles and authors via DeepL
+        from localization.translation.deepl_translate import DeepLTranslator
+        translator = DeepLTranslator(DEEPL_API_KEY)
+
+        titles = [b["title"] for b in books_to_translate]
+        authors = [b["author"] or "" for b in books_to_translate]
+
+        # Single batch call for titles; separate for authors (different context)
+        translated_titles = translator.translate(titles, locale)
+        translated_authors = translator.translate(
+            [a for a in authors if a], locale
+        ) if any(authors) else []
+
+        # Map author translations back (skipping empty originals)
+        author_iter = iter(translated_authors)
+        author_map = []
+        for a in authors:
+            if a:
+                author_map.append(next(author_iter, a))
+            else:
+                author_map.append("")
+
+        # Store in DB and build response
+        new_translations = {}
+        for i, book in enumerate(books_to_translate):
+            t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
+            t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
+
+            conn.execute(
+                """INSERT INTO audiobook_translations
+                   (audiobook_id, locale, title, author_display, translator)
+                   VALUES (?, ?, ?, ?, 'deepl')
+                   ON CONFLICT(audiobook_id, locale) DO UPDATE SET
+                       title = excluded.title,
+                       author_display = excluded.author_display,
+                       translator = excluded.translator,
+                       updated_at = CURRENT_TIMESTAMP
+                """,
+                (book["id"], locale, t_title, t_author),
+            )
+
+            new_translations[str(book["id"])] = {
+                "title": t_title,
+                "author_display": t_author,
+                "description": None,
+            }
+
+        conn.commit()
+        logger.info(
+            "On-demand translated %d books to %s via DeepL",
+            len(books_to_translate), locale,
+        )
+
+        # Merge cached + newly translated
+        cached.update(new_translations)
+        return jsonify(cached)
+
+    except Exception:
+        logger.exception("On-demand translation failed")
+        # Return whatever we have cached — partial is better than nothing
+        try:
+            return jsonify(cached)
+        except NameError:
+            return jsonify({})
+    finally:
+        conn.close()
+
+
 @translations_bp.route("/api/translations/batch", methods=["POST"])
 @admin_if_enabled
 def batch_translate():
@@ -188,9 +334,6 @@ def batch_translate():
             "locale": "zh-Hans",
             "provider": "deepl"          -- only "deepl" supported for now
         }
-
-    This is a synchronous endpoint for small batches. For large-scale
-    translation, a background job system will be added later.
     """
     data = request.get_json()
     if not data or not data.get("locale"):
@@ -203,7 +346,6 @@ def batch_translate():
     if provider != "deepl":
         return jsonify({"error": "Only 'deepl' provider is supported"}), 400
 
-    # Validate IDs upfront if a list was provided
     if isinstance(book_ids, list):
         try:
             requested_ids = {int(bid) for bid in book_ids}
@@ -214,11 +356,10 @@ def batch_translate():
     elif book_ids != "all":
         return jsonify({"error": "audiobook_ids must be a list or 'all'"}), 400
     else:
-        requested_ids = None  # means "all"
+        requested_ids = None
 
     conn = _get_db()
     try:
-        # Fetch all books and filter in Python (avoids dynamic IN clause)
         all_rows = conn.execute(
             "SELECT id, title, author FROM audiobooks"
         ).fetchall()
@@ -227,7 +368,6 @@ def batch_translate():
         else:
             books = [dict(r) for r in all_rows]
 
-        # Fetch all existing translations for this locale and filter in Python
         existing = set()
         if books:
             all_translations = conn.execute(
@@ -240,13 +380,64 @@ def batch_translate():
 
         needs_translation = [b for b in books if b["id"] not in existing]
 
+        if not needs_translation:
+            return jsonify({
+                "total_books": len(books),
+                "translated": len(existing),
+                "needs_translation": 0,
+                "translations": {},
+            })
+
+        from localization.config import DEEPL_API_KEY
+        if not DEEPL_API_KEY:
+            return jsonify({"error": "DeepL API key not configured"}), 503
+
+        from localization.translation.deepl_translate import DeepLTranslator
+        translator = DeepLTranslator(DEEPL_API_KEY)
+
+        titles = [b["title"] for b in needs_translation]
+        authors = [b["author"] or "" for b in needs_translation]
+
+        translated_titles = translator.translate(titles, locale)
+        translated_authors = translator.translate(
+            [a for a in authors if a], locale
+        ) if any(authors) else []
+
+        author_iter = iter(translated_authors)
+        author_map = []
+        for a in authors:
+            author_map.append(next(author_iter, a) if a else "")
+
+        translations = {}
+        for i, book in enumerate(needs_translation):
+            t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
+            t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
+
+            conn.execute(
+                """INSERT INTO audiobook_translations
+                   (audiobook_id, locale, title, author_display, translator)
+                   VALUES (?, ?, ?, ?, 'deepl')
+                   ON CONFLICT(audiobook_id, locale) DO UPDATE SET
+                       title = excluded.title,
+                       author_display = excluded.author_display,
+                       translator = excluded.translator,
+                       updated_at = CURRENT_TIMESTAMP
+                """,
+                (book["id"], locale, t_title, t_author),
+            )
+            translations[str(book["id"])] = {
+                "title": t_title,
+                "author_display": t_author,
+            }
+
+        conn.commit()
+        logger.info("Batch translated %d books to %s", len(needs_translation), locale)
+
         return jsonify({
             "total_books": len(books),
             "already_translated": len(existing),
-            "needs_translation": len(needs_translation),
-            "books": needs_translation,
-            "message": "DeepL batch translation not yet implemented. "
-                       "Use POST /api/audiobooks/<id>/translations for manual entries.",
+            "newly_translated": len(needs_translation),
+            "translations": translations,
         })
     finally:
         conn.close()

@@ -85,19 +85,31 @@ class WhisperSTT(STTProvider):
         result = self._poll_job(status_url)
 
         words = []
-        for segment in result.get("segments", []):
-            for word_data in segment.get("words", []):
-                words.append(WordTimestamp(
-                    word=word_data.get("word", ""),
-                    start_ms=int(word_data.get("start", 0) * 1000),
-                    end_ms=int(word_data.get("end", 0) * 1000),
-                ))
+        # RunPod worker-faster_whisper returns word timestamps as a flat
+        # top-level array, not nested inside segments.
+        word_list = result.get("word_timestamps", [])
+        if not word_list:
+            # Fallback: some workers nest words inside segments
+            for segment in result.get("segments", []):
+                word_list.extend(segment.get("words", []))
+
+        for word_data in word_list:
+            words.append(WordTimestamp(
+                word=word_data.get("word", "").strip(),
+                start_ms=int(word_data.get("start", 0) * 1000),
+                end_ms=int(word_data.get("end", 0) * 1000),
+            ))
+
+        # Duration from response or estimate from last word
+        duration_ms = int(result.get("duration", 0) * 1000)
+        if not duration_ms and words:
+            duration_ms = words[-1].end_ms
 
         return Transcript(
             words=words,
             language=language,
-            provider="whisper",
-            duration_ms=int(result.get("duration", 0) * 1000),
+            provider="whisper-large-v3",
+            duration_ms=duration_ms,
         )
 
     def _poll_job(self, status_url: str, max_wait: int = 600) -> dict:

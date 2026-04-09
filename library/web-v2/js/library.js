@@ -274,37 +274,74 @@ class AudiobookLibraryV2 {
     }
 
     try {
-      const translations = await api.get(
+      // First try the cache — translations already stored in DB
+      let translations = await api.get(
         `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}`,
         { toast: false }
       );
-      document.querySelectorAll(".book-card[data-id]").forEach((card) => {
-        const bookId = card.getAttribute("data-id");
-        const tr = translations[bookId];
-        if (!tr) return;
 
-        if (tr.title) {
-          const titleEl = card.querySelector(".book-title");
-          if (titleEl) {
-            if (!titleEl.hasAttribute("data-original-title")) {
-              titleEl.setAttribute("data-original-title", titleEl.textContent);
-            }
-            titleEl.textContent = tr.title;
-          }
-        }
-        if (tr.author_display) {
-          const authorEl = card.querySelector(".book-author");
-          if (authorEl) {
-            if (!authorEl.hasAttribute("data-original-author")) {
-              authorEl.setAttribute("data-original-author", authorEl.textContent);
-            }
-            authorEl.textContent = t("book.byAuthor", { author: tr.author_display });
-          }
+      // Collect visible book IDs that are missing translations
+      const allCards = document.querySelectorAll(".book-card[data-id]");
+      const visibleIds = [];
+      allCards.forEach((card) => {
+        const bookId = card.getAttribute("data-id");
+        if (bookId && !translations[bookId]) {
+          visibleIds.push(parseInt(bookId, 10));
         }
       });
+
+      // Request on-demand translation for missing books
+      if (visibleIds.length > 0) {
+        try {
+          const onDemand = await api.post(
+            `${API_BASE}/translations/on-demand`,
+            { audiobook_ids: visibleIds, locale: locale },
+            { toast: false }
+          );
+          if (onDemand && typeof onDemand === "object") {
+            Object.assign(translations, onDemand);
+          }
+        } catch (e) {
+          // On-demand translation is best-effort — continue with cached
+          console.warn("On-demand translation unavailable:", e.message || e);
+        }
+      }
+
+      // Apply translations to book cards
+      this._overlayTranslations(allCards, translations);
     } catch (e) {
       // Translation overlay is non-critical — fail silently
     }
+  }
+
+  /**
+   * Apply translation data to book card DOM elements.
+   */
+  _overlayTranslations(cards, translations) {
+    cards.forEach((card) => {
+      const bookId = card.getAttribute("data-id");
+      const tr = translations[bookId];
+      if (!tr) return;
+
+      if (tr.title) {
+        const titleEl = card.querySelector(".book-title");
+        if (titleEl) {
+          if (!titleEl.hasAttribute("data-original-title")) {
+            titleEl.setAttribute("data-original-title", titleEl.textContent);
+          }
+          titleEl.textContent = tr.title;
+        }
+      }
+      if (tr.author_display) {
+        const authorEl = card.querySelector(".book-author");
+        if (authorEl) {
+          if (!authorEl.hasAttribute("data-original-author")) {
+            authorEl.setAttribute("data-original-author", authorEl.textContent);
+          }
+          authorEl.textContent = t("book.byAuthor", { author: tr.author_display });
+        }
+      }
+    });
   }
 
   /**
