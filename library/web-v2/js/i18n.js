@@ -25,8 +25,17 @@
 
   // ── Core translation function ──
 
-  function t(key) {
-    return catalog[key] || key;
+  function t(key, params) {
+    var val = catalog[key] || key;
+    if (params) {
+      Object.keys(params).forEach(function (k) {
+        var placeholder = "{" + k + "}";
+        while (val.indexOf(placeholder) !== -1) {
+          val = val.replace(placeholder, params[k]);
+        }
+      });
+    }
+    return val;
   }
 
   // ── Locale management ──

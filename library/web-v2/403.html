@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="css/theme-art-deco.css?v=1775585227">
     <link rel="stylesheet" href="css/auth.css?v=1775585227">
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
+    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container error-page-container">
@@ -22,16 +24,16 @@
         </div>
 
         <div class="error-code">403</div>
-        <h1 class="error-title">Access Denied</h1>
-        <p class="error-description">
+        <h1 class="error-title" data-i18n="error.forbidden">Access Denied</h1>
+        <p class="error-description" data-i18n="error.forbiddenDesc">
             You do not have permission to access this resource.
             If you believe this is an error, please contact the administrator.
         </p>
 
         <div class="auth-options" style="margin-top: 2rem;">
-            <a href="index.html" class="auth-link">Return to Library</a>
+            <a href="index.html" class="auth-link" data-i18n="error.returnToLibrary">Return to Library</a>
             <span class="auth-divider">|</span>
-            <a href="login.html" class="auth-link">Sign In as Different User</a>
+            <a href="login.html" class="auth-link" data-i18n="error.signInDifferent">Sign In as Different User</a>
         </div>
 
         <div class="auth-footer">

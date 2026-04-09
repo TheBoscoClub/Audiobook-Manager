@@ -209,32 +209,32 @@
             <div class="modal-body">
                 <!-- Profile Section -->
                 <div class="account-section">
-                    <h3>Profile</h3>
+                    <h3 data-i18n="account.profile">Profile</h3>
                     <div class="account-field">
-                        <label>Username</label>
+                        <label data-i18n="account.username">Username</label>
                         <span id="acct-username" class="editable-field" title="Click to edit username"></span>
                         <input id="acct-username-input" class="edit-input" hidden maxlength="24" title="New username">
-                        <button class="btn-inline" id="acct-username-save" hidden title="Save username change">Save</button>
-                        <button class="btn-inline" id="acct-username-cancel" hidden title="Cancel">Cancel</button>
+                        <button class="btn-inline" id="acct-username-save" hidden title="Save username change" data-i18n="common.save">Save</button>
+                        <button class="btn-inline" id="acct-username-cancel" hidden title="Cancel" data-i18n="common.cancel">Cancel</button>
                     </div>
                     <div class="account-field">
-                        <label>Email</label>
+                        <label data-i18n="account.email">Email</label>
                         <span id="acct-email" class="editable-field" title="Click to edit email"></span>
                         <input id="acct-email-input" class="edit-input" hidden type="email" title="New email address">
-                        <button class="btn-inline" id="acct-email-save" hidden title="Save email change">Save</button>
-                        <button class="btn-inline" id="acct-email-cancel" hidden title="Cancel">Cancel</button>
+                        <button class="btn-inline" id="acct-email-save" hidden title="Save email change" data-i18n="common.save">Save</button>
+                        <button class="btn-inline" id="acct-email-cancel" hidden title="Cancel" data-i18n="common.cancel">Cancel</button>
                     </div>
                     <div class="account-field">
-                        <label>Member since</label>
+                        <label data-i18n="account.memberSince">Member since</label>
                         <span id="acct-created"></span>
                     </div>
                 </div>
 
                 <!-- Authentication Section -->
                 <div class="account-section">
-                    <h3>Authentication</h3>
+                    <h3 data-i18n="account.authentication">Authentication</h3>
                     <div class="account-field">
-                        <label>Current method</label>
+                        <label data-i18n="account.authMethod">Current method</label>
                         <span id="acct-auth-badge" class="auth-badge"></span>
                     </div>
                     <div class="auth-actions">
@@ -255,8 +255,8 @@
                 <!-- Quick Actions -->
                 <div class="account-section">
                     <div class="auth-actions">
-                        <a href="contact.html" class="btn btn-secondary" id="contact-admin-btn" title="Send a message to the admin">Contact Admin</a>
-                        <button class="btn btn-secondary" id="sign-out-btn" title="Sign out of your account">Sign Out</button>
+                        <a href="contact.html" class="btn btn-secondary" id="contact-admin-btn" title="Send a message to the admin" data-i18n="account.contactAdmin">Contact Admin</a>
+                        <button class="btn btn-secondary" id="sign-out-btn" title="Sign out of your account" data-i18n="account.signOut">Sign Out</button>
                     </div>
                 </div>
 
@@ -266,30 +266,30 @@
                     <div class="account-field">
                         <label for="pref-sort-order" data-i18n="prefs.sortOrder">Sort order</label>
                         <select id="pref-sort-order" class="pref-select" data-key="sort_order" title="Default sort order for the library">
-                            <option value="title_asc">Title A–Z</option>
-                            <option value="title_desc">Title Z–A</option>
-                            <option value="author_last_asc">Author Last Name A–Z</option>
-                            <option value="author_last_desc">Author Last Name Z–A</option>
-                            <option value="author_asc">Author Full Name A–Z</option>
-                            <option value="author_desc">Author Full Name Z–A</option>
-                            <option value="narrator_last_asc">Narrator Last Name A–Z</option>
-                            <option value="narrator_last_desc">Narrator Last Name Z–A</option>
-                            <option value="acquired_date_desc">Recently Acquired</option>
-                            <option value="acquired_date_asc">Oldest Acquired</option>
-                            <option value="duration_hours_desc">Longest First</option>
-                            <option value="duration_hours_asc">Shortest First</option>
-                            <option value="series_asc">Series A–Z</option>
+                            <option value="title_asc" data-i18n="sort.titleAZ">Title A–Z</option>
+                            <option value="title_desc" data-i18n="sort.titleZA">Title Z–A</option>
+                            <option value="author_last_asc" data-i18n="sort.authorLastAZ">Author Last Name A–Z</option>
+                            <option value="author_last_desc" data-i18n="sort.authorLastZA">Author Last Name Z–A</option>
+                            <option value="author_asc" data-i18n="sort.authorFullAZ">Author Full Name A–Z</option>
+                            <option value="author_desc" data-i18n="sort.authorFullZA">Author Full Name Z–A</option>
+                            <option value="narrator_last_asc" data-i18n="sort.narratorLastAZ">Narrator Last Name A–Z</option>
+                            <option value="narrator_last_desc" data-i18n="sort.narratorLastZA">Narrator Last Name Z–A</option>
+                            <option value="acquired_date_desc" data-i18n="sort.recentlyAcquired">Recently Acquired</option>
+                            <option value="acquired_date_asc" data-i18n="sort.oldestAcquired">Oldest Acquired</option>
+                            <option value="duration_hours_desc" data-i18n="sort.longestFirst">Longest First</option>
+                            <option value="duration_hours_asc" data-i18n="sort.shortestFirst">Shortest First</option>
+                            <option value="series_asc" data-i18n="sort.seriesAZ">Series A–Z</option>
                         </select>
                     </div>
                     <div class="account-field">
-                        <label for="pref-view-mode">View mode</label>
+                        <label for="pref-view-mode" data-i18n="prefs.viewMode">View mode</label>
                         <div class="pref-toggle-group" id="pref-view-mode" data-key="view_mode">
-                            <button data-value="grid" class="active" title="Grid view">Grid</button>
-                            <button data-value="list" title="List view">List</button>
+                            <button data-value="grid" class="active" title="Grid view" data-i18n="prefs.grid">Grid</button>
+                            <button data-value="list" title="List view" data-i18n="prefs.list">List</button>
                         </div>
                     </div>
                     <div class="account-field">
-                        <label for="pref-items-per-page">Items per page</label>
+                        <label for="pref-items-per-page" data-i18n="prefs.itemsPerPage">Items per page</label>
                         <select id="pref-items-per-page" class="pref-select" data-key="items_per_page" title="Number of items shown per page">
                             <option value="25">25</option>
                             <option value="50">50</option>
@@ -300,8 +300,8 @@
                     <div class="account-field">
                         <label for="pref-content-filter" data-i18n="prefs.contentFilter">Content filter</label>
                         <select id="pref-content-filter" class="pref-select" data-key="content_filter" title="Filter library content">
-                            <option value="all">All content</option>
-                            <option value="audiobooks">Audiobooks only</option>
+                            <option value="all" data-i18n="prefs.allContent">All content</option>
+                            <option value="audiobooks" data-i18n="prefs.audiobooksOnly">Audiobooks only</option>
                         </select>
                     </div>
                     <div class="account-field">
@@ -326,7 +326,7 @@
                     <div class="account-field">
                         <label for="pref-sleep-timer" data-i18n="prefs.sleepTimer">Sleep timer</label>
                         <select id="pref-sleep-timer" class="pref-select" data-key="sleep_timer" title="Default sleep timer duration">
-                            <option value="0">Off</option>
+                            <option value="0" data-i18n="prefs.sleepOff">Off</option>
                             <option value="15">15 min</option>
                             <option value="30">30 min</option>
                             <option value="60">60 min</option>
@@ -340,8 +340,8 @@
 
                 <!-- Danger Zone -->
                 <div class="account-section danger-zone">
-                    <h3>Danger Zone</h3>
-                    <button class="btn btn-danger" id="delete-account-btn" title="Permanently delete your account">Delete My Account</button>
+                    <h3 data-i18n="account.dangerZone">Danger Zone</h3>
+                    <button class="btn btn-danger" id="delete-account-btn" title="Permanently delete your account" data-i18n="account.deleteAccount">Delete My Account</button>
                 </div>
             </div>
         </div>

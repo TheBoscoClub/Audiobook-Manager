@@ -192,12 +192,11 @@ class AudiobookLibraryV2 {
     tooltip.appendChild(arrow);
 
     const heading = document.createElement("strong");
-    heading.textContent = "Sign in to listen";
+    heading.textContent = t("library.signInToListen");
     tooltip.appendChild(heading);
 
     const desc = document.createElement("p");
-    desc.textContent =
-      "Playing and downloading audiobooks is available to members.";
+    desc.textContent = t("library.signInDesc");
     tooltip.appendChild(desc);
 
     const links = document.createElement("div");
@@ -205,7 +204,7 @@ class AudiobookLibraryV2 {
 
     const signInLink = document.createElement("a");
     signInLink.href = "login.html";
-    signInLink.textContent = "Existing User Sign In";
+    signInLink.textContent = t("library.existingSignIn");
     links.appendChild(signInLink);
 
     const sep = document.createElement("span");
@@ -215,7 +214,7 @@ class AudiobookLibraryV2 {
 
     const requestLink = document.createElement("a");
     requestLink.href = "register.html";
-    requestLink.textContent = "Request a User Account";
+    requestLink.textContent = t("library.requestAccount");
     links.appendChild(requestLink);
 
     tooltip.appendChild(links);
@@ -338,8 +337,8 @@ class AudiobookLibraryV2 {
         const notifId = notif.id;
         const ks = createKnifeSwitch({
           size: "compact",
-          title: "Dismiss notification",
-          label: "Dismiss",
+          title: t("notification.dismiss"),
+          label: t("notification.dismissLabel"),
           onDismiss: () => this.dismissNotification(notifId, banner),
         });
         ks.classList.add("notification-dismiss");
@@ -383,12 +382,11 @@ class AudiobookLibraryV2 {
     content.className = "notification-content";
     const msg = document.createElement("span");
     msg.className = "notification-message";
-    msg.textContent =
-      "Your browser supports passkeys. Setting up a passkey means you can sign in instantly without waiting for an email link. You can switch in your profile settings.";
+    msg.textContent = t("notification.passkeyPrompt");
     content.appendChild(msg);
     const ks = createKnifeSwitch({
       size: "compact",
-      title: "Dismiss this suggestion",
+      title: t("notification.dismissSuggestion"),
       onDismiss: function () {
         try {
           localStorage.setItem("library_passkey_prompt_dismissed", "1");
@@ -427,7 +425,7 @@ class AudiobookLibraryV2 {
     );
     if (downloadBtn) {
       downloadBtn.disabled = true;
-      downloadBtn.textContent = "Downloading...";
+      downloadBtn.textContent = t("book.downloading");
     }
 
     try {
@@ -460,7 +458,7 @@ class AudiobookLibraryV2 {
     } finally {
       if (downloadBtn) {
         downloadBtn.disabled = false;
-        downloadBtn.textContent = "\u2B07 Download";
+        downloadBtn.textContent = t("book.downloadFull");
       }
     }
   }
@@ -745,12 +743,12 @@ class AudiobookLibraryV2 {
     container.textContent = "";
     const categoryOrder = ["special", "fiction", "nonfiction", "series", "eras", "topics"];
     const categoryLabels = {
-      special: "Special Collections",
-      fiction: "Fiction",
-      nonfiction: "Nonfiction",
-      series: "Series",
-      eras: "Eras",
-      topics: "Topics",
+      special: t("collection.special"),
+      fiction: t("collection.fiction"),
+      nonfiction: t("collection.nonfiction"),
+      series: t("collection.series"),
+      eras: t("collection.eras"),
+      topics: t("collection.topics"),
     };
 
     categoryOrder.forEach((cat) => {
@@ -814,7 +812,7 @@ class AudiobookLibraryV2 {
         if (hasChildren) {
           const toggleBtn = document.createElement("button");
           toggleBtn.className = `collection-tree-toggle${isExpanded ? " expanded" : ""}`;
-          toggleBtn.title = "Show subgenres";
+          toggleBtn.title = t("collection.showSubgenres");
           const arrow = document.createElement("span");
           arrow.className = "toggle-arrow";
           arrow.textContent = "\u25B6"; // right-pointing triangle
@@ -1096,17 +1094,17 @@ class AudiobookLibraryV2 {
     // "All Authors" option at top
     const allLabel =
       this.authorLetterGroup === "all"
-        ? "All Authors"
-        : `All ${this.authorLetterGroup.toUpperCase()}`;
+        ? t("library.allAuthors")
+        : t("library.allInGroup", { group: this.authorLetterGroup.toUpperCase() });
     html += `<div class="author-option author-all-option" data-value="">
             <span>${allLabel}</span>
-            <span class="count">${filtered.length} total</span>
+            <span class="count">${t("library.total", { n: filtered.length })}</span>
         </div>`;
 
     if (filtered.length === 0 && query) {
-      html += `<div class="author-no-results">No authors matching "${query}"</div>`;
+      html += `<div class="author-no-results">${t("library.noAuthorsMatch", { query: this.escapeHtml(query) })}</div>`;
     } else if (filtered.length === 0) {
-      html += `<div class="author-no-results">No authors in this range</div>`;
+      html += `<div class="author-no-results">${t("library.noAuthorsInRange")}</div>`;
     } else {
       filtered.forEach((author) => {
         // Display sort_name ("King, Stephen") but filter by name ("Stephen King")
@@ -1309,17 +1307,17 @@ class AudiobookLibraryV2 {
     // "All Narrators" option at top (shows total count for current group)
     const allLabel =
       this.narratorLetterGroup === "all"
-        ? "All Narrators"
-        : `All ${this.narratorLetterGroup.toUpperCase()}`;
+        ? t("library.allNarrators")
+        : t("library.allInGroup", { group: this.narratorLetterGroup.toUpperCase() });
     html += `<div class="narrator-option narrator-all-option" data-value="">
             <span>${allLabel}</span>
-            <span class="count">${filtered.length} total</span>
+            <span class="count">${t("library.total", { n: filtered.length })}</span>
         </div>`;
 
     if (filtered.length === 0 && query) {
-      html += `<div class="narrator-no-results">No narrators matching "${query}"</div>`;
+      html += `<div class="narrator-no-results">${t("library.noNarratorsMatch", { query: this.escapeHtml(query) })}</div>`;
     } else if (filtered.length === 0) {
-      html += `<div class="narrator-no-results">No narrators in this range</div>`;
+      html += `<div class="narrator-no-results">${t("library.noNarratorsInRange")}</div>`;
     } else {
       filtered.forEach((narrator) => {
         const count = this.narratorCounts[narrator];
@@ -1447,8 +1445,21 @@ class AudiobookLibraryV2 {
   highlightMatch(text, query) {
     if (!query) return this.escapeHtml(text);
     const escaped = this.escapeHtml(text);
-    const regex = new RegExp(`(${this.escapeRegex(query)})`, "gi");
-    return escaped.replace(regex, "<strong>$1</strong>");
+    const queryEscaped = this.escapeHtml(query);
+    // Case-insensitive indexOf loop avoids dynamic RegExp (ReDoS risk)
+    var result = "";
+    var lower = escaped.toLowerCase();
+    var qLower = queryEscaped.toLowerCase();
+    var pos = 0;
+    var idx = lower.indexOf(qLower, pos);
+    while (idx !== -1) {
+      result += escaped.substring(pos, idx);
+      result += "<strong>" + escaped.substring(idx, idx + queryEscaped.length) + "</strong>";
+      pos = idx + queryEscaped.length;
+      idx = lower.indexOf(qLower, pos);
+    }
+    result += escaped.substring(pos);
+    return result;
   }
 
   escapeHtml(text) {
@@ -1577,14 +1588,14 @@ class AudiobookLibraryV2 {
                         ? `<img src="/covers/${book.cover_path}" alt="${this.escapeHtml(book.title)}" onerror="if(!this.dataset.retries){this.dataset.retries='0';}var r=parseInt(this.dataset.retries);if(r<2){this.dataset.retries=r+1;var s=this;setTimeout(function(){s.src=s.src.split('?')[0]+'?r='+Date.now()},500*(r+1));}else{this.parentElement.innerHTML='<span class=\\'book-cover-placeholder\\'>📖</span>';}">`
                         : '<span class="book-cover-placeholder">📖</span>'
                     }
-                    ${hasSupplement ? `<span class="supplement-badge" title="Has PDF supplement" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ""}
+                    ${hasSupplement ? `<span class="supplement-badge" title="${t("book.hasPdf")}" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ""}
                     ${""/* Play button always resumes from saved position */}
-                    ${hasEditions ? `<span class="editions-badge" title="${book.edition_count} editions" onclick="event.stopPropagation(); library.toggleEditions(${book.id})">${book.edition_count} editions</span>` : ""}
+                    ${hasEditions ? `<span class="editions-badge" title="${t("book.editions", { n: book.edition_count })}" onclick="event.stopPropagation(); library.toggleEditions(${book.id})">${t("book.editions", { n: book.edition_count })}</span>` : ""}
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
-                ${book.author ? `<div class="book-author">by ${this.escapeHtml(book.author)}</div>` : ""}
-                ${book.narrator ? `<div class="book-narrator">Narrated by ${this.escapeHtml(book.narrator)}</div>` : ""}
-                ${book.series ? `<div class="book-series">(${this.escapeHtml(book.series)}${book.series_sequence ? `, Book ${book.series_sequence}` : ""})</div>` : ""}
+                ${book.author ? `<div class="book-author">${t("book.byAuthor", { author: this.escapeHtml(book.author) })}</div>` : ""}
+                ${book.narrator ? `<div class="book-narrator">${t("book.narratedByName", { narrator: this.escapeHtml(book.narrator) })}</div>` : ""}
+                ${book.series ? `<div class="book-series">(${this.escapeHtml(book.series)}${book.series_sequence ? `, ${t("book.seriesBook", { n: book.series_sequence })}` : ""})</div>` : ""}
                 <div class="book-meta">
                     <span class="book-format">${formatQuality}${quality}</span>
                     <span class="book-duration">${book.duration_formatted || `${Math.round(book.duration_hours || 0)}h`}</span>
@@ -1602,9 +1613,9 @@ class AudiobookLibraryV2 {
                     : ""
                 }
                 <div class="book-actions">
-                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${hasContinue ? "Resume from " + formatPlaybackTime(savedPosition.position) : "Play from beginning"}">▶ Play</button>
-                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="Download this audiobook for offline listening in a local player. The Library streams from its own server storage and cannot access files on your device.">
-                        ⬇ Download
+                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${hasContinue ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) }) : t("book.playFromBeginning")}">${t("book.playFull")}</button>
+                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="${t("book.downloadTooltip")}">
+                        ${t("book.downloadFull")}
                     </button>
                 </div>
                 ${hasEditions ? '<div class="book-editions" data-book-id="' + book.id + '" style="display: none;"></div>' : ""}
@@ -1640,8 +1651,7 @@ class AudiobookLibraryV2 {
       const errorMsg = document.createElement("p");
       errorMsg.style.cssText =
         "color: var(--parchment); text-align: center; grid-column: 1/-1;";
-      errorMsg.textContent =
-        "Error loading grouped view. Please ensure the API server is running.";
+      errorMsg.textContent = t("library.errorGrouped");
       grid.appendChild(errorMsg);
     } finally {
       this.showLoading(false);
@@ -1656,7 +1666,7 @@ class AudiobookLibraryV2 {
       const emptyMsg = document.createElement("p");
       emptyMsg.style.cssText =
         "color: var(--parchment); text-align: center; grid-column: 1/-1;";
-      emptyMsg.textContent = "No grouped audiobooks found.";
+      emptyMsg.textContent = t("book.noGrouped");
       grid.appendChild(emptyMsg);
       return;
     }
@@ -1687,7 +1697,7 @@ class AudiobookLibraryV2 {
 
       const countSpan = document.createElement("span");
       countSpan.className = "grouped-header-count";
-      countSpan.textContent = `${bookCount} ${bookCount === 1 ? "book" : "books"}`;
+      countSpan.textContent = bookCount === 1 ? t("book.bookCount", { n: bookCount }) : t("book.bookCountPlural", { n: bookCount });
 
       const arrow = document.createElement("span");
       arrow.className = "grouped-header-arrow";
@@ -1785,7 +1795,7 @@ class AudiobookLibraryV2 {
     return `
             <div class="edition-item">
                 <div class="edition-info">
-                    <div class="edition-narrator">🎙️ ${this.escapeHtml(edition.narrator || "Unknown Narrator")}</div>
+                    <div class="edition-narrator">🎙️ ${this.escapeHtml(edition.narrator || t("book.unknownNarrator"))}</div>
                     <div class="edition-details">
                         <span class="edition-format">${formatQuality}${quality}</span>
                         <span class="edition-duration">${edition.duration_formatted || `${Math.round(edition.duration_hours || 0)}h`}</span>
@@ -1812,11 +1822,11 @@ class AudiobookLibraryV2 {
           "_blank",
         );
       } else {
-        alert("No supplements available for this audiobook.");
+        alert(t("book.noSupplements"));
       }
     } catch (error) {
       console.error("Error loading supplements:", error);
-      alert("Error loading supplements.");
+      alert(t("book.errorSupplements"));
     }
   }
 
@@ -1849,10 +1859,10 @@ class AudiobookLibraryV2 {
     const header = document.createElement("div");
     header.className = "modal-header";
     const h2 = document.createElement("h2");
-    h2.textContent = "Book Details";
+    h2.textContent = t("book.detailsTitle");
     const closeBtn = document.createElement("button");
     closeBtn.className = "modal-close";
-    closeBtn.title = "Close dialog";
+    closeBtn.title = t("book.closeDialog");
     closeBtn.textContent = "\u00D7";
     header.appendChild(h2);
     header.appendChild(closeBtn);
@@ -1883,20 +1893,20 @@ class AudiobookLibraryV2 {
 
     const titleEl = document.createElement("div");
     titleEl.className = "detail-title";
-    titleEl.textContent = book.title || "Unknown Title";
+    titleEl.textContent = book.title || t("book.unknownTitle");
     info.appendChild(titleEl);
 
     if (book.author) {
       const authorEl = document.createElement("div");
       authorEl.className = "detail-author";
-      authorEl.textContent = "by " + book.author;
+      authorEl.textContent = t("book.byAuthor", { author: book.author });
       info.appendChild(authorEl);
     }
 
     if (book.narrator) {
       const narratorEl = document.createElement("div");
       narratorEl.className = "detail-narrator";
-      narratorEl.textContent = "Narrated by " + book.narrator;
+      narratorEl.textContent = t("book.narratedByName", { narrator: book.narrator });
       info.appendChild(narratorEl);
     }
 
@@ -1922,7 +1932,7 @@ class AudiobookLibraryV2 {
       barBg.appendChild(barFill);
       const pctText = document.createElement("span");
       pctText.className = "progress-text";
-      pctText.textContent = percentComplete + "% complete";
+      pctText.textContent = t("book.percentComplete", { n: percentComplete });
       progressDiv.appendChild(barBg);
       progressDiv.appendChild(pctText);
       info.appendChild(progressDiv);
@@ -1931,7 +1941,7 @@ class AudiobookLibraryV2 {
     if (hasSupplement) {
       const badge = document.createElement("div");
       badge.className = "detail-badge";
-      badge.textContent = "PDF Supplement Available";
+      badge.textContent = t("book.pdfSupplement");
       info.appendChild(badge);
     }
 
@@ -1941,10 +1951,10 @@ class AudiobookLibraryV2 {
 
     const playBtn = document.createElement("button");
     playBtn.className = "btn-play";
-    playBtn.textContent = "\u25B6 Play";
+    playBtn.textContent = t("book.playFull");
     playBtn.title = hasContinue
-      ? "Resume from " + formatPlaybackTime(savedPosition.position)
-      : "Play from beginning";
+      ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) })
+      : t("book.playFromBeginning");
     playBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       shellPlay(book, true);
@@ -1954,8 +1964,8 @@ class AudiobookLibraryV2 {
     const downloadBtn = document.createElement("button");
     downloadBtn.className = "btn-download download-button";
     downloadBtn.style.display = "none";
-    downloadBtn.textContent = "\u2B07 Download";
-    downloadBtn.title = "Download this audiobook";
+    downloadBtn.textContent = t("book.downloadFull");
+    downloadBtn.title = t("book.downloadTooltip");
     downloadBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       library.downloadAudiobook(book.id);
@@ -2018,7 +2028,7 @@ class AudiobookLibraryV2 {
   updateResultsInfo(pagination) {
     const el = document.getElementById("showing-count");
     if (pagination.total_count === 0) {
-      el.textContent = "No audiobooks found";
+      el.textContent = t("book.noBooks");
       return;
     }
     const start = (pagination.page - 1) * pagination.per_page + 1;
@@ -2026,7 +2036,7 @@ class AudiobookLibraryV2 {
       pagination.page * pagination.per_page,
       pagination.total_count,
     );
-    el.textContent = `Showing ${start}-${end} of ${pagination.total_count.toLocaleString()} audiobooks`;
+    el.textContent = t("library.showing", { start: start, end: end, total: pagination.total_count.toLocaleString() });
   }
 
   renderPagination(pagination) {
@@ -2071,7 +2081,7 @@ class AudiobookLibraryV2 {
     let html = `
             <button class="pagination-btn" onclick="library.goToPage(${pagination.page - 1})"
                     ${!pagination.has_prev ? "disabled" : ""}>
-                ← Prev
+                ${t("library.prevPage")}
             </button>
         `;
 
@@ -2092,7 +2102,7 @@ class AudiobookLibraryV2 {
     html += `
             <button class="pagination-btn" onclick="library.goToPage(${pagination.page + 1})"
                     ${!pagination.has_next ? "disabled" : ""}>
-                Next →
+                ${t("library.nextPage")}
             </button>
         `;
 
@@ -2203,8 +2213,8 @@ class AudiobookLibraryV2 {
         emptyMsg.style.cssText =
           "color: var(--parchment); text-align: center; grid-column: 1/-1;";
         emptyMsg.textContent = this.viewingHidden
-          ? "No hidden books."
-          : "Your library is empty. Start listening to build your collection!";
+          ? t("library.emptyHidden")
+          : t("library.emptyLibrary");
         while (grid.firstChild) grid.removeChild(grid.firstChild);
         grid.appendChild(emptyMsg);
         return;
@@ -2247,7 +2257,7 @@ class AudiobookLibraryV2 {
       const errMsg = document.createElement("p");
       errMsg.style.cssText =
         "color: var(--parchment); text-align: center; grid-column: 1/-1;";
-      errMsg.textContent = "Error loading your library. Please try again.";
+      errMsg.textContent = t("library.errorLoading");
       while (grid.firstChild) grid.removeChild(grid.firstChild);
       grid.appendChild(errMsg);
     } finally {
@@ -2271,7 +2281,7 @@ class AudiobookLibraryV2 {
         try {
           return await api.get(`${API_BASE}/position/${book.id}`, { toast: false });
         } catch (e) {
-          console.warn(`Could not fetch position for book ${book.id}:`, e);
+          console.warn("Could not fetch position for book %d:", book.id, e);
           return null;
         }
       }),
@@ -2299,7 +2309,7 @@ class AudiobookLibraryV2 {
     const positionHuman = pos ? pos.local_position_human : "0h 0m";
     const progressText = pos
       ? `${positionHuman} / ${durationHuman} — ${percent}%`
-      : `Not started — ${durationHuman}`;
+      : t("library.notStarted", { duration: durationHuman });
 
     const card = document.createElement("div");
     card.className = "book-card";
@@ -2310,7 +2320,7 @@ class AudiobookLibraryV2 {
     checkbox.type = "checkbox";
     checkbox.className = "library-card-checkbox";
     checkbox.dataset.bookId = book.id;
-    checkbox.title = "Select this book";
+    checkbox.title = t("book.selectBook");
     checkbox.checked = this.selectedBookIds.has(book.id);
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) {
@@ -2366,7 +2376,7 @@ class AudiobookLibraryV2 {
     if (book.author) {
       const authorDiv = document.createElement("div");
       authorDiv.className = "book-author";
-      authorDiv.textContent = `by ${book.author}`;
+      authorDiv.textContent = t("book.byAuthor", { author: book.author });
       card.appendChild(authorDiv);
     }
 
@@ -2393,22 +2403,23 @@ class AudiobookLibraryV2 {
       const metaDiv = document.createElement("div");
       metaDiv.className = "my-library-meta";
       const dateOpts = { month: "short", day: "numeric", year: "numeric" };
+      const dateLang = i18n.getLocale() || "en";
       if (book.last_listened_at) {
         const histSpan = document.createElement("span");
         const listenDate = new Date(book.last_listened_at).toLocaleDateString(
-          "en-US",
+          dateLang,
           dateOpts,
         );
-        histSpan.textContent = `\u{1F50A} Last listened: ${listenDate}`;
+        histSpan.textContent = "\u{1F50A} " + t("book.lastListened", { date: listenDate });
         metaDiv.appendChild(histSpan);
       }
       if (book.downloaded_at) {
         const dlSpan = document.createElement("span");
         const dlDate = new Date(book.downloaded_at).toLocaleDateString(
-          "en-US",
+          dateLang,
           dateOpts,
         );
-        dlSpan.textContent = `\u{2B07} Downloaded: ${dlDate}`;
+        dlSpan.textContent = "\u{2B07} " + t("book.downloaded", { date: dlDate });
         metaDiv.appendChild(dlSpan);
       }
       card.appendChild(metaDiv);
@@ -2429,9 +2440,9 @@ class AudiobookLibraryV2 {
 
     const playBtn = document.createElement("button");
     playBtn.className = "btn-play";
-    playBtn.textContent = "\u25B6 Play";
+    playBtn.textContent = t("book.playFull");
     playBtn.title =
-      percent > 0 ? `Resume from ${positionHuman}` : "Play from beginning";
+      percent > 0 ? t("book.resumeFrom", { position: positionHuman }) : t("book.playFromBeginning");
     playBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       shellPlay(bookData, true);
@@ -2441,9 +2452,8 @@ class AudiobookLibraryV2 {
     const downloadBtn = document.createElement("button");
     downloadBtn.className = "btn-download download-button";
     downloadBtn.style.display = "none";
-    downloadBtn.title =
-      "Download this audiobook for offline listening in a local player. The Library streams from its own server storage and cannot access files on your device.";
-    downloadBtn.textContent = "\u2B07 Download";
+    downloadBtn.title = t("book.downloadTooltip");
+    downloadBtn.textContent = t("book.downloadFull");
     downloadBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       library.downloadAudiobook(book.id);
@@ -2474,12 +2484,12 @@ class AudiobookLibraryV2 {
       btn.classList.remove("depressed");
       btn.classList.add("raised");
       btn.textContent = this.viewingHidden
-        ? `Unhide Selected (${this.selectedBookIds.size})`
-        : `Hide Selected (${this.selectedBookIds.size})`;
+        ? t("library.unhideCount", { n: this.selectedBookIds.size })
+        : t("library.hideCount", { n: this.selectedBookIds.size });
     } else {
       btn.classList.add("depressed");
       btn.classList.remove("raised");
-      btn.textContent = this.viewingHidden ? "Unhide Selected" : "Hide Selected";
+      btn.textContent = this.viewingHidden ? t("library.unhideSelected") : t("library.hideSelected");
     }
   }
 
@@ -2492,8 +2502,8 @@ class AudiobookLibraryV2 {
       const count = (data.books || []).length;
       if (count > 0) {
         pill.textContent = this.viewingHidden
-          ? "My Library"
-          : `Hidden (${count})`;
+          ? t("library.myLibrary")
+          : t("library.hiddenCount", { n: count });
         pill.style.display = "";
       } else {
         pill.style.display = "none";
@@ -2530,7 +2540,7 @@ class AudiobookLibraryV2 {
         this.loadMyLibrary();
       }, 300);
     } catch (e) {
-      console.error(`Error during ${endpoint}:`, e);
+      console.error("Error during", endpoint, e);
     }
   }
 
@@ -2543,8 +2553,8 @@ class AudiobookLibraryV2 {
     const hideBtn = document.getElementById("hide-selected-btn");
     if (hideBtn) {
       hideBtn.textContent = this.viewingHidden
-        ? "Unhide Selected"
-        : "Hide Selected";
+        ? t("library.unhideSelected")
+        : t("library.hideSelected");
       hideBtn.classList.add("depressed");
       hideBtn.classList.remove("raised");
     }
@@ -2552,7 +2562,7 @@ class AudiobookLibraryV2 {
     // Update pill text
     const pill = document.getElementById("hidden-books-btn");
     if (pill) {
-      pill.textContent = this.viewingHidden ? "My Library" : "Hidden";
+      pill.textContent = this.viewingHidden ? t("library.myLibrary") : t("library.hidden");
     }
 
     this.loadMyLibrary();
@@ -2828,8 +2838,8 @@ class DuplicateManager {
         const cmd = document.getElementById("cli-command").textContent;
         navigator.clipboard.writeText(cmd).then(() => {
           const btn = document.getElementById("copy-cli-command");
-          btn.textContent = "Copied!";
-          setTimeout(() => (btn.textContent = "Copy to Clipboard"), 2000);
+          btn.textContent = t("book.copied");
+          setTimeout(() => (btn.textContent = t("book.copyClipboard")), 2000);
         });
       });
   }
@@ -2968,9 +2978,15 @@ class DuplicateManager {
 
     const content = document.getElementById("duplicates-content");
     const summary = document.getElementById("duplicates-summary");
-    content.innerHTML =
-      '<div class="loading-spinner"></div><p>Loading duplicates...</p>';
-    summary.textContent = "Loading...";
+    // XSS safe: static content only
+    content.textContent = "";
+    const spinner = document.createElement("div");
+    spinner.className = "loading-spinner";
+    const loadingP = document.createElement("p");
+    loadingP.textContent = t("common.loading");
+    content.appendChild(spinner);
+    content.appendChild(loadingP);
+    summary.textContent = t("common.loading");
 
     try {
       // Choose endpoint based on mode
@@ -2980,28 +2996,39 @@ class DuplicateManager {
       this.duplicateData = data;
 
       if (data.total_groups === 0) {
-        summary.textContent = "No duplicates found";
+        summary.textContent = t("duplicates.noFound");
         const modeDesc =
           currentMode === "hash"
-            ? "No byte-for-byte identical files found."
-            : "No audiobooks with matching title and author found.";
-        content.innerHTML = `
-                    <div style="text-align: center; padding: 3rem;">
-                        <p style="font-size: 1.2rem; color: #27ae60;">No duplicate audiobooks found!</p>
-                        <p>${modeDesc}</p>
-                    </div>
-                `;
+            ? t("duplicates.noHashDuplicates")
+            : t("duplicates.noTitleDuplicates");
+        // XSS safe: static translated content only
+        content.textContent = "";
+        const wrapper = document.createElement("div");
+        wrapper.style.cssText = "text-align: center; padding: 3rem;";
+        const mainP = document.createElement("p");
+        mainP.style.cssText = "font-size: 1.2rem; color: #27ae60;";
+        mainP.textContent = t("duplicates.noDuplicatesMsg");
+        const descP = document.createElement("p");
+        descP.textContent = modeDesc;
+        wrapper.appendChild(mainP);
+        wrapper.appendChild(descP);
+        content.appendChild(wrapper);
         return;
       }
 
       // Format summary based on mode
       const savingsLabel =
-        currentMode === "hash" ? "wasted" : "potential savings";
+        currentMode === "hash" ? t("duplicates.wasted") : t("duplicates.potentialSavings");
       const savingsValue =
         currentMode === "hash"
           ? data.total_wasted_mb
           : data.total_potential_savings_mb;
-      summary.textContent = `${data.total_groups} groups | ${data.total_duplicate_files} duplicates | ${this.formatSize(savingsValue)} ${savingsLabel}`;
+      summary.textContent = t("duplicates.summary", {
+        groups: data.total_groups,
+        files: data.total_duplicate_files,
+        size: this.formatSize(savingsValue),
+        label: savingsLabel,
+      });
 
       content.innerHTML = data.duplicate_groups
         .map((group) => this.renderDuplicateGroup(group, currentMode))
@@ -3024,18 +3051,18 @@ class DuplicateManager {
         });
       });
     } catch (error) {
-      summary.textContent = "Error";
+      summary.textContent = t("duplicates.error");
       // Use safe DOM methods to avoid XSS - error.message could contain malicious content
       content.innerHTML = "";
       const errorP = document.createElement("p");
       errorP.style.color = "#c0392b";
-      errorP.textContent = `Error loading duplicates: ${error.message}`;
+      errorP.textContent = t("library.errorDuplicates", { error: error.message });
       content.appendChild(errorP);
 
       // Add static help text (safe - no user input)
       if (currentMode === "hash") {
         const helpP = document.createElement("p");
-        helpP.textContent = "Make sure hashes have been generated first:";
+        helpP.textContent = t("duplicates.hashHelp");
         content.appendChild(helpP);
         const pre = document.createElement("pre");
         pre.className = "cli-command";
@@ -3050,7 +3077,7 @@ class DuplicateManager {
       .map((file) => {
         const isKeeper = file.is_keeper;
         const badgeClass = isKeeper ? "badge-keep" : "badge-duplicate";
-        const badgeText = isKeeper ? "KEEP" : "DUPLICATE";
+        const badgeText = isKeeper ? t("duplicates.keep") : t("duplicates.duplicate");
         const rowClass = isKeeper ? "keeper" : "deletable";
 
         return `
@@ -3058,7 +3085,7 @@ class DuplicateManager {
                     <input type="checkbox"
                            class="duplicate-checkbox"
                            data-id="${file.id}"
-                           ${isKeeper ? 'disabled title="This file is protected - it is the preferred copy"' : ""}>
+                           ${isKeeper ? 'disabled title="' + t("duplicates.fileProtected").replace(/"/g, "&quot;") + '"' : ""}>
                     <div class="duplicate-info">
                         <div class="duplicate-title">${this.escapeHtml(file.title)}</div>
                         <div class="duplicate-path">${this.escapeHtml(file.file_path)}</div>
@@ -3075,7 +3102,7 @@ class DuplicateManager {
       .join("");
 
     // Use appropriate label for mode
-    const savingsLabel = mode === "hash" ? "Wasted" : "Savings";
+    const savingsLabel = mode === "hash" ? t("duplicates.wasted") : t("duplicates.potentialSavings");
     const savingsValue =
       mode === "hash" ? group.wasted_mb : group.potential_savings_mb;
 
@@ -3116,7 +3143,7 @@ class DuplicateManager {
   updateDeleteButton() {
     const btn = document.getElementById("delete-selected");
     if (btn) {
-      btn.textContent = `Delete Selected (${this.selectedIds.size})`;
+      btn.textContent = t("duplicates.deleteSelected", { n: this.selectedIds.size });
       btn.disabled = this.selectedIds.size === 0;
     }
   }
@@ -3125,11 +3152,20 @@ class DuplicateManager {
     if (this.selectedIds.size === 0) return;
 
     const content = document.getElementById("confirm-content");
-    content.innerHTML = `
-            <p>You are about to permanently delete <strong>${this.selectedIds.size}</strong> audiobook file(s).</p>
-            <p style="color: #c0392b;"><strong>This action cannot be undone!</strong></p>
-            <p>The system will automatically protect the last copy of each audiobook to prevent data loss.</p>
-        `;
+    // XSS safe: DOM construction with translated static text
+    content.textContent = "";
+    const msgP = document.createElement("p");
+    msgP.textContent = t("duplicates.confirmDeleteMsg", { n: this.selectedIds.size });
+    const warnP = document.createElement("p");
+    warnP.style.color = "#c0392b";
+    const warnStrong = document.createElement("strong");
+    warnStrong.textContent = t("duplicates.confirmCannotUndo");
+    warnP.appendChild(warnStrong);
+    const protectP = document.createElement("p");
+    protectP.textContent = t("duplicates.confirmProtection");
+    content.appendChild(msgP);
+    content.appendChild(warnP);
+    content.appendChild(protectP);
 
     this.openModal("confirm-modal");
   }
@@ -3139,7 +3175,7 @@ class DuplicateManager {
 
     const btn = document.getElementById("delete-selected");
     btn.disabled = true;
-    btn.textContent = "Deleting...";
+    btn.textContent = t("duplicates.deleting");
 
     try {
       const result = await api.post(`${API_BASE}/duplicates/delete`, {
@@ -3148,12 +3184,12 @@ class DuplicateManager {
         }, { toast: false });
 
       if (result.success) {
-        let message = `Successfully deleted ${result.deleted_count} file(s).`;
+        let message = t("duplicates.deletedSuccess", { n: result.deleted_count });
         if (result.blocked_count > 0) {
-          message += `\n\n${result.blocked_count} file(s) were protected (last copies).`;
+          message += "\n\n" + t("duplicates.blockedProtected", { n: result.blocked_count });
         }
         if (result.errors.length > 0) {
-          message += `\n\n${result.errors.length} error(s) occurred.`;
+          message += "\n\n" + t("duplicates.deleteErrors", { n: result.errors.length });
         }
         alert(message);
 
@@ -3165,10 +3201,10 @@ class DuplicateManager {
           library.loadStats();
         }
       } else {
-        alert("Error: " + (result.error || "Unknown error"));
+        alert(t("common.error") + ": " + (result.error || ""));
       }
     } catch (error) {
-      alert("Error deleting files: " + error.message);
+      alert(t("duplicates.deleteError", { error: error.message }));
     }
 
     this.updateDeleteButton();
@@ -3296,12 +3332,9 @@ function shellSeek(seconds) {
   }
 }
 
-// Listen for playerState messages from the shell
-window.addEventListener("message", (event) => {
-  if (event.origin !== window.location.origin) return;
-  const data = event.data;
-  if (!data || !data.type) return;
-
+// Listen for playerState messages from the shell.
+// Origin-validated handler extracted as a named function for static analysis.
+function handleShellMessage(data) {
   if (data.type === "playerState") {
     // Update "Now Playing" indicators on book cards
     document.querySelectorAll(".book-card").forEach((card) => {
@@ -3333,4 +3366,10 @@ window.addEventListener("message", (event) => {
       offset + "px",
     );
   }
+}
+
+window.addEventListener("message", function (event) {
+  if (event.origin !== window.location.origin) return;
+  var data = event.data;
+  if (data && data.type) handleShellMessage(data);
 });

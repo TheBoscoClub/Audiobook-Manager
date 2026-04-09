@@ -29,7 +29,7 @@
 
         <!-- Step 1: Request access -->
         <div id="step-request" class="registration-step">
-            <p class="step-description">
+            <p class="step-description" data-i18n="register.description">
                 Access to The Library is by invitation only. Enter your desired username
                 to request access. An administrator will review your request.
             </p>
@@ -37,7 +37,7 @@
             <form id="request-form" class="auth-form">
                 <div class="form-group">
                     <label for="username">
-                        Desired Username
+                        <span data-i18n="register.desiredUsername">Desired Username</span>
                         <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
                     </label>
                     <input type="text"
@@ -50,7 +50,7 @@
                            spellcheck="false"
                            pattern="[\x20-\x7E]+"
                            required>
-                    <span class="field-hint">3-24 characters, letters and numbers</span>
+                    <span class="field-hint" data-i18n="register.usernameHint">3-24 characters, letters and numbers</span>
                     <div id="username-help" class="help-tooltip" hidden>
                         <div class="help-content">
                             <strong>What is a username?</strong>
@@ -97,12 +97,12 @@
                 <div id="request-error" class="error-message" hidden></div>
 
                 <button type="submit" class="auth-button">
-                    <span class="button-text">Request Access</span>
+                    <span class="button-text" data-i18n="register.submit">Request Access</span>
                 </button>
             </form>
 
             <div class="auth-options">
-                <a href="login.html" class="auth-link">&larr; Back to login</a>
+                <a href="login.html" class="auth-link" data-i18n="register.signIn">&larr; Back to login</a>
             </div>
         </div>
 

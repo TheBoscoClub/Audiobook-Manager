@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
     <link rel="stylesheet" href="css/a11y-consumer.css?v=1775585227">
     <link rel="stylesheet" href="css/i18n.css?v=1775585227">
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
 </head>
 <body class="help-page">
 
@@ -23,11 +24,11 @@
         <h1 data-i18n="help.title">User Guide</h1>
         <p data-i18n="app.tagline">A Private Collection of Audiobooks</p>
         <div class="help-header-actions">
-            <a href="index.html" title="Return to the audiobook library">&larr; Back to Library</a>
-            <button id="start-tutorial-btn" title="Take a guided tour of the library interface">Start Tutorial</button>
-            <a href="about.html" title="About The Library &mdash; credits, attributions, and version info">About</a>
-            <button id="suggestion-btn" class="suggestion-btn" title="Share your thoughts with the librarian">Suggestions? Desires? Likes? Dislikes? <span class="unsolicited"><s>Un</s>solicited</span> Praise?</button>
-            <a href="#roadmap" class="forthcoming-link" title="See what's coming next">Coming soon to your local branch library</a>
+            <a href="index.html" title="Return to the audiobook library" data-i18n="help.backToLibrary">&larr; Back to Library</a>
+            <button id="start-tutorial-btn" title="Take a guided tour of the library interface" data-i18n="help.startTutorial">Start Tutorial</button>
+            <a href="about.html" title="About The Library &mdash; credits, attributions, and version info" data-i18n="help.about">About</a>
+            <button id="suggestion-btn" class="suggestion-btn" title="Share your thoughts with the librarian" data-i18n="help.suggestions">Suggestions? Desires? Likes? Dislikes? <span class="unsolicited"><s>Un</s>solicited</span> Praise?</button>
+            <a href="#roadmap" class="forthcoming-link" title="See what's coming next" data-i18n="help.comingSoon">Coming soon to your local branch library</a>
         </div>
     </header>
 
@@ -36,17 +37,17 @@
         <div class="comment-pad">
             <div id="suggestion-form-area">
                 <div class="comment-pad-header">
-                    ~ The Librarian Shall Cherish Your Suggestions &amp; Comments ~
+                    <span data-i18n="help.suggestionHeader">~ The Librarian Shall Cherish Your Suggestions &amp; Comments ~</span>
                 </div>
-                <textarea id="suggestion-text" maxlength="2048" placeholder="Write your thoughts here..."></textarea>
+                <textarea id="suggestion-text" maxlength="2048" placeholder="Write your thoughts here..." data-i18n-placeholder="help.writePlaceholder"></textarea>
                 <div class="comment-pad-counter"><span id="suggestion-char-count">0</span> / 2048</div>
                 <div class="comment-pad-actions">
-                    <button class="pad-cancel" id="suggestion-cancel" title="Discard and close">Cancel</button>
-                    <button class="pad-submit" id="suggestion-submit" title="Submit your suggestion">Submit</button>
+                    <button class="pad-cancel" id="suggestion-cancel" title="Discard and close" data-i18n="help.cancel">Cancel</button>
+                    <button class="pad-submit" id="suggestion-submit" title="Submit your suggestion" data-i18n="help.submit">Submit</button>
                 </div>
             </div>
             <div id="suggestion-thanks" class="comment-pad-thanks">
-                <p>Your words have been received with gratitude.</p>
+                <p data-i18n="help.thanks">Your words have been received with gratitude.</p>
             </div>
             <!-- Fountain pen decoration -->
             <div class="comment-pad-pen" aria-hidden="true">

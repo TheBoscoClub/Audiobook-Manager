@@ -15,14 +15,16 @@
     <link rel="stylesheet" href="css/help-tooltips.css?v=1775585227">
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
     <link rel="stylesheet" href="css/a11y-consumer.css?v=1775585227">
+    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container" style="max-width: 500px;">
         <!-- Decorative header -->
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
-            <h1 class="auth-title">The Library</h1>
-            <p class="auth-subtitle">Contact the Administrator</p>
+            <h1 class="auth-title" data-i18n="app.name">The Library</h1>
+            <p class="auth-subtitle" data-i18n="contact.title">Contact the Administrator</p>
             <div class="deco-line"></div>
         </div>
 
@@ -30,7 +32,7 @@
         <form id="contact-form" class="auth-form">
             <div class="form-group">
                 <label for="message">
-                    Your Message
+                    <span data-i18n="contact.yourMessage">Your Message</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="message-help">?</button>
                 </label>
                 <textarea id="message"
@@ -93,7 +95,7 @@
             <div id="success-message" class="success-message-box" hidden></div>
 
             <button type="submit" class="auth-button" id="submit-btn">
-                <span class="button-text">Send Message</span>
+                <span class="button-text" data-i18n="contact.sendMessage">Send Message</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
                     Sending...
@@ -103,7 +105,7 @@
 
         <!-- Back link -->
         <div class="auth-options">
-            <a href="index.html" class="auth-link">&larr; Back to Library</a>
+            <a href="index.html" class="auth-link" data-i18n="contact.backToLibrary">&larr; Back to Library</a>
         </div>
 
         <!-- Footer -->

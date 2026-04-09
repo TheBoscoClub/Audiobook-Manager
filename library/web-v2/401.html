@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="css/theme-art-deco.css?v=1775585227">
     <link rel="stylesheet" href="css/auth.css?v=1775585227">
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
+    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container error-page-container">
@@ -22,14 +24,14 @@
         </div>
 
         <div class="error-code">401</div>
-        <h1 class="error-title">Authentication Required</h1>
-        <p class="error-description">
+        <h1 class="error-title" data-i18n="error.authRequired">Authentication Required</h1>
+        <p class="error-description" data-i18n="error.authRequiredDesc">
             You must sign in to access The Library.
             Please enter your credentials to continue.
         </p>
 
         <a href="login.html" class="auth-button" style="display: block; text-align: center; text-decoration: none;">
-            <span class="button-text">Sign In</span>
+            <span class="button-text" data-i18n="shell.signIn">Sign In</span>
         </a>
 
         <div class="auth-footer">
