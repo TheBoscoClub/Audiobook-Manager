@@ -274,43 +274,26 @@ class AudiobookLibraryV2 {
     }
 
     try {
-      // First try the cache — translations already stored in DB
-      let translations = await api.get(
-        `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}`,
-        { toast: false }
-      );
-
-      // Collect visible book IDs that are missing translations
+      // Collect visible book IDs to pass as ?ids= for on-demand translation
       const allCards = document.querySelectorAll(".book-card[data-id]");
       const visibleIds = [];
       allCards.forEach((card) => {
         const bookId = card.getAttribute("data-id");
-        if (bookId && !translations[bookId]) {
-          visibleIds.push(parseInt(bookId, 10));
-        }
+        if (bookId) visibleIds.push(bookId);
       });
 
-      // Request on-demand translation for missing books
-      if (visibleIds.length > 0) {
-        try {
-          const onDemand = await api.post(
-            `${API_BASE}/translations/on-demand`,
-            { audiobook_ids: visibleIds, locale: locale },
-            { toast: false }
-          );
-          if (onDemand && typeof onDemand === "object") {
-            Object.assign(translations, onDemand);
-          }
-        } catch (e) {
-          // On-demand translation is best-effort — continue with cached
-          console.warn("On-demand translation unavailable:", e.message || e);
-        }
-      }
+      // Single GET request: returns cached + auto-translates missing via DeepL
+      const idsParam = visibleIds.length > 0 ? "&ids=" + visibleIds.join(",") : "";
+      const translations = await api.get(
+        `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}?t=1${idsParam}`,
+        { toast: false }
+      );
 
       // Apply translations to book cards
       this._overlayTranslations(allCards, translations);
     } catch (e) {
       // Translation overlay is non-critical — fail silently
+      console.warn("Book translation overlay failed:", e.message || e);
     }
   }
 
@@ -1684,7 +1667,7 @@ class AudiobookLibraryV2 {
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
                 ${book.author ? `<div class="book-author">${t("book.byAuthor", { author: this.escapeHtml(book.author) })}</div>` : ""}
-                ${book.narrator ? `<div class="book-narrator">${t("book.narratedByName", { narrator: this.escapeHtml(book.narrator) })}</div>` : ""}
+                ${book.narrator ? `<div class="book-narrator">${t("book.narratedByName", { narrator: this.escapeHtml(book.narrator === "Unknown Narrator" ? t("book.unknownNarrator") : book.narrator) })}</div>` : ""}
                 ${book.series ? `<div class="book-series">(${this.escapeHtml(book.series)}${book.series_sequence ? `, ${t("book.seriesBook", { n: book.series_sequence })}` : ""})</div>` : ""}
                 <div class="book-meta">
                     <span class="book-format">${formatQuality}${quality}</span>

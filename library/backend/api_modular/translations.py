@@ -158,9 +158,17 @@ def get_translations_by_locale(locale):
 
     Returns a dict keyed by audiobook_id for easy client-side lookup.
     Used by the frontend to overlay translated metadata on book cards.
+
+    Optional query param:
+        ?ids=123,456,789  — visible book IDs; triggers on-demand DeepL
+                            translation for any IDs missing from the cache.
     """
+    if locale == "en":
+        return jsonify({})
+
     conn = _get_db()
     try:
+        # Fetch all cached translations for this locale
         rows = conn.execute(
             "SELECT audiobook_id, title, author_display, description "
             "FROM audiobook_translations WHERE locale = ?",
@@ -173,9 +181,89 @@ def get_translations_by_locale(locale):
                 "author_display": r["author_display"],
                 "description": r["description"],
             }
+
+        # On-demand translation: if ?ids= provided, translate missing ones
+        ids_param = request.args.get("ids", "")
+        if ids_param:
+            try:
+                requested_ids = [int(x) for x in ids_param.split(",") if x.strip()]
+            except (ValueError, TypeError):
+                requested_ids = []
+
+            # Cap per request
+            requested_ids = requested_ids[:60]
+            missing_ids = [bid for bid in requested_ids if str(bid) not in result]
+
+            if missing_ids:
+                _translate_missing(conn, missing_ids, locale, result)
+
         return jsonify(result)
     finally:
         conn.close()
+
+
+def _translate_missing(conn, missing_ids, locale, result_dict):
+    """Translate missing book metadata via DeepL and store in DB.
+
+    Updates result_dict in place with newly translated entries.
+    """
+    try:
+        from localization.config import DEEPL_API_KEY
+        if not DEEPL_API_KEY:
+            logger.warning("On-demand translation: no DeepL API key configured")
+            return
+
+        all_books = conn.execute(
+            "SELECT id, title, author FROM audiobooks"
+        ).fetchall()
+        books = [dict(r) for r in all_books if r["id"] in missing_ids]
+        if not books:
+            return
+
+        from localization.translation.deepl_translate import DeepLTranslator
+        translator = DeepLTranslator(DEEPL_API_KEY)
+
+        titles = [b["title"] for b in books]
+        authors = [b["author"] or "" for b in books]
+
+        translated_titles = translator.translate(titles, locale)
+        translated_authors = translator.translate(
+            [a for a in authors if a], locale
+        ) if any(authors) else []
+
+        author_iter = iter(translated_authors)
+        author_map = []
+        for a in authors:
+            author_map.append(next(author_iter, a) if a else "")
+
+        for i, book in enumerate(books):
+            t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
+            t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
+
+            conn.execute(
+                """INSERT INTO audiobook_translations
+                   (audiobook_id, locale, title, author_display, translator)
+                   VALUES (?, ?, ?, ?, 'deepl')
+                   ON CONFLICT(audiobook_id, locale) DO UPDATE SET
+                       title = excluded.title,
+                       author_display = excluded.author_display,
+                       translator = excluded.translator,
+                       updated_at = CURRENT_TIMESTAMP
+                """,
+                (book["id"], locale, t_title, t_author),
+            )
+
+            result_dict[str(book["id"])] = {
+                "title": t_title,
+                "author_display": t_author,
+                "description": None,
+            }
+
+        conn.commit()
+        logger.info("On-demand translated %d books to %s via DeepL", len(books), locale)
+
+    except Exception:
+        logger.exception("On-demand translation failed")
 
 
 @translations_bp.route("/api/translations/on-demand", methods=["POST"])

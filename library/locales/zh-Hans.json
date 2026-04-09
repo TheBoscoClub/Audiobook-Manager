@@ -108,6 +108,12 @@
   "sort.seriesAZ": "系列 (A-Z，按顺序)",
   "sort.seriesZA": "系列 (Z-A，按顺序)",
   "sort.multipleEditions": "仅多版本",
+  "sort.groupTitle": "书名",
+  "sort.groupAuthor": "作者",
+  "sort.groupNarrator": "朗读者",
+  "sort.groupDuration": "时长",
+  "sort.groupDates": "日期",
+  "sort.groupSeries": "系列和版本",
 
   "library.title": "图书馆",
   "library.subtitle": "私人有声书收藏",

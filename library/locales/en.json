@@ -108,6 +108,12 @@
   "sort.seriesAZ": "Series (A-Z, books in order)",
   "sort.seriesZA": "Series (Z-A, books in order)",
   "sort.multipleEditions": "Multiple Editions Only",
+  "sort.groupTitle": "Title",
+  "sort.groupAuthor": "Author",
+  "sort.groupNarrator": "Narrator",
+  "sort.groupDuration": "Duration",
+  "sort.groupDates": "Dates",
+  "sort.groupSeries": "Series & Editions",
 
   "library.title": "The Library",
   "library.subtitle": "A Private Collection of Audiobooks",

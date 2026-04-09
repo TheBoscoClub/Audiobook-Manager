@@ -112,6 +112,13 @@
       var translated = t(key);
       if (translated !== key) el.title = translated;
     });
+
+    // data-i18n-label → label attribute (for optgroup elements)
+    root.querySelectorAll("[data-i18n-label]").forEach(function (el) {
+      var key = el.getAttribute("data-i18n-label");
+      var translated = t(key);
+      if (translated !== key) el.label = translated;
+    });
   }
 
   // ── Initialize ──

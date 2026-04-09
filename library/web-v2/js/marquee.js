@@ -33,7 +33,38 @@ function initMarquee() {
         return;
       }
 
-      buildMarquee(container, data.books);
+      // Apply translated titles if locale is non-English
+      var locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+      if (locale !== "en") {
+        var ids = data.books.map(function (b) { return b.id; }).join(",");
+        fetch("/api/translations/by-locale/" + encodeURIComponent(locale) + "?ids=" + ids, {
+          credentials: "include",
+        })
+          .then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (translations) {
+            // Store originals and overlay translations
+            data.books.forEach(function (book) {
+              var tr = translations[String(book.id)];
+              if (tr && tr.title) {
+                book._originalTitle = book.title;
+                book.title = tr.title;
+              }
+            });
+            buildMarquee(container, data.books);
+          })
+          .catch(function () {
+            buildMarquee(container, data.books);
+          });
+      } else {
+        // Restore originals if switching back to English
+        data.books.forEach(function (book) {
+          if (book._originalTitle) {
+            book.title = book._originalTitle;
+            delete book._originalTitle;
+          }
+        });
+        buildMarquee(container, data.books);
+      }
     })
     .catch(function (err) {
       console.warn("Marquee: could not load new books:", err.message);

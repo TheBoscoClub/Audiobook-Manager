@@ -12,16 +12,16 @@
     <link rel="manifest" href="/site.webmanifest">
     <!-- Redirect to shell wrapper when loaded as top-level page (not in iframe) -->
     <script>if (window === window.parent) window.location.replace('/');</script>
-    <link rel="stylesheet" href="css/library.css?v=1775753846">
-    <link rel="stylesheet" href="css/auth.css?v=1775753846">
-    <link rel="stylesheet" href="css/notifications.css?v=1775753846">
-    <link rel="stylesheet" href="css/tutorial.css?v=1775753846">
-    <link rel="stylesheet" href="css/marquee.css?v=1775753846">
-    <link rel="stylesheet" href="css/knife-switch.css?v=1775753846">
-    <link rel="stylesheet" href="css/modals.css?v=1775753846">
-    <link rel="stylesheet" href="css/account.css?v=1775753846">
-    <link rel="stylesheet" href="css/a11y-consumer.css?v=1775753846">
-    <link rel="stylesheet" href="css/i18n.css?v=1775753846">
+    <link rel="stylesheet" href="css/library.css?v=1775755647">
+    <link rel="stylesheet" href="css/auth.css?v=1775755647">
+    <link rel="stylesheet" href="css/notifications.css?v=1775755647">
+    <link rel="stylesheet" href="css/tutorial.css?v=1775755647">
+    <link rel="stylesheet" href="css/marquee.css?v=1775755647">
+    <link rel="stylesheet" href="css/knife-switch.css?v=1775755647">
+    <link rel="stylesheet" href="css/modals.css?v=1775755647">
+    <link rel="stylesheet" href="css/account.css?v=1775755647">
+    <link rel="stylesheet" href="css/a11y-consumer.css?v=1775755647">
+    <link rel="stylesheet" href="css/i18n.css?v=1775755647">
 </head>
 <body>
     <!-- Header -->
@@ -121,40 +121,40 @@
 
             <div class="filter-actions">
                 <select id="sort-filter" class="filter-select">
-                    <optgroup label="Title">
-                        <option value="title:asc">Title (A-Z)</option>
-                        <option value="title:desc">Title (Z-A)</option>
+                    <optgroup label="Title" data-i18n-label="sort.groupTitle">
+                        <option value="title:asc" data-i18n="sort.titleAZ">Title (A-Z)</option>
+                        <option value="title:desc" data-i18n="sort.titleZA">Title (Z-A)</option>
                     </optgroup>
-                    <optgroup label="Author">
-                        <option value="author_last:asc">Author Last Name (A-Z)</option>
-                        <option value="author_last:desc">Author Last Name (Z-A)</option>
-                        <option value="author_first:asc">Author First Name (A-Z)</option>
-                        <option value="author_first:desc">Author First Name (Z-A)</option>
-                        <option value="author:asc">Author Full Name (A-Z)</option>
-                        <option value="author:desc">Author Full Name (Z-A)</option>
-                        <option value="grouped_author:asc">Author (Grouped A-Z)</option>
+                    <optgroup label="Author" data-i18n-label="sort.groupAuthor">
+                        <option value="author_last:asc" data-i18n="sort.authorLastAZ">Author Last Name (A-Z)</option>
+                        <option value="author_last:desc" data-i18n="sort.authorLastZA">Author Last Name (Z-A)</option>
+                        <option value="author_first:asc" data-i18n="sort.authorFirstAZ">Author First Name (A-Z)</option>
+                        <option value="author_first:desc" data-i18n="sort.authorFirstZA">Author First Name (Z-A)</option>
+                        <option value="author:asc" data-i18n="sort.authorFullAZ">Author Full Name (A-Z)</option>
+                        <option value="author:desc" data-i18n="sort.authorFullZA">Author Full Name (Z-A)</option>
+                        <option value="grouped_author:asc" data-i18n="sort.authorGrouped">Author (Grouped A-Z)</option>
                     </optgroup>
-                    <optgroup label="Narrator">
-                        <option value="narrator_last:asc">Narrator Last Name (A-Z)</option>
-                        <option value="narrator_last:desc">Narrator Last Name (Z-A)</option>
-                        <option value="narrator_first:asc">Narrator First Name (A-Z)</option>
-                        <option value="narrator_first:desc">Narrator First Name (Z-A)</option>
-                        <option value="grouped_narrator:asc">Narrator (Grouped A-Z)</option>
+                    <optgroup label="Narrator" data-i18n-label="sort.groupNarrator">
+                        <option value="narrator_last:asc" data-i18n="sort.narratorLastAZ">Narrator Last Name (A-Z)</option>
+                        <option value="narrator_last:desc" data-i18n="sort.narratorLastZA">Narrator Last Name (Z-A)</option>
+                        <option value="narrator_first:asc" data-i18n="sort.narratorFirstAZ">Narrator First Name (A-Z)</option>
+                        <option value="narrator_first:desc" data-i18n="sort.narratorFirstZA">Narrator First Name (Z-A)</option>
+                        <option value="grouped_narrator:asc" data-i18n="sort.narratorGrouped">Narrator (Grouped A-Z)</option>
                     </optgroup>
-                    <optgroup label="Duration">
-                        <option value="duration_hours:desc">Longest First</option>
-                        <option value="duration_hours:asc">Shortest First</option>
+                    <optgroup label="Duration" data-i18n-label="sort.groupDuration">
+                        <option value="duration_hours:desc" data-i18n="sort.longestFirst">Longest First</option>
+                        <option value="duration_hours:asc" data-i18n="sort.shortestFirst">Shortest First</option>
                     </optgroup>
-                    <optgroup label="Dates">
-                        <option value="acquired_date:desc">Recently Acquired</option>
-                        <option value="acquired_date:asc">Oldest Acquired</option>
-                        <option value="published_year:desc">Newest Published</option>
-                        <option value="published_year:asc">Oldest Published</option>
+                    <optgroup label="Dates" data-i18n-label="sort.groupDates">
+                        <option value="acquired_date:desc" data-i18n="sort.recentlyAcquired">Recently Acquired</option>
+                        <option value="acquired_date:asc" data-i18n="sort.oldestAcquired">Oldest Acquired</option>
+                        <option value="published_year:desc" data-i18n="sort.newestPublished">Newest Published</option>
+                        <option value="published_year:asc" data-i18n="sort.oldestPublished">Oldest Published</option>
                     </optgroup>
-                    <optgroup label="Series &amp; Editions">
-                        <option value="series:asc">Series (A-Z, books in order)</option>
-                        <option value="series:desc">Series (Z-A, books in order)</option>
-                        <option value="edition:asc">Multiple Editions Only</option>
+                    <optgroup label="Series &amp; Editions" data-i18n-label="sort.groupSeries">
+                        <option value="series:asc" data-i18n="sort.seriesAZ">Series (A-Z, books in order)</option>
+                        <option value="series:desc" data-i18n="sort.seriesZA">Series (Z-A, books in order)</option>
+                        <option value="edition:asc" data-i18n="sort.multipleEditions">Multiple Editions Only</option>
                     </optgroup>
                 </select>
                 <button id="refresh-btn" class="refresh-btn">↻ Refresh</button>
@@ -286,16 +286,16 @@
         </div>
     </div>
 
-    <script data-cfasync="false" src="js/api.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/utils.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/knife-switch.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/webauthn.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/marquee.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/session-persistence.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/i18n.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/library.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/account.js?v=1775753846"></script>
-    <script data-cfasync="false" src="js/tutorial.js?v=1775753846"></script>
+    <script data-cfasync="false" src="js/api.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/utils.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/knife-switch.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/webauthn.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/marquee.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/session-persistence.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/i18n.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/library.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/account.js?v=1775755647"></script>
+    <script data-cfasync="false" src="js/tutorial.js?v=1775755647"></script>
     <script>
         // Safe JSON response parser — handles Cloudflare HTML error pages
         async function safeJsonParse(response) {
