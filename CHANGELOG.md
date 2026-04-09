@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.0.4.1] - 2026-04-08
+
+### Added
+
+- **Narrator backfill mode**: `--narrator-backfill` flag for `backfill_enrichment.py` re-enriches books that have ASINs but still show "Unknown Narrator" — fills in real narrator data from the Audible API
+- **Phase 0 podcast detection**: Backfill script now runs a pre-enrichment scan that reclassifies items whose author or publisher matches known podcast networks (Wondery, Gimlet, Parcast, etc.) from `content_type='Product'` to `'Podcast'` — catches items without ASINs that the enrichment pipeline cannot reach
+
+### Fixed
+
+- **JS console errors in iframe context**: `account.js` threw TypeError when loaded inside the iframe (index.html) because `my-account-btn` only exists in shell.html — added null guards to `showAuthenticatedState`, `showSignInState`, and the DOMContentLoaded handler
+- **WebSocket heartbeat always reported idle**: `websocket.js` referenced `audio-player` but the actual element ID is `audio-element` — heartbeat now correctly reports streaming/paused/idle state
+- **Narrator enrichment sort_name constraint**: `_apply_narrators()` was inserting into the `narrators` table without `sort_name`, violating the NOT NULL constraint — now uses `generate_sort_name()` from `name_parser`
+- **Narrator junction table cleanup**: Enrichment now handles both "Unknown" and "Unknown Narrator" placeholder entries in `book_narrators` — replaces either variant when real narrator data arrives from Audible
+- **SQL nosemgrep annotation in f-string**: Two `cursor.execute(f"""  # nosemgrep:` calls in `audiobooks.py` embedded the `#` comment inside the SQL string, causing `sqlite3.OperationalError: unrecognized token` on `/api/filters` — restructured to place annotations on the `cursor.execute(` line
+- **Podcast episodes in main library**: Wondery podcast episodes with `content_type='Product'` and no ASIN were not caught by the enrichment pipeline's publisher detection — Phase 0 now handles this at backfill time
+
 ## [8.0.4] - 2026-04-08
 
 ### Added
@@ -2519,7 +2535,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4.1...HEAD
+[8.0.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4...v8.0.4.1
 [8.0.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...v8.0.4
 [8.0.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.1...v8.0.3.2
 [8.0.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3...v8.0.3.1
