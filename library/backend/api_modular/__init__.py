@@ -51,6 +51,7 @@ from .grouped import grouped_bp, init_grouped_routes
 from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .admin_authors import admin_authors_bp, init_admin_authors_routes
 from .suggestions import suggestions_bp, init_suggestions_routes
+from .i18n_routes import i18n_bp  # uses absolute import for i18n module (sibling to api_modular/)
 from .user_state import init_user_state_routes, user_bp
 from .preferences import preferences_bp
 from .utilities import init_utilities_routes, utilities_bp
@@ -174,6 +175,8 @@ def _register_extension_blueprints(flask_app, database_path):
 
     init_suggestions_routes(database_path)
     flask_app.register_blueprint(suggestions_bp)
+
+    flask_app.register_blueprint(i18n_bp)
 
 
 def _setup_websocket(flask_app, database_path):

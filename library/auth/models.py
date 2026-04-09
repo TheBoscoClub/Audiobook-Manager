@@ -1926,6 +1926,8 @@ class UserSettingsRepository:
             "reduce_animations",
             "high_contrast",
             "color_temperature",
+            # Localization
+            "locale",
         }
     )
 
@@ -1945,6 +1947,7 @@ class UserSettingsRepository:
         "reduce_animations": "false",
         "high_contrast": "false",
         "color_temperature": "neutral",
+        "locale": "en",
     }
 
     def __init__(self, db: "AuthDatabase"):

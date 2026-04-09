@@ -451,6 +451,11 @@
       localStorage.setItem('audiobook_view_mode', value);
     } else if (key === 'items_per_page') {
       localStorage.setItem('audiobook_items_per_page', value);
+    } else if (key === 'locale' && typeof i18n !== 'undefined') {
+      i18n.setLocale(value);
+      // Sync header switcher
+      var headerSelect = document.getElementById('locale-select');
+      if (headerSelect) headerSelect.value = value;
     }
     api.patch('/api/user/preferences', body, { toast: false, keepalive: true }).catch(function () {});
   }

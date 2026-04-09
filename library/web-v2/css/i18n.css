@@ -1,0 +1,82 @@
+/* ── i18n / CJK Typography ─────────────────────────────── */
+
+/* CJK font stack — applied when html.cjk is set by i18n.js */
+html.cjk {
+  --font-cjk: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+}
+
+html.cjk body,
+html.cjk input,
+html.cjk select,
+html.cjk textarea,
+html.cjk button {
+  font-family: var(--font-cjk);
+}
+
+/* CJK needs more line-height — ideographs are dense */
+html.cjk p,
+html.cjk li,
+html.cjk label,
+html.cjk .book-title,
+html.cjk .book-author,
+html.cjk .book-narrator {
+  line-height: 1.8;
+}
+
+/* Book cards: CJK titles can be shorter but visually denser */
+html.cjk .book-card .book-title {
+  letter-spacing: 0.05em;
+}
+
+/* Description text */
+html.cjk .book-description,
+html.cjk .publisher-summary {
+  line-height: 1.9;
+  letter-spacing: 0.02em;
+}
+
+/* Headings */
+html.cjk h1, html.cjk h2, html.cjk h3 {
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+/* ── Locale Switcher ──────────────────────────────────── */
+
+.locale-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.locale-switcher select {
+  background: transparent;
+  border: 1px solid var(--deco-gold, #c5a55a);
+  color: var(--deco-gold, #c5a55a);
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 60px;
+  text-align: center;
+}
+
+.locale-switcher select:hover {
+  background: rgba(197, 165, 90, 0.15);
+}
+
+.locale-switcher select:focus {
+  outline: 2px solid var(--deco-gold, #c5a55a);
+  outline-offset: 1px;
+}
+
+/* Globe icon */
+.locale-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+  color: var(--deco-gold, #c5a55a);
+}

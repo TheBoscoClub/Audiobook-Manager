@@ -756,4 +756,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Clean URL — remove ?autoplay param
     history.replaceState(null, "", window.location.pathname);
   }
+
+  // ── Locale switcher ──
+  var localeSelect = document.getElementById("locale-select");
+  if (localeSelect && typeof i18n !== "undefined") {
+    localeSelect.value = i18n.getLocale();
+    localeSelect.addEventListener("change", function () {
+      i18n.setLocale(this.value);
+    });
+  }
 });

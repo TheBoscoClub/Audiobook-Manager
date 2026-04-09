@@ -21,33 +21,34 @@
     <link rel="stylesheet" href="css/modals.css?v=1775585227">
     <link rel="stylesheet" href="css/account.css?v=1775585227">
     <link rel="stylesheet" href="css/a11y-consumer.css?v=1775585227">
+    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
 </head>
 <body>
     <!-- Header -->
     <header class="library-header">
         <div class="header-content">
             <div class="title-section">
-                <h1 class="library-title">The Library</h1>
-                <p class="library-subtitle">A Private Collection of Audiobooks</p>
+                <h1 class="library-title" data-i18n="library.title">The Library</h1>
+                <p class="library-subtitle" data-i18n="library.subtitle">A Private Collection of Audiobooks</p>
             </div>
         </div>
 
         <div class="library-stats">
             <div class="stat-item">
                 <span class="stat-value" id="total-books">-</span>
-                <span class="stat-label">volumes</span>
+                <span class="stat-label" data-i18n="library.volumes">volumes</span>
             </div>
             <div class="stat-item">
                 <span class="stat-value" id="total-hours">-</span>
-                <span class="stat-label">hours</span>
+                <span class="stat-label" data-i18n="library.hours">hours</span>
             </div>
             <div class="stat-item">
                 <span class="stat-value" id="total-authors">-</span>
-                <span class="stat-label">authors</span>
+                <span class="stat-label" data-i18n="library.authors">authors</span>
             </div>
             <div class="stat-item">
                 <span class="stat-value" id="total-narrators">-</span>
-                <span class="stat-label">narrators</span>
+                <span class="stat-label" data-i18n="library.narrators">narrators</span>
             </div>
         </div>
     </header>
@@ -64,8 +65,9 @@
             <input type="text"
                    id="search-input"
                    class="search-input"
-                   placeholder="Search books, authors, narrators...">
-            <button id="clear-search" class="clear-btn">Clear</button>
+                   placeholder="Search books, authors, narrators..."
+                   data-i18n-placeholder="library.searchPlaceholder">
+            <button id="clear-search" class="clear-btn" data-i18n="library.clear">Clear</button>
         </div>
 
         <div class="filters-container">
@@ -86,6 +88,7 @@
                            id="author-search"
                            class="filter-select author-input"
                            placeholder="Search authors..."
+                   data-i18n-placeholder="library.searchAuthors"
                            autocomplete="off">
                     <button id="author-clear" class="author-clear" title="Clear author filter">&times;</button>
                 </div>
@@ -109,6 +112,7 @@
                            id="narrator-search"
                            class="filter-select narrator-input"
                            placeholder="Search narrators..."
+                   data-i18n-placeholder="library.searchNarrators"
                            autocomplete="off">
                     <button id="narrator-clear" class="narrator-clear" title="Clear narrator filter">&times;</button>
                 </div>
@@ -160,8 +164,8 @@
 
     <!-- Library Tabs (shown when user is logged in) -->
     <div class="library-tabs" id="library-tabs" style="display: none;">
-        <button class="tab-btn active" data-tab="browse" title="Browse the full audiobook collection">Browse All</button>
-        <button class="tab-btn" data-tab="my-library" title="View your listening history and saved books">My Library</button>
+        <button class="tab-btn active" data-tab="browse" title="Browse the full audiobook collection" data-i18n="library.browseAll">Browse All</button>
+        <button class="tab-btn" data-tab="my-library" title="View your listening history and saved books" data-i18n="library.myLibrary">My Library</button>
         <button id="hide-selected-btn" class="hide-btn depressed" style="display: none;" title="Hide selected books from your library view">Hide Selected</button>
         <button id="hidden-books-btn" class="hidden-books-pill" style="display: none;" title="View hidden books"></button>
     </div>
@@ -170,14 +174,14 @@
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
     <aside class="collections-sidebar" id="collections-sidebar">
         <div class="sidebar-header">
-            <h2>Collections</h2>
+            <h2 data-i18n="library.collections">Collections</h2>
             <button class="sidebar-close" id="sidebar-close" title="Close sidebar">&times;</button>
         </div>
         <div class="sidebar-content" id="collections-buttons">
             <!-- Collection buttons loaded dynamically -->
         </div>
         <div class="sidebar-footer">
-            <button class="sidebar-clear" id="sidebar-clear-filter">Clear Filter</button>
+            <button class="sidebar-clear" id="sidebar-clear-filter" data-i18n="library.clearFilter">Clear Filter</button>
         </div>
     </aside>
 
@@ -186,10 +190,10 @@
         <div class="results-left">
             <button class="sidebar-toggle" id="sidebar-toggle" title="Browse Collections">
                 <span class="toggle-icon">☰</span>
-                <span class="toggle-text">Collections</span>
+                <span class="toggle-text" data-i18n="library.collections">Collections</span>
                 <span class="active-filter" id="active-filter-badge"></span>
             </button>
-            <p id="showing-count">Loading...</p>
+            <p id="showing-count" data-i18n="common.loading">Loading...</p>
         </div>
         <div class="pagination-controls" id="top-pagination"></div>
     </div>
@@ -288,6 +292,7 @@
     <script data-cfasync="false" src="js/webauthn.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/marquee.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/session-persistence.js?v=1775585227"></script>
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/library.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/account.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/tutorial.js?v=1775585227"></script>

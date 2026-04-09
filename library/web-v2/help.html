@@ -14,13 +14,14 @@
     <link rel="stylesheet" href="css/help.css?v=1775585227">
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
     <link rel="stylesheet" href="css/a11y-consumer.css?v=1775585227">
+    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
 </head>
 <body class="help-page">
 
     <!-- Header -->
     <header class="help-header">
-        <h1>User Guide</h1>
-        <p>A Private Collection of Audiobooks</p>
+        <h1 data-i18n="help.title">User Guide</h1>
+        <p data-i18n="app.tagline">A Private Collection of Audiobooks</p>
         <div class="help-header-actions">
             <a href="index.html" title="Return to the audiobook library">&larr; Back to Library</a>
             <button id="start-tutorial-btn" title="Take a guided tour of the library interface">Start Tutorial</button>
@@ -510,6 +511,7 @@
         </footer>
     </div>
 
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
     <script>
         // "Start Tutorial" navigates to library page with tutorial flag
         document.getElementById('start-tutorial-btn').addEventListener('click', () => {

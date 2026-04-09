@@ -14,6 +14,8 @@
     <link rel="stylesheet" href="css/auth.css?v=1775585227">
     <link rel="stylesheet" href="css/help-tooltips.css?v=1775585227">
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
+    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/webauthn.js?v=1775585227"></script>
     <script data-cfasync="false" src="js/session-persistence.js?v=1775585227"></script>
     <script data-cfasync="false">
@@ -27,8 +29,8 @@
         <!-- Decorative header -->
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
-            <h1 class="auth-title">The Library</h1>
-            <p class="auth-subtitle">Sign In</p>
+            <h1 class="auth-title" data-i18n="app.name">The Library</h1>
+            <p class="auth-subtitle" data-i18n="login.title">Sign In</p>
             <div class="deco-line"></div>
         </div>
 
@@ -36,7 +38,7 @@
         <form id="login-form" class="auth-form">
             <div class="form-group">
                 <label for="username">
-                    Username
+                    <span data-i18n="login.username">Username</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
                 </label>
                 <div class="input-with-edit">
@@ -62,7 +64,7 @@
             <!-- TOTP code field - shown only for TOTP users -->
             <div class="form-group" id="totp-group" hidden>
                 <label for="code">
-                    Your 6-Digit Code
+                    <span data-i18n="login.code">Your 6-Digit Code</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="code-help">?</button>
                 </label>
                 <input type="text"
@@ -73,7 +75,7 @@
                        maxlength="6"
                        autocomplete="one-time-code"
                        placeholder="000000">
-                <span class="field-hint">Open the app on your phone, find The Library, and type the 6-digit number you see</span>
+                <span class="field-hint" data-i18n="login.codeHint">Open the app on your phone, find The Library, and type the 6-digit number you see</span>
                 <div id="code-help" class="help-tooltip" hidden>
                     <div class="help-content">
                         <strong>Where do I find this code?</strong>
@@ -123,7 +125,7 @@
 
             <!-- Continue button - first step -->
             <button type="button" class="auth-button" id="continue-button">
-                <span class="button-text">Continue</span>
+                <span class="button-text" data-i18n="login.continue">Continue</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
                     Checking...
@@ -132,7 +134,7 @@
 
             <!-- Login button - shown after auth type detected -->
             <button type="submit" class="auth-button" id="login-button" hidden>
-                <span class="button-text">Enter the Library</span>
+                <span class="button-text" data-i18n="login.signIn">Enter the Library</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
                     Authenticating...

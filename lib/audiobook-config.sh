@@ -134,6 +134,10 @@ fi
 # Cloudflare CDN cache purge (credentials from ~/.config/api-keys.env)
 : "${CF_ZONE_ID:=}" # Set in /etc/audiobooks/audiobooks.conf or environment
 
+# Localization / i18n
+: "${AUDIOBOOKS_DEFAULT_LOCALE:=en}"
+: "${AUDIOBOOKS_SUPPORTED_LOCALES:=en,zh-Hans}"
+
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
 : "${AUDIOBOOKS_WEB_PORT:=8443}"           # HTTPS port (changed from 8090)
@@ -153,6 +157,7 @@ export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
 export AUDIOBOOKS_AUDIBLE_VENV AUDIOBOOKS_AUDIBLE_CMD
 export CF_ZONE_ID AUDIOBOOKS_PROJECT_DIR
+export AUDIOBOOKS_DEFAULT_LOCALE AUDIOBOOKS_SUPPORTED_LOCALES
 export AUDIOBOOKS_API_PORT AUDIOBOOKS_WEB_PORT AUDIOBOOKS_HTTP_REDIRECT_PORT AUDIOBOOKS_BIND_ADDRESS AUDIOBOOKS_HTTPS_ENABLED AUDIOBOOKS_HTTP_REDIRECT_ENABLED
 
 # -----------------------------------------------------------------------------
