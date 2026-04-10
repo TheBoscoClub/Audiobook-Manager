@@ -65,11 +65,11 @@ class TestRegisterEdgeCases:
         conn = self.mgr.get_connection("s1")
         assert before <= conn["connected_at"] <= after
 
-    def test_register_initial_state_idle(self):
+    def test_register_initial_state_browsing(self):
         ws = MagicMock()
         self.mgr.register("s1", ws, "alice")
         conn = self.mgr.get_connection("s1")
-        assert conn["state"] == "idle"
+        assert conn["state"] == "browsing"
 
     def test_register_multiple_sessions(self):
         for i in range(5):
@@ -117,19 +117,19 @@ class TestHeartbeatEdgeCases:
 
         # Small sleep to ensure time difference
         time.sleep(0.01)
-        self.mgr.heartbeat("s1", state="streaming")
+        self.mgr.heartbeat("s1", state="listening")
 
         new_conn = self.mgr.get_connection("s1")
         assert new_conn["last_seen"] >= old_last_seen
-        assert new_conn["state"] == "streaming"
+        assert new_conn["state"] == "listening"
 
-    def test_heartbeat_default_state_idle(self):
+    def test_heartbeat_default_state_browsing(self):
         ws = MagicMock()
         self.mgr.register("s1", ws, "alice")
-        self.mgr.heartbeat("s1", state="playing")
+        self.mgr.heartbeat("s1", state="listening")
         self.mgr.heartbeat("s1")  # default state
         conn = self.mgr.get_connection("s1")
-        assert conn["state"] == "idle"
+        assert conn["state"] == "browsing"
 
 
 class TestGetConnection:

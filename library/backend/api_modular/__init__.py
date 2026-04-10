@@ -214,7 +214,7 @@ def _setup_websocket(flask_app, database_path):
                     msg = _json.loads(data)
                     if msg.get("type") == "heartbeat":
                         connection_manager.heartbeat(
-                            session_id, state=msg.get("state", "idle")
+                            session_id, state=msg.get("state", "browsing")
                         )
                 except (ValueError, KeyError):
                     pass

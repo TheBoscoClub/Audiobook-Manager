@@ -39,7 +39,7 @@ class ConnectionManager:
             self._connections[session_id] = {
                 "ws": ws,
                 "username": username or "anonymous",
-                "state": "idle",
+                "state": "browsing",
                 "last_seen": time.time(),
                 "connected_at": time.time(),
             }
@@ -58,7 +58,7 @@ class ConnectionManager:
                     return
             self._connections.pop(session_id, None)
 
-    def heartbeat(self, session_id, state="idle"):
+    def heartbeat(self, session_id, state="browsing"):
         """Update last-seen time and activity state."""
         with self._lock:
             if session_id in self._connections:

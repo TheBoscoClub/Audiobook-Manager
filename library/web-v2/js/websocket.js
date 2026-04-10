@@ -26,9 +26,9 @@
 
   function getPlayerState() {
     var audio = document.getElementById("audio-element");
-    if (!audio) return "idle";
-    if (audio.paused) return "paused";
-    return "streaming";
+    if (!audio) return "browsing";
+    if (audio.paused) return "connected";
+    return "listening";
   }
 
   function dispatch(eventName, detail) {

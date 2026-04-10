@@ -26,9 +26,9 @@ class TestConnectionManager:
     def test_heartbeat_updates_last_seen(self):
         ws = MagicMock()
         self.manager.register("session-1", ws, username="alice")
-        self.manager.heartbeat("session-1", state="streaming")
+        self.manager.heartbeat("session-1", state="listening")
         conn = self.manager.get_connection("session-1")
-        assert conn["state"] == "streaming"
+        assert conn["state"] == "listening"
 
     def test_stale_connections_detected(self):
         ws = MagicMock()
