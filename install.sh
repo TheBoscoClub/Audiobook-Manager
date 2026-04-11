@@ -1740,6 +1740,19 @@ EOF
 
     # Verify permissions after installation
     verify_installation_permissions "system"
+
+    # Reconcile filesystem against install manifest (report-only for now)
+    PROJECT_DIR="$SCRIPT_DIR" \
+    LIB_DIR="$APP_DIR" \
+    STATE_DIR="/var/lib/audiobooks" \
+    LOG_DIR="/var/log/audiobooks" \
+    CONFIG_DIR="$CONFIG_DIR" \
+    CONF_FILE="${CONFIG_DIR}/audiobooks.conf" \
+    USE_SUDO="sudo" \
+    SYSTEMD_DIR="/etc/systemd/system" \
+    BIN_DIR="/usr/local/bin" \
+    RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+        bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true
 }
 
 # shellcheck disable=SC2120
@@ -2259,6 +2272,19 @@ EOF
 
     # Verify permissions after installation
     verify_installation_permissions "user"
+
+    # Reconcile filesystem against install manifest (report-only for now)
+    PROJECT_DIR="$SCRIPT_DIR" \
+    LIB_DIR="$LIB_DIR" \
+    STATE_DIR="$STATE_DIR" \
+    LOG_DIR="$LOG_DIR" \
+    CONFIG_DIR="$CONFIG_DIR" \
+    CONF_FILE="${CONFIG_DIR}/audiobooks.conf" \
+    USE_SUDO="" \
+    SYSTEMD_DIR="${HOME}/.config/systemd/user" \
+    BIN_DIR="${HOME}/.local/bin" \
+    RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+        bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true
 }
 
 # shellcheck disable=SC2120
