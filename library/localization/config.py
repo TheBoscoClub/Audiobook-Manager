@@ -9,9 +9,13 @@ SUPPORTED_LOCALES = os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans")
 # STT provider: "deepl", "whisper", or "auto"
 STT_PROVIDER = os.environ.get("AUDIOBOOKS_STT_PROVIDER", "auto")
 
-# TTS provider: "edge-tts" or "xtts"
+# TTS provider: "edge-tts", "xtts-runpod", or "xtts-vastai"
 TTS_PROVIDER = os.environ.get("AUDIOBOOKS_TTS_PROVIDER", "edge-tts")
 TTS_VOICE_ZH = os.environ.get("AUDIOBOOKS_TTS_VOICE_ZH", "zh-CN-XiaoxiaoNeural")
+
+# Vast.ai XTTS server (alternative to RunPod for GPU-backed cloning)
+VASTAI_XTTS_HOST = os.environ.get("AUDIOBOOKS_VASTAI_XTTS_HOST", "")
+VASTAI_XTTS_PORT = int(os.environ.get("AUDIOBOOKS_VASTAI_XTTS_PORT", "8020"))
 
 # API keys (loaded from ~/.config/api-keys.env by the calling service)
 DEEPL_API_KEY = os.environ.get("AUDIOBOOKS_DEEPL_API_KEY", "")

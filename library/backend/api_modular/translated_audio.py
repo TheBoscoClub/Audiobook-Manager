@@ -109,13 +109,15 @@ def generate_translated_audio():
     """Generate translated audio for audiobook chapters via TTS.
 
     Requires translated subtitles to exist first (reads VTT for text).
-    Uses edge-tts by default (free, no API key).
+    Provider defaults to AUDIOBOOKS_TTS_PROVIDER (edge-tts unless overridden
+    in audiobooks.conf). Admins can override per-request with `provider`.
 
     Request body:
         {
             "audiobook_id": 42,
             "locale": "zh-Hans",
-            "voice": "zh-CN-XiaoxiaoNeural"
+            "voice": "zh-CN-XiaoxiaoNeural",
+            "provider": "xtts-vastai"   # optional — overrides config
         }
     """
     data = request.get_json()
@@ -125,6 +127,7 @@ def generate_translated_audio():
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
     voice = data.get("voice", "zh-CN-XiaoxiaoNeural")
+    provider_override = data.get("provider")
 
     if not book_id:
         return jsonify({"error": "audiobook_id is required"}), 400
@@ -172,7 +175,13 @@ def generate_translated_audio():
 
     def _generate():
         try:
-            from ..localization.tts.edge_tts_provider import EdgeTTSProvider
+            from library.localization.tts import get_tts_provider
+
+            try:
+                tts = get_tts_provider(provider_override)
+            except ValueError:
+                logger.exception("TTS provider init failed for book %d", book_id)
+                return
 
             # Read translated text from VTT file
             if not vtt_path.exists():
@@ -200,27 +209,30 @@ def generate_translated_audio():
             joiner = "" if lang_prefix in ("zh", "ja", "ko") else " "
             full_text = joiner.join(lines)
 
-            # Generate audio via edge-tts → MP3, then transcode to Opus
+            # Generate audio to a provider-appropriate intermediate format,
+            # then transcode to Opus for consistency with the rest of the library.
+            # edge-tts writes MP3; XTTS (RunPod + Vast.ai) writes WAV.
             output_dir = audio_file_path.parent / "translated"
             output_dir.mkdir(parents=True, exist_ok=True)
-            mp3_path = output_dir / f"{audio_file_path.stem}.{locale}.tts.mp3"
+            intermediate_ext = "mp3" if tts.name == "edge-tts" else "wav"
+            intermediate_path = (
+                output_dir / f"{audio_file_path.stem}.{locale}.tts.{intermediate_ext}"
+            )
             output_path = output_dir / f"{audio_file_path.stem}.{locale}.opus"
 
-            tts = EdgeTTSProvider()
-            tts.synthesize(full_text, locale, voice, mp3_path)
+            tts.synthesize(full_text, locale, voice, intermediate_path)
 
-            # Transcode to Opus for consistency with the rest of the library
             import subprocess
             transcode = subprocess.run(
-                ["ffmpeg", "-y", "-i", str(mp3_path), "-c:a", "libopus",
+                ["ffmpeg", "-y", "-i", str(intermediate_path), "-c:a", "libopus",
                  "-b:a", "64k", "-vbr", "on", str(output_path)],
                 capture_output=True, text=True, timeout=300,
             )
             if transcode.returncode == 0:
-                mp3_path.unlink(missing_ok=True)
+                intermediate_path.unlink(missing_ok=True)
             else:
-                logger.warning("Opus transcode failed, keeping MP3: %s", transcode.stderr[:200])
-                output_path = mp3_path
+                logger.warning("Opus transcode failed, keeping source: %s", transcode.stderr[:200])
+                output_path = intermediate_path
 
             # Get duration if possible
             duration = None
@@ -245,8 +257,8 @@ def generate_translated_audio():
                     "INSERT OR REPLACE INTO chapter_translations_audio "
                     "(audiobook_id, chapter_index, locale, audio_path, "
                     " tts_provider, tts_voice, duration_seconds) "
-                    "VALUES (?, 0, ?, ?, 'edge-tts', ?, ?)",
-                    (book_id, locale, str(output_path), voice, duration),
+                    "VALUES (?, 0, ?, ?, ?, ?, ?)",
+                    (book_id, locale, str(output_path), tts.name, voice, duration),
                 )
                 gen_conn.commit()
                 logger.info(

@@ -208,3 +208,29 @@ DATA_DIR="/var/lib/audiobooks/data"
 # Index directory for checksum files (duplicates detection)
 # NOTE: Currently unused — reserved for future implementation
 #AUDIOBOOKS_INDEX="/var/lib/audiobooks/db/.index"
+
+# =============================================================================
+# Localization — TTS, STT, Translation
+# =============================================================================
+
+# TTS provider for on-demand translated audio narration.
+# Options:
+#   edge-tts       — Microsoft Edge TTS (default, free, CPU, English+Chinese)
+#   xtts-runpod    — Coqui XTTS v2 on RunPod serverless (GPU, voice cloning)
+#   xtts-vastai    — Coqui XTTS v2 self-hosted on Vast.ai (GPU, voice cloning)
+#AUDIOBOOKS_TTS_PROVIDER="edge-tts"
+#AUDIOBOOKS_TTS_VOICE_ZH="zh-CN-XiaoxiaoNeural"
+
+# RunPod credentials (for xtts-runpod and STT Whisper)
+#AUDIOBOOKS_RUNPOD_API_KEY=""
+#AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=""
+#AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT=""
+
+# Vast.ai self-hosted GPU servers
+#AUDIOBOOKS_VASTAI_WHISPER_HOST=""
+#AUDIOBOOKS_VASTAI_WHISPER_PORT="8000"
+#AUDIOBOOKS_VASTAI_XTTS_HOST=""
+#AUDIOBOOKS_VASTAI_XTTS_PORT="8020"
+
+# DeepL API key for on-demand text translation (strings, subtitles)
+#AUDIOBOOKS_DEEPL_API_KEY=""
