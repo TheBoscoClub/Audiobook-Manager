@@ -63,6 +63,11 @@ class Transcript:
 class STTProvider(ABC):
     """Abstract speech-to-text provider."""
 
+    #: True for in-process providers (no network I/O). Runtime fallback
+    #: helpers use this to decide whether a network error should be
+    #: retried against the local provider or re-raised.
+    is_local: bool = False
+
     @abstractmethod
     def transcribe(self, audio_path: Path, language: str = "en") -> Transcript:
         """Transcribe an audio file and return word-level timestamps."""

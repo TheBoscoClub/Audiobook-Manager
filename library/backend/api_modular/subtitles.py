@@ -208,7 +208,8 @@ def generate_subtitles_endpoint():
                     "minute or two…"
                 ),
             )
-            stt = get_stt_provider(provider_name)
+            from localization.selection import WorkloadHint
+            stt = get_stt_provider(provider_name, workload=WorkloadHint.LONG_FORM)
             _set_status(
                 book_id, locale,
                 phase="transcribing",
@@ -419,7 +420,8 @@ def user_request_subtitles():
                     "minute or two…"
                 ),
             )
-            stt = get_stt_provider(provider_name)
+            from localization.selection import WorkloadHint
+            stt = get_stt_provider(provider_name, workload=WorkloadHint.LONG_FORM)
             _set_status(
                 int(book_id), locale,
                 phase="transcribing",

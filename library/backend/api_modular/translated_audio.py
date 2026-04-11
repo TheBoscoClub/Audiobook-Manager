@@ -175,10 +175,18 @@ def generate_translated_audio():
 
     def _generate():
         try:
-            from library.localization.tts import get_tts_provider
+            from library.localization.selection import WorkloadHint
+            from library.localization.tts.factory import (
+                get_tts_provider,
+                synthesize_with_fallback,
+            )
 
             try:
-                tts = get_tts_provider(provider_override)
+                # Full-book narration is long-form → prefer GPU backend,
+                # auto-fall-through to edge-tts if none is configured.
+                tts = get_tts_provider(
+                    provider_override, workload=WorkloadHint.LONG_FORM
+                )
             except ValueError:
                 logger.exception("TTS provider init failed for book %d", book_id)
                 return
@@ -220,7 +228,11 @@ def generate_translated_audio():
             )
             output_path = output_dir / f"{audio_file_path.stem}.{locale}.opus"
 
-            tts.synthesize(full_text, locale, voice, intermediate_path)
+            # Wraps network errors once against edge-tts; ffmpeg below
+            # sniffs content, so the extension mismatch on fallback is harmless.
+            synthesize_with_fallback(
+                tts, full_text, locale, voice, intermediate_path
+            )
 
             import subprocess
             transcode = subprocess.run(

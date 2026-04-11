@@ -26,6 +26,8 @@ WHISPER_LANGUAGES = {
 class LocalWhisperSTT(STTProvider):
     """Local Whisper STT using faster-whisper (CTranslate2)."""
 
+    is_local = True
+
     def __init__(self, model_size: str = "base", device: str = "auto"):
         """Initialize the local Whisper provider.
 

@@ -1,20 +1,27 @@
 """End-to-end localization pipeline orchestrator.
 
-Coordinates STT → Translation → VTT subtitle generation and
-Translation → TTS audio generation for audiobook chapters.
+Coordinates STT → Translation → VTT subtitle generation for audiobook
+chapters. Provider selection is workload-aware: short/interactive work
+prefers local providers (no cold-start, no billing minimums), while
+long-form work (chapters, full books) prefers remote GPU for throughput.
+Runtime network errors fall back to local once per request via the
+shared :mod:`library.localization.fallback` helper.
 """
 
 import logging
 from pathlib import Path
 
-import requests
-
 from .config import (
-    STT_PROVIDER, DEEPL_API_KEY, RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT,
-    VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT,
+    DEEPL_API_KEY,
+    RUNPOD_API_KEY,
+    RUNPOD_WHISPER_ENDPOINT,
+    STT_PROVIDER,
+    VASTAI_WHISPER_HOST,
+    VASTAI_WHISPER_PORT,
 )
+from .fallback import with_local_fallback
+from .selection import WorkloadHint
 from .stt.base import STTProvider, Transcript
-from .stt.deepl_stt import DeepLSTT
 from .stt.local_whisper import LocalWhisperSTT
 from .stt.vastai_whisper import VastaiWhisperSTT
 from .stt.whisper_stt import WhisperSTT
@@ -23,95 +30,91 @@ from .subtitles.vtt_generator import generate_vtt
 
 logger = logging.getLogger(__name__)
 
-# Minimum remaining minutes before switching from DeepL to Whisper
-STT_MIN_REMAINING = 60
-
-# Errors that indicate a remote STT provider is unreachable and we should
-# fall back to in-process LocalWhisperSTT for this request.
-_STT_NETWORK_ERRORS = (requests.exceptions.RequestException, OSError, TimeoutError)
-
 
 def _transcribe_with_fallback(
     provider: STTProvider, audio_path: Path, source_lang: str
 ) -> Transcript:
-    """Transcribe via the chosen provider; on network failure, retry locally.
+    """Transcribe via ``provider``; on network failure, retry once locally."""
+    return with_local_fallback(
+        kind="STT",
+        provider_name=provider.name,
+        is_local=provider.is_local,
+        remote_call=lambda: provider.transcribe(audio_path, language=source_lang),
+        local_call=lambda: LocalWhisperSTT().transcribe(audio_path, language=source_lang),
+    )
 
-    Remote STT providers (Vast.ai, RunPod, DeepL) can be unreachable when a
-    GPU instance is down or the host is misconfigured. Rather than surfacing
-    a connection error to the user, fall back once to in-process
-    `LocalWhisperSTT` (faster-whisper). Local provider failures are not
-    retried — the error is real.
+
+def _remote_stt_candidates() -> list[STTProvider]:
+    """Return configured remote STT providers in preferred order.
+
+    RunPod is listed before Vast.ai because RunPod's serverless endpoints
+    scale to zero (no idle billing) and satisfy the project's on-demand
+    provisioning rule by default. Vast.ai requires a pinned instance, so
+    it's an explicit opt-in for users who have one running.
     """
-    try:
-        return provider.transcribe(audio_path, language=source_lang)
-    except _STT_NETWORK_ERRORS as exc:
-        if isinstance(provider, LocalWhisperSTT):
-            raise
-        logger.warning(
-            "STT provider %s unreachable (%s) — falling back to local Whisper",
-            provider.name, exc.__class__.__name__,
-        )
-        return LocalWhisperSTT().transcribe(audio_path, language=source_lang)
+    providers: list[STTProvider] = []
+    if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
+        providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT))
+    if VASTAI_WHISPER_HOST:
+        providers.append(VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT))
+    return providers
 
 
-def get_stt_provider(provider_name: str = "") -> STTProvider:
-    """Create an STT provider based on configuration.
+def get_stt_provider(
+    provider_name: str = "",
+    workload: WorkloadHint = WorkloadHint.ANY,
+) -> STTProvider:
+    """Pick an STT provider based on configuration and workload shape.
 
-    Provider priority (auto mode):
-        1. Vast.ai Whisper (if host configured — direct GPU instance)
-        2. RunPod Whisper (if API key and endpoint set — serverless)
-        3. Local Whisper via faster-whisper (always available as fallback)
-        4. DeepL STT — last resort only; audiobooks typically exceed its
-           upload size limit (HTTP 413), so it is not useful for full books
+    Explicit overrides (``provider_name`` or the ``STT_PROVIDER`` env var)
+    always win. In auto mode, selection is workload-aware:
+
+    - ``SHORT_CLIP`` → local first (no cold-start, no per-minute billing)
+    - ``LONG_FORM`` → remote GPU first (RunPod serverless → Vast.ai)
+    - ``ANY`` → remote if configured, else local
+
+    DeepL STT is intentionally NOT in the auto chain: its transcribe
+    endpoint rejects payloads above ~100 MB, and audiobooks are routinely
+    200–500 MB. Callers who need it must opt in via ``provider_name="deepl"``.
 
     Args:
-        provider_name: Override — "deepl", "whisper", "vastai", "local", or "auto".
+        provider_name: Override — ``"local"``, ``"whisper"`` (RunPod),
+            ``"vastai"``, ``"deepl"``, or empty for auto mode.
+        workload: Hint describing the work shape. Defaults to ``ANY``.
 
     Returns:
         An initialized STT provider instance.
     """
-    name = provider_name or STT_PROVIDER
+    name = (provider_name or STT_PROVIDER or "").lower()
 
     if name == "local":
         return LocalWhisperSTT()
-
-    if name == "vastai":
-        if VASTAI_WHISPER_HOST:
-            return VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT)
-        logger.warning("Vast.ai Whisper requested but not configured — falling back to local")
-        return LocalWhisperSTT()
-
     if name == "whisper":
         if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
             return WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT)
-        logger.warning("RunPod Whisper requested but not configured — falling back to local")
+        logger.warning("RunPod Whisper requested but not configured — using local")
         return LocalWhisperSTT()
-
+    if name == "vastai":
+        if VASTAI_WHISPER_HOST:
+            return VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT)
+        logger.warning("Vast.ai Whisper requested but not configured — using local")
+        return LocalWhisperSTT()
     if name == "deepl":
+        from .stt.deepl_stt import DeepLSTT
         return DeepLSTT(DEEPL_API_KEY)
 
-    # Auto mode: prefer Whisper providers (no upload-size limit), DeepL last.
-    # DeepL's transcribe endpoint rejects payloads above ~100 MB, and full
-    # audiobooks are routinely 200-500 MB, so DeepL is almost never viable
-    # for this use case — it's kept only as a last resort.
-    if VASTAI_WHISPER_HOST:
-        return VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT)
+    # Auto mode: workload-aware ordering.
+    remote = _remote_stt_candidates()
 
-    if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
-        return WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT)
+    if workload is WorkloadHint.SHORT_CLIP or not remote:
+        if not remote:
+            logger.info("No remote STT configured — using local Whisper")
+        return LocalWhisperSTT()
 
-    if DEEPL_API_KEY:
-        deepl = DeepLSTT(DEEPL_API_KEY)
-        remaining = deepl.usage_remaining()
-        if remaining is None or remaining > STT_MIN_REMAINING:
-            logger.warning(
-                "Falling back to DeepL STT — may fail with 413 on audiobooks >100MB"
-            )
-            return deepl
-
-    # Final fallback: local Whisper (no API keys needed)
-    logger.info("No cloud STT provider configured — using local Whisper")
-    return LocalWhisperSTT()
+    # LONG_FORM or ANY with remote available → prefer the first remote.
+    chosen = remote[0]
+    logger.info("Auto STT: selected %s (workload=%s)", chosen.name, workload.value)
+    return chosen
 
 
 def generate_subtitles(

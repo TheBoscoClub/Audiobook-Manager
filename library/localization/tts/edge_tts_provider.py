@@ -26,6 +26,8 @@ EDGE_VOICES = {
 class EdgeTTSProvider(TTSProvider):
     """Microsoft edge-tts — free, no GPU, near-instant generation."""
 
+    is_local = True
+
     @property
     def name(self) -> str:
         return "edge-tts"
