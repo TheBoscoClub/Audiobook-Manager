@@ -29,10 +29,11 @@ def get_stt_provider(provider_name: str = "") -> STTProvider:
     """Create an STT provider based on configuration.
 
     Provider priority (auto mode):
-        1. DeepL STT (if API key set and usage remaining)
-        2. Vast.ai Whisper (if host configured — direct GPU instance)
-        3. RunPod Whisper (if API key and endpoint set — serverless)
-        4. Local Whisper via faster-whisper (always available as fallback)
+        1. Vast.ai Whisper (if host configured — direct GPU instance)
+        2. RunPod Whisper (if API key and endpoint set — serverless)
+        3. Local Whisper via faster-whisper (always available as fallback)
+        4. DeepL STT — last resort only; audiobooks typically exceed its
+           upload size limit (HTTP 413), so it is not useful for full books
 
     Args:
         provider_name: Override — "deepl", "whisper", "vastai", "local", or "auto".
@@ -60,19 +61,24 @@ def get_stt_provider(provider_name: str = "") -> STTProvider:
     if name == "deepl":
         return DeepLSTT(DEEPL_API_KEY)
 
-    # Auto mode: prefer DeepL if usage allows, else GPU providers, else local
-    if DEEPL_API_KEY:
-        deepl = DeepLSTT(DEEPL_API_KEY)
-        remaining = deepl.usage_remaining()
-        if remaining is None or remaining > STT_MIN_REMAINING:
-            return deepl
-        logger.info("DeepL STT has %d min remaining — trying next provider", remaining)
-
+    # Auto mode: prefer Whisper providers (no upload-size limit), DeepL last.
+    # DeepL's transcribe endpoint rejects payloads above ~100 MB, and full
+    # audiobooks are routinely 200-500 MB, so DeepL is almost never viable
+    # for this use case — it's kept only as a last resort.
     if VASTAI_WHISPER_HOST:
         return VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT)
 
     if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
         return WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT)
+
+    if DEEPL_API_KEY:
+        deepl = DeepLSTT(DEEPL_API_KEY)
+        remaining = deepl.usage_remaining()
+        if remaining is None or remaining > STT_MIN_REMAINING:
+            logger.warning(
+                "Falling back to DeepL STT — may fail with 413 on audiobooks >100MB"
+            )
+            return deepl
 
     # Final fallback: local Whisper (no API keys needed)
     logger.info("No cloud STT provider configured — using local Whisper")

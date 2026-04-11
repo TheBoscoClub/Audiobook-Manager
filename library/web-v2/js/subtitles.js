@@ -255,12 +255,34 @@
 
     var phaseKey = "subtitleGen.phase." + (status.phase || "queued");
     var phaseLabel = typeof t === "function" ? t(phaseKey) : phaseKey;
+    var phaseTranslated = phaseLabel !== phaseKey;
     // If no translation for the key, fall back to the server-provided message.
-    if (phaseLabel === phaseKey) {
+    if (!phaseTranslated) {
       phaseLabel = status.message || phaseKey;
     }
     phaseEl.textContent = phaseLabel;
-    detailEl.textContent = status.message || "";
+
+    // Only show the server-provided message as a detail line when it adds
+    // information the translated phase label doesn't already convey. Otherwise
+    // the English backend text leaks into a Chinese UI and looks sloppy.
+    // Rules:
+    //   - Never show the detail when phase was translated AND state is normal
+    //     (queued/starting/running/completed) — the phase label is enough.
+    //   - Show the detail on error only if there's actually extra text in
+    //     status.error that would help the user.
+    var showDetail = false;
+    if (!phaseTranslated && status.message) {
+      showDetail = true;
+    }
+    if (status.state === "failed" && status.error) {
+      detailEl.textContent = status.error;
+      showDetail = true;
+    } else if (showDetail) {
+      detailEl.textContent = status.message || "";
+    } else {
+      detailEl.textContent = "";
+    }
+    detailEl.style.display = showDetail ? "" : "none";
 
     var banner = genBanner();
     if (!banner) return;
