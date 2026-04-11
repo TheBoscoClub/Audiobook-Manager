@@ -50,15 +50,26 @@ class VastaiWhisperSTT(STTProvider):
         resp.raise_for_status()
         result = resp.json()
 
+        # Two response shapes supported:
+        #   (a) Top-level "words" array — faster-whisper / Vast.ai instances
+        #   (b) Nested "segments[].words[]" — whisper.cpp server verbose_json
         words = []
-        for w in result.get("words", []):
+        raw_words = result.get("words") or []
+        if not raw_words:
+            for seg in result.get("segments", []):
+                raw_words.extend(seg.get("words", []))
+
+        for w in raw_words:
+            text = (w.get("word") or w.get("text") or "").strip()
+            if not text:
+                continue
             words.append(WordTimestamp(
-                word=w.get("word", "").strip(),
-                start_ms=int(w.get("start", 0) * 1000),
-                end_ms=int(w.get("end", 0) * 1000),
+                word=text,
+                start_ms=int(float(w.get("start", 0)) * 1000),
+                end_ms=int(float(w.get("end", 0)) * 1000),
             ))
 
-        duration_ms = int(result.get("duration", 0) * 1000)
+        duration_ms = int(float(result.get("duration", 0)) * 1000)
         if not duration_ms and words:
             duration_ms = words[-1].end_ms
 
