@@ -128,8 +128,148 @@
 
       if (hasSubtitles) {
         buildTranscriptPanel();
+        hideGenBanner();
+      } else if (locale !== "en") {
+        // No subtitles AND user is on a translated locale: offer generation.
+        showGenBanner(bookId, locale);
+      } else {
+        hideGenBanner();
       }
     });
+  }
+
+  // ── On-demand subtitle generation banner ──
+  // When a translated-locale user opens a book without subtitles, offer to
+  // generate them. Because STT (Whisper on Vast.ai) + translation is slow and
+  // involves a GPU cold start, we poll /api/subtitles/status and surface a
+  // human-readable phase so the user isn't staring at a silent spinner.
+
+  var _genPollTimer = null;
+  var _genBannerBookId = null;
+
+  function genBanner() { return document.getElementById("subtitle-gen-banner"); }
+
+  function setGenUi(mode) {
+    var banner = genBanner();
+    if (!banner) return;
+    var idle = banner.querySelector(".sgb-idle");
+    var prog = banner.querySelector(".sgb-progress");
+    if (mode === "idle") {
+      if (idle) idle.style.display = "";
+      if (prog) prog.style.display = "none";
+    } else if (mode === "progress") {
+      if (idle) idle.style.display = "none";
+      if (prog) prog.style.display = "";
+    }
+    banner.style.display = "";
+  }
+
+  function hideGenBanner() {
+    stopGenPoll();
+    var banner = genBanner();
+    if (banner) banner.style.display = "none";
+  }
+
+  function showGenBanner(bookId, locale) {
+    _genBannerBookId = bookId;
+    var banner = genBanner();
+    if (!banner) return;
+    setGenUi("idle");
+    // Wire the generate button for this book/locale
+    var btn = document.getElementById("sgb-generate");
+    if (btn) {
+      btn.onclick = function () { startGeneration(bookId, locale); };
+    }
+    // If a job is already running for this book, jump straight into progress.
+    fetch(API_BASE + "/subtitles/status/" + bookId + "/" + encodeURIComponent(locale))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) {
+        if (!s) return;
+        if (s.state === "queued" || s.state === "starting" || s.state === "running") {
+          setGenUi("progress");
+          renderGenStatus(s);
+          startGenPoll(bookId, locale);
+        }
+      })
+      .catch(function () {});
+  }
+
+  function startGeneration(bookId, locale) {
+    setGenUi("progress");
+    renderGenStatus({ phase: "queued", message: (typeof t === "function" ? t("subtitleGen.queued") : "Queued…") });
+    fetch(API_BASE + "/user/subtitles/request", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ audiobook_id: bookId, locale: locale }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          // 401: sign-in required. 429: cooldown. Show the server message.
+          renderGenStatus({
+            phase: "error",
+            message: (res.body && res.body.error) || (res.body && res.body.message) || "Could not start subtitle generation.",
+          });
+          return;
+        }
+        startGenPoll(bookId, locale);
+      })
+      .catch(function () {
+        renderGenStatus({ phase: "error", message: (typeof t === "function" ? t("subtitleGen.networkError") : "Network error. Please try again.") });
+      });
+  }
+
+  function startGenPoll(bookId, locale) {
+    stopGenPoll();
+    _genPollTimer = setInterval(function () {
+      if (_genBannerBookId !== bookId) { stopGenPoll(); return; }
+      fetch(API_BASE + "/subtitles/status/" + bookId + "/" + encodeURIComponent(locale))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (s) {
+          if (!s) return;
+          renderGenStatus(s);
+          if (s.state === "completed") {
+            stopGenPoll();
+            // Reload subtitles; banner will hide automatically when cues appear.
+            setTimeout(function () { loadSubtitles(bookId, currentChapterIndex); }, 500);
+          } else if (s.state === "failed") {
+            stopGenPoll();
+          }
+        })
+        .catch(function () {});
+    }, 3000);
+  }
+
+  function stopGenPoll() {
+    if (_genPollTimer) {
+      clearInterval(_genPollTimer);
+      _genPollTimer = null;
+    }
+  }
+
+  function renderGenStatus(status) {
+    var phaseEl = document.getElementById("sgb-phase");
+    var detailEl = document.getElementById("sgb-detail");
+    if (!phaseEl || !detailEl) return;
+
+    var phaseKey = "subtitleGen.phase." + (status.phase || "queued");
+    var phaseLabel = typeof t === "function" ? t(phaseKey) : phaseKey;
+    // If no translation for the key, fall back to the server-provided message.
+    if (phaseLabel === phaseKey) {
+      phaseLabel = status.message || phaseKey;
+    }
+    phaseEl.textContent = phaseLabel;
+    detailEl.textContent = status.message || "";
+
+    var banner = genBanner();
+    if (!banner) return;
+    banner.classList.remove("sgb-error", "sgb-done");
+    if (status.state === "failed" || status.phase === "error") {
+      banner.classList.add("sgb-error");
+    } else if (status.state === "completed") {
+      banner.classList.add("sgb-done");
+    }
   }
 
   function checkTranslatedAudio(bookId, chapterIndex, locale) {

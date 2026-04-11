@@ -345,5 +345,18 @@
   "common.ok": "确定",
   "common.error": "错误",
   "common.success": "成功",
-  "common.retry": "重试"
+  "common.retry": "重试",
+
+  "subtitleGen.offer": "这本书还没有翻译字幕。要现在生成吗？",
+  "subtitleGen.generate": "生成字幕",
+  "subtitleGen.queued": "已排队…",
+  "subtitleGen.starting": "正在启动…",
+  "subtitleGen.networkError": "网络错误，请重试。",
+  "subtitleGen.phase.queued": "已排队",
+  "subtitleGen.phase.loading_pipeline": "正在加载语音识别…",
+  "subtitleGen.phase.gpu_spinup": "正在唤醒 GPU 服务器（冷启动可能需要一两分钟）…",
+  "subtitleGen.phase.transcribing": "正在转录音频——可能需要几分钟…",
+  "subtitleGen.phase.saving": "正在保存转录和翻译…",
+  "subtitleGen.phase.done": "字幕已就绪。",
+  "subtitleGen.phase.error": "字幕生成失败。请几分钟后重试。"
 }

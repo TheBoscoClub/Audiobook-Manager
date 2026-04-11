@@ -10,13 +10,13 @@
     <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="manifest" href="/site.webmanifest">
-    <link rel="stylesheet" href="css/shell.css?v=1775884000">
-    <link rel="stylesheet" href="css/maintenance-banner.css?v=1775884000">
-    <link rel="stylesheet" href="css/theme-art-deco.css?v=1775884000">
-    <link rel="stylesheet" href="css/modals.css?v=1775884000">
-    <link rel="stylesheet" href="css/account.css?v=1775884000">
-    <link rel="stylesheet" href="css/accessibility.css?v=1775884000">
-    <link rel="stylesheet" href="css/i18n.css?v=1775884000">
+    <link rel="stylesheet" href="css/shell.css?v=1775920000">
+    <link rel="stylesheet" href="css/maintenance-banner.css?v=1775920000">
+    <link rel="stylesheet" href="css/theme-art-deco.css?v=1775920000">
+    <link rel="stylesheet" href="css/modals.css?v=1775920000">
+    <link rel="stylesheet" href="css/account.css?v=1775920000">
+    <link rel="stylesheet" href="css/accessibility.css?v=1775920000">
+    <link rel="stylesheet" href="css/i18n.css?v=1775920000">
     <style>
         .instance-badge {
             display: inline-block;
@@ -164,7 +164,7 @@
     </div>
 
     <!-- Content iframe: loads all authenticated pages -->
-    <iframe id="content-frame" name="content-frame" src="index.html?v=1775884000" title="Library content"></iframe>
+    <iframe id="content-frame" name="content-frame" src="index.html?v=1775920000" title="Library content"></iframe>
 
     <!-- Persistent player bar (hidden until a book is played) -->
     <div id="shell-player" hidden>
@@ -203,6 +203,20 @@
         <div id="subtitle-display" class="subtitle-display" style="display:none;">
             <div id="subtitle-source" class="subtitle-line subtitle-source"></div>
             <div id="subtitle-translated" class="subtitle-line subtitle-translated"></div>
+        </div>
+        <!-- Subtitle generation banner (on-demand STT/translation) -->
+        <div id="subtitle-gen-banner" class="subtitle-gen-banner" style="display:none;">
+            <div class="sgb-idle">
+                <span class="sgb-message" data-i18n="subtitleGen.offer">Translated subtitles aren't available for this book yet. Generate them now?</span>
+                <button type="button" class="sgb-button" id="sgb-generate" data-i18n="subtitleGen.generate">Generate subtitles</button>
+            </div>
+            <div class="sgb-progress" style="display:none;">
+                <div class="sgb-spinner" aria-hidden="true"></div>
+                <div class="sgb-progress-text">
+                    <div class="sgb-phase" id="sgb-phase" data-i18n="subtitleGen.starting">Starting…</div>
+                    <div class="sgb-detail" id="sgb-detail"></div>
+                </div>
+            </div>
         </div>
         <audio id="audio-element"></audio>
     </div>
@@ -374,16 +388,16 @@
             }
         }).catch(function(){});
     </script>
-    <script data-cfasync="false" src="js/i18n.js?v=1775885000"></script>
-    <script data-cfasync="false" src="js/api.js?v=1775884000"></script>
-    <script data-cfasync="false" src="js/utils.js?v=1775884000"></script>
-    <script data-cfasync="false" src="js/websocket.js?v=1775884000"></script>
+    <script data-cfasync="false" src="js/i18n.js?v=1775920000"></script>
+    <script data-cfasync="false" src="js/api.js?v=1775920000"></script>
+    <script data-cfasync="false" src="js/utils.js?v=1775920000"></script>
+    <script data-cfasync="false" src="js/websocket.js?v=1775920000"></script>
     <script data-cfasync="false" src="js/maintenance-banner.js?v=1775884500"></script>
-    <script data-cfasync="false" src="js/session-persistence.js?v=1775884000"></script>
-    <script data-cfasync="false" src="js/shell.js?v=1775884000"></script>
-    <script data-cfasync="false" src="js/subtitles.js?v=1775884000"></script>
-    <script data-cfasync="false" src="js/account.js?v=1775884000"></script>
-    <script data-cfasync="false" src="js/accessibility.js?v=1775884000"></script>
+    <script data-cfasync="false" src="js/session-persistence.js?v=1775920000"></script>
+    <script data-cfasync="false" src="js/shell.js?v=1775920000"></script>
+    <script data-cfasync="false" src="js/subtitles.js?v=1775920000"></script>
+    <script data-cfasync="false" src="js/account.js?v=1775920000"></script>
+    <script data-cfasync="false" src="js/accessibility.js?v=1775920000"></script>
     <!-- suggestions-admin.js moved to utilities.html (Back Office) -->
 </body>
 </html>

@@ -345,5 +345,18 @@
   "common.ok": "OK",
   "common.error": "Error",
   "common.success": "Success",
-  "common.retry": "Retry"
+  "common.retry": "Retry",
+
+  "subtitleGen.offer": "Translated subtitles aren't available for this book yet. Generate them now?",
+  "subtitleGen.generate": "Generate subtitles",
+  "subtitleGen.queued": "Queued…",
+  "subtitleGen.starting": "Starting…",
+  "subtitleGen.networkError": "Network error. Please try again.",
+  "subtitleGen.phase.queued": "Queued",
+  "subtitleGen.phase.loading_pipeline": "Loading speech-to-text pipeline…",
+  "subtitleGen.phase.gpu_spinup": "Waking up the GPU server (cold start can take a minute or two)…",
+  "subtitleGen.phase.transcribing": "Transcribing audio — this can take several minutes…",
+  "subtitleGen.phase.saving": "Saving transcript and translation…",
+  "subtitleGen.phase.done": "Subtitles ready.",
+  "subtitleGen.phase.error": "Subtitle generation failed. Please try again in a few minutes."
 }

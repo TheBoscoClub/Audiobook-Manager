@@ -113,6 +113,96 @@ html.cjk .subtitle-translated {
   line-height: 1.6;
 }
 
+/* ── On-demand Subtitle Generation Banner ────────────── */
+
+.subtitle-gen-banner {
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.72);
+  border-top: 1px solid rgba(197, 165, 90, 0.35);
+  color: var(--parchment, #f4e8c1);
+  font-size: 0.92rem;
+}
+
+.subtitle-gen-banner .sgb-idle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.subtitle-gen-banner .sgb-message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.subtitle-gen-banner .sgb-button {
+  background: var(--deco-gold, #c5a55a);
+  color: #1a1410;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.subtitle-gen-banner .sgb-button:hover {
+  background: #d9bb6e;
+}
+
+.subtitle-gen-banner .sgb-progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.subtitle-gen-banner .sgb-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(197, 165, 90, 0.25);
+  border-top-color: var(--deco-gold, #c5a55a);
+  border-radius: 50%;
+  animation: sgb-spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes sgb-spin { to { transform: rotate(360deg); } }
+
+.subtitle-gen-banner .sgb-progress-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.subtitle-gen-banner .sgb-phase {
+  color: var(--deco-gold, #c5a55a);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.subtitle-gen-banner .sgb-detail {
+  color: var(--parchment, #f4e8c1);
+  opacity: 0.75;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.subtitle-gen-banner.sgb-error {
+  border-top-color: rgba(200, 80, 60, 0.6);
+}
+.subtitle-gen-banner.sgb-error .sgb-phase {
+  color: #e08070;
+}
+.subtitle-gen-banner.sgb-error .sgb-spinner {
+  animation: none;
+  border-top-color: #e08070;
+}
+
+.subtitle-gen-banner.sgb-done .sgb-phase {
+  color: #8acf8a;
+}
+
 /* ── Transcript Side Panel ───────────────────────────── */
 
 .transcript-panel {
