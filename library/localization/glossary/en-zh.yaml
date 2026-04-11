@@ -1,0 +1,30 @@
+# DeepL glossary — English to Simplified Chinese.
+#
+# Domain-specific terminology for the Audiobook Library. DeepL applies
+# these as exact-match overrides on every translation request, which
+# keeps terms consistent across book metadata, UI strings, and on-demand
+# translations regardless of surrounding context.
+#
+# Keep this focused on audiobook / library / auth domain terms — it is
+# NOT a general dictionary. Each entry burns a slot in the DeepL glossary
+# (max 1 MB per glossary on the paid tier, smaller on free).
+#
+# Format: english: chinese
+# Edit and then call POST /api/admin/localization/glossary/refresh
+# (or restart the backend) to push the new glossary to DeepL.
+
+Audiobook: 有声书
+Audiobooks: 有声书
+Narrator: 朗读者
+Narrators: 朗读者
+Author: 作者
+Authors: 作者
+Series: 系列
+Chapter: 章节
+Chapters: 章节
+The Library: 图书馆
+Library: 图书馆
+Collection: 合集
+Collections: 合集
+Passkey: 通用密钥
+Passkeys: 通用密钥

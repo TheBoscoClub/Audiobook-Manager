@@ -20,7 +20,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from .auth import admin_if_enabled, guest_allowed
+from .auth import admin_if_enabled, admin_required, guest_allowed
 from .search_cjk import pinyin_sort_key
 
 translations_bp = Blueprint("translations", __name__)
@@ -94,6 +94,26 @@ def init_translations_routes(database_path):
     except sqlite3.Error:
         logger.exception("Failed to ensure string_translations table")
 
+    # Migration 020: deepl_quota single-row bookkeeping for quota/glossary.
+    try:
+        conn = sqlite3.connect(str(_db_path))
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS deepl_quota (
+                id TEXT PRIMARY KEY DEFAULT 'default',
+                chars_used INTEGER NOT NULL DEFAULT 0,
+                char_limit INTEGER NOT NULL DEFAULT 500000,
+                period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_api_check TIMESTAMP,
+                glossary_id TEXT,
+                glossary_source_hash TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )"""
+        )
+        conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
+        conn.commit()
+        conn.close()
+    except sqlite3.Error:
+        logger.exception("Failed to ensure deepl_quota table")
 
 
 def _hash_source(text: str) -> str:
@@ -849,3 +869,39 @@ def batch_translate():
     finally:
         conn.close()
 
+
+@translations_bp.route("/api/admin/localization/quota", methods=["GET"])
+@admin_required
+def admin_localization_quota():
+    """Return DeepL quota + glossary status for the backoffice.
+
+    Admin-only. The backoffice utilities page will eventually surface
+    this — until then, admins can read it directly via:
+        curl -b session.cookie https://host/api/admin/localization/quota
+
+    Response shape:
+        {
+          "used": int,        # characters billed this period
+          "limit": int,       # character cap (DeepL free tier = 500000)
+          "percent": float,   # used / limit * 100
+          "remaining": int,
+          "reset_date": str,  # YYYY-MM-DD of next monthly reset
+          "glossary_id": str | null,
+          "note": str
+        }
+    """
+    try:
+        from localization.translation.quota import QuotaTracker
+
+        tracker = QuotaTracker(db_path=_db_path)
+        snap = tracker.snapshot()
+    except Exception:
+        logger.exception("Failed to read DeepL quota snapshot")
+        return jsonify({"error": "quota unavailable"}), 500
+
+    snap["note"] = (
+        "DeepL quota + glossary status. Hard limit at 99% triggers "
+        "pass-through English fallback. Refresh glossary by restarting "
+        "the backend or editing library/localization/glossary/en-zh.yaml."
+    )
+    return jsonify(snap)
