@@ -1567,8 +1567,11 @@ do_upgrade() {
     fi
 
     # Major version: config migration + service enablement
+    # Config migrations are idempotent and always run — they're the only way
+    # stale config drift from older install.sh versions gets corrected.
+    apply_config_migrations "$project" "${use_sudo}"
+
     if [[ "$MAJOR_VERSION" == "true" ]]; then
-        apply_config_migrations "$project" "${use_sudo}"
         enable_new_services "${use_sudo}"
     fi
 
@@ -1591,6 +1594,36 @@ do_upgrade() {
 
     # Run audit & cleanup (every upgrade)
     audit_and_cleanup "$target" "$use_sudo"
+
+    # Reconcile filesystem against install manifest (report-only for now)
+    if [[ -f "${project}/scripts/reconcile-filesystem.sh" ]]; then
+        local recon_lib_dir="$target"
+        local recon_state="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+        local recon_log="${AUDIOBOOKS_LOGS:-/var/log/audiobooks}"
+        local recon_config="${AUDIOBOOKS_CONFIG_DIR:-/etc/audiobooks}"
+        local recon_systemd="/etc/systemd/system"
+        local recon_bin="/usr/local/bin"
+        if [[ "$target" != "/opt/audiobooks" && "$target" != "/usr/local/lib/audiobooks" ]]; then
+            # User install
+            recon_state="${HOME}/.local/state/audiobooks"
+            recon_log="${HOME}/.local/state/audiobooks/logs"
+            recon_config="${HOME}/.config/audiobooks"
+            recon_systemd="${HOME}/.config/systemd/user"
+            recon_bin="${HOME}/.local/bin"
+        fi
+        PROJECT_DIR="$project" \
+        LIB_DIR="$recon_lib_dir" \
+        STATE_DIR="$recon_state" \
+        LOG_DIR="$recon_log" \
+        CONFIG_DIR="$recon_config" \
+        CONF_FILE="${recon_config}/audiobooks.conf" \
+        USE_SUDO="$use_sudo" \
+        SYSTEMD_DIR="$recon_systemd" \
+        BIN_DIR="$recon_bin" \
+        RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+        DRY_RUN="$DRY_RUN" \
+            bash "${project}/scripts/reconcile-filesystem.sh" || true
+    fi
 }
 
 # -----------------------------------------------------------------------------
