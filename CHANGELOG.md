@@ -13,6 +13,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.1.0] - 2026-04-11
+
+### Added
+
+- **Internationalization (i18n) — Simplified Chinese (zh-Hans)**: Full localization pipeline. Catalog-based UI strings (`library/locales/en.json`, `library/locales/zh-Hans.json`) cover the static chrome (header, navigation, player controls, modals, account screens, error messages). On-demand DeepL translation overlay handles dynamic and admin-authored content
+- **On-demand DeepL translation cache** (`library/backend/api_modular/translations.py`): `/api/translations/strings` (POST hash-based lookup) and `/api/translations/by-locale/{locale}` (GET full snapshot) endpoints. Backend hashes source strings with short SHA-256 and caches per-locale translations in `string_translations`. Frontend `i18n.js` mirrors the hash so the JS and Python sides agree on cache keys
+- **Cross-frame locale sync**: Locale changes propagate from `shell.html` into the embedded `iframe#content-frame` (and vice versa) via `postMessage`, plus a global `localeChanged` event so individual modules (marquee, tutorial, sidebar, modal, maintenance banner) can re-render without a full page reload
+- **DeepL overlay coverage**: Book card titles, author names, narrator names, series names, sidebar collection names, marquee new-book titles, sort options, tour step titles + descriptions, help.html and about.html headings, book detail modal title/author/narrator, accessibility panel button labels, and admin-authored maintenance panel + notification banner content all flow through the DeepL pipeline
+- **Speech-to-text (STT) provider abstraction** (`library/localization/stt/`): Pluggable Whisper backends — DeepL transcription (legacy), self-hosted Vast.ai Whisper server, and an `auto` mode that prefers Whisper over DeepL when both are configured. `VastaiWhisperSTT` accepts both `faster-whisper` (top-level `words[]`) and `whisper.cpp` (`segments[].words[]`) response shapes, plus string-typed timestamps and `text`/`word` field aliases
+- **Text-to-speech (TTS) provider factory** (`library/localization/tts/factory.py`): Config-driven backend selection via `AUDIOBOOKS_TTS_PROVIDER`. Supported: `edge-tts` (CPU default), `xtts-runpod` (RunPod serverless GPU), `xtts-vastai` (self-hosted Vast.ai XTTS v2 server). New `VastaiXTTSProvider` mirrors the Vast.ai Whisper architecture
+- **On-demand subtitle generation banner** (`library/web-v2/js/subtitle-banner.js`): When a translated subtitle track is requested but missing, the player shows a GPU-aware progress banner while the backend generates it (job status surfaced via `/api/localization/jobs/{id}`). Tracks both Whisper STT and DeepL translation phases independently
+- **Translated audio (XTTS) endpoint** (`library/backend/api_modular/translated_audio.py`): Generates translated voice tracks via the configured TTS provider, transcodes WAV (XTTS) or MP3 (edge-tts) to Opus, and records the actual provider name in `chapter_translations_audio.tts_provider`
+- **About page Localization & AI Services attribution** (`library/web-v2/about.html`): Acknowledges DeepL, OpenAI Whisper, Coqui XTTS, Hugging Face, Vast.ai, RunPod, FFmpeg, and other vendors used in the translation pipeline
+- **TTS provider factory test coverage** (`library/tests/test_tts_factory.py`): 12 unit tests covering provider selection, credential validation, language stripping (`zh-Hans` → `zh`), `synthesize()` request shape, and error paths — no GPU required
+- **Vast.ai Whisper response-shape test coverage** (`library/tests/test_vastai_whisper_response_shapes.py`): 6 unit tests locking in both `faster-whisper` and `whisper.cpp` parser branches plus four edge cases (string timestamps, empty word entries, `text`/`word` aliases, duration fallback)
+
+### Changed
+
+- **STT auto-mode prefers Whisper over DeepL**: When `AUDIOBOOKS_STT_PROVIDER=auto` and both Whisper (Vast.ai/RunPod) and DeepL are configured, the pipeline now picks Whisper for higher accuracy. DeepL remains the fallback when Whisper is unavailable
+- **Backoffice scope stripped from translation**: `data-i18n="shell.backOffice"` removed from `shell.html`, orphan key removed from `en.json` and `zh-Hans.json`. Admin pages (`admin.html`, `utilities.html`) have no `data-i18n` tags and remain English-only — admin/back-office UI is fully excluded from end-user locales
+- **Cache busters** for `library/web-v2/js/*.js` and `css/*.css` bumped to force browser reload of i18n-aware modules
+- **Live connection state labels** in the player relabeled for clarity
+- **Mobile play/pause button** tap target enlarged to meet WCAG touch-size guidelines
+
+### Fixed
+
+- **whisper.cpp `verbose_json` response shape parser**: `VastaiWhisperSTT` was assuming `faster-whisper`'s top-level `words[]` and crashed on `whisper.cpp`'s `segments[].words[]` shape. Now walks both shapes and falls back to `text`/`word` field aliases
+- **Subtitle banner absolute-import path** (`subtitle_banner.py`): Was using a project-relative import that failed under the installed app's `sys.path`
+- **STT job status tracking**: Subtitle generation jobs now correctly transition through `pending → transcribing → translating → complete` instead of jumping straight to `complete`
+- **a11y panel button labels** translated via i18n (previously hardcoded English)
+- **i18n locale fetch over CDNs**: Switched from `fetch(...)` defaults to `cache: "no-store"` so Cloudflare doesn't serve a stale `en.json` to a `zh-Hans` user
+- **Marquee on-demand translation fallthrough**: New-book marquee titles now fall through to the DeepL pipeline when no catalog entry exists, instead of showing the English title to a Chinese user
+- **Marquee re-fetches translations on locale change**: Was caching the English titles for the lifetime of the page
+- **Book detail modal title/author/narrator translation**: Modal opens via `library.showBookDetail(id)` from inside the iframe — `_overlayModalTranslation` now swaps in DeepL'd title + author from the per-locale snapshot
+- **Sidebar collection name translation**: Series and curated collection labels now translate on-demand via DeepL
+- **Sort/marquee/narrator endpoint**: Translation lookup moved from POST to GET so it can be served from a CDN cache when available
+- **zh-Hans review issues**: Multiple corrections to the Simplified Chinese catalog after first-pass review
+- **Hardcoded SSH keys, users, and credentials**: Removed from `install.sh`, `upgrade.sh`, and helper scripts. All credentials now read from `audiobooks.conf` or environment variables
+
+### Security
+
+- **No hardcoded credentials in scripts**: Audit + cleanup of `install.sh`, `upgrade.sh`, and helper scripts to ensure no SSH keys, usernames, or passwords are baked into the repository
+
 ## [8.0.4.1] - 2026-04-08
 
 ### Added
@@ -2535,7 +2578,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.0...HEAD
+[8.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4.1...v8.1.0
 [8.0.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4...v8.0.4.1
 [8.0.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...v8.0.4
 [8.0.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.1...v8.0.3.2
