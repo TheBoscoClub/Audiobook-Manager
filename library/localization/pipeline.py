@@ -7,11 +7,13 @@ Translation → TTS audio generation for audiobook chapters.
 import logging
 from pathlib import Path
 
+import requests
+
 from .config import (
     STT_PROVIDER, DEEPL_API_KEY, RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT,
     VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT,
 )
-from .stt.base import STTProvider
+from .stt.base import STTProvider, Transcript
 from .stt.deepl_stt import DeepLSTT
 from .stt.local_whisper import LocalWhisperSTT
 from .stt.vastai_whisper import VastaiWhisperSTT
@@ -23,6 +25,33 @@ logger = logging.getLogger(__name__)
 
 # Minimum remaining minutes before switching from DeepL to Whisper
 STT_MIN_REMAINING = 60
+
+# Errors that indicate a remote STT provider is unreachable and we should
+# fall back to in-process LocalWhisperSTT for this request.
+_STT_NETWORK_ERRORS = (requests.exceptions.RequestException, OSError, TimeoutError)
+
+
+def _transcribe_with_fallback(
+    provider: STTProvider, audio_path: Path, source_lang: str
+) -> Transcript:
+    """Transcribe via the chosen provider; on network failure, retry locally.
+
+    Remote STT providers (Vast.ai, RunPod, DeepL) can be unreachable when a
+    GPU instance is down or the host is misconfigured. Rather than surfacing
+    a connection error to the user, fall back once to in-process
+    `LocalWhisperSTT` (faster-whisper). Local provider failures are not
+    retried — the error is real.
+    """
+    try:
+        return provider.transcribe(audio_path, language=source_lang)
+    except _STT_NETWORK_ERRORS as exc:
+        if isinstance(provider, LocalWhisperSTT):
+            raise
+        logger.warning(
+            "STT provider %s unreachable (%s) — falling back to local Whisper",
+            provider.name, exc.__class__.__name__,
+        )
+        return LocalWhisperSTT().transcribe(audio_path, language=source_lang)
 
 
 def get_stt_provider(provider_name: str = "") -> STTProvider:
@@ -117,9 +146,9 @@ def generate_subtitles(
 
     provider = stt_provider or get_stt_provider()
 
-    # Step 1: Transcribe audio
+    # Step 1: Transcribe audio (with one-shot local fallback on network errors)
     logger.info("Step 1/3: Transcribing %s via %s", audio_path.name, provider.name)
-    transcript = provider.transcribe(audio_path, language=source_lang)
+    transcript = _transcribe_with_fallback(provider, audio_path, source_lang)
 
     source_sentences = transcript.sentence_texts()
     if not source_sentences:

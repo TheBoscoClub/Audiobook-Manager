@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **About page Localization & AI Services attribution** (`library/web-v2/about.html`): Acknowledges DeepL, OpenAI Whisper, Coqui XTTS, Hugging Face, Vast.ai, RunPod, FFmpeg, and other vendors used in the translation pipeline
 - **TTS provider factory test coverage** (`library/tests/test_tts_factory.py`): 12 unit tests covering provider selection, credential validation, language stripping (`zh-Hans` → `zh`), `synthesize()` request shape, and error paths — no GPU required
 - **Vast.ai Whisper response-shape test coverage** (`library/tests/test_vastai_whisper_response_shapes.py`): 6 unit tests locking in both `faster-whisper` and `whisper.cpp` parser branches plus four edge cases (string timestamps, empty word entries, `text`/`word` aliases, duration fallback)
+- **STT runtime fallback** (`library/localization/pipeline.py::_transcribe_with_fallback`): Wraps the per-request `provider.transcribe()` call so any `requests.exceptions.RequestException`, `OSError`, or `TimeoutError` from a remote STT provider (Vast.ai, RunPod, DeepL) triggers a one-shot retry against in-process `LocalWhisperSTT` (faster-whisper). Local provider failures are not retried — the error is real. Covered by 6 new unit tests in `library/tests/test_stt_runtime_fallback.py`
 
 ### Changed
 
