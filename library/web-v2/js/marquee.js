@@ -187,11 +187,14 @@ function buildMarquee(container, books) {
   switchWrap.appendChild(ks);
   container.appendChild(switchWrap);
 
-  // Re-render on locale change so labels translate without page refresh
+  // Re-fetch on locale change so book titles AND the "NEW"/dismiss
+  // labels all translate without a page refresh. Calling initMarquee
+  // re-runs the /api/user/new-books fetch + the DeepL overlay so the
+  // cycle is rebuilt with translated titles for the new locale.
   if (!container._localeListener) {
     container._localeListener = function () {
       if (!container.classList.contains("hidden")) {
-        buildMarquee(container, books);
+        initMarquee();
       }
     };
     document.addEventListener("localeChanged", container._localeListener);
