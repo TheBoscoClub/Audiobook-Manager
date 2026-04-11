@@ -1356,12 +1356,14 @@ AUDIOBOOKS_SOURCES="\${AUDIOBOOKS_DATA}/Sources"
 AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
 
 # Application directories
+# NOTE: AUDIOBOOKS_COVERS, AUDIOBOOKS_DATABASE, AUDIOBOOKS_CERTS, and
+# AUDIOBOOKS_VENV are intentionally NOT set here — they fall through to
+# library/config.py defaults (/var/lib/audiobooks/covers, .../db/audiobooks.db,
+# \${AUDIOBOOKS_HOME}/library/certs, \${AUDIOBOOKS_HOME}/library/venv). Setting
+# them here caused drift whenever config.py defaults changed. Override only if
+# you need a non-default location.
 AUDIOBOOKS_HOME="${APP_DIR}"
-AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
-AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
-AUDIOBOOKS_CERTS="\${AUDIOBOOKS_HOME}/library/certs"
 AUDIOBOOKS_LOGS="/var/log/audiobooks"
-AUDIOBOOKS_VENV="\${AUDIOBOOKS_HOME}/library/venv"
 
 # Internal data directory for scan results and intermediate files
 DATA_DIR="/var/lib/audiobooks/data"
@@ -1738,6 +1740,19 @@ EOF
 
     # Verify permissions after installation
     verify_installation_permissions "system"
+
+    # Reconcile filesystem against install manifest (report-only for now)
+    PROJECT_DIR="$SCRIPT_DIR" \
+    LIB_DIR="$APP_DIR" \
+    STATE_DIR="/var/lib/audiobooks" \
+    LOG_DIR="/var/log/audiobooks" \
+    CONFIG_DIR="$CONFIG_DIR" \
+    CONF_FILE="${CONFIG_DIR}/audiobooks.conf" \
+    USE_SUDO="sudo" \
+    SYSTEMD_DIR="/etc/systemd/system" \
+    BIN_DIR="/usr/local/bin" \
+    RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+        bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true
 }
 
 # shellcheck disable=SC2120
@@ -1864,12 +1879,12 @@ AUDIOBOOKS_SOURCES="\${AUDIOBOOKS_DATA}/Sources"
 AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
 
 # Application directories
+# NOTE: AUDIOBOOKS_COVERS, AUDIOBOOKS_DATABASE, and AUDIOBOOKS_VENV are
+# intentionally NOT set — they fall through to library/config.py defaults.
+# Setting them here caused drift whenever config.py defaults changed.
 AUDIOBOOKS_HOME="${LIB_DIR}"
-AUDIOBOOKS_DATABASE="${STATE_DIR}/db/audiobooks.db"
-AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
 AUDIOBOOKS_CERTS="${CONFIG_DIR}/certs"
 AUDIOBOOKS_LOGS="${LOG_DIR}"
-AUDIOBOOKS_VENV="\${AUDIOBOOKS_HOME}/library/venv"
 
 # Server settings
 AUDIOBOOKS_API_PORT="${API_PORT}"
@@ -2136,13 +2151,13 @@ Environment=AUDIOBOOKS_DATA=${data_dir}
 Environment=AUDIOBOOKS_LIBRARY=${data_dir}/Library
 Environment=AUDIOBOOKS_SOURCES=${data_dir}/Sources
 Environment=AUDIOBOOKS_SUPPLEMENTS=${data_dir}/Supplements
-Environment=AUDIOBOOKS_DATABASE=${STATE_DIR}/db/audiobooks.db
-Environment=AUDIOBOOKS_COVERS=${LIB_DIR}/library/web-v2/covers
 Environment=AUDIOBOOKS_CERTS=${CONFIG_DIR}/certs
 Environment=AUDIOBOOKS_LOGS=${LOG_DIR}
 Environment=AUDIOBOOKS_API_PORT=${API_PORT}
 Environment=AUDIOBOOKS_WEB_PORT=${WEB_PORT}
 Environment=AUDIOBOOKS_HTTP_REDIRECT_PORT=${HTTP_REDIRECT_PORT}
+# AUDIOBOOKS_DATABASE and AUDIOBOOKS_COVERS intentionally omitted — fall
+# through to library/config.py defaults to avoid drift.
 
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${API_PORT} >/dev/null 2>&1'
 ExecStart=${BIN_DIR}/audiobook-api
@@ -2257,6 +2272,19 @@ EOF
 
     # Verify permissions after installation
     verify_installation_permissions "user"
+
+    # Reconcile filesystem against install manifest (report-only for now)
+    PROJECT_DIR="$SCRIPT_DIR" \
+    LIB_DIR="$LIB_DIR" \
+    STATE_DIR="$STATE_DIR" \
+    LOG_DIR="$LOG_DIR" \
+    CONFIG_DIR="$CONFIG_DIR" \
+    CONF_FILE="${CONFIG_DIR}/audiobooks.conf" \
+    USE_SUDO="" \
+    SYSTEMD_DIR="${HOME}/.config/systemd/user" \
+    BIN_DIR="${HOME}/.local/bin" \
+    RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+        bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true
 }
 
 # shellcheck disable=SC2120
@@ -2323,20 +2351,14 @@ do_fresh_install() {
     # --- Step 2: Capture settings from existing audiobooks.conf ---
     echo -e "${BLUE}Capturing settings from ${config_file}...${NC}"
 
-    # Settings to preserve
+    # Settings to preserve — used only for header display and port/data-dir
+    # hints passed into do_system_install. The full old config is merged back
+    # after reinstall in Step 5, so these locals are *not* the source of truth
+    # for the restored config.
     local saved_AUDIOBOOKS_DATA=""
-    local saved_AUDIOBOOKS_LIBRARY=""
-    local saved_AUDIOBOOKS_SOURCES=""
-    local saved_AUDIOBOOKS_SUPPLEMENTS=""
-    local saved_AUDIOBOOKS_DATABASE=""
     local saved_AUDIOBOOKS_API_PORT=""
     local saved_AUDIOBOOKS_WEB_PORT=""
     local saved_AUDIOBOOKS_HTTP_REDIRECT_PORT=""
-    local saved_AUDIOBOOKS_BIND_ADDRESS=""
-    local saved_AUDIOBOOKS_HTTPS_ENABLED=""
-    local saved_AUTH_ENABLED=""
-    local saved_AUTH_DATABASE=""
-    local saved_AUTH_KEY_FILE=""
 
     if [[ -f "$config_file" ]]; then
         # Source the config in a subshell to extract values safely
@@ -2349,38 +2371,23 @@ do_fresh_install() {
             value=$(echo "$value" | sed 's/^["'"'"']//; s/["'"'"']$//' | xargs)
             case "$key" in
             AUDIOBOOKS_DATA) saved_AUDIOBOOKS_DATA="$value" ;;
-            AUDIOBOOKS_LIBRARY) saved_AUDIOBOOKS_LIBRARY="$value" ;;
-            AUDIOBOOKS_SOURCES) saved_AUDIOBOOKS_SOURCES="$value" ;;
-            AUDIOBOOKS_SUPPLEMENTS) saved_AUDIOBOOKS_SUPPLEMENTS="$value" ;;
-            AUDIOBOOKS_DATABASE) saved_AUDIOBOOKS_DATABASE="$value" ;;
             AUDIOBOOKS_API_PORT) saved_AUDIOBOOKS_API_PORT="$value" ;;
             AUDIOBOOKS_WEB_PORT) saved_AUDIOBOOKS_WEB_PORT="$value" ;;
             AUDIOBOOKS_HTTP_REDIRECT_PORT) saved_AUDIOBOOKS_HTTP_REDIRECT_PORT="$value" ;;
-            AUDIOBOOKS_BIND_ADDRESS) saved_AUDIOBOOKS_BIND_ADDRESS="$value" ;;
-            AUDIOBOOKS_HTTPS_ENABLED) saved_AUDIOBOOKS_HTTPS_ENABLED="$value" ;;
-            AUTH_ENABLED) saved_AUTH_ENABLED="$value" ;;
-            AUTH_DATABASE) saved_AUTH_DATABASE="$value" ;;
-            AUTH_KEY_FILE) saved_AUTH_KEY_FILE="$value" ;;
             esac
         done <"$config_file"
     fi
 
-    # Display what we captured
+    # Display the install-level hints we captured. The full config (all keys)
+    # will be merged back automatically in Step 5 — no need to enumerate here.
     echo ""
-    echo -e "${BOLD}Preserved settings:${NC}"
+    echo -e "${BOLD}Install-level settings (data dir + ports will be reused):${NC}"
     [[ -n "$saved_AUDIOBOOKS_DATA" ]] && echo -e "  AUDIOBOOKS_DATA              = ${CYAN}${saved_AUDIOBOOKS_DATA}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_LIBRARY" ]] && echo -e "  AUDIOBOOKS_LIBRARY           = ${CYAN}${saved_AUDIOBOOKS_LIBRARY}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_SOURCES" ]] && echo -e "  AUDIOBOOKS_SOURCES           = ${CYAN}${saved_AUDIOBOOKS_SOURCES}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_SUPPLEMENTS" ]] && echo -e "  AUDIOBOOKS_SUPPLEMENTS       = ${CYAN}${saved_AUDIOBOOKS_SUPPLEMENTS}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_DATABASE" ]] && echo -e "  AUDIOBOOKS_DATABASE          = ${CYAN}${saved_AUDIOBOOKS_DATABASE}${NC}"
     [[ -n "$saved_AUDIOBOOKS_API_PORT" ]] && echo -e "  AUDIOBOOKS_API_PORT          = ${CYAN}${saved_AUDIOBOOKS_API_PORT}${NC}"
     [[ -n "$saved_AUDIOBOOKS_WEB_PORT" ]] && echo -e "  AUDIOBOOKS_WEB_PORT          = ${CYAN}${saved_AUDIOBOOKS_WEB_PORT}${NC}"
     [[ -n "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT" ]] && echo -e "  AUDIOBOOKS_HTTP_REDIRECT_PORT= ${CYAN}${saved_AUDIOBOOKS_HTTP_REDIRECT_PORT}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_BIND_ADDRESS" ]] && echo -e "  AUDIOBOOKS_BIND_ADDRESS      = ${CYAN}${saved_AUDIOBOOKS_BIND_ADDRESS}${NC}"
-    [[ -n "$saved_AUDIOBOOKS_HTTPS_ENABLED" ]] && echo -e "  AUDIOBOOKS_HTTPS_ENABLED     = ${CYAN}${saved_AUDIOBOOKS_HTTPS_ENABLED}${NC}"
-    [[ -n "$saved_AUTH_ENABLED" ]] && echo -e "  AUTH_ENABLED                 = ${CYAN}${saved_AUTH_ENABLED}${NC}"
-    [[ -n "$saved_AUTH_DATABASE" ]] && echo -e "  AUTH_DATABASE                 = ${CYAN}${saved_AUTH_DATABASE}${NC}"
-    [[ -n "$saved_AUTH_KEY_FILE" ]] && echo -e "  AUTH_KEY_FILE                 = ${CYAN}${saved_AUTH_KEY_FILE}${NC}"
+    echo ""
+    echo -e "${BOLD}State files and the full config will be restored after reinstall.${NC}"
     echo ""
 
     # Apply captured ports to global variables so the fresh install uses them
@@ -2390,6 +2397,54 @@ do_fresh_install() {
 
     # Apply captured data dir so the fresh install uses it
     [[ -n "$saved_AUDIOBOOKS_DATA" ]] && DATA_DIR="$saved_AUDIOBOOKS_DATA"
+
+    # --- Step 2b: Back up state files that uninstall --keep-data DOES NOT preserve ---
+    # uninstall.sh --keep-data only preserves Library/Sources/Supplements under
+    # $AUDIOBOOKS_DATA. It unconditionally wipes /var/lib/audiobooks (main DB,
+    # auth DB, cover cache) and /etc/audiobooks (auth signing key, full conf).
+    # We stage those separately and restore after reinstall.
+    local fresh_backup_dir
+    fresh_backup_dir=$(mktemp -d -t audiobooks-fresh-XXXXXX)
+    # Ensure staging dir is cleaned up even on early return (uninstall failure,
+    # reinstall failure, etc.). Removed explicitly at the end of Step 5 on the
+    # happy path; the trap is idempotent.
+    # shellcheck disable=SC2064  # intentional early expansion of $fresh_backup_dir
+    trap "rm -rf '$fresh_backup_dir' 2>/dev/null || true" RETURN
+    echo -e "${BLUE}Staging state files to ${fresh_backup_dir}...${NC}"
+
+    local state_src conf_src_dir use_sudo_fresh=""
+    if [[ "$install_type" == "system" ]]; then
+        state_src="/var/lib/audiobooks"
+        conf_src_dir="/etc/audiobooks"
+        use_sudo_fresh="sudo"
+    else
+        state_src="${HOME}/.local/state/audiobooks"
+        conf_src_dir="${HOME}/.config/audiobooks"
+    fi
+
+    _stage_if_exists() {
+        local src="$1" label="$2"
+        [[ -e "$src" ]] || return 1
+        local dest="${fresh_backup_dir}/${label}"
+        $use_sudo_fresh cp -a "$src" "$dest" 2>/dev/null || return 1
+        $use_sudo_fresh chmod -R u+rwX "$dest" 2>/dev/null || true
+        echo "  staged: ${label} (from ${src})"
+        return 0
+    }
+
+    local staged_main_db="false" staged_auth_db="false" staged_auth_key="false"
+    local staged_covers="false"  staged_full_conf="false"
+    _stage_if_exists "${state_src}/db/audiobooks.db"  "audiobooks.db"   && staged_main_db="true"
+    _stage_if_exists "${state_src}/db/auth.db"        "auth.db"         && staged_auth_db="true"
+    _stage_if_exists "${conf_src_dir}/auth.key"       "auth.key"        && staged_auth_key="true"
+    _stage_if_exists "${state_src}/covers"            "covers"          && staged_covers="true"
+    _stage_if_exists "$config_file"                   "audiobooks.conf" && staged_full_conf="true"
+
+    unset -f _stage_if_exists
+
+    # Success flags for the restore phase (set in Step 5)
+    local restored_main_db="false" restored_auth_db="false"
+    local restored_auth_key="false" restored_covers="false" restored_full_conf="false"
 
     # --- Step 3: Uninstall (keep data) ---
     echo -e "${YELLOW}Uninstalling existing application (keeping audiobook data)...${NC}"
@@ -2434,9 +2489,9 @@ do_fresh_install() {
         return 1
     fi
 
-    # --- Step 5: Apply preserved settings to new config ---
+    # --- Step 5: Restore staged state files + merge full old config ---
     echo ""
-    echo -e "${BLUE}Applying preserved settings to new configuration...${NC}"
+    echo -e "${BLUE}Restoring preserved state and merging configuration...${NC}"
 
     if [[ "$install_type" == "system" ]]; then
         config_file="/etc/audiobooks/audiobooks.conf"
@@ -2444,50 +2499,85 @@ do_fresh_install() {
         config_file="$HOME/.config/audiobooks/audiobooks.conf"
     fi
 
-    if [[ -f "$config_file" ]]; then
-        local use_sudo=""
-        [[ "$install_type" == "system" ]] && use_sudo="sudo"
+    # Restore state files (DBs, covers, auth key) back over the fresh install.
+    # The reinstall created empty placeholders — these overwrites are safe.
+    _restore_if_staged() {
+        local label="$1" dest="$2" owner="$3"
+        local staged="${fresh_backup_dir}/${label}"
+        [[ -e "$staged" ]] || return 1
+        $use_sudo_fresh mkdir -p "$(dirname "$dest")"
+        $use_sudo_fresh rm -rf "$dest"
+        $use_sudo_fresh cp -a "$staged" "$dest"
+        [[ -n "$owner" ]] && $use_sudo_fresh chown -R "$owner" "$dest" 2>/dev/null || true
+        echo -e "  restored: ${CYAN}${dest}${NC}"
+        return 0
+    }
 
-        # Apply each preserved setting by replacing the line in the new config
-        _apply_setting() {
-            local key="$1"
-            local value="$2"
-            [[ -z "$value" ]] && return
-            # If the key exists in the config, replace its value
-            if grep -q "^${key}=" "$config_file" 2>/dev/null; then
-                $use_sudo sed -i "s|^${key}=.*|${key}=\"${value}\"|" "$config_file"
-                echo -e "  Applied: ${key}=${CYAN}${value}${NC}"
-            elif grep -q "^#${key}=" "$config_file" 2>/dev/null; then
-                # Uncomment and set
-                $use_sudo sed -i "s|^#${key}=.*|${key}=\"${value}\"|" "$config_file"
-                echo -e "  Applied (uncommented): ${key}=${CYAN}${value}${NC}"
+    local state_owner=""
+    [[ "$install_type" == "system" ]] && state_owner="audiobooks:audiobooks"
+
+    _restore_if_staged audiobooks.db "${state_src}/db/audiobooks.db" "$state_owner" && restored_main_db="true"
+    _restore_if_staged auth.db       "${state_src}/db/auth.db"       "$state_owner" && restored_auth_db="true"
+    _restore_if_staged auth.key      "${conf_src_dir}/auth.key"      "$state_owner" && restored_auth_key="true"
+    _restore_if_staged covers        "${state_src}/covers"           "$state_owner" && restored_covers="true"
+    [[ "$restored_auth_key" == "true" ]] && $use_sudo_fresh chmod 600 "${conf_src_dir}/auth.key" 2>/dev/null || true
+
+    unset -f _restore_if_staged
+
+    # Merge the full old audiobooks.conf into the new one. Any key present in
+    # the old config is carried over verbatim; new keys introduced by this
+    # release are kept at their fresh defaults. This replaces the pre-v8.1
+    # behavior of only preserving 13 hardcoded keys, which silently dropped
+    # everything else.
+    if [[ "$staged_full_conf" == "true" && -f "${fresh_backup_dir}/audiobooks.conf" ]]; then
+        local merged_conf
+        merged_conf=$(mktemp)
+        cp "$config_file" "$merged_conf.new" 2>/dev/null || $use_sudo_fresh cat "$config_file" > "$merged_conf.new"
+
+        # For every KEY=... line in the old config, replace or append in the new one.
+        while IFS= read -r line; do
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "${line// }" ]] && continue
+            [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || continue
+            local k="${BASH_REMATCH[1]}"
+            # Skip keys we know are drift (handled by migration 002)
+            case "$k" in
+                AUDIOBOOKS_COVERS|AUDIOBOOKS_DATABASE|AUDIOBOOKS_VENV) continue ;;
+            esac
+            if grep -q "^${k}=" "$merged_conf.new" 2>/dev/null; then
+                sed -i "s|^${k}=.*|${line}|" "$merged_conf.new"
             else
-                # Append to config
-                echo "${key}=\"${value}\"" | $use_sudo tee -a "$config_file" >/dev/null
-                echo -e "  Applied (appended): ${key}=${CYAN}${value}${NC}"
+                echo "$line" >> "$merged_conf.new"
             fi
-        }
+        done < "${fresh_backup_dir}/audiobooks.conf"
 
-        _apply_setting "AUDIOBOOKS_DATA" "$saved_AUDIOBOOKS_DATA"
-        _apply_setting "AUDIOBOOKS_LIBRARY" "$saved_AUDIOBOOKS_LIBRARY"
-        _apply_setting "AUDIOBOOKS_SOURCES" "$saved_AUDIOBOOKS_SOURCES"
-        _apply_setting "AUDIOBOOKS_SUPPLEMENTS" "$saved_AUDIOBOOKS_SUPPLEMENTS"
-        _apply_setting "AUDIOBOOKS_DATABASE" "$saved_AUDIOBOOKS_DATABASE"
-        _apply_setting "AUDIOBOOKS_API_PORT" "$saved_AUDIOBOOKS_API_PORT"
-        _apply_setting "AUDIOBOOKS_WEB_PORT" "$saved_AUDIOBOOKS_WEB_PORT"
-        _apply_setting "AUDIOBOOKS_HTTP_REDIRECT_PORT" "$saved_AUDIOBOOKS_HTTP_REDIRECT_PORT"
-        _apply_setting "AUDIOBOOKS_BIND_ADDRESS" "$saved_AUDIOBOOKS_BIND_ADDRESS"
-        _apply_setting "AUDIOBOOKS_HTTPS_ENABLED" "$saved_AUDIOBOOKS_HTTPS_ENABLED"
-        _apply_setting "AUTH_ENABLED" "$saved_AUTH_ENABLED"
-        _apply_setting "AUTH_DATABASE" "$saved_AUTH_DATABASE"
-        _apply_setting "AUTH_KEY_FILE" "$saved_AUTH_KEY_FILE"
-
-        unset -f _apply_setting
+        $use_sudo_fresh cp "$merged_conf.new" "$config_file"
+        [[ -n "$state_owner" ]] && $use_sudo_fresh chown root:audiobooks "$config_file" 2>/dev/null || true
+        $use_sudo_fresh chmod 640 "$config_file" 2>/dev/null || true
+        rm -f "$merged_conf" "$merged_conf.new"
+        restored_full_conf="true"
+        echo -e "  merged: ${CYAN}${config_file}${NC} (old keys carried over, drift keys dropped)"
     fi
 
-    # --- Step 6: Trigger library scan to reindex preserved audiobooks ---
+    # Staging dir is removed by the RETURN trap installed in Step 2b
+
+    # --- Step 6: Trigger library scan only if the main DB could not be restored ---
+    if [[ "$restored_main_db" == "true" ]]; then
+        echo ""
+        echo -e "${GREEN}Main database restored — skipping library rescan.${NC}"
+        echo ""
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${GREEN}${BOLD}Fresh install complete!${NC}"
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo "Restored: main DB$([[ "$restored_auth_db" == "true" ]] && echo ", auth DB")$([[ "$restored_auth_key" == "true" ]] && echo ", auth key")$([[ "$restored_covers" == "true" ]] && echo ", cover cache")"
+        echo "Configuration: ${config_file}"
+        echo ""
+        return 0
+    fi
+
     echo ""
-    echo -e "${BLUE}Scanning library to reindex preserved audiobooks...${NC}"
+    echo -e "${BLUE}Main DB was not preserved — scanning library to reindex audiobooks...${NC}"
 
     local scan_cmd=""
     if [[ "$install_type" == "system" ]]; then
