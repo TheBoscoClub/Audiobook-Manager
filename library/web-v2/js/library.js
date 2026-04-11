@@ -2045,17 +2045,24 @@ class AudiobookLibraryV2 {
     titleEl.textContent = book.title || t("book.unknownTitle");
     info.appendChild(titleEl);
 
+    let authorEl = null;
     if (book.author) {
-      const authorEl = document.createElement("div");
+      authorEl = document.createElement("div");
       authorEl.className = "detail-author";
       authorEl.textContent = t("book.byAuthor", { author: book.author });
       info.appendChild(authorEl);
     }
 
+    // Narrator: substitute the English "Unknown Narrator" sentinel with the
+    // localized fallback so the modal matches the grid card behavior.
     if (book.narrator) {
       const narratorEl = document.createElement("div");
       narratorEl.className = "detail-narrator";
-      narratorEl.textContent = t("book.narratedByName", { narrator: book.narrator });
+      const narratorName =
+        book.narrator === "Unknown Narrator"
+          ? t("book.unknownNarrator")
+          : book.narrator;
+      narratorEl.textContent = t("book.narratedByName", { narrator: narratorName });
       info.appendChild(narratorEl);
     }
 
@@ -2141,6 +2148,35 @@ class AudiobookLibraryV2 {
 
     // Update download button visibility for current user permissions
     this.updateDownloadButtons();
+
+    // Async: overlay translated title + author if a non-English locale
+    // is active. Modal opens immediately with raw values so there's no
+    // visible latency; the overlay swaps in when DeepL/cache responds.
+    const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+    if (locale !== "en") {
+      this._overlayModalTranslation(book, titleEl, authorEl, locale);
+    }
+  }
+
+  async _overlayModalTranslation(book, titleEl, authorEl, locale) {
+    try {
+      const translations = await api.get(
+        `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}?ids=${book.id}`,
+        { toast: false },
+      );
+      const tr = translations && translations[String(book.id)];
+      if (!tr) return;
+      // Only update if the modal is still open.
+      if (!document.getElementById("book-detail-modal")) return;
+      if (tr.title && titleEl) {
+        titleEl.textContent = tr.title;
+      }
+      if (tr.author_display && authorEl) {
+        authorEl.textContent = t("book.byAuthor", { author: tr.author_display });
+      }
+    } catch (e) {
+      console.warn("Modal translation overlay failed:", e.message || e);
+    }
   }
 
   setupCompactCardTap() {
