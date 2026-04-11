@@ -29,9 +29,22 @@ _db_path: Path | None = None
 
 
 def init_translations_routes(database_path):
-    """Initialize with database path."""
+    """Initialize with database path and ensure schema is current."""
     global _db_path
     _db_path = database_path
+
+    # Idempotent migration: older installs lack series_display column.
+    # SQLite has no ADD COLUMN IF NOT EXISTS, so we check pragma first.
+    try:
+        conn = sqlite3.connect(str(_db_path))
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(audiobook_translations)")}
+        if "series_display" not in cols:
+            conn.execute("ALTER TABLE audiobook_translations ADD COLUMN series_display TEXT")
+            conn.commit()
+            logger.info("Added series_display column to audiobook_translations")
+        conn.close()
+    except sqlite3.Error:
+        logger.exception("Failed to ensure audiobook_translations.series_display column")
 
 
 def _get_db():
@@ -170,7 +183,7 @@ def get_translations_by_locale(locale):
     try:
         # Fetch all cached translations for this locale
         rows = conn.execute(
-            "SELECT audiobook_id, title, author_display, description "
+            "SELECT audiobook_id, title, author_display, series_display, description "
             "FROM audiobook_translations WHERE locale = ?",
             (locale,),
         ).fetchall()
@@ -179,6 +192,7 @@ def get_translations_by_locale(locale):
             result[str(r["audiobook_id"])] = {
                 "title": r["title"],
                 "author_display": r["author_display"],
+                "series_display": r["series_display"],
                 "description": r["description"],
             }
 
@@ -192,7 +206,13 @@ def get_translations_by_locale(locale):
 
             # Cap per request
             requested_ids = requested_ids[:60]
-            missing_ids = [bid for bid in requested_ids if str(bid) not in result]
+            # A book needs (re-)translation if it is not cached OR the cached
+            # row predates the series_display column and has no series yet.
+            missing_ids = [
+                bid for bid in requested_ids
+                if str(bid) not in result
+                or result[str(bid)].get("series_display") is None
+            ]
 
             if missing_ids:
                 _translate_missing(conn, missing_ids, locale, result)
@@ -205,6 +225,10 @@ def get_translations_by_locale(locale):
 def _translate_missing(conn, missing_ids, locale, result_dict):
     """Translate missing book metadata via DeepL and store in DB.
 
+    Translates titles and authors per-book, and series names de-duplicated
+    (many books share the same series — translating once keeps API usage
+    low and output consistent across the series).
+
     Updates result_dict in place with newly translated entries.
     """
     try:
@@ -214,7 +238,7 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
             return
 
         all_books = conn.execute(
-            "SELECT id, title, author FROM audiobooks"
+            "SELECT id, title, author, series FROM audiobooks"
         ).fetchall()
         books = [dict(r) for r in all_books if r["id"] in missing_ids]
         if not books:
@@ -223,44 +247,83 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
         from localization.translation.deepl_translate import DeepLTranslator
         translator = DeepLTranslator(DEEPL_API_KEY)
 
-        titles = [b["title"] for b in books]
-        authors = [b["author"] or "" for b in books]
+        # Determine which books need title+author translation vs. series-only.
+        # A book already in result_dict (from cached row) only needs series.
+        needs_title = [b for b in books if str(b["id"]) not in result_dict]
 
-        translated_titles = translator.translate(titles, locale)
-        translated_authors = translator.translate(
-            [a for a in authors if a], locale
-        ) if any(authors) else []
+        translated_titles = []
+        author_map_new = []
+        if needs_title:
+            titles = [b["title"] for b in needs_title]
+            authors = [b["author"] or "" for b in needs_title]
+            translated_titles = translator.translate(titles, locale)
+            translated_authors = translator.translate(
+                [a for a in authors if a], locale
+            ) if any(authors) else []
+            author_iter = iter(translated_authors)
+            for a in authors:
+                author_map_new.append(next(author_iter, a) if a else "")
 
-        author_iter = iter(translated_authors)
-        author_map = []
-        for a in authors:
-            author_map.append(next(author_iter, a) if a else "")
+        # Dedupe series — many books share the same series string.
+        unique_series = sorted({
+            b["series"].strip() for b in books
+            if b.get("series") and b["series"].strip()
+        })
+        series_translation = {}
+        if unique_series:
+            translated_series = translator.translate(unique_series, locale)
+            for src, tgt in zip(unique_series, translated_series):
+                series_translation[src] = tgt
 
-        for i, book in enumerate(books):
-            t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
-            t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
+        # Apply translations: either insert fresh or update existing row's series.
+        title_iter = iter(translated_titles)
+        author_iter2 = iter(author_map_new)
+        for book in books:
+            book_id_str = str(book["id"])
+            src_series = (book.get("series") or "").strip()
+            # Empty string (not NULL) marks "source had no series" so the
+            # row no longer re-qualifies as missing on subsequent requests.
+            t_series = series_translation.get(src_series, "") if src_series else ""
 
-            conn.execute(
-                """INSERT INTO audiobook_translations
-                   (audiobook_id, locale, title, author_display, translator)
-                   VALUES (?, ?, ?, ?, 'deepl')
-                   ON CONFLICT(audiobook_id, locale) DO UPDATE SET
-                       title = excluded.title,
-                       author_display = excluded.author_display,
-                       translator = excluded.translator,
-                       updated_at = CURRENT_TIMESTAMP
-                """,
-                (book["id"], locale, t_title, t_author),
-            )
-
-            result_dict[str(book["id"])] = {
-                "title": t_title,
-                "author_display": t_author,
-                "description": None,
-            }
+            if book_id_str not in result_dict:
+                # Fresh insert: need title + author too.
+                t_title = next(title_iter, book["title"])
+                t_author = next(author_iter2, book["author"] or "")
+                conn.execute(
+                    """INSERT INTO audiobook_translations
+                       (audiobook_id, locale, title, author_display,
+                        series_display, translator)
+                       VALUES (?, ?, ?, ?, ?, 'deepl')
+                       ON CONFLICT(audiobook_id, locale) DO UPDATE SET
+                           title = excluded.title,
+                           author_display = excluded.author_display,
+                           series_display = excluded.series_display,
+                           translator = excluded.translator,
+                           updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (book["id"], locale, t_title, t_author, t_series),
+                )
+                result_dict[book_id_str] = {
+                    "title": t_title,
+                    "author_display": t_author,
+                    "series_display": t_series,
+                    "description": None,
+                }
+            else:
+                # Existing row with NULL series_display — update that field only.
+                conn.execute(
+                    "UPDATE audiobook_translations SET series_display = ?, "
+                    "updated_at = CURRENT_TIMESTAMP "
+                    "WHERE audiobook_id = ? AND locale = ?",
+                    (t_series, book["id"], locale),
+                )
+                result_dict[book_id_str]["series_display"] = t_series
 
         conn.commit()
-        logger.info("On-demand translated %d books to %s via DeepL", len(books), locale)
+        logger.info(
+            "On-demand translated %d books (%d unique series) to %s via DeepL",
+            len(books), len(unique_series), locale,
+        )
 
     except Exception:
         logger.exception("On-demand translation failed")

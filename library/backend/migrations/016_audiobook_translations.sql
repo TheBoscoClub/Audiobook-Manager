@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS audiobook_translations (
     locale TEXT NOT NULL,               -- BCP 47 tag: 'zh-Hans', 'ja', 'ko', etc.
     title TEXT,                         -- Translated title
     author_display TEXT,                -- Translated/transliterated author name
+    series_display TEXT,                -- Translated series name
     description TEXT,                   -- Translated description/summary
     translator TEXT,                    -- Who/what translated ('deepl', 'manual', etc.)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

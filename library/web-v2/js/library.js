@@ -269,6 +269,9 @@ class AudiobookLibraryV2 {
         const authorEl = card.querySelector(".book-author");
         const origA = authorEl && authorEl.getAttribute("data-original-author");
         if (origA) { authorEl.textContent = origA; authorEl.removeAttribute("data-original-author"); }
+        const seriesEl = card.querySelector(".book-series");
+        const origS = seriesEl && seriesEl.getAttribute("data-original-series");
+        if (origS) { seriesEl.textContent = origS; seriesEl.removeAttribute("data-original-series"); }
       });
       return;
     }
@@ -322,6 +325,31 @@ class AudiobookLibraryV2 {
             authorEl.setAttribute("data-original-author", authorEl.textContent);
           }
           authorEl.textContent = t("book.byAuthor", { author: tr.author_display });
+        }
+      }
+      if (tr.series_display) {
+        const seriesEl = card.querySelector(".book-series");
+        if (seriesEl) {
+          // The rendered series text is "(Series Name)" or "(Series Name, Book N)".
+          // Preserve the surrounding parens + sequence suffix, swap only the name.
+          const current = seriesEl.textContent || "";
+          if (!seriesEl.hasAttribute("data-original-series")) {
+            seriesEl.setAttribute("data-original-series", current);
+          }
+          // Match "(<name>[, <suffix>])" — swap <name> for the translation,
+          // and re-render the ", Book N" suffix through i18n so "Book N"
+          // becomes "第N册" (zh-Hans) etc.
+          const m = current.match(/^\(([^,)]+)(?:,\s*(.*))?\)$/);
+          let suffix = "";
+          if (m && m[2]) {
+            const numMatch = m[2].match(/(\d+)/);
+            if (numMatch) {
+              suffix = ", " + t("book.seriesBook", { n: numMatch[1] });
+            } else {
+              suffix = ", " + m[2];
+            }
+          }
+          seriesEl.textContent = "(" + tr.series_display + suffix + ")";
         }
       }
     });
@@ -2736,9 +2764,20 @@ class AudiobookLibraryV2 {
     // Setup sidebar events
     this.setupSidebarEvents();
 
-    // Re-apply book translations when locale changes
+    // Re-apply translations and re-render locale-sensitive UI on locale change.
+    // Sidebar collections, filter chips, and book cards all contain t() output
+    // captured at initial render — they must be rebuilt when the locale flips.
     document.addEventListener("localeChanged", () => {
       this.applyBookTranslations();
+      this.loadCollections().catch((e) =>
+        console.warn("loadCollections on localeChanged failed:", e)
+      );
+      // Re-render visible books so "Narrated by Unknown Narrator",
+      // "Book N" sequence suffix, and other t() strings refresh.
+      if (Array.isArray(this.browseBooks) && this.browseBooks.length > 0) {
+        this.renderBooks(this.browseBooks);
+        this.applyBookTranslations();
+      }
     });
   }
 
