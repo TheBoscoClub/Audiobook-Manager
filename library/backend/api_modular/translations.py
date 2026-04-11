@@ -46,6 +46,29 @@ def init_translations_routes(database_path):
     except sqlite3.Error:
         logger.exception("Failed to ensure audiobook_translations.series_display column")
 
+    # Migration 018: collection_translations cache table.
+    try:
+        conn = sqlite3.connect(str(_db_path))
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS collection_translations (
+                collection_id TEXT NOT NULL,
+                locale TEXT NOT NULL,
+                name TEXT NOT NULL,
+                translator TEXT DEFAULT 'deepl',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (collection_id, locale)
+            )"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collection_translations_locale "
+            "ON collection_translations(locale)"
+        )
+        conn.commit()
+        conn.close()
+    except sqlite3.Error:
+        logger.exception("Failed to ensure collection_translations table")
+
 
 def _get_db():
     conn = sqlite3.connect(str(_db_path))
@@ -327,6 +350,102 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
 
     except Exception:
         logger.exception("On-demand translation failed")
+
+
+@translations_bp.route("/api/translations/collections/<locale>", methods=["GET"])
+@guest_allowed
+def get_collection_translations(locale):
+    """Return {collection_id: translated_name} for all sidebar collections.
+
+    Walks the live collection tree (same source as /api/collections),
+    returns cached translations, and on-demand translates any missing
+    names via DeepL. English short-circuits to an empty dict.
+    """
+    if locale == "en":
+        return jsonify({})
+
+    from .collections import _build_dynamic_collections
+
+    conn = _get_db()
+    try:
+        cursor = conn.cursor()
+        tree, _flat = _build_dynamic_collections(cursor)
+
+        id_to_name: dict[str, str] = {}
+        for node in tree:
+            id_to_name[node["id"]] = node["name"]
+            for child in node.get("children", []):
+                id_to_name[child["id"]] = child["name"]
+
+        cached_rows = conn.execute(
+            "SELECT collection_id, name FROM collection_translations "
+            "WHERE locale = ?",
+            (locale,),
+        ).fetchall()
+        result: dict[str, str] = {
+            r["collection_id"]: r["name"]
+            for r in cached_rows
+            if r["collection_id"] in id_to_name
+        }
+
+        missing = [cid for cid in id_to_name if cid not in result]
+        if missing:
+            _translate_missing_collections(conn, missing, id_to_name, locale, result)
+
+        return jsonify(result)
+    finally:
+        conn.close()
+
+
+def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result_dict):
+    """Translate missing collection names via DeepL and cache them.
+
+    Deduplicates by source name so DeepL is called once per unique label.
+    Updates result_dict in place.
+    """
+    try:
+        from localization.config import DEEPL_API_KEY
+        if not DEEPL_API_KEY:
+            logger.warning("Collection translation: no DeepL API key configured")
+            return
+
+        unique_names = sorted({
+            id_to_name[cid] for cid in missing_ids
+            if id_to_name.get(cid)
+        })
+        if not unique_names:
+            return
+
+        from localization.translation.deepl_translate import DeepLTranslator
+        translator = DeepLTranslator(DEEPL_API_KEY)
+        translated = translator.translate(unique_names, locale)
+        name_map = dict(zip(unique_names, translated))
+
+        for cid in missing_ids:
+            src = id_to_name.get(cid)
+            if not src:
+                continue
+            t_name = name_map.get(src, src)
+            conn.execute(
+                """INSERT INTO collection_translations
+                   (collection_id, locale, name, translator)
+                   VALUES (?, ?, ?, 'deepl')
+                   ON CONFLICT(collection_id, locale) DO UPDATE SET
+                       name = excluded.name,
+                       translator = excluded.translator,
+                       updated_at = CURRENT_TIMESTAMP
+                """,
+                (cid, locale, t_name),
+            )
+            result_dict[cid] = t_name
+
+        conn.commit()
+        logger.info(
+            "On-demand translated %d collections (%d unique names) to %s",
+            len(missing_ids), len(unique_names), locale,
+        )
+    except Exception:
+        logger.exception("Collection translation failed")
 
 
 @translations_bp.route("/api/translations/on-demand", methods=["POST"])

@@ -974,6 +974,53 @@ class AudiobookLibraryV2 {
 
     // Update active filter badge
     this.updateFilterBadge();
+
+    // Overlay translated collection names if a non-English locale is active.
+    this.applyCollectionTranslations();
+  }
+
+  async applyCollectionTranslations() {
+    const locale = window.i18n && window.i18n.getLocale ? window.i18n.getLocale() : "en";
+    if (!locale || locale === "en") {
+      return;
+    }
+    try {
+      const map = await api.get(
+        `${API_BASE}/translations/collections/${encodeURIComponent(locale)}`,
+        { toast: false },
+      );
+      if (!map || typeof map !== "object") return;
+      this._collectionTranslationMap = map;
+
+      // Overlay button name spans.
+      document.querySelectorAll(".collection-btn[data-collection]").forEach((btn) => {
+        const cid = btn.dataset.collection;
+        const translated = map[cid];
+        if (!translated) return;
+        const nameSpan = btn.querySelector(".name");
+        if (nameSpan) nameSpan.textContent = translated;
+      });
+
+      // Overlay category labels. The backend keyed these by the parent collection
+      // id, so we use the translated name for the category's first parent entry
+      // where available. Category label keys are already localized via t().
+
+      // Update active filter badge with translated name if applicable.
+      const badge = document.getElementById("active-filter-badge");
+      if (badge && this.currentCollection && map[this.currentCollection]) {
+        const collection = this.collections.find((c) => c.id === this.currentCollection)
+          || this.collections.flatMap((c) => c.children || []).find(
+            (c) => c && c.id === this.currentCollection,
+          );
+        if (collection) {
+          badge.textContent = collection.icon
+            ? `${collection.icon} ${map[this.currentCollection]}`
+            : map[this.currentCollection];
+        }
+      }
+    } catch (err) {
+      console.error("Failed to apply collection translations:", err);
+    }
   }
 
   updateFilterBadge() {
