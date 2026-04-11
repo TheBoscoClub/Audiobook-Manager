@@ -1356,12 +1356,14 @@ AUDIOBOOKS_SOURCES="\${AUDIOBOOKS_DATA}/Sources"
 AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
 
 # Application directories
+# NOTE: AUDIOBOOKS_COVERS, AUDIOBOOKS_DATABASE, AUDIOBOOKS_CERTS, and
+# AUDIOBOOKS_VENV are intentionally NOT set here — they fall through to
+# library/config.py defaults (/var/lib/audiobooks/covers, .../db/audiobooks.db,
+# \${AUDIOBOOKS_HOME}/library/certs, \${AUDIOBOOKS_HOME}/library/venv). Setting
+# them here caused drift whenever config.py defaults changed. Override only if
+# you need a non-default location.
 AUDIOBOOKS_HOME="${APP_DIR}"
-AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
-AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
-AUDIOBOOKS_CERTS="\${AUDIOBOOKS_HOME}/library/certs"
 AUDIOBOOKS_LOGS="/var/log/audiobooks"
-AUDIOBOOKS_VENV="\${AUDIOBOOKS_HOME}/library/venv"
 
 # Internal data directory for scan results and intermediate files
 DATA_DIR="/var/lib/audiobooks/data"
@@ -1864,12 +1866,12 @@ AUDIOBOOKS_SOURCES="\${AUDIOBOOKS_DATA}/Sources"
 AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
 
 # Application directories
+# NOTE: AUDIOBOOKS_COVERS, AUDIOBOOKS_DATABASE, and AUDIOBOOKS_VENV are
+# intentionally NOT set — they fall through to library/config.py defaults.
+# Setting them here caused drift whenever config.py defaults changed.
 AUDIOBOOKS_HOME="${LIB_DIR}"
-AUDIOBOOKS_DATABASE="${STATE_DIR}/db/audiobooks.db"
-AUDIOBOOKS_COVERS="\${AUDIOBOOKS_HOME}/library/web-v2/covers"
 AUDIOBOOKS_CERTS="${CONFIG_DIR}/certs"
 AUDIOBOOKS_LOGS="${LOG_DIR}"
-AUDIOBOOKS_VENV="\${AUDIOBOOKS_HOME}/library/venv"
 
 # Server settings
 AUDIOBOOKS_API_PORT="${API_PORT}"
@@ -2136,13 +2138,13 @@ Environment=AUDIOBOOKS_DATA=${data_dir}
 Environment=AUDIOBOOKS_LIBRARY=${data_dir}/Library
 Environment=AUDIOBOOKS_SOURCES=${data_dir}/Sources
 Environment=AUDIOBOOKS_SUPPLEMENTS=${data_dir}/Supplements
-Environment=AUDIOBOOKS_DATABASE=${STATE_DIR}/db/audiobooks.db
-Environment=AUDIOBOOKS_COVERS=${LIB_DIR}/library/web-v2/covers
 Environment=AUDIOBOOKS_CERTS=${CONFIG_DIR}/certs
 Environment=AUDIOBOOKS_LOGS=${LOG_DIR}
 Environment=AUDIOBOOKS_API_PORT=${API_PORT}
 Environment=AUDIOBOOKS_WEB_PORT=${WEB_PORT}
 Environment=AUDIOBOOKS_HTTP_REDIRECT_PORT=${HTTP_REDIRECT_PORT}
+# AUDIOBOOKS_DATABASE and AUDIOBOOKS_COVERS intentionally omitted — fall
+# through to library/config.py defaults to avoid drift.
 
 ExecStartPre=/bin/sh -c '! /usr/bin/lsof -i:${API_PORT} >/dev/null 2>&1'
 ExecStart=${BIN_DIR}/audiobook-api
