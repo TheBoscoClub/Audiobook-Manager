@@ -422,10 +422,13 @@ class AudiobookLibraryV2 {
       iconSpan.textContent = icons[notif.type] || "ℹ️";
       content.appendChild(iconSpan);
 
-      // Create message span (textContent is safe)
+      // Create message span (textContent is safe). Store the original
+      // source string so the i18n overlay can re-translate on locale
+      // changes without losing the English baseline.
       const messageSpan = document.createElement("span");
       messageSpan.className = "notification-message";
       messageSpan.textContent = notif.message;
+      messageSpan.setAttribute("data-src-text", notif.message || "");
       content.appendChild(messageSpan);
 
       banner.appendChild(content);
@@ -445,6 +448,74 @@ class AudiobookLibraryV2 {
 
       container.appendChild(banner);
     }
+
+    // Fire-and-forget: overlay translations for admin-authored messages
+    // so non-English users see localized notification bodies.
+    this._translateNotifications(container);
+  }
+
+  /**
+   * Translate admin-authored notification.message values via the generic
+   * source-hash cache, then overlay them onto the rendered banners. No-op
+   * for English. Preserves the original string in data-src-text so a later
+   * locale switch can restore or re-translate.
+   */
+  async _translateNotifications(container) {
+    if (!window.i18n || typeof window.i18n.translateStrings !== "function") return;
+    const locale = window.i18n.getLocale();
+    const spans = container.querySelectorAll(".notification-message");
+    if (!spans.length) return;
+
+    if (locale === "en") {
+      spans.forEach((s) => {
+        const src = s.getAttribute("data-src-text");
+        if (src) s.textContent = src;
+      });
+      return;
+    }
+
+    const sources = [];
+    const seen = {};
+    spans.forEach((s) => {
+      let src = s.getAttribute("data-src-text");
+      if (!src) {
+        src = s.textContent || "";
+        s.setAttribute("data-src-text", src);
+      }
+      if (src && !seen[src]) {
+        seen[src] = true;
+        sources.push(src);
+      }
+    });
+    if (!sources.length) return;
+
+    let map;
+    try {
+      map = await window.i18n.translateStrings(sources);
+    } catch (e) {
+      return;
+    }
+    if (!map) return;
+
+    async function shortHash(text) {
+      const bytes = new TextEncoder().encode(text);
+      const buf = await window.crypto.subtle.digest("SHA-256", bytes);
+      const hex = Array.prototype.map
+        .call(new Uint8Array(buf), (b) => ("00" + b.toString(16)).slice(-2))
+        .join("");
+      return hex.slice(0, 16);
+    }
+
+    const translated = {};
+    for (const src of sources) {
+      const h = await shortHash(src);
+      if (map[h]) translated[src] = map[h];
+    }
+
+    spans.forEach((s) => {
+      const src = s.getAttribute("data-src-text");
+      if (src && translated[src]) s.textContent = translated[src];
+    });
   }
 
   /**
@@ -2860,6 +2931,11 @@ class AudiobookLibraryV2 {
       if (Array.isArray(this.browseBooks) && this.browseBooks.length > 0) {
         this.renderBooks(this.browseBooks);
         this.applyBookTranslations();
+      }
+      // Re-translate already-rendered admin-authored notification bodies.
+      const notifContainer = document.getElementById("notification-container");
+      if (notifContainer) {
+        this._translateNotifications(notifContainer).catch(() => {});
       }
     });
   }

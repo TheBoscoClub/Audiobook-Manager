@@ -207,6 +207,86 @@
 
   // -- Display logic --
 
+  // SHA-256 short digest matching backend _hash_source / i18n.js hashSource.
+  async function hashSource(text) {
+    if (window.crypto && window.crypto.subtle) {
+      var bytes = new TextEncoder().encode(text);
+      var buf = await window.crypto.subtle.digest("SHA-256", bytes);
+      var hex = Array.prototype.map
+        .call(new Uint8Array(buf), function (b) {
+          return ("00" + b.toString(16)).slice(-2);
+        })
+        .join("");
+      return hex.slice(0, 16);
+    }
+    return text;
+  }
+
+  // Translate admin-authored strings (message bodies, window names/descriptions)
+  // then overlay the translations onto the already-rendered <p> elements.
+  // Each <p> stores its source strings in data-src-* attributes so we can
+  // re-render on locale change without losing the originals.
+  async function applyMessageTranslations() {
+    if (!messagesContainer || !window.i18n) return;
+    var locale = window.i18n.getLocale();
+    var paragraphs = messagesContainer.querySelectorAll(".maintenance-panel-message");
+    if (!paragraphs.length) return;
+
+    // English: restore originals (handles locale switch back to en).
+    if (locale === "en") {
+      paragraphs.forEach(function (p) {
+        var src = p.getAttribute("data-src-text");
+        if (src) p.textContent = src;
+      });
+      return;
+    }
+
+    // Collect unique source fragments (name + description + message).
+    var fragments = [];
+    var seen = {};
+    paragraphs.forEach(function (p) {
+      ["data-src-name", "data-src-desc", "data-src-message"].forEach(function (attr) {
+        var v = p.getAttribute(attr);
+        if (v && !seen[v]) {
+          seen[v] = true;
+          fragments.push(v);
+        }
+      });
+    });
+    if (!fragments.length) return;
+
+    var map;
+    try {
+      map = await window.i18n.translateStrings(fragments);
+    } catch (e) {
+      return;
+    }
+    if (!map) return;
+
+    // Hash each fragment → pick translation, then rebuild each <p>.
+    var fragMap = {};
+    for (var i = 0; i < fragments.length; i++) {
+      var h = await hashSource(fragments[i]);
+      if (map[h]) fragMap[fragments[i]] = map[h];
+    }
+
+    paragraphs.forEach(function (p) {
+      var name = p.getAttribute("data-src-name");
+      var desc = p.getAttribute("data-src-desc");
+      var message = p.getAttribute("data-src-message");
+      var when = p.getAttribute("data-src-when");
+      var text;
+      if (message) {
+        text = fragMap[message] || message;
+      } else {
+        text = fragMap[name] || name || "";
+        if (when) text += " -- " + when;
+        if (desc) text += ": " + (fragMap[desc] || desc);
+      }
+      p.textContent = text;
+    });
+  }
+
   function updateMessages() {
     if (!messagesContainer) return;
     while (messagesContainer.firstChild) {
@@ -217,7 +297,10 @@
     currentMessages.forEach(function (m) {
       var p = document.createElement("p");
       p.className = "maintenance-panel-message";
-      p.textContent = m.message || m;
+      var msg = m.message || m;
+      p.textContent = msg;
+      p.setAttribute("data-src-message", msg);
+      p.setAttribute("data-src-text", msg);
       messagesContainer.appendChild(p);
     });
 
@@ -225,16 +308,20 @@
     currentWindows.forEach(function (w) {
       var p = document.createElement("p");
       p.className = "maintenance-panel-message";
-      var text = w.name;
-      if (w.next_run_at) {
-        text += " -- " + new Date(w.next_run_at).toLocaleString();
-      }
-      if (w.description) {
-        text += ": " + w.description;
-      }
+      var when = w.next_run_at ? new Date(w.next_run_at).toLocaleString() : "";
+      var text = w.name || "";
+      if (when) text += " -- " + when;
+      if (w.description) text += ": " + w.description;
       p.textContent = text;
+      if (w.name) p.setAttribute("data-src-name", w.name);
+      if (w.description) p.setAttribute("data-src-desc", w.description);
+      if (when) p.setAttribute("data-src-when", when);
+      p.setAttribute("data-src-text", text);
       messagesContainer.appendChild(p);
     });
+
+    // Fire-and-forget overlay translation pass for non-en locales.
+    applyMessageTranslations().catch(function () {});
   }
 
   function hasContent() {
@@ -351,6 +438,8 @@
         var switchBtn = panel.querySelector(".knife-switch");
         if (switchBtn) switchBtn.title = typeof t === "function" ? t("maintenance.dismissTitle") : "Dismiss maintenance announcements for this session";
       }
+      // Re-render admin-authored dynamic content in the new locale.
+      applyMessageTranslations().catch(function () {});
     });
 
     // Initial fetch for page load (before WebSocket connects)
