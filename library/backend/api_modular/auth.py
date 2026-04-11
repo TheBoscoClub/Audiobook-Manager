@@ -3047,7 +3047,11 @@ def _get_email_config() -> tuple:
 
 
 def _send_magic_link_email(
-    to_email: str, username: str, magic_link: str, expires_minutes: int
+    to_email: str,
+    username: str,
+    magic_link: str,
+    expires_minutes: int,
+    locale: str = "en",
 ) -> bool:
     """
     Send a magic link email for login recovery.
@@ -3058,88 +3062,20 @@ def _send_magic_link_email(
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
 
+    from backend.api_modular.email_templates import render_email
+
     smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
     base_url = _get_base_url()
 
     full_link = f"{base_url}{magic_link}"
 
-    subject = "Sign In to The Library"
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-</head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a;
-  color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a;
-      padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center;
-          margin-bottom: 20px;">The Library</h1>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            Hello {username},
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            Click the big gold button below to sign in. That's it!
-        </p>
-
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{full_link}"
-               style="background: linear-gradient(to bottom,
-                        #ffd700, #daa520, #8b7355);
-                      color: #1a1a1a;
-                      padding: 18px 40px;
-                      text-decoration: none;
-                      font-weight: bold;
-                      font-size: 1.1em;
-                      letter-spacing: 2px;">
-                SIGN IN TO THE LIBRARY
-            </a>
-        </div>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            This link works for {expires_minutes} minutes.
-            After that, you'll need to request a new one.
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em;">
-            If you didn't ask for this link, you can ignore this email.
-            Someone may have typed your username by mistake.
-        </p>
-
-        <hr style="border: none; border-top: 1px solid #8b7355;
-          margin: 20px 0;">
-
-        <p style="color: #888; font-size: 0.9em; text-align: center;
-          line-height: 1.8;">
-            If the button doesn't work, copy the link below and paste it
-            into your web browser's address bar (the long bar at the top
-            of your browser window):
-            <br>
-            <a href="{full_link}"
-              style="color: #daa520; word-break: break-all;">{full_link}</a>
-        </p>
-    </div>
-</body>
-</html>
-"""
-
-    text_content = f"""Hello {username},
-
-Click the link below to sign in to The Library:
-
-{full_link}
-
-This link works for {expires_minutes} minutes.
-After that, you'll need to request a new one.
-
-If the link doesn't work, copy it and paste it into your web browser's
-address bar (the long bar at the top of your browser window).
-
-If you didn't ask for this link, you can ignore this email.
-"""
+    subject, text_content, html_content = render_email(
+        "magic_link",
+        locale,
+        username=username,
+        link=full_link,
+        expires_minutes=expires_minutes,
+    )
 
     try:
         msg = MIMEMultipart("alternative")
@@ -3164,7 +3100,9 @@ If you didn't ask for this link, you can ignore this email.
         return False
 
 
-def _send_approval_email(to_email: str, username: str) -> bool:
+def _send_approval_email(
+    to_email: str, username: str, locale: str = "en"
+) -> bool:
     """
     Send an email notifying the user their access request was approved.
 
@@ -3173,209 +3111,16 @@ def _send_approval_email(to_email: str, username: str) -> bool:
 
     Returns True if email was sent successfully, False otherwise.
     """
+    from backend.api_modular.email_templates import render_email
+
     smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
     base_url = _get_base_url()
 
     claim_url = f"{base_url}/claim.html?username={urllib.parse.quote(username)}"
 
-    subject = "You're Approved! Here's How to Get Started"
-
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-</head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a;
-  color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a;
-      padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center;
-          margin-bottom: 20px;">Welcome to The Library!</h1>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            Hello {username},
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            Great news &mdash; your access has been approved! Follow the
-            steps below to finish setting up your account.
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em;
-          font-style: italic;">
-            You might want to print this email or write down these steps
-            before you start.
-        </p>
-
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
-          padding-bottom: 10px;">
-            First: Install a Free App on Your Phone
-        </h2>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            Instead of a password, The Library uses a free app on your
-            phone that shows a 6-digit number. You type that number to
-            sign in. Pick one of these free apps
-            (none of them need your phone number):
-        </p>
-
-        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0;
-          border-left: 3px solid #daa520;">
-            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Google Authenticator</strong>
-                (Recommended &mdash; simple and free)<br>
-                <a href="https://apps.apple.com/app/google-authenticator/id388497605"
-                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
-                  style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or
-                  phone number needed.</span>
-            </p>
-            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Aegis Authenticator</strong>
-                (Android only, free &amp; open source)<br>
-                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis"
-                  style="color: #daa520;">Google Play Store</a> |
-                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/"
-                  style="color: #daa520;">F-Droid</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or
-                  phone number needed.</span>
-            </p>
-            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">FreeOTP</strong>
-                (by Red Hat &mdash; free &amp; open source)<br>
-                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395"
-                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp"
-                  style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or
-                  phone number needed.</span>
-            </p>
-        </div>
-
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
-          padding-bottom: 10px;">
-            Then: Set Up Your Account
-        </h2>
-
-        <ol style="color: #f5f5dc; line-height: 2; font-size: 1em;">
-            <li><strong>Install one of the apps above</strong> on your
-              phone (if you don't have one already)</li>
-            <li><strong>Find your claim token</strong> &mdash; this is
-              the code you saved when you requested access.
-              It looks like four groups of letters and numbers:
-              <code style="background: #3a3a3a; padding: 2px 6px;"
-                >ABCD-EFGH-IJKL-MNOP</code></li>
-            <li><strong>Click the gold button below</strong> to go to
-              the setup page:
-                <div style="text-align: center; margin: 15px 0;">
-                    <a href="{claim_url}"
-                       style="background: linear-gradient(to bottom,
-                                #ffd700, #daa520, #8b7355);
-                              color: #1a1a1a;
-                              padding: 14px 30px;
-                              text-decoration: none;
-                              font-weight: bold;
-                              font-size: 1.05em;
-                              letter-spacing: 1px;
-                              display: inline-block;">
-                        SET UP YOUR ACCOUNT
-                    </a>
-                </div>
-            </li>
-            <li>Type your <strong>username</strong> ({username}) and
-              <strong>claim token</strong></li>
-            <li><strong>Point your phone's camera at the QR code</strong>
-              shown on screen
-                <div style="background-color: #3a3a3a; padding: 10px;
-                  margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
-                    In your app, tap the <strong>+</strong> button, then
-                    choose <strong>"Scan QR Code"</strong>.
-                    <br>Can't scan? Choose
-                    <strong>"Enter Key Manually"</strong> instead and
-                    type the code shown on screen.
-                </div>
-            </li>
-            <li><strong>Write down your backup codes</strong> on paper
-              and keep them safe &mdash; these are your emergency codes
-              if you ever lose your phone</li>
-            <li><strong>Type the 6-digit number</strong> from your app
-              to finish!</li>
-        </ol>
-
-        <div style="background-color: #4a3a2a; padding: 15px; margin: 20px 0;
-          border: 1px solid #8b7355;">
-            <p style="color: #ffcc00; margin: 0; font-weight: bold;
-              font-size: 1em;">
-                Can't find your claim token?
-            </p>
-            <p style="color: #f5f5dc; margin: 10px 0 0 0; font-size: 0.95em;
-              line-height: 1.8;">
-                The claim token was shown when you first requested access.
-                If you didn't save it, contact the person who runs The
-                Library to reset your request.
-            </p>
-        </div>
-
-        <hr style="border: none; border-top: 1px solid #8b7355;
-          margin: 20px 0;">
-
-        <p style="color: #888; font-size: 0.9em; text-align: center;
-          line-height: 1.8;">
-            If the button doesn't work, copy this link and paste it into
-            your browser:<br>
-            <a href="{claim_url}"
-              style="color: #daa520; word-break: break-all;">{claim_url}</a>
-        </p>
-    </div>
-</body>
-</html>
-"""
-
-    text_content = f"""Welcome to The Library!
-
-Hello {username},
-
-Great news - your access has been approved! Follow these steps to set
-up your account.
-
-(You might want to print this email or write the steps down.)
-
-FIRST: INSTALL A FREE APP ON YOUR PHONE
-The Library uses a free app instead of passwords. Pick one
-(none need your phone number):
-
-- Google Authenticator (recommended):
-  iPhone/iPad:
-    https://apps.apple.com/app/google-authenticator/id388497605
-  Android:
-    https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
-
-- Aegis Authenticator (Android only, open source):
-  Play Store:
-    https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
-  F-Droid: https://f-droid.org/en/packages/com.beemdevelopment.aegis/
-
-- FreeOTP (by Red Hat):
-  iPhone/iPad:
-    https://apps.apple.com/app/freeotp-authenticator/id872559395
-  Android:
-    https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
-
-THEN: SET UP YOUR ACCOUNT
-1. Install one of the apps above on your phone
-2. Find your claim token (the ABCD-EFGH-IJKL-MNOP code from when you
-   requested access)
-3. Go to: {claim_url}
-4. Type your username ({username}) and claim token
-5. Point your phone's camera at the QR code on screen
-   (Can't scan? Choose "Enter Key Manually" and type the code shown.)
-6. Write down your backup codes on paper and keep them safe
-7. Type the 6-digit number from your app to finish!
-
-Can't find your claim token? Contact the person who runs The Library.
-"""
+    subject, text_content, html_content = render_email(
+        "approval", locale, username=username, claim_url=claim_url
+    )
 
     try:
         msg = MIMEMultipart("alternative")
@@ -3400,72 +3145,25 @@ Can't find your claim token? Contact the person who runs The Library.
 
 
 def _send_denial_email(
-    to_email: str, username: str, reason: Optional[str] = None
+    to_email: str,
+    username: str,
+    reason: Optional[str] = None,
+    locale: str = "en",
 ) -> bool:
     """
     Send an email notifying the user their access request was denied.
 
     Returns True if email was sent successfully, False otherwise.
     """
-    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    from backend.api_modular.email_templates import render_email
 
-    subject = "Update on Your Access Request - The Library"
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
 
     reason_text = reason if reason else "No specific reason was provided."
 
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-</head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a;
-  color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a;
-      padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center;
-          margin-bottom: 20px;">The Library</h1>
-
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            Hello {username},
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            We've reviewed your access request, and unfortunately we're
-            unable to approve it at this time.
-        </p>
-
-        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0;
-          border-left: 3px solid #8b7355;">
-            <p style="color: #f5f5dc; margin: 0;">
-                <strong>Reason:</strong> {reason_text}
-            </p>
-        </div>
-
-        <p style="color: #f5f5dc; line-height: 1.6;">
-            If you believe this was in error, you may submit a new request.
-        </p>
-
-        <hr style="border: none; border-top: 1px solid #8b7355;
-          margin: 20px 0;">
-
-        <p style="color: #888; font-size: 0.8em; text-align: center;">
-            This is an automated message from The Library.
-        </p>
-    </div>
-</body>
-</html>
-"""
-
-    text_content = f"""Hello {username},
-
-We've reviewed your access request, and unfortunately we're unable to
-approve it at this time.
-
-Reason: {reason_text}
-
-If you believe this was in error, you may submit a new request.
-"""
+    subject, text_content, html_content = render_email(
+        "denial", locale, username=username, reason=reason_text
+    )
 
     try:
         msg = MIMEMultipart("alternative")
@@ -3984,18 +3682,17 @@ def reply_to_message(message_id: int):
     return jsonify({"success": True, "reply_method": reply_method})
 
 
-def _send_reply_email(to_email: str, username: str, reply_text: str) -> bool:
+def _send_reply_email(
+    to_email: str, username: str, reply_text: str, locale: str = "en"
+) -> bool:
     """Send email reply to user."""
+    from backend.api_modular.email_templates import render_email
+
     smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _get_email_config()
 
-    subject = "Reply from The Library"
-    body = f"""Hi {username},
-
-{reply_text}
-
----
-This is a reply to your message to The Library.
-"""
+    subject, body, html_content = render_email(
+        "reply", locale, username=username, reply_text=reply_text
+    )
 
     try:
         msg = MIMEMultipart("alternative")
@@ -4004,6 +3701,7 @@ This is a reply to your message to The Library.
         msg["To"] = to_email
 
         msg.attach(MIMEText(body, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
 
         with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.starttls()
@@ -4540,12 +4238,16 @@ def _invite_magic_link_user(db, user_repo, username, email, can_download):
     )
 
 
-def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bool:
+def _send_invitation_email(
+    to_email: str, username: str, claim_token: str, locale: str = "en"
+) -> bool:
     """
     Send an invitation email to a pre-approved user with their claim token.
 
     Returns True if email was sent successfully, False otherwise.
     """
+    from backend.api_modular.email_templates import render_email
+
     smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
     base_url = _get_base_url()
 
@@ -4555,212 +4257,14 @@ def _send_invitation_email(to_email: str, username: str, claim_token: str) -> bo
         f"&token={urllib.parse.quote(claim_token)}"
     )
 
-    subject = "You're Invited to The Library!"
-
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-</head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a;
-  color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #2a2a2a;
-      padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center;
-          margin-bottom: 20px;">Welcome to The Library!</h1>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            Hello {username},
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            You've been invited to The Library &mdash; a private audiobook
-            collection! Follow the steps in this email to set up your account.
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 0.95em;
-          font-style: italic;">
-            You might want to print this email or write down these steps
-            before you start.
-        </p>
-
-        <div style="background-color: #3a3a3a; padding: 25px; margin: 25px 0;
-          border: 3px solid #daa520; text-align: center;">
-            <p style="color: #f5f5dc; margin: 0 0 10px 0; font-size: 1em;
-              font-weight: bold;">
-                YOUR CLAIM TOKEN (write this down!):
-            </p>
-            <p style="color: #daa520; font-family: 'Courier New', monospace;
-              font-size: 1.8em; letter-spacing: 0.15em; margin: 0;
-              font-weight: bold;">
-                {claim_token}
-            </p>
-        </div>
-
-        <div style="background-color: #4a2a2a; padding: 15px;
-          margin: 0 0 25px 0; border: 2px solid #ff9999;">
-            <p style="color: #ff9999; font-weight: bold; margin: 0;
-              font-size: 1.05em;">
-                WRITE THIS TOKEN DOWN or save this email! You'll need it to
-                finish setting up your account. This invitation expires in
-                48 hours.
-            </p>
-        </div>
-
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
-          padding-bottom: 10px;">
-            Step 1: Install a Free App on Your Phone
-        </h2>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            The Library uses a free phone app instead of passwords. The app
-            shows a 6-digit number that you type to sign in. Pick one of
-            these free apps (none of them need your phone number):
-        </p>
-
-        <div style="background-color: #3a3a3a; padding: 15px; margin: 15px 0;
-          border-left: 3px solid #daa520;">
-            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Google Authenticator</strong>
-                (Recommended &mdash; simple and free)<br>
-                <a href="https://apps.apple.com/app/google-authenticator/id388497605"
-                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
-                  style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or
-                  phone number needed.</span>
-            </p>
-            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">Aegis Authenticator</strong>
-                (Android only, free &amp; open source)<br>
-                <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis"
-                  style="color: #daa520;">Google Play Store</a> |
-                <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/"
-                  style="color: #daa520;">F-Droid</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or
-                  phone number needed.</span>
-            </p>
-            <p style="color: #f5f5dc; margin: 8px 0; line-height: 1.8;">
-                <strong style="color: #daa520;">FreeOTP</strong>
-                (by Red Hat &mdash; free &amp; open source)<br>
-                <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395"
-                  style="color: #daa520;">Apple App Store (iPhone/iPad)</a> |
-                <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp"
-                  style="color: #daa520;">Google Play Store (Android)</a><br>
-                <span style="font-size: 0.9em; color: #ccc;">No account or
-                  phone number needed.</span>
-            </p>
-        </div>
-
-        <h2 style="color: #daa520; border-bottom: 1px solid #8b7355;
-          padding-bottom: 10px;">
-            Step 2: Set Up Your Account
-        </h2>
-
-        <ol style="color: #f5f5dc; line-height: 2; font-size: 1em;">
-            <li><strong>Install one of the apps above</strong> on your
-              phone</li>
-            <li><strong>Click the gold button below</strong> to go to
-              the setup page:
-                <div style="text-align: center; margin: 15px 0;">
-                    <a href="{claim_url}"
-                       style="background: linear-gradient(to bottom,
-                                #ffd700, #daa520, #8b7355);
-                              color: #1a1a1a;
-                              padding: 14px 30px;
-                              text-decoration: none;
-                              font-weight: bold;
-                              font-size: 1.05em;
-                              letter-spacing: 1px;
-                              display: inline-block;">
-                        SET UP YOUR ACCOUNT
-                    </a>
-                </div>
-            </li>
-            <li>Type your <strong>username</strong>:
-              <strong>{username}</strong></li>
-            <li>Type your <strong>claim token</strong> (the code in the
-              gold box above)</li>
-            <li><strong>Point your phone's camera at the QR code</strong>
-              shown on screen
-                <div style="background-color: #3a3a3a; padding: 10px;
-                  margin: 10px 0; font-size: 0.95em; line-height: 1.8;">
-                    In your app, tap the <strong>+</strong> button, then
-                    choose <strong>"Scan QR Code"</strong>.
-                    <br>Can't scan? Choose
-                    <strong>"Enter Key Manually"</strong> instead and
-                    type the code shown on screen.
-                </div>
-            </li>
-            <li><strong>Write down your backup codes</strong> on paper
-              and keep them safe &mdash; these are your emergency codes
-              if you ever lose your phone</li>
-            <li><strong>Type the 6-digit number</strong> from your app
-              to finish!</li>
-        </ol>
-
-        <hr style="border: none; border-top: 1px solid #8b7355;
-          margin: 20px 0;">
-
-        <p style="color: #888; font-size: 0.9em; text-align: center;
-          line-height: 1.8;">
-            If the button doesn't work, copy this link and paste it into
-            your browser:<br>
-            <a href="{claim_url}"
-              style="color: #daa520; word-break: break-all;">{claim_url}</a>
-        </p>
-    </div>
-</body>
-</html>
-"""
-
-    text_content = f"""Welcome to The Library!
-
-Hello {username},
-
-You've been invited to The Library - a private audiobook collection!
-
-=== YOUR CLAIM TOKEN (WRITE THIS DOWN!) ===
-{claim_token}
-============================================
-
-Save this token! You'll need it to finish setting up your account.
-This invitation expires in 48 hours.
-
-(You might want to print this email or write these steps down.)
-
-STEP 1: INSTALL A FREE APP ON YOUR PHONE
-The Library uses a free app instead of passwords. Pick one
-(none need your phone number):
-
-- Google Authenticator (recommended):
-  iPhone/iPad:
-    https://apps.apple.com/app/google-authenticator/id388497605
-  Android:
-    https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
-
-- Aegis Authenticator (Android only, open source):
-  Play Store:
-    https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis
-  F-Droid: https://f-droid.org/en/packages/com.beemdevelopment.aegis/
-
-- FreeOTP (by Red Hat):
-  iPhone/iPad:
-    https://apps.apple.com/app/freeotp-authenticator/id872559395
-  Android:
-    https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp
-
-STEP 2: SET UP YOUR ACCOUNT
-1. Install one of the apps above on your phone
-2. Go to: {claim_url}
-3. Type your username: {username}
-4. Type your claim token (the code above)
-5. Point your phone's camera at the QR code on screen
-   (Can't scan? Choose "Enter Key Manually" and type the code shown.)
-6. Write down your backup codes on paper and keep them safe
-7. Type the 6-digit number from your app to finish!
-"""
+    subject, text_content, html_content = render_email(
+        "invitation",
+        locale,
+        username=username,
+        claim_url=claim_url,
+        claim_token=claim_token,
+        expires_hours=INVITATION_EXPIRY_HOURS,
+    )
 
     try:
         msg = MIMEMultipart("alternative")
@@ -4784,7 +4288,12 @@ STEP 2: SET UP YOUR ACCOUNT
         return False
 
 
-def _send_activation_email(to_email: str, username: str, activation_token: str) -> bool:
+def _send_activation_email(
+    to_email: str,
+    username: str,
+    activation_token: str,
+    locale: str = "en",
+) -> bool:
     """
     Send an activation email for magic link invitations.
 
@@ -4795,94 +4304,20 @@ def _send_activation_email(to_email: str, username: str, activation_token: str) 
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
 
+    from backend.api_modular.email_templates import render_email
+
     smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
     base_url = _get_base_url()
 
     activation_url = f"{base_url}/verify.html?token={activation_token}&activate=1"
 
-    subject = "Welcome to The Library"
-
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-</head>
-<body style="font-family: Georgia, serif; background-color: #1a1a1a;
-  color: #f5f5dc; padding: 20px;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #2a2a2a;
-      padding: 30px; border: 1px solid #8b7355;">
-        <h1 style="color: #daa520; text-align: center;
-          margin-bottom: 20px;">Welcome to The Library</h1>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            Hello {username},
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1.05em;">
-            You've been invited to The Library &mdash; a private audiobook
-            collection. Click the big gold button below to activate your
-            account and start listening.
-        </p>
-
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{activation_url}"
-               style="background: linear-gradient(to bottom,
-                        #ffd700, #daa520, #8b7355);
-                      color: #1a1a1a;
-                      padding: 18px 40px;
-                      text-decoration: none;
-                      font-weight: bold;
-                      font-size: 1.1em;
-                      letter-spacing: 2px;">
-                ACTIVATE MY ACCOUNT
-            </a>
-        </div>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            This link works for 48 hours. After that, ask the admin to
-            resend your invitation.
-        </p>
-
-        <p style="color: #f5f5dc; line-height: 1.8; font-size: 1em;">
-            <strong>How it works:</strong> Each time you want to sign in,
-            you'll enter your username and we'll email you a sign-in link.
-            No passwords or apps needed!
-        </p>
-
-        <hr style="border: none; border-top: 1px solid #8b7355;
-          margin: 20px 0;">
-
-        <p style="color: #888; font-size: 0.9em; text-align: center;
-          line-height: 1.8;">
-            If the button doesn't work, copy this link and paste it into
-            your browser:<br>
-            <a href="{activation_url}"
-              style="color: #daa520; word-break: break-all;"
-              >{activation_url}</a>
-        </p>
-    </div>
-</body>
-</html>
-"""
-
-    text_content = f"""Welcome to The Library
-
-Hello {username},
-
-You've been invited to The Library - a private audiobook collection.
-
-Click the link below to activate your account and start listening:
-
-{activation_url}
-
-This link works for 48 hours. After that, ask the admin to resend your invitation.
-
-How it works: Each time you want to sign in, you'll enter your username
-and we'll email you a sign-in link. No passwords or apps needed!
-
-If the link doesn't work, copy it and paste it into your browser's address bar.
-"""
+    subject, text_content, html_content = render_email(
+        "activation",
+        locale,
+        username=username,
+        activation_url=activation_url,
+        expires_hours=INVITATION_EXPIRY_HOURS,
+    )
 
     try:
         msg = MIMEMultipart("alternative")

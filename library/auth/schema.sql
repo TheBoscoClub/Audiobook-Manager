@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
     recovery_enabled BOOLEAN DEFAULT FALSE,
     last_audit_seen_id INTEGER DEFAULT 0,
     multi_session TEXT NOT NULL DEFAULT 'default',
+    preferred_locale TEXT DEFAULT 'en',
 
     CHECK (length(username) >= 3 AND length(username) <= 24)
 );
@@ -203,6 +204,7 @@ CREATE TABLE IF NOT EXISTS access_requests (
     deny_reason TEXT,  -- Optional reason for denial
     preferred_auth_method TEXT DEFAULT 'totp',  -- totp, passkey, magic_link
     claim_expires_at TIMESTAMP,  -- Expiry for invitation claim tokens
+    preferred_locale TEXT DEFAULT 'en',  -- Locale for guest-facing emails
 
     CHECK (length(username) >= 3 AND length(username) <= 24)
 );
@@ -232,7 +234,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO schema_version (version) VALUES (9);
+INSERT OR IGNORE INTO schema_version (version) VALUES (10);
 
 -- System settings table (global admin key-value store)
 CREATE TABLE IF NOT EXISTS system_settings (
