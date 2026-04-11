@@ -78,13 +78,18 @@ def get_grouped_audiobooks() -> FlaskResponse:
             400,
         )
 
+    # Locale-aware sort: when zh-* requested, use pinyin_sort from
+    # audiobook_translations if available (falls back to English title).
+    locale = request.args.get("locale", "").strip()
+    use_pinyin = locale.startswith("zh")
+
     conn = _get_grouped_db()
 
     try:
         if group_by == "author":
-            groups, all_book_ids = _group_by_author(conn)
+            groups, all_book_ids = _group_by_author(conn, locale, use_pinyin)
         else:
-            groups, all_book_ids = _group_by_narrator(conn)
+            groups, all_book_ids = _group_by_narrator(conn, locale, use_pinyin)
 
         return jsonify(
             {
@@ -128,8 +133,18 @@ def _row_to_book(row: sqlite3.Row) -> dict:
     }
 
 
-def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
-    """Group audiobooks by author via junction tables."""
+def _group_by_author(
+    conn: sqlite3.Connection,
+    locale: str = "",
+    use_pinyin: bool = False,
+) -> tuple[list[dict], set[int]]:
+    """Group audiobooks by author via junction tables.
+
+    When ``use_pinyin`` is True, LEFT JOINs ``audiobook_translations`` on
+    the given ``locale`` and orders books by
+    ``COALESCE(at.pinyin_sort, a.title)`` so zh-* users see a pinyin-
+    ordered grid. English queries are unchanged.
+    """
     cursor = conn.cursor()
     book_cols = _get_book_columns()
 
@@ -137,20 +152,35 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
     # Publication date sort: prefer published_date (YYYY-MM-DD), fall back to
     # published_year, then release_date, then title. NULLS LAST via COALESCE.
     # AUDIOBOOK_FILTER and book_cols are hardcoded constants, not user input
+    if use_pinyin:
+        title_sort_expr = (
+            "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
+        )
+        join_clause = (
+            " LEFT JOIN audiobook_translations at"
+            " ON at.audiobook_id = a.id AND at.locale = ?"
+        )
+        sort_params: list = [locale]
+    else:
+        title_sort_expr = "a.title COLLATE NOCASE"
+        join_clause = ""
+        sort_params = []
+
     query = (
         f"SELECT {book_cols}, auth.id AS group_id, auth.name AS group_name,"  # nosec B608
         " auth.sort_name AS group_sort_name"
         " FROM audiobooks a"
         " JOIN book_authors ba ON a.id = ba.book_id"
         " JOIN authors auth ON ba.author_id = auth.id"
+        f"{join_clause}"
         f" WHERE {AUDIOBOOK_FILTER}"
         " ORDER BY auth.sort_name COLLATE NOCASE,"
         " COALESCE(a.published_date, a.release_date,"
         " CAST(a.published_year AS TEXT) || '-01-01',"
         " '9999-12-31') ASC,"
-        " a.title COLLATE NOCASE"
+        f" {title_sort_expr}"
     )
-    cursor.execute(query)
+    cursor.execute(query, sort_params)
     rows = cursor.fetchall()
 
     # Build groups preserving query order
@@ -181,11 +211,12 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
     query = (
         f"SELECT {book_cols}"  # nosec B608
         " FROM audiobooks a"
+        f"{join_clause}"
         f" WHERE {AUDIOBOOK_FILTER}"
         " AND a.id NOT IN (SELECT book_id FROM book_authors)"
-        " ORDER BY a.title COLLATE NOCASE"
+        f" ORDER BY {title_sort_expr}"
     )
-    cursor.execute(query)
+    cursor.execute(query, sort_params)
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:
@@ -208,10 +239,31 @@ def _group_by_author(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
     return groups, all_book_ids
 
 
-def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
-    """Group audiobooks by narrator via junction tables."""
+def _group_by_narrator(
+    conn: sqlite3.Connection,
+    locale: str = "",
+    use_pinyin: bool = False,
+) -> tuple[list[dict], set[int]]:
+    """Group audiobooks by narrator via junction tables.
+
+    See ``_group_by_author`` for the pinyin sort semantics.
+    """
     cursor = conn.cursor()
     book_cols = _get_book_columns()
+
+    if use_pinyin:
+        title_sort_expr = (
+            "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
+        )
+        join_clause = (
+            " LEFT JOIN audiobook_translations at"
+            " ON at.audiobook_id = a.id AND at.locale = ?"
+        )
+        sort_params: list = [locale]
+    else:
+        title_sort_expr = "a.title COLLATE NOCASE"
+        join_clause = ""
+        sort_params = []
 
     # AUDIOBOOK_FILTER and book_cols are hardcoded constants, not user input
     query = (
@@ -220,14 +272,15 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
         " FROM audiobooks a"
         " JOIN book_narrators bn ON a.id = bn.book_id"
         " JOIN narrators narr ON bn.narrator_id = narr.id"
+        f"{join_clause}"
         f" WHERE {AUDIOBOOK_FILTER}"
         " ORDER BY narr.sort_name COLLATE NOCASE,"
         " COALESCE(a.published_date, a.release_date,"
         " CAST(a.published_year AS TEXT) || '-01-01',"
         " '9999-12-31') ASC,"
-        " a.title COLLATE NOCASE"
+        f" {title_sort_expr}"
     )
-    cursor.execute(query)
+    cursor.execute(query, sort_params)
     rows = cursor.fetchall()
 
     groups: list[dict] = []
@@ -257,11 +310,12 @@ def _group_by_narrator(conn: sqlite3.Connection) -> tuple[list[dict], set[int]]:
     query = (
         f"SELECT {book_cols}"  # nosec B608
         " FROM audiobooks a"
+        f"{join_clause}"
         f" WHERE {AUDIOBOOK_FILTER}"
         " AND a.id NOT IN (SELECT book_id FROM book_narrators)"
-        " ORDER BY a.title COLLATE NOCASE"
+        f" ORDER BY {title_sort_expr}"
     )
-    cursor.execute(query)
+    cursor.execute(query, sort_params)
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:

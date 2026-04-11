@@ -21,6 +21,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request
 
 from .auth import admin_if_enabled, guest_allowed
+from .search_cjk import pinyin_sort_key
 
 translations_bp = Blueprint("translations", __name__)
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ def init_translations_routes(database_path):
         conn.close()
     except sqlite3.Error:
         logger.exception("Failed to ensure string_translations table")
+
 
 
 def _hash_source(text: str) -> str:
@@ -175,18 +177,21 @@ def upsert_translation(book_id):
         if not book:
             return jsonify({"error": "Audiobook not found"}), 404
 
+        pinyin = pinyin_sort_key(title) if locale.startswith("zh") else None
         conn.execute(
             """INSERT INTO audiobook_translations
-               (audiobook_id, locale, title, author_display, description, translator)
-               VALUES (?, ?, ?, ?, ?, ?)
+               (audiobook_id, locale, title, author_display, description,
+                translator, pinyin_sort)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                    title = excluded.title,
                    author_display = excluded.author_display,
                    description = excluded.description,
                    translator = excluded.translator,
+                   pinyin_sort = excluded.pinyin_sort,
                    updated_at = CURRENT_TIMESTAMP
             """,
-            (book_id, locale, title, author_display, description, translator),
+            (book_id, locale, title, author_display, description, translator, pinyin),
         )
         conn.commit()
 
@@ -346,19 +351,21 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
                 # Fresh insert: need title + author too.
                 t_title = next(title_iter, book["title"])
                 t_author = next(author_iter2, book["author"] or "")
+                pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
                 conn.execute(
                     """INSERT INTO audiobook_translations
                        (audiobook_id, locale, title, author_display,
-                        series_display, translator)
-                       VALUES (?, ?, ?, ?, ?, 'deepl')
+                        series_display, translator, pinyin_sort)
+                       VALUES (?, ?, ?, ?, ?, 'deepl', ?)
                        ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                            title = excluded.title,
                            author_display = excluded.author_display,
                            series_display = excluded.series_display,
                            translator = excluded.translator,
+                           pinyin_sort = excluded.pinyin_sort,
                            updated_at = CURRENT_TIMESTAMP
                     """,
-                    (book["id"], locale, t_title, t_author, t_series),
+                    (book["id"], locale, t_title, t_author, t_series, pinyin),
                 )
                 result_dict[book_id_str] = {
                     "title": t_title,
@@ -679,17 +686,19 @@ def on_demand_translate():
             t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
             t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
 
+            pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
             conn.execute(
                 """INSERT INTO audiobook_translations
-                   (audiobook_id, locale, title, author_display, translator)
-                   VALUES (?, ?, ?, ?, 'deepl')
+                   (audiobook_id, locale, title, author_display, translator, pinyin_sort)
+                   VALUES (?, ?, ?, ?, 'deepl', ?)
                    ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                        title = excluded.title,
                        author_display = excluded.author_display,
                        translator = excluded.translator,
+                       pinyin_sort = excluded.pinyin_sort,
                        updated_at = CURRENT_TIMESTAMP
                 """,
-                (book["id"], locale, t_title, t_author),
+                (book["id"], locale, t_title, t_author, pinyin),
             )
 
             new_translations[str(book["id"])] = {
@@ -809,17 +818,19 @@ def batch_translate():
             t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
             t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
 
+            pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
             conn.execute(
                 """INSERT INTO audiobook_translations
-                   (audiobook_id, locale, title, author_display, translator)
-                   VALUES (?, ?, ?, ?, 'deepl')
+                   (audiobook_id, locale, title, author_display, translator, pinyin_sort)
+                   VALUES (?, ?, ?, ?, 'deepl', ?)
                    ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                        title = excluded.title,
                        author_display = excluded.author_display,
                        translator = excluded.translator,
+                       pinyin_sort = excluded.pinyin_sort,
                        updated_at = CURRENT_TIMESTAMP
                 """,
-                (book["id"], locale, t_title, t_author),
+                (book["id"], locale, t_title, t_author, pinyin),
             )
             translations[str(book["id"])] = {
                 "title": t_title,
@@ -837,3 +848,4 @@ def batch_translate():
         })
     finally:
         conn.close()
+

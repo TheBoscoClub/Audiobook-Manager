@@ -28,6 +28,7 @@ from .collections import get_collections_lookup
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
 from .auth import auth_if_enabled, guest_allowed, download_permission_required
+from .search_cjk import cjk_bigram_like_clause, contains_cjk
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +216,7 @@ def _parse_query_params(req) -> dict:
         "collection": req.args.get("collection", "").strip(),
         "sort_field": req.args.get("sort", "title"),
         "sort_order": sort_order,
+        "locale": req.args.get("locale", "").strip(),
     }
 
 
@@ -299,15 +301,60 @@ _FILTER_SPECS: list[tuple[str, str, object]] = [
 ]
 
 
+def _build_cjk_search_clause(query: str) -> tuple[str, list[str]]:
+    """Build a CJK-aware search sub-clause for the ``search`` param.
+
+    SQLite FTS5 with ``unicode61`` treats a whole run of Han characters
+    as a single token, so LIKE-based bigram matching is both simpler
+    and more accurate for Chinese queries. The clause searches:
+
+    - the English columns ``title``/``author`` (catches books whose
+      original metadata already contains CJK, e.g. original-language
+      imports)
+    - the translated columns via ``audiobook_translations`` for any
+      zh-* locale (catches books translated via DeepL)
+
+    Every bigram must match in at least one of the searched columns.
+    See ``search_cjk.cjk_bigram_like_clause`` for the tradeoff docstring.
+    """
+    clauses: list[str] = []
+    params: list[str] = []
+
+    title_frag, title_params = cjk_bigram_like_clause("audiobooks.title", query)
+    author_frag, author_params = cjk_bigram_like_clause("audiobooks.author", query)
+    clauses.append(f"({title_frag} OR {author_frag}")
+    params.extend(title_params)
+    params.extend(author_params)
+
+    # Translated title match via the translations table
+    # (locale LIKE 'zh%' covers zh-Hans, zh-Hant, zh-CN, etc.).
+    trans_frag, trans_params = cjk_bigram_like_clause("at.title", query)
+    clauses.append(
+        " OR audiobooks.id IN (SELECT at.audiobook_id FROM audiobook_translations at"
+        f" WHERE at.locale LIKE 'zh%' AND {trans_frag}))"
+    )
+    params.extend(trans_params)
+
+    return "".join(clauses), params
+
+
 def _apply_param_filters(params: dict) -> tuple[list[str], list]:
     """Apply table-driven parameter filters to build WHERE clauses."""
     where_clauses: list[str] = []
     sql_params: list = []
     for key, clause, transform in _FILTER_SPECS:
         value = params.get(key)
-        if value:
-            where_clauses.append(clause)
-            sql_params.append(transform(value) if callable(transform) else value)
+        if not value:
+            continue
+        # CJK search override: FTS5 unicode61 under-tokenizes Han runs,
+        # so route zh-* queries through bigram LIKE on original + translated.
+        if key == "search" and contains_cjk(value):
+            cjk_sql, cjk_params = _build_cjk_search_clause(value)
+            where_clauses.append(cjk_sql)
+            sql_params.extend(cjk_params)
+            continue
+        where_clauses.append(clause)
+        sql_params.append(transform(value) if callable(transform) else value)
     return where_clauses, sql_params
 
 
@@ -522,14 +569,35 @@ def get_audiobooks() -> Response:
     if where_clauses:
         where_sql = "WHERE " + " AND ".join(where_clauses)
 
+    # Locale-aware title sort: for zh-* requests sorting by title, LEFT JOIN
+    # audiobook_translations and order by pinyin_sort with English fallback.
+    # Only the plain "title" sort is rewritten; other sorts (author, date,
+    # duration, etc.) are independent of localized title and stay untouched.
+    locale = qp.get("locale", "") or ""
+    use_pinyin_sort = (
+        locale.startswith("zh") and qp["sort_field"] == "title"
+    )
+    join_sql = ""
+    join_params: list = []
+    order_by_sql = f"{sort_sql} {sort_order}"
+    if use_pinyin_sort:
+        join_sql = (
+            " LEFT JOIN audiobook_translations _zhT"
+            " ON _zhT.audiobook_id = audiobooks.id AND _zhT.locale = ?"
+        )
+        join_params = [locale]
+        order_by_sql = (
+            f"COALESCE(NULLIF(_zhT.pinyin_sort, ''), audiobooks.title)"
+            f" COLLATE NOCASE {sort_order}"
+        )
+
     conn = _get_audiobooks_db()
     cursor = conn.cursor()
 
     # Count total matching audiobooks
-    count_query = f"SELECT COUNT(*) as total FROM audiobooks {where_sql}"  # nosec B608
-    cursor.execute(
-        count_query, params
-    )  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    # where_sql is built from validated allowlists (filter specs + AUDIOBOOK_FILTER const), not user input.
+    count_query = f"SELECT COUNT(*) as total FROM audiobooks{join_sql} {where_sql}"  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(count_query, join_params + params)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     total_count = cursor.fetchone()["total"]
 
     # Get paginated audiobooks
@@ -540,19 +608,23 @@ def get_audiobooks() -> Response:
     # CodeQL: sort_sql from allowlist (_SORT_MAPPINGS), sort_order validated
     # where_sql/sort_sql built from validated allowlists, not user input
     query = (
-        "SELECT id, title, author, narrator, publisher, series,"  # nosec B608
-        " series_sequence, edition, asin, acquired_date, published_year,"
-        " author_last_name, author_first_name,"
-        " narrator_last_name, narrator_first_name,"
-        " duration_hours, duration_formatted, file_size_mb,"
-        " file_path, cover_path, format, quality, description"
+        "SELECT audiobooks.id, audiobooks.title, audiobooks.author,"  # nosec B608
+        " audiobooks.narrator, audiobooks.publisher, audiobooks.series,"
+        " audiobooks.series_sequence, audiobooks.edition, audiobooks.asin,"
+        " audiobooks.acquired_date, audiobooks.published_year,"
+        " audiobooks.author_last_name, audiobooks.author_first_name,"
+        " audiobooks.narrator_last_name, audiobooks.narrator_first_name,"
+        " audiobooks.duration_hours, audiobooks.duration_formatted,"
+        " audiobooks.file_size_mb, audiobooks.file_path, audiobooks.cover_path,"
+        " audiobooks.format, audiobooks.quality, audiobooks.description"
         " FROM audiobooks"
+        f"{join_sql}"
         f" {where_sql}"
-        f" ORDER BY {sort_sql} {sort_order}"
+        f" ORDER BY {order_by_sql}"
         " LIMIT ? OFFSET ?"
     )
 
-    cursor.execute(query, params + [per_page, offset])
+    cursor.execute(query, join_params + params + [per_page, offset])
     rows = cursor.fetchall()
 
     # Convert to list of dicts

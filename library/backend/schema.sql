@@ -417,6 +417,7 @@ CREATE TABLE IF NOT EXISTS audiobook_translations (
     series_display TEXT,                -- Translated series name
     description TEXT,                   -- Translated description/summary
     translator TEXT,                    -- Who/what translated ('deepl', 'manual', etc.)
+    pinyin_sort TEXT,                   -- Tone-stripped lowercase pinyin of title (zh sort key)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(audiobook_id, locale),
@@ -425,6 +426,7 @@ CREATE TABLE IF NOT EXISTS audiobook_translations (
 
 CREATE INDEX IF NOT EXISTS idx_audiobook_translations_locale ON audiobook_translations(locale);
 CREATE INDEX IF NOT EXISTS idx_audiobook_translations_book ON audiobook_translations(audiobook_id);
+CREATE INDEX IF NOT EXISTS idx_audiobook_translations_pinyin_sort ON audiobook_translations(locale, pinyin_sort);
 
 -- Chapter subtitles (Phase 2: dual-language VTT files)
 CREATE TABLE IF NOT EXISTS chapter_subtitles (
