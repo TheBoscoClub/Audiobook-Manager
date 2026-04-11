@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Verify Access - The Library</title>
+    <title data-i18n="verify.pageTitle">Verify Access - The Library</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32">
@@ -15,72 +15,73 @@
     <link rel="stylesheet" href="css/help-tooltips.css?v=1775585227">
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
     <script data-cfasync="false" src="js/session-persistence.js?v=1775585227"></script>
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
         <!-- Decorative header -->
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
-            <h1 class="auth-title">The Library</h1>
-            <p class="auth-subtitle">Checking Your Link</p>
+            <h1 class="auth-title" data-i18n="app.name">The Library</h1>
+            <p class="auth-subtitle" data-i18n="verify.subtitle">Checking Your Link</p>
             <div class="deco-line"></div>
         </div>
 
         <!-- Verifying state -->
         <div id="state-verifying" class="verification-state">
             <div class="spinner-large"></div>
-            <p class="state-message plain-language">Checking your link... just a moment.</p>
+            <p class="state-message plain-language" data-i18n="verify.checking">Checking your link... just a moment.</p>
         </div>
 
         <!-- Success state -->
         <div id="state-success" class="verification-state" hidden>
             <div class="success-icon">&#10003;</div>
-            <h2 class="state-title">You're In!</h2>
-            <p class="state-message plain-language">
+            <h2 class="state-title" data-i18n="verify.successTitle">You're In!</h2>
+            <p class="state-message plain-language" data-i18n="verify.successMessage">
                 Taking you to The Library now...
             </p>
             <p class="state-message" id="redirect-message" style="opacity: 0.7;">
-                (If nothing happens, <a href="/" style="color: var(--gold);">click here</a>.)
+                (<span data-i18n="verify.ifNothingHappens">If nothing happens,</span> <a href="/" style="color: var(--gold);" data-i18n="verify.clickHere">click here</a>.)
             </p>
         </div>
 
         <!-- Error state -->
         <div id="state-error" class="verification-state" hidden>
             <div class="error-icon">&#10007;</div>
-            <h2 class="state-title">This Link Didn't Work</h2>
-            <p class="state-message plain-language" id="error-message">
+            <h2 class="state-title" data-i18n="verify.errorTitle">This Link Didn't Work</h2>
+            <p class="state-message plain-language" id="error-message" data-i18n="verify.errorDefault">
                 This can happen if the link is more than 15 minutes old, you already used this link, or the link was copied incorrectly.
             </p>
             <p class="state-message plain-language" style="margin-top: 1rem;">
-                <strong>No problem!</strong> Enter your username below and we'll send you a fresh link.
+                <strong data-i18n="verify.noProblem">No problem!</strong> <span data-i18n="verify.resendPrompt">Enter your username below and we'll send you a fresh link.</span>
             </p>
             <form id="resend-form" class="auth-form" style="margin-top: 1rem; text-align: left;">
                 <div class="form-group">
-                    <input type="text" id="resend-username" placeholder="Your username" required
+                    <input type="text" id="resend-username" placeholder="Your username" data-i18n-placeholder="verify.usernamePlaceholder" required
                            autocomplete="username" autocapitalize="none" spellcheck="false">
                 </div>
                 <button type="submit" class="auth-button" id="resend-btn" style="width: 100%;">
-                    <span class="button-text">Send Me a New Link</span>
-                    <span class="button-loading" hidden><span class="spinner"></span> Sending...</span>
+                    <span class="button-text" data-i18n="verify.sendNewLink">Send Me a New Link</span>
+                    <span class="button-loading" hidden><span class="spinner"></span> <span data-i18n="verify.sending">Sending...</span></span>
                 </button>
                 <div id="resend-success" class="success-message-box" hidden style="margin-top: 0.75rem; text-align: center;"></div>
                 <div id="resend-error" class="error-message" hidden style="margin-top: 0.75rem;"></div>
             </form>
             <div class="auth-options" style="margin-top: 1rem;">
-                <a href="login.html" class="auth-link">Go to Sign In &rarr;</a>
+                <a href="login.html" class="auth-link" data-i18n="verify.goToSignIn">Go to Sign In &rarr;</a>
             </div>
         </div>
 
         <!-- Manual entry state (fallback if no token in URL) -->
         <div id="state-manual" class="verification-state" hidden>
-            <p class="step-description plain-language">
+            <p class="step-description plain-language" data-i18n="verify.manualDescription">
                 If you received a code instead of a clickable link, paste it here.
             </p>
 
             <form id="manual-form" class="auth-form">
                 <div class="form-group">
                     <label for="manual-token">
-                        Your Code
+                        <span data-i18n="verify.yourCode">Your Code</span>
                         <button type="button" class="help-icon" aria-label="Help" data-help="manual-token-help">?</button>
                     </label>
                     <input type="text"
@@ -88,15 +89,16 @@
                            name="token"
                            autocomplete="off"
                            placeholder="Paste your code here"
+                           data-i18n-placeholder="verify.codePlaceholder"
                            required>
                     <div id="manual-token-help" class="help-tooltip" hidden>
                         <div class="help-content">
-                            <strong>Where is my code?</strong>
-                            <p>Check your email for a message from The Library. Copy the code from that email and paste it here.</p>
-                            <strong>I don't see the email</strong>
+                            <strong data-i18n="verify.help.whereIsCode">Where is my code?</strong>
+                            <p data-i18n="verify.help.whereIsCodeBody">Check your email for a message from The Library. Copy the code from that email and paste it here.</p>
+                            <strong data-i18n="verify.help.noEmail">I don't see the email</strong>
                             <ul>
-                                <li>Check your spam or junk folder</li>
-                                <li>Wait a few minutes and check again</li>
+                                <li data-i18n="verify.help.checkSpam">Check your spam or junk folder</li>
+                                <li data-i18n="verify.help.waitAndCheck">Wait a few minutes and check again</li>
                             </ul>
                         </div>
                     </div>
@@ -105,16 +107,16 @@
                 <div id="manual-error" class="error-message" hidden></div>
 
                 <button type="submit" class="auth-button">
-                    <span class="button-text">Verify</span>
+                    <span class="button-text" data-i18n="verify.verifyButton">Verify</span>
                     <span class="button-loading" hidden>
                         <span class="spinner"></span>
-                        Checking...
+                        <span data-i18n="verify.checkingButton">Checking...</span>
                     </span>
                 </button>
             </form>
 
             <div class="auth-options">
-                <a href="login.html" class="auth-link">&larr; Back to sign in</a>
+                <a href="login.html" class="auth-link" data-i18n="verify.backToSignIn">&larr; Back to sign in</a>
             </div>
         </div>
 
@@ -132,9 +134,9 @@
                 return JSON.parse(text);
             } catch {
                 if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
-                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                    throw new Error(t('verify.js.firewallBlocked'));
                 }
-                throw new Error('Unexpected server response');
+                throw new Error(t('verify.js.unexpectedResponse'));
             }
         }
 
@@ -196,9 +198,9 @@
                     }
                     // Update success message for activations
                     if (data.activation) {
-                        document.querySelector('#state-success .state-title').textContent = 'Welcome!';
+                        document.querySelector('#state-success .state-title').textContent = t('verify.js.welcome');
                         document.querySelector('#state-success .state-message').textContent =
-                            'Your account is activated. Taking you to The Library now...';
+                            t('verify.js.activated');
                     }
                     showState('success');
                     // Redirect to library after brief delay
@@ -207,12 +209,12 @@
                     }, 1500);
                 } else {
                     document.getElementById('error-message').textContent =
-                        data.error || 'This can happen if the link is more than 15 minutes old, you already used this link, or the link was copied incorrectly.';
+                        data.error || t('verify.errorDefault');
                     showState('error');
                 }
             } catch (e) {
                 document.getElementById('error-message').textContent =
-                    'We couldn\'t reach the server. Please check your internet connection and try again.';
+                    t('verify.js.noServer');
                 showState('error');
             }
         }
@@ -245,7 +247,7 @@
             errorEl.hidden = true;
 
             if (!username) {
-                errorEl.textContent = 'Please enter your username';
+                errorEl.textContent = t('verify.js.enterUsername');
                 errorEl.hidden = false;
                 return;
             }
@@ -264,16 +266,16 @@
                 const data = await safeJsonParse(response);
 
                 if (response.ok) {
-                    successEl.textContent = 'Check your email! We sent you a new sign-in link. Click it to sign in.';
+                    successEl.textContent = t('verify.js.newLinkSent');
                     successEl.hidden = false;
                     button.disabled = true;
                 } else {
-                    errorEl.textContent = data.error || 'Unable to send a new link. Try signing in from the login page.';
+                    errorEl.textContent = data.error || t('verify.js.sendFailed');
                     errorEl.hidden = false;
                     button.disabled = false;
                 }
             } catch (err) {
-                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.textContent = t('verify.js.connectionError');
                 errorEl.hidden = false;
                 button.disabled = false;
             } finally {
@@ -294,7 +296,7 @@
             errorEl.hidden = true;
 
             if (!manualToken) {
-                errorEl.textContent = 'Please enter your verification code';
+                errorEl.textContent = t('verify.js.enterCode');
                 errorEl.hidden = false;
                 return;
             }

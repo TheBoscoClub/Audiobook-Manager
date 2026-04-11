@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Claim Your Credentials - The Library</title>
+    <title data-i18n="claim.pageTitle">Claim Your Credentials - The Library</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32">
@@ -15,27 +15,28 @@
     <link rel="stylesheet" href="css/help-tooltips.css?v=1775585227">
     <link rel="stylesheet" href="css/responsive.css?v=1775585227">
     <script data-cfasync="false" src="js/webauthn.js?v=1775585227"></script>
+    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
 </head>
 <body class="auth-page">
     <div class="auth-container">
         <!-- Decorative header -->
         <div class="auth-header">
             <div class="deco-ornament">&#9830;</div>
-            <h1 class="auth-title">The Library</h1>
-            <p class="auth-subtitle">Claim Your Credentials</p>
+            <h1 class="auth-title" data-i18n="app.name">The Library</h1>
+            <p class="auth-subtitle" data-i18n="claim.subtitle">Claim Your Credentials</p>
             <div class="deco-line"></div>
         </div>
 
         <!-- Step 1: Enter claim token -->
         <div id="step-claim" class="registration-step">
-            <p class="step-description plain-language">
+            <p class="step-description plain-language" data-i18n="claim.welcome">
                 Welcome! Let's get you set up.
             </p>
 
             <form id="claim-form" class="auth-form">
                 <div class="form-group">
                     <label for="username">
-                        Your Username
+                        <span data-i18n="claim.yourUsername">Your Username</span>
                         <button type="button" class="help-icon" aria-label="Help" data-help="username-help">?</button>
                     </label>
                     <input type="text"
@@ -45,18 +46,18 @@
                            autocapitalize="none"
                            spellcheck="false"
                            required>
-                    <span class="field-hint">The name that was chosen for you</span>
+                    <span class="field-hint" data-i18n="claim.usernameHint">The name that was chosen for you</span>
                     <div id="username-help" class="help-tooltip" hidden>
                         <div class="help-content">
-                            <strong>What do I type here?</strong>
-                            <p>This is the name that was set up for you. Check your invitation email — your username is listed there.</p>
+                            <strong data-i18n="claim.help.usernameTitle">What do I type here?</strong>
+                            <p data-i18n="claim.help.usernameBody">This is the name that was set up for you. Check your invitation email — your username is listed there.</p>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="claim-token">
-                        Your Claim Token
+                        <span data-i18n="claim.yourToken">Your Claim Token</span>
                         <button type="button" class="help-icon" aria-label="Help" data-help="claim-token-help">?</button>
                     </label>
                     <input type="text"
@@ -66,24 +67,24 @@
                            autocomplete="off"
                            spellcheck="false"
                            required>
-                    <span class="field-hint">The special code from your invitation email — four groups of letters and numbers</span>
+                    <span class="field-hint" data-i18n="claim.tokenHint">The special code from your invitation email — four groups of letters and numbers</span>
                     <div id="claim-token-help" class="help-tooltip" hidden>
                         <div class="help-content">
-                            <strong>What is this?</strong>
-                            <p>This is a special code from your invitation email. It looks like four groups of letters and numbers separated by dashes: <code>ABCD-EFGH-IJKL-MNOP</code></p>
-                            <strong>Where do I find it?</strong>
+                            <strong data-i18n="claim.help.tokenWhatTitle">What is this?</strong>
+                            <p><span data-i18n="claim.help.tokenWhatBody">This is a special code from your invitation email. It looks like four groups of letters and numbers separated by dashes:</span> <code>ABCD-EFGH-IJKL-MNOP</code></p>
+                            <strong data-i18n="claim.help.tokenWhereTitle">Where do I find it?</strong>
                             <ul>
-                                <li>In the invitation email you received (look for a gold box)</li>
-                                <li>Written down where you saved it</li>
-                                <li>In a screenshot you took</li>
+                                <li data-i18n="claim.help.tokenWhere1">In the invitation email you received (look for a gold box)</li>
+                                <li data-i18n="claim.help.tokenWhere2">Written down where you saved it</li>
+                                <li data-i18n="claim.help.tokenWhere3">In a screenshot you took</li>
                             </ul>
-                            <strong>Can't find it?</strong>
-                            <p>Check your email inbox (and spam folder) for a message from The Library. The token is in a gold box in that email. If you still can't find it, contact the person who invited you.</p>
+                            <strong data-i18n="claim.help.tokenMissingTitle">Can't find it?</strong>
+                            <p data-i18n="claim.help.tokenMissingBody">Check your email inbox (and spam folder) for a message from The Library. The token is in a gold box in that email. If you still can't find it, contact the person who invited you.</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="callout-important" style="margin-top: 0.5rem;">
+                <div class="callout-important" style="margin-top: 0.5rem;" data-i18n="claim.noTokenCallout">
                     Don't have your token? Check the email you received — the token is in a gold box inside that email. Also check your spam folder.
                 </div>
 
@@ -91,122 +92,122 @@
                 <div id="claim-info" class="info-message" hidden></div>
 
                 <button type="submit" class="auth-button" id="validate-btn">
-                    <span class="button-text">Continue</span>
+                    <span class="button-text" data-i18n="claim.continue">Continue</span>
                     <span class="button-loading" hidden>
                         <span class="spinner"></span>
-                        Checking...
+                        <span data-i18n="claim.checking">Checking...</span>
                     </span>
                 </button>
             </form>
 
             <div class="auth-options">
-                <a href="login.html" class="auth-link">&larr; Back to sign in</a>
+                <a href="login.html" class="auth-link" data-i18n="claim.backToSignIn">&larr; Back to sign in</a>
                 <span class="auth-separator">|</span>
-                <a href="register.html" class="auth-link">Request access &rarr;</a>
+                <a href="register.html" class="auth-link" data-i18n="claim.requestAccess">Request access &rarr;</a>
             </div>
         </div>
 
         <!-- Step 2: Choose Authentication Method -->
         <div id="step-auth-method" class="registration-step" hidden>
-            <h2 class="step-title">How Would You Like to Sign In?</h2>
+            <h2 class="step-title" data-i18n="claim.method.title">How Would You Like to Sign In?</h2>
             <p class="step-description plain-language">
-                Welcome, <strong id="method-username"></strong>! Pick how you want to prove it's you when you sign in.
+                <span data-i18n="claim.method.welcomePrefix">Welcome,</span> <strong id="method-username"></strong><span data-i18n="claim.method.welcomeSuffix">! Pick how you want to prove it's you when you sign in.</span>
             </p>
 
             <div class="auth-method-options">
                 <div class="auth-method-card" id="method-passkey">
                     <div class="method-header">
-                        <span class="method-badge recommended">Recommended</span>
+                        <span class="method-badge recommended" data-i18n="claim.method.recommended">Recommended</span>
                         <button type="button" class="help-icon" aria-label="Learn more" data-help="passkey-method-help">?</button>
                     </div>
-                    <h3 class="method-title">Use Your Face, Fingerprint, or PIN</h3>
-                    <p class="method-description plain-language">
+                    <h3 class="method-title" data-i18n="claim.passkey.title">Use Your Face, Fingerprint, or PIN</h3>
+                    <p class="method-description plain-language" data-i18n="claim.passkey.description">
                         Sign in the same way you unlock your phone or computer. Nothing extra to install.
                     </p>
                     <ul class="method-pros">
-                        <li><strong>Easiest to use</strong> — just unlock your device</li>
-                        <li>Nothing to remember or type</li>
-                        <li>Built into iPhones, Androids, Macs, and Windows PCs</li>
+                        <li><strong data-i18n="claim.passkey.pro1Bold">Easiest to use</strong><span data-i18n="claim.passkey.pro1Rest"> — just unlock your device</span></li>
+                        <li data-i18n="claim.passkey.pro2">Nothing to remember or type</li>
+                        <li data-i18n="claim.passkey.pro3">Built into iPhones, Androids, Macs, and Windows PCs</li>
                     </ul>
-                    <button type="button" class="auth-button method-select" data-method="passkey" id="passkey-button" title="Set up face, fingerprint, or PIN sign-in">
-                        <span class="button-text">Use Face / Fingerprint / PIN</span>
+                    <button type="button" class="auth-button method-select" data-method="passkey" id="passkey-button" title="Set up face, fingerprint, or PIN sign-in" data-i18n-title="claim.passkey.buttonTitle">
+                        <span class="button-text" data-i18n="claim.passkey.button">Use Face / Fingerprint / PIN</span>
                         <span class="button-loading" hidden>
                             <span class="spinner"></span>
-                            Setting up...
+                            <span data-i18n="claim.settingUp">Setting up...</span>
                         </span>
                     </button>
-                    <p class="method-note" id="passkey-unsupported" style="display: none; color: #c9a227; font-size: 0.9em; margin-top: 0.5em;">
+                    <p class="method-note" id="passkey-unsupported" style="display: none; color: #c9a227; font-size: 0.9em; margin-top: 0.5em;" data-i18n="claim.method.unsupported">
                         Your browser or device doesn't support this option. Please choose another way to sign in.
                     </p>
                 </div>
 
                 <div class="auth-method-card" id="method-fido2">
                     <div class="method-header">
-                        <span class="method-badge">Physical Key</span>
+                        <span class="method-badge" data-i18n="claim.fido2.badge">Physical Key</span>
                         <button type="button" class="help-icon" aria-label="Learn more" data-help="fido2-method-help">?</button>
                     </div>
-                    <h3 class="method-title">Use a Physical Key</h3>
-                    <p class="method-description plain-language">
+                    <h3 class="method-title" data-i18n="claim.fido2.title">Use a Physical Key</h3>
+                    <p class="method-description plain-language" data-i18n="claim.fido2.description">
                         A small device you plug in or tap against your phone. You would need to buy one ($25–50).
                     </p>
                     <ul class="method-pros">
-                        <li>Works on any device — just bring your key</li>
-                        <li>No phone or app needed</li>
+                        <li data-i18n="claim.fido2.pro1">Works on any device — just bring your key</li>
+                        <li data-i18n="claim.fido2.pro2">No phone or app needed</li>
                     </ul>
-                    <button type="button" class="auth-button method-select" data-method="fido2" id="fido2-button" title="Set up physical security key">
-                        <span class="button-text">Use Physical Key</span>
+                    <button type="button" class="auth-button method-select" data-method="fido2" id="fido2-button" title="Set up physical security key" data-i18n-title="claim.fido2.buttonTitle">
+                        <span class="button-text" data-i18n="claim.fido2.button">Use Physical Key</span>
                         <span class="button-loading" hidden>
                             <span class="spinner"></span>
-                            Setting up...
+                            <span data-i18n="claim.settingUp">Setting up...</span>
                         </span>
                     </button>
-                    <p class="method-note" id="fido2-unsupported" style="display: none; color: #c9a227; font-size: 0.9em; margin-top: 0.5em;">
+                    <p class="method-note" id="fido2-unsupported" style="display: none; color: #c9a227; font-size: 0.9em; margin-top: 0.5em;" data-i18n="claim.method.unsupported">
                         Your browser or device doesn't support this option. Please choose another way to sign in.
                     </p>
                 </div>
 
                 <div class="auth-method-card" id="method-totp">
                     <div class="method-header">
-                        <span class="method-badge">Free Phone App</span>
+                        <span class="method-badge" data-i18n="claim.totp.badge">Free Phone App</span>
                         <button type="button" class="help-icon" aria-label="Learn more" data-help="totp-method-help">?</button>
                     </div>
-                    <h3 class="method-title">Use a Free Phone App</h3>
-                    <p class="method-description plain-language">
+                    <h3 class="method-title" data-i18n="claim.totp.title">Use a Free Phone App</h3>
+                    <p class="method-description plain-language" data-i18n="claim.totp.description">
                         Install a free app on your phone that shows you a 6-digit number. Type that number to sign in.
                     </p>
                     <ul class="method-pros">
-                        <li>Works everywhere — any device, any browser</li>
-                        <li>Free apps available for all phones</li>
-                        <li>No internet needed on your phone</li>
+                        <li data-i18n="claim.totp.pro1">Works everywhere — any device, any browser</li>
+                        <li data-i18n="claim.totp.pro2">Free apps available for all phones</li>
+                        <li data-i18n="claim.totp.pro3">No internet needed on your phone</li>
                     </ul>
-                    <button type="button" class="auth-button method-select" data-method="totp" id="totp-button" title="Set up free authenticator app">
-                        <span class="button-text">Use Free Phone App</span>
+                    <button type="button" class="auth-button method-select" data-method="totp" id="totp-button" title="Set up free authenticator app" data-i18n-title="claim.totp.buttonTitle">
+                        <span class="button-text" data-i18n="claim.totp.button">Use Free Phone App</span>
                         <span class="button-loading" hidden>
                             <span class="spinner"></span>
-                            Setting up...
+                            <span data-i18n="claim.settingUp">Setting up...</span>
                         </span>
                     </button>
                 </div>
 
                 <div class="auth-method-card" id="method-magic-link">
                     <div class="method-header">
-                        <span class="method-badge">Email Link</span>
+                        <span class="method-badge" data-i18n="claim.magicLink.badge">Email Link</span>
                         <button type="button" class="help-icon" aria-label="Learn more" data-help="magic-link-method-help">?</button>
                     </div>
-                    <h3 class="method-title">Sign In via Email</h3>
-                    <p class="method-description plain-language">
+                    <h3 class="method-title" data-i18n="claim.magicLink.title">Sign In via Email</h3>
+                    <p class="method-description plain-language" data-i18n="claim.magicLink.description">
                         Each time you sign in, we send a link to your email. Click the link and you're in — no codes or apps needed.
                     </p>
                     <ul class="method-pros">
-                        <li><strong>Nothing to install</strong> — just check your email</li>
-                        <li>Works on any device with email access</li>
-                        <li>No codes to type or apps to set up</li>
+                        <li><strong data-i18n="claim.magicLink.pro1Bold">Nothing to install</strong><span data-i18n="claim.magicLink.pro1Rest"> — just check your email</span></li>
+                        <li data-i18n="claim.magicLink.pro2">Works on any device with email access</li>
+                        <li data-i18n="claim.magicLink.pro3">No codes to type or apps to set up</li>
                     </ul>
-                    <button type="button" class="auth-button method-select" data-method="magic_link" id="magic-link-button" title="Set up email link sign-in">
-                        <span class="button-text">Use Email Link</span>
+                    <button type="button" class="auth-button method-select" data-method="magic_link" id="magic-link-button" title="Set up email link sign-in" data-i18n-title="claim.magicLink.buttonTitle">
+                        <span class="button-text" data-i18n="claim.magicLink.button">Use Email Link</span>
                         <span class="button-loading" hidden>
                             <span class="spinner"></span>
-                            Setting up...
+                            <span data-i18n="claim.settingUp">Setting up...</span>
                         </span>
                     </button>
                 </div>
@@ -215,145 +216,145 @@
             <div id="method-error" class="error-message" hidden></div>
 
             <div class="callout-important" style="text-align: center; font-weight: normal;">
-                <strong>Not sure which to pick?</strong> If you have a modern phone or computer, <span class="action-highlight">Use Your Face, Fingerprint, or PIN</span> is the easiest choice. If you just want an email link each time, choose <span class="action-highlight">Sign In via Email</span>.
+                <strong data-i18n="claim.method.notSureTitle">Not sure which to pick?</strong> <span data-i18n="claim.method.notSureBody">If you have a modern phone or computer, Use Your Face, Fingerprint, or PIN is the easiest choice. If you just want an email link each time, choose Sign In via Email.</span>
                 <button type="button" class="help-icon" aria-label="Detailed comparison" data-help="auth-method-help" style="margin-left: 0.25rem;">?</button>
             </div>
 
             <div id="auth-method-help" class="help-tooltip" hidden>
                 <div class="help-content">
-                    <strong>Detailed comparison:</strong>
+                    <strong data-i18n="claim.method.comparisonTitle">Detailed comparison:</strong>
                     <ul>
-                        <li><strong>Face / Fingerprint / PIN:</strong> Easiest daily use. Sign in the way you unlock your phone. Best for most people.</li>
-                        <li><strong>Physical Key:</strong> A small device you plug in or tap. Best if you already own one (like a YubiKey).</li>
-                        <li><strong>Free Phone App:</strong> Type a 6-digit number from your phone each time. Works everywhere.</li>
-                        <li><strong>Email Link:</strong> We email you a sign-in link each time. Simplest option — nothing to install or remember.</li>
+                        <li data-i18n="claim.method.comparePasskey"><strong>Face / Fingerprint / PIN:</strong> Easiest daily use. Sign in the way you unlock your phone. Best for most people.</li>
+                        <li data-i18n="claim.method.compareFido2"><strong>Physical Key:</strong> A small device you plug in or tap. Best if you already own one (like a YubiKey).</li>
+                        <li data-i18n="claim.method.compareTotp"><strong>Free Phone App:</strong> Type a 6-digit number from your phone each time. Works everywhere.</li>
+                        <li data-i18n="claim.method.compareMagicLink"><strong>Email Link:</strong> We email you a sign-in link each time. Simplest option — nothing to install or remember.</li>
                     </ul>
 
-                    <strong>Can I change my mind later?</strong>
-                    <p>Yes — you can change your sign-in method anytime in your profile settings.</p>
+                    <strong data-i18n="claim.method.changeMindTitle">Can I change my mind later?</strong>
+                    <p data-i18n="claim.method.changeMindBody">Yes — you can change your sign-in method anytime in your profile settings.</p>
                 </div>
             </div>
 
             <!-- Individual method help tooltips -->
             <div id="passkey-method-help" class="help-tooltip" hidden>
                 <div class="help-content">
-                    <strong>How does this work?</strong>
-                    <p>Your phone or computer already knows how to recognize you — with your face, fingerprint, or a PIN you type. This option uses that same recognition to sign you in. No extra app needed.</p>
+                    <strong data-i18n="claim.passkey.help.howTitle">How does this work?</strong>
+                    <p data-i18n="claim.passkey.help.howBody">Your phone or computer already knows how to recognize you — with your face, fingerprint, or a PIN you type. This option uses that same recognition to sign you in. No extra app needed.</p>
 
-                    <strong>What happens:</strong>
+                    <strong data-i18n="claim.passkey.help.stepsTitle">What happens:</strong>
                     <ol>
-                        <li>You set it up once (right now)</li>
-                        <li>Next time you sign in, your device asks you to unlock it (face, fingerprint, or PIN)</li>
-                        <li>That's it — you're in!</li>
+                        <li data-i18n="claim.passkey.help.step1">You set it up once (right now)</li>
+                        <li data-i18n="claim.passkey.help.step2">Next time you sign in, your device asks you to unlock it (face, fingerprint, or PIN)</li>
+                        <li data-i18n="claim.passkey.help.step3">That's it — you're in!</li>
                     </ol>
 
-                    <strong>Good to know:</strong>
+                    <strong data-i18n="claim.passkey.help.goodTitle">Good to know:</strong>
                     <ul>
-                        <li>Only works on the device where you set it up</li>
-                        <li>If you lose your device, you can use emergency backup codes</li>
+                        <li data-i18n="claim.passkey.help.good1">Only works on the device where you set it up</li>
+                        <li data-i18n="claim.passkey.help.good2">If you lose your device, you can use emergency backup codes</li>
                     </ul>
 
                     <div class="help-recommend">
-                        <strong>Best for:</strong> Most people! Especially if you'll use the same phone or computer each time.
+                        <strong data-i18n="claim.passkey.help.bestForTitle">Best for:</strong> <span data-i18n="claim.passkey.help.bestForBody">Most people! Especially if you'll use the same phone or computer each time.</span>
                     </div>
                 </div>
             </div>
 
             <div id="fido2-method-help" class="help-tooltip" hidden>
                 <div class="help-content">
-                    <strong>What is a physical key?</strong>
-                    <p>It's a small device (like a USB stick or keychain fob) that you plug into your computer or tap against your phone. Popular brands: YubiKey, Google Titan.</p>
+                    <strong data-i18n="claim.fido2.help.whatTitle">What is a physical key?</strong>
+                    <p data-i18n="claim.fido2.help.whatBody">It's a small device (like a USB stick or keychain fob) that you plug into your computer or tap against your phone. Popular brands: YubiKey, Google Titan.</p>
 
-                    <strong>What happens:</strong>
+                    <strong data-i18n="claim.fido2.help.stepsTitle">What happens:</strong>
                     <ol>
-                        <li>You plug in or tap your key</li>
-                        <li>Touch the key when it blinks</li>
-                        <li>You're signed in!</li>
+                        <li data-i18n="claim.fido2.help.step1">You plug in or tap your key</li>
+                        <li data-i18n="claim.fido2.help.step2">Touch the key when it blinks</li>
+                        <li data-i18n="claim.fido2.help.step3">You're signed in!</li>
                     </ol>
 
-                    <strong>Good to know:</strong>
+                    <strong data-i18n="claim.fido2.help.goodTitle">Good to know:</strong>
                     <ul>
-                        <li>You need to buy one ($25–50)</li>
-                        <li>You must carry it with you</li>
-                        <li>Works on any device — just bring your key</li>
+                        <li data-i18n="claim.fido2.help.good1">You need to buy one ($25–50)</li>
+                        <li data-i18n="claim.fido2.help.good2">You must carry it with you</li>
+                        <li data-i18n="claim.fido2.help.good3">Works on any device — just bring your key</li>
                     </ul>
 
                     <div class="help-recommend">
-                        <strong>Best for:</strong> People who already own a YubiKey or similar device.
+                        <strong data-i18n="claim.fido2.help.bestForTitle">Best for:</strong> <span data-i18n="claim.fido2.help.bestForBody">People who already own a YubiKey or similar device.</span>
                     </div>
                 </div>
             </div>
 
             <div id="totp-method-help" class="help-tooltip" hidden>
                 <div class="help-content">
-                    <strong>How does this work?</strong>
-                    <p>You install a free app on your phone. The app shows a 6-digit number that changes every 30 seconds. When you sign in, you open the app and type that number.</p>
+                    <strong data-i18n="claim.totp.help.howTitle">How does this work?</strong>
+                    <p data-i18n="claim.totp.help.howBody">You install a free app on your phone. The app shows a 6-digit number that changes every 30 seconds. When you sign in, you open the app and type that number.</p>
 
-                    <strong>What happens:</strong>
+                    <strong data-i18n="claim.totp.help.stepsTitle">What happens:</strong>
                     <ol>
-                        <li>Download a free app (we'll help you pick one)</li>
-                        <li>Point your phone's camera at a special code on screen</li>
-                        <li>Each time you sign in, open the app and type the 6 digits you see</li>
+                        <li data-i18n="claim.totp.help.step1">Download a free app (we'll help you pick one)</li>
+                        <li data-i18n="claim.totp.help.step2">Point your phone's camera at a special code on screen</li>
+                        <li data-i18n="claim.totp.help.step3">Each time you sign in, open the app and type the 6 digits you see</li>
                     </ol>
 
-                    <strong>Good to know:</strong>
+                    <strong data-i18n="claim.totp.help.goodTitle">Good to know:</strong>
                     <ul>
-                        <li>You need your phone nearby each time you sign in</li>
-                        <li>You'll need to type 6 digits each time</li>
-                        <li>Works on any computer or device — very flexible</li>
+                        <li data-i18n="claim.totp.help.good1">You need your phone nearby each time you sign in</li>
+                        <li data-i18n="claim.totp.help.good2">You'll need to type 6 digits each time</li>
+                        <li data-i18n="claim.totp.help.good3">Works on any computer or device — very flexible</li>
                     </ul>
 
                     <div class="help-recommend">
-                        <strong>Best for:</strong> People who sign in from many different devices, or who want the most flexible option.
+                        <strong data-i18n="claim.totp.help.bestForTitle">Best for:</strong> <span data-i18n="claim.totp.help.bestForBody">People who sign in from many different devices, or who want the most flexible option.</span>
                     </div>
                 </div>
             </div>
 
             <div id="magic-link-method-help" class="help-tooltip" hidden>
                 <div class="help-content">
-                    <strong>How does this work?</strong>
-                    <p>When you want to sign in, you enter your username and we send a link to your email. Click the link and you're logged in — no codes, no apps, no passwords.</p>
+                    <strong data-i18n="claim.magicLink.help.howTitle">How does this work?</strong>
+                    <p data-i18n="claim.magicLink.help.howBody">When you want to sign in, you enter your username and we send a link to your email. Click the link and you're logged in — no codes, no apps, no passwords.</p>
 
-                    <strong>What happens:</strong>
+                    <strong data-i18n="claim.magicLink.help.stepsTitle">What happens:</strong>
                     <ol>
-                        <li>Enter your username on the login page</li>
-                        <li>Check your email for a sign-in link</li>
-                        <li>Click the link — you're in!</li>
+                        <li data-i18n="claim.magicLink.help.step1">Enter your username on the login page</li>
+                        <li data-i18n="claim.magicLink.help.step2">Check your email for a sign-in link</li>
+                        <li data-i18n="claim.magicLink.help.step3">Click the link — you're in!</li>
                     </ol>
 
-                    <strong>Good to know:</strong>
+                    <strong data-i18n="claim.magicLink.help.goodTitle">Good to know:</strong>
                     <ul>
-                        <li>You need access to your email each time you sign in</li>
-                        <li>Links expire after 15 minutes for security</li>
-                        <li>Nothing to install or remember</li>
+                        <li data-i18n="claim.magicLink.help.good1">You need access to your email each time you sign in</li>
+                        <li data-i18n="claim.magicLink.help.good2">Links expire after 15 minutes for security</li>
+                        <li data-i18n="claim.magicLink.help.good3">Nothing to install or remember</li>
                     </ul>
 
                     <div class="help-recommend">
-                        <strong>Best for:</strong> People who want the simplest possible sign-in and always have email access.
+                        <strong data-i18n="claim.magicLink.help.bestForTitle">Best for:</strong> <span data-i18n="claim.magicLink.help.bestForBody">People who want the simplest possible sign-in and always have email access.</span>
                     </div>
                 </div>
             </div>
 
             <div class="auth-options">
-                <a href="#" id="back-to-token" class="auth-link">&larr; Use different token</a>
+                <a href="#" id="back-to-token" class="auth-link" data-i18n="claim.useDifferentToken">&larr; Use different token</a>
             </div>
         </div>
 
         <!-- Step 3: Recovery Email (optional) -->
         <div id="step-recovery" class="registration-step" hidden>
-            <h2 class="step-title" id="recovery-heading">Add a Safety Net Email</h2>
-            <p class="step-description plain-language" id="recovery-description">
+            <h2 class="step-title" id="recovery-heading" data-i18n="claim.recovery.title">Add a Safety Net Email</h2>
+            <p class="step-description plain-language" id="recovery-description" data-i18n="claim.recovery.description">
                 If you ever get locked out, we can email you a special link to get back in.
             </p>
 
-            <div class="callout-important">
+            <div class="callout-important" data-i18n="claim.recovery.recommend">
                 We strongly recommend adding your email. It's the easiest way to get back in if something goes wrong.
             </div>
 
             <form id="recovery-form" class="auth-form">
                 <div class="form-group">
                     <label for="recovery-email">
-                        Your Email Address
+                        <span data-i18n="claim.recovery.emailLabel">Your Email Address</span>
                         <button type="button" class="help-icon" aria-label="Help" data-help="recovery-email-help">?</button>
                     </label>
                     <input type="email"
@@ -361,27 +362,27 @@
                            name="recovery_email"
                            autocomplete="email"
                            placeholder="you@example.com">
-                    <span class="field-hint">We'll only use this if you get locked out</span>
+                    <span class="field-hint" data-i18n="claim.recovery.emailHint">We'll only use this if you get locked out</span>
                     <div id="recovery-email-help" class="help-tooltip" hidden>
                         <div class="help-content">
-                            <strong>Why add an email?</strong>
-                            <p>If you ever lose your phone or can't sign in, we'll send a link to this email that lets you get back in. Think of it as a spare key.</p>
-                            <strong>What if I skip this?</strong>
-                            <p>You'll still get emergency backup codes in the next step. But having an email is much easier to use if something goes wrong.</p>
+                            <strong data-i18n="claim.recovery.help.whyTitle">Why add an email?</strong>
+                            <p data-i18n="claim.recovery.help.whyBody">If you ever lose your phone or can't sign in, we'll send a link to this email that lets you get back in. Think of it as a spare key.</p>
+                            <strong data-i18n="claim.recovery.help.skipTitle">What if I skip this?</strong>
+                            <p data-i18n="claim.recovery.help.skipBody">You'll still get emergency backup codes in the next step. But having an email is much easier to use if something goes wrong.</p>
                         </div>
                     </div>
                 </div>
 
                 <button type="submit" class="auth-button" id="continue-setup-btn">
-                    <span class="button-text">Continue</span>
+                    <span class="button-text" data-i18n="claim.continue">Continue</span>
                     <span class="button-loading" hidden>
                         <span class="spinner"></span>
-                        Setting up...
+                        <span data-i18n="claim.settingUp">Setting up...</span>
                     </span>
                 </button>
 
                 <p class="skip-link" style="text-align: center; margin-top: 1rem;">
-                    <a href="#" id="skip-recovery" class="auth-link">Skip this step (you can still use backup codes if locked out)</a>
+                    <a href="#" id="skip-recovery" class="auth-link" data-i18n="claim.recovery.skip">Skip this step (you can still use backup codes if locked out)</a>
                 </p>
             </form>
         </div>
@@ -390,127 +391,127 @@
         <div id="step-totp" class="registration-step" hidden>
             <div class="success-header">
                 <div class="deco-ornament">&#10003;</div>
-                <h2 class="step-title">Almost There!</h2>
+                <h2 class="step-title" data-i18n="claim.totp.almostThere">Almost There!</h2>
                 <p class="step-description plain-language">
-                    Welcome, <strong id="totp-username"></strong>! Follow these steps to finish setting up your account.
+                    <span data-i18n="claim.totp.welcomePrefix">Welcome,</span> <strong id="totp-username"></strong><span data-i18n="claim.totp.welcomeSuffix">! Follow these steps to finish setting up your account.</span>
                 </p>
-                <p class="print-hint">You might want to print this page or write down these steps before continuing.</p>
+                <p class="print-hint" data-i18n="claim.totp.printHint">You might want to print this page or write down these steps before continuing.</p>
             </div>
 
             <div class="setup-instructions">
                 <h3>
-                    <span class="step-number">1</span> Install a Free App on Your Phone
+                    <span class="step-number">1</span> <span data-i18n="claim.totp.step1Title">Install a Free App on Your Phone</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="app-install-help">?</button>
                 </h3>
                 <div id="app-install-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What is this app?</strong>
-                        <p>It's a free app that shows a 6-digit number that changes every 30 seconds. You'll type this number each time you sign in. That's it!</p>
-                        <strong>Which one should I pick?</strong>
-                        <p><strong>2FAS</strong> is our top pick — free, open source, works on iPhone, Android, and as a browser extension. No account or phone number needed.</p>
+                        <strong data-i18n="claim.totp.appHelp.whatTitle">What is this app?</strong>
+                        <p data-i18n="claim.totp.appHelp.whatBody">It's a free app that shows a 6-digit number that changes every 30 seconds. You'll type this number each time you sign in. That's it!</p>
+                        <strong data-i18n="claim.totp.appHelp.whichTitle">Which one should I pick?</strong>
+                        <p><strong>2FAS</strong> <span data-i18n="claim.totp.appHelp.whichBody">is our top pick — free, open source, works on iPhone, Android, and as a browser extension. No account or phone number needed.</span></p>
                     </div>
                 </div>
-                <p class="instruction-text plain-language">If you don't already have one of these apps, install one now. They're all free and none of them need your phone number:</p>
+                <p class="instruction-text plain-language" data-i18n="claim.totp.installIntro">If you don't already have one of these apps, install one now. They're all free and none of them need your phone number:</p>
                 <div class="app-links">
                     <div class="app-link">
-                        <strong>2FAS</strong> (Recommended — free, open source, cross-platform)
+                        <strong>2FAS</strong> <span data-i18n="claim.totp.app.2fasTag">(Recommended — free, open source, cross-platform)</span>
                         <div class="store-links">
-                            <a href="https://apps.apple.com/app/2fas-auth/id1217793794" target="_blank" rel="noopener" title="Download 2FAS for iPhone/iPad">Apple App Store (iPhone/iPad)</a>
+                            <a href="https://apps.apple.com/app/2fas-auth/id1217793794" target="_blank" rel="noopener" title="Download 2FAS for iPhone/iPad" data-i18n="claim.totp.app.appStore">Apple App Store (iPhone/iPad)</a>
                             <span class="link-sep">|</span>
-                            <a href="https://play.google.com/store/apps/details?id=com.twofasapp" target="_blank" rel="noopener" title="Download 2FAS for Android">Google Play Store (Android)</a>
+                            <a href="https://play.google.com/store/apps/details?id=com.twofasapp" target="_blank" rel="noopener" title="Download 2FAS for Android" data-i18n="claim.totp.app.playStore">Google Play Store (Android)</a>
                             <span class="link-sep">|</span>
-                            <a href="https://2fas.com/browser-extension/" target="_blank" rel="noopener" title="2FAS browser extension for Chrome, Firefox, Edge, Opera, and Brave">Browser Extension</a>
+                            <a href="https://2fas.com/browser-extension/" target="_blank" rel="noopener" title="2FAS browser extension for Chrome, Firefox, Edge, Opera, and Brave" data-i18n="claim.totp.app.browserExt">Browser Extension</a>
                         </div>
-                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;">No account or phone number needed. Open source and privacy-focused.</div>
+                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;" data-i18n="claim.totp.app.noAccountOpen">No account or phone number needed. Open source and privacy-focused.</div>
                     </div>
                     <div class="app-link">
-                        <strong>Google Authenticator</strong> (simple and free)
+                        <strong>Google Authenticator</strong> <span data-i18n="claim.totp.app.googleTag">(simple and free)</span>
                         <div class="store-links">
-                            <a href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noopener" title="Download Google Authenticator for iPhone/iPad">Apple App Store (iPhone/iPad)</a>
+                            <a href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noopener" title="Download Google Authenticator for iPhone/iPad" data-i18n="claim.totp.app.appStore">Apple App Store (iPhone/iPad)</a>
                             <span class="link-sep">|</span>
-                            <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noopener" title="Download Google Authenticator for Android">Google Play Store (Android)</a>
+                            <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noopener" title="Download Google Authenticator for Android" data-i18n="claim.totp.app.playStore">Google Play Store (Android)</a>
                         </div>
-                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;">No account or phone number needed.</div>
+                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;" data-i18n="claim.totp.app.noAccount">No account or phone number needed.</div>
                     </div>
                     <div class="app-link">
-                        <strong>Aegis Authenticator</strong> (Android only, free &amp; open source)
+                        <strong>Aegis Authenticator</strong> <span data-i18n="claim.totp.app.aegisTag">(Android only, free &amp; open source)</span>
                         <div class="store-links">
-                            <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis" target="_blank" rel="noopener" title="Download Aegis for Android">Google Play Store</a>
+                            <a href="https://play.google.com/store/apps/details?id=com.beemdevelopment.aegis" target="_blank" rel="noopener" title="Download Aegis for Android" data-i18n="claim.totp.app.playStoreShort">Google Play Store</a>
                             <span class="link-sep">|</span>
                             <a href="https://f-droid.org/en/packages/com.beemdevelopment.aegis/" target="_blank" rel="noopener" title="Download Aegis from F-Droid">F-Droid</a>
                         </div>
-                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;">No account or phone number needed.</div>
+                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;" data-i18n="claim.totp.app.noAccount">No account or phone number needed.</div>
                     </div>
                     <div class="app-link">
-                        <strong>FreeOTP</strong> (by Red Hat — free &amp; open source)
+                        <strong>FreeOTP</strong> <span data-i18n="claim.totp.app.freeotpTag">(by Red Hat — free &amp; open source)</span>
                         <div class="store-links">
-                            <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395" target="_blank" rel="noopener" title="Download FreeOTP for iPhone/iPad">Apple App Store (iPhone/iPad)</a>
+                            <a href="https://apps.apple.com/app/freeotp-authenticator/id872559395" target="_blank" rel="noopener" title="Download FreeOTP for iPhone/iPad" data-i18n="claim.totp.app.appStore">Apple App Store (iPhone/iPad)</a>
                             <span class="link-sep">|</span>
-                            <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp" target="_blank" rel="noopener" title="Download FreeOTP for Android">Google Play Store (Android)</a>
+                            <a href="https://play.google.com/store/apps/details?id=org.fedorahosted.freeotp" target="_blank" rel="noopener" title="Download FreeOTP for Android" data-i18n="claim.totp.app.playStore">Google Play Store (Android)</a>
                         </div>
-                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;">No account or phone number needed.</div>
+                        <div style="font-size: 0.85rem; color: var(--cream); opacity: 0.7; margin-top: 0.25rem;" data-i18n="claim.totp.app.noAccount">No account or phone number needed.</div>
                     </div>
                 </div>
             </div>
 
             <div class="setup-instructions">
                 <h3>
-                    <span class="step-number">2</span> Scan the Code Below with Your App
+                    <span class="step-number">2</span> <span data-i18n="claim.totp.step2Title">Scan the Code Below with Your App</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="qr-scan-help">?</button>
                 </h3>
                 <div id="qr-scan-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>How to scan</strong>
+                        <strong data-i18n="claim.totp.qrHelp.title">How to scan</strong>
                         <ol>
-                            <li>Open your authenticator app</li>
-                            <li>Look for a <strong>+</strong> button or <strong>Add Account</strong></li>
-                            <li>Choose <strong>Scan QR Code</strong> or <strong>Scan Barcode</strong></li>
-                            <li>Point your phone's camera at the black-and-white square below</li>
-                            <li>The app will automatically add "The Library"</li>
+                            <li data-i18n="claim.totp.qrHelp.step1">Open your authenticator app</li>
+                            <li data-i18n="claim.totp.qrHelp.step2">Look for a + button or Add Account</li>
+                            <li data-i18n="claim.totp.qrHelp.step3">Choose Scan QR Code or Scan Barcode</li>
+                            <li data-i18n="claim.totp.qrHelp.step4">Point your phone's camera at the black-and-white square below</li>
+                            <li data-i18n="claim.totp.qrHelp.step5">The app will automatically add "The Library"</li>
                         </ol>
                     </div>
                 </div>
-                <p class="instruction-text plain-language">Open your authenticator app. Look for a <strong>+</strong> button or <strong>Add Account</strong>. Choose <strong>Scan QR Code</strong> or <strong>Scan Barcode</strong>. Then point your phone's camera at the black-and-white square below:</p>
+                <p class="instruction-text plain-language" data-i18n="claim.totp.scanInstructions">Open your authenticator app. Look for a + button or Add Account. Choose Scan QR Code or Scan Barcode. Then point your phone's camera at the black-and-white square below:</p>
                 <div class="qr-container">
                     <img id="qr-code" src="" alt="QR Code — scan this with your authenticator app">
                 </div>
                 <div class="callout-important">
-                    <strong>Can't scan the code?</strong> That's okay! In your app, choose <strong>Enter Key Manually</strong> instead. Then carefully type the secret code shown in the gold box below.
+                    <strong data-i18n="claim.totp.cantScanTitle">Can't scan the code?</strong> <span data-i18n="claim.totp.cantScanBody">That's okay! In your app, choose Enter Key Manually instead. Then carefully type the secret code shown in the gold box below.</span>
                 </div>
-                <p class="instruction-text plain-language" style="margin-top: 0.75rem;">Secret code (type this into your app if you can't scan):</p>
+                <p class="instruction-text plain-language" style="margin-top: 0.75rem;" data-i18n="claim.totp.secretLabel">Secret code (type this into your app if you can't scan):</p>
                 <div class="secret-key" id="totp-secret"></div>
             </div>
 
             <div class="setup-instructions backup-codes-section">
                 <h3>
-                    <span class="step-number">3</span> Save Your Emergency Backup Codes
+                    <span class="step-number">3</span> <span data-i18n="claim.backup.title">Save Your Emergency Backup Codes</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="backup-codes-help">?</button>
                 </h3>
                 <div id="backup-codes-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What are these?</strong>
-                        <p>Emergency codes that let you sign in if you ever lose your phone or can't open your app. Think of them as spare keys.</p>
-                        <strong>How should I save them?</strong>
+                        <strong data-i18n="claim.backup.help.whatTitle">What are these?</strong>
+                        <p data-i18n="claim.backup.help.whatBodyTotp">Emergency codes that let you sign in if you ever lose your phone or can't open your app. Think of them as spare keys.</p>
+                        <strong data-i18n="claim.backup.help.howTitle">How should I save them?</strong>
                         <ul>
-                            <li><strong>Write them down on paper</strong> and keep it with your important documents</li>
-                            <li><strong>Take a photo</strong> with another device</li>
-                            <li><strong>Print this page</strong> if you can</li>
+                            <li><strong data-i18n="claim.backup.help.save1Bold">Write them down on paper</strong><span data-i18n="claim.backup.help.save1Rest"> and keep it with your important documents</span></li>
+                            <li><strong data-i18n="claim.backup.help.save2Bold">Take a photo</strong><span data-i18n="claim.backup.help.save2Rest"> with another device</span></li>
+                            <li><strong data-i18n="claim.backup.help.save3Bold">Print this page</strong><span data-i18n="claim.backup.help.save3Rest"> if you can</span></li>
                         </ul>
                     </div>
                 </div>
                 <div class="callout-write-down">
-                    <div class="callout-heading">Write These Down!</div>
-                    <p style="font-weight: normal; margin-bottom: 0.75rem;">These are your emergency codes. If you ever lose your phone or can't open your app, type one of these codes to get back in.</p>
-                    <p><strong>Write these codes down on paper and keep them somewhere safe</strong> (like with your important documents). Each code works only once — cross it off after you use it.</p>
+                    <div class="callout-heading" data-i18n="claim.backup.writeDown">Write These Down!</div>
+                    <p style="font-weight: normal; margin-bottom: 0.75rem;" data-i18n="claim.backup.introTotp">These are your emergency codes. If you ever lose your phone or can't open your app, type one of these codes to get back in.</p>
+                    <p><strong data-i18n="claim.backup.keepSafeBold">Write these codes down on paper and keep them somewhere safe</strong> <span data-i18n="claim.backup.keepSafeRest">(like with your important documents). Each code works only once — cross it off after you use it.</span></p>
                 </div>
                 <div class="backup-codes-list" id="backup-codes-list"></div>
-                <p class="print-hint">Tip: Print this page, or take a photo with another device.</p>
+                <p class="print-hint" data-i18n="claim.backup.tip">Tip: Print this page, or take a photo with another device.</p>
             </div>
 
             <div class="final-step">
-                <h3><span class="step-number" style="background: var(--charcoal); color: var(--gold); border: 2px solid var(--gold);">4</span> Enter Your First Code</h3>
-                <p class="plain-language">Almost done! Open your authenticator app and find <strong>The Library</strong>. You'll see a 6-digit number that changes every 30 seconds. Type that number below.</p>
-                <p style="font-size: 0.9rem; color: var(--charcoal); opacity: 0.8; margin-bottom: 1rem;">Don't worry if the number changes while you're typing — just wait for the new one and type that instead.</p>
+                <h3><span class="step-number" style="background: var(--charcoal); color: var(--gold); border: 2px solid var(--gold);">4</span> <span data-i18n="claim.totp.step4Title">Enter Your First Code</span></h3>
+                <p class="plain-language"><span data-i18n="claim.totp.firstCodePrefix">Almost done! Open your authenticator app and find</span> <strong data-i18n="app.name">The Library</strong><span data-i18n="claim.totp.firstCodeSuffix">. You'll see a 6-digit number that changes every 30 seconds. Type that number below.</span></p>
+                <p style="font-size: 0.9rem; color: var(--charcoal); opacity: 0.8; margin-bottom: 1rem;" data-i18n="claim.totp.firstCodeNote">Don't worry if the number changes while you're typing — just wait for the new one and type that instead.</p>
                 <form id="first-login-form" class="first-login-form">
                     <div class="form-group">
                         <input type="text"
@@ -525,7 +526,7 @@
                     </div>
                     <div id="first-login-error" class="error-message" hidden></div>
                     <button type="submit" class="auth-button">
-                        <span class="button-text">Enter The Library</span>
+                        <span class="button-text" data-i18n="claim.enterLibrary">Enter The Library</span>
                     </button>
                 </form>
             </div>
@@ -535,40 +536,40 @@
         <div id="step-webauthn-success" class="registration-step" hidden>
             <div class="success-header">
                 <div class="deco-ornament">&#10003;</div>
-                <h2 class="step-title" id="webauthn-title">You're All Set!</h2>
+                <h2 class="step-title" id="webauthn-title" data-i18n="claim.webauthn.allSet">You're All Set!</h2>
                 <p class="step-description plain-language">
-                    Welcome, <strong id="webauthn-username"></strong>! Your account is ready. Before you go in, save your emergency backup codes below.
+                    <span data-i18n="claim.webauthn.welcomePrefix">Welcome,</span> <strong id="webauthn-username"></strong><span data-i18n="claim.webauthn.welcomeSuffix">! Your account is ready. Before you go in, save your emergency backup codes below.</span>
                 </p>
             </div>
 
             <div class="setup-instructions backup-codes-section">
                 <h3>
-                    Save Your Emergency Backup Codes
+                    <span data-i18n="claim.backup.title">Save Your Emergency Backup Codes</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="webauthn-backup-help">?</button>
                 </h3>
                 <div id="webauthn-backup-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What are these?</strong>
-                        <p>Emergency codes that let you sign in if you ever lose your device. Think of them as spare keys.</p>
-                        <strong>How should I save them?</strong>
+                        <strong data-i18n="claim.backup.help.whatTitle">What are these?</strong>
+                        <p data-i18n="claim.backup.help.whatBodyDevice">Emergency codes that let you sign in if you ever lose your device. Think of them as spare keys.</p>
+                        <strong data-i18n="claim.backup.help.howTitle">How should I save them?</strong>
                         <ul>
-                            <li><strong>Write them down on paper</strong> and keep it with your important documents</li>
-                            <li><strong>Take a photo</strong> with another device</li>
-                            <li><strong>Print this page</strong> if you can</li>
+                            <li><strong data-i18n="claim.backup.help.save1Bold">Write them down on paper</strong><span data-i18n="claim.backup.help.save1Rest"> and keep it with your important documents</span></li>
+                            <li><strong data-i18n="claim.backup.help.save2Bold">Take a photo</strong><span data-i18n="claim.backup.help.save2Rest"> with another device</span></li>
+                            <li><strong data-i18n="claim.backup.help.save3Bold">Print this page</strong><span data-i18n="claim.backup.help.save3Rest"> if you can</span></li>
                         </ul>
                     </div>
                 </div>
                 <div class="callout-write-down">
-                    <div class="callout-heading">Write These Down!</div>
-                    <p style="font-weight: normal; margin-bottom: 0.75rem;">These are your emergency codes. If you ever lose your device, type one of these codes to get back in.</p>
-                    <p><strong>Write these codes down on paper and keep them somewhere safe.</strong> Each code works only once — cross it off after you use it.</p>
+                    <div class="callout-heading" data-i18n="claim.backup.writeDown">Write These Down!</div>
+                    <p style="font-weight: normal; margin-bottom: 0.75rem;" data-i18n="claim.backup.introDevice">These are your emergency codes. If you ever lose your device, type one of these codes to get back in.</p>
+                    <p><strong data-i18n="claim.backup.keepSafeShortBold">Write these codes down on paper and keep them somewhere safe.</strong> <span data-i18n="claim.backup.keepSafeShortRest">Each code works only once — cross it off after you use it.</span></p>
                 </div>
                 <div class="backup-codes-list" id="webauthn-backup-codes"></div>
-                <p class="print-hint">Tip: Print this page, or take a photo with another device.</p>
+                <p class="print-hint" data-i18n="claim.backup.tip">Tip: Print this page, or take a photo with another device.</p>
             </div>
 
             <a href="/" class="auth-button" style="display: block; text-align: center; text-decoration: none; margin-top: 1.5rem;">
-                <span class="button-text">Enter The Library</span>
+                <span class="button-text" data-i18n="claim.enterLibrary">Enter The Library</span>
             </a>
         </div>
 
@@ -576,41 +577,40 @@
         <div id="step-magic-link-success" class="registration-step" hidden>
             <div class="success-header">
                 <div class="deco-ornament">&#10003;</div>
-                <h2 class="step-title">You're All Set!</h2>
+                <h2 class="step-title" data-i18n="claim.magicLinkSuccess.allSet">You're All Set!</h2>
                 <p class="step-description plain-language">
-                    Welcome, <strong id="magic-link-username"></strong>! Your account is ready.
-                    To sign in, just click <strong>"Sign in with email link"</strong> on the login page and we'll send a link to <strong id="magic-link-email-display"></strong>.
+                    <span data-i18n="claim.magicLinkSuccess.welcomePrefix">Welcome,</span> <strong id="magic-link-username"></strong><span data-i18n="claim.magicLinkSuccess.welcomeMid">! Your account is ready. To sign in, just click</span> <strong data-i18n="claim.magicLinkSuccess.signInLabel">"Sign in with email link"</strong> <span data-i18n="claim.magicLinkSuccess.welcomeMid2">on the login page and we'll send a link to</span> <strong id="magic-link-email-display"></strong>.
                 </p>
             </div>
 
             <div class="setup-instructions backup-codes-section">
                 <h3>
-                    Save Your Emergency Backup Codes
+                    <span data-i18n="claim.backup.title">Save Your Emergency Backup Codes</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="magic-link-backup-help">?</button>
                 </h3>
                 <div id="magic-link-backup-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What are these?</strong>
-                        <p>Emergency codes that let you sign in if you ever can't access your email. Think of them as spare keys.</p>
-                        <strong>How should I save them?</strong>
+                        <strong data-i18n="claim.backup.help.whatTitle">What are these?</strong>
+                        <p data-i18n="claim.backup.help.whatBodyEmail">Emergency codes that let you sign in if you ever can't access your email. Think of them as spare keys.</p>
+                        <strong data-i18n="claim.backup.help.howTitle">How should I save them?</strong>
                         <ul>
-                            <li><strong>Write them down on paper</strong> and keep it with your important documents</li>
-                            <li><strong>Take a photo</strong> with another device</li>
-                            <li><strong>Print this page</strong> if you can</li>
+                            <li><strong data-i18n="claim.backup.help.save1Bold">Write them down on paper</strong><span data-i18n="claim.backup.help.save1Rest"> and keep it with your important documents</span></li>
+                            <li><strong data-i18n="claim.backup.help.save2Bold">Take a photo</strong><span data-i18n="claim.backup.help.save2Rest"> with another device</span></li>
+                            <li><strong data-i18n="claim.backup.help.save3Bold">Print this page</strong><span data-i18n="claim.backup.help.save3Rest"> if you can</span></li>
                         </ul>
                     </div>
                 </div>
                 <div class="callout-write-down">
-                    <div class="callout-heading">Write These Down!</div>
-                    <p style="font-weight: normal; margin-bottom: 0.75rem;">These are your emergency codes. If you ever can't access your email, type one of these codes to get back in.</p>
-                    <p><strong>Write these codes down on paper and keep them somewhere safe.</strong> Each code works only once — cross it off after you use it.</p>
+                    <div class="callout-heading" data-i18n="claim.backup.writeDown">Write These Down!</div>
+                    <p style="font-weight: normal; margin-bottom: 0.75rem;" data-i18n="claim.backup.introEmail">These are your emergency codes. If you ever can't access your email, type one of these codes to get back in.</p>
+                    <p><strong data-i18n="claim.backup.keepSafeShortBold">Write these codes down on paper and keep them somewhere safe.</strong> <span data-i18n="claim.backup.keepSafeShortRest">Each code works only once — cross it off after you use it.</span></p>
                 </div>
                 <div class="backup-codes-list" id="magic-link-backup-codes"></div>
-                <p class="print-hint">Tip: Print this page, or take a photo with another device.</p>
+                <p class="print-hint" data-i18n="claim.backup.tip">Tip: Print this page, or take a photo with another device.</p>
             </div>
 
             <a href="login.html" class="auth-button" style="display: block; text-align: center; text-decoration: none; margin-top: 1.5rem;">
-                <span class="button-text">Go to Login</span>
+                <span class="button-text" data-i18n="claim.goToLogin">Go to Login</span>
             </a>
         </div>
 
@@ -628,9 +628,9 @@
                 return JSON.parse(text);
             } catch {
                 if (text.includes('<!DOCTYPE') || text.includes('<!doctype')) {
-                    throw new Error('Request was blocked by the firewall. Please try again or contact admin.');
+                    throw new Error(t('claim.js.firewallBlocked'));
                 }
-                throw new Error('Unexpected server response');
+                throw new Error(t('claim.js.unexpectedResponse'));
             }
         }
 
@@ -661,18 +661,18 @@
         (async function() {
             if (!WebAuthn.isSupported()) {
                 document.getElementById('passkey-button').disabled = true;
-                document.getElementById('passkey-button').querySelector('.button-text').textContent = 'Not Available';
+                document.getElementById('passkey-button').querySelector('.button-text').textContent = t('claim.js.notAvailable');
                 document.getElementById('passkey-unsupported').style.display = 'block';
 
                 document.getElementById('fido2-button').disabled = true;
-                document.getElementById('fido2-button').querySelector('.button-text').textContent = 'Not Available';
+                document.getElementById('fido2-button').querySelector('.button-text').textContent = t('claim.js.notAvailable');
                 document.getElementById('fido2-unsupported').style.display = 'block';
             } else {
                 const hasPlatform = await WebAuthn.isPlatformAuthenticatorAvailable();
                 if (!hasPlatform) {
                     const desc = document.querySelector('#method-passkey .method-description');
                     if (desc) {
-                        desc.textContent = 'Your device may not support built-in passkeys, but you can try.';
+                        desc.textContent = t('claim.js.passkeyMaybe');
                     }
                 }
             }
@@ -752,7 +752,7 @@
             const claimToken = document.getElementById('claim-token').value.trim();
 
             if (!username || !claimToken) {
-                showError('claim-error', 'Please enter both username and claim token');
+                showError('claim-error', t('claim.js.enterBoth'));
                 return;
             }
 
@@ -780,14 +780,14 @@
                     showStep('authMethod');
                 } else {
                     if (data.status === 'pending') {
-                        document.getElementById('claim-info').textContent = 'Your request is still pending admin review. Please check back later.';
+                        document.getElementById('claim-info').textContent = t('claim.js.pendingReview');
                         document.getElementById('claim-info').hidden = false;
                     } else {
-                        showError('claim-error', data.error || 'Invalid username or claim token');
+                        showError('claim-error', data.error || t('claim.js.invalidCredentials'));
                     }
                 }
             } catch (e) {
-                showError('claim-error', 'Connection error. Please try again.');
+                showError('claim-error', t('claim.js.connectionError'));
             } finally {
                 setLoading(submitBtn, false);
             }
@@ -810,17 +810,17 @@
                 if (method === 'magic_link') {
                     // Magic link requires email — show recovery step with email required
                     document.getElementById('skip-recovery').hidden = true;
-                    document.getElementById('recovery-heading').textContent = 'Enter Your Email';
+                    document.getElementById('recovery-heading').textContent = t('claim.js.enterEmail');
                     document.getElementById('recovery-description').textContent =
-                        'Your email is how we\'ll send you sign-in links. This is required for email link authentication.';
+                        t('claim.js.emailRequired');
                     document.getElementById('recovery-email').required = true;
                     showStep('recovery');
                 } else {
                     // Reset recovery step to optional for other methods
                     document.getElementById('skip-recovery').hidden = false;
-                    document.getElementById('recovery-heading').textContent = 'Recovery Email (Optional)';
+                    document.getElementById('recovery-heading').textContent = t('claim.js.recoveryOptional');
                     document.getElementById('recovery-description').textContent =
-                        'Add a recovery email in case you lose access to your authenticator.';
+                        t('claim.js.recoveryOptionalDesc');
                     document.getElementById('recovery-email').required = false;
 
                     if (method === 'passkey' || method === 'fido2') {
@@ -860,7 +860,7 @@
                 }
             } catch (e) {
                 showStep('authMethod');
-                showError('method-error', e.message || 'Setup failed. Please try again.');
+                showError('method-error', e.message || t('claim.js.setupFailed'));
             } finally {
                 setLoading(continueBtn, false);
             }
@@ -897,7 +897,7 @@
                 document.getElementById('magic-link-email-display').textContent = claimState.recoveryEmail;
                 showStep('magicLinkSuccess');
             } else {
-                throw new Error(data.error || 'Magic link setup failed');
+                throw new Error(data.error || t('claim.js.magicLinkFailed'));
             }
         }
 
@@ -934,7 +934,7 @@
 
                 showStep('totp');
             } else {
-                throw new Error(data.error || 'TOTP setup failed');
+                throw new Error(data.error || t('claim.js.totpFailed'));
             }
         }
 
@@ -953,7 +953,7 @@
 
             if (!beginResponse.ok) {
                 const errData = await safeJsonParse(beginResponse);
-                throw new Error(errData.error || 'Failed to start registration');
+                throw new Error(errData.error || t('claim.js.regStartFailed'));
             }
             const beginData = await safeJsonParse(beginResponse);
 
@@ -965,15 +965,15 @@
                 credential = await navigator.credentials.create({ publicKey: options });
             } catch (e) {
                 if (e.name === 'NotAllowedError') {
-                    throw new Error('Registration was cancelled or timed out');
+                    throw new Error(t('claim.js.regCancelled'));
                 } else if (e.name === 'InvalidStateError') {
-                    throw new Error('This device is already registered');
+                    throw new Error(t('claim.js.deviceAlreadyRegistered'));
                 }
-                throw new Error('Failed to create credential: ' + e.message);
+                throw new Error(t('claim.js.credentialFailed') + ' ' + e.message);
             }
 
             if (!credential) {
-                throw new Error('No credential created');
+                throw new Error(t('claim.js.noCredential'));
             }
 
             // Step 3: Complete registration
@@ -994,17 +994,17 @@
 
             if (!completeResponse.ok) {
                 const errData = await safeJsonParse(completeResponse);
-                throw new Error(errData.error || 'Registration verification failed');
+                throw new Error(errData.error || t('claim.js.regVerifyFailed'));
             }
             const completeData = await safeJsonParse(completeResponse);
 
             if (!completeData.success) {
-                throw new Error(completeData.error || 'Registration verification failed');
+                throw new Error(completeData.error || t('claim.js.regVerifyFailed'));
             }
 
             // Display success
-            const typeLabel = authType === 'passkey' ? 'Passkey' : 'Security Key';
-            document.getElementById('webauthn-title').textContent = `${typeLabel} Created!`;
+            const typeLabel = authType === 'passkey' ? t('claim.js.passkeyLabel') : t('claim.js.securityKeyLabel');
+            document.getElementById('webauthn-title').textContent = t('claim.js.credCreated').replace('{type}', typeLabel);
             document.getElementById('webauthn-username').textContent = completeData.username;
 
             // Display backup codes
@@ -1030,14 +1030,14 @@
             errorEl.hidden = true;
 
             if (!code || code.length !== 6) {
-                errorEl.textContent = 'Please enter the 6-digit code from your authenticator app';
+                errorEl.textContent = t('claim.js.enter6Digit');
                 errorEl.hidden = false;
                 return;
             }
 
             const submitBtn = e.target.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
-            submitBtn.querySelector('.button-text').textContent = 'Logging in...';
+            submitBtn.querySelector('.button-text').textContent = t('claim.js.loggingIn');
 
             try {
                 const response = await fetch(`${API_BASE}/auth/login`, {
@@ -1055,16 +1055,16 @@
                 if (response.ok && data.success) {
                     window.location.href = '/';
                 } else {
-                    errorEl.textContent = data.error || 'Invalid code. Check your authenticator app and try again.';
+                    errorEl.textContent = data.error || t('claim.js.invalidCode');
                     errorEl.hidden = false;
                     submitBtn.disabled = false;
-                    submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+                    submitBtn.querySelector('.button-text').textContent = t('claim.enterLibrary');
                 }
             } catch (e) {
-                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.textContent = t('claim.js.connectionError');
                 errorEl.hidden = false;
                 submitBtn.disabled = false;
-                submitBtn.querySelector('.button-text').textContent = 'Enter The Library';
+                submitBtn.querySelector('.button-text').textContent = t('claim.enterLibrary');
             }
         });
 
