@@ -126,6 +126,29 @@
       var translated = t(key);
       if (translated !== key) el.label = translated;
     });
+
+    // Document chrome: <html data-page-title-key="chrome.title.X"> → document.title
+    // <html data-meta-desc-key="chrome.desc.X"> → <meta name="description">
+    applyChrome();
+  }
+
+  function applyChrome() {
+    var html = document.documentElement;
+    var titleKey = html.getAttribute("data-page-title-key");
+    if (titleKey) {
+      var translatedTitle = t(titleKey);
+      if (translatedTitle && translatedTitle !== titleKey) {
+        document.title = translatedTitle;
+      }
+    }
+    var descKey = html.getAttribute("data-meta-desc-key");
+    if (descKey) {
+      var translatedDesc = t(descKey);
+      if (translatedDesc && translatedDesc !== descKey) {
+        var meta = document.querySelector('meta[name="description"]');
+        if (meta) meta.setAttribute("content", translatedDesc);
+      }
+    }
   }
 
   // ── Initialize ──

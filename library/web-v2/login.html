@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page-title-key="chrome.title.login">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -49,14 +49,14 @@
                            autocapitalize="none"
                            spellcheck="false"
                            required>
-                    <button type="button" id="edit-username-btn" class="edit-input-btn hidden" title="Edit username">✎</button>
+                    <button type="button" id="edit-username-btn" class="edit-input-btn hidden" title="Edit username" data-i18n-title="login.editUsername">✎</button>
                 </div>
                 <div id="username-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What is this?</strong>
-                        <p>This is the name you chose when you signed up. It's like your nickname for this website.</p>
-                        <strong>What do I type?</strong>
-                        <p>Type the exact username you picked when you created your account. It's case-sensitive (capital letters matter).</p>
+                        <strong data-i18n="login.usernameHelp.title">What is this?</strong>
+                        <p data-i18n="login.usernameHelp.body">This is the name you chose when you signed up. It's like your nickname for this website.</p>
+                        <strong data-i18n="login.usernameHelp.whatType">What do I type?</strong>
+                        <p data-i18n="login.usernameHelp.whatTypeBody">Type the exact username you picked when you created your account. It's case-sensitive (capital letters matter).</p>
                     </div>
                 </div>
             </div>
@@ -78,14 +78,14 @@
                 <span class="field-hint" data-i18n="login.codeHint">Open the app on your phone, find The Library, and type the 6-digit number you see</span>
                 <div id="code-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>Where do I find this code?</strong>
+                        <strong data-i18n="login.codeHelp.whereTitle">Where do I find this code?</strong>
                         <ol>
-                            <li>Open the authenticator app on your phone (the app you set up when you created your account)</li>
-                            <li>Find <strong>The Library</strong> in the list</li>
-                            <li>You'll see a 6-digit number — type it here</li>
+                            <li data-i18n="login.codeHelp.step1">Open the authenticator app on your phone (the app you set up when you created your account)</li>
+                            <li data-i18n="login.codeHelp.step2">Find <strong>The Library</strong> in the list</li>
+                            <li data-i18n="login.codeHelp.step3">You'll see a 6-digit number — type it here</li>
                         </ol>
-                        <strong>The number changed while I was typing!</strong>
-                        <p>No problem! Just wait for the new number and type that one instead.</p>
+                        <strong data-i18n="login.codeHelp.changedTitle">The number changed while I was typing!</strong>
+                        <p data-i18n="login.codeHelp.changedBody">No problem! Just wait for the new number and type that one instead.</p>
                     </div>
                 </div>
             </div>
@@ -93,7 +93,7 @@
             <!-- WebAuthn prompt - shown for passkey/fido2 users -->
             <div class="form-group" id="webauthn-group" hidden>
                 <div class="webauthn-prompt" style="text-align: center; padding: 1rem; background: var(--color-bg-subtle, #f5f5f5); border-radius: 4px;">
-                    <p id="webauthn-prompt-text" style="margin: 0; color: var(--color-text, #333);">Click Continue to authenticate with your passkey.</p>
+                    <p id="webauthn-prompt-text" style="margin: 0; color: var(--color-text, #333);" data-i18n="login.webauthnPrompt">Click Continue to authenticate with your passkey.</p>
                 </div>
             </div>
 
@@ -101,15 +101,15 @@
             <div class="form-group" id="magic-link-sent-group" hidden>
                 <div id="magic-link-sent-message" class="success-message-box" style="text-align: center; padding: 1.25rem;">
                     <div style="font-size: 2rem; margin-bottom: 0.5rem;">&#9993;</div>
-                    <p style="margin: 0 0 0.75rem 0; font-weight: bold; font-size: 1.1em;">Check Your Email!</p>
-                    <p style="margin: 0; font-size: 0.95em; line-height: 1.6;">We just sent a sign-in link to your email address. Open the email and click the link to sign in.</p>
-                    <p style="margin: 0.75rem 0 0 0; font-size: 0.85em; opacity: 0.8;">Don't see it? Check your spam folder. The link expires in 15 minutes.</p>
+                    <p style="margin: 0 0 0.75rem 0; font-weight: bold; font-size: 1.1em;" data-i18n="login.checkEmail">Check Your Email!</p>
+                    <p style="margin: 0; font-size: 0.95em; line-height: 1.6;" data-i18n="login.magicLinkSent">We just sent a sign-in link to your email address. Open the email and click the link to sign in.</p>
+                    <p style="margin: 0.75rem 0 0 0; font-size: 0.85em; opacity: 0.8;" data-i18n="login.magicLinkSpam">Don't see it? Check your spam folder. The link expires in 15 minutes.</p>
                 </div>
             </div>
 
             <!-- Change username link - shown after auth type detected -->
             <div id="change-username-link" class="form-group" hidden style="text-align: center; margin-top: -0.5rem;">
-                <a href="#" id="change-username" class="auth-link" style="font-size: 0.9em;">&larr; Use different username</a>
+                <a href="#" id="change-username" class="auth-link" style="font-size: 0.9em;" data-i18n="login.useDifferentUsername">&larr; Use different username</a>
             </div>
 
             <div id="error-message" class="error-message" hidden></div>
@@ -118,9 +118,9 @@
             <div class="form-group checkbox-group" id="remember-me-group" hidden>
                 <label class="checkbox-label">
                     <input type="checkbox" id="remember-me" name="remember_me" checked>
-                    <span class="checkbox-text">Stay logged in</span>
+                    <span class="checkbox-text" data-i18n="login.stayLoggedIn">Stay logged in</span>
                 </label>
-                <span class="field-hint">Your login will be remembered on this device so you won't need to sign in each time. This stores a secure session key in your browser. Only use this on a device you trust. To fully sign out later, use the Sign Out button.</span>
+                <span class="field-hint" data-i18n="login.stayLoggedInHint">Your login will be remembered on this device so you won't need to sign in each time. This stores a secure session key in your browser. Only use this on a device you trust. To fully sign out later, use the Sign Out button.</span>
             </div>
 
             <!-- Continue button - first step -->
@@ -128,62 +128,62 @@
                 <span class="button-text" data-i18n="login.continue">Continue</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
-                    Checking...
+                    <span data-i18n="login.checking">Checking...</span>
                 </span>
             </button>
 
             <!-- Login button - shown after auth type detected -->
             <button type="submit" class="auth-button" id="login-button" hidden>
-                <span class="button-text" data-i18n="login.signIn">Enter the Library</span>
+                <span class="button-text" data-i18n="login.enterLibrary">Enter the Library</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
-                    Authenticating...
+                    <span data-i18n="login.authenticating">Authenticating...</span>
                 </span>
             </button>
         </form>
 
         <!-- Alternative options (recovery fallbacks - hidden until auth type detected) -->
         <div class="auth-options" id="auth-options-fallback" hidden>
-            <a href="#" id="use-backup-code" class="auth-link" title="Use one of the emergency codes you saved when you first signed up">
-                Use backup code
+            <a href="#" id="use-backup-code" class="auth-link" title="Use one of the emergency codes you saved when you first signed up" data-i18n-title="login.useBackupCodeTitle">
+                <span data-i18n="login.useBackupCode">Use backup code</span>
                 <button type="button" class="help-icon small" aria-label="Help" data-help="backup-option-help">?</button>
             </a>
             <span class="auth-divider">|</span>
-            <a href="#" id="use-magic-link" class="auth-link" title="Forgot your code or lost your phone? We'll email you a sign-in link">
-                Email me a link
+            <a href="#" id="use-magic-link" class="auth-link" title="Forgot your code or lost your phone? We'll email you a sign-in link" data-i18n-title="login.emailMeLinkTitle">
+                <span data-i18n="login.emailMeLink">Email me a link</span>
                 <button type="button" class="help-icon small" aria-label="Help" data-help="magic-link-option-help">?</button>
             </a>
             <span class="auth-divider">|</span>
-            <a href="register.html" class="auth-link" title="Request a new account">Request access</a>
+            <a href="register.html" class="auth-link" title="Request a new account" data-i18n-title="login.requestNewAccountTitle" data-i18n="login.requestAccess">Request access</a>
         </div>
 
         <div id="magic-link-option-help" class="help-tooltip" hidden>
             <div class="help-content">
-                <strong>Forgot your code or lost your phone?</strong>
-                <p>If you added an email address when you signed up, we can email you a special link that signs you in — no app needed.</p>
-                <strong>How it works:</strong>
+                <strong data-i18n="login.magicHelp.title">Forgot your code or lost your phone?</strong>
+                <p data-i18n="login.magicHelp.body">If you added an email address when you signed up, we can email you a special link that signs you in — no app needed.</p>
+                <strong data-i18n="login.magicHelp.howTitle">How it works:</strong>
                 <ol>
-                    <li>Type your username</li>
-                    <li>We email you a sign-in link</li>
-                    <li>Click the link in your email</li>
-                    <li>You're in!</li>
+                    <li data-i18n="login.magicHelp.step1">Type your username</li>
+                    <li data-i18n="login.magicHelp.step2">We email you a sign-in link</li>
+                    <li data-i18n="login.magicHelp.step3">Click the link in your email</li>
+                    <li data-i18n="login.magicHelp.step4">You're in!</li>
                 </ol>
-                <strong>I didn't add an email when I signed up</strong>
-                <p>You'll need to use one of your emergency backup codes instead.</p>
+                <strong data-i18n="login.magicHelp.noEmailTitle">I didn't add an email when I signed up</strong>
+                <p data-i18n="login.magicHelp.noEmailBody">You'll need to use one of your emergency backup codes instead.</p>
             </div>
         </div>
 
         <div id="backup-option-help" class="help-tooltip" hidden>
             <div class="help-content">
-                <strong>What is a backup code?</strong>
-                <p>These are the emergency codes you wrote down or saved when you first set up your account.</p>
-                <strong>When to use this:</strong>
+                <strong data-i18n="login.backupHelp.title">What is a backup code?</strong>
+                <p data-i18n="login.backupHelp.body">These are the emergency codes you wrote down or saved when you first set up your account.</p>
+                <strong data-i18n="login.backupHelp.whenTitle">When to use this:</strong>
                 <ul>
-                    <li>You lost your phone</li>
-                    <li>You deleted the app</li>
-                    <li>Your phone broke</li>
+                    <li data-i18n="login.backupHelp.lost">You lost your phone</li>
+                    <li data-i18n="login.backupHelp.deleted">You deleted the app</li>
+                    <li data-i18n="login.backupHelp.broke">Your phone broke</li>
                 </ul>
-                <p><em>Each code works only once — after you use one, cross it off your list.</em></p>
+                <p><em data-i18n="login.backupHelp.onceOnly">Each code works only once — after you use one, cross it off your list.</em></p>
             </div>
         </div>
 
@@ -191,7 +191,7 @@
         <form id="backup-form" class="auth-form" hidden>
             <div class="form-group">
                 <label for="backup-username">
-                    Username
+                    <span data-i18n="login.username">Username</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="backup-username-help">?</button>
                 </label>
                 <input type="text"
@@ -202,14 +202,14 @@
                        required>
                 <div id="backup-username-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <p>Type the same username you normally use to sign in.</p>
+                        <p data-i18n="login.backupUsernameHelp">Type the same username you normally use to sign in.</p>
                     </div>
                 </div>
             </div>
 
             <div class="form-group">
                 <label for="backup-code">
-                    Backup Code
+                    <span data-i18n="login.backupCodeLabel">Backup Code</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="backup-code-help">?</button>
                 </label>
                 <input type="text"
@@ -219,17 +219,17 @@
                        placeholder="XXXXXXXX"
                        maxlength="8"
                        required>
-                <span class="field-hint">One of the emergency codes you saved when you set up your account</span>
+                <span class="field-hint" data-i18n="login.backupCodeHint">One of the emergency codes you saved when you set up your account</span>
                 <div id="backup-code-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>Where are my backup codes?</strong>
-                        <p>These are the codes you wrote down or saved when you first set up your account. Check:</p>
+                        <strong data-i18n="login.backupCodeHelp.title">Where are my backup codes?</strong>
+                        <p data-i18n="login.backupCodeHelp.body">These are the codes you wrote down or saved when you first set up your account. Check:</p>
                         <ul>
-                            <li>A piece of paper you kept in a safe place</li>
-                            <li>A photo you took of the codes</li>
-                            <li>A note on your computer or phone</li>
+                            <li data-i18n="login.backupCodeHelp.paper">A piece of paper you kept in a safe place</li>
+                            <li data-i18n="login.backupCodeHelp.photo">A photo you took of the codes</li>
+                            <li data-i18n="login.backupCodeHelp.note">A note on your computer or phone</li>
                         </ul>
-                        <p><em>Each code works only once — after you use one, it's used up.</em></p>
+                        <p><em data-i18n="login.backupCodeHelp.onceOnly">Each code works only once — after you use one, it's used up.</em></p>
                     </div>
                 </div>
             </div>
@@ -237,11 +237,11 @@
             <div id="backup-error-message" class="error-message" hidden></div>
 
             <button type="submit" class="auth-button">
-                <span class="button-text">Recover Access</span>
+                <span class="button-text" data-i18n="login.recoverAccess">Recover Access</span>
             </button>
 
             <div class="auth-options">
-                <a href="#" id="back-to-login" class="auth-link">&larr; Back to login</a>
+                <a href="#" id="back-to-login" class="auth-link" data-i18n="login.backToLogin">&larr; Back to login</a>
             </div>
         </form>
 
@@ -249,7 +249,7 @@
         <form id="magic-link-form" class="auth-form" hidden>
             <div class="form-group">
                 <label for="magic-username">
-                    Username
+                    <span data-i18n="login.username">Username</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="magic-username-help">?</button>
                 </label>
                 <input type="text"
@@ -260,7 +260,7 @@
                        required>
                 <div id="magic-username-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <p>Type the same username you normally use to sign in.</p>
+                        <p data-i18n="login.backupUsernameHelp">Type the same username you normally use to sign in.</p>
                     </div>
                 </div>
             </div>
@@ -269,15 +269,15 @@
             <div id="magic-link-success" class="success-message-box" hidden></div>
 
             <button type="submit" class="auth-button" id="magic-link-button">
-                <span class="button-text">Send Login Link</span>
+                <span class="button-text" data-i18n="login.sendLoginLink">Send Login Link</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
-                    Sending...
+                    <span data-i18n="login.sending">Sending...</span>
                 </span>
             </button>
 
             <div class="auth-options">
-                <a href="#" id="back-to-login-from-magic" class="auth-link">&larr; Back to login</a>
+                <a href="#" id="back-to-login-from-magic" class="auth-link" data-i18n="login.backToLogin">&larr; Back to login</a>
             </div>
         </form>
 
@@ -303,6 +303,15 @@
 
         // API base URL - adjust for your setup
         const API_BASE = '';
+
+        // i18n helper with fallback when window.t returns the key unchanged
+        const tr = (k, f) => {
+            if (window.t) {
+                const v = window.t(k);
+                if (v && v !== k) return v;
+            }
+            return f;
+        };
 
         // Current auth state
         let currentAuthType = null;
@@ -457,7 +466,7 @@
             const username = document.getElementById('username').value.trim();
 
             if (!username) {
-                showError(errorMessage, 'Please enter your username');
+                showError(errorMessage, tr('login.js.enterUsername', 'Please enter your username'));
                 return;
             }
 
@@ -482,18 +491,21 @@
                 } else if (currentAuthType === 'passkey' || currentAuthType === 'fido2') {
                     // WebAuthn flow
                     if (!WebAuthn.isSupported()) {
-                        showError(errorMessage, 'Your browser does not support passkeys. Please use a backup code instead.');
+                        showError(errorMessage, tr('login.js.passkeyUnsupported', 'Your browser does not support passkeys. Please use a backup code instead.'));
                         continueButton.hidden = false;
                         usernameInput.readOnly = false;
                         updateEditButtonVisibility();
                         return;
                     }
 
-                    const typeLabel = currentAuthType === 'passkey' ? 'passkey' : 'security key';
-                    webauthnPromptText.textContent = `Ready to authenticate with your ${typeLabel}.`;
+                    const isPasskey = currentAuthType === 'passkey';
+                    const typeLabel = isPasskey ? tr('login.js.passkey', 'passkey') : tr('login.js.securityKey', 'security key');
+                    webauthnPromptText.textContent = tr('login.js.readyToAuth', 'Ready to authenticate with your {type}.').replace('{type}', typeLabel);
                     webauthnGroup.hidden = false;
                     loginButton.hidden = false;
-                    loginButton.querySelector('.button-text').textContent = `Use ${typeLabel === 'passkey' ? 'Passkey' : 'Security Key'}`;
+                    loginButton.querySelector('.button-text').textContent = isPasskey
+                        ? tr('login.js.usePasskey', 'Use Passkey')
+                        : tr('login.js.useSecurityKey', 'Use Security Key');
                     changeUsernameLink.hidden = false;
                     rememberMeGroup.hidden = false;
                 } else {
@@ -540,7 +552,7 @@
             const username = currentUsername || document.getElementById('username').value.trim();
 
             if (!username) {
-                showError(errorMessage, 'Please enter your username');
+                showError(errorMessage, tr('login.js.enterUsername', 'Please enter your username'));
                 return;
             }
 
@@ -555,19 +567,19 @@
                     if (result.success) {
                         window.location.href = '/';
                     } else {
-                        showError(errorMessage, result.error || 'Authentication failed');
+                        showError(errorMessage, result.error || tr('login.js.authFailed', 'Authentication failed'));
                     }
                 } else {
                     // TOTP authentication flow
                     const code = document.getElementById('code').value.trim();
 
                     if (!code) {
-                        showError(errorMessage, 'Please enter the code');
+                        showError(errorMessage, tr('login.js.enterCode', 'Please enter the code'));
                         return;
                     }
 
                     if (code.length !== 6 || !/^\d+$/.test(code)) {
-                        showError(errorMessage, 'Code must be 6 digits');
+                        showError(errorMessage, tr('login.js.codeSixDigits', 'Code must be 6 digits'));
                         return;
                     }
 
@@ -588,11 +600,11 @@
                         }
                         window.location.href = '/';
                     } else {
-                        showError(errorMessage, data.error || 'Login failed');
+                        showError(errorMessage, data.error || tr('login.js.loginFailed', 'Login failed'));
                     }
                 }
             } catch (e) {
-                showError(errorMessage, e.message || 'Connection error. Please try again.');
+                showError(errorMessage, e.message || tr('login.js.connectionError', 'Connection error. Please try again.'));
             } finally {
                 setLoading(loginButton, false);
             }
@@ -606,7 +618,7 @@
             const backupCode = document.getElementById('backup-code').value.trim().toUpperCase();
 
             if (!username || !backupCode) {
-                showError(backupErrorMessage, 'Please enter both username and backup code');
+                showError(backupErrorMessage, tr('login.js.enterBothBackup', 'Please enter both username and backup code'));
                 return;
             }
 
@@ -622,22 +634,22 @@
 
                 if (response.ok) {
                     // Recovery resets TOTP — show new credentials and redirect to login
-                    var msg = 'Account recovered! Your authenticator has been reset.\n\n';
-                    msg += 'New TOTP Secret: ' + data.totp_secret + '\n\n';
-                    msg += 'Save your new backup codes:\n';
+                    var msg = tr('login.js.recoveredHeader', 'Account recovered! Your authenticator has been reset.') + '\n\n';
+                    msg += tr('login.js.newTotpSecret', 'New TOTP Secret:') + ' ' + data.totp_secret + '\n\n';
+                    msg += tr('login.js.saveNewBackup', 'Save your new backup codes:') + '\n';
                     if (data.backup_codes) {
                         msg += data.backup_codes.join('\n');
                     }
-                    msg += '\n\nYou will now be redirected to log in with your new code.';
+                    msg += '\n\n' + tr('login.js.recoveredRedirect', 'You will now be redirected to log in with your new code.');
                     alert(msg);
                     backupForm.hidden = true;
                     loginForm.hidden = false;
                     resetLoginForm();
                 } else {
-                    showError(backupErrorMessage, data.error || 'Invalid backup code');
+                    showError(backupErrorMessage, data.error || tr('login.js.invalidBackup', 'Invalid backup code'));
                 }
             } catch (e) {
-                showError(backupErrorMessage, 'Connection error. Please try again.');
+                showError(backupErrorMessage, tr('login.js.connectionError', 'Connection error. Please try again.'));
             }
         });
 
@@ -672,7 +684,7 @@
             document.getElementById('auth-options-fallback').hidden = true;
             continueButton.hidden = false;
             loginButton.hidden = true;
-            loginButton.querySelector('.button-text').textContent = 'Enter the Library';
+            loginButton.querySelector('.button-text').textContent = tr('login.enterLibrary', 'Enter the Library');
             clearError(errorMessage);
             usernameInput.focus();
         }
@@ -708,7 +720,7 @@
             const username = document.getElementById('magic-username').value.trim();
 
             if (!username) {
-                showError(magicLinkError, 'Please enter your username');
+                showError(magicLinkError, tr('login.js.enterUsername', 'Please enter your username'));
                 return;
             }
 
@@ -724,14 +736,14 @@
                 const data = await safeJsonParse(response);
 
                 if (response.ok) {
-                    magicLinkSuccess.textContent = data.message || 'Check your email! We sent you a sign-in link. Click it to sign in. (Check your spam folder if you don\'t see it in a few minutes.)';
+                    magicLinkSuccess.textContent = data.message || tr('login.js.magicLinkSent', "Check your email! We sent you a sign-in link. Click it to sign in. (Check your spam folder if you don't see it in a few minutes.)");
                     magicLinkSuccess.hidden = false;
                     magicLinkButton.disabled = true;
                 } else {
-                    showError(magicLinkError, data.error || 'Unable to send login link');
+                    showError(magicLinkError, data.error || tr('login.js.magicLinkFailed', 'Unable to send login link'));
                 }
             } catch (e) {
-                showError(magicLinkError, 'Connection error. Please try again.');
+                showError(magicLinkError, tr('login.js.connectionError', 'Connection error. Please try again.'));
             } finally {
                 setLoading(magicLinkButton, false);
             }
@@ -754,11 +766,11 @@
                 if (response.ok) {
                     magicLinkSentGroup.hidden = false;
                 } else {
-                    showError(errorMessage, data.error || 'Unable to send login link');
+                    showError(errorMessage, data.error || tr('login.js.magicLinkFailed', 'Unable to send login link'));
                     continueButton.hidden = false;
                 }
             } catch (e) {
-                showError(errorMessage, 'Connection error. Please try again.');
+                showError(errorMessage, tr('login.js.connectionError', 'Connection error. Please try again.'));
                 continueButton.hidden = false;
             }
         }

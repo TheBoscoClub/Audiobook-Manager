@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page-title-key="chrome.title.contact">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -40,17 +40,18 @@
                           rows="6"
                           maxlength="2000"
                           placeholder="What would you like to tell the admin?"
+                          data-i18n-placeholder="contact.messagePlaceholder"
                           required
                           style="width: 100%; padding: 0.875rem 1rem; font-family: 'Courier New', monospace; font-size: 1rem; color: var(--cream-light); background: var(--deco-slate); border: 1px solid var(--deco-gray); resize: vertical;"></textarea>
-                <span class="field-hint"><span id="char-count">0</span>/2000 characters</span>
+                <span class="field-hint"><span id="char-count">0</span>/2000 <span data-i18n="contact.charactersLabel">characters</span></span>
                 <div id="message-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>What can I contact the admin about?</strong>
+                        <strong data-i18n="contact.help.whatAbout">What can I contact the admin about?</strong>
                         <ul>
-                            <li>Request new audiobooks or series</li>
-                            <li>Report issues with playback</li>
-                            <li>Ask questions about the library</li>
-                            <li>Provide feedback or suggestions</li>
+                            <li data-i18n="contact.help.requestBooks">Request new audiobooks or series</li>
+                            <li data-i18n="contact.help.reportIssues">Report issues with playback</li>
+                            <li data-i18n="contact.help.askQuestions">Ask questions about the library</li>
+                            <li data-i18n="contact.help.feedback">Provide feedback or suggestions</li>
                         </ul>
                     </div>
                 </div>
@@ -58,37 +59,38 @@
 
             <div class="form-group">
                 <label>
-                    How should the admin reply?
+                    <span data-i18n="contact.replyHow">How should the admin reply?</span>
                     <button type="button" class="help-icon" aria-label="Help" data-help="reply-help">?</button>
                 </label>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                         <input type="radio" name="reply_via" value="in-app" checked>
-                        <span>In-app notification</span>
+                        <span data-i18n="contact.replyInApp">In-app notification</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                         <input type="radio" name="reply_via" value="email">
-                        <span>Email me</span>
+                        <span data-i18n="contact.replyEmail">Email me</span>
                     </label>
                 </div>
                 <div id="reply-help" class="help-tooltip" hidden>
                     <div class="help-content">
-                        <strong>In-app notification</strong>
-                        <p>You'll see the admin's reply as a notification banner when you next visit The Library.</p>
-                        <strong>Email</strong>
-                        <p>Provide your email and the admin will reply directly to your inbox. Your email is only used for this reply and then deleted.</p>
+                        <strong data-i18n="contact.replyInApp">In-app notification</strong>
+                        <p data-i18n="contact.help.inAppBody">You'll see the admin's reply as a notification banner when you next visit The Library.</p>
+                        <strong data-i18n="contact.help.emailTitle">Email</strong>
+                        <p data-i18n="contact.help.emailBody">Provide your email and the admin will reply directly to your inbox. Your email is only used for this reply and then deleted.</p>
                     </div>
                 </div>
             </div>
 
             <div id="email-field" class="form-group" hidden>
-                <label for="reply-email">Your Email</label>
+                <label for="reply-email" data-i18n="contact.yourEmail">Your Email</label>
                 <input type="email"
                        id="reply-email"
                        name="reply_email"
                        placeholder="your@email.com"
+                       data-i18n-placeholder="contact.emailPlaceholder"
                        autocomplete="email">
-                <span class="field-hint">Only used for this reply, then deleted</span>
+                <span class="field-hint" data-i18n="contact.emailDeletedHint">Only used for this reply, then deleted</span>
             </div>
 
             <div id="error-message" class="error-message" hidden></div>
@@ -98,7 +100,7 @@
                 <span class="button-text" data-i18n="contact.sendMessage">Send Message</span>
                 <span class="button-loading" hidden>
                     <span class="spinner"></span>
-                    Sending...
+                    <span data-i18n="contact.sending">Sending...</span>
                 </span>
             </button>
         </form>
@@ -206,9 +208,17 @@
             errorEl.hidden = true;
             successEl.hidden = true;
 
+            const tr = (k, f) => {
+                if (window.t) {
+                    const v = window.t(k);
+                    if (v && v !== k) return v;
+                }
+                return f;
+            };
+
             const message = messageInput.value.trim();
             if (!message) {
-                errorEl.textContent = 'Please enter a message';
+                errorEl.textContent = tr('contact.js.enterMessage', 'Please enter a message');
                 errorEl.hidden = false;
                 return;
             }
@@ -217,7 +227,7 @@
             const replyEmail = emailInput.value.trim();
 
             if (replyVia === 'email' && !replyEmail) {
-                errorEl.textContent = 'Please enter your email address';
+                errorEl.textContent = tr('contact.js.enterEmail', 'Please enter your email address');
                 errorEl.hidden = false;
                 return;
             }
@@ -242,17 +252,17 @@
                 const data = await safeJsonParse(response);
 
                 if (response.ok) {
-                    successEl.textContent = data.info || 'Your message has been sent!';
+                    successEl.textContent = data.info || tr('contact.js.sent', 'Your message has been sent!');
                     successEl.hidden = false;
                     messageInput.value = '';
                     charCount.textContent = '0';
                     emailInput.value = '';
                 } else {
-                    errorEl.textContent = data.error || 'Failed to send message';
+                    errorEl.textContent = data.error || tr('contact.js.sendFailed', 'Failed to send message');
                     errorEl.hidden = false;
                 }
             } catch (err) {
-                errorEl.textContent = 'Connection error. Please try again.';
+                errorEl.textContent = tr('contact.js.connectionError', 'Connection error. Please try again.');
                 errorEl.hidden = false;
             }
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page-title-key="chrome.title.about">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -34,119 +34,119 @@
 
         <!-- Version -->
         <section id="version" class="help-section">
-            <h2><span class="section-icon">&#128196;</span> Version</h2>
-            <p>The Library &mdash; version <span id="app-version" class="about-version-badge">loading...</span>
+            <h2><span class="section-icon">&#128196;</span> <span data-i18n="about.versionHeading">Version</span></h2>
+            <p><span data-i18n="about.versionLine">The Library &mdash; version</span> <span id="app-version" class="about-version-badge" data-i18n="about.loading">loading...</span>
                 <a href="https://github.com/TheBoscoClub/Audiobook-Manager/blob/main/CHANGELOG.md"
-                   target="_blank" rel="noopener" class="changelog-link" title="View full changelog on GitHub">Changelog</a>
+                   target="_blank" rel="noopener" class="changelog-link" title="View full changelog on GitHub" data-i18n="about.changelog">Changelog</a>
             </p>
         </section>
 
         <!-- The Library -->
         <section id="the-library" class="help-section">
-            <h2><span class="section-icon">&#128218;</span> The Library</h2>
-            <p>The Library is a private audiobook management system for organizing, converting, and streaming a personal audiobook collection. It provides a browser-based interface for browsing, searching, and listening to audiobooks from any device on the network.</p>
-            <p>Built with an Art Deco aesthetic inspired by the grand reading rooms of the 1920s, The Library combines modern web audio technology with classic design sensibilities &mdash; because a good book deserves a beautiful shelf.</p>
+            <h2><span class="section-icon">&#128218;</span> <span data-i18n="about.theLibraryHeading">The Library</span></h2>
+            <p data-i18n="about.theLibraryP1">The Library is a private audiobook management system for organizing, converting, and streaming a personal audiobook collection. It provides a browser-based interface for browsing, searching, and listening to audiobooks from any device on the network.</p>
+            <p data-i18n="about.theLibraryP2">Built with an Art Deco aesthetic inspired by the grand reading rooms of the 1920s, The Library combines modern web audio technology with classic design sensibilities &mdash; because a good book deserves a beautiful shelf.</p>
         </section>
 
         <!-- Concept & Creation -->
         <section id="creation" class="help-section">
-            <h2><span class="section-icon">&#9733;</span> Concept &amp; Creation</h2>
-            <p>The Library was conceived and designed by <strong>Bosco</strong>, who envisioned a self-hosted audiobook platform that treats a personal collection with the care and presentation it deserves &mdash; encrypted authentication, position syncing across devices, and an interface that makes browsing a pleasure rather than a chore.</p>
-            <p>Development is a collaborative effort between Bosco and <strong>Claude</strong> (by Anthropic). From architecture decisions and security hardening to the Art Deco visual language and audio playback engine, every feature has been shaped through genuine partnership &mdash; human vision guiding AI capability, each strengthening the other.</p>
+            <h2><span class="section-icon">&#9733;</span> <span data-i18n="about.creationHeading">Concept &amp; Creation</span></h2>
+            <p data-i18n="about.creationP1">The Library was conceived and designed by <strong>Bosco</strong>, who envisioned a self-hosted audiobook platform that treats a personal collection with the care and presentation it deserves &mdash; encrypted authentication, position syncing across devices, and an interface that makes browsing a pleasure rather than a chore.</p>
+            <p data-i18n="about.creationP2">Development is a collaborative effort between Bosco and <strong>Claude</strong> (by Anthropic). From architecture decisions and security hardening to the Art Deco visual language and audio playback engine, every feature has been shaped through genuine partnership &mdash; human vision guiding AI capability, each strengthening the other.</p>
         </section>
 
         <!-- Localization & AI Services -->
         <section id="localization" class="help-section">
-            <h2><span class="section-icon">&#127760;</span> Localization &amp; AI Services</h2>
-            <p>Chinese (and other future language) support in The Library would not be possible without the generosity and craft of the open AI community and the GPU hosts who keep these models affordable to run. The Library extends heartfelt gratitude to:</p>
+            <h2><span class="section-icon">&#127760;</span> <span data-i18n="about.localizationHeading">Localization &amp; AI Services</span></h2>
+            <p data-i18n="about.localizationIntro">Chinese (and other future language) support in The Library would not be possible without the generosity and craft of the open AI community and the GPU hosts who keep these models affordable to run. The Library extends heartfelt gratitude to:</p>
 
             <div class="about-attribution-list">
                 <div class="about-attribution-item">
                     <h3>DeepL</h3>
-                    <p>Neural machine translation for book descriptions, UI strings, and on-demand text translation &mdash; consistently producing the most natural Chinese renderings of English prose we tested.</p>
+                    <p data-i18n="about.deeplDesc">Neural machine translation for book descriptions, UI strings, and on-demand text translation &mdash; consistently producing the most natural Chinese renderings of English prose we tested.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>OpenAI Whisper</h3>
-                    <p>Open-source speech-to-text model used to transcribe audiobook audio into source subtitles before translation. Accurate across accents, narration styles, and long-form listening.</p>
+                    <p data-i18n="about.whisperDesc">Open-source speech-to-text model used to transcribe audiobook audio into source subtitles before translation. Accurate across accents, narration styles, and long-form listening.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>Coqui XTTS</h3>
-                    <p>Multilingual voice cloning and text-to-speech synthesis, enabling translated narration that preserves the character of the original reader across languages.</p>
+                    <p data-i18n="about.xttsDesc">Multilingual voice cloning and text-to-speech synthesis, enabling translated narration that preserves the character of the original reader across languages.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>Hugging Face</h3>
-                    <p>Home to the open model ecosystem that makes projects like this possible. The Library pulls Whisper, XTTS, and supporting models from the Hugging Face Hub &mdash; a public good maintained by a community that believes in open AI.</p>
+                    <p data-i18n="about.hfDesc">Home to the open model ecosystem that makes projects like this possible. The Library pulls Whisper, XTTS, and supporting models from the Hugging Face Hub &mdash; a public good maintained by a community that believes in open AI.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>Vast.ai</h3>
-                    <p>Peer-to-peer GPU marketplace that runs Whisper transcription and XTTS narration on demand. Affordable cold-start GPU time is what makes per-book translation economically viable for a private library.</p>
+                    <p data-i18n="about.vastDesc">Peer-to-peer GPU marketplace that runs Whisper transcription and XTTS narration on demand. Affordable cold-start GPU time is what makes per-book translation economically viable for a private library.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>RunPod</h3>
-                    <p>Serverless GPU platform used as a secondary provider for longer narration jobs. Fast spin-up times and fair pricing keep The Library&rsquo;s translated audio pipeline responsive.</p>
+                    <p data-i18n="about.runpodDesc">Serverless GPU platform used as a secondary provider for longer narration jobs. Fast spin-up times and fair pricing keep The Library&rsquo;s translated audio pipeline responsive.</p>
                 </div>
             </div>
         </section>
 
         <!-- Third-Party Attributions -->
         <section id="attributions" class="help-section">
-            <h2><span class="section-icon">&#128736;</span> Third-Party Attributions</h2>
-            <p>The Library is built on the shoulders of excellent open-source tools and libraries:</p>
+            <h2><span class="section-icon">&#128736;</span> <span data-i18n="about.attributionsHeading">Third-Party Attributions</span></h2>
+            <p data-i18n="about.attributionsIntro">The Library is built on the shoulders of excellent open-source tools and libraries:</p>
 
             <div class="about-attribution-list">
                 <div class="about-attribution-item">
                     <h3>FFmpeg</h3>
-                    <p>Audio conversion and metadata extraction. The backbone of the audiobook processing pipeline, handling format transcoding, chapter detection, and cover art extraction.</p>
+                    <p data-i18n="about.ffmpegDesc">Audio conversion and metadata extraction. The backbone of the audiobook processing pipeline, handling format transcoding, chapter detection, and cover art extraction.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>SQLCipher</h3>
-                    <p>Encrypted SQLite database providing transparent 256-bit AES encryption for user authentication data, session tokens, and account information.</p>
+                    <p data-i18n="about.sqlcipherDesc">Encrypted SQLite database providing transparent 256-bit AES encryption for user authentication data, session tokens, and account information.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>Flask</h3>
-                    <p>Python web framework powering the API server and back-office administration interface. Lightweight, flexible, and battle-tested.</p>
+                    <p data-i18n="about.flaskDesc">Python web framework powering the API server and back-office administration interface. Lightweight, flexible, and battle-tested.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>mutagen</h3>
-                    <p>Audio metadata parsing library for reading and writing tags across multiple audio formats including Opus, M4B, MP3, and FLAC.</p>
+                    <p data-i18n="about.mutagenDesc">Audio metadata parsing library for reading and writing tags across multiple audio formats including Opus, M4B, MP3, and FLAC.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>PyOTP</h3>
-                    <p>TOTP-based authentication providing time-based one-time passwords compatible with standard authenticator apps.</p>
+                    <p data-i18n="about.pyotpDesc">TOTP-based authentication providing time-based one-time passwords compatible with standard authenticator apps.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>FIDO2 / WebAuthn</h3>
-                    <p>Passkey authentication support enabling passwordless sign-in with hardware security keys, biometrics, and platform authenticators.</p>
+                    <p data-i18n="about.fido2Desc">Passkey authentication support enabling passwordless sign-in with hardware security keys, biometrics, and platform authenticators.</p>
                 </div>
                 <div class="about-attribution-item">
                     <h3>Howler.js</h3>
-                    <p>Audio playback engine providing reliable cross-browser audio with Web Audio API fallback, volume control, and seeking support.</p>
+                    <p data-i18n="about.howlerDesc">Audio playback engine providing reliable cross-browser audio with Web Audio API fallback, volume control, and seeking support.</p>
                 </div>
             </div>
         </section>
 
         <!-- Links -->
         <section id="links" class="help-section">
-            <h2><span class="section-icon">&#128279;</span> Links</h2>
+            <h2><span class="section-icon">&#128279;</span> <span data-i18n="about.linksHeading">Links</span></h2>
             <div class="about-links-grid">
                 <a href="https://github.com/TheBoscoClub/Audiobook-Manager" class="about-link-card" title="View the source code on GitHub" target="_blank" rel="noopener noreferrer">
                     <span class="about-link-icon">&#128187;</span>
-                    <span class="about-link-label">GitHub Repository</span>
+                    <span class="about-link-label" data-i18n="about.githubRepo">GitHub Repository</span>
                 </a>
                 <a href="index.html" class="about-link-card" title="Return to the audiobook library">
                     <span class="about-link-icon">&#128218;</span>
-                    <span class="about-link-label">The Library</span>
+                    <span class="about-link-label" data-i18n="about.theLibraryLink">The Library</span>
                 </a>
                 <a href="help.html" class="about-link-card" title="View the user guide and help documentation">
                     <span class="about-link-icon">&#10067;</span>
-                    <span class="about-link-label">Help &amp; User Guide</span>
+                    <span class="about-link-label" data-i18n="about.helpUserGuide">Help &amp; User Guide</span>
                 </a>
             </div>
         </section>
 
         <!-- Footer -->
         <footer class="help-footer">
-            <a href="index.html" title="Return to the audiobook library">&larr; Back to The Library</a>
+            <a href="index.html" title="Return to the audiobook library" data-i18n="about.backToTheLibrary">&larr; Back to The Library</a>
         </footer>
     </div>
 
