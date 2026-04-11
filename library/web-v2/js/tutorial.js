@@ -108,6 +108,56 @@ class LibraryTutorial {
     this.overlay = null;
     this.tooltip = null;
     this.active = false;
+    // {source: translated} cache populated by _loadTranslations() before
+    // the first step renders. Empty for English.
+    this._translations = {};
+  }
+
+  /**
+   * Pre-translate every step's title + description + fallback via the
+   * shared string_translations cache so the tooltips render in the user's
+   * locale from the very first step. No-op for English.
+   */
+  async _loadTranslations() {
+    this._translations = {};
+    if (!window.i18n || typeof window.i18n.translateStrings !== "function") return;
+    if (window.i18n.getLocale() === "en") return;
+
+    const sources = new Set();
+    this.steps.forEach((step) => {
+      if (step.title) sources.add(step.title);
+      if (step.description) sources.add(step.description);
+      if (step.fallback) sources.add(step.fallback);
+    });
+    const uniq = Array.from(sources);
+    if (!uniq.length) return;
+
+    // hashSource matches backend _hash_source (short SHA-256).
+    async function hashSource(text) {
+      const bytes = new TextEncoder().encode(text);
+      const buf = await window.crypto.subtle.digest("SHA-256", bytes);
+      const hex = Array.prototype.map
+        .call(new Uint8Array(buf), (b) => ("00" + b.toString(16)).slice(-2))
+        .join("");
+      return hex.slice(0, 16);
+    }
+
+    try {
+      const map = await window.i18n.translateStrings(uniq);
+      if (!map) return;
+      for (const src of uniq) {
+        const h = await hashSource(src);
+        if (map[h]) this._translations[src] = map[h];
+      }
+    } catch (e) {
+      // Non-fatal — tooltips fall back to English.
+    }
+  }
+
+  /** Look up translated text for a step string, falling back to English. */
+  _tr(text) {
+    if (!text) return text;
+    return this._translations[text] || text;
   }
 
   /**
@@ -118,6 +168,12 @@ class LibraryTutorial {
     this.active = true;
     this.currentStep = 0;
     this._createOverlay();
+    // Fire-and-forget translation load. If it lands before the first
+    // tooltip render we show localized text; otherwise English for a
+    // split second, then the next step picks up the cache.
+    this._loadTranslations().then(() => {
+      if (this.active) this._showStep();
+    });
     this._showStep();
   }
 
@@ -311,14 +367,14 @@ class LibraryTutorial {
     // Title
     const title = document.createElement("div");
     title.className = "tutorial-title";
-    title.textContent = step.title;
+    title.textContent = this._tr(step.title);
     tooltip.appendChild(title);
 
     // Description
     const desc = document.createElement("div");
     desc.className = "tutorial-description";
-    desc.textContent =
-      useFallback && step.fallback ? step.fallback : step.description;
+    const descText = useFallback && step.fallback ? step.fallback : step.description;
+    desc.textContent = this._tr(descText);
     tooltip.appendChild(desc);
 
     // Navigation
