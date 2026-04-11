@@ -42,7 +42,7 @@ function initMarquee() {
         })
           .then(function (r) { return r.ok ? r.json() : {}; })
           .then(function (translations) {
-            // Store originals and overlay translations
+            // Overlay any per-book cached titles first.
             data.books.forEach(function (book) {
               var tr = translations[String(book.id)];
               if (tr && tr.title) {
@@ -50,7 +50,12 @@ function initMarquee() {
                 book.title = tr.title;
               }
             });
-            buildMarquee(container, data.books);
+            // Any book still showing its English title falls back to the
+            // generic on-demand DeepL cache via /api/translations/strings.
+            // This catches brand-new books that haven't been enriched yet.
+            return translateMissingTitles(data.books).then(function () {
+              buildMarquee(container, data.books);
+            });
           })
           .catch(function () {
             buildMarquee(container, data.books);
@@ -69,6 +74,72 @@ function initMarquee() {
     .catch(function (err) {
       console.warn("Marquee: could not load new books:", err.message);
     });
+}
+
+/**
+ * On-demand fallback translator for book titles that weren't found in the
+ * per-book translations cache (/api/translations/by-locale). Uses the
+ * generic source-hash cache at /api/translations/strings — same path used
+ * by help/about headings and tutorial steps. Books already translated via
+ * _originalTitle are skipped.
+ *
+ * @param {Array} books - Book objects; titles are mutated in place.
+ * @returns {Promise<void>} Resolves when all fallback translations are applied.
+ */
+function translateMissingTitles(books) {
+  if (!window.i18n || typeof window.i18n.translateStrings !== "function") {
+    return Promise.resolve();
+  }
+  var needing = books.filter(function (b) {
+    return b.title && !b._originalTitle;
+  });
+  if (!needing.length) return Promise.resolve();
+
+  var sources = [];
+  var seen = {};
+  needing.forEach(function (b) {
+    if (!seen[b.title]) {
+      seen[b.title] = true;
+      sources.push(b.title);
+    }
+  });
+
+  function hashSource(text) {
+    if (!window.crypto || !window.crypto.subtle) return Promise.resolve(text);
+    var bytes = new TextEncoder().encode(text);
+    return window.crypto.subtle.digest("SHA-256", bytes).then(function (buf) {
+      var hex = Array.prototype.map
+        .call(new Uint8Array(buf), function (byte) {
+          return ("00" + byte.toString(16)).slice(-2);
+        })
+        .join("");
+      return hex.slice(0, 16);
+    });
+  }
+
+  return window.i18n
+    .translateStrings(sources)
+    .then(function (map) {
+      if (!map) return;
+      var promises = sources.map(function (src) {
+        return hashSource(src).then(function (h) {
+          return { src: src, translated: map[h] };
+        });
+      });
+      return Promise.all(promises).then(function (pairs) {
+        var lookup = {};
+        pairs.forEach(function (p) {
+          if (p.translated) lookup[p.src] = p.translated;
+        });
+        needing.forEach(function (b) {
+          if (lookup[b.title]) {
+            b._originalTitle = b.title;
+            b.title = lookup[b.title];
+          }
+        });
+      });
+    })
+    .catch(function () {});
 }
 
 /**
