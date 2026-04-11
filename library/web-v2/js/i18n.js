@@ -66,7 +66,14 @@
   // ── Catalog loading ──
 
   function loadCatalog(locale) {
-    return fetch("/api/i18n/" + encodeURIComponent(locale))
+    // Cache-bust by the day: catalogs change with each release but don't
+    // need per-request freshness. Without this, Cloudflare aggressively
+    // caches /api/i18n/<locale> and serves stale keys for up to an hour
+    // after a deploy.
+    var cb = Math.floor(Date.now() / 3600000);
+    return fetch("/api/i18n/" + encodeURIComponent(locale) + "?cb=" + cb, {
+      cache: "no-store",
+    })
       .then(function (res) {
         if (!res.ok) throw new Error("Failed to load catalog for " + locale);
         return res.json();
