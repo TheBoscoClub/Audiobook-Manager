@@ -24,6 +24,13 @@
 function formatDate(value, style) {
   if (!value) return "-";
   style = style || "short";
+  var _T = function (k, fb) {
+    if (typeof t === "function") {
+      var v = t(k);
+      if (v && v !== k) return v;
+    }
+    return fb;
+  };
 
   var d;
   if (value instanceof Date) {
@@ -63,9 +70,19 @@ function formatDate(value, style) {
       var diffMin = Math.floor(diffSec / 60);
       var diffHour = Math.floor(diffMin / 60);
 
-      if (diffSec < 60) return "just now";
-      if (diffMin < 60) return diffMin + (diffMin === 1 ? " minute ago" : " minutes ago");
-      if (diffHour < 24) return diffHour + (diffHour === 1 ? " hour ago" : " hours ago");
+      if (diffSec < 60) return _T("utils.justNow", "just now");
+      if (diffMin < 60) {
+        var mKey = diffMin === 1 ? "utils.minuteAgo" : "utils.minutesAgo";
+        var mVal = typeof t === "function" ? t(mKey, { n: diffMin }) : mKey;
+        if (mVal !== mKey) return mVal;
+        return diffMin + (diffMin === 1 ? " minute ago" : " minutes ago");
+      }
+      if (diffHour < 24) {
+        var hKey = diffHour === 1 ? "utils.hourAgo" : "utils.hoursAgo";
+        var hVal = typeof t === "function" ? t(hKey, { n: diffHour }) : hKey;
+        if (hVal !== hKey) return hVal;
+        return diffHour + (diffHour === 1 ? " hour ago" : " hours ago");
+      }
 
       // Older than 24h — show date, omit year if same year
       return d.toLocaleDateString(undefined, {
@@ -102,7 +119,13 @@ function formatDateTime(value) {
  * @returns {string}
  */
 function formatLocal(isoStr) {
-  if (!isoStr) return "N/A";
+  if (!isoStr) {
+    if (typeof t === "function") {
+      var v = t("common.na");
+      if (v && v !== "common.na") return v;
+    }
+    return "N/A";
+  }
   return formatDate(isoStr, "long");
 }
 

@@ -261,9 +261,9 @@ class ShellPlayer {
 
     // Update player bar UI
     document.getElementById("sp-title").textContent =
-      book.title || "Unknown Title";
+      book.title || (typeof t === "function" ? t("book.unknownTitle") : "Unknown Title");
     document.getElementById("sp-author").textContent =
-      book.author || "Unknown Author";
+      book.author || (typeof t === "function" ? t("book.unknownAuthor") : "Unknown Author");
 
     const cover = document.getElementById("sp-cover");
     if (coverUrl) {
@@ -606,10 +606,20 @@ class ShellPlayer {
         artwork.push({ src: book.coverUrl, sizes: s, type: "image/jpeg" }),
       );
     }
+    const _tfn = typeof t === "function" ? t : null;
+    let narratedBy = book.series || "";
+    if (book.narrator) {
+      if (_tfn) {
+        const _nb = _tfn("shell.narratedBy", { narrator: book.narrator });
+        narratedBy = _nb && _nb !== "shell.narratedBy" ? _nb : `Narrated by ${book.narrator}`;
+      } else {
+        narratedBy = `Narrated by ${book.narrator}`;
+      }
+    }
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: book.title || "Unknown Title",
-      artist: book.author || "Unknown Author",
-      album: book.narrator ? `Narrated by ${book.narrator}` : book.series || "",
+      title: book.title || (_tfn ? _tfn("book.unknownTitle") : "Unknown Title"),
+      artist: book.author || (_tfn ? _tfn("book.unknownAuthor") : "Unknown Author"),
+      album: narratedBy,
       artwork,
     });
   }

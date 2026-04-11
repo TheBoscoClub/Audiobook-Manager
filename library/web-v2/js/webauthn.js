@@ -5,6 +5,15 @@
  * using the Web Authentication API (navigator.credentials).
  */
 
+// Local i18n helper — returns translation if catalog has the key, else fallback.
+function _wat(key, fallback) {
+  if (typeof t === "function") {
+    const v = t(key);
+    if (v && v !== key) return v;
+  }
+  return fallback;
+}
+
 const WebAuthn = {
   /**
    * Check if WebAuthn is supported by the browser.
@@ -194,7 +203,7 @@ const WebAuthn = {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || "Failed to start registration");
+      throw new Error(error.error || _wat("webauthn.js.startRegFailed", "Failed to start registration"));
     }
 
     return await response.json();
@@ -225,17 +234,17 @@ const WebAuthn = {
       });
     } catch (e) {
       if (e.name === "NotAllowedError") {
-        throw new Error("Registration was cancelled or timed out");
+        throw new Error(_wat("webauthn.js.regCancelled", "Registration was cancelled or timed out"));
       } else if (e.name === "InvalidStateError") {
-        throw new Error("This device is already registered");
+        throw new Error(_wat("webauthn.js.deviceAlreadyRegistered", "This device is already registered"));
       } else if (e.name === "NotSupportedError") {
-        throw new Error("This authenticator is not supported");
+        throw new Error(_wat("webauthn.js.authenticatorUnsupported", "This authenticator is not supported"));
       }
-      throw new Error("Failed to create passkey: " + e.message);
+      throw new Error(_wat("webauthn.js.createPasskeyFailed", "Failed to create passkey") + ": " + e.message);
     }
 
     if (!credential) {
-      throw new Error("No credential created");
+      throw new Error(_wat("webauthn.js.noCredentialCreated", "No credential created"));
     }
 
     // Encode credential for server
@@ -257,7 +266,7 @@ const WebAuthn = {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || "Registration verification failed");
+      throw new Error(error.error || _wat("webauthn.js.regVerifyFailed", "Registration verification failed"));
     }
 
     return await response.json();
@@ -297,7 +306,7 @@ const WebAuthn = {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || "Failed to start authentication");
+      throw new Error(error.error || _wat("webauthn.js.startAuthFailed", "Failed to start authentication"));
     }
 
     return await response.json();
@@ -321,13 +330,13 @@ const WebAuthn = {
       });
     } catch (e) {
       if (e.name === "NotAllowedError") {
-        throw new Error("Authentication was cancelled or timed out");
+        throw new Error(_wat("webauthn.js.authCancelled", "Authentication was cancelled or timed out"));
       }
-      throw new Error("Failed to authenticate: " + e.message);
+      throw new Error(_wat("webauthn.js.authFailed", "Failed to authenticate") + ": " + e.message);
     }
 
     if (!credential) {
-      throw new Error("No credential returned");
+      throw new Error(_wat("webauthn.js.noCredentialReturned", "No credential returned"));
     }
 
     // Encode credential for server
@@ -348,7 +357,7 @@ const WebAuthn = {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || "Authentication failed");
+      throw new Error(error.error || _wat("webauthn.js.authVerifyFailed", "Authentication failed"));
     }
 
     return await response.json();

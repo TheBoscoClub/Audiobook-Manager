@@ -209,7 +209,7 @@
           // 401: sign-in required. 429: cooldown. Show the server message.
           renderGenStatus({
             phase: "error",
-            message: (res.body && res.body.error) || (res.body && res.body.message) || "Could not start subtitle generation.",
+            message: (res.body && res.body.error) || (res.body && res.body.message) || (typeof t === "function" ? t("subtitleGen.startFailed") : "Could not start subtitle generation."),
           });
           return;
         }

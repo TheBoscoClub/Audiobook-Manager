@@ -1757,15 +1757,27 @@ class AudiobookLibraryV2 {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       console.error("Error loading audiobooks:", error);
-      document.getElementById("books-grid").innerHTML = `
-                <p style="color: var(--parchment); text-align: center; grid-column: 1/-1;">
-                    Error loading audiobooks. Please ensure the API server is running.
-                    <br><br>
-                    Run: <code style="background: var(--wood-dark); padding: 0.5rem; border-radius: 4px;">
-                        ./launch.sh
-                    </code>
-                </p>
-            `;
+      // Build error message via DOM (avoid innerHTML XSS surface)
+      const _t = typeof t === "function" ? t : null;
+      const _err = _t ? _t("library.js.errorLoadingApi") : null;
+      const errText = (_err && _err !== "library.js.errorLoadingApi")
+        ? _err
+        : "Error loading audiobooks. Please ensure the API server is running.";
+      const _run = _t ? _t("library.js.runLabel") : null;
+      const runText = (_run && _run !== "library.js.runLabel") ? _run : "Run:";
+      const grid = document.getElementById("books-grid");
+      grid.textContent = "";
+      const p = document.createElement("p");
+      p.style.cssText = "color: var(--parchment); text-align: center; grid-column: 1/-1;";
+      p.appendChild(document.createTextNode(errText));
+      p.appendChild(document.createElement("br"));
+      p.appendChild(document.createElement("br"));
+      p.appendChild(document.createTextNode(runText + " "));
+      const code = document.createElement("code");
+      code.style.cssText = "background: var(--wood-dark); padding: 0.5rem; border-radius: 4px;";
+      code.textContent = "./launch.sh";
+      p.appendChild(code);
+      grid.appendChild(p);
     } finally {
       this.showLoading(false);
     }
@@ -1777,11 +1789,13 @@ class AudiobookLibraryV2 {
     grid.classList.toggle("list-view", this.viewMode === "list");
 
     if (books.length === 0) {
-      grid.innerHTML = `
-                <p style="color: var(--parchment); text-align: center; grid-column: 1/-1;">
-                    No audiobooks found matching your filters.
-                </p>
-            `;
+      grid.textContent = "";
+      const p = document.createElement("p");
+      p.style.cssText = "color: var(--parchment); text-align: center; grid-column: 1/-1;";
+      p.textContent = (typeof t === "function" && t("library.noResults") !== "library.noResults")
+        ? t("library.noResults")
+        : "No audiobooks found matching your filters.";
+      grid.appendChild(p);
       return;
     }
 
@@ -1860,7 +1874,13 @@ class AudiobookLibraryV2 {
       if (paginationEl) paginationEl.textContent = "";
       const resultsInfo = document.getElementById("results-info");
       if (resultsInfo) {
-        resultsInfo.textContent = `${data.total_books} books in ${data.total_groups} ${groupBy} groups`;
+        const _gKey = groupBy === "author" ? "library.js.groupedCountByAuthor"
+          : groupBy === "narrator" ? "library.js.groupedCountByNarrator"
+          : "library.js.groupedCountBy";
+        const _gVal = typeof t === "function" ? t(_gKey, { books: data.total_books, groups: data.total_groups, groupBy: groupBy }) : _gKey;
+        resultsInfo.textContent = (_gVal && _gVal !== _gKey)
+          ? _gVal
+          : `${data.total_books} books in ${data.total_groups} ${groupBy} groups`;
       }
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1908,7 +1928,9 @@ class AudiobookLibraryV2 {
       // Collapsible header button
       const header = document.createElement("button");
       header.className = "grouped-header";
-      header.title = `Click to expand/collapse ${name}`;
+      const _expKey = "library.js.expandCollapse";
+      const _expVal = typeof t === "function" ? t(_expKey, { name: name }) : _expKey;
+      header.title = (_expVal && _expVal !== _expKey) ? _expVal : `Click to expand/collapse ${name}`;
       header.addEventListener("click", () => this.toggleGroup(groupId));
 
       const nameSpan = document.createElement("span");
@@ -2943,7 +2965,10 @@ class AudiobookLibraryV2 {
   async refreshLibrary() {
     const refreshBtn = document.getElementById("refresh-btn");
     refreshBtn.disabled = true;
-    refreshBtn.textContent = "↻ Refreshing...";
+    const _refreshingVal = (typeof t === "function" && t("library.refreshing") !== "library.refreshing")
+      ? t("library.refreshing")
+      : "Refreshing...";
+    refreshBtn.textContent = "\u21BB " + _refreshingVal;
 
     try {
       // Purge browser caches (CSS/JS/image cache and service worker)
@@ -2968,13 +2993,18 @@ class AudiobookLibraryV2 {
       // Silent on success — no notification needed
     } catch (error) {
       console.error("Error refreshing library:", error);
+      const _failKey = "library.js.refreshFailed";
+      const _failVal = typeof t === "function" ? t(_failKey) : _failKey;
       this.showToast(
-        "Failed to refresh library. Please try again.",
+        (_failVal && _failVal !== _failKey) ? _failVal : "Failed to refresh library. Please try again.",
         "error",
       );
     } finally {
       refreshBtn.disabled = false;
-      refreshBtn.textContent = "↻ Refresh";
+      const _refreshVal = (typeof t === "function" && t("library.refresh") !== "library.refresh")
+        ? t("library.refresh")
+        : "Refresh";
+      refreshBtn.textContent = "\u21BB " + _refreshVal;
     }
   }
 

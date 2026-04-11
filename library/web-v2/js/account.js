@@ -10,6 +10,15 @@
 (function () {
   "use strict";
 
+  // Local i18n helper — returns catalog translation if present, else fallback.
+  function _T(key, fallback) {
+    if (typeof t === "function") {
+      var v = t(key);
+      if (v && v !== key) return v;
+    }
+    return fallback;
+  }
+
   // ── State ──
   var accountData = null;
   var authenticated = false;
@@ -67,7 +76,7 @@
     var initialEl = document.getElementById("account-initial");
     if (initialEl) initialEl.textContent = "\u2192";
     var usernameEl = document.getElementById("account-username");
-    if (usernameEl) usernameEl.textContent = "Sign In";
+    if (usernameEl) usernameEl.textContent = _T("account.signIn", "Sign In");
     updateBackOfficeButton(false);
   }
 
@@ -130,9 +139,9 @@
   function populateModal(data) {
     if (!data) return;
     document.getElementById("acct-username").textContent = data.username;
-    document.getElementById("acct-email").textContent = data.email || "(none)";
+    document.getElementById("acct-email").textContent = data.email || _T("account.js.emailNone", "(none)");
     document.getElementById("acct-created").textContent =
-      data.created_at ? formatDate(data.created_at, "short") : "Unknown";
+      data.created_at ? formatDate(data.created_at, "short") : _T("account.js.unknownDate", "Unknown");
     document.getElementById("acct-auth-badge").textContent =
       (data.auth_type || "").toUpperCase();
   }
@@ -163,15 +172,15 @@
     var input = document.getElementById("acct-username-input");
     var newName = input.value.trim();
     if (!newName || newName.length < 3) {
-      alert("Username must be at least 3 characters");
+      alert(_T("account.js.usernameTooShort", "Username must be at least 3 characters"));
       return;
     }
     if (newName.length > 24) {
-      alert("Username must be at most 24 characters");
+      alert(_T("account.js.usernameTooLong", "Username must be at most 24 characters"));
       return;
     }
     if (/[<>\\]/.test(newName)) {
-      alert("Username contains invalid characters");
+      alert(_T("account.js.usernameInvalidChars", "Username contains invalid characters"));
       return;
     }
 
@@ -182,7 +191,7 @@
       // Update header button with new username
       showAuthenticatedState({ username: newName });
     } catch (err) {
-      alert("Error: " + err.message);
+      alert(_T("common.error", "Error") + ": " + err.message);
     }
   }
 
@@ -193,7 +202,9 @@
     var saveBtn = document.getElementById("acct-email-save");
     var cancelBtn = document.getElementById("acct-email-cancel");
 
-    input.value = display.textContent === "(none)" ? "" : display.textContent;
+    // Compare to translated "(none)" placeholder AND literal fallback so both work.
+    var noneLabel = _T("account.js.emailNone", "(none)");
+    input.value = (display.textContent === noneLabel || display.textContent === "(none)") ? "" : display.textContent;
     display.hidden = true;
     input.hidden = false;
     saveBtn.hidden = false;
@@ -217,7 +228,7 @@
       hideEmailEdit();
       refreshAccountData();
     } catch (err) {
-      alert("Error: " + err.message);
+      alert(_T("common.error", "Error") + ": " + err.message);
     }
   }
 
@@ -231,7 +242,7 @@
   async function confirmAuthSwitch() {
     var selected = document.querySelector('input[name="switch_auth"]:checked');
     if (!selected) {
-      alert("Select an authentication method");
+      alert(_T("account.js.selectAuthMethod", "Select an authentication method"));
       return;
     }
 
@@ -241,19 +252,19 @@
       showSetupResult(data.setup_data, selected.value);
       refreshAccountData();
     } catch (err) {
-      alert("Error: " + err.message);
+      alert(_T("common.error", "Error") + ": " + err.message);
     }
   }
 
   // ── Reset credentials ──
   async function resetCredentials() {
-    if (!confirm("Reset your authentication credentials? You will need to reconfigure your authenticator.")) return;
+    if (!confirm(_T("account.js.resetConfirm", "Reset your authentication credentials? You will need to reconfigure your authenticator."))) return;
 
     try {
       var data = await api.post("/auth/account/reset-credentials", null, { toast: false });
       showSetupResult(data.setup_data, accountData ? accountData.auth_type : "");
     } catch (err) {
-      alert("Error: " + err.message);
+      alert(_T("common.error", "Error") + ": " + err.message);
     }
   }
 
@@ -263,7 +274,7 @@
     result.textContent = "";
 
     if (!setupData || Object.keys(setupData).length === 0) {
-      result.textContent = "Auth method updated successfully.";
+      result.textContent = _T("account.js.authUpdated", "Auth method updated successfully.");
       return;
     }
 
@@ -271,39 +282,42 @@
       if (setupData.qr_base64) {
         var img = document.createElement("img");
         img.src = "data:image/png;base64," + setupData.qr_base64;
-        img.alt = "TOTP QR Code";
+        img.alt = _T("account.js.totpQrAlt", "TOTP QR Code");
         img.style.cssText = "display:block;margin:0.75rem auto;max-width:200px;";
         result.appendChild(img);
       }
       var keyText = document.createElement("p");
       keyText.style.cssText = "margin-top:0.5rem;word-break:break-all;";
-      keyText.textContent = "Manual key: " + setupData.manual_key;
+      keyText.textContent = _T("account.js.manualKeyLabel", "Manual key") + ": " + setupData.manual_key;
       result.appendChild(keyText);
       var hint = document.createElement("p");
       hint.style.cssText = "font-size:0.85em;opacity:0.8;";
-      hint.textContent = "Scan the QR code in your authenticator app or enter the key manually.";
+      hint.textContent = _T("account.js.totpHint", "Scan the QR code in your authenticator app or enter the key manually.");
       result.appendChild(hint);
     } else if (setupData.claim_url) {
-      result.textContent = "Claim URL: " + window.location.origin + setupData.claim_url +
-        "\nVisit this URL on your device to register your passkey.";
+      result.textContent = _T("account.js.claimUrlLabel", "Claim URL") + ": " + window.location.origin + setupData.claim_url +
+        "\n" + _T("account.js.claimUrlHint", "Visit this URL on your device to register your passkey.");
     } else if (setupData.email) {
-      result.textContent = "Magic Link configured for: " + setupData.email;
+      result.textContent = _T("account.js.magicLinkConfigured", "Magic Link configured for") + ": " + setupData.email;
     }
   }
 
   // ── Delete account ──
   async function deleteOwnAccount() {
-    var msg = "This will permanently delete your account and all of your listening history. " +
+    var msg = _T(
+      "account.js.deleteConfirm",
+      "This will permanently delete your account and all of your listening history. " +
       "You will likely experience intermittent swattings and harassment. " +
       "Can\u2019t be helped \u2014 this is normal and should be expected, because you " +
-      "already knew who was behind this bullshit webapp when you signed up in the first place.";
+      "already knew who was behind this bullshit webapp when you signed up in the first place."
+    );
     if (!confirm(msg)) return;
 
     try {
       await api.delete("/auth/account", { toast: false });
       window.location.href = "/auth/login";
     } catch (err) {
-      alert("Error: " + err.message);
+      alert(_T("common.error", "Error") + ": " + err.message);
     }
   }
 
@@ -377,7 +391,7 @@
       boLink.addEventListener("click", function (e) {
         if (boLink.getAttribute("data-locked") === "true") {
           e.preventDefault();
-          alert("The Back Office is restricted to admin users.");
+          alert(_T("account.js.backofficeRestricted", "The Back Office is restricted to admin users."));
         }
       });
     }
