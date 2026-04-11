@@ -10,13 +10,13 @@
     <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="manifest" href="/site.webmanifest">
-    <link rel="stylesheet" href="css/theme-art-deco.css?v=1775585227">
-    <link rel="stylesheet" href="css/help.css?v=1775585227">
-    <link rel="stylesheet" href="css/about.css?v=1775585227">
-    <link rel="stylesheet" href="css/responsive.css?v=1775585227">
-    <link rel="stylesheet" href="css/a11y-consumer.css?v=1775585227">
-    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
-    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
+    <link rel="stylesheet" href="css/theme-art-deco.css?v=1775883000">
+    <link rel="stylesheet" href="css/help.css?v=1775883000">
+    <link rel="stylesheet" href="css/about.css?v=1775883000">
+    <link rel="stylesheet" href="css/responsive.css?v=1775883000">
+    <link rel="stylesheet" href="css/a11y-consumer.css?v=1775883000">
+    <link rel="stylesheet" href="css/i18n.css?v=1775883000">
+    <script data-cfasync="false" src="js/i18n.js?v=1775883000"></script>
 </head>
 <body class="help-page">
 
@@ -117,13 +117,37 @@
         </footer>
     </div>
 
-    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
+    <script data-cfasync="false" src="js/i18n.js?v=1775883000"></script>
     <script>
         fetch('/api/system/version').then(r => r.json()).then(data => {
             document.getElementById('app-version').textContent = data.version || 'Unknown';
         }).catch(() => {
             document.getElementById('app-version').textContent = 'Unknown';
         });
+
+        // Generic string translation for section headings + prose.
+        (function () {
+          function overlay() {
+            if (!window.i18n || typeof window.i18n.translateElements !== "function") return;
+            if (window.i18n.getLocale() === "en") return;
+            var selector = [
+              ".help-content h2:not([data-i18n])",
+              ".help-content h3:not([data-i18n])",
+              ".help-content p:not([data-i18n])",
+              ".help-content li:not([data-i18n])",
+              ".about-link-label:not([data-i18n])",
+              ".help-footer a:not([data-i18n])"
+            ].join(",");
+            var nodes = document.querySelectorAll(selector);
+            window.i18n.translateElements(nodes).catch(function () {});
+          }
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", overlay);
+          } else {
+            overlay();
+          }
+          document.addEventListener("localeChanged", overlay);
+        })();
     </script>
 </body>
 </html>

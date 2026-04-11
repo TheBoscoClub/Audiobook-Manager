@@ -10,12 +10,12 @@
     <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="manifest" href="/site.webmanifest">
-    <link rel="stylesheet" href="css/theme-art-deco.css?v=1775585227">
-    <link rel="stylesheet" href="css/help.css?v=1775585227">
-    <link rel="stylesheet" href="css/responsive.css?v=1775585227">
-    <link rel="stylesheet" href="css/a11y-consumer.css?v=1775585227">
-    <link rel="stylesheet" href="css/i18n.css?v=1775585227">
-    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
+    <link rel="stylesheet" href="css/theme-art-deco.css?v=1775883000">
+    <link rel="stylesheet" href="css/help.css?v=1775883000">
+    <link rel="stylesheet" href="css/responsive.css?v=1775883000">
+    <link rel="stylesheet" href="css/a11y-consumer.css?v=1775883000">
+    <link rel="stylesheet" href="css/i18n.css?v=1775883000">
+    <script data-cfasync="false" src="js/i18n.js?v=1775883000"></script>
 </head>
 <body class="help-page">
 
@@ -512,7 +512,7 @@
         </footer>
     </div>
 
-    <script data-cfasync="false" src="js/i18n.js?v=1775585227"></script>
+    <script data-cfasync="false" src="js/i18n.js?v=1775883000"></script>
     <script>
         // "Start Tutorial" navigates to library page with tutorial flag
         document.getElementById('start-tutorial-btn').addEventListener('click', () => {
@@ -654,6 +654,35 @@
                     submitBtn.textContent = 'Submit';
                 });
             });
+        })();
+
+        // Generic string translation for section headings + paragraphs.
+        // Walks untagged h2/h3/h4 and prose paragraphs under .help-content
+        // and .help-toc, batches them through the string_translations cache,
+        // and overlays the result. Runs on load and re-runs on locale change.
+        (function () {
+          function overlay() {
+            if (!window.i18n || typeof window.i18n.translateElements !== "function") return;
+            if (window.i18n.getLocale() === "en") return;
+            var selector = [
+              ".help-content h2:not([data-i18n])",
+              ".help-content h3:not([data-i18n])",
+              ".help-content h4:not([data-i18n])",
+              ".help-content p:not([data-i18n])",
+              ".help-content li:not([data-i18n])",
+              ".help-content .help-feature-card h4:not([data-i18n])",
+              ".help-toc a:not([data-i18n])",
+              ".help-footer a:not([data-i18n])"
+            ].join(",");
+            var nodes = document.querySelectorAll(selector);
+            window.i18n.translateElements(nodes).catch(function () {});
+          }
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", overlay);
+          } else {
+            overlay();
+          }
+          document.addEventListener("localeChanged", overlay);
         })();
     </script>
 </body>

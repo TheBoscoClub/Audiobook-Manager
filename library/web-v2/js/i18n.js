@@ -152,6 +152,113 @@
     }
   });
 
+  // ── Generic string translation via source-hash cache ──
+  // Short SHA-256 prefix (hex, 16 chars) — must match backend _hash_source.
+  async function hashSource(text) {
+    if (window.crypto && window.crypto.subtle) {
+      var bytes = new TextEncoder().encode(text);
+      var buf = await window.crypto.subtle.digest("SHA-256", bytes);
+      var hex = Array.prototype.map
+        .call(new Uint8Array(buf), function (b) {
+          return ("00" + b.toString(16)).slice(-2);
+        })
+        .join("");
+      return hex.slice(0, 16);
+    }
+    // Last-resort fallback: use the string itself (cache miss, but functional).
+    return text;
+  }
+
+  function translateStrings(strings) {
+    var locale = getLocale();
+    if (locale === "en" || !strings || !strings.length) {
+      return Promise.resolve({});
+    }
+    return fetch("/api/translations/strings", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locale: locale, strings: strings }),
+    })
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .catch(function () { return {}; });
+  }
+
+  /**
+   * Translate the visible text of a NodeList / array of elements in place.
+   * Preserves child element nodes (e.g. <span class="section-icon">) by
+   * only replacing the last significant text node's value. Skips elements
+   * that are empty or already tagged with data-i18n (those use the catalog).
+   */
+  async function translateElements(elements) {
+    var locale = getLocale();
+    if (locale === "en" || !elements || !elements.length) return;
+
+    var list = Array.prototype.slice.call(elements);
+    var items = [];
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (!el || el.hasAttribute("data-i18n")) continue;
+      // Extract only direct text-node content, ignoring child elements
+      // like <span class="section-icon">. This keeps decorative icons out
+      // of the string sent for translation AND out of the replacement.
+      var hasChildElement = false;
+      var textPieces = [];
+      for (var k = 0; k < el.childNodes.length; k++) {
+        var cn = el.childNodes[k];
+        if (cn.nodeType === 3) {
+          textPieces.push(cn.nodeValue || "");
+        } else if (cn.nodeType === 1) {
+          hasChildElement = true;
+        }
+      }
+      var text = textPieces.join(" ").replace(/\s+/g, " ").trim();
+      // If the element has no child elements and is a pure-text element
+      // (paragraph, link, li), fall back to full textContent so we capture
+      // inline formatting correctly.
+      if (!text && !hasChildElement) {
+        text = (el.textContent || "").replace(/\s+/g, " ").trim();
+      }
+      if (!text) continue;
+      var h = await hashSource(text);
+      items.push({ el: el, text: text, hash: h, hasChildElement: hasChildElement });
+    }
+    if (!items.length) return;
+
+    var unique = [];
+    var seenText = {};
+    items.forEach(function (it) {
+      if (!seenText[it.hash]) {
+        seenText[it.hash] = true;
+        unique.push(it.text);
+      }
+    });
+
+    var map = await translateStrings(unique);
+    if (!map) return;
+
+    items.forEach(function (it) {
+      var translated = map[it.hash];
+      if (!translated) return;
+      // Find the last non-empty text node and replace it. Keeps icon spans intact.
+      var lastText = null;
+      for (var j = it.el.childNodes.length - 1; j >= 0; j--) {
+        var n = it.el.childNodes[j];
+        if (n.nodeType === 3 && n.nodeValue && n.nodeValue.trim()) {
+          lastText = n;
+          break;
+        }
+      }
+      if (lastText) {
+        // Preserve a leading space if the original had one (e.g. after an icon span).
+        var leading = /^\s/.test(lastText.nodeValue) ? " " : "";
+        lastText.nodeValue = leading + translated;
+      } else {
+        it.el.textContent = translated;
+      }
+    });
+  }
+
   // ── Public API ──
 
   window.t = t;
@@ -164,6 +271,8 @@
       });
     },
     applyTranslations: applyTranslations,
+    translateStrings: translateStrings,
+    translateElements: translateElements,
     catalog: function () { return catalog; }
   };
 })();

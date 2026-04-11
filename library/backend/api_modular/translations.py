@@ -69,6 +69,40 @@ def init_translations_routes(database_path):
     except sqlite3.Error:
         logger.exception("Failed to ensure collection_translations table")
 
+    # Migration 019: string_translations generic cache table.
+    try:
+        conn = sqlite3.connect(str(_db_path))
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS string_translations (
+                source_hash TEXT NOT NULL,
+                locale TEXT NOT NULL,
+                source TEXT NOT NULL,
+                translation TEXT NOT NULL,
+                translator TEXT DEFAULT 'deepl',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (source_hash, locale)
+            )"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_string_translations_locale "
+            "ON string_translations(locale)"
+        )
+        conn.commit()
+        conn.close()
+    except sqlite3.Error:
+        logger.exception("Failed to ensure string_translations table")
+
+
+def _hash_source(text: str) -> str:
+    """Short SHA-256 hex digest used as cache key for a source string.
+
+    Not used as a signature — only a stable lookup key for the
+    string_translations cache. SHA-256 satisfies the security linter.
+    """
+    import hashlib
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
 
 def _get_db():
     conn = sqlite3.connect(str(_db_path))
@@ -446,6 +480,98 @@ def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result
         )
     except Exception:
         logger.exception("Collection translation failed")
+
+
+@translations_bp.route("/api/translations/strings", methods=["POST"])
+@guest_allowed
+def translate_strings():
+    """Generic string translation cache.
+
+    Frontend collects visible text (section headings, tour titles,
+    notification bodies, etc.), posts the batch, receives a
+    {source_hash: translation} map, and overlays locally.
+
+    Request body:
+        { "locale": "zh-Hans", "strings": ["Welcome", "Getting Started", ...] }
+
+    Response:
+        { "<hash>": "欢迎", ... }  -- keyed by _hash_source(source)
+    """
+    data = request.get_json()
+    if not data or not data.get("locale"):
+        return jsonify({"error": "locale is required"}), 400
+
+    locale = data["locale"]
+    if locale == "en":
+        return jsonify({})
+
+    raw_strings = data.get("strings") or []
+    if not isinstance(raw_strings, list):
+        return jsonify({"error": "strings must be a list"}), 400
+
+    # Normalize: strip, dedupe, cap.
+    seen: dict[str, str] = {}
+    for s in raw_strings:
+        if not isinstance(s, str):
+            continue
+        text = s.strip()
+        if not text or len(text) > 1000:
+            continue
+        h = _hash_source(text)
+        if h not in seen:
+            seen[h] = text
+        if len(seen) >= 200:
+            break
+
+    if not seen:
+        return jsonify({})
+
+    conn = _get_db()
+    try:
+        placeholders = ",".join("?" * len(seen))
+        rows = conn.execute(
+            f"SELECT source_hash, translation FROM string_translations "
+            f"WHERE locale = ? AND source_hash IN ({placeholders})",
+            (locale, *seen.keys()),
+        ).fetchall()
+        result: dict[str, str] = {r["source_hash"]: r["translation"] for r in rows}
+
+        missing = {h: src for h, src in seen.items() if h not in result}
+        if missing:
+            try:
+                from localization.config import DEEPL_API_KEY
+                if DEEPL_API_KEY:
+                    from localization.translation.deepl_translate import DeepLTranslator
+                    translator = DeepLTranslator(DEEPL_API_KEY)
+                    hashes = list(missing.keys())
+                    sources = [missing[h] for h in hashes]
+                    translated = translator.translate(sources, locale)
+                    for h, src, tgt in zip(hashes, sources, translated):
+                        conn.execute(
+                            """INSERT INTO string_translations
+                               (source_hash, locale, source, translation, translator)
+                               VALUES (?, ?, ?, ?, 'deepl')
+                               ON CONFLICT(source_hash, locale) DO UPDATE SET
+                                   translation = excluded.translation,
+                                   translator = excluded.translator,
+                                   updated_at = CURRENT_TIMESTAMP
+                            """,
+                            (h, locale, src, tgt),
+                        )
+                        result[h] = tgt
+                    conn.commit()
+                    logger.info(
+                        "String-translated %d unique strings to %s via DeepL",
+                        len(missing), locale,
+                    )
+                else:
+                    logger.warning("String translation: no DeepL API key configured")
+            except Exception:
+                logger.exception("String translation failed")
+
+        return jsonify(result)
+    finally:
+        conn.close()
 
 
 @translations_bp.route("/api/translations/on-demand", methods=["POST"])
