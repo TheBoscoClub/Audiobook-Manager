@@ -799,8 +799,10 @@ apply_data_migrations() {
         # Version gate: skip if installed version already includes this fix.
         # "unknown" (fresh install) always qualifies — run everything.
         if [[ "$installed_version" != "unknown" ]]; then
+            set +e
             compare_versions "$installed_version" "$min_ver"
             local cmp=$?
+            set -e
             # cmp=0: equal (already at min), cmp=1: installed > min (past it)
             if [[ $cmp -eq 0 ]] || [[ $cmp -eq 1 ]]; then
                 continue
@@ -1283,6 +1285,11 @@ validate_preflight() {
 # -----------------------------------------------------------------------------
 
 do_upgrade() {
+    # Disable errexit inside the upgrade — functions like compare_versions use
+    # nonzero return codes for flow control, and the EXIT trap (_cleanup_on_exit)
+    # handles catastrophic failures by restarting services.
+    set +e
+
     local project="$1"
     local target="$2"
     local use_sudo=""
@@ -1726,6 +1733,8 @@ do_upgrade() {
         DRY_RUN="$DRY_RUN" \
             bash "${project}/scripts/reconcile-filesystem.sh" || true
     fi
+
+    set -e
 }
 
 # -----------------------------------------------------------------------------
