@@ -92,20 +92,22 @@ _load_config_file "${HOME}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_SUPPLEMENTS:=${AUDIOBOOKS_DATA}/Supplements}"
 : "${AUDIOBOOKS_LOGS:=${AUDIOBOOKS_DATA}/logs}"
 
-# Application directories (use AUDIOBOOKS_HOME if set)
-if [[ -n "${AUDIOBOOKS_HOME:-}" ]]; then
-    : "${AUDIOBOOKS_DATABASE:=${AUDIOBOOKS_HOME}/library/backend/audiobooks.db}"
-    : "${AUDIOBOOKS_COVERS:=${AUDIOBOOKS_HOME}/library/web-v2/covers}"
-    : "${AUDIOBOOKS_CERTS:=${AUDIOBOOKS_HOME}/library/certs}"
-    : "${AUDIOBOOKS_VENV:=${AUDIOBOOKS_HOME}/library/venv}"
-    : "${AUDIOBOOKS_CONVERTER:=${AUDIOBOOKS_HOME}/converter/AAXtoMP3}"
-else
-    : "${AUDIOBOOKS_DATABASE:=/var/lib/audiobooks/db/audiobooks.db}"
-    : "${AUDIOBOOKS_COVERS:=/var/lib/audiobooks/covers}"
-    : "${AUDIOBOOKS_CERTS:=/etc/audiobooks/certs}"
-    : "${AUDIOBOOKS_VENV:=/opt/audiobooks/venv}"
-    : "${AUDIOBOOKS_CONVERTER:=/usr/local/bin/AAXtoMP3}"
-fi
+# Application directories — CANONICAL DEFAULTS
+#
+# These MUST match library/config.py exactly. Any drift between the bash-side
+# defaults here and the Python-side defaults causes split-brain bugs where
+# bash-sourced scripts (upgrade.sh, systemd EnvironmentFile reads) and the
+# Python app compute different paths for the same key. See
+# docs/INSTALLER-ARCHITECTURE.md for the full rationale.
+#
+# AUDIOBOOKS_HOME defaults to /opt/audiobooks for system installs; user
+# installs override it to ~/.local/share/audiobooks before sourcing this file.
+: "${AUDIOBOOKS_HOME:=/opt/audiobooks}"
+: "${AUDIOBOOKS_DATABASE:=/var/lib/audiobooks/db/audiobooks.db}"
+: "${AUDIOBOOKS_COVERS:=/var/lib/audiobooks/covers}"
+: "${AUDIOBOOKS_CERTS:=${AUDIOBOOKS_HOME}/library/certs}"
+: "${AUDIOBOOKS_VENV:=${AUDIOBOOKS_HOME}/library/venv}"
+: "${AUDIOBOOKS_CONVERTER:=${AUDIOBOOKS_HOME}/converter/AAXtoMP3}"
 
 # Conversion settings
 : "${AUDIOBOOKS_STAGING:=/tmp/audiobook-staging}" # tmpfs staging directory

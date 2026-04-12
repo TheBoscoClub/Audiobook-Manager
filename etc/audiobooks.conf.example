@@ -16,21 +16,26 @@
 # Core Directories
 # =============================================================================
 
+# IMPORTANT: Path keys below are commented out — they document the defaults
+# only. Uncomment and edit a line ONLY if you need to override that specific
+# default. Hardcoding defaults in this file causes drift the next time the
+# canonical defaults change in library/config.py and lib/audiobook-config.sh.
+
 # Root directory containing all audiobook data (sources, library, supplements)
 # Default: /srv/audiobooks (system) or ~/Audiobooks (user)
-AUDIOBOOKS_DATA="/srv/audiobooks"
+#AUDIOBOOKS_DATA="/srv/audiobooks"
 
 # Converted audiobook files organized by Author/Title
 # Default: ${AUDIOBOOKS_DATA}/Library
-AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"
+#AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"
 
 # Original source files (AAXC, vouchers, metadata)
 # Default: ${AUDIOBOOKS_DATA}/Sources
-AUDIOBOOKS_SOURCES="${AUDIOBOOKS_DATA}/Sources"
+#AUDIOBOOKS_SOURCES="${AUDIOBOOKS_DATA}/Sources"
 
 # PDF supplements and companion materials
 # Default: ${AUDIOBOOKS_DATA}/Supplements
-AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
+#AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
 
 # =============================================================================
 # Application Directories
@@ -38,24 +43,23 @@ AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
 
 # Project installation directory (contains scripts, web UI, etc.)
 # Default: /opt/audiobooks (system) or detected from script location
-AUDIOBOOKS_HOME="/opt/audiobooks"
+#AUDIOBOOKS_HOME="/opt/audiobooks"
 
 # Database file location
-# Default: /var/lib/audiobooks/db/audiobooks.db (system)
-#      or: ${AUDIOBOOKS_HOME}/library/backend/audiobooks.db (user)
-AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
+# Default: /var/lib/audiobooks/db/audiobooks.db
+#AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
 
 # Cover art cache directory
 # Default: /var/lib/audiobooks/covers
-AUDIOBOOKS_COVERS="/var/lib/audiobooks/covers"
+#AUDIOBOOKS_COVERS="/var/lib/audiobooks/covers"
 
 # Runtime directory for locks and FIFOs (scheduler, WebSocket)
 # Default: /var/lib/audiobooks/.run
-AUDIOBOOKS_RUN_DIR="/var/lib/audiobooks/.run"
+#AUDIOBOOKS_RUN_DIR="/var/lib/audiobooks/.run"
 
 # SSL certificate directory (for HTTPS)
 # Default: ${AUDIOBOOKS_HOME}/library/certs
-AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
+#AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
 
 # WebM cache directory (for browser-compatible audio streams)
 # Default: ${AUDIOBOOKS_DATA}/.webm-cache
@@ -63,7 +67,7 @@ AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
 
 # Log file directory
 # Default: ${AUDIOBOOKS_DATA}/logs
-AUDIOBOOKS_LOGS="${AUDIOBOOKS_DATA}/logs"
+#AUDIOBOOKS_LOGS="${AUDIOBOOKS_DATA}/logs"
 
 # =============================================================================
 # Server Configuration
@@ -98,11 +102,11 @@ AUDIOBOOKS_HTTPS_ENABLED="true"
 
 # Python virtual environment path (for API server)
 # Default: ${AUDIOBOOKS_HOME}/library/venv
-AUDIOBOOKS_VENV="${AUDIOBOOKS_HOME}/library/venv"
+#AUDIOBOOKS_VENV="${AUDIOBOOKS_HOME}/library/venv"
 
 # AAXtoMP3 converter location
 # Default: ${AUDIOBOOKS_HOME}/converter/AAXtoMP3
-AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"
+#AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"
 
 # =============================================================================
 # Authentication (Multi-user Support)
@@ -116,12 +120,12 @@ AUTH_ENABLED="false"
 
 # Authentication database path (SQLCipher encrypted)
 # Default: /var/lib/audiobooks/auth.db
-AUTH_DATABASE="/var/lib/audiobooks/auth.db"
+#AUTH_DATABASE="/var/lib/audiobooks/auth.db"
 
 # Encryption key file for auth database
 # IMPORTANT: This file must be readable only by the audiobooks user (chmod 600)
 # Default: /etc/audiobooks/auth.key
-AUTH_KEY_FILE="/etc/audiobooks/auth.key"
+#AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 
 # Development mode for auth (relaxed key permissions, verbose logging)
 # Default: false
@@ -203,7 +207,7 @@ AUDIOBOOKS_PARALLEL_JOBS="8"
 
 # Data directory for scan results and intermediate files
 # Default: /var/lib/audiobooks/data
-DATA_DIR="/var/lib/audiobooks/data"
+#DATA_DIR="/var/lib/audiobooks/data"
 
 # Index directory for checksum files (duplicates detection)
 # NOTE: Currently unused — reserved for future implementation

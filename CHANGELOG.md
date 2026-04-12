@@ -9,9 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Installer architecture documentation** (`docs/INSTALLER-ARCHITECTURE.md`): Source-of-truth reference for `install.sh`, `uninstall.sh`, `upgrade.sh`, the manifest, and the reconciler — documents the 2026-04 drift incident, the canonical-defaults pairing rule (`library/config.py` + `lib/audiobook-config.sh` must agree), the subset-preservation invariant, and six rules for future installer changes
+- **End-to-end uninstall preservation tests** (`library/tests/test_uninstall_keep_data.py`): Four pytest cases run `uninstall.sh --user --force` against a scratch `$HOME` and assert that `--keep-data` preserves DB, `auth.db`, `auth.key` (mode 0600 after restore), covers cache, and `audiobooks.conf`; `--delete-data` wipes them; preservation tolerates absent optional items; script stays executable
+- **Manifest entry for flat-database drift**: `scripts/install-manifest.sh` `CONFIG_CANONICAL_DEFAULTS` now also lists `AUDIOBOOKS_DATABASE|${STATE_DIR}/audiobooks.db` so the reconciler strips the legacy flat-file override that pre-dated the `db/` subdirectory layout
+
 ### Changed
 
+- **`config-migrations/002_strip_legacy_path_overrides.sh`** (renamed from `002_strip_legacy_covers_override.sh` via `git mv`): Now strips BOTH `AUDIOBOOKS_COVERS` (legacy `library/web-v2/covers` and `library/covers`) and `AUDIOBOOKS_DATABASE` (legacy `/var/lib/audiobooks/audiobooks.db`) via a shared `_strip_key` helper that only removes exact legacy defaults and preserves any user customization. `AUDIOBOOKS_VENV`/`AUDIOBOOKS_CERTS` deliberately excluded — their canonical defaults still live under `${AUDIOBOOKS_HOME}/library/*`
+- **`etc/audiobooks.conf.example`** — all path keys commented out: `AUDIOBOOKS_DATA`, `LIBRARY`, `SOURCES`, `SUPPLEMENTS`, `HOME`, `DATABASE`, `COVERS`, `RUN_DIR`, `CERTS`, `LOGS`, `VENV`, `CONVERTER`, `AUTH_DATABASE`, `AUTH_KEY_FILE`, `DATA_DIR`. Added preamble explaining that hardcoding defaults in this template is the exact drift mechanism that caused the 2026-04 cover-art 404 / split-DB incident. Users uncomment only the keys they actually want to override
+
 ### Fixed
+
+- **`uninstall.sh --keep-data` silently wiped user state** (2026-04 incident): The helper preserved only `/srv/audiobooks/{Library,Sources,Supplements}` and happily deleted `/var/lib/audiobooks` (DB, `auth.db`, covers cache) plus `/etc/audiobooks/audiobooks.conf` and `auth.key`. New `stage_preserved_state` stages DB dir, `auth.db`, `auth.key`, covers cache, and `audiobooks.conf` to a `mktemp -d` with an `EXIT` trap; `restore_preserved_state` replays the staging dir after the wipe, re-applies `chmod 0600` to `auth.key`, and re-chowns everything to the service account. `--delete-data` short-circuits staging entirely
+- **`install.sh --fresh-install` lost new config keys**: Because uninstall now restores `audiobooks.conf`, a fresh install path would keep the OLD config and never pick up new default keys. `do_fresh_install` Step 3b now deletes the restored `audiobooks.conf` so `install.sh` writes a fresh default, and Step 5 merges the user's non-default overrides back on top from `fresh_backup_dir`
+- **`do_fresh_install` auth.db staging path**: Now uses canonical `${state_src}/auth.db` with a fallback to legacy `${state_src}/db/auth.db` for pre-v8 installs that still kept the auth DB under `db/`
+- **`uninstall.sh` user-mode crash on /tmp/audiobook\* artifacts**: In user mode, `remove_runtime_files` would try to unlink `/tmp/audiobook-staging` owned by the `audiobooks` service account and crash on the sticky-bit. New `_can_touch_runtime` helper gates removal on ownership (`[[ -O "$target" ]]` — not `-w`, which lies on group-writable sticky-bit dirs) and skips anything the invoking user doesn't own, logging the skip instead of failing
 
 ## [8.1.0] - 2026-04-11
 
@@ -65,7 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - **No hardcoded credentials in scripts**: Audit + cleanup of `install.sh`, `upgrade.sh`, and helper scripts to ensure no SSH keys, usernames, or passwords are baked into the repository
-
 ## [8.0.4.1] - 2026-04-08
 
 ### Added

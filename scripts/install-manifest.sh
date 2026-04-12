@@ -108,6 +108,7 @@ CONFIG_CANONICAL_DEFAULTS=(
     'AUDIOBOOKS_COVERS|*library/web-v2/covers'
     'AUDIOBOOKS_COVERS|*library/covers'
     'AUDIOBOOKS_DATABASE|*library/data/audiobooks.db'
+    "AUDIOBOOKS_DATABASE|${STATE_DIR}/audiobooks.db"
     'AUDIOBOOKS_VENV|*library/venv'
     'AUDIOBOOKS_CERTS|*library/certs'
 )

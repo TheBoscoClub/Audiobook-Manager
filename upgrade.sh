@@ -881,6 +881,8 @@ audit_and_cleanup() {
     local legacy_files=(
         "$target/library/launch-v3.sh"
         "$target/install-services.sh"
+        "$target/install-system.sh"
+        "$target/install-user.sh"
         "$target/deploy.sh"
         "$target/deploy-vm.sh"
     )
