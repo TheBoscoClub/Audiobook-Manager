@@ -739,6 +739,97 @@ apply_config_migrations() {
     fi
 }
 
+apply_data_migrations() {
+    # Apply data-state migrations — reclassify, backfill, or repair DB rows
+    # when an upgrade crosses a version boundary that changed classification
+    # or enrichment logic.
+    #
+    # Unlike config migrations (always-run, idempotent), data migrations are
+    # version-gated: each script declares a MIN_VERSION, and only runs when
+    # the installed version is below that boundary AND the target version is
+    # at or above it. The scripts themselves are still idempotent (safe to
+    # re-run), but gating avoids unnecessary work on large databases.
+    #
+    # On fresh installs (installed_version="unknown"), ALL migrations run
+    # automatically — there are no user overrides to conflict with.
+    local project="$1"
+    local target="$2"
+    local use_sudo="${3:-}"
+    local interactive="${4:-true}"
+
+    local migrations_dir="$project/data-migrations"
+    if [[ ! -d "$migrations_dir" ]]; then
+        return 0
+    fi
+
+    # Locate the database
+    local db_path=""
+    if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
+        db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
+        db_path="${db_path%\"}"
+        db_path="${db_path#\"}"
+    fi
+    db_path="${db_path:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}"
+
+    if [[ ! -f "$db_path" ]]; then
+        return 0
+    fi
+
+    local venv_python="$target/library/venv/bin/python"
+    local installed_version
+    installed_version=$(get_version "$target")
+    local target_version
+    target_version=$(get_version "$project")
+
+    local migration_count=0
+    local applied_count=0
+
+    for migration in "$migrations_dir"/*.sh; do
+        [[ -f "$migration" ]] || continue
+        migration_count=$((migration_count + 1))
+
+        # Read MIN_VERSION from the script (grep the variable assignment)
+        local min_ver
+        min_ver=$(grep -oP '^MIN_VERSION="\K[^"]+' "$migration" 2>/dev/null || true)
+        if [[ -z "$min_ver" ]]; then
+            echo -e "${YELLOW}  Skipping $(basename "$migration"): no MIN_VERSION declared${NC}"
+            continue
+        fi
+
+        # Version gate: skip if installed version already includes this fix.
+        # "unknown" (fresh install) always qualifies — run everything.
+        if [[ "$installed_version" != "unknown" ]]; then
+            compare_versions "$installed_version" "$min_ver"
+            local cmp=$?
+            # cmp=0: equal (already at min), cmp=1: installed > min (past it)
+            if [[ $cmp -eq 0 ]] || [[ $cmp -eq 1 ]]; then
+                continue
+            fi
+        fi
+
+        local migration_name
+        migration_name=$(basename "$migration" .sh)
+        echo -e "${BLUE}  Data migration: ${migration_name} (boundary: v${min_ver})${NC}"
+
+        # Export context for the migration script
+        export DB_PATH="$db_path"
+        export VENV_PYTHON="$venv_python"
+        export APP_DIR="$target"
+        export USE_SUDO="$use_sudo"
+        export DRY_RUN
+        export INTERACTIVE="$interactive"
+
+        source "$migration"
+        applied_count=$((applied_count + 1))
+    done
+
+    if [[ $applied_count -gt 0 ]]; then
+        echo -e "${GREEN}  Applied $applied_count data migration(s)${NC}"
+    elif [[ $migration_count -gt 0 ]]; then
+        echo "  No data migrations needed for this version range"
+    fi
+}
+
 enable_new_services() {
     # Enable all services referenced by audiobook.target.
     # Idempotent — already-enabled services are silently skipped.
@@ -1572,6 +1663,15 @@ do_upgrade() {
     # Config migrations are idempotent and always run — they're the only way
     # stale config drift from older install.sh versions gets corrected.
     apply_config_migrations "$project" "${use_sudo}"
+
+    # Data-state migrations: reclassify/backfill DB rows when crossing
+    # a version boundary that changed classification or enrichment logic.
+    # Version-gated (only runs when upgrade crosses the boundary), idempotent.
+    if [[ "$DRY_RUN" == "false" ]]; then
+        apply_data_migrations "$project" "$target" "${use_sudo}" "true"
+    else
+        apply_data_migrations "$project" "$target" "${use_sudo}" "false"
+    fi
 
     if [[ "$MAJOR_VERSION" == "true" ]]; then
         enable_new_services "${use_sudo}"

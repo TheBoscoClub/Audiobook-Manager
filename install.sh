@@ -1453,6 +1453,26 @@ CFEOF
             echo "  Added: enrichment_source column to audiobooks table"
         fi
     fi
+
+    # Data-state migrations: reclassify/backfill DB rows after fresh install.
+    # Fresh installs have no user overrides, so all migrations run automatically.
+    local data_migrations_dir="${SCRIPT_DIR}/data-migrations"
+    if [[ -d "$data_migrations_dir" ]] && [[ -f "$db_file" ]]; then
+        local venv_python="${APP_DIR}/library/venv/bin/python"
+        if [[ -x "$venv_python" ]]; then
+            echo -e "${BLUE}Running data migrations...${NC}"
+            for migration in "$data_migrations_dir"/*.sh; do
+                [[ -f "$migration" ]] || continue
+                export DB_PATH="$db_file"
+                export VENV_PYTHON="$venv_python"
+                export APP_DIR
+                export USE_SUDO="sudo"
+                export DRY_RUN="false"
+                export INTERACTIVE="false"
+                source "$migration"
+            done
+        fi
+    fi
     echo ""
 
     # Install ALL scripts to /opt/audiobooks/scripts/ (canonical location)

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Data migrations framework** (`data-migrations/`): Version-gated data-state migrations that run during `upgrade.sh` when an upgrade crosses a declared version boundary. Each script declares a `MIN_VERSION` and is idempotent — safe to re-run but only triggered when the installed version is below the boundary. `install.sh` runs all migrations unconditionally on fresh installs (no user overrides to conflict with). First migration: `001_podcast_detection.sh` (boundary v8.0.3) runs `backfill_enrichment.py --asin-only` to reclassify known podcast publishers. Motivated by the 2026-04-07 dev VM content classification drift incident
+
 ### Changed
 
 ### Fixed
