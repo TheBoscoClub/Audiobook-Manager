@@ -9,11 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Data migrations framework** (`data-migrations/`): Version-gated data-state migrations that run during `upgrade.sh` when an upgrade crosses a declared version boundary. Each script declares a `MIN_VERSION` and is idempotent — safe to re-run but only triggered when the installed version is below the boundary. `install.sh` runs all migrations unconditionally on fresh installs (no user overrides to conflict with). First migration: `001_podcast_detection.sh` (boundary v8.0.3) runs `backfill_enrichment.py --asin-only` to reclassify known podcast publishers. Motivated by the 2026-04-07 dev VM content classification drift incident
-
 ### Changed
 
 ### Fixed
+
+## [8.1.2] - 2026-04-12
+
+### Added
+
+- **Chapter-by-chapter subtitle generation** (`library/localization/chapters.py`): Audiobooks are now split into chapters via embedded ffprobe metadata (with Audible `chapters.json` sidecar fallback) and each chapter transcribed individually on the GPU, producing per-chapter VTT files with offset-adjusted timestamps. Replaces the prior whole-book-at-once architecture that blocked the GPU for 30–60+ minutes on long audiobooks
+- **Chapter progress reporting**: Frontend subtitle generation banner now shows "Chapter 3 of 42: Title" with a teal progress bar during transcription. Status API returns `chapter_index`, `chapter_total`, and `chapter_title` fields for real-time polling. i18n keys added for en and zh-Hans
+- **On-demand TTS generation banner** (`library/web-v2/css/i18n.css`): Styled banner for text-to-speech generation with spinner, progress text, phase labels, and error/done states — mirrors the subtitle generation banner design
+- **TTS request endpoint and job tracking**: User-facing `/api/user/tts/request` endpoint with per-user cooldown, background thread generation, and status polling via `/api/tts/status/<book_id>/<locale>`
+- **Local GPU Whisper service** (`library/localization/stt/whisper_gpu_service.py`): Self-hosted Whisper transcription service for ROCm AMD GPUs with 2 GB max content length
+- **Data migrations framework** (`data-migrations/`): Version-gated data-state migrations that run during `upgrade.sh` when an upgrade crosses a declared version boundary. Each script declares a `MIN_VERSION` and is idempotent — safe to re-run but only triggered when the installed version is below the boundary. First migration: `001_podcast_detection.sh` (boundary v8.0.3)
+
+### Changed
+
+- **Gunicorn worker timeout**: Increased from 120s to 1800s with 60s graceful timeout — the prior value killed workers during GPU transcription of long audiobook chapters
+- **Subtitle generation backend refactored**: Eliminated code duplication between admin and user endpoints by extracting shared `_start_generation()` function that handles background thread setup, chapter-by-chapter progress callbacks, and database writes
+
+### Fixed
+
+- **Gunicorn worker killed during GPU transcription** (prior session incident): `--timeout 120` caused SIGKILL of the worker process during long Whisper transcription requests, destroying the daemon thread that held the GPU connection. Manifested as a 400 error in GPU service logs (actually a broken pipe from the killed worker). Fixed by increasing timeout to 1800s
+- **STT auto-selection preferred DeepL over Whisper**: Auto mode now correctly prefers Whisper for long-form audiobook work — DeepL's transcription endpoint rejects payloads above ~100 MB, and audiobooks routinely exceed that
 
 ## [8.1.1] - 2026-04-11
 
@@ -2611,7 +2630,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.2...HEAD
+[8.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.1...v8.1.2
 [8.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.0...v8.1.1
 [8.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4.1...v8.1.0
 [8.0.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4...v8.0.4.1
