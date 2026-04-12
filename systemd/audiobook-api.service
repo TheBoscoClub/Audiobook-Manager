@@ -36,7 +36,8 @@ ExecStart=/opt/audiobooks/library/venv/bin/gunicorn \
     -k gevent \
     -w 1 \
     --bind 0.0.0.0:${AUDIOBOOKS_API_PORT} \
-    --timeout 120 \
+    --timeout 1800 \
+    --graceful-timeout 60 \
     --access-logfile - \
     --error-logfile - \
     api_server:app

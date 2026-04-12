@@ -890,6 +890,7 @@
   "subtitleGen.phase.queued": "Queued",
   "subtitleGen.phase.saving": "Saving transcript and translation…",
   "subtitleGen.phase.transcribing": "Transcribing audio — this can take several minutes…",
+  "subtitleGen.phase.transcribingChapter": "Chapter {current} of {total}: {title}",
   "subtitleGen.queued": "Queued…",
   "subtitleGen.startFailed": "Could not start subtitle generation.",
   "subtitleGen.starting": "Starting…",

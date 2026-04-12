@@ -181,6 +181,21 @@ html.cjk .subtitle-translated {
   font-size: 0.95rem;
 }
 
+.subtitle-gen-banner .sgb-progress-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.subtitle-gen-banner .sgb-progress-fill {
+  height: 100%;
+  background: var(--teal, #3aa);
+  border-radius: 2px;
+  width: 0;
+  transition: width 0.5s ease;
+}
+
 .subtitle-gen-banner .sgb-detail {
   color: var(--parchment, #f4e8c1);
   opacity: 0.75;

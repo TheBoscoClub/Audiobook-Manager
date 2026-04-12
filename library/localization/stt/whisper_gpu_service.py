@@ -97,6 +97,7 @@ def create_app():
     from flask import Flask, jsonify, request
 
     app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
 
     @app.route("/health", methods=["GET"])
     def health():

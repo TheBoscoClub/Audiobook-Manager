@@ -264,27 +264,47 @@
   function renderGenStatus(status) {
     var phaseEl = document.getElementById("sgb-phase");
     var detailEl = document.getElementById("sgb-detail");
+    var progressEl = document.getElementById("sgb-progress-bar");
     if (!phaseEl || !detailEl) return;
 
     var phaseKey = "subtitleGen.phase." + (status.phase || "queued");
     var phaseLabel = typeof t === "function" ? t(phaseKey) : phaseKey;
     var phaseTranslated = phaseLabel !== phaseKey;
-    // If no translation for the key, fall back to the server-provided message.
     if (!phaseTranslated) {
       phaseLabel = status.message || phaseKey;
     }
+
+    // Chapter progress: "Transcribing chapter 3 of 42: The Departure"
+    if (status.chapter_total && status.chapter_total > 1 && status.phase === "transcribing") {
+      var chNum = (status.chapter_index || 0) + 1;
+      var chTotal = status.chapter_total;
+      var chTitle = status.chapter_title || "";
+      if (typeof t === "function") {
+        phaseLabel = t("subtitleGen.phase.transcribingChapter", {
+          current: chNum, total: chTotal, title: chTitle
+        });
+        if (phaseLabel.indexOf("{") !== -1) {
+          phaseLabel = "Chapter " + chNum + " of " + chTotal + (chTitle ? ": " + chTitle : "");
+        }
+      } else {
+        phaseLabel = "Chapter " + chNum + " of " + chTotal + (chTitle ? ": " + chTitle : "");
+      }
+    }
     phaseEl.textContent = phaseLabel;
 
-    // Only show the server-provided message as a detail line when it adds
-    // information the translated phase label doesn't already convey. Otherwise
-    // the English backend text leaks into a Chinese UI and looks sloppy.
-    // Rules:
-    //   - Never show the detail when phase was translated AND state is normal
-    //     (queued/starting/running/completed) — the phase label is enough.
-    //   - Show the detail on error only if there's actually extra text in
-    //     status.error that would help the user.
+    // Progress bar for chapter-by-chapter work
+    if (progressEl) {
+      if (status.chapter_total && status.chapter_total > 1) {
+        var pct = Math.round(((status.chapter_index || 0) / status.chapter_total) * 100);
+        progressEl.style.width = pct + "%";
+        progressEl.parentElement.style.display = "";
+      } else {
+        progressEl.parentElement.style.display = "none";
+      }
+    }
+
     var showDetail = false;
-    if (!phaseTranslated && status.message) {
+    if (!phaseTranslated && status.message && !status.chapter_total) {
       showDetail = true;
     }
     if (status.state === "failed" && status.error) {

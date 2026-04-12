@@ -890,6 +890,7 @@
   "subtitleGen.phase.queued": "已排队",
   "subtitleGen.phase.saving": "正在保存转录和翻译…",
   "subtitleGen.phase.transcribing": "正在转录音频——可能需要几分钟…",
+  "subtitleGen.phase.transcribingChapter": "第 {current} 章（共 {total} 章）：{title}",
   "subtitleGen.queued": "已排队…",
   "subtitleGen.startFailed": "无法开始字幕生成。",
   "subtitleGen.starting": "正在启动…",

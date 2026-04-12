@@ -6,11 +6,18 @@ prefers local providers (no cold-start, no billing minimums), while
 long-form work (chapters, full books) prefers remote GPU for throughput.
 Runtime network errors fall back to local once per request via the
 shared :mod:`library.localization.fallback` helper.
+
+Full-book generation splits the audio into chapters (via embedded
+metadata or Audible sidecar) and transcribes each individually,
+reporting progress between chapters so the frontend can show
+"Chapter 3/42" style updates.
 """
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
+from .chapters import Chapter, extract_chapters, split_chapter
 from .config import (
     DEEPL_API_KEY,
     RUNPOD_API_KEY,
@@ -29,9 +36,11 @@ from .stt.local_whisper import LocalWhisperSTT
 from .stt.vastai_whisper import VastaiWhisperSTT
 from .stt.whisper_stt import WhisperSTT
 from .subtitles.sync import align_translations
-from .subtitles.vtt_generator import generate_vtt
+from .subtitles.vtt_generator import VTTCue, generate_vtt
 
 logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[int, int, str], None]
 
 
 def _transcribe_with_fallback(
@@ -210,3 +219,119 @@ def generate_subtitles(
                 source_vtt.name,
                 f", {translated_vtt.name}" if translated_vtt else "")
     return source_vtt, translated_vtt
+
+
+def _offset_cues(cues: list[VTTCue], offset_ms: int) -> list[VTTCue]:
+    """Shift all cue timestamps by offset_ms to align with full-book timeline."""
+    return [
+        VTTCue(start_ms=c.start_ms + offset_ms, end_ms=c.end_ms + offset_ms, text=c.text)
+        for c in cues
+    ]
+
+
+def generate_book_subtitles(
+    audio_path: Path,
+    output_dir: Path,
+    target_locale: str,
+    source_lang: str = "en",
+    stt_provider: STTProvider | None = None,
+    on_progress: ProgressCallback | None = None,
+) -> list[tuple[int, Path, Path | None]]:
+    """Generate subtitles for an audiobook, chapter by chapter.
+
+    Splits the audio into chapters, transcribes each individually, and
+    produces per-chapter VTT files. Returns early results as each chapter
+    completes so the user sees subtitles appearing progressively.
+
+    Args:
+        audio_path: Path to the full audiobook file.
+        output_dir: Directory for VTT output files.
+        target_locale: Target translation locale (e.g., "zh-Hans").
+        source_lang: Source audio language (default "en").
+        stt_provider: STT provider (auto-selected if None).
+        on_progress: Called with (chapter_index, total_chapters, chapter_title)
+            before each chapter starts transcription.
+
+    Returns:
+        List of (chapter_index, source_vtt, translated_vtt_or_None) tuples.
+        If no chapters are found, falls back to single-file processing and
+        returns a single entry with chapter_index=0.
+    """
+    chapters = extract_chapters(audio_path)
+    if not chapters:
+        logger.info("No chapter data found — processing as single file")
+        src, tr = generate_subtitles(
+            audio_path, output_dir, target_locale, source_lang,
+            stt_provider=stt_provider,
+        )
+        return [(0, src, tr)]
+
+    provider = stt_provider or get_stt_provider(workload=WorkloadHint.LONG_FORM)
+    total = len(chapters)
+    results: list[tuple[int, Path, Path | None]] = []
+
+    for chapter in chapters:
+        if on_progress:
+            on_progress(chapter.index, total, chapter.title)
+
+        logger.info(
+            "Chapter %d/%d: %s (%.1f min)",
+            chapter.index + 1, total, chapter.title,
+            chapter.duration_ms / 60_000,
+        )
+
+        chapter_file: Path | None = None
+        try:
+            chapter_file = split_chapter(audio_path, chapter)
+
+            transcript = _transcribe_with_fallback(
+                provider, chapter_file, source_lang,
+            )
+            source_sentences = transcript.sentence_texts()
+            if not source_sentences:
+                logger.warning(
+                    "No speech in chapter %d (%s) — skipping",
+                    chapter.index, chapter.title,
+                )
+                continue
+
+            source_cues, translated_cues = align_translations(
+                transcript, source_sentences,
+            )
+            source_cues = _offset_cues(source_cues, chapter.start_ms)
+
+            safe_title = "".join(
+                c if c.isalnum() or c in "- _" else "_"
+                for c in chapter.title
+            ).strip("_")[:50]
+            chapter_stem = f"ch{chapter.index:03d}_{safe_title}"
+
+            source_vtt = generate_vtt(
+                source_cues,
+                output_dir / f"{chapter_stem}.{source_lang}.vtt",
+            )
+
+            translated_vtt = None
+            if DEEPL_API_KEY and target_locale != source_lang:
+                from .translation.deepl_translate import DeepLTranslator
+                translator = DeepLTranslator(DEEPL_API_KEY)
+                translated_texts = translator.translate(
+                    source_sentences, target_locale, source_lang.upper(),
+                )
+                _, tr_cues = align_translations(transcript, translated_texts)
+                tr_cues = _offset_cues(tr_cues, chapter.start_ms)
+                translated_vtt = generate_vtt(
+                    tr_cues,
+                    output_dir / f"{chapter_stem}.{target_locale}.vtt",
+                )
+
+            results.append((chapter.index, source_vtt, translated_vtt))
+
+        finally:
+            if chapter_file and chapter_file.exists():
+                chapter_file.unlink(missing_ok=True)
+
+    logger.info(
+        "Book subtitles complete: %d/%d chapters processed", len(results), total,
+    )
+    return results
