@@ -190,6 +190,13 @@ def _register_extension_blueprints(flask_app, database_path, project_root=None):
     init_translated_audio_routes(database_path, project_root)
     flask_app.register_blueprint(translated_audio_bp)
 
+    try:
+        from localization.queue import init_queue
+        init_queue(database_path, project_root)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Translation queue init failed: %s", e)
+
 
 def _setup_websocket(flask_app, database_path):
     """Configure WebSocket endpoint and admin connections route."""

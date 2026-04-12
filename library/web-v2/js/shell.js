@@ -274,9 +274,36 @@ class ShellPlayer {
       cover.alt = "";
     }
 
-    // Load audio — WebM fallback for Safari
-    const needsWebm = !this.audio.canPlayType("audio/ogg; codecs=opus");
-    this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
+    // Determine locale and check for translated audio
+    const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+    let useTranslatedAudio = false;
+
+    if (locale !== "en") {
+      try {
+        const taResp = await fetch(`${API_BASE}/audiobooks/${bookId}/translated-audio?locale=${encodeURIComponent(locale)}`);
+        if (taResp.ok) {
+          const entries = await taResp.json();
+          if (entries.length > 0) {
+            useTranslatedAudio = true;
+            const entry = entries[0];
+            this.audio.src = `${API_BASE}/audiobooks/${bookId}/translated-audio/${entry.chapter_index || 0}/${encodeURIComponent(locale)}`;
+          }
+        }
+      } catch (e) { /* fall through to original audio */ }
+
+      if (!useTranslatedAudio) {
+        fetch(`${API_BASE}/translation/bump`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audiobook_id: bookId, locale }),
+        }).catch(() => {});
+      }
+    }
+
+    if (!useTranslatedAudio) {
+      const needsWebm = !this.audio.canPlayType("audio/ogg; codecs=opus");
+      this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
+    }
 
     // Load saved speed
     const savedSpeed = this.getSpeed();
@@ -293,9 +320,12 @@ class ShellPlayer {
     // Notify iframe to add bottom padding (prevent content hiding behind player)
     this.sendToIframe({ type: "playerVisible", visible: true });
 
-    // Load subtitles for this book (shows CC/transcript buttons if available)
+    // Load subtitles and auto-enable for non-English locales
     if (typeof window.subtitles !== "undefined" && window.subtitles.load) {
       window.subtitles.load(bookId, 0);
+      if (locale !== "en") {
+        window.subtitles.show();
+      }
     }
 
     // Media Session metadata
@@ -343,21 +373,7 @@ class ShellPlayer {
       }
     }
 
-    // If subtitle generation is active and subtitles don't cover the
-    // current position yet, pause until they arrive (max 30s timeout).
-    if (typeof window.subtitles !== "undefined" && window.subtitles.waitForSubtitlesAt) {
-      const posMs = Math.floor(this.audio.currentTime * 1000);
-      const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
-      if (locale !== "en" && posMs > 0) {
-        const needsWait = !window.subtitles.hasSubtitlesAtPosition(posMs) &&
-                          window.subtitles.isGenerationActive();
-        if (needsWait) {
-          this.audio.pause();
-          await window.subtitles.waitForSubtitlesAt(posMs);
-          try { await this.audio.play(); } catch (e) { /* user may have navigated away */ }
-        }
-      }
-    }
+    // Subtitles appear as they become available — no playback blocking
   }
 
   togglePlayPause() {

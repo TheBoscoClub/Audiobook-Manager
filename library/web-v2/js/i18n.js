@@ -51,6 +51,13 @@
       applyTranslations();
       updateHtmlLang();
       document.dispatchEvent(new CustomEvent("localeChanged", { detail: { locale: locale } }));
+      if (locale !== "en") {
+        fetch("/api/i18n/activate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locale: locale }),
+        }).catch(function () {});
+      }
     });
   }
 

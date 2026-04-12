@@ -220,7 +220,7 @@
   }
 
   function isGenerationActive() {
-    return _genPollTimer !== null;
+    return _genPollTimer !== null || _chapterPollTimer !== null;
   }
 
   function waitForSubtitlesAt(positionMs) {
@@ -269,21 +269,29 @@
     _genBannerBookId = bookId;
     var banner = genBanner();
     if (!banner) return;
-    setGenUi("idle");
-    // Wire the generate button for this book/locale
-    var btn = document.getElementById("sgb-generate");
-    if (btn) {
-      btn.onclick = function () { startGeneration(bookId, locale); };
-    }
-    // If a job is already running for this book, jump straight into progress.
-    fetch(API_BASE + "/subtitles/status/" + bookId + "/" + encodeURIComponent(locale))
+    // Skip idle state — translation is automatic, just show progress
+    setGenUi("progress");
+    renderGenStatus({ phase: "queued", message: (typeof t === "function" ? t("subtitleGen.queued") : "Preparing translation…") });
+    // Check if a job is already running or queued
+    fetch(API_BASE + "/translation/status/" + bookId + "/" + encodeURIComponent(locale))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (s) {
-        if (!s) return;
-        if (s.state === "queued" || s.state === "starting" || s.state === "running") {
-          setGenUi("progress");
+        if (s && (s.state === "processing" || s.state === "pending")) {
           renderGenStatus(s);
           startGenPoll(bookId, locale);
+        } else if (!s || s.state === "not_queued") {
+          // Auto-queue this book
+          fetch(API_BASE + "/translation/bump", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audiobook_id: bookId, locale: locale }),
+          }).then(function () {
+            startGenPoll(bookId, locale);
+          }).catch(function () {});
+        } else if (s.state === "completed") {
+          hideGenBanner();
+        } else if (s.state === "failed") {
+          renderGenStatus({ phase: "error", message: s.error || "Translation failed" });
         }
       })
       .catch(function () {});
@@ -320,18 +328,15 @@
     var _genIdleCount = 0;
     _genPollTimer = setInterval(function () {
       if (_genBannerBookId !== bookId) { stopGenPoll(); return; }
-      fetch(API_BASE + "/subtitles/status/" + bookId + "/" + encodeURIComponent(locale))
+      fetch(API_BASE + "/translation/status/" + bookId + "/" + encodeURIComponent(locale))
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (s) {
           if (!s) return;
-          if (s.state === "idle") {
+          if (!s.state || s.state === "not_queued") {
             _genIdleCount++;
-            if (_genIdleCount >= 3) {
+            if (_genIdleCount >= 6) {
               stopGenPoll();
-              renderGenStatus({
-                state: "failed", phase: "error",
-                message: (typeof t === "function" ? t("subtitleGen.phase.error") : "Generation failed unexpectedly. Please try again."),
-              });
+              hideGenBanner();
             }
             return;
           }
@@ -339,6 +344,7 @@
           renderGenStatus(s);
           if (s.state === "completed") {
             stopGenPoll();
+            hideGenBanner();
             setTimeout(function () { loadSubtitles(bookId, currentChapterIndex); }, 500);
           } else if (s.state === "failed") {
             stopGenPoll();
@@ -544,19 +550,19 @@
     _ttsBannerBookId = bookId;
     var banner = ttsBanner();
     if (!banner) return;
-    setTtsUi("idle");
-    var btn = document.getElementById("tgb-generate");
-    if (btn) {
-      btn.onclick = function () { startTtsGeneration(bookId, locale); };
-    }
-    fetch(API_BASE + "/translated-audio/status/" + bookId + "/" + encodeURIComponent(locale))
+    setTtsUi("progress");
+    renderTtsStatus({ phase: "queued", message: (typeof t === "function" ? t("ttsGen.queued") : "Preparing narration…") });
+    fetch(API_BASE + "/translation/status/" + bookId + "/" + encodeURIComponent(locale))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (s) {
-        if (!s) return;
-        if (s.state === "queued" || s.state === "starting" || s.state === "running") {
-          setTtsUi("progress");
-          renderTtsStatus(s);
+        if (s && (s.state === "processing" || s.state === "pending")) {
+          if (s.step === "tts") {
+            renderTtsStatus(s);
+          }
           startTtsPoll(bookId, locale);
+        } else if (s && s.state === "completed") {
+          hideTtsBanner();
+          checkTranslatedAudio(bookId, currentChapterIndex, locale);
         }
       })
       .catch(function () {});
@@ -592,31 +598,27 @@
     var _ttsIdleCount = 0;
     _ttsPollTimer = setInterval(function () {
       if (_ttsBannerBookId !== bookId) { stopTtsPoll(); return; }
-      fetch(API_BASE + "/translated-audio/status/" + bookId + "/" + encodeURIComponent(locale))
+      fetch(API_BASE + "/translation/status/" + bookId + "/" + encodeURIComponent(locale))
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (s) {
           if (!s) return;
-          if (s.state === "idle") {
+          if (!s.state || s.state === "not_queued") {
             _ttsIdleCount++;
-            if (_ttsIdleCount >= 3) {
+            if (_ttsIdleCount >= 6) {
               stopTtsPoll();
-              renderTtsStatus({
-                state: "failed", phase: "error",
-                message: (typeof t === "function" ? t("ttsGen.phase.error") : "Generation failed unexpectedly. Please try again."),
-              });
+              hideTtsBanner();
             }
             return;
           }
           _ttsIdleCount = 0;
-          renderTtsStatus(s);
+          if (s.step === "tts") renderTtsStatus(s);
           if (s.state === "completed") {
             stopTtsPoll();
-            setTimeout(function () {
-              hideTtsBanner();
-              checkTranslatedAudio(bookId, currentChapterIndex, locale);
-            }, 1500);
+            hideTtsBanner();
+            checkTranslatedAudio(bookId, currentChapterIndex, locale);
           } else if (s.state === "failed") {
             stopTtsPoll();
+            renderTtsStatus({ phase: "error", message: s.error || "Translation failed" });
           }
         })
         .catch(function () {});
@@ -672,20 +674,25 @@
   // Falls back to source (English) when no translation exists.
   // The side panel transcript shows both languages.
 
+  function findCueIndex(cues, timeMs) {
+    if (cues.length === 0) return -1;
+    var lo = 0, hi = cues.length - 1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >>> 1;
+      if (timeMs < cues[mid].startMs) { hi = mid - 1; }
+      else if (timeMs > cues[mid].endMs) { lo = mid + 1; }
+      else { return mid; }
+    }
+    return -1;
+  }
+
   function updateSubtitleDisplay(currentTimeMs) {
     if (!subtitlesVisible) return;
     if (sourceCues.length === 0 && translatedCues.length === 0) return;
 
     // Use translated cues for timing when available, fall back to source
     var cues = translatedCues.length > 0 ? translatedCues : sourceCues;
-    var newIndex = -1;
-
-    for (var i = 0; i < cues.length; i++) {
-      if (currentTimeMs >= cues[i].startMs && currentTimeMs <= cues[i].endMs) {
-        newIndex = i;
-        break;
-      }
-    }
+    var newIndex = findCueIndex(cues, currentTimeMs);
 
     if (newIndex === currentCueIndex) return;
     currentCueIndex = newIndex;
@@ -784,8 +791,8 @@
 
   // ── Toggle Controls ──
 
-  function toggleSubtitles() {
-    subtitlesVisible = !subtitlesVisible;
+  function setSubtitlesVisible(visible) {
+    subtitlesVisible = visible;
     if (subtitleDisplay) {
       subtitleDisplay.style.display = subtitlesVisible ? "" : "none";
     }
@@ -793,6 +800,10 @@
     if (btn) {
       btn.classList.toggle("active", subtitlesVisible);
     }
+  }
+
+  function toggleSubtitles() {
+    setSubtitlesVisible(!subtitlesVisible);
   }
 
   function toggleTranscript() {
@@ -846,7 +857,10 @@
 
   window.subtitles = {
     load: loadSubtitles,
+    show: function () { setSubtitlesVisible(true); },
+    hide: function () { setSubtitlesVisible(false); },
     toggle: toggleSubtitles,
+    isVisible: function () { return subtitlesVisible; },
     toggleTranscript: toggleTranscript,
     toggleLanguage: toggleAudioLanguage,
     waitForSubtitlesAt: waitForSubtitlesAt,

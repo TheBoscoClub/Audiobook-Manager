@@ -110,7 +110,7 @@ def find_new_audiobooks(library_dir: Path, existing_paths: set[str]) -> list[Pat
 
 
 def _run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
-    """Run enrichment and verification hooks after a successful insert."""
+    """Run enrichment, verification, and translation hooks after a successful insert."""
     enrich_fn = _get_enrich_module()
     if enrich_fn and audiobook_id:
         try:
@@ -124,6 +124,13 @@ def _run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
             verify_fn(book_id=audiobook_id, db_path=db_path, auto_fix=True, quiet=True)
         except Exception as e:
             print(f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr)
+
+    if audiobook_id:
+        try:
+            from localization.queue import enqueue_book_all_locales
+            enqueue_book_all_locales(audiobook_id)
+        except Exception as e:
+            print(f"  ⚠ Translation queue error (non-fatal): {e}", file=sys.stderr)
 
 
 def _insert_one_audiobook(

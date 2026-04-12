@@ -77,7 +77,7 @@ def _get_existing_paths_for_dir(cursor, audio_files: list[Path]) -> set[str]:
 
 
 def _post_import_hooks(audiobook_id: int, db_path: Path) -> None:
-    """Run enrichment and verification after a successful import."""
+    """Run enrichment, verification, and translation after a successful import."""
     enrich_fn = _get_enrich_module()
     if enrich_fn and audiobook_id:
         try:
@@ -96,6 +96,13 @@ def _post_import_hooks(audiobook_id: int, db_path: Path) -> None:
             )
         except Exception as e:
             print(f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr)
+
+    if audiobook_id:
+        try:
+            from localization.queue import enqueue_book_all_locales
+            enqueue_book_all_locales(audiobook_id)
+        except Exception as e:
+            print(f"  ⚠ Translation queue error (non-fatal): {e}", file=sys.stderr)
 
 
 def _import_single_file(
