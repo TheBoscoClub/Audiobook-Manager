@@ -238,6 +238,7 @@ def generate_book_subtitles(
     stt_provider: STTProvider | None = None,
     on_progress: ProgressCallback | None = None,
     on_chapter_complete: ChapterCompleteCallback | None = None,
+    skip_chapters: set[int] | None = None,
 ) -> list[tuple[int, Path, Path | None]]:
     """Generate subtitles for an audiobook, chapter by chapter.
 
@@ -257,6 +258,7 @@ def generate_book_subtitles(
             before each chapter starts transcription.
         on_chapter_complete: Called with (chapter_index, source_vtt,
             translated_vtt_or_None) after each chapter's VTTs are written.
+        skip_chapters: Set of chapter indices to skip (already generated).
 
     Returns:
         List of (chapter_index, source_vtt, translated_vtt_or_None) tuples.
@@ -265,6 +267,9 @@ def generate_book_subtitles(
     """
     chapters = extract_chapters(audio_path)
     if not chapters:
+        if skip_chapters and 0 in skip_chapters:
+            logger.info("Single-file subtitles already exist — nothing to do")
+            return []
         logger.info("No chapter data found — processing as single file")
         src, tr = generate_subtitles(
             audio_path, output_dir, target_locale, source_lang,
@@ -277,6 +282,13 @@ def generate_book_subtitles(
     results: list[tuple[int, Path, Path | None]] = []
 
     for chapter in chapters:
+        if skip_chapters and chapter.index in skip_chapters:
+            logger.info(
+                "Chapter %d/%d: %s — already generated, skipping",
+                chapter.index + 1, total, chapter.title,
+            )
+            continue
+
         if on_progress:
             on_progress(chapter.index, total, chapter.title)
 

@@ -60,6 +60,7 @@ def _get_status(book_id: int, locale: str) -> dict | None:
 
 def _start_generation(
     book_id: int, locale: str, audio_path: Path, provider_name: str,
+    skip_chapters: set[int] | None = None,
 ) -> None:
     """Launch subtitle generation in a background thread.
 
@@ -148,6 +149,7 @@ def _start_generation(
                     stt_provider=stt,
                     on_progress=_on_chapter_progress,
                     on_chapter_complete=_on_chapter_complete,
+                    skip_chapters=skip_chapters,
                 )
             finally:
                 gen_conn.close()
@@ -300,22 +302,18 @@ def generate_subtitles_endpoint():
         if not audio_path.exists():
             return jsonify({"error": "Audio file not found on disk"}), 404
 
-        # Check if subtitles already exist for this book
-        existing = conn.execute(
-            "SELECT id FROM chapter_subtitles "
-            "WHERE audiobook_id = ? AND locale = ?",
-            (book_id, "en"),
-        ).fetchone()
-        if existing:
-            return jsonify({
-                "audiobook_id": book_id,
-                "status": "exists",
-                "message": "Subtitles already exist for this book.",
-            })
+        existing_chapters = {
+            row[0] for row in conn.execute(
+                "SELECT DISTINCT chapter_index FROM chapter_subtitles "
+                "WHERE audiobook_id = ? AND locale = ?",
+                (book_id, "en"),
+            ).fetchall()
+        }
     finally:
         conn.close()
 
-    _start_generation(book_id, locale, audio_path, provider_name)
+    _start_generation(book_id, locale, audio_path, provider_name,
+                      skip_chapters=existing_chapters)
 
     return jsonify({
         "audiobook_id": book_id,
@@ -406,21 +404,18 @@ def user_request_subtitles():
         if not audio_path.exists():
             return jsonify({"error": "Audio file not found on disk"}), 404
 
-        existing_sub = conn.execute(
-            "SELECT id FROM chapter_subtitles "
-            "WHERE audiobook_id = ? AND locale = ?",
-            (book_id, "en"),
-        ).fetchone()
-        if existing_sub:
-            return jsonify({
-                "audiobook_id": book_id,
-                "status": "exists",
-                "message": "Subtitles already exist.",
-            })
+        existing_chapters = {
+            row[0] for row in conn.execute(
+                "SELECT DISTINCT chapter_index FROM chapter_subtitles "
+                "WHERE audiobook_id = ? AND locale = ?",
+                (book_id, "en"),
+            ).fetchall()
+        }
     finally:
         conn.close()
 
-    _start_generation(int(book_id), locale, audio_path, "")
+    _start_generation(int(book_id), locale, audio_path, "",
+                      skip_chapters=existing_chapters)
 
     return jsonify({
         "audiobook_id": book_id,
