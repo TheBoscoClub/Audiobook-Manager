@@ -12,6 +12,8 @@
 #   --system           Uninstall system installation (requires sudo)
 #   --user             Uninstall user installation
 #   --keep-data        Keep audiobook data (Library, Sources, Supplements)
+#                      Also preserves state: DB, auth.db, auth.key, covers/,
+#                      and audiobooks.conf. Use --delete-data to wipe everything.
 #   --delete-data      Delete all audiobook data (no prompt)
 #   --dry-run          Show what would be removed without removing anything
 #   --force            Skip confirmation prompts
@@ -47,6 +49,9 @@ DRY_RUN=false
 FORCE=false
 REMOVED_COUNT=0
 SKIPPED_COUNT=0
+
+# State-preservation staging directory (set by stage_preserved_state)
+_UNINSTALL_STAGE_DIR=""
 
 # =============================================================================
 # Helpers
@@ -138,8 +143,11 @@ show_help() {
     echo "Options:"
     echo "  --system           Uninstall system installation (requires sudo)"
     echo "  --user             Uninstall user installation"
-    echo "  --keep-data        Keep audiobook data (Library, Sources, Supplements)"
-    echo "  --delete-data      Delete all audiobook data (no prompt)"
+    echo "  --keep-data        Keep audiobook data + preserve DB/auth/covers/config"
+    echo "  --delete-data      Delete all audiobook data AND wipe state (no prompt)"
+    echo ""
+    echo "  Note: State (database, auth keys, covers, config) is preserved by"
+    echo "  default unless --delete-data is explicitly passed."
     echo "  --dry-run          Show what would be removed without removing anything"
     echo "  --force            Skip confirmation prompts"
     echo "  --help             Show this help message"
@@ -453,6 +461,223 @@ remove_app_directory() {
 }
 
 # =============================================================================
+# Step 8b: User state preservation (staged before config/state removal)
+# =============================================================================
+#
+# Historical bug: handle_data_directories only protected /srv/audiobooks/{Library,
+# Sources,Supplements}. /var/lib/audiobooks — which holds the main database,
+# auth.db, auth.key, and the covers cache — was wiped unconditionally by
+# remove_config_and_state, even when the user passed --keep-data. Likewise
+# /etc/audiobooks/audiobooks.conf (the user's tuned config) was always wiped.
+#
+# Fix: when the user is NOT explicitly deleting data (DATA_MODE != "delete"),
+# stage these files to a temp directory before remove_config_and_state runs,
+# then restore them after. EXIT trap guarantees stage cleanup on any exit path.
+
+_cleanup_stage_dir() {
+    if [[ -n "$_UNINSTALL_STAGE_DIR" && -d "$_UNINSTALL_STAGE_DIR" ]]; then
+        rm -rf "$_UNINSTALL_STAGE_DIR" 2>/dev/null || true
+    fi
+}
+
+_stage_copy() {
+    local src="$1"
+    local dst="$2"
+    local use_sudo="$3"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_dry "stage $src -> $dst"
+        return 0
+    fi
+
+    if [[ "$use_sudo" == "sudo" ]]; then
+        _sudo cp -a "$src" "$dst" 2>/dev/null || return 1
+        # Transfer ownership to invoking user so we can manage the staged copy
+        _sudo chown -R "$(id -u):$(id -g)" "$dst" 2>/dev/null || true
+    else
+        cp -a "$src" "$dst" 2>/dev/null || return 1
+    fi
+}
+
+_restore_copy() {
+    local src="$1"
+    local dst="$2"
+    local use_sudo="$3"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_dry "restore $src -> $dst"
+        return 0
+    fi
+
+    if [[ "$use_sudo" == "sudo" ]]; then
+        _sudo cp -a "$src" "$dst" 2>/dev/null || return 1
+    else
+        cp -a "$src" "$dst" 2>/dev/null || return 1
+    fi
+}
+
+_mkdir_preserved() {
+    local dir="$1"
+    local use_sudo="$2"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_dry "mkdir -p $dir"
+        return 0
+    fi
+
+    if [[ "$use_sudo" == "sudo" ]]; then
+        _sudo mkdir -p "$dir"
+    else
+        mkdir -p "$dir"
+    fi
+}
+
+stage_preserved_state() {
+    local config_dir="$1"
+    local state_dir="$2"
+    local use_sudo="$3"
+
+    # If the user explicitly asked to delete data, preserve nothing.
+    if [[ "$DATA_MODE" == "delete" ]]; then
+        return 0
+    fi
+
+    # Create staging directory
+    _UNINSTALL_STAGE_DIR=$(mktemp -d -t audiobooks-uninstall-stage.XXXXXX 2>/dev/null) || {
+        log_warn "Failed to create staging directory — user state cannot be preserved"
+        _UNINSTALL_STAGE_DIR=""
+        return 1
+    }
+    # Ensure stage dir is always cleaned up
+    trap _cleanup_stage_dir EXIT
+
+    echo ""
+    echo -e "${BOLD}=== Preserving User State ===${NC}"
+
+    local staged=0
+
+    # Main database directory (contains audiobooks.db, WAL, SHM)
+    if [[ -d "$state_dir/db" ]]; then
+        if _stage_copy "$state_dir/db" "$_UNINSTALL_STAGE_DIR/db" "$use_sudo"; then
+            log_info "Staged database: $state_dir/db"
+            ((staged++)) || true
+        fi
+    fi
+
+    # Auth database lives at state_dir root (AUTH_DATABASE=/var/lib/audiobooks/auth.db)
+    if [[ -e "$state_dir/auth.db" ]]; then
+        if _stage_copy "$state_dir/auth.db" "$_UNINSTALL_STAGE_DIR/auth.db" "$use_sudo"; then
+            log_info "Staged: $state_dir/auth.db"
+            ((staged++)) || true
+        fi
+    fi
+
+    # Auth signing key lives in config_dir (AUTH_KEY_FILE=/etc/audiobooks/auth.key)
+    if [[ -e "$config_dir/auth.key" ]]; then
+        if _stage_copy "$config_dir/auth.key" "$_UNINSTALL_STAGE_DIR/auth.key" "$use_sudo"; then
+            log_info "Staged: $config_dir/auth.key"
+            ((staged++)) || true
+        fi
+    fi
+
+    # Covers cache (technically regenerable, but re-fetching costs time and API calls)
+    if [[ -d "$state_dir/covers" ]]; then
+        if _stage_copy "$state_dir/covers" "$_UNINSTALL_STAGE_DIR/covers" "$use_sudo"; then
+            log_info "Staged covers: $state_dir/covers"
+            ((staged++)) || true
+        fi
+    fi
+
+    # User's customized config
+    if [[ -f "$config_dir/audiobooks.conf" ]]; then
+        if _stage_copy "$config_dir/audiobooks.conf" "$_UNINSTALL_STAGE_DIR/audiobooks.conf" "$use_sudo"; then
+            log_info "Staged config: $config_dir/audiobooks.conf"
+            ((staged++)) || true
+        fi
+    fi
+
+    if [[ $staged -eq 0 ]]; then
+        log_info "No user state to preserve"
+        rm -rf "$_UNINSTALL_STAGE_DIR" 2>/dev/null || true
+        _UNINSTALL_STAGE_DIR=""
+    else
+        log_info "Staged $staged item(s) to $_UNINSTALL_STAGE_DIR"
+    fi
+}
+
+restore_preserved_state() {
+    local config_dir="$1"
+    local state_dir="$2"
+    local use_sudo="$3"
+    local owner="$4" # e.g. "audiobooks:audiobooks" for system, empty for user
+
+    [[ -z "$_UNINSTALL_STAGE_DIR" ]] && return 0
+    [[ ! -d "$_UNINSTALL_STAGE_DIR" ]] && return 0
+
+    echo ""
+    echo -e "${BOLD}=== Restoring Preserved User State ===${NC}"
+
+    _mkdir_preserved "$state_dir" "$use_sudo"
+    _mkdir_preserved "$config_dir" "$use_sudo"
+
+    local restored=0
+
+    if [[ -d "$_UNINSTALL_STAGE_DIR/db" ]]; then
+        if _restore_copy "$_UNINSTALL_STAGE_DIR/db" "$state_dir/db" "$use_sudo"; then
+            log_info "Restored: $state_dir/db"
+            ((restored++)) || true
+        fi
+    fi
+
+    if [[ -e "$_UNINSTALL_STAGE_DIR/auth.db" ]]; then
+        if _restore_copy "$_UNINSTALL_STAGE_DIR/auth.db" "$state_dir/auth.db" "$use_sudo"; then
+            log_info "Restored: $state_dir/auth.db"
+            ((restored++)) || true
+        fi
+    fi
+
+    if [[ -e "$_UNINSTALL_STAGE_DIR/auth.key" ]]; then
+        if _restore_copy "$_UNINSTALL_STAGE_DIR/auth.key" "$config_dir/auth.key" "$use_sudo"; then
+            # auth.key must be 0600 and owned by the service account
+            if [[ "$DRY_RUN" != "true" && "$use_sudo" == "sudo" ]]; then
+                _sudo chmod 600 "$config_dir/auth.key" 2>/dev/null || true
+            elif [[ "$DRY_RUN" != "true" ]]; then
+                chmod 600 "$config_dir/auth.key" 2>/dev/null || true
+            fi
+            log_info "Restored: $config_dir/auth.key"
+            ((restored++)) || true
+        fi
+    fi
+
+    if [[ -d "$_UNINSTALL_STAGE_DIR/covers" ]]; then
+        if _restore_copy "$_UNINSTALL_STAGE_DIR/covers" "$state_dir/covers" "$use_sudo"; then
+            log_info "Restored: $state_dir/covers"
+            ((restored++)) || true
+        fi
+    fi
+
+    if [[ -f "$_UNINSTALL_STAGE_DIR/audiobooks.conf" ]]; then
+        if _restore_copy "$_UNINSTALL_STAGE_DIR/audiobooks.conf" "$config_dir/audiobooks.conf" "$use_sudo"; then
+            log_info "Restored: $config_dir/audiobooks.conf"
+            ((restored++)) || true
+        fi
+    fi
+
+    # Re-apply correct ownership on restored state
+    if [[ -n "$owner" && "$DRY_RUN" != "true" && "$use_sudo" == "sudo" ]]; then
+        _sudo chown -R "$owner" "$state_dir" 2>/dev/null || true
+        _sudo chown -R "$owner" "$config_dir" 2>/dev/null || true
+    fi
+
+    log_info "Restored $restored item(s) — reinstall will pick up preserved state"
+
+    # Clean up staging
+    _cleanup_stage_dir
+    _UNINSTALL_STAGE_DIR=""
+    trap - EXIT
+}
+
+# =============================================================================
 # Step 9-10: Configuration, state, and log directories
 # =============================================================================
 
@@ -474,11 +699,28 @@ remove_config_and_state() {
 # Step 11: Runtime/temp files
 # =============================================================================
 
+_can_touch_runtime() {
+    local use_sudo="$1"
+    local target="$2"
+    if [[ "$use_sudo" == "sudo" ]]; then
+        return 0
+    fi
+    # /tmp has the sticky bit, so -w on the target isn't enough —
+    # only the owner (or root) can unlink. Require ownership by current uid.
+    [[ -O "$target" ]]
+}
+
 remove_runtime_files() {
     local use_sudo="$1"
 
     echo ""
     echo -e "${BOLD}=== Runtime & Temporary Files ===${NC}"
+
+    # User-mode uninstall must not touch system-wide /tmp artifacts it doesn't
+    # own. Only root (via sudo) or the artifact's owner may remove /tmp/audiobook*
+    # — a user-mode call on a host where the system install already ran will
+    # find root/audiobooks-owned files there and crash under set -e.
+    # _can_touch_runtime() is defined at file scope below.
 
     # Known runtime locations
     local known_paths=(
@@ -488,16 +730,23 @@ remove_runtime_files() {
     )
 
     for item in "${known_paths[@]}"; do
+        if [[ ! -e "$item" && ! -L "$item" ]]; then
+            log_skip "$item"
+            continue
+        fi
+        if ! _can_touch_runtime "$use_sudo" "$item"; then
+            log_skip "$item (not owned by current user — skipping in user mode)"
+            continue
+        fi
         if [[ -d "$item" ]]; then
             remove_dir "$item" "$use_sudo"
-        elif [[ -e "$item" ]]; then
-            remove_file "$item" "$use_sudo"
         else
-            log_skip "$item"
+            remove_file "$item" "$use_sudo"
         fi
     done
 
     # Catch-all: any remaining /tmp/audiobook* artifacts (FIFOs, temp files, etc.)
+    shopt -s nullglob
     for f in /tmp/audiobook*; do
         # Skip already-handled paths
         local already_handled=false
@@ -506,12 +755,17 @@ remove_runtime_files() {
         done
         [[ "$already_handled" == "true" ]] && continue
 
+        if ! _can_touch_runtime "$use_sudo" "$f"; then
+            log_skip "$f (not owned by current user)"
+            continue
+        fi
         if [[ -d "$f" ]]; then
             remove_dir "$f" "$use_sudo"
         else
             remove_file "$f" "$use_sudo"
         fi
     done
+    shopt -u nullglob
 }
 
 # =============================================================================
@@ -701,8 +955,10 @@ remove_system_user() {
             local group_members
             group_members=$(getent group audiobooks | cut -d: -f4)
             if [[ -n "$group_members" ]]; then
-                local IFS=','
-                for member in $group_members; do
+                local -a members_arr=()
+                IFS=',' read -ra members_arr <<<"$group_members"
+                for member in "${members_arr[@]}"; do
+                    [[ -z "$member" ]] && continue
                     _sudo gpasswd -d "$member" audiobooks 2>/dev/null || true
                     log_remove "user '$member' from audiobooks group"
                 done
@@ -816,7 +1072,9 @@ do_system_uninstall() {
     remove_bin_symlinks "/usr/local/bin" "sudo"                                                  # Step 4
     remove_system_configs "sudo"                                                                 # Steps 5-6
     remove_app_directory "/opt/audiobooks" "sudo"                                                # Steps 7-8
+    stage_preserved_state "/etc/audiobooks" "/var/lib/audiobooks" "sudo"                         # Step 8b (pre-wipe)
     remove_config_and_state "/etc/audiobooks" "/var/lib/audiobooks" "/var/log/audiobooks" "sudo" # Steps 9-10
+    restore_preserved_state "/etc/audiobooks" "/var/lib/audiobooks" "sudo" "audiobooks:audiobooks" # Step 10b (post-wipe)
     remove_runtime_files "sudo"                                                                  # Step 11
     handle_data_directories "sudo" "/etc/audiobooks"                                             # Step 12
     remove_system_user                                                                           # Step 13
@@ -859,7 +1117,9 @@ do_user_uninstall() {
     remove_systemd_units ""                                                                                                   # Steps 1-3 (user systemd)
     remove_bin_symlinks "$HOME/.local/bin" ""                                                                                 # Step 4
     remove_app_directory "$HOME/.local/lib/audiobooks" ""                                                                     # Steps 7-8
+    stage_preserved_state "$HOME/.config/audiobooks" "$HOME/.local/var/lib/audiobooks" ""                                     # Step 8b (pre-wipe)
     remove_config_and_state "$HOME/.config/audiobooks" "$HOME/.local/var/lib/audiobooks" "$HOME/.local/var/log/audiobooks" "" # Steps 9-10
+    restore_preserved_state "$HOME/.config/audiobooks" "$HOME/.local/var/lib/audiobooks" "" ""                                # Step 10b (post-wipe)
     remove_runtime_files ""                                                                                                   # Step 11
     handle_data_directories "" "$HOME/.config/audiobooks"                                                                     # Step 12
     scan_for_orphans ""                                                                                                       # Step 14

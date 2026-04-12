@@ -59,9 +59,6 @@ config.env
 
 # Install scripts
 install.sh
-install-user.sh
-install-system.sh
-install-services.sh
 launch.sh
 
 # Shell config loader (not used in Docker)

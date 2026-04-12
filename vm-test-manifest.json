@@ -5,7 +5,7 @@
   "vm_testing": {
     "enabled": true,
     "required_for": [
-      "System-wide installation (install-system.sh, install-services.sh)",
+      "System-wide installation (install.sh --system)",
       "Systemd service management (audiobook.target, 5 services + timers)",
       "SSL certificate generation",
       "Environment profile installation (/etc/profile.d/)",
@@ -111,8 +111,7 @@
     ],
     "unsafe_commands": [
       "pytest tests/ --vm",
-      "install-system.sh",
-      "install-services.sh",
+      "install.sh --system",
       "upgrade.sh --remote"
     ]
   },

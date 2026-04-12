@@ -2398,11 +2398,18 @@ do_fresh_install() {
     # Apply captured data dir so the fresh install uses it
     [[ -n "$saved_AUDIOBOOKS_DATA" ]] && DATA_DIR="$saved_AUDIOBOOKS_DATA"
 
-    # --- Step 2b: Back up state files that uninstall --keep-data DOES NOT preserve ---
-    # uninstall.sh --keep-data only preserves Library/Sources/Supplements under
-    # $AUDIOBOOKS_DATA. It unconditionally wipes /var/lib/audiobooks (main DB,
-    # auth DB, cover cache) and /etc/audiobooks (auth signing key, full conf).
-    # We stage those separately and restore after reinstall.
+    # --- Step 2b: Back up state files belt-and-suspenders ---
+    # As of v8.1, uninstall.sh --keep-data ALSO preserves DB/auth/covers/conf
+    # via stage_preserved_state. We still stage here for two reasons:
+    #   1) Defense in depth — if uninstall.sh stage/restore is interrupted
+    #      (ctrl-C, disk full), we still have our copy to restore from.
+    #   2) The config merge in Step 5 needs the OLD conf as a reference even
+    #      though install.sh writes a FRESH default conf over it.
+    # Paths below use the CANONICAL locations from etc/audiobooks.conf.example:
+    #   AUDIOBOOKS_DATABASE=/var/lib/audiobooks/db/audiobooks.db
+    #   AUTH_DATABASE=/var/lib/audiobooks/auth.db  (NOT in db/ subdir)
+    #   AUTH_KEY_FILE=/etc/audiobooks/auth.key
+    #   AUDIOBOOKS_COVERS=/var/lib/audiobooks/covers
     local fresh_backup_dir
     fresh_backup_dir=$(mktemp -d -t audiobooks-fresh-XXXXXX)
     # Ensure staging dir is cleaned up even on early return (uninstall failure,
@@ -2435,7 +2442,11 @@ do_fresh_install() {
     local staged_main_db="false" staged_auth_db="false" staged_auth_key="false"
     local staged_covers="false"  staged_full_conf="false"
     _stage_if_exists "${state_src}/db/audiobooks.db"  "audiobooks.db"   && staged_main_db="true"
-    _stage_if_exists "${state_src}/db/auth.db"        "auth.db"         && staged_auth_db="true"
+    _stage_if_exists "${state_src}/auth.db"           "auth.db"         && staged_auth_db="true"
+    # Fallback: legacy location (some pre-v8 installs had auth.db under db/)
+    if [[ "$staged_auth_db" == "false" ]]; then
+        _stage_if_exists "${state_src}/db/auth.db"    "auth.db"         && staged_auth_db="true"
+    fi
     _stage_if_exists "${conf_src_dir}/auth.key"       "auth.key"        && staged_auth_key="true"
     _stage_if_exists "${state_src}/covers"            "covers"          && staged_covers="true"
     _stage_if_exists "$config_file"                   "audiobooks.conf" && staged_full_conf="true"
@@ -2472,6 +2483,18 @@ do_fresh_install() {
     echo ""
     echo -e "${GREEN}Uninstall complete. Audiobook data preserved.${NC}"
     echo ""
+
+    # --- Step 3b: Force install.sh to write a FRESH default conf ---
+    # uninstall.sh --keep-data now restores audiobooks.conf via
+    # stage_preserved_state. That's correct for standalone uninstall, but in
+    # fresh-install we WANT install.sh to write the new default conf so new
+    # v8.1+ keys get introduced. Step 5 merges the user's old overrides back
+    # on top. We use the fresh_backup_dir copy as the merge source, which is
+    # why that staging remains in Step 2b.
+    if [[ -f "$config_file" ]]; then
+        echo -e "${BLUE}Clearing restored config so install.sh writes fresh defaults...${NC}"
+        $use_sudo_fresh rm -f "$config_file"
+    fi
 
     # --- Step 4: Run fresh install ---
     echo -e "${BLUE}Running fresh install...${NC}"
@@ -2517,7 +2540,7 @@ do_fresh_install() {
     [[ "$install_type" == "system" ]] && state_owner="audiobooks:audiobooks"
 
     _restore_if_staged audiobooks.db "${state_src}/db/audiobooks.db" "$state_owner" && restored_main_db="true"
-    _restore_if_staged auth.db       "${state_src}/db/auth.db"       "$state_owner" && restored_auth_db="true"
+    _restore_if_staged auth.db       "${state_src}/auth.db"          "$state_owner" && restored_auth_db="true"
     _restore_if_staged auth.key      "${conf_src_dir}/auth.key"      "$state_owner" && restored_auth_key="true"
     _restore_if_staged covers        "${state_src}/covers"           "$state_owner" && restored_covers="true"
     [[ "$restored_auth_key" == "true" ]] && $use_sudo_fresh chmod 600 "${conf_src_dir}/auth.key" 2>/dev/null || true
