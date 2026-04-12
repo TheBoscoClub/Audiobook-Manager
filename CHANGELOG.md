@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.1.1] - 2026-04-11
+
+### Added
+
 - **Installer architecture documentation** (`docs/INSTALLER-ARCHITECTURE.md`): Source-of-truth reference for `install.sh`, `uninstall.sh`, `upgrade.sh`, the manifest, and the reconciler — documents the 2026-04 drift incident, the canonical-defaults pairing rule (`library/config.py` + `lib/audiobook-config.sh` must agree), the subset-preservation invariant, and six rules for future installer changes
 - **Content classification drift documentation** (`docs/CONTENT-CLASSIFICATION-DRIFT.md`): Explains how `audiobooks.content_type` gets stale when scans predate classification fixes, how to detect drift via cross-DB ASIN comparison, how to repair with a surgical ASIN-based rewrite, and why `library/scripts/backfill_enrichment.py --podcast-detection` must be run after any DB import on a Phase-0+ install. Documents the 2026-04-07 dev VM incident (scan preceded Phase 0 podcast detection commits `ccb863e` + `c10b335` by ~21 hours, leaving 101 rows mis-labeled as `Podcast` that should have been `Show`, `Episode`, or `Product`)
 - **End-to-end uninstall preservation tests** (`library/tests/test_uninstall_keep_data.py`): Four pytest cases run `uninstall.sh --user --force` against a scratch `$HOME` and assert that `--keep-data` preserves DB, `auth.db`, `auth.key` (mode 0600 after restore), covers cache, and `audiobooks.conf`; `--delete-data` wipes them; preservation tolerates absent optional items; script stays executable
@@ -2601,7 +2609,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.1...HEAD
+[8.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.0...v8.1.1
 [8.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4.1...v8.1.0
 [8.0.4.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4...v8.0.4.1
 [8.0.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.3.2...v8.0.4
