@@ -27,6 +27,9 @@
   var currentChapterIndex = 0;
   var playingTranslated = false;
   var translatedAudioEntries = [];
+  var _loadedChapters = {};
+  var _chapterPollTimer = null;
+  var _waitResolve = null;
 
   // ── VTT Parsing ──
 
@@ -69,73 +72,164 @@
     sourceCues = [];
     translatedCues = [];
     currentCueIndex = -1;
+    _loadedChapters = {};
+    stopChapterPoll();
     hideTtsBanner();
 
     var locale =
       typeof i18n !== "undefined" ? i18n.getLocale() : "en";
 
-    // Load source (English) subtitles
-    var sourceUrl =
-      API_BASE +
-      "/audiobooks/" +
-      bookId +
-      "/subtitles/" +
-      currentChapterIndex +
-      "/en";
-    var translatedUrl =
-      API_BASE +
-      "/audiobooks/" +
-      bookId +
-      "/subtitles/" +
-      currentChapterIndex +
-      "/" +
-      encodeURIComponent(locale);
+    fetch(API_BASE + "/audiobooks/" + bookId + "/subtitles")
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (entries) {
+        var enChapters = [];
+        var trChapters = [];
+        for (var i = 0; i < entries.length; i++) {
+          if (entries[i].locale === "en") enChapters.push(entries[i].chapter_index);
+          else if (entries[i].locale === locale) trChapters.push(entries[i].chapter_index);
+        }
 
-    var sourcePromise = fetch(sourceUrl)
-      .then(function (r) {
-        if (!r.ok) return "";
-        return r.text();
+        var fetches = [];
+        for (var j = 0; j < enChapters.length; j++) {
+          fetches.push(fetchChapterVTT(bookId, enChapters[j], "en"));
+        }
+        if (locale !== "en") {
+          for (var k = 0; k < trChapters.length; k++) {
+            fetches.push(fetchChapterVTT(bookId, trChapters[k], locale));
+          }
+        }
+
+        return Promise.all(fetches).then(function () {
+          mergeCues();
+          onSubtitlesUpdated(bookId, chapterIndex, locale);
+
+          if (sourceCues.length === 0 && translatedCues.length === 0 && locale !== "en") {
+            showGenBanner(bookId, locale);
+          }
+
+          startChapterPoll(bookId, locale);
+        });
       })
       .catch(function () {
-        return "";
+        onSubtitlesUpdated(bookId, chapterIndex, locale);
       });
+  }
 
-    var translatedPromise =
-      locale === "en"
-        ? Promise.resolve("")
-        : fetch(translatedUrl)
-            .then(function (r) {
-              if (!r.ok) return "";
-              return r.text();
-            })
-            .catch(function () {
-              return "";
-            });
+  function fetchChapterVTT(bookId, chIdx, locale) {
+    var key = locale + ":" + chIdx;
+    if (_loadedChapters[key]) return Promise.resolve();
 
-    Promise.all([sourcePromise, translatedPromise]).then(function (results) {
-      sourceCues = results[0] ? parseVTT(results[0]) : [];
-      translatedCues = results[1] ? parseVTT(results[1]) : [];
+    var url = API_BASE + "/audiobooks/" + bookId + "/subtitles/" + chIdx + "/" + encodeURIComponent(locale);
+    return fetch(url)
+      .then(function (r) { return r.ok ? r.text() : ""; })
+      .then(function (text) {
+        if (text) {
+          _loadedChapters[key] = parseVTT(text);
+        }
+      })
+      .catch(function () {});
+  }
 
-      var hasSubtitles = sourceCues.length > 0 || translatedCues.length > 0;
-
-      // Show/hide subtitle control buttons
-      var ccBtn = document.getElementById("sp-subtitle-toggle");
-      var trBtn = document.getElementById("sp-transcript-toggle");
-      if (ccBtn) ccBtn.style.display = hasSubtitles ? "" : "none";
-      if (trBtn) trBtn.style.display = hasSubtitles ? "" : "none";
-
-      // Show language toggle if translated audio exists
-      checkTranslatedAudio(bookId, chapterIndex, locale);
-
-      if (hasSubtitles) {
-        buildTranscriptPanel();
-        hideGenBanner();
-      } else if (locale !== "en") {
-        // No subtitles AND user is on a translated locale: offer generation.
-        showGenBanner(bookId, locale);
+  function mergeCues() {
+    var src = [];
+    var tr = [];
+    var keys = Object.keys(_loadedChapters).sort();
+    for (var i = 0; i < keys.length; i++) {
+      var cues = _loadedChapters[keys[i]];
+      if (keys[i].indexOf("en:") === 0) {
+        src = src.concat(cues);
       } else {
-        hideGenBanner();
+        tr = tr.concat(cues);
       }
+    }
+    src.sort(function (a, b) { return a.startMs - b.startMs; });
+    tr.sort(function (a, b) { return a.startMs - b.startMs; });
+    sourceCues = src;
+    translatedCues = tr;
+  }
+
+  function startChapterPoll(bookId, locale) {
+    stopChapterPoll();
+    var noNewCount = 0;
+    _chapterPollTimer = setInterval(function () {
+      if (currentBookId !== bookId) { stopChapterPoll(); return; }
+      fetch(API_BASE + "/audiobooks/" + bookId + "/subtitles")
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (entries) {
+          var newFetches = [];
+          for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            var key = e.locale + ":" + e.chapter_index;
+            if (!_loadedChapters[key] && (e.locale === "en" || e.locale === locale)) {
+              newFetches.push(fetchChapterVTT(bookId, e.chapter_index, e.locale));
+            }
+          }
+          if (newFetches.length === 0) {
+            noNewCount++;
+            if (noNewCount >= 6) stopChapterPoll();
+            return;
+          }
+          noNewCount = 0;
+          Promise.all(newFetches).then(function () {
+            mergeCues();
+            onSubtitlesUpdated(bookId, 0, locale);
+            if (_waitResolve && hasSubtitlesAtPosition(_waitPositionMs)) {
+              _waitResolve();
+              _waitResolve = null;
+            }
+          });
+        })
+        .catch(function () {});
+    }, 5000);
+  }
+
+  function stopChapterPoll() {
+    if (_chapterPollTimer) {
+      clearInterval(_chapterPollTimer);
+      _chapterPollTimer = null;
+    }
+  }
+
+  function onSubtitlesUpdated(bookId, chapterIndex, locale) {
+    var hasSubtitles = sourceCues.length > 0 || translatedCues.length > 0;
+
+    var ccBtn = document.getElementById("sp-subtitle-toggle");
+    var trBtn = document.getElementById("sp-transcript-toggle");
+    if (ccBtn) ccBtn.style.display = hasSubtitles ? "" : "none";
+    if (trBtn) trBtn.style.display = hasSubtitles ? "" : "none";
+
+    checkTranslatedAudio(bookId, chapterIndex, locale);
+
+    if (hasSubtitles) {
+      buildTranscriptPanel();
+      hideGenBanner();
+    } else if (locale !== "en") {
+      showGenBanner(bookId, locale);
+    } else {
+      hideGenBanner();
+    }
+  }
+
+  var _waitPositionMs = 0;
+
+  function hasSubtitlesAtPosition(posMs) {
+    var cues = sourceCues.length > 0 ? sourceCues : translatedCues;
+    if (cues.length === 0) return false;
+    var last = cues[cues.length - 1];
+    return posMs <= last.endMs;
+  }
+
+  function isGenerationActive() {
+    return _genPollTimer !== null;
+  }
+
+  function waitForSubtitlesAt(positionMs) {
+    if (hasSubtitlesAtPosition(positionMs)) return Promise.resolve();
+    if (!isGenerationActive()) return Promise.resolve();
+    _waitPositionMs = positionMs;
+    return new Promise(function (resolve) {
+      _waitResolve = resolve;
+      setTimeout(resolve, 30000);
     });
   }
 
@@ -755,5 +849,8 @@
     toggle: toggleSubtitles,
     toggleTranscript: toggleTranscript,
     toggleLanguage: toggleAudioLanguage,
+    waitForSubtitlesAt: waitForSubtitlesAt,
+    hasSubtitlesAtPosition: hasSubtitlesAtPosition,
+    isGenerationActive: isGenerationActive,
   };
 })();

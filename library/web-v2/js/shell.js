@@ -342,6 +342,22 @@ class ShellPlayer {
         // No position found anywhere — stays at 0
       }
     }
+
+    // If subtitle generation is active and subtitles don't cover the
+    // current position yet, pause until they arrive (max 30s timeout).
+    if (typeof window.subtitles !== "undefined" && window.subtitles.waitForSubtitlesAt) {
+      const posMs = Math.floor(this.audio.currentTime * 1000);
+      const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+      if (locale !== "en" && posMs > 0) {
+        const needsWait = !window.subtitles.hasSubtitlesAtPosition(posMs) &&
+                          window.subtitles.isGenerationActive();
+        if (needsWait) {
+          this.audio.pause();
+          await window.subtitles.waitForSubtitlesAt(posMs);
+          try { await this.audio.play(); } catch (e) { /* user may have navigated away */ }
+        }
+      }
+    }
   }
 
   togglePlayPause() {
