@@ -91,6 +91,20 @@ def _recover_stale_jobs() -> None:
         conn.close()
 
 
+def _resume_pending_jobs() -> None:
+    """Start the worker if there are pending jobs from a prior session."""
+    conn = _get_db()
+    try:
+        pending = conn.execute(
+            "SELECT COUNT(*) FROM translation_queue WHERE state = 'pending'",
+        ).fetchone()[0]
+        if pending:
+            logger.info("Found %d pending jobs — starting worker", pending)
+            _ensure_worker()
+    finally:
+        conn.close()
+
+
 def enqueue(audiobook_id: int, locale: str, priority: int = 0) -> None:
     """Add a book+locale to the translation queue. Idempotent."""
     conn = _get_db()
@@ -240,6 +254,19 @@ def _set_current(audiobook_id: int, locale: str, **fields) -> None:
         "updated_at": time.time(),
         **fields,
     }
+    step = fields.get("step")
+    if step:
+        try:
+            conn = _get_db()
+            conn.execute(
+                "UPDATE translation_queue SET step = ? "
+                "WHERE audiobook_id = ? AND locale = ? AND state = 'processing'",
+                (step, audiobook_id, locale),
+            )
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
 
 
 def _process_job(job: dict) -> None:
@@ -282,18 +309,23 @@ def _process_job(job: dict) -> None:
     finally:
         conn.close()
 
+    resume_step = job.get("step", "stt")
+
     try:
-        # Step 1: STT + subtitle translation
-        if not existing_en or len(existing_en) == 0:
-            _set_current(book_id, locale, step="stt", phase="starting",
-                         message=f"Transcribing: {book['title']}")
-            _run_stt_and_translate(book_id, locale, audio_path, set())
-        elif len(existing_tr) < len(existing_en):
-            _set_current(book_id, locale, step="stt", phase="resuming",
-                         message=f"Resuming transcription: {book['title']}")
-            _run_stt_and_translate(book_id, locale, audio_path, existing_en)
+        # Step 1: STT + subtitle translation (skip if resuming from tts)
+        if resume_step == "stt":
+            if not existing_en or len(existing_en) == 0:
+                _set_current(book_id, locale, step="stt", phase="starting",
+                             message=f"Transcribing: {book['title']}")
+                _run_stt_and_translate(book_id, locale, audio_path, set())
+            elif len(existing_tr) < len(existing_en):
+                _set_current(book_id, locale, step="stt", phase="resuming",
+                             message=f"Resuming transcription: {book['title']}")
+                _run_stt_and_translate(book_id, locale, audio_path, existing_en)
+            else:
+                logger.info("Book %d: subtitles already complete for %s", book_id, locale)
         else:
-            logger.info("Book %d: subtitles already complete for %s", book_id, locale)
+            logger.info("Book %d: resuming from step '%s', skipping STT", book_id, resume_step)
 
         # Step 2: TTS narration
         if not has_tts:

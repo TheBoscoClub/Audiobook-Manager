@@ -1,12 +1,21 @@
-"""Microsoft edge-tts provider (default, free, no GPU required)."""
+"""Microsoft edge-tts provider (default, free, no GPU required).
 
-import asyncio
+edge-tts uses asyncio internally, which deadlocks inside gunicorn's
+gevent worker (monkey-patched threading + asyncio event loop conflict).
+Synthesis runs as a subprocess via the edge-tts CLI to isolate it.
+"""
+
 import logging
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 from .base import TTSProvider, Voice
 
 logger = logging.getLogger(__name__)
+
+_TTS_TIMEOUT = 600  # 10 minutes max per synthesis call
 
 # Curated voice list for supported languages
 EDGE_VOICES = {
@@ -40,25 +49,43 @@ class EdgeTTSProvider(TTSProvider):
         return EDGE_VOICES.get(lang_prefix, [])
 
     def synthesize(self, text: str, language: str, voice: str, output_path: Path) -> Path:
-        """Generate audio using edge-tts.
+        """Generate audio using edge-tts CLI subprocess.
 
-        Args:
-            text: Text to synthesize.
-            language: Language code (e.g., "zh-CN").
-            voice: Voice ID (e.g., "zh-CN-XiaoxiaoNeural").
-            output_path: Where to write the output audio file.
-
-        Returns:
-            Path to the generated audio file.
+        Runs as a separate process to avoid gevent/asyncio deadlocks.
+        For long texts, writes to a temp file and passes --file.
         """
-        import edge_tts
-
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        async def _synthesize():
-            communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(str(output_path))
-
         logger.info("Synthesizing %d chars via edge-tts (voice=%s)", len(text), voice)
-        asyncio.run(_synthesize())
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8",
+        ) as tf:
+            tf.write(text)
+            text_path = tf.name
+
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable, "-m", "edge_tts",
+                    "--voice", voice,
+                    "--file", text_path,
+                    "--write-media", str(output_path),
+                ],
+                capture_output=True, text=True, timeout=_TTS_TIMEOUT,
+            )
+        finally:
+            Path(text_path).unlink(missing_ok=True)
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"edge-tts failed (exit {result.returncode}): "
+                f"{result.stderr[:300]}"
+            )
+
+        if not output_path.exists() or output_path.stat().st_size == 0:
+            raise RuntimeError(
+                f"edge-tts produced empty output at {output_path}"
+            )
+
         return output_path
