@@ -1,0 +1,49 @@
+[Unit]
+Description=Whisper GPU Transcription Service (ROCm)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/whisper-gpu
+
+# ROCm needs access to /dev/kfd and /dev/dri for GPU compute
+SupplementaryGroups=render video
+
+# Preload the model at startup so the first request doesn't pay cold-start
+ExecStart=/usr/bin/python3 /opt/whisper-gpu/whisper_gpu_service.py \
+    --host 0.0.0.0 --port 8765 --model large-v3 --preload
+
+Restart=on-failure
+RestartSec=10
+
+# Environment for ROCm
+Environment=PYTHONUNBUFFERED=1
+Environment=HSA_OVERRIDE_GFX_VERSION=10.3.0
+Environment=PYTORCH_ROCM_ARCH=gfx1030
+
+# Memory: large-v3 model + audio processing can use 8-10 GB
+# Set a generous limit to prevent OOM from affecting the host desktop
+MemoryMax=12G
+MemoryHigh=10G
+
+# GPU transcription is I/O + compute heavy; allow generous timeouts
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+# Security hardening
+ProtectSystem=strict
+ReadWritePaths=/tmp /opt/whisper-gpu/models
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Whisper model cache — download once, reuse across restarts
+Environment=XDG_CACHE_HOME=/opt/whisper-gpu/models
+
+[Install]
+WantedBy=multi-user.target

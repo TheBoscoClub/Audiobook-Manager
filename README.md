@@ -526,6 +526,35 @@ audiobook-import   # Import to database
 audiobook-config   # Show configuration
 ```
 
+### Optional: Local GPU Transcription
+
+If you use the localization features (subtitles, translations for non-English locales) and your host has an AMD GPU with ROCm support, you can run a local Whisper transcription service for GPU-accelerated speech-to-text. This avoids cloud provider costs and latency.
+
+**Requirements:**
+- AMD GPU with ROCm support (RDNA 2 or newer recommended)
+- `python-pytorch-opt-rocm` and `python-openai-whisper` (Arch/CachyOS) or equivalent PyTorch ROCm packages
+- The audiobook application installed at `/opt/audiobooks`
+
+**Setup:**
+
+```bash
+cd extras/whisper-gpu
+sudo ./setup.sh
+```
+
+The setup script checks prerequisites, installs a systemd service (`whisper-gpu.service`), and starts the transcription server on port 8765. The application auto-detects the service at startup — no configuration changes needed if both run on the same host.
+
+**For VM-based installations**, add to `/etc/audiobooks/audiobooks.conf`:
+
+```bash
+AUDIOBOOKS_WHISPER_GPU_HOST=192.168.122.1   # Host IP on libvirt network
+AUDIOBOOKS_WHISPER_GPU_PORT=8765
+```
+
+**Removal:** `sudo ./setup.sh --uninstall`
+
+This is entirely optional — the application works without it, falling back to cloud providers or CPU-based transcription.
+
 ## Upgrading
 
 ### Docker

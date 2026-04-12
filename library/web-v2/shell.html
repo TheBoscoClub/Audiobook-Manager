@@ -218,6 +218,20 @@
                 </div>
             </div>
         </div>
+        <!-- TTS generation banner (on-demand translated audio) -->
+        <div id="tts-gen-banner" class="tts-gen-banner" style="display:none;">
+            <div class="tgb-idle">
+                <span class="tgb-message" data-i18n="ttsGen.offer">Translated audio isn't available for this book yet. Generate it now?</span>
+                <button type="button" class="tgb-button" id="tgb-generate" data-i18n="ttsGen.generate">Generate audio</button>
+            </div>
+            <div class="tgb-progress" style="display:none;">
+                <div class="tgb-spinner" aria-hidden="true"></div>
+                <div class="tgb-progress-text">
+                    <div class="tgb-phase" id="tgb-phase" data-i18n="ttsGen.starting">Starting…</div>
+                    <div class="tgb-detail" id="tgb-detail"></div>
+                </div>
+            </div>
+        </div>
         <audio id="audio-element"></audio>
     </div>
 

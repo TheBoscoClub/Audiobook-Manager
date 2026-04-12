@@ -203,6 +203,94 @@ html.cjk .subtitle-translated {
   color: #8acf8a;
 }
 
+/* ── On-demand TTS Generation Banner ──────────────────── */
+
+.tts-gen-banner {
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.72);
+  border-top: 1px solid rgba(90, 160, 197, 0.3);
+  font-size: 0.92em;
+  color: var(--parchment, #f4e8c1);
+}
+
+.tts-gen-banner .tgb-idle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tts-gen-banner .tgb-message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tts-gen-banner .tgb-button {
+  background: var(--accent-teal, #5aa0c5);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tts-gen-banner .tgb-button:hover {
+  background: #6fb8d8;
+}
+
+.tts-gen-banner .tgb-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tts-gen-banner .tgb-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(90, 160, 197, 0.3);
+  border-top-color: var(--accent-teal, #5aa0c5);
+  border-radius: 50%;
+  animation: tgb-spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes tgb-spin { to { transform: rotate(360deg); } }
+
+.tts-gen-banner .tgb-progress-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tts-gen-banner .tgb-phase {
+  color: var(--accent-teal, #5aa0c5);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tts-gen-banner .tgb-detail {
+  color: var(--parchment, #f4e8c1);
+  opacity: 0.75;
+  font-size: 0.88em;
+  margin-top: 2px;
+}
+
+.tts-gen-banner.tgb-error {
+  border-top-color: rgba(200, 80, 60, 0.6);
+}
+.tts-gen-banner.tgb-error .tgb-phase {
+  color: #e08070;
+}
+.tts-gen-banner.tgb-error .tgb-spinner {
+  animation: none;
+  border-top-color: #e08070;
+}
+
+.tts-gen-banner.tgb-done .tgb-phase {
+  color: #8acf8a;
+}
+
 /* ── Transcript Side Panel ───────────────────────────── */
 
 .transcript-panel {

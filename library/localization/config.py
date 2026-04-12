@@ -27,6 +27,10 @@ RUNPOD_XTTS_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT", "")
 VASTAI_WHISPER_HOST = os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_HOST", "")
 VASTAI_WHISPER_PORT = int(os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_PORT", "8000"))
 
+# Local GPU Whisper service (host-side ROCm, called over libvirt network)
+WHISPER_GPU_HOST = os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST", "192.168.122.1")
+WHISPER_GPU_PORT = int(os.environ.get("AUDIOBOOKS_WHISPER_GPU_PORT", "8765"))
+
 # Douban Books API (access restricted since 2019)
 DOUBAN_API_KEY = os.environ.get("AUDIOBOOKS_DOUBAN_API_KEY", "")
 

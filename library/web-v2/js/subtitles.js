@@ -69,6 +69,7 @@
     sourceCues = [];
     translatedCues = [];
     currentCueIndex = -1;
+    hideTtsBanner();
 
     var locale =
       typeof i18n !== "undefined" ? i18n.getLocale() : "en";
@@ -222,16 +223,28 @@
 
   function startGenPoll(bookId, locale) {
     stopGenPoll();
+    var _genIdleCount = 0;
     _genPollTimer = setInterval(function () {
       if (_genBannerBookId !== bookId) { stopGenPoll(); return; }
       fetch(API_BASE + "/subtitles/status/" + bookId + "/" + encodeURIComponent(locale))
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (s) {
           if (!s) return;
+          if (s.state === "idle") {
+            _genIdleCount++;
+            if (_genIdleCount >= 3) {
+              stopGenPoll();
+              renderGenStatus({
+                state: "failed", phase: "error",
+                message: (typeof t === "function" ? t("subtitleGen.phase.error") : "Generation failed unexpectedly. Please try again."),
+              });
+            }
+            return;
+          }
+          _genIdleCount = 0;
           renderGenStatus(s);
           if (s.state === "completed") {
             stopGenPoll();
-            // Reload subtitles; banner will hide automatically when cues appear.
             setTimeout(function () { loadSubtitles(bookId, currentChapterIndex); }, 500);
           } else if (s.state === "failed") {
             stopGenPoll();
@@ -311,9 +324,15 @@
         var langBtn = document.getElementById("sp-lang-toggle");
         if (langBtn) {
           langBtn.style.display = entries.length > 0 ? "" : "none";
-          // Reset state when loading a new book
           playingTranslated = false;
           langBtn.classList.remove("active");
+        }
+        // If subtitles exist but no translated audio, offer TTS generation
+        var hasSubtitles = sourceCues.length > 0 || translatedCues.length > 0;
+        if (hasSubtitles && entries.length === 0) {
+          showTtsBanner(bookId, locale);
+        } else {
+          hideTtsBanner();
         }
       })
       .catch(function () {});
@@ -374,6 +393,163 @@
       langBtn.title = playingTranslated
         ? (typeof t === "function" ? t("player.switchToOriginal") : "Switch to original audio")
         : (typeof t === "function" ? t("player.switchToTranslated") : "Switch to translated audio");
+    }
+  }
+
+  // ── On-demand TTS generation banner ──
+  // When a user has subtitles but no translated audio, offer to generate it.
+  // Mirrors the subtitle generation banner pattern but for TTS.
+
+  var _ttsPollTimer = null;
+  var _ttsBannerBookId = null;
+
+  function ttsBanner() { return document.getElementById("tts-gen-banner"); }
+
+  function setTtsUi(mode) {
+    var banner = ttsBanner();
+    if (!banner) return;
+    var idle = banner.querySelector(".tgb-idle");
+    var prog = banner.querySelector(".tgb-progress");
+    if (mode === "idle") {
+      if (idle) idle.style.display = "";
+      if (prog) prog.style.display = "none";
+    } else if (mode === "progress") {
+      if (idle) idle.style.display = "none";
+      if (prog) prog.style.display = "";
+    }
+    banner.style.display = "";
+  }
+
+  function hideTtsBanner() {
+    stopTtsPoll();
+    var banner = ttsBanner();
+    if (banner) banner.style.display = "none";
+  }
+
+  function showTtsBanner(bookId, locale) {
+    _ttsBannerBookId = bookId;
+    var banner = ttsBanner();
+    if (!banner) return;
+    setTtsUi("idle");
+    var btn = document.getElementById("tgb-generate");
+    if (btn) {
+      btn.onclick = function () { startTtsGeneration(bookId, locale); };
+    }
+    fetch(API_BASE + "/translated-audio/status/" + bookId + "/" + encodeURIComponent(locale))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) {
+        if (!s) return;
+        if (s.state === "queued" || s.state === "starting" || s.state === "running") {
+          setTtsUi("progress");
+          renderTtsStatus(s);
+          startTtsPoll(bookId, locale);
+        }
+      })
+      .catch(function () {});
+  }
+
+  function startTtsGeneration(bookId, locale) {
+    setTtsUi("progress");
+    renderTtsStatus({ phase: "queued", message: (typeof t === "function" ? t("ttsGen.queued") : "Queued…") });
+    fetch(API_BASE + "/user/translated-audio/request", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ audiobook_id: bookId, locale: locale }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          renderTtsStatus({
+            phase: "error",
+            message: (res.body && res.body.error) || (res.body && res.body.message) || (typeof t === "function" ? t("ttsGen.startFailed") : "Could not start audio generation."),
+          });
+          return;
+        }
+        startTtsPoll(bookId, locale);
+      })
+      .catch(function () {
+        renderTtsStatus({ phase: "error", message: (typeof t === "function" ? t("ttsGen.networkError") : "Network error. Please try again.") });
+      });
+  }
+
+  function startTtsPoll(bookId, locale) {
+    stopTtsPoll();
+    var _ttsIdleCount = 0;
+    _ttsPollTimer = setInterval(function () {
+      if (_ttsBannerBookId !== bookId) { stopTtsPoll(); return; }
+      fetch(API_BASE + "/translated-audio/status/" + bookId + "/" + encodeURIComponent(locale))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (s) {
+          if (!s) return;
+          if (s.state === "idle") {
+            _ttsIdleCount++;
+            if (_ttsIdleCount >= 3) {
+              stopTtsPoll();
+              renderTtsStatus({
+                state: "failed", phase: "error",
+                message: (typeof t === "function" ? t("ttsGen.phase.error") : "Generation failed unexpectedly. Please try again."),
+              });
+            }
+            return;
+          }
+          _ttsIdleCount = 0;
+          renderTtsStatus(s);
+          if (s.state === "completed") {
+            stopTtsPoll();
+            setTimeout(function () {
+              hideTtsBanner();
+              checkTranslatedAudio(bookId, currentChapterIndex, locale);
+            }, 1500);
+          } else if (s.state === "failed") {
+            stopTtsPoll();
+          }
+        })
+        .catch(function () {});
+    }, 4000);
+  }
+
+  function stopTtsPoll() {
+    if (_ttsPollTimer) {
+      clearInterval(_ttsPollTimer);
+      _ttsPollTimer = null;
+    }
+  }
+
+  function renderTtsStatus(status) {
+    var phaseEl = document.getElementById("tgb-phase");
+    var detailEl = document.getElementById("tgb-detail");
+    if (!phaseEl || !detailEl) return;
+
+    var phaseKey = "ttsGen.phase." + (status.phase || "queued");
+    var phaseLabel = typeof t === "function" ? t(phaseKey) : phaseKey;
+    var phaseTranslated = phaseLabel !== phaseKey;
+    if (!phaseTranslated) {
+      phaseLabel = status.message || phaseKey;
+    }
+    phaseEl.textContent = phaseLabel;
+
+    var showDetail = false;
+    if (!phaseTranslated && status.message) {
+      showDetail = true;
+    }
+    if (status.state === "failed" && status.error) {
+      detailEl.textContent = status.error;
+      showDetail = true;
+    } else if (showDetail) {
+      detailEl.textContent = status.message || "";
+    } else {
+      detailEl.textContent = "";
+    }
+    detailEl.style.display = showDetail ? "" : "none";
+
+    var banner = ttsBanner();
+    if (!banner) return;
+    banner.classList.remove("tgb-error", "tgb-done");
+    if (status.state === "failed" || status.phase === "error") {
+      banner.classList.add("tgb-error");
+    } else if (status.state === "completed") {
+      banner.classList.add("tgb-done");
     }
   }
 

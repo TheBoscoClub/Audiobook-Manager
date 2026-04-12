@@ -18,10 +18,13 @@ from .config import (
     STT_PROVIDER,
     VASTAI_WHISPER_HOST,
     VASTAI_WHISPER_PORT,
+    WHISPER_GPU_HOST,
+    WHISPER_GPU_PORT,
 )
 from .fallback import with_local_fallback
 from .selection import WorkloadHint
 from .stt.base import STTProvider, Transcript
+from .stt.local_gpu_whisper import LocalGPUWhisperSTT
 from .stt.local_whisper import LocalWhisperSTT
 from .stt.vastai_whisper import VastaiWhisperSTT
 from .stt.whisper_stt import WhisperSTT
@@ -45,14 +48,23 @@ def _transcribe_with_fallback(
 
 
 def _remote_stt_candidates() -> list[STTProvider]:
-    """Return configured remote STT providers in preferred order.
+    """Return configured remote/network STT providers in preferred order.
 
-    RunPod is listed before Vast.ai because RunPod's serverless endpoints
-    scale to zero (no idle billing) and satisfy the project's on-demand
-    provisioning rule by default. Vast.ai requires a pinned instance, so
-    it's an explicit opt-in for users who have one running.
+    Local GPU is first: zero latency, no billing, uses the host's AMD
+    Radeon with ROCm. Only included if the whisper-gpu service is
+    reachable (avoids blocking on a downed service).
+
+    RunPod is next (serverless, scales to zero). Vast.ai last (requires
+    a pinned instance).
     """
     providers: list[STTProvider] = []
+    if WHISPER_GPU_HOST:
+        gpu_provider = LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
+        if gpu_provider.is_available():
+            providers.append(gpu_provider)
+        else:
+            logger.debug("Local GPU Whisper service not reachable at %s:%d",
+                         WHISPER_GPU_HOST, WHISPER_GPU_PORT)
     if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
         providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT))
     if VASTAI_WHISPER_HOST:
@@ -89,6 +101,8 @@ def get_stt_provider(
 
     if name == "local":
         return LocalWhisperSTT()
+    if name == "local-gpu":
+        return LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
     if name == "whisper":
         if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
             return WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT)
