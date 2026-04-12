@@ -36,6 +36,7 @@ def init_queue(database_path: Path, library_path: Path) -> None:
     _db_path = database_path
     _library_path = library_path
     _ensure_queue_table()
+    _recover_stale_jobs()
 
 
 def _get_db() -> sqlite3.Connection:
@@ -70,6 +71,22 @@ def _ensure_queue_table() -> None:
             ON translation_queue(state, priority DESC)
         """)
         conn.commit()
+    finally:
+        conn.close()
+
+
+def _recover_stale_jobs() -> None:
+    """Reset jobs left in 'processing' state from a prior crash/restart."""
+    conn = _get_db()
+    try:
+        updated = conn.execute(
+            "UPDATE translation_queue SET state = 'pending', started_at = NULL "
+            "WHERE state = 'processing'",
+        ).rowcount
+        conn.commit()
+        if updated:
+            logger.info("Recovered %d stale processing jobs to pending", updated)
+            _ensure_worker()
     finally:
         conn.close()
 
