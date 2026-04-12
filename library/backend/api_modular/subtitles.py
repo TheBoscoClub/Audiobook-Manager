@@ -112,25 +112,13 @@ def _start_generation(
                     chapter_title=title,
                 )
 
-            chapter_results = generate_book_subtitles(
-                audio_path=audio_path,
-                output_dir=subtitle_dir,
-                target_locale=locale,
-                stt_provider=stt,
-                on_progress=_on_chapter_progress,
-            )
-
-            _set_status(
-                book_id, locale,
-                phase="saving",
-                message="Saving subtitles to database…",
-            )
-
             gen_conn = sqlite3.connect(db_path)
             gen_conn.execute("PRAGMA journal_mode=WAL")
             gen_conn.execute("PRAGMA foreign_keys=ON")
             try:
-                for ch_idx, source_vtt, translated_vtt in chapter_results:
+                def _on_chapter_complete(
+                    ch_idx: int, source_vtt: Path, translated_vtt: Path | None,
+                ):
                     gen_conn.execute(
                         "INSERT OR REPLACE INTO chapter_subtitles "
                         "(audiobook_id, chapter_index, locale, vtt_path, "
@@ -147,13 +135,27 @@ def _start_generation(
                             (book_id, ch_idx, locale,
                              str(translated_vtt), stt.name),
                         )
-                gen_conn.commit()
-                logger.info(
-                    "Subtitles saved for book %d: %d chapters",
-                    book_id, len(chapter_results),
+                    gen_conn.commit()
+                    logger.info(
+                        "Chapter %d subtitles saved — player can display them now",
+                        ch_idx,
+                    )
+
+                chapter_results = generate_book_subtitles(
+                    audio_path=audio_path,
+                    output_dir=subtitle_dir,
+                    target_locale=locale,
+                    stt_provider=stt,
+                    on_progress=_on_chapter_progress,
+                    on_chapter_complete=_on_chapter_complete,
                 )
             finally:
                 gen_conn.close()
+
+            logger.info(
+                "Subtitles saved for book %d: %d chapters",
+                book_id, len(chapter_results),
+            )
 
             _set_status(
                 book_id, locale,

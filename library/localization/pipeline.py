@@ -227,6 +227,9 @@ def _offset_cues(cues: list[VTTCue], offset_ms: int) -> list[VTTCue]:
     ]
 
 
+ChapterCompleteCallback = Callable[[int, Path, Path | None], None]
+
+
 def generate_book_subtitles(
     audio_path: Path,
     output_dir: Path,
@@ -234,12 +237,15 @@ def generate_book_subtitles(
     source_lang: str = "en",
     stt_provider: STTProvider | None = None,
     on_progress: ProgressCallback | None = None,
+    on_chapter_complete: ChapterCompleteCallback | None = None,
 ) -> list[tuple[int, Path, Path | None]]:
     """Generate subtitles for an audiobook, chapter by chapter.
 
     Splits the audio into chapters, transcribes each individually, and
-    produces per-chapter VTT files. Returns early results as each chapter
-    completes so the user sees subtitles appearing progressively.
+    produces per-chapter VTT files. Fires ``on_chapter_complete`` after
+    each chapter so callers can persist results incrementally (e.g.,
+    write to DB so the player shows subtitles while later chapters are
+    still transcribing).
 
     Args:
         audio_path: Path to the full audiobook file.
@@ -249,6 +255,8 @@ def generate_book_subtitles(
         stt_provider: STT provider (auto-selected if None).
         on_progress: Called with (chapter_index, total_chapters, chapter_title)
             before each chapter starts transcription.
+        on_chapter_complete: Called with (chapter_index, source_vtt,
+            translated_vtt_or_None) after each chapter's VTTs are written.
 
     Returns:
         List of (chapter_index, source_vtt, translated_vtt_or_None) tuples.
@@ -324,6 +332,8 @@ def generate_book_subtitles(
                 )
 
             results.append((chapter.index, source_vtt, translated_vtt))
+            if on_chapter_complete:
+                on_chapter_complete(chapter.index, source_vtt, translated_vtt)
 
         finally:
             if chapter_file and chapter_file.exists():
