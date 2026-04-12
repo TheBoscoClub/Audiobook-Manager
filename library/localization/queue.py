@@ -91,20 +91,6 @@ def _recover_stale_jobs() -> None:
         conn.close()
 
 
-def _resume_pending_jobs() -> None:
-    """Start the worker if there are pending jobs from a prior session."""
-    conn = _get_db()
-    try:
-        pending = conn.execute(
-            "SELECT COUNT(*) FROM translation_queue WHERE state = 'pending'",
-        ).fetchone()[0]
-        if pending:
-            logger.info("Found %d pending jobs — starting worker", pending)
-            _ensure_worker()
-    finally:
-        conn.close()
-
-
 def enqueue(audiobook_id: int, locale: str, priority: int = 0) -> None:
     """Add a book+locale to the translation queue. Idempotent."""
     conn = _get_db()
