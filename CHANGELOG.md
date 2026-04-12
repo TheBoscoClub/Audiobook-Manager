@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Gunicorn worker killed during GPU transcription** (prior session incident): `--timeout 120` caused SIGKILL of the worker process during long Whisper transcription requests, destroying the daemon thread that held the GPU connection. Manifested as a 400 error in GPU service logs (actually a broken pipe from the killed worker). Fixed by increasing timeout to 1800s
 - **STT auto-selection preferred DeepL over Whisper**: Auto mode now correctly prefers Whisper for long-form audiobook work — DeepL's transcription endpoint rejects payloads above ~100 MB, and audiobooks routinely exceed that
+- **STT provider priority favored unstable backends**: Auto mode now prefers Vast.ai (dedicated instance, reliable throughput) over RunPod (frequently resource-constrained) over local GPU (system instability risk under heavy Whisper loads). Previously local GPU was first, causing either system crashes or silent fallback to CPU transcription
 
 ## [8.1.1] - 2026-04-11
 

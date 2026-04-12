@@ -59,14 +59,16 @@ def _transcribe_with_fallback(
 def _remote_stt_candidates() -> list[STTProvider]:
     """Return configured remote/network STT providers in preferred order.
 
-    Local GPU is first: zero latency, no billing, uses the host's AMD
-    Radeon with ROCm. Only included if the whisper-gpu service is
-    reachable (avoids blocking on a downed service).
-
-    RunPod is next (serverless, scales to zero). Vast.ai last (requires
-    a pinned instance).
+    Vast.ai is first (dedicated instance, reliable throughput). RunPod
+    is next (serverless, scales to zero — but frequently resource-constrained).
+    Local GPU last: uses the host's AMD Radeon with ROCm but risks system
+    instability under heavy Whisper loads.
     """
     providers: list[STTProvider] = []
+    if VASTAI_WHISPER_HOST:
+        providers.append(VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT))
+    if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
+        providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT))
     if WHISPER_GPU_HOST:
         gpu_provider = LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
         if gpu_provider.is_available():
@@ -74,10 +76,6 @@ def _remote_stt_candidates() -> list[STTProvider]:
         else:
             logger.debug("Local GPU Whisper service not reachable at %s:%d",
                          WHISPER_GPU_HOST, WHISPER_GPU_PORT)
-    if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
-        providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT))
-    if VASTAI_WHISPER_HOST:
-        providers.append(VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT))
     return providers
 
 
