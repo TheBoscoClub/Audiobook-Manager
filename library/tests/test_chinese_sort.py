@@ -79,10 +79,10 @@ class TestPinyinSortKey:
     def test_title_sorted_list(self):
         """A realistic mix of Chinese titles sorts by their pinyin."""
         titles = [
-            "西游记",   # xiyouji
+            "西游记",  # xiyouji
             "三国演义",  # sanguoyanyi
-            "红楼梦",   # hongloumeng
-            "水浒传",   # shuihuzhuan
+            "红楼梦",  # hongloumeng
+            "水浒传",  # shuihuzhuan
         ]
         keys = {t: pinyin_sort_key(t) for t in titles}
         sorted_titles = sorted(titles, key=lambda t: keys[t] or "")
@@ -145,9 +145,7 @@ class TestCJKBigrams:
 def sample_db():
     """In-memory SQLite with a tiny books table for LIKE matching."""
     conn = sqlite3.connect(":memory:")
-    conn.execute(
-        "CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL)"
-    )
+    conn.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL)")
     titles = [
         (1, "西游记"),
         (2, "东游志"),
@@ -172,7 +170,9 @@ class TestBigramLikeClause:
 
         # frag comes from our own helper with a hardcoded column name; safe to interpolate.
         sql = f"SELECT id FROM books WHERE {frag}"  # nosec B608
-        cur = sample_db.execute(sql, params)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cur = sample_db.execute(
+            sql, params
+        )  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         ids = {r[0] for r in cur.fetchall()}
         assert 1 in ids  # 西游记
         assert 2 not in ids  # 东游志 — no 西游 substring
@@ -183,7 +183,9 @@ class TestBigramLikeClause:
         # Two bigrams, two params
         assert params == ["%西游%", "%游记%"]
         sql = f"SELECT id FROM books WHERE {frag}"  # nosec B608
-        cur = sample_db.execute(sql, params)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cur = sample_db.execute(
+            sql, params
+        )  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         ids = {r[0] for r in cur.fetchall()}
         assert ids == {1}  # only 西游记
 

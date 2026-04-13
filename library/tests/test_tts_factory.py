@@ -35,8 +35,10 @@ def test_vastai_requires_host():
 
 
 def test_vastai_factory_builds_provider_with_configured_host():
-    with patch("library.localization.config.VASTAI_XTTS_HOST", "10.0.0.1"), \
-         patch("library.localization.config.VASTAI_XTTS_PORT", 9000):
+    with (
+        patch("library.localization.config.VASTAI_XTTS_HOST", "10.0.0.1"),
+        patch("library.localization.config.VASTAI_XTTS_PORT", 9000),
+    ):
         provider = get_tts_provider("vastai")
     assert isinstance(provider, VastaiXTTSProvider)
     assert provider.name == "xtts-vastai"
@@ -45,15 +47,19 @@ def test_vastai_factory_builds_provider_with_configured_host():
 
 
 def test_runpod_requires_api_key():
-    with patch("library.localization.config.RUNPOD_API_KEY", ""), \
-         patch("library.localization.config.RUNPOD_XTTS_ENDPOINT", "ep_123"):
+    with (
+        patch("library.localization.config.RUNPOD_API_KEY", ""),
+        patch("library.localization.config.RUNPOD_XTTS_ENDPOINT", "ep_123"),
+    ):
         with pytest.raises(ValueError, match="RUNPOD_API_KEY"):
             get_tts_provider("xtts-runpod")
 
 
 def test_runpod_requires_endpoint():
-    with patch("library.localization.config.RUNPOD_API_KEY", "rpa_key"), \
-         patch("library.localization.config.RUNPOD_XTTS_ENDPOINT", ""):
+    with (
+        patch("library.localization.config.RUNPOD_API_KEY", "rpa_key"),
+        patch("library.localization.config.RUNPOD_XTTS_ENDPOINT", ""),
+    ):
         with pytest.raises(ValueError, match="RUNPOD_XTTS_ENDPOINT"):
             get_tts_provider("xtts-runpod")
 
@@ -70,9 +76,12 @@ def test_vastai_xtts_synthesize_writes_response_body(tmp_path: Path):
     fake_resp.raise_for_status.return_value = None
 
     out = tmp_path / "out" / "clip.wav"
-    with patch("library.localization.tts.vastai_xtts.requests.post",
-               return_value=fake_resp) as mocked:
-        result = provider.synthesize("你好世界", language="zh-Hans", voice="clone", output_path=out)
+    with patch(
+        "library.localization.tts.vastai_xtts.requests.post", return_value=fake_resp
+    ) as mocked:
+        result = provider.synthesize(
+            "你好世界", language="zh-Hans", voice="clone", output_path=out
+        )
 
     assert result == out
     assert out.exists()
@@ -88,9 +97,12 @@ def test_vastai_xtts_strips_region_suffix_from_language(tmp_path: Path):
     """Vast.ai XTTS expects bare 'zh', not 'zh-Hans' or 'zh-CN'."""
     provider = VastaiXTTSProvider(host="10.0.0.1")
     fake_resp = MagicMock(content=b"x", raise_for_status=lambda: None)
-    with patch("library.localization.tts.vastai_xtts.requests.post",
-               return_value=fake_resp) as mocked:
-        provider.synthesize("hi", language="zh-Hans", voice="", output_path=tmp_path / "a.wav")
+    with patch(
+        "library.localization.tts.vastai_xtts.requests.post", return_value=fake_resp
+    ) as mocked:
+        provider.synthesize(
+            "hi", language="zh-Hans", voice="", output_path=tmp_path / "a.wav"
+        )
     assert mocked.call_args.kwargs["json"]["language"] == "zh"
     assert mocked.call_args.kwargs["json"]["voice"] == "clone"  # blank → default
 

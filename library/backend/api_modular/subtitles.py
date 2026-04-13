@@ -59,7 +59,10 @@ def _get_status(book_id: int, locale: str) -> dict | None:
 
 
 def _start_generation(
-    book_id: int, locale: str, audio_path: Path, provider_name: str,
+    book_id: int,
+    locale: str,
+    audio_path: Path,
+    provider_name: str,
     skip_chapters: set[int] | None = None,
 ) -> None:
     """Launch subtitle generation in a background thread.
@@ -73,7 +76,8 @@ def _start_generation(
     def _generate():
         try:
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 state="starting",
                 phase="loading_pipeline",
                 message="Loading speech-to-text pipeline…",
@@ -90,14 +94,16 @@ def _start_generation(
             subtitle_dir.mkdir(parents=True, exist_ok=True)
 
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 state="running",
                 phase="gpu_spinup",
                 message="Connecting to GPU transcription service…",
             )
             stt = get_stt_provider(provider_name, workload=WorkloadHint.LONG_FORM)
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 phase="transcribing",
                 message=f"Starting transcription with {stt.name}…",
                 stt_provider=stt.name,
@@ -105,7 +111,8 @@ def _start_generation(
 
             def _on_chapter_progress(ch_idx: int, total: int, title: str):
                 _set_status(
-                    book_id, locale,
+                    book_id,
+                    locale,
                     phase="transcribing",
                     message=f"Transcribing chapter {ch_idx + 1} of {total}: {title}",
                     chapter_index=ch_idx,
@@ -117,8 +124,11 @@ def _start_generation(
             gen_conn.execute("PRAGMA journal_mode=WAL")
             gen_conn.execute("PRAGMA foreign_keys=ON")
             try:
+
                 def _on_chapter_complete(
-                    ch_idx: int, source_vtt: Path, translated_vtt: Path | None,
+                    ch_idx: int,
+                    source_vtt: Path,
+                    translated_vtt: Path | None,
                 ):
                     gen_conn.execute(
                         "INSERT OR REPLACE INTO chapter_subtitles "
@@ -133,8 +143,7 @@ def _start_generation(
                             "(audiobook_id, chapter_index, locale, vtt_path, "
                             " stt_provider, translation_provider) "
                             "VALUES (?, ?, ?, ?, ?, 'deepl')",
-                            (book_id, ch_idx, locale,
-                             str(translated_vtt), stt.name),
+                            (book_id, ch_idx, locale, str(translated_vtt), stt.name),
                         )
                     gen_conn.commit()
                     logger.info(
@@ -156,11 +165,13 @@ def _start_generation(
 
             logger.info(
                 "Subtitles saved for book %d: %d chapters",
-                book_id, len(chapter_results),
+                book_id,
+                len(chapter_results),
             )
 
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 state="completed",
                 phase="done",
                 message=f"Subtitles ready — {len(chapter_results)} chapters.",
@@ -169,7 +180,8 @@ def _start_generation(
         except Exception as e:
             logger.exception("Subtitle generation failed for book %d", book_id)
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 state="failed",
                 phase="error",
                 message=(
@@ -181,7 +193,8 @@ def _start_generation(
             )
 
     _set_status(
-        book_id, locale,
+        book_id,
+        locale,
         state="queued",
         phase="queued",
         message="Queued…",
@@ -303,7 +316,8 @@ def generate_subtitles_endpoint():
             return jsonify({"error": "Audio file not found on disk"}), 404
 
         existing_chapters = {
-            row[0] for row in conn.execute(
+            row[0]
+            for row in conn.execute(
                 "SELECT DISTINCT chapter_index FROM chapter_subtitles "
                 "WHERE audiobook_id = ? AND locale = ?",
                 (book_id, "en"),
@@ -312,15 +326,18 @@ def generate_subtitles_endpoint():
     finally:
         conn.close()
 
-    _start_generation(book_id, locale, audio_path, provider_name,
-                      skip_chapters=existing_chapters)
+    _start_generation(
+        book_id, locale, audio_path, provider_name, skip_chapters=existing_chapters
+    )
 
-    return jsonify({
-        "audiobook_id": book_id,
-        "locale": locale,
-        "status": "started",
-        "message": "Subtitle generation started in background.",
-    })
+    return jsonify(
+        {
+            "audiobook_id": book_id,
+            "locale": locale,
+            "status": "started",
+            "message": "Subtitle generation started in background.",
+        }
+    )
 
 
 @subtitles_bp.route(
@@ -338,11 +355,13 @@ def get_subtitle_job_status(book_id, locale):
     status = _get_status(book_id, locale)
     if not status:
         return jsonify({"state": "idle"})
-    return jsonify({
-        "audiobook_id": book_id,
-        "locale": locale,
-        **status,
-    })
+    return jsonify(
+        {
+            "audiobook_id": book_id,
+            "locale": locale,
+            **status,
+        }
+    )
 
 
 @subtitles_bp.route("/api/user/subtitles/request", methods=["POST"])
@@ -354,6 +373,7 @@ def user_request_subtitles():
     double-clicks don't spawn duplicate GPU jobs.
     """
     from flask import current_app
+
     auth_on = current_app.config.get("AUTH_ENABLED", False)
     user = getattr(g, "user", None)
     if auth_on and not user:
@@ -367,28 +387,34 @@ def user_request_subtitles():
 
     user_id = None
     if user is not None:
-        user_id = user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+        user_id = (
+            user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+        )
     if user_id is not None:
         key = (int(user_id), int(book_id))
         now = time.time()
         last = _user_requests.get(key, 0)
         if now - last < _USER_COOLDOWN_SEC:
-            return jsonify({
-                "status": "cooldown",
-                "message": "Please wait a moment before trying again.",
-                "retry_after": int(_USER_COOLDOWN_SEC - (now - last)),
-            }), 429
+            return jsonify(
+                {
+                    "status": "cooldown",
+                    "message": "Please wait a moment before trying again.",
+                    "retry_after": int(_USER_COOLDOWN_SEC - (now - last)),
+                }
+            ), 429
         _user_requests[key] = now
 
     # If a job for this (book, locale) is already running, return its state
     existing = _get_status(int(book_id), locale)
     if existing and existing.get("state") in ("queued", "starting", "running"):
-        return jsonify({
-            "audiobook_id": book_id,
-            "locale": locale,
-            "status": "already_running",
-            **existing,
-        })
+        return jsonify(
+            {
+                "audiobook_id": book_id,
+                "locale": locale,
+                "status": "already_running",
+                **existing,
+            }
+        )
 
     # Otherwise kick off generation by calling through the admin handler's
     # core logic. We reuse the same validation path to avoid drift.
@@ -405,7 +431,8 @@ def user_request_subtitles():
             return jsonify({"error": "Audio file not found on disk"}), 404
 
         existing_chapters = {
-            row[0] for row in conn.execute(
+            row[0]
+            for row in conn.execute(
                 "SELECT DISTINCT chapter_index FROM chapter_subtitles "
                 "WHERE audiobook_id = ? AND locale = ?",
                 (book_id, "en"),
@@ -414,15 +441,18 @@ def user_request_subtitles():
     finally:
         conn.close()
 
-    _start_generation(int(book_id), locale, audio_path, "",
-                      skip_chapters=existing_chapters)
+    _start_generation(
+        int(book_id), locale, audio_path, "", skip_chapters=existing_chapters
+    )
 
-    return jsonify({
-        "audiobook_id": book_id,
-        "locale": locale,
-        "status": "started",
-        "message": (
-            "Subtitle generation started. This may take several minutes — "
-            "the GPU server has to spin up first."
-        ),
-    })
+    return jsonify(
+        {
+            "audiobook_id": book_id,
+            "locale": locale,
+            "status": "started",
+            "message": (
+                "Subtitle generation started. This may take several minutes — "
+                "the GPU server has to spin up first."
+            ),
+        }
+    )

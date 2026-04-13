@@ -69,7 +69,9 @@ class DeepLTranslator:
         if not api_key:
             raise ValueError("DeepL API key is required")
         self._api_key = api_key
-        self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
+        self._base_url = (
+            DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
+        )
         self._db_path = Path(db_path) if db_path else None
         self._tracker = tracker
         self._glossary_id = glossary_id
@@ -253,9 +255,7 @@ class DeepLTranslator:
         return results[0] if results else text
 
 
-def prune_translation_memory(
-    db_path: Path | str, older_than_days: int
-) -> int:
+def prune_translation_memory(db_path: Path | str, older_than_days: int) -> int:
     """Delete TM rows older than ``older_than_days``.
 
     Returns the number of rows removed. The translation memory lives in
@@ -266,8 +266,7 @@ def prune_translation_memory(
     conn = sqlite3.connect(str(db_path))
     try:
         cur = conn.execute(
-            "DELETE FROM string_translations "
-            "WHERE updated_at < datetime('now', ?)",
+            "DELETE FROM string_translations WHERE updated_at < datetime('now', ?)",
             (f"-{int(older_than_days)} days",),
         )
         conn.commit()

@@ -31,8 +31,10 @@ def test_faster_whisper_top_level_words_shape(audio_file: Path):
             {"word": "world", "start": 0.6, "end": 1.2},
         ],
     }
-    with patch("library.localization.stt.vastai_whisper.requests.post",
-               return_value=_mock_post(payload)):
+    with patch(
+        "library.localization.stt.vastai_whisper.requests.post",
+        return_value=_mock_post(payload),
+    ):
         provider = VastaiWhisperSTT(host="127.0.0.1", port=8000)
         transcript = provider.transcribe(audio_file, language="en")
 
@@ -65,8 +67,10 @@ def test_whisper_cpp_nested_segments_words_shape(audio_file: Path):
             },
         ],
     }
-    with patch("library.localization.stt.vastai_whisper.requests.post",
-               return_value=_mock_post(payload)):
+    with patch(
+        "library.localization.stt.vastai_whisper.requests.post",
+        return_value=_mock_post(payload),
+    ):
         provider = VastaiWhisperSTT(host="127.0.0.1")
         transcript = provider.transcribe(audio_file, language="zh")
 
@@ -87,8 +91,10 @@ def test_string_typed_timestamps_dont_crash(audio_file: Path):
             {"word": "test", "start": "0.1", "end": "0.4"},
         ],
     }
-    with patch("library.localization.stt.vastai_whisper.requests.post",
-               return_value=_mock_post(payload)):
+    with patch(
+        "library.localization.stt.vastai_whisper.requests.post",
+        return_value=_mock_post(payload),
+    ):
         provider = VastaiWhisperSTT(host="127.0.0.1")
         transcript = provider.transcribe(audio_file)
 
@@ -107,8 +113,10 @@ def test_empty_words_skipped(audio_file: Path):
             {"word": "", "start": 0.4, "end": 0.5},
         ],
     }
-    with patch("library.localization.stt.vastai_whisper.requests.post",
-               return_value=_mock_post(payload)):
+    with patch(
+        "library.localization.stt.vastai_whisper.requests.post",
+        return_value=_mock_post(payload),
+    ):
         provider = VastaiWhisperSTT(host="127.0.0.1")
         transcript = provider.transcribe(audio_file)
 
@@ -123,8 +131,10 @@ def test_text_field_alias_used_when_word_missing(audio_file: Path):
             {"words": [{"text": "alt", "start": 0.0, "end": 0.4}]},
         ],
     }
-    with patch("library.localization.stt.vastai_whisper.requests.post",
-               return_value=_mock_post(payload)):
+    with patch(
+        "library.localization.stt.vastai_whisper.requests.post",
+        return_value=_mock_post(payload),
+    ):
         provider = VastaiWhisperSTT(host="127.0.0.1")
         transcript = provider.transcribe(audio_file)
 
@@ -138,8 +148,10 @@ def test_duration_falls_back_to_last_word_end(audio_file: Path):
             {"word": "b", "start": 0.6, "end": 1.4},
         ],
     }
-    with patch("library.localization.stt.vastai_whisper.requests.post",
-               return_value=_mock_post(payload)):
+    with patch(
+        "library.localization.stt.vastai_whisper.requests.post",
+        return_value=_mock_post(payload),
+    ):
         provider = VastaiWhisperSTT(host="127.0.0.1")
         transcript = provider.transcribe(audio_file)
 

@@ -155,13 +155,13 @@ def _format_html(template: str, variables: Dict[str, Any]) -> str:
 _BASE_HTML = (
     "<!DOCTYPE html>\n"
     "<html>\n"
-    "<head><meta charset=\"UTF-8\"></head>\n"
-    "<body style=\"font-family: Georgia, serif; background-color: #1a1a1a;"
-    " color: #f5f5dc; padding: 20px;\">\n"
-    "  <div style=\"max-width: 600px; margin: 0 auto;"
-    " background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;\">\n"
-    "    <h1 style=\"color: #daa520; text-align: center;"
-    " margin-bottom: 20px;\">{heading}</h1>\n"
+    '<head><meta charset="UTF-8"></head>\n'
+    '<body style="font-family: Georgia, serif; background-color: #1a1a1a;'
+    ' color: #f5f5dc; padding: 20px;">\n'
+    '  <div style="max-width: 600px; margin: 0 auto;'
+    ' background-color: #2a2a2a; padding: 30px; border: 1px solid #8b7355;">\n'
+    '    <h1 style="color: #daa520; text-align: center;'
+    ' margin-bottom: 20px;">{heading}</h1>\n'
     "{inner}"
     "  </div>\n"
     "</body>\n"
@@ -194,22 +194,22 @@ def _render_magic_link(locale: str, v: Dict[str, Any]) -> Tuple[str, str, str]:
 
     safe_link = html.escape(str(v.get("link", "")), quote=True)
     button_html = (
-        f"<div style=\"text-align: center; margin: 30px 0;\">"
-        f"<a href=\"{safe_link}\""
-        f" style=\"background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);"
+        f'<div style="text-align: center; margin: 30px 0;">'
+        f'<a href="{safe_link}"'
+        f' style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);'
         f" color: #1a1a1a; padding: 18px 40px; text-decoration: none;"
-        f" font-weight: bold; font-size: 1.1em; letter-spacing: 2px;\">"
+        f' font-weight: bold; font-size: 1.1em; letter-spacing: 2px;">'
         f"{button_label}</a></div>"
     )
 
     inner = (
-        f"    <p style=\"line-height: 1.8;\">{greeting}</p>\n"
-        f"    <p style=\"line-height: 1.8;\">{intro}</p>\n"
+        f'    <p style="line-height: 1.8;">{greeting}</p>\n'
+        f'    <p style="line-height: 1.8;">{intro}</p>\n'
         f"    {button_html}\n"
-        f"    <p style=\"line-height: 1.8;\">{expiry_note}</p>\n"
-        f"    <p style=\"color: #888; font-size: 0.9em; text-align: center;\">"
+        f'    <p style="line-height: 1.8;">{expiry_note}</p>\n'
+        f'    <p style="color: #888; font-size: 0.9em; text-align: center;">'
         f"{fallback}<br>"
-        f"<a href=\"{safe_link}\" style=\"color: #daa520; word-break: break-all;\">"
+        f'<a href="{safe_link}" style="color: #daa520; word-break: break-all;">'
         f"{safe_link}</a></p>\n"
     )
     heading = _format_html(_t("email.common.heading", locale), v)
@@ -228,22 +228,22 @@ def _render_approval(locale: str, v: Dict[str, Any]) -> Tuple[str, str, str]:
 
     safe_url = html.escape(str(v.get("claim_url", "")), quote=True)
     button_html = (
-        f"<div style=\"text-align: center; margin: 25px 0;\">"
-        f"<a href=\"{safe_url}\""
-        f" style=\"background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);"
+        f'<div style="text-align: center; margin: 25px 0;">'
+        f'<a href="{safe_url}"'
+        f' style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);'
         f" color: #1a1a1a; padding: 14px 30px; text-decoration: none;"
-        f" font-weight: bold; font-size: 1.05em; letter-spacing: 1px;\">"
+        f' font-weight: bold; font-size: 1.05em; letter-spacing: 1px;">'
         f"{button_label}</a></div>"
     )
 
     inner = (
-        f"    <p style=\"line-height: 1.8;\">{greeting}</p>\n"
-        f"    <p style=\"line-height: 1.8;\">{intro}</p>\n"
-        f"    <p style=\"line-height: 1.8;\">{instructions}</p>\n"
+        f'    <p style="line-height: 1.8;">{greeting}</p>\n'
+        f'    <p style="line-height: 1.8;">{intro}</p>\n'
+        f'    <p style="line-height: 1.8;">{instructions}</p>\n'
         f"    {button_html}\n"
-        f"    <p style=\"color: #888; font-size: 0.9em; text-align: center;\">"
+        f'    <p style="color: #888; font-size: 0.9em; text-align: center;">'
         f"{fallback}<br>"
-        f"<a href=\"{safe_url}\" style=\"color: #daa520; word-break: break-all;\">"
+        f'<a href="{safe_url}" style="color: #daa520; word-break: break-all;">'
         f"{safe_url}</a></p>\n"
     )
     heading = _format_html(_t("email.approval.heading", locale), v)
@@ -261,13 +261,13 @@ def _render_denial(locale: str, v: Dict[str, Any]) -> Tuple[str, str, str]:
     retry_note = _format_html(_t("email.denial.retry", locale), v)
 
     inner = (
-        f"    <p style=\"line-height: 1.6;\">{greeting}</p>\n"
-        f"    <p style=\"line-height: 1.6;\">{body}</p>\n"
-        f"    <div style=\"background-color: #3a3a3a; padding: 15px;"
-        f" margin: 15px 0; border-left: 3px solid #8b7355;\">"
-        f"<p style=\"margin: 0;\"><strong>{reason_label}</strong> {reason_value}</p>"
+        f'    <p style="line-height: 1.6;">{greeting}</p>\n'
+        f'    <p style="line-height: 1.6;">{body}</p>\n'
+        f'    <div style="background-color: #3a3a3a; padding: 15px;'
+        f' margin: 15px 0; border-left: 3px solid #8b7355;">'
+        f'<p style="margin: 0;"><strong>{reason_label}</strong> {reason_value}</p>'
         f"</div>\n"
-        f"    <p style=\"line-height: 1.6;\">{retry_note}</p>\n"
+        f'    <p style="line-height: 1.6;">{retry_note}</p>\n'
     )
     heading = _format_html(_t("email.common.heading", locale), v)
     return subject, text, _wrap_html(heading, inner)
@@ -284,11 +284,11 @@ def _render_reply(locale: str, v: Dict[str, Any]) -> Tuple[str, str, str]:
     )
 
     inner = (
-        f"    <p style=\"line-height: 1.8;\">{greeting}</p>\n"
-        f"    <div style=\"line-height: 1.8;\">{escaped_reply}</div>\n"
-        f"    <hr style=\"border: none; border-top: 1px solid #8b7355;"
-        f" margin: 20px 0;\">\n"
-        f"    <p style=\"color: #888; font-size: 0.9em;\">{footer}</p>\n"
+        f'    <p style="line-height: 1.8;">{greeting}</p>\n'
+        f'    <div style="line-height: 1.8;">{escaped_reply}</div>\n'
+        f'    <hr style="border: none; border-top: 1px solid #8b7355;'
+        f' margin: 20px 0;">\n'
+        f'    <p style="color: #888; font-size: 0.9em;">{footer}</p>\n'
     )
     heading = _format_html(_t("email.common.heading", locale), v)
     return subject, text, _wrap_html(heading, inner)
@@ -309,35 +309,35 @@ def _render_invitation(locale: str, v: Dict[str, Any]) -> Tuple[str, str, str]:
     safe_url = html.escape(str(v.get("claim_url", "")), quote=True)
     safe_token = html.escape(str(v.get("claim_token", "")), quote=True)
     token_box = (
-        f"<div style=\"background-color: #3a3a3a; padding: 20px; margin: 20px 0;"
-        f" border: 3px solid #daa520; text-align: center;\">"
-        f"<p style=\"margin: 0 0 10px 0; font-weight: bold;\">{token_label}</p>"
+        f'<div style="background-color: #3a3a3a; padding: 20px; margin: 20px 0;'
+        f' border: 3px solid #daa520; text-align: center;">'
+        f'<p style="margin: 0 0 10px 0; font-weight: bold;">{token_label}</p>'
         f"<p style=\"color: #daa520; font-family: 'Courier New', monospace;"
-        f" font-size: 1.6em; letter-spacing: 0.15em; margin: 0; font-weight: bold;\">"
+        f' font-size: 1.6em; letter-spacing: 0.15em; margin: 0; font-weight: bold;">'
         f"{safe_token}</p></div>"
     )
     button_html = (
-        f"<div style=\"text-align: center; margin: 25px 0;\">"
-        f"<a href=\"{safe_url}\""
-        f" style=\"background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);"
+        f'<div style="text-align: center; margin: 25px 0;">'
+        f'<a href="{safe_url}"'
+        f' style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);'
         f" color: #1a1a1a; padding: 14px 30px; text-decoration: none;"
-        f" font-weight: bold; font-size: 1.05em; letter-spacing: 1px;\">"
+        f' font-weight: bold; font-size: 1.05em; letter-spacing: 1px;">'
         f"{button_label}</a></div>"
     )
 
     inner = (
-        f"    <p style=\"line-height: 1.8;\">{greeting}</p>\n"
-        f"    <p style=\"line-height: 1.8;\">{intro}</p>\n"
+        f'    <p style="line-height: 1.8;">{greeting}</p>\n'
+        f'    <p style="line-height: 1.8;">{intro}</p>\n'
         f"    {token_box}\n"
-        f"    <div style=\"background-color: #4a2a2a; padding: 15px;"
-        f" margin: 0 0 20px 0; border: 2px solid #ff9999;\">"
-        f"<p style=\"color: #ff9999; font-weight: bold; margin: 0;\">{warning}</p>"
+        f'    <div style="background-color: #4a2a2a; padding: 15px;'
+        f' margin: 0 0 20px 0; border: 2px solid #ff9999;">'
+        f'<p style="color: #ff9999; font-weight: bold; margin: 0;">{warning}</p>'
         f"</div>\n"
-        f"    <p style=\"line-height: 1.8;\">{instructions}</p>\n"
+        f'    <p style="line-height: 1.8;">{instructions}</p>\n'
         f"    {button_html}\n"
-        f"    <p style=\"color: #888; font-size: 0.9em; text-align: center;\">"
+        f'    <p style="color: #888; font-size: 0.9em; text-align: center;">'
         f"{fallback}<br>"
-        f"<a href=\"{safe_url}\" style=\"color: #daa520; word-break: break-all;\">"
+        f'<a href="{safe_url}" style="color: #daa520; word-break: break-all;">'
         f"{safe_url}</a></p>\n"
     )
     heading = _format_html(_t("email.invitation.heading", locale), v)
@@ -357,23 +357,23 @@ def _render_activation(locale: str, v: Dict[str, Any]) -> Tuple[str, str, str]:
 
     safe_url = html.escape(str(v.get("activation_url", "")), quote=True)
     button_html = (
-        f"<div style=\"text-align: center; margin: 30px 0;\">"
-        f"<a href=\"{safe_url}\""
-        f" style=\"background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);"
+        f'<div style="text-align: center; margin: 30px 0;">'
+        f'<a href="{safe_url}"'
+        f' style="background: linear-gradient(to bottom, #ffd700, #daa520, #8b7355);'
         f" color: #1a1a1a; padding: 18px 40px; text-decoration: none;"
-        f" font-weight: bold; font-size: 1.1em; letter-spacing: 2px;\">"
+        f' font-weight: bold; font-size: 1.1em; letter-spacing: 2px;">'
         f"{button_label}</a></div>"
     )
 
     inner = (
-        f"    <p style=\"line-height: 1.8;\">{greeting}</p>\n"
-        f"    <p style=\"line-height: 1.8;\">{intro}</p>\n"
+        f'    <p style="line-height: 1.8;">{greeting}</p>\n'
+        f'    <p style="line-height: 1.8;">{intro}</p>\n'
         f"    {button_html}\n"
-        f"    <p style=\"line-height: 1.8;\">{expiry_note}</p>\n"
-        f"    <p style=\"line-height: 1.8;\">{how_it_works}</p>\n"
-        f"    <p style=\"color: #888; font-size: 0.9em; text-align: center;\">"
+        f'    <p style="line-height: 1.8;">{expiry_note}</p>\n'
+        f'    <p style="line-height: 1.8;">{how_it_works}</p>\n'
+        f'    <p style="color: #888; font-size: 0.9em; text-align: center;">'
         f"{fallback}<br>"
-        f"<a href=\"{safe_url}\" style=\"color: #daa520; word-break: break-all;\">"
+        f'<a href="{safe_url}" style="color: #daa520; word-break: break-all;">'
         f"{safe_url}</a></p>\n"
     )
     heading = _format_html(_t("email.activation.heading", locale), v)

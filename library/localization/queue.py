@@ -95,8 +95,9 @@ def _recover_stale_jobs() -> None:
         conn.close()
 
 
-def enqueue(audiobook_id: int, locale: str, priority: int = 0,
-            *, start_worker: bool = False) -> None:
+def enqueue(
+    audiobook_id: int, locale: str, priority: int = 0, *, start_worker: bool = False
+) -> None:
     """Add a book+locale to the translation queue. Idempotent.
 
     Does NOT auto-start the worker by default — under gevent's single
@@ -120,6 +121,7 @@ def enqueue(audiobook_id: int, locale: str, priority: int = 0,
 def enqueue_book_all_locales(audiobook_id: int, priority: int = 0) -> None:
     """Queue a book for translation in all configured non-English locales."""
     from .config import SUPPORTED_LOCALES
+
     locales = [loc for loc in SUPPORTED_LOCALES if loc != "en"]
     if not locales:
         return
@@ -209,16 +211,17 @@ def get_book_translation_status(audiobook_id: int, locale: str) -> dict | None:
     conn = _get_db()
     try:
         row = conn.execute(
-            "SELECT * FROM translation_queue "
-            "WHERE audiobook_id = ? AND locale = ?",
+            "SELECT * FROM translation_queue WHERE audiobook_id = ? AND locale = ?",
             (audiobook_id, locale),
         ).fetchone()
         if not row:
             return None
         result = dict(row)
-        if (result["state"] == "processing"
-                and _current_status.get("audiobook_id") == audiobook_id
-                and _current_status.get("locale") == locale):
+        if (
+            result["state"] == "processing"
+            and _current_status.get("audiobook_id") == audiobook_id
+            and _current_status.get("locale") == locale
+        ):
             result.update(_current_status)
         return result
     finally:
@@ -232,7 +235,9 @@ def _ensure_worker() -> None:
             return
         _shutdown_event.clear()
         _worker_thread = threading.Thread(
-            target=_worker_loop, daemon=True, name="translation-queue",
+            target=_worker_loop,
+            daemon=True,
+            name="translation-queue",
         )
         _worker_thread.start()
         logger.info("Translation queue worker started")
@@ -312,14 +317,16 @@ def _process_job(job: dict) -> None:
             return
 
         existing_en = {
-            r[0] for r in conn.execute(
+            r[0]
+            for r in conn.execute(
                 "SELECT DISTINCT chapter_index FROM chapter_subtitles "
                 "WHERE audiobook_id = ? AND locale = 'en'",
                 (book_id,),
             ).fetchall()
         }
         existing_tr = {
-            r[0] for r in conn.execute(
+            r[0]
+            for r in conn.execute(
                 "SELECT DISTINCT chapter_index FROM chapter_subtitles "
                 "WHERE audiobook_id = ? AND locale = ?",
                 (book_id, locale),
@@ -339,22 +346,41 @@ def _process_job(job: dict) -> None:
         # Step 1: STT + subtitle translation (skip if resuming from tts)
         if resume_step == "stt":
             if not existing_en or len(existing_en) == 0:
-                _set_current(book_id, locale, step="stt", phase="starting",
-                             message=f"Transcribing: {book['title']}")
+                _set_current(
+                    book_id,
+                    locale,
+                    step="stt",
+                    phase="starting",
+                    message=f"Transcribing: {book['title']}",
+                )
                 _run_stt_and_translate(book_id, locale, audio_path, set())
             elif len(existing_tr) < len(existing_en):
-                _set_current(book_id, locale, step="stt", phase="resuming",
-                             message=f"Resuming transcription: {book['title']}")
+                _set_current(
+                    book_id,
+                    locale,
+                    step="stt",
+                    phase="resuming",
+                    message=f"Resuming transcription: {book['title']}",
+                )
                 _run_stt_and_translate(book_id, locale, audio_path, existing_en)
             else:
-                logger.info("Book %d: subtitles already complete for %s", book_id, locale)
+                logger.info(
+                    "Book %d: subtitles already complete for %s", book_id, locale
+                )
         else:
-            logger.info("Book %d: resuming from step '%s', skipping STT", book_id, resume_step)
+            logger.info(
+                "Book %d: resuming from step '%s', skipping STT", book_id, resume_step
+            )
 
         # Step 2: TTS narration
         if not has_tts:
-            _set_current(book_id, locale, step="tts", phase="starting",
-                         message=f"Generating narration: {book['title']}")
+            _set_current(
+                book_id,
+                locale,
+                step="tts",
+                phase="starting",
+                message=f"Generating narration: {book['title']}",
+            )
             _run_tts(book_id, locale, audio_path)
         else:
             logger.info("Book %d: TTS audio already exists for %s", book_id, locale)
@@ -368,7 +394,10 @@ def _process_job(job: dict) -> None:
 
 
 def _run_stt_and_translate(
-    book_id: int, locale: str, audio_path: Path, skip_chapters: set[int],
+    book_id: int,
+    locale: str,
+    audio_path: Path,
+    skip_chapters: set[int],
 ) -> None:
     """Run STT transcription and subtitle generation."""
     from .pipeline import generate_book_subtitles, get_stt_provider
@@ -377,27 +406,40 @@ def _run_stt_and_translate(
     subtitle_dir = audio_path.parent / "subtitles"
     subtitle_dir.mkdir(parents=True, exist_ok=True)
 
-    _set_current(book_id, locale, phase="loading_stt",
-                 message="Loading speech-to-text pipeline…")
+    _set_current(
+        book_id, locale, phase="loading_stt", message="Loading speech-to-text pipeline…"
+    )
 
     stt = get_stt_provider("", workload=WorkloadHint.LONG_FORM)
 
-    _set_current(book_id, locale, phase="transcribing",
-                 message=f"Transcribing with {stt.name}…",
-                 stt_provider=stt.name)
+    _set_current(
+        book_id,
+        locale,
+        phase="transcribing",
+        message=f"Transcribing with {stt.name}…",
+        stt_provider=stt.name,
+    )
 
     db_path = str(_db_path)
 
     def _on_progress(ch_idx: int, total: int, title: str):
-        _set_current(book_id, locale, phase="transcribing",
-                     message=f"Chapter {ch_idx + 1}/{total}: {title}",
-                     chapter_index=ch_idx, chapter_total=total)
+        _set_current(
+            book_id,
+            locale,
+            phase="transcribing",
+            message=f"Chapter {ch_idx + 1}/{total}: {title}",
+            chapter_index=ch_idx,
+            chapter_total=total,
+        )
 
     gen_conn = sqlite3.connect(db_path)
     gen_conn.execute("PRAGMA journal_mode=WAL")
     gen_conn.execute("PRAGMA foreign_keys=ON")
     try:
-        def _on_chapter_complete(ch_idx: int, source_vtt: Path, translated_vtt: Path | None):
+
+        def _on_chapter_complete(
+            ch_idx: int, source_vtt: Path, translated_vtt: Path | None
+        ):
             gen_conn.execute(
                 "INSERT OR REPLACE INTO chapter_subtitles "
                 "(audiobook_id, chapter_index, locale, vtt_path, "
@@ -446,11 +488,20 @@ def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
         conn.close()
 
     if not vtt_rows:
-        logger.warning("No translated subtitles for book %d locale %s — skipping TTS", book_id, locale)
+        logger.warning(
+            "No translated subtitles for book %d locale %s — skipping TTS",
+            book_id,
+            locale,
+        )
         return
 
-    _set_current(book_id, locale, step="tts", phase="loading_tts",
-                 message="Loading text-to-speech pipeline…")
+    _set_current(
+        book_id,
+        locale,
+        step="tts",
+        phase="loading_tts",
+        message="Loading text-to-speech pipeline…",
+    )
 
     tts = get_tts_provider(None, workload=WorkloadHint.LONG_FORM)
     voice = TTS_VOICE_ZH
@@ -463,9 +514,15 @@ def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
         ch_idx = row["chapter_index"]
         vtt_path = Path(row["vtt_path"])
 
-        _set_current(book_id, locale, step="tts", phase="synthesizing",
-                     message=f"Narrating chapter {ch_idx + 1}/{len(vtt_rows)}",
-                     chapter_index=ch_idx, chapter_total=len(vtt_rows))
+        _set_current(
+            book_id,
+            locale,
+            step="tts",
+            phase="synthesizing",
+            message=f"Narrating chapter {ch_idx + 1}/{len(vtt_rows)}",
+            chapter_index=ch_idx,
+            chapter_total=len(vtt_rows),
+        )
 
         if not vtt_path.exists():
             logger.warning("VTT missing for chapter %d: %s", ch_idx, vtt_path)
@@ -475,10 +532,12 @@ def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
         lines = []
         for block in vtt_text.split("\n\n"):
             for line in block.strip().split("\n"):
-                if (line.strip()
-                        and not line.startswith("WEBVTT")
-                        and "-->" not in line
-                        and not line.strip().isdigit()):
+                if (
+                    line.strip()
+                    and not line.startswith("WEBVTT")
+                    and "-->" not in line
+                    and not line.strip().isdigit()
+                ):
                     lines.append(line.strip())
 
         if not lines:
@@ -496,9 +555,22 @@ def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
         synthesize_with_fallback(tts, full_text, locale, voice, intermediate_path)
 
         transcode = subprocess.run(
-            ["ffmpeg", "-y", "-i", str(intermediate_path), "-c:a", "libopus",
-             "-b:a", "64k", "-vbr", "on", str(output_path)],
-            capture_output=True, text=True, timeout=300,
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(intermediate_path),
+                "-c:a",
+                "libopus",
+                "-b:a",
+                "64k",
+                "-vbr",
+                "on",
+                str(output_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
         if transcode.returncode == 0:
             intermediate_path.unlink(missing_ok=True)
@@ -509,9 +581,19 @@ def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
         duration = None
         try:
             result = subprocess.run(
-                ["ffprobe", "-v", "quiet", "-show_entries",
-                 "format=duration", "-of", "csv=p=0", str(output_path)],
-                capture_output=True, text=True, timeout=30,
+                [
+                    "ffprobe",
+                    "-v",
+                    "quiet",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "csv=p=0",
+                    str(output_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode == 0 and result.stdout.strip():
                 duration = float(result.stdout.strip())
@@ -533,8 +615,12 @@ def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
         finally:
             gen_conn.close()
 
-    logger.info("TTS narration complete for book %d locale %s: %d chapters",
-                book_id, locale, len(vtt_rows))
+    logger.info(
+        "TTS narration complete for book %d locale %s: %d chapters",
+        book_id,
+        locale,
+        len(vtt_rows),
+    )
 
 
 def _finish_job(job_id: int, state: str, error: str | None = None) -> None:

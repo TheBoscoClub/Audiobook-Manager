@@ -194,9 +194,7 @@ def test_missing_zh_key_falls_back_to_english() -> None:
     """If a zh-Hans slot is missing the renderer must pull from English."""
     # Pop one Chinese slot for this test only. The autouse fixture
     # restores the full zh-Hans map afterwards.
-    removed = email_templates._CATALOGS["zh-Hans"].pop(
-        "email.magic_link.intro"
-    )
+    removed = email_templates._CATALOGS["zh-Hans"].pop("email.magic_link.intro")
     try:
         _subject, _text, html_body = email_templates.render_email(
             "magic_link", "zh-Hans", **_TEMPLATE_VARS["magic_link"]

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BookMetadata:
     """Translated book metadata."""
+
     title: str
     author_display: str
     translator: str  # book translator name, not "how we translated"

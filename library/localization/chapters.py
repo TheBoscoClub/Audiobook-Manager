@@ -59,12 +59,17 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
     try:
         result = subprocess.run(
             [
-                "ffprobe", "-v", "quiet",
-                "-print_format", "json",
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
                 "-show_chapters",
                 str(audio_path),
             ],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             return []
@@ -79,12 +84,14 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
         end_ms = int(float(ch.get("end_time", 0)) * 1000)
         tags = ch.get("tags", {})
         title = tags.get("title", f"Chapter {ch.get('id', len(chapters)) + 1}")
-        chapters.append(Chapter(
-            index=len(chapters),
-            title=title,
-            start_ms=start_ms,
-            end_ms=end_ms,
-        ))
+        chapters.append(
+            Chapter(
+                index=len(chapters),
+                title=title,
+                start_ms=start_ms,
+                end_ms=end_ms,
+            )
+        )
     return chapters
 
 
@@ -109,12 +116,14 @@ def _chapters_from_sidecar(audio_path: Path) -> list[Chapter]:
         start_ms = ch.get("start_offset_ms", 0)
         length_ms = ch.get("length_ms", 0)
         title = ch.get("title", f"Chapter {i + 1}")
-        chapters.append(Chapter(
-            index=i,
-            title=title,
-            start_ms=start_ms,
-            end_ms=start_ms + length_ms,
-        ))
+        chapters.append(
+            Chapter(
+                index=i,
+                title=title,
+                start_ms=start_ms,
+                end_ms=start_ms + length_ms,
+            )
+        )
     return chapters
 
 
@@ -134,22 +143,33 @@ def split_chapter(
         out_path = output_dir / f"ch{chapter.index:03d}{suffix}"
     else:
         tmp = tempfile.NamedTemporaryFile(
-            suffix=suffix, prefix=f"ch{chapter.index:03d}_", delete=False,
+            suffix=suffix,
+            prefix=f"ch{chapter.index:03d}_",
+            delete=False,
         )
         tmp.close()
         out_path = Path(tmp.name)
 
     cmd = [
-        "ffmpeg", "-y",
-        "-ss", f"{chapter.start_sec:.3f}",
-        "-to", f"{chapter.end_sec:.3f}",
-        "-i", str(audio_path),
-        "-c", "copy",
-        "-map_metadata", "-1",
+        "ffmpeg",
+        "-y",
+        "-ss",
+        f"{chapter.start_sec:.3f}",
+        "-to",
+        f"{chapter.end_sec:.3f}",
+        "-i",
+        str(audio_path),
+        "-c",
+        "copy",
+        "-map_metadata",
+        "-1",
         str(out_path),
     ]
     result = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=60,
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     if result.returncode != 0:
         logger.error("ffmpeg chapter split failed: %s", result.stderr[-500:])

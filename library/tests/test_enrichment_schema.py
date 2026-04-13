@@ -45,8 +45,6 @@ class TestEnrichmentSourceColumn:
                 "VALUES (?, ?, ?)",
                 (f"Book {source}", f"/test/{source}.opus", source),
             )
-        cursor = db.execute(
-            "SELECT enrichment_source FROM audiobooks ORDER BY id"
-        )
+        cursor = db.execute("SELECT enrichment_source FROM audiobooks ORDER BY id")
         values = [row[0] for row in cursor.fetchall()]
         assert values == ["local", "audible", "google_books", "openlibrary"]

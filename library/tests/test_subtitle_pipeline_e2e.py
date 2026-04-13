@@ -46,9 +46,7 @@ def _canned_transcript() -> Transcript:
         WordTimestamp("library", 2500, 3200),
         WordTimestamp("awaits.", 3300, 4100),
     ]
-    return Transcript(
-        words=words, language="en", provider="stub", duration_ms=4100
-    )
+    return Transcript(words=words, language="en", provider="stub", duration_ms=4100)
 
 
 def _read_cues(vtt_path: Path) -> list[str]:
@@ -56,12 +54,7 @@ def _read_cues(vtt_path: Path) -> list[str]:
     lines = []
     for block in vtt_path.read_text(encoding="utf-8").split("\n\n"):
         for line in block.strip().splitlines():
-            if (
-                line
-                and line != "WEBVTT"
-                and "-->" not in line
-                and not line.isdigit()
-            ):
+            if line and line != "WEBVTT" and "-->" not in line and not line.isdigit():
                 lines.append(line)
     return lines
 
@@ -102,11 +95,12 @@ def test_pipeline_dual_language_with_deepl_stubbed(tmp_path: Path):
             assert source_lang == "EN"
             return ["你好，世界。", "图书馆在等你。"]
 
-    with patch(
-        "library.localization.pipeline.DEEPL_API_KEY", "fake-key"
-    ), patch(
-        "library.localization.translation.deepl_translate.DeepLTranslator",
-        StubTranslator,
+    with (
+        patch("library.localization.pipeline.DEEPL_API_KEY", "fake-key"),
+        patch(
+            "library.localization.translation.deepl_translate.DeepLTranslator",
+            StubTranslator,
+        ),
     ):
         source_vtt, translated_vtt = generate_subtitles(
             audio_path=tmp_path / "ch01.opus",

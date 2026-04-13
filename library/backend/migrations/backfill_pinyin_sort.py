@@ -36,12 +36,8 @@ sys.path.insert(0, str(_THIS.parent.parent.parent))  # library/
 
 # Side-load search_cjk.py directly (bypasses api_modular/__init__.py which
 # imports i18n — a module only resolved at Flask app init time).
-_SEARCH_CJK_PATH = (
-    _THIS.parent.parent / "api_modular" / "search_cjk.py"
-)
-_spec = importlib.util.spec_from_file_location(
-    "_search_cjk_backfill", _SEARCH_CJK_PATH
-)
+_SEARCH_CJK_PATH = _THIS.parent.parent / "api_modular" / "search_cjk.py"
+_spec = importlib.util.spec_from_file_location("_search_cjk_backfill", _SEARCH_CJK_PATH)
 assert _spec and _spec.loader
 _search_cjk = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_search_cjk)
@@ -76,7 +72,9 @@ def apply_column_migration(conn: sqlite3.Connection) -> None:
                 "ON audiobook_translations(locale, pinyin_sort);"
             )
             conn.commit()
-            print("[migration 021] pinyin_sort column already exists — skipped ADD COLUMN")
+            print(
+                "[migration 021] pinyin_sort column already exists — skipped ADD COLUMN"
+            )
         else:
             raise
 
@@ -133,10 +131,7 @@ def main() -> int:
     try:
         apply_column_migration(conn)
         scanned, updated, skipped = backfill(conn)
-        print(
-            f"[backfill] scanned={scanned} updated={updated} "
-            f"skipped_empty={skipped}"
-        )
+        print(f"[backfill] scanned={scanned} updated={updated} skipped_empty={skipped}")
     finally:
         conn.close()
 

@@ -3100,9 +3100,7 @@ def _send_magic_link_email(
         return False
 
 
-def _send_approval_email(
-    to_email: str, username: str, locale: str = "en"
-) -> bool:
+def _send_approval_email(to_email: str, username: str, locale: str = "en") -> bool:
     """
     Send an email notifying the user their access request was approved.
 

@@ -52,7 +52,9 @@ def _transcribe_with_fallback(
         provider_name=provider.name,
         is_local=provider.is_local,
         remote_call=lambda: provider.transcribe(audio_path, language=source_lang),
-        local_call=lambda: LocalWhisperSTT().transcribe(audio_path, language=source_lang),
+        local_call=lambda: LocalWhisperSTT().transcribe(
+            audio_path, language=source_lang
+        ),
     )
 
 
@@ -74,8 +76,11 @@ def _remote_stt_candidates() -> list[STTProvider]:
         if gpu_provider.is_available():
             providers.append(gpu_provider)
         else:
-            logger.debug("Local GPU Whisper service not reachable at %s:%d",
-                         WHISPER_GPU_HOST, WHISPER_GPU_PORT)
+            logger.debug(
+                "Local GPU Whisper service not reachable at %s:%d",
+                WHISPER_GPU_HOST,
+                WHISPER_GPU_PORT,
+            )
     return providers
 
 
@@ -122,6 +127,7 @@ def get_stt_provider(
         return LocalWhisperSTT()
     if name == "deepl":
         from .stt.deepl_stt import DeepLSTT
+
         return DeepLSTT(DEEPL_API_KEY)
 
     # Auto mode: workload-aware ordering.
@@ -183,9 +189,11 @@ def generate_subtitles(
     if DEEPL_API_KEY and target_locale != source_lang:
         logger.info(
             "Step 2/3: Translating %d sentences to %s",
-            len(source_sentences), target_locale,
+            len(source_sentences),
+            target_locale,
         )
         from .translation.deepl_translate import DeepLTranslator
+
         translator = DeepLTranslator(DEEPL_API_KEY)
         translated_sentences = translator.translate(
             source_sentences, target_locale, source_lang.upper()
@@ -213,16 +221,20 @@ def generate_subtitles(
         source_cues, output_dir / f"{chapter_name}.{source_lang}.vtt"
     )
 
-    logger.info("Subtitles generated: %s%s",
-                source_vtt.name,
-                f", {translated_vtt.name}" if translated_vtt else "")
+    logger.info(
+        "Subtitles generated: %s%s",
+        source_vtt.name,
+        f", {translated_vtt.name}" if translated_vtt else "",
+    )
     return source_vtt, translated_vtt
 
 
 def _offset_cues(cues: list[VTTCue], offset_ms: int) -> list[VTTCue]:
     """Shift all cue timestamps by offset_ms to align with full-book timeline."""
     return [
-        VTTCue(start_ms=c.start_ms + offset_ms, end_ms=c.end_ms + offset_ms, text=c.text)
+        VTTCue(
+            start_ms=c.start_ms + offset_ms, end_ms=c.end_ms + offset_ms, text=c.text
+        )
         for c in cues
     ]
 
@@ -272,7 +284,10 @@ def generate_book_subtitles(
             return []
         logger.info("No chapter data found — processing as single file")
         src, tr = generate_subtitles(
-            audio_path, output_dir, target_locale, source_lang,
+            audio_path,
+            output_dir,
+            target_locale,
+            source_lang,
             stt_provider=stt_provider,
         )
         return [(0, src, tr)]
@@ -285,7 +300,9 @@ def generate_book_subtitles(
         if skip_chapters and chapter.index in skip_chapters:
             logger.info(
                 "Chapter %d/%d: %s — already generated, skipping",
-                chapter.index + 1, total, chapter.title,
+                chapter.index + 1,
+                total,
+                chapter.title,
             )
             continue
 
@@ -294,7 +311,9 @@ def generate_book_subtitles(
 
         logger.info(
             "Chapter %d/%d: %s (%.1f min)",
-            chapter.index + 1, total, chapter.title,
+            chapter.index + 1,
+            total,
+            chapter.title,
             chapter.duration_ms / 60_000,
         )
 
@@ -303,24 +322,27 @@ def generate_book_subtitles(
             chapter_file = split_chapter(audio_path, chapter)
 
             transcript = _transcribe_with_fallback(
-                provider, chapter_file, source_lang,
+                provider,
+                chapter_file,
+                source_lang,
             )
             source_sentences = transcript.sentence_texts()
             if not source_sentences:
                 logger.warning(
                     "No speech in chapter %d (%s) — skipping",
-                    chapter.index, chapter.title,
+                    chapter.index,
+                    chapter.title,
                 )
                 continue
 
             source_cues, translated_cues = align_translations(
-                transcript, source_sentences,
+                transcript,
+                source_sentences,
             )
             source_cues = _offset_cues(source_cues, chapter.start_ms)
 
             safe_title = "".join(
-                c if c.isalnum() or c in "- _" else "_"
-                for c in chapter.title
+                c if c.isalnum() or c in "- _" else "_" for c in chapter.title
             ).strip("_")[:50]
             chapter_stem = f"ch{chapter.index:03d}_{safe_title}"
 
@@ -332,9 +354,12 @@ def generate_book_subtitles(
             translated_vtt = None
             if DEEPL_API_KEY and target_locale != source_lang:
                 from .translation.deepl_translate import DeepLTranslator
+
                 translator = DeepLTranslator(DEEPL_API_KEY)
                 translated_texts = translator.translate(
-                    source_sentences, target_locale, source_lang.upper(),
+                    source_sentences,
+                    target_locale,
+                    source_lang.upper(),
                 )
                 _, tr_cues = align_translations(transcript, translated_texts)
                 tr_cues = _offset_cues(tr_cues, chapter.start_ms)
@@ -352,6 +377,8 @@ def generate_book_subtitles(
                 chapter_file.unlink(missing_ok=True)
 
     logger.info(
-        "Book subtitles complete: %d/%d chapters processed", len(results), total,
+        "Book subtitles complete: %d/%d chapters processed",
+        len(results),
+        total,
     )
     return results

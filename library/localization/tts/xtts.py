@@ -34,9 +34,13 @@ class XTTSProvider(TTSProvider):
 
     def available_voices(self, language: str) -> list[Voice]:
         """XTTS uses voice cloning — voices are dynamically created from reference audio."""
-        return [Voice(id="clone", name="Voice Clone", language=language, gender="neutral")]
+        return [
+            Voice(id="clone", name="Voice Clone", language=language, gender="neutral")
+        ]
 
-    def synthesize(self, text: str, language: str, voice: str, output_path: Path) -> Path:
+    def synthesize(
+        self, text: str, language: str, voice: str, output_path: Path
+    ) -> Path:
         """Generate audio via RunPod XTTS endpoint.
 
         Args:
@@ -105,7 +109,9 @@ class XTTSProvider(TTSProvider):
             if status == "COMPLETED":
                 return data.get("output", {})
             if status in ("FAILED", "CANCELLED"):
-                raise RuntimeError(f"RunPod XTTS job {status}: {data.get('error', 'unknown')}")
+                raise RuntimeError(
+                    f"RunPod XTTS job {status}: {data.get('error', 'unknown')}"
+                )
 
             time.sleep(poll_interval)
             poll_interval = min(poll_interval * 1.5, 10)

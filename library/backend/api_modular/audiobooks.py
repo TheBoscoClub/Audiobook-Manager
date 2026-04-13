@@ -574,9 +574,7 @@ def get_audiobooks() -> Response:
     # Only the plain "title" sort is rewritten; other sorts (author, date,
     # duration, etc.) are independent of localized title and stay untouched.
     locale = qp.get("locale", "") or ""
-    use_pinyin_sort = (
-        locale.startswith("zh") and qp["sort_field"] == "title"
-    )
+    use_pinyin_sort = locale.startswith("zh") and qp["sort_field"] == "title"
     join_sql = ""
     join_params: list = []
     order_by_sql = f"{sort_sql} {sort_order}"
@@ -597,7 +595,9 @@ def get_audiobooks() -> Response:
     # Count total matching audiobooks
     # where_sql is built from validated allowlists (filter specs + AUDIOBOOK_FILTER const), not user input.
     count_query = f"SELECT COUNT(*) as total FROM audiobooks{join_sql} {where_sql}"  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-    cursor.execute(count_query, join_params + params)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(
+        count_query, join_params + params
+    )  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     total_count = cursor.fetchone()["total"]
 
     # Get paginated audiobooks

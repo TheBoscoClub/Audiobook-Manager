@@ -38,7 +38,9 @@ class VastaiWhisperSTT(STTProvider):
         if not self.supports_language(language):
             raise ValueError(f"Language '{language}' not supported by Whisper")
 
-        logger.info("Transcribing %s via Vast.ai Whisper (lang=%s)", audio_path.name, language)
+        logger.info(
+            "Transcribing %s via Vast.ai Whisper (lang=%s)", audio_path.name, language
+        )
 
         with open(audio_path, "rb") as f:
             resp = requests.post(
@@ -63,11 +65,13 @@ class VastaiWhisperSTT(STTProvider):
             text = (w.get("word") or w.get("text") or "").strip()
             if not text:
                 continue
-            words.append(WordTimestamp(
-                word=text,
-                start_ms=int(float(w.get("start", 0)) * 1000),
-                end_ms=int(float(w.get("end", 0)) * 1000),
-            ))
+            words.append(
+                WordTimestamp(
+                    word=text,
+                    start_ms=int(float(w.get("start", 0)) * 1000),
+                    end_ms=int(float(w.get("end", 0)) * 1000),
+                )
+            )
 
         duration_ms = int(float(result.get("duration", 0)) * 1000)
         if not duration_ms and words:

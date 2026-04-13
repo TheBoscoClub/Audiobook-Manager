@@ -254,9 +254,7 @@ class TestMergeUpdates:
 
     def test_side_table_keys_always_pass(self):
         current = {"series": "Existing"}
-        result = _merge_updates(
-            current, {"categories": [{"name": "Fiction"}]}
-        )
+        result = _merge_updates(current, {"categories": [{"name": "Fiction"}]})
         assert result["categories"] == [{"name": "Fiction"}]
 
 
@@ -346,9 +344,7 @@ class TestEnrichBookIntegration:
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT content_type FROM audiobooks WHERE id = ?", (book_id,)
-        )
+        cursor.execute("SELECT content_type FROM audiobooks WHERE id = ?", (book_id,))
         ct = cursor.fetchone()[0]
         conn.close()
 

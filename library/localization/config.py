@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 
 DEFAULT_LOCALE = os.environ.get("AUDIOBOOKS_DEFAULT_LOCALE", "en")
-SUPPORTED_LOCALES = os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans").split(",")
+SUPPORTED_LOCALES = os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans").split(
+    ","
+)
 
 # STT provider: "deepl", "whisper", or "auto"
 STT_PROVIDER = os.environ.get("AUDIOBOOKS_STT_PROVIDER", "auto")

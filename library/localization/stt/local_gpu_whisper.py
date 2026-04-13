@@ -18,11 +18,56 @@ from .base import STTProvider, Transcript, WordTimestamp
 logger = logging.getLogger(__name__)
 
 WHISPER_LANGUAGES = {
-    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr",
-    "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi",
-    "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no",
-    "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk",
-    "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk",
+    "en",
+    "zh",
+    "de",
+    "es",
+    "ru",
+    "ko",
+    "fr",
+    "ja",
+    "pt",
+    "tr",
+    "pl",
+    "ca",
+    "nl",
+    "ar",
+    "sv",
+    "it",
+    "id",
+    "hi",
+    "fi",
+    "vi",
+    "he",
+    "uk",
+    "el",
+    "ms",
+    "cs",
+    "ro",
+    "da",
+    "hu",
+    "ta",
+    "no",
+    "th",
+    "ur",
+    "hr",
+    "bg",
+    "lt",
+    "la",
+    "mi",
+    "ml",
+    "cy",
+    "sk",
+    "te",
+    "fa",
+    "lv",
+    "bn",
+    "sr",
+    "az",
+    "sl",
+    "kn",
+    "et",
+    "mk",
 }
 
 
@@ -56,7 +101,8 @@ class LocalGPUWhisperSTT(STTProvider):
 
         logger.info(
             "Transcribing %s via local GPU Whisper (lang=%s)",
-            audio_path.name, language,
+            audio_path.name,
+            language,
         )
 
         with open(audio_path, "rb") as f:
@@ -75,11 +121,13 @@ class LocalGPUWhisperSTT(STTProvider):
 
         words = []
         for w in result.get("words", []):
-            words.append(WordTimestamp(
-                word=w.get("word", "").strip(),
-                start_ms=int(w.get("start", 0) * 1000),
-                end_ms=int(w.get("end", 0) * 1000),
-            ))
+            words.append(
+                WordTimestamp(
+                    word=w.get("word", "").strip(),
+                    start_ms=int(w.get("start", 0) * 1000),
+                    end_ms=int(w.get("end", 0) * 1000),
+                )
+            )
 
         duration_ms = int(result.get("duration", 0) * 1000)
         if not duration_ms and words:
@@ -87,7 +135,8 @@ class LocalGPUWhisperSTT(STTProvider):
 
         logger.info(
             "Local GPU transcription complete: %d words, %.1fs (wall: %.1fs)",
-            len(words), duration_ms / 1000,
+            len(words),
+            duration_ms / 1000,
             result.get("elapsed_seconds", 0),
         )
 

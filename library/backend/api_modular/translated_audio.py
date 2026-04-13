@@ -172,10 +172,12 @@ def generate_translated_audio():
             (book_id, locale),
         ).fetchone()
         if not sub_row:
-            return jsonify({
-                "error": "Translated subtitles not found. "
-                         "Generate subtitles first via POST /api/subtitles/generate",
-            }), 400
+            return jsonify(
+                {
+                    "error": "Translated subtitles not found. "
+                    "Generate subtitles first via POST /api/subtitles/generate",
+                }
+            ), 400
 
         # Check if translated audio already exists
         existing = conn.execute(
@@ -184,11 +186,13 @@ def generate_translated_audio():
             (book_id, locale),
         ).fetchone()
         if existing:
-            return jsonify({
-                "audiobook_id": book_id,
-                "status": "exists",
-                "message": "Translated audio already exists for this book.",
-            })
+            return jsonify(
+                {
+                    "audiobook_id": book_id,
+                    "status": "exists",
+                    "message": "Translated audio already exists for this book.",
+                }
+            )
 
         vtt_path = Path(sub_row["vtt_path"])
         audio_file_path = Path(book["file_path"])
@@ -200,7 +204,8 @@ def generate_translated_audio():
     def _generate():
         try:
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 state="starting",
                 phase="loading_tts",
                 message="Loading text-to-speech pipeline…",
@@ -215,7 +220,8 @@ def generate_translated_audio():
 
             try:
                 _set_status(
-                    book_id, locale,
+                    book_id,
+                    locale,
                     state="running",
                     phase="gpu_spinup",
                     message=(
@@ -229,7 +235,8 @@ def generate_translated_audio():
             except ValueError:
                 logger.exception("TTS provider init failed for book %d", book_id)
                 _set_status(
-                    book_id, locale,
+                    book_id,
+                    locale,
                     state="failed",
                     phase="error",
                     message="TTS provider failed to initialize.",
@@ -248,10 +255,12 @@ def generate_translated_audio():
             for block in vtt_text.split("\n\n"):
                 block_lines = block.strip().split("\n")
                 for line in block_lines:
-                    if (line.strip()
-                            and not line.startswith("WEBVTT")
-                            and "-->" not in line
-                            and not line.strip().isdigit()):
+                    if (
+                        line.strip()
+                        and not line.startswith("WEBVTT")
+                        and "-->" not in line
+                        and not line.strip().isdigit()
+                    ):
                         lines.append(line.strip())
 
             if not lines:
@@ -264,7 +273,8 @@ def generate_translated_audio():
             full_text = joiner.join(lines)
 
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 phase="synthesizing",
                 message=f"Synthesizing audio with {tts.name}…",
                 tts_provider=tts.name,
@@ -283,35 +293,61 @@ def generate_translated_audio():
 
             # Wraps network errors once against edge-tts; ffmpeg below
             # sniffs content, so the extension mismatch on fallback is harmless.
-            synthesize_with_fallback(
-                tts, full_text, locale, voice, intermediate_path
-            )
+            synthesize_with_fallback(tts, full_text, locale, voice, intermediate_path)
 
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 phase="transcoding",
                 message="Transcoding to Opus format…",
             )
             import subprocess
+
             transcode = subprocess.run(
-                ["ffmpeg", "-y", "-i", str(intermediate_path), "-c:a", "libopus",
-                 "-b:a", "64k", "-vbr", "on", str(output_path)],
-                capture_output=True, text=True, timeout=300,
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    str(intermediate_path),
+                    "-c:a",
+                    "libopus",
+                    "-b:a",
+                    "64k",
+                    "-vbr",
+                    "on",
+                    str(output_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
             if transcode.returncode == 0:
                 intermediate_path.unlink(missing_ok=True)
             else:
-                logger.warning("Opus transcode failed, keeping source: %s", transcode.stderr[:200])
+                logger.warning(
+                    "Opus transcode failed, keeping source: %s", transcode.stderr[:200]
+                )
                 output_path = intermediate_path
 
             # Get duration if possible
             duration = None
             try:
                 import subprocess
+
                 result = subprocess.run(
-                    ["ffprobe", "-v", "quiet", "-show_entries",
-                     "format=duration", "-of", "csv=p=0", str(output_path)],
-                    capture_output=True, text=True, timeout=30,
+                    [
+                        "ffprobe",
+                        "-v",
+                        "quiet",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "csv=p=0",
+                        str(output_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     duration = float(result.stdout.strip())
@@ -333,12 +369,15 @@ def generate_translated_audio():
                 gen_conn.commit()
                 logger.info(
                     "Translated audio saved for book %d: %s (%.1fs)",
-                    book_id, output_path.name, duration or 0,
+                    book_id,
+                    output_path.name,
+                    duration or 0,
                 )
             finally:
                 gen_conn.close()
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 state="completed",
                 phase="done",
                 message="Translated audio ready.",
@@ -347,7 +386,8 @@ def generate_translated_audio():
         except Exception as e:
             logger.exception("TTS generation failed for book %d", book_id)
             _set_status(
-                book_id, locale,
+                book_id,
+                locale,
                 state="failed",
                 phase="error",
                 message=(
@@ -359,7 +399,8 @@ def generate_translated_audio():
             )
 
     _set_status(
-        book_id, locale,
+        book_id,
+        locale,
         state="queued",
         phase="queued",
         message="Queued…",
@@ -368,13 +409,15 @@ def generate_translated_audio():
     thread = threading.Thread(target=_generate, daemon=True)
     thread.start()
 
-    return jsonify({
-        "audiobook_id": book_id,
-        "locale": locale,
-        "voice": voice,
-        "status": "started",
-        "message": "Translated audio generation started in background.",
-    })
+    return jsonify(
+        {
+            "audiobook_id": book_id,
+            "locale": locale,
+            "voice": voice,
+            "status": "started",
+            "message": "Translated audio generation started in background.",
+        }
+    )
 
 
 @translated_audio_bp.route(
@@ -387,11 +430,13 @@ def get_tts_job_status(book_id, locale):
     status = _get_status(book_id, locale)
     if not status:
         return jsonify({"state": "idle"})
-    return jsonify({
-        "audiobook_id": book_id,
-        "locale": locale,
-        **status,
-    })
+    return jsonify(
+        {
+            "audiobook_id": book_id,
+            "locale": locale,
+            **status,
+        }
+    )
 
 
 @translated_audio_bp.route("/api/user/translated-audio/request", methods=["POST"])
@@ -403,6 +448,7 @@ def user_request_translated_audio():
     Requires translated subtitles to exist (TTS reads the VTT for text input).
     """
     from flask import current_app
+
     auth_on = current_app.config.get("AUTH_ENABLED", False)
     user = getattr(g, "user", None)
     if auth_on and not user:
@@ -416,27 +462,33 @@ def user_request_translated_audio():
 
     user_id = None
     if user is not None:
-        user_id = user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+        user_id = (
+            user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+        )
     if user_id is not None:
         key = (int(user_id), int(book_id))
         now = time.time()
         last = _user_requests.get(key, 0)
         if now - last < _USER_COOLDOWN_SEC:
-            return jsonify({
-                "status": "cooldown",
-                "message": "Please wait a moment before trying again.",
-                "retry_after": int(_USER_COOLDOWN_SEC - (now - last)),
-            }), 429
+            return jsonify(
+                {
+                    "status": "cooldown",
+                    "message": "Please wait a moment before trying again.",
+                    "retry_after": int(_USER_COOLDOWN_SEC - (now - last)),
+                }
+            ), 429
         _user_requests[key] = now
 
     existing_job = _get_status(int(book_id), locale)
     if existing_job and existing_job.get("state") in ("queued", "starting", "running"):
-        return jsonify({
-            "audiobook_id": book_id,
-            "locale": locale,
-            "status": "already_running",
-            **existing_job,
-        })
+        return jsonify(
+            {
+                "audiobook_id": book_id,
+                "locale": locale,
+                "status": "already_running",
+                **existing_job,
+            }
+        )
 
     conn = _get_db()
     try:
@@ -453,9 +505,11 @@ def user_request_translated_audio():
             (book_id, locale),
         ).fetchone()
         if not sub_row:
-            return jsonify({
-                "error": "Translated subtitles required first.",
-            }), 400
+            return jsonify(
+                {
+                    "error": "Translated subtitles required first.",
+                }
+            ), 400
 
         existing_audio = conn.execute(
             "SELECT id FROM chapter_translations_audio "
@@ -463,11 +517,13 @@ def user_request_translated_audio():
             (book_id, locale),
         ).fetchone()
         if existing_audio:
-            return jsonify({
-                "audiobook_id": book_id,
-                "status": "exists",
-                "message": "Translated audio already exists.",
-            })
+            return jsonify(
+                {
+                    "audiobook_id": book_id,
+                    "status": "exists",
+                    "message": "Translated audio already exists.",
+                }
+            )
 
         vtt_path = Path(sub_row["vtt_path"])
         audio_file_path = Path(book["file_path"])
@@ -480,7 +536,8 @@ def user_request_translated_audio():
     def _generate():
         try:
             _set_status(
-                int(book_id), locale,
+                int(book_id),
+                locale,
                 state="starting",
                 phase="loading_tts",
                 message="Loading text-to-speech pipeline…",
@@ -494,12 +551,12 @@ def user_request_translated_audio():
             )
 
             _set_status(
-                int(book_id), locale,
+                int(book_id),
+                locale,
                 state="running",
                 phase="gpu_spinup",
                 message=(
-                    "Waking up the GPU server. Cold starts can take a "
-                    "minute or two…"
+                    "Waking up the GPU server. Cold starts can take a minute or two…"
                 ),
             )
             tts = get_tts_provider(None, workload=WorkloadHint.LONG_FORM)
@@ -507,8 +564,10 @@ def user_request_translated_audio():
             if not vtt_path.exists():
                 logger.error("VTT file missing: %s", vtt_path)
                 _set_status(
-                    int(book_id), locale,
-                    state="failed", phase="error",
+                    int(book_id),
+                    locale,
+                    state="failed",
+                    phase="error",
                     message="Subtitle file missing from disk.",
                     finished_at=time.time(),
                 )
@@ -519,17 +578,21 @@ def user_request_translated_audio():
             for block in vtt_text.split("\n\n"):
                 block_lines = block.strip().split("\n")
                 for line in block_lines:
-                    if (line.strip()
-                            and not line.startswith("WEBVTT")
-                            and "-->" not in line
-                            and not line.strip().isdigit()):
+                    if (
+                        line.strip()
+                        and not line.startswith("WEBVTT")
+                        and "-->" not in line
+                        and not line.strip().isdigit()
+                    ):
                         lines.append(line.strip())
 
             if not lines:
                 logger.error("No text found in VTT: %s", vtt_path)
                 _set_status(
-                    int(book_id), locale,
-                    state="failed", phase="error",
+                    int(book_id),
+                    locale,
+                    state="failed",
+                    phase="error",
                     message="No text found in subtitle file.",
                     finished_at=time.time(),
                 )
@@ -540,7 +603,8 @@ def user_request_translated_audio():
             full_text = joiner.join(lines)
 
             _set_status(
-                int(book_id), locale,
+                int(book_id),
+                locale,
                 phase="synthesizing",
                 message=f"Synthesizing audio with {tts.name}…",
                 tts_provider=tts.name,
@@ -554,20 +618,33 @@ def user_request_translated_audio():
             )
             output_path = output_dir / f"{audio_file_path.stem}.{locale}.opus"
 
-            synthesize_with_fallback(
-                tts, full_text, locale, voice, intermediate_path
-            )
+            synthesize_with_fallback(tts, full_text, locale, voice, intermediate_path)
 
             _set_status(
-                int(book_id), locale,
+                int(book_id),
+                locale,
                 phase="transcoding",
                 message="Transcoding to Opus format…",
             )
             import subprocess
+
             transcode = subprocess.run(
-                ["ffmpeg", "-y", "-i", str(intermediate_path), "-c:a", "libopus",
-                 "-b:a", "64k", "-vbr", "on", str(output_path)],
-                capture_output=True, text=True, timeout=300,
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    str(intermediate_path),
+                    "-c:a",
+                    "libopus",
+                    "-b:a",
+                    "64k",
+                    "-vbr",
+                    "on",
+                    str(output_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
             if transcode.returncode == 0:
                 intermediate_path.unlink(missing_ok=True)
@@ -581,9 +658,19 @@ def user_request_translated_audio():
             duration = None
             try:
                 result = subprocess.run(
-                    ["ffprobe", "-v", "quiet", "-show_entries",
-                     "format=duration", "-of", "csv=p=0", str(output_path)],
-                    capture_output=True, text=True, timeout=30,
+                    [
+                        "ffprobe",
+                        "-v",
+                        "quiet",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "csv=p=0",
+                        str(output_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     duration = float(result.stdout.strip())
@@ -591,7 +678,8 @@ def user_request_translated_audio():
                 pass
 
             _set_status(
-                int(book_id), locale,
+                int(book_id),
+                locale,
                 phase="saving",
                 message="Saving translated audio…",
             )
@@ -610,7 +698,8 @@ def user_request_translated_audio():
             finally:
                 gen_conn.close()
             _set_status(
-                int(book_id), locale,
+                int(book_id),
+                locale,
                 state="completed",
                 phase="done",
                 message="Translated audio ready.",
@@ -618,10 +707,12 @@ def user_request_translated_audio():
             )
         except Exception as e:
             logger.exception(
-                "User-requested TTS generation failed for book %s", book_id,
+                "User-requested TTS generation failed for book %s",
+                book_id,
             )
             _set_status(
-                int(book_id), locale,
+                int(book_id),
+                locale,
                 state="failed",
                 phase="error",
                 message=(
@@ -633,7 +724,8 @@ def user_request_translated_audio():
             )
 
     _set_status(
-        int(book_id), locale,
+        int(book_id),
+        locale,
         state="queued",
         phase="queued",
         message="Queued…",
@@ -641,12 +733,14 @@ def user_request_translated_audio():
     )
     threading.Thread(target=_generate, daemon=True).start()
 
-    return jsonify({
-        "audiobook_id": book_id,
-        "locale": locale,
-        "status": "started",
-        "message": (
-            "Translated audio generation started. This may take several "
-            "minutes — the GPU server has to spin up first."
-        ),
-    })
+    return jsonify(
+        {
+            "audiobook_id": book_id,
+            "locale": locale,
+            "status": "started",
+            "message": (
+                "Translated audio generation started. This may take several "
+                "minutes — the GPU server has to spin up first."
+            ),
+        }
+    )

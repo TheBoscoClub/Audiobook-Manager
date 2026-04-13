@@ -8,7 +8,12 @@ from .vastai_whisper import VastaiWhisperSTT
 from .whisper_stt import WhisperSTT
 
 __all__ = [
-    "STTProvider", "Transcript", "WordTimestamp",
-    "DeepLSTT", "LocalGPUWhisperSTT", "LocalWhisperSTT",
-    "VastaiWhisperSTT", "WhisperSTT",
+    "STTProvider",
+    "Transcript",
+    "WordTimestamp",
+    "DeepLSTT",
+    "LocalGPUWhisperSTT",
+    "LocalWhisperSTT",
+    "VastaiWhisperSTT",
+    "WhisperSTT",
 ]

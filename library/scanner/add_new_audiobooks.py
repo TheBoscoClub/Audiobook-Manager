@@ -128,6 +128,7 @@ def _run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
     if audiobook_id:
         try:
             from localization.queue import enqueue_book_all_locales
+
             enqueue_book_all_locales(audiobook_id)
         except Exception as e:
             print(f"  ⚠ Translation queue error (non-fatal): {e}", file=sys.stderr)

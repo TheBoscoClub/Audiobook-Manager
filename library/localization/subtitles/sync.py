@@ -43,6 +43,8 @@ def align_translations(
         source_text = " ".join(w.word for w in words)
 
         source_cues.append(VTTCue(start_ms=start_ms, end_ms=end_ms, text=source_text))
-        translated_cues.append(VTTCue(start_ms=start_ms, end_ms=end_ms, text=translated_text))
+        translated_cues.append(
+            VTTCue(start_ms=start_ms, end_ms=end_ms, text=translated_text)
+        )
 
     return source_cues, translated_cues

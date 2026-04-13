@@ -15,11 +15,56 @@ logger = logging.getLogger(__name__)
 
 # Whisper supports 99 languages — same set as RunPod whisper_stt.py
 WHISPER_LANGUAGES = {
-    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr",
-    "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi",
-    "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no",
-    "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk",
-    "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk",
+    "en",
+    "zh",
+    "de",
+    "es",
+    "ru",
+    "ko",
+    "fr",
+    "ja",
+    "pt",
+    "tr",
+    "pl",
+    "ca",
+    "nl",
+    "ar",
+    "sv",
+    "it",
+    "id",
+    "hi",
+    "fi",
+    "vi",
+    "he",
+    "uk",
+    "el",
+    "ms",
+    "cs",
+    "ro",
+    "da",
+    "hu",
+    "ta",
+    "no",
+    "th",
+    "ur",
+    "hr",
+    "bg",
+    "lt",
+    "la",
+    "mi",
+    "ml",
+    "cy",
+    "sk",
+    "te",
+    "fa",
+    "lv",
+    "bn",
+    "sr",
+    "az",
+    "sl",
+    "kn",
+    "et",
+    "mk",
 }
 
 
@@ -56,6 +101,7 @@ class LocalWhisperSTT(STTProvider):
             if device == "auto":
                 try:
                     import torch
+
                     device = "cuda" if torch.cuda.is_available() else "cpu"
                 except ImportError:
                     device = "cpu"
@@ -65,7 +111,9 @@ class LocalWhisperSTT(STTProvider):
 
             logger.info(
                 "Loading Whisper model '%s' on %s (compute: %s)",
-                self._model_size, device, compute_type,
+                self._model_size,
+                device,
+                compute_type,
             )
             self._model = WhisperModel(
                 self._model_size, device=device, compute_type=compute_type
@@ -88,11 +136,13 @@ class LocalWhisperSTT(STTProvider):
         for segment in segments:
             if segment.words:
                 for w in segment.words:
-                    words.append(WordTimestamp(
-                        word=w.word.strip(),
-                        start_ms=int(w.start * 1000),
-                        end_ms=int(w.end * 1000),
-                    ))
+                    words.append(
+                        WordTimestamp(
+                            word=w.word.strip(),
+                            start_ms=int(w.start * 1000),
+                            end_ms=int(w.end * 1000),
+                        )
+                    )
 
         duration_ms = int(info.duration * 1000) if info.duration else 0
         if words and not duration_ms:
@@ -100,7 +150,8 @@ class LocalWhisperSTT(STTProvider):
 
         logger.info(
             "Transcription complete: %d words, %.1f seconds",
-            len(words), duration_ms / 1000,
+            len(words),
+            duration_ms / 1000,
         )
 
         return Transcript(

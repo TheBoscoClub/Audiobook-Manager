@@ -11,9 +11,36 @@ logger = logging.getLogger(__name__)
 
 # DeepL STT supports these languages
 DEEPL_STT_LANGUAGES = {
-    "en", "de", "fr", "es", "it", "pt", "nl", "pl", "ru", "ja",
-    "zh", "ko", "ar", "bg", "cs", "da", "el", "et", "fi", "hu",
-    "id", "lt", "lv", "nb", "ro", "sk", "sl", "sv", "tr", "uk",
+    "en",
+    "de",
+    "fr",
+    "es",
+    "it",
+    "pt",
+    "nl",
+    "pl",
+    "ru",
+    "ja",
+    "zh",
+    "ko",
+    "ar",
+    "bg",
+    "cs",
+    "da",
+    "el",
+    "et",
+    "fi",
+    "hu",
+    "id",
+    "lt",
+    "lv",
+    "nb",
+    "ro",
+    "sk",
+    "sl",
+    "sv",
+    "tr",
+    "uk",
 }
 
 DEEPL_API_URL = "https://api.deepl.com/v2"
@@ -27,7 +54,9 @@ class DeepLSTT(STTProvider):
         if not api_key:
             raise ValueError("DeepL API key is required")
         self._api_key = api_key
-        self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
+        self._base_url = (
+            DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
+        )
 
     @property
     def name(self) -> str:
@@ -63,7 +92,9 @@ class DeepLSTT(STTProvider):
         if not self.supports_language(language):
             raise ValueError(f"Language '{language}' not supported by DeepL STT")
 
-        logger.info("Transcribing %s via DeepL STT (lang=%s)", audio_path.name, language)
+        logger.info(
+            "Transcribing %s via DeepL STT (lang=%s)", audio_path.name, language
+        )
 
         with open(audio_path, "rb") as f:
             resp = requests.post(
@@ -79,11 +110,13 @@ class DeepLSTT(STTProvider):
         words = []
         for segment in result.get("segments", []):
             for word_data in segment.get("words", []):
-                words.append(WordTimestamp(
-                    word=word_data["word"],
-                    start_ms=int(word_data["start"] * 1000),
-                    end_ms=int(word_data["end"] * 1000),
-                ))
+                words.append(
+                    WordTimestamp(
+                        word=word_data["word"],
+                        start_ms=int(word_data["start"] * 1000),
+                        end_ms=int(word_data["end"] * 1000),
+                    )
+                )
 
         return Transcript(
             words=words,

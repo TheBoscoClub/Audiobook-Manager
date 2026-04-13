@@ -8,6 +8,7 @@ from pathlib import Path
 @dataclass
 class WordTimestamp:
     """A single word with its start and end time in milliseconds."""
+
     word: str
     start_ms: int
     end_ms: int
@@ -16,6 +17,7 @@ class WordTimestamp:
 @dataclass
 class Transcript:
     """A complete transcript with word-level timestamps."""
+
     words: list[WordTimestamp] = field(default_factory=list)
     language: str = "en"
     provider: str = ""
@@ -54,10 +56,7 @@ class Transcript:
 
     def sentence_texts(self, max_pause_ms: int = 800) -> list[str]:
         """Return sentences as plain text strings."""
-        return [
-            " ".join(w.word for w in sent)
-            for sent in self.sentences(max_pause_ms)
-        ]
+        return [" ".join(w.word for w in sent) for sent in self.sentences(max_pause_ms)]
 
 
 class STTProvider(ABC):

@@ -363,17 +363,13 @@ def _extract_asin_from_filename(filepath: Path, sources_dir: Path) -> Optional[s
         if not m:
             continue
         candidate_asin = m.group(1)
-        source_title = _normalize_title_for_matching(
-            m.group(2).replace("_", " ")
-        )
+        source_title = _normalize_title_for_matching(m.group(2).replace("_", " "))
         if book_title in source_title or source_title in book_title:
             return candidate_asin
     return None
 
 
-def extract_asin(
-    filepath: Path, sources_dir: Optional[Path] = None
-) -> Optional[str]:
+def extract_asin(filepath: Path, sources_dir: Optional[Path] = None) -> Optional[str]:
     """Extract ASIN from any available source, checked in priority order.
 
     1. chapters.json (same directory as audiobook)

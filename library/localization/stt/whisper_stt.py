@@ -12,16 +12,105 @@ logger = logging.getLogger(__name__)
 
 # Whisper large-v3 supports 99 languages
 WHISPER_LANGUAGES = {
-    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr",
-    "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi",
-    "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no",
-    "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk",
-    "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk",
-    "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw",
-    "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc",
-    "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
-    "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl",
-    "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su",
+    "en",
+    "zh",
+    "de",
+    "es",
+    "ru",
+    "ko",
+    "fr",
+    "ja",
+    "pt",
+    "tr",
+    "pl",
+    "ca",
+    "nl",
+    "ar",
+    "sv",
+    "it",
+    "id",
+    "hi",
+    "fi",
+    "vi",
+    "he",
+    "uk",
+    "el",
+    "ms",
+    "cs",
+    "ro",
+    "da",
+    "hu",
+    "ta",
+    "no",
+    "th",
+    "ur",
+    "hr",
+    "bg",
+    "lt",
+    "la",
+    "mi",
+    "ml",
+    "cy",
+    "sk",
+    "te",
+    "fa",
+    "lv",
+    "bn",
+    "sr",
+    "az",
+    "sl",
+    "kn",
+    "et",
+    "mk",
+    "br",
+    "eu",
+    "is",
+    "hy",
+    "ne",
+    "mn",
+    "bs",
+    "kk",
+    "sq",
+    "sw",
+    "gl",
+    "mr",
+    "pa",
+    "si",
+    "km",
+    "sn",
+    "yo",
+    "so",
+    "af",
+    "oc",
+    "ka",
+    "be",
+    "tg",
+    "sd",
+    "gu",
+    "am",
+    "yi",
+    "lo",
+    "uz",
+    "fo",
+    "ht",
+    "ps",
+    "tk",
+    "nn",
+    "mt",
+    "sa",
+    "lb",
+    "my",
+    "bo",
+    "tl",
+    "mg",
+    "as",
+    "tt",
+    "haw",
+    "ln",
+    "ha",
+    "ba",
+    "jw",
+    "su",
 }
 
 RUNPOD_API_URL = "https://api.runpod.ai/v2"
@@ -57,9 +146,12 @@ class WhisperSTT(STTProvider):
         if not self.supports_language(language):
             raise ValueError(f"Language '{language}' not supported by Whisper")
 
-        logger.info("Transcribing %s via RunPod Whisper (lang=%s)", audio_path.name, language)
+        logger.info(
+            "Transcribing %s via RunPod Whisper (lang=%s)", audio_path.name, language
+        )
 
         import base64
+
         audio_b64 = base64.b64encode(audio_path.read_bytes()).decode()
 
         # Submit async job to RunPod
@@ -94,11 +186,13 @@ class WhisperSTT(STTProvider):
                 word_list.extend(segment.get("words", []))
 
         for word_data in word_list:
-            words.append(WordTimestamp(
-                word=word_data.get("word", "").strip(),
-                start_ms=int(word_data.get("start", 0) * 1000),
-                end_ms=int(word_data.get("end", 0) * 1000),
-            ))
+            words.append(
+                WordTimestamp(
+                    word=word_data.get("word", "").strip(),
+                    start_ms=int(word_data.get("start", 0) * 1000),
+                    end_ms=int(word_data.get("end", 0) * 1000),
+                )
+            )
 
         # Duration from response or estimate from last word
         duration_ms = int(result.get("duration", 0) * 1000)
@@ -130,7 +224,9 @@ class WhisperSTT(STTProvider):
             if status == "COMPLETED":
                 return data.get("output", {})
             if status in ("FAILED", "CANCELLED"):
-                raise RuntimeError(f"RunPod job {status}: {data.get('error', 'unknown')}")
+                raise RuntimeError(
+                    f"RunPod job {status}: {data.get('error', 'unknown')}"
+                )
 
             time.sleep(poll_interval)
             poll_interval = min(poll_interval * 1.5, 10)

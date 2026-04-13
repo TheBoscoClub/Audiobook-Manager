@@ -67,7 +67,7 @@ WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"
 ADMIN_TOTP_SECRET = os.environ.get(
-    "ADMIN_TOTP_SECRET", "5DJSOED2NSA22QGXIF6VHTUV6VQHIQH4"
+    "ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP"
 )
 # Skip SSL verification for self-signed certs
 IGNORE_HTTPS_ERRORS = True

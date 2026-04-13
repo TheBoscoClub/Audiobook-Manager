@@ -140,7 +140,5 @@ class GlossaryManager:
         if not glossary_id:
             raise GlossaryError("DeepL did not return a glossary_id")
         self._tracker.set_glossary(glossary_id, source_hash)
-        logger.info(
-            "Pushed %d-entry DeepL glossary (id=%s)", len(entries), glossary_id
-        )
+        logger.info("Pushed %d-entry DeepL glossary (id=%s)", len(entries), glossary_id)
         return glossary_id

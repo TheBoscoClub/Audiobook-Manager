@@ -63,6 +63,7 @@ def activate_locale():
 
     try:
         from localization.queue import enqueue_all_books_for_locale, get_queue_status
+
         enqueue_all_books_for_locale(locale)
         status = get_queue_status()
         return jsonify({"status": "ok", "queued": status.get("pending", 0)})
@@ -76,6 +77,7 @@ def translation_queue_status():
     """Return translation queue summary."""
     try:
         from localization.queue import get_queue_status
+
         return jsonify(get_queue_status())
     except Exception:
         logger.exception("Failed to get translation queue status")
@@ -96,6 +98,7 @@ def translation_bump_priority():
 
     try:
         from localization.queue import bump_priority, enqueue
+
         bump_priority(audiobook_id, locale, priority=100)
         enqueue(audiobook_id, locale, priority=100, start_worker=True)
         return jsonify({"status": "ok"})
@@ -109,6 +112,7 @@ def translation_book_status(book_id, locale):
     """Return translation status for a specific book+locale."""
     try:
         from localization.queue import get_book_translation_status
+
         status = get_book_translation_status(book_id, locale)
         if not status:
             return jsonify({"state": "not_queued"})

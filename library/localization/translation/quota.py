@@ -89,9 +89,7 @@ class QuotaTracker:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )"""
             )
-            conn.execute(
-                "INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')"
-            )
+            conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
             conn.commit()
         finally:
             conn.close()
@@ -104,9 +102,7 @@ class QuotaTracker:
         return conn
 
     def _load_row(self, conn: sqlite3.Connection) -> sqlite3.Row:
-        row = conn.execute(
-            "SELECT * FROM deepl_quota WHERE id = 'default'"
-        ).fetchone()
+        row = conn.execute("SELECT * FROM deepl_quota WHERE id = 'default'").fetchone()
         if row is None:
             conn.execute("INSERT INTO deepl_quota (id) VALUES ('default')")
             conn.commit()

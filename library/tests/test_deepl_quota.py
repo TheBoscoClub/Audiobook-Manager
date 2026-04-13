@@ -55,9 +55,7 @@ def _bootstrap_db(path: Path) -> None:
 def _fake_response(translations: list[str]) -> MagicMock:
     resp = MagicMock()
     resp.raise_for_status.return_value = None
-    resp.json.return_value = {
-        "translations": [{"text": t} for t in translations]
-    }
+    resp.json.return_value = {"translations": [{"text": t} for t in translations]}
     return resp
 
 
@@ -80,13 +78,13 @@ def test_quota_blocks_translation_that_would_exceed_budget(quota_db: Path):
     tracker.record_usage(95)
 
     translator = DeepLTranslator(
-        api_key="test-key:fx", db_path=quota_db, tracker=tracker,
+        api_key="test-key:fx",
+        db_path=quota_db,
+        tracker=tracker,
         enable_glossary=False,
     )
 
-    with patch(
-        "localization.translation.deepl_translate.requests.post"
-    ) as mock_post:
+    with patch("localization.translation.deepl_translate.requests.post") as mock_post:
         with pytest.raises(QuotaExceededError):
             translator.translate(["This is a long sentence"], "zh-Hans")
         mock_post.assert_not_called()
@@ -112,13 +110,13 @@ def test_tm_cache_hit_skips_api_and_does_not_bill(quota_db: Path):
 
     tracker = QuotaTracker(db_path=quota_db)
     translator = DeepLTranslator(
-        api_key="test-key:fx", db_path=quota_db, tracker=tracker,
+        api_key="test-key:fx",
+        db_path=quota_db,
+        tracker=tracker,
         enable_glossary=False,
     )
 
-    with patch(
-        "localization.translation.deepl_translate.requests.post"
-    ) as mock_post:
+    with patch("localization.translation.deepl_translate.requests.post") as mock_post:
         result = translator.translate(["Hello"], "zh-Hans")
         mock_post.assert_not_called()
 
@@ -142,7 +140,9 @@ def test_tm_mixed_hit_and_miss_billing(quota_db: Path):
 
     tracker = QuotaTracker(db_path=quota_db)
     translator = DeepLTranslator(
-        api_key="test-key:fx", db_path=quota_db, tracker=tracker,
+        api_key="test-key:fx",
+        db_path=quota_db,
+        tracker=tracker,
         enable_glossary=False,
     )
 

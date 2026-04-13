@@ -30,9 +30,12 @@ def _connect(db_path: str) -> sqlite3.Connection:
 
 
 def _table_exists(conn: sqlite3.Connection, name: str) -> bool:
-    return conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
-    ).fetchone() is not None
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+        ).fetchone()
+        is not None
+    )
 
 
 def export_translations(db_path: str, output: str, locale: str | None = None) -> dict:
@@ -163,11 +166,19 @@ def export_translations(db_path: str, output: str, locale: str | None = None) ->
         "books": len(books),
         "output": output,
     }
-    total = summary["en_subtitles"] + summary["translated_subtitles"] + summary["audio_files"]
-    print(f"Exported {total} chapter assets + {len(meta)} metadata + "
-          f"{len(collections)} collection + {len(strings)} string translations")
-    print(f"  {len(en_subs)} EN subtitles, {len(subs)} translated subtitles, "
-          f"{len(audio)} audio files from {len(books)} books")
+    total = (
+        summary["en_subtitles"]
+        + summary["translated_subtitles"]
+        + summary["audio_files"]
+    )
+    print(
+        f"Exported {total} chapter assets + {len(meta)} metadata + "
+        f"{len(collections)} collection + {len(strings)} string translations"
+    )
+    print(
+        f"  {len(en_subs)} EN subtitles, {len(subs)} translated subtitles, "
+        f"{len(audio)} audio files from {len(books)} books"
+    )
     print(f"  Archive: {output}")
     return summary
 
@@ -201,8 +212,11 @@ def import_translations(db_path: str, archive: str) -> dict:
             id_map[old_id] = books_by_title[title]
 
     if not id_map:
-        print("WARNING: No matching books found by title. "
-              "Ensure the target database has the same audiobooks.", file=sys.stderr)
+        print(
+            "WARNING: No matching books found by title. "
+            "Ensure the target database has the same audiobooks.",
+            file=sys.stderr,
+        )
         return {"matched": 0, "total_books": len(manifest.get("books", {}))}
 
     # Look up target book file paths for directory placement
@@ -239,9 +253,15 @@ def import_translations(db_path: str, archive: str) -> dict:
                 "(audiobook_id, chapter_index, chapter_title, locale, "
                 " vtt_path, stt_provider, translation_provider) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (new_id, sub["chapter_index"], sub.get("chapter_title"),
-                 sub["locale"], new_vtt_path,
-                 sub.get("stt_provider"), sub.get("translation_provider")),
+                (
+                    new_id,
+                    sub["chapter_index"],
+                    sub.get("chapter_title"),
+                    sub["locale"],
+                    new_vtt_path,
+                    sub.get("stt_provider"),
+                    sub.get("translation_provider"),
+                ),
             )
             imported_subs += 1
 
@@ -271,9 +291,15 @@ def import_translations(db_path: str, archive: str) -> dict:
                 "(audiobook_id, chapter_index, locale, audio_path, "
                 " tts_provider, tts_voice, duration_seconds) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (new_id, aud["chapter_index"], aud["locale"],
-                 new_audio_path, aud.get("tts_provider"),
-                 aud.get("tts_voice"), aud.get("duration_seconds")),
+                (
+                    new_id,
+                    aud["chapter_index"],
+                    aud["locale"],
+                    new_audio_path,
+                    aud.get("tts_provider"),
+                    aud.get("tts_voice"),
+                    aud.get("duration_seconds"),
+                ),
             )
             imported_audio += 1
 
@@ -288,10 +314,16 @@ def import_translations(db_path: str, archive: str) -> dict:
                 "(audiobook_id, locale, title, author_display, "
                 " series_display, description, translator, pinyin_sort) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (new_id, meta["locale"], meta.get("title"),
-                 meta.get("author_display"), meta.get("series_display"),
-                 meta.get("description"), meta.get("translator"),
-                 meta.get("pinyin_sort")),
+                (
+                    new_id,
+                    meta["locale"],
+                    meta.get("title"),
+                    meta.get("author_display"),
+                    meta.get("series_display"),
+                    meta.get("description"),
+                    meta.get("translator"),
+                    meta.get("pinyin_sort"),
+                ),
             )
             imported_meta += 1
 
@@ -303,8 +335,12 @@ def import_translations(db_path: str, archive: str) -> dict:
                     "INSERT OR REPLACE INTO collection_translations "
                     "(collection_id, locale, name, translator) "
                     "VALUES (?, ?, ?, ?)",
-                    (col["collection_id"], col["locale"],
-                     col["name"], col.get("translator")),
+                    (
+                        col["collection_id"],
+                        col["locale"],
+                        col["name"],
+                        col.get("translator"),
+                    ),
                 )
                 imported_collections += 1
 
@@ -316,8 +352,13 @@ def import_translations(db_path: str, archive: str) -> dict:
                     "INSERT OR REPLACE INTO string_translations "
                     "(source_hash, locale, source, translation, translator) "
                     "VALUES (?, ?, ?, ?, ?)",
-                    (st["source_hash"], st["locale"],
-                     st["source"], st["translation"], st.get("translator")),
+                    (
+                        st["source_hash"],
+                        st["locale"],
+                        st["source"],
+                        st["translation"],
+                        st.get("translator"),
+                    ),
                 )
                 imported_strings += 1
 
@@ -347,9 +388,11 @@ def import_translations(db_path: str, archive: str) -> dict:
         "collections": imported_collections,
         "strings": imported_strings,
     }
-    print(f"Imported: {imported_subs} subtitles, {imported_audio} audio files, "
-          f"{imported_meta} metadata, {imported_collections} collections, "
-          f"{imported_strings} strings")
+    print(
+        f"Imported: {imported_subs} subtitles, {imported_audio} audio files, "
+        f"{imported_meta} metadata, {imported_collections} collections, "
+        f"{imported_strings} strings"
+    )
     print(f"Matched {matched}/{total_books} books by title")
     if matched < total_books:
         unmatched = total_books - matched
@@ -361,16 +404,17 @@ def main():
     parser = argparse.ArgumentParser(
         description="Transfer translation assets between environments",
         epilog="Examples:\n"
-               "  Export all:     %(prog)s export -o translations.tar.gz\n"
-               "  Export zh only: %(prog)s export -o zh.tar.gz --locale zh-Hans\n"
-               "  Import:         %(prog)s import -a translations.tar.gz\n"
-               "\n"
-               "The --db flag defaults to $AUDIOBOOKS_DATABASE from your config.",
+        "  Export all:     %(prog)s export -o translations.tar.gz\n"
+        "  Export zh only: %(prog)s export -o zh.tar.gz --locale zh-Hans\n"
+        "  Import:         %(prog)s import -a translations.tar.gz\n"
+        "\n"
+        "The --db flag defaults to $AUDIOBOOKS_DATABASE from your config.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     db_default = os.environ.get("AUDIOBOOKS_DATABASE", "audiobooks.db")
     parser.add_argument(
-        "--db", default=db_default,
+        "--db",
+        default=db_default,
         help="Path to audiobooks.db (default: $AUDIOBOOKS_DATABASE)",
     )
     sub = parser.add_subparsers(dest="command", required=True)

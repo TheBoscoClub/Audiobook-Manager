@@ -24,11 +24,7 @@ class TestExtractAsinFromChaptersJson:
         opus_file = book_dir / "Title.opus"
         opus_file.touch()
 
-        chapters = {
-            "content_metadata": {
-                "content_reference": {"asin": "B08G9PRS1K"}
-            }
-        }
+        chapters = {"content_metadata": {"content_reference": {"asin": "B08G9PRS1K"}}}
         (book_dir / "chapters.json").write_text(json.dumps(chapters))
 
         assert extract_asin(opus_file) == "B08G9PRS1K"
@@ -65,9 +61,7 @@ class TestExtractAsinFromVoucher:
         voucher = {
             "content_license": {
                 "asin": "B0D7JLGFST",
-                "content_metadata": {
-                    "content_reference": {"asin": "B0D7JLGFST"}
-                },
+                "content_metadata": {"content_reference": {"asin": "B0D7JLGFST"}},
             }
         }
         voucher_file = sources_dir / "B0D7JLGFST_Revenge_Prey-AAX_44_128.voucher"
@@ -140,11 +134,7 @@ class TestAsinPriority:
         opus_file = book_dir / "Dual.opus"
         opus_file.touch()
 
-        chapters = {
-            "content_metadata": {
-                "content_reference": {"asin": "ASIN_FROM_C"}
-            }
-        }
+        chapters = {"content_metadata": {"content_reference": {"asin": "ASIN_FROM_C"}}}
         (book_dir / "chapters.json").write_text(json.dumps(chapters))
 
         sources_dir = tmp_path / "Sources"

@@ -31,6 +31,7 @@ def _sanitize_log(value) -> str:
     """Sanitize user-controlled values for safe logging (prevent log injection)."""
     return str(value).replace("\n", "\\n").replace("\r", "\\r")
 
+
 _db_path: Path | None = None
 
 
@@ -43,14 +44,20 @@ def init_translations_routes(database_path):
     # SQLite has no ADD COLUMN IF NOT EXISTS, so we check pragma first.
     try:
         conn = sqlite3.connect(str(_db_path))
-        cols = {row[1] for row in conn.execute("PRAGMA table_info(audiobook_translations)")}
+        cols = {
+            row[1] for row in conn.execute("PRAGMA table_info(audiobook_translations)")
+        }
         if "series_display" not in cols:
-            conn.execute("ALTER TABLE audiobook_translations ADD COLUMN series_display TEXT")
+            conn.execute(
+                "ALTER TABLE audiobook_translations ADD COLUMN series_display TEXT"
+            )
             conn.commit()
             logger.info("Added series_display column to audiobook_translations")
         conn.close()
     except sqlite3.Error:
-        logger.exception("Failed to ensure audiobook_translations.series_display column")
+        logger.exception(
+            "Failed to ensure audiobook_translations.series_display column"
+        )
 
     # Migration 018: collection_translations cache table.
     try:
@@ -128,6 +135,7 @@ def _hash_source(text: str) -> str:
     string_translations cache. SHA-256 satisfies the security linter.
     """
     import hashlib
+
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
@@ -139,9 +147,7 @@ def _get_db():
     return conn
 
 
-@translations_bp.route(
-    "/api/audiobooks/<int:book_id>/translations", methods=["GET"]
-)
+@translations_bp.route("/api/audiobooks/<int:book_id>/translations", methods=["GET"])
 @guest_allowed
 def get_book_translations(book_id):
     """Get all translations for a book."""
@@ -177,9 +183,7 @@ def get_translation(book_id, locale):
         conn.close()
 
 
-@translations_bp.route(
-    "/api/audiobooks/<int:book_id>/translations", methods=["POST"]
-)
+@translations_bp.route("/api/audiobooks/<int:book_id>/translations", methods=["POST"])
 @admin_if_enabled
 def upsert_translation(book_id):
     """Create or update a translation (upsert)."""
@@ -239,8 +243,7 @@ def delete_translation(book_id, locale):
     conn = _get_db()
     try:
         result = conn.execute(
-            "DELETE FROM audiobook_translations "
-            "WHERE audiobook_id = ? AND locale = ?",
+            "DELETE FROM audiobook_translations WHERE audiobook_id = ? AND locale = ?",
             (book_id, locale),
         )
         conn.commit()
@@ -296,7 +299,8 @@ def get_translations_by_locale(locale):
             # A book needs (re-)translation if it is not cached OR the cached
             # row predates the series_display column and has no series yet.
             missing_ids = [
-                bid for bid in requested_ids
+                bid
+                for bid in requested_ids
                 if str(bid) not in result
                 or result[str(bid)].get("series_display") is None
             ]
@@ -320,6 +324,7 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
     """
     try:
         from localization.config import DEEPL_API_KEY
+
         if not DEEPL_API_KEY:
             logger.warning("On-demand translation: no DeepL API key configured")
             return
@@ -332,6 +337,7 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
             return
 
         from localization.translation.deepl_translate import DeepLTranslator
+
         translator = DeepLTranslator(DEEPL_API_KEY)
 
         # Determine which books need title+author translation vs. series-only.
@@ -344,18 +350,23 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
             titles = [b["title"] for b in needs_title]
             authors = [b["author"] or "" for b in needs_title]
             translated_titles = translator.translate(titles, locale)
-            translated_authors = translator.translate(
-                [a for a in authors if a], locale
-            ) if any(authors) else []
+            translated_authors = (
+                translator.translate([a for a in authors if a], locale)
+                if any(authors)
+                else []
+            )
             author_iter = iter(translated_authors)
             for a in authors:
                 author_map_new.append(next(author_iter, a) if a else "")
 
         # Dedupe series — many books share the same series string.
-        unique_series = sorted({
-            b["series"].strip() for b in books
-            if b.get("series") and b["series"].strip()
-        })
+        unique_series = sorted(
+            {
+                b["series"].strip()
+                for b in books
+                if b.get("series") and b["series"].strip()
+            }
+        )
         series_translation = {}
         if unique_series:
             translated_series = translator.translate(unique_series, locale)
@@ -411,7 +422,9 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
         conn.commit()
         logger.info(
             "On-demand translated %d books (%d unique series) to %s via DeepL",
-            len(books), len(unique_series), _sanitize_log(locale),
+            len(books),
+            len(unique_series),
+            _sanitize_log(locale),
         )
 
     except Exception:
@@ -444,8 +457,7 @@ def get_collection_translations(locale):
                 id_to_name[child["id"]] = child["name"]
 
         cached_rows = conn.execute(
-            "SELECT collection_id, name FROM collection_translations "
-            "WHERE locale = ?",
+            "SELECT collection_id, name FROM collection_translations WHERE locale = ?",
             (locale,),
         ).fetchall()
         result: dict[str, str] = {
@@ -471,18 +483,19 @@ def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result
     """
     try:
         from localization.config import DEEPL_API_KEY
+
         if not DEEPL_API_KEY:
             logger.warning("Collection translation: no DeepL API key configured")
             return
 
-        unique_names = sorted({
-            id_to_name[cid] for cid in missing_ids
-            if id_to_name.get(cid)
-        })
+        unique_names = sorted(
+            {id_to_name[cid] for cid in missing_ids if id_to_name.get(cid)}
+        )
         if not unique_names:
             return
 
         from localization.translation.deepl_translate import DeepLTranslator
+
         translator = DeepLTranslator(DEEPL_API_KEY)
         translated = translator.translate(unique_names, locale)
         name_map = dict(zip(unique_names, translated))
@@ -508,7 +521,9 @@ def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result
         conn.commit()
         logger.info(
             "On-demand translated %d collections (%d unique names) to %s",
-            len(missing_ids), len(unique_names), _sanitize_log(locale),
+            len(missing_ids),
+            len(unique_names),
+            _sanitize_log(locale),
         )
     except Exception:
         logger.exception("Collection translation failed")
@@ -572,8 +587,10 @@ def translate_strings():
         if missing:
             try:
                 from localization.config import DEEPL_API_KEY
+
                 if DEEPL_API_KEY:
                     from localization.translation.deepl_translate import DeepLTranslator
+
                     translator = DeepLTranslator(DEEPL_API_KEY)
                     hashes = list(missing.keys())
                     sources = [missing[h] for h in hashes]
@@ -594,7 +611,8 @@ def translate_strings():
                     conn.commit()
                     logger.info(
                         "String-translated %d unique strings to %s via DeepL",
-                        len(missing), _sanitize_log(locale),
+                        len(missing),
+                        _sanitize_log(locale),
                     )
                 else:
                     logger.warning("String translation: no DeepL API key configured")
@@ -670,14 +688,15 @@ def on_demand_translate():
 
         # Load DeepL API key from localization config
         from localization.config import DEEPL_API_KEY
+
         if not DEEPL_API_KEY:
-            logger.warning("On-demand translation requested but no DeepL API key configured")
+            logger.warning(
+                "On-demand translation requested but no DeepL API key configured"
+            )
             return jsonify(cached)
 
         # Fetch book metadata for untranslated books
-        all_books = conn.execute(
-            "SELECT id, title, author FROM audiobooks"
-        ).fetchall()
+        all_books = conn.execute("SELECT id, title, author FROM audiobooks").fetchall()
         books_to_translate = [dict(r) for r in all_books if r["id"] in missing_ids]
 
         if not books_to_translate:
@@ -685,6 +704,7 @@ def on_demand_translate():
 
         # Batch translate titles and authors via DeepL
         from localization.translation.deepl_translate import DeepLTranslator
+
         translator = DeepLTranslator(DEEPL_API_KEY)
 
         titles = [b["title"] for b in books_to_translate]
@@ -692,9 +712,11 @@ def on_demand_translate():
 
         # Single batch call for titles; separate for authors (different context)
         translated_titles = translator.translate(titles, locale)
-        translated_authors = translator.translate(
-            [a for a in authors if a], locale
-        ) if any(authors) else []
+        translated_authors = (
+            translator.translate([a for a in authors if a], locale)
+            if any(authors)
+            else []
+        )
 
         # Map author translations back (skipping empty originals)
         author_iter = iter(translated_authors)
@@ -708,7 +730,9 @@ def on_demand_translate():
         # Store in DB and build response
         new_translations = {}
         for i, book in enumerate(books_to_translate):
-            t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
+            t_title = (
+                translated_titles[i] if i < len(translated_titles) else book["title"]
+            )
             t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
 
             pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
@@ -735,7 +759,8 @@ def on_demand_translate():
         conn.commit()
         logger.info(
             "On-demand translated %d books to %s via DeepL",
-            len(books_to_translate), _sanitize_log(locale),
+            len(books_to_translate),
+            _sanitize_log(locale),
         )
 
         # Merge cached + newly translated
@@ -812,43 +837,46 @@ def batch_translate():
         needs_translation = [b for b in books if b["id"] not in existing]
 
         if not needs_translation:
-            return jsonify({
-                "total_books": len(books),
-                "translated": len(existing),
-                "needs_translation": 0,
-                "translations": {},
-            })
+            return jsonify(
+                {
+                    "total_books": len(books),
+                    "translated": len(existing),
+                    "needs_translation": 0,
+                    "translations": {},
+                }
+            )
 
         from localization.config import DEEPL_API_KEY
+
         if not DEEPL_API_KEY:
             return jsonify({"error": "DeepL API key not configured"}), 503
 
         from localization.translation.deepl_translate import DeepLTranslator
+
         translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path))
 
         titles = [b["title"] for b in needs_translation]
         authors = [b["author"] or "" for b in needs_translation]
         series_list = [b["series"] or "" for b in needs_translation]
         descriptions = [
-            b["description"] or b["publisher_summary"] or ""
-            for b in needs_translation
+            b["description"] or b["publisher_summary"] or "" for b in needs_translation
         ]
 
         translated_titles = translator.translate(titles, locale)
 
         non_empty_authors = [a for a in authors if a.strip()]
-        translated_authors = translator.translate(
-            non_empty_authors, locale
-        ) if non_empty_authors else []
+        translated_authors = (
+            translator.translate(non_empty_authors, locale) if non_empty_authors else []
+        )
         author_iter = iter(translated_authors)
         author_map = []
         for a in authors:
             author_map.append(next(author_iter, a) if a.strip() else "")
 
         non_empty_series = [s for s in series_list if s.strip()]
-        translated_series = translator.translate(
-            non_empty_series, locale
-        ) if non_empty_series else []
+        translated_series = (
+            translator.translate(non_empty_series, locale) if non_empty_series else []
+        )
         series_iter = iter(translated_series)
         series_map = []
         for s in series_list:
@@ -858,7 +886,7 @@ def batch_translate():
         desc_map = [""] * len(descriptions)
         desc_indices = [(j, d) for j, d in enumerate(descriptions) if d.strip()]
         for di in range(0, len(desc_indices), 10):
-            sub = desc_indices[di:di + 10]
+            sub = desc_indices[di : di + 10]
             t_descs = translator.translate([d for _, d in sub], locale)
             for k, (orig_idx, _) in enumerate(sub):
                 if k < len(t_descs):
@@ -866,7 +894,9 @@ def batch_translate():
 
         translations = {}
         for i, book in enumerate(needs_translation):
-            t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
+            t_title = (
+                translated_titles[i] if i < len(translated_titles) else book["title"]
+            )
             t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
             t_series = series_map[i] if i < len(series_map) else ""
             t_desc = desc_map[i]
@@ -898,15 +928,18 @@ def batch_translate():
         conn.commit()
         logger.info(
             "Batch translated %d books to %s",
-            len(needs_translation), _sanitize_log(locale),
+            len(needs_translation),
+            _sanitize_log(locale),
         )
 
-        return jsonify({
-            "total_books": len(books),
-            "already_translated": len(existing),
-            "newly_translated": len(needs_translation),
-            "translations": translations,
-        })
+        return jsonify(
+            {
+                "total_books": len(books),
+                "already_translated": len(existing),
+                "newly_translated": len(needs_translation),
+                "translations": translations,
+            }
+        )
     finally:
         conn.close()
 

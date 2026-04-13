@@ -153,9 +153,7 @@ def _group_by_author(
     # published_year, then release_date, then title. NULLS LAST via COALESCE.
     # AUDIOBOOK_FILTER and book_cols are hardcoded constants, not user input
     if use_pinyin:
-        title_sort_expr = (
-            "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
-        )
+        title_sort_expr = "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
         join_clause = (
             " LEFT JOIN audiobook_translations at"
             " ON at.audiobook_id = a.id AND at.locale = ?"
@@ -252,9 +250,7 @@ def _group_by_narrator(
     book_cols = _get_book_columns()
 
     if use_pinyin:
-        title_sort_expr = (
-            "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
-        )
+        title_sort_expr = "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
         join_clause = (
             " LEFT JOIN audiobook_translations at"
             " ON at.audiobook_id = a.id AND at.locale = ?"

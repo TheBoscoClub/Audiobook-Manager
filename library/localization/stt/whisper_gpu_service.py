@@ -70,17 +70,23 @@ def transcribe_file(audio_path: Path, language: str = "en") -> dict:
     words = []
     for segment in result.get("segments", []):
         for w in segment.get("words", []):
-            words.append({
-                "word": w["word"].strip(),
-                "start": w["start"],
-                "end": w["end"],
-            })
+            words.append(
+                {
+                    "word": w["word"].strip(),
+                    "start": w["start"],
+                    "end": w["end"],
+                }
+            )
 
-    duration = result.get("segments", [{}])[-1].get("end", 0) if result.get("segments") else 0
+    duration = (
+        result.get("segments", [{}])[-1].get("end", 0) if result.get("segments") else 0
+    )
 
     logger.info(
         "Transcription complete: %d words, %.1fs audio, %.1fs wall time",
-        len(words), duration, elapsed,
+        len(words),
+        duration,
+        elapsed,
     )
 
     return {
@@ -102,18 +108,27 @@ def create_app():
     @app.route("/health", methods=["GET"])
     def health():
         import torch
-        return jsonify({
-            "status": "ok",
-            "model": _model_name,
-            "model_loaded": _model is not None,
-            "gpu_available": torch.cuda.is_available(),
-            "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
-        })
+
+        return jsonify(
+            {
+                "status": "ok",
+                "model": _model_name,
+                "model_loaded": _model is not None,
+                "gpu_available": torch.cuda.is_available(),
+                "gpu_name": torch.cuda.get_device_name(0)
+                if torch.cuda.is_available()
+                else None,
+            }
+        )
 
     @app.route("/transcribe", methods=["POST"])
     def transcribe():
         if "file" not in request.files:
-            return jsonify({"error": "No file uploaded. Send as multipart/form-data with key 'file'."}), 400
+            return jsonify(
+                {
+                    "error": "No file uploaded. Send as multipart/form-data with key 'file'."
+                }
+            ), 400
 
         audio_file = request.files["file"]
         language = request.form.get("language", "en")

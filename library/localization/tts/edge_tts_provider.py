@@ -20,10 +20,21 @@ _TTS_TIMEOUT = 600  # 10 minutes max per synthesis call
 # Curated voice list for supported languages
 EDGE_VOICES = {
     "zh": [
-        Voice(id="zh-CN-XiaoxiaoNeural", name="Xiaoxiao", language="zh-CN", gender="female"),
-        Voice(id="zh-CN-YunyangNeural", name="Yunyang", language="zh-CN", gender="male"),
-        Voice(id="zh-CN-XiaoyiNeural", name="Xiaoyi", language="zh-CN", gender="female"),
-        Voice(id="zh-CN-YunjianNeural", name="Yunjian", language="zh-CN", gender="male"),
+        Voice(
+            id="zh-CN-XiaoxiaoNeural",
+            name="Xiaoxiao",
+            language="zh-CN",
+            gender="female",
+        ),
+        Voice(
+            id="zh-CN-YunyangNeural", name="Yunyang", language="zh-CN", gender="male"
+        ),
+        Voice(
+            id="zh-CN-XiaoyiNeural", name="Xiaoyi", language="zh-CN", gender="female"
+        ),
+        Voice(
+            id="zh-CN-YunjianNeural", name="Yunjian", language="zh-CN", gender="male"
+        ),
     ],
     "en": [
         Voice(id="en-US-JennyNeural", name="Jenny", language="en-US", gender="female"),
@@ -48,7 +59,9 @@ class EdgeTTSProvider(TTSProvider):
         lang_prefix = language.split("-")[0].lower()
         return EDGE_VOICES.get(lang_prefix, [])
 
-    def synthesize(self, text: str, language: str, voice: str, output_path: Path) -> Path:
+    def synthesize(
+        self, text: str, language: str, voice: str, output_path: Path
+    ) -> Path:
         """Generate audio using edge-tts CLI subprocess.
 
         Runs as a separate process to avoid gevent/asyncio deadlocks.
@@ -59,7 +72,10 @@ class EdgeTTSProvider(TTSProvider):
         logger.info("Synthesizing %d chars via edge-tts (voice=%s)", len(text), voice)
 
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False, encoding="utf-8",
+            mode="w",
+            suffix=".txt",
+            delete=False,
+            encoding="utf-8",
         ) as tf:
             tf.write(text)
             text_path = tf.name
@@ -67,25 +83,29 @@ class EdgeTTSProvider(TTSProvider):
         try:
             result = subprocess.run(
                 [
-                    sys.executable, "-m", "edge_tts",
-                    "--voice", voice,
-                    "--file", text_path,
-                    "--write-media", str(output_path),
+                    sys.executable,
+                    "-m",
+                    "edge_tts",
+                    "--voice",
+                    voice,
+                    "--file",
+                    text_path,
+                    "--write-media",
+                    str(output_path),
                 ],
-                capture_output=True, text=True, timeout=_TTS_TIMEOUT,
+                capture_output=True,
+                text=True,
+                timeout=_TTS_TIMEOUT,
             )
         finally:
             Path(text_path).unlink(missing_ok=True)
 
         if result.returncode != 0:
             raise RuntimeError(
-                f"edge-tts failed (exit {result.returncode}): "
-                f"{result.stderr[:300]}"
+                f"edge-tts failed (exit {result.returncode}): {result.stderr[:300]}"
             )
 
         if not output_path.exists() or output_path.stat().st_size == 0:
-            raise RuntimeError(
-                f"edge-tts produced empty output at {output_path}"
-            )
+            raise RuntimeError(f"edge-tts produced empty output at {output_path}")
 
         return output_path

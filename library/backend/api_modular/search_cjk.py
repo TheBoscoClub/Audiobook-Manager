@@ -79,11 +79,7 @@ def _is_cjk_char(ch: str) -> bool:
     """True if `ch` is in a CJK Unified Ideographs block we care about."""
     cp = ord(ch)
     # CJK Unified Ideographs (main block) + Extension A + Compatibility
-    return (
-        0x4E00 <= cp <= 0x9FFF
-        or 0x3400 <= cp <= 0x4DBF
-        or 0xF900 <= cp <= 0xFAFF
-    )
+    return 0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF or 0xF900 <= cp <= 0xFAFF
 
 
 def contains_cjk(text: str) -> bool:
@@ -108,12 +104,10 @@ def cjk_bigrams(text: str) -> list[str]:
         return []
     if len(cleaned) == 1:
         return [cleaned]
-    return [cleaned[i:i + 2] for i in range(len(cleaned) - 1)]
+    return [cleaned[i : i + 2] for i in range(len(cleaned) - 1)]
 
 
-def cjk_bigram_like_clause(
-    column: str, query: str
-) -> tuple[str, list[str]]:
+def cjk_bigram_like_clause(column: str, query: str) -> tuple[str, list[str]]:
     """Build a parameterized LIKE chain that matches `query` by bigram.
 
     Returns (sql_fragment, params). The caller AND-s the fragment into

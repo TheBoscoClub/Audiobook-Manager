@@ -252,9 +252,7 @@ def test_enforce_mode_preserves_user_covers_override(tmp_path):
     """If a user explicitly set AUDIOBOOKS_COVERS to a non-legacy path, the
     reconciler must leave it alone."""
     fx = _make_fixture(tmp_path)
-    fx["CONF_FILE"].write_text(
-        "AUDIOBOOKS_COVERS=/mnt/mybigdisk/covers\n"
-    )
+    fx["CONF_FILE"].write_text("AUDIOBOOKS_COVERS=/mnt/mybigdisk/covers\n")
     _run_reconciler(_env_from_fixture(fx, mode="enforce"))
     assert "AUDIOBOOKS_COVERS=/mnt/mybigdisk/covers" in fx["CONF_FILE"].read_text()
 

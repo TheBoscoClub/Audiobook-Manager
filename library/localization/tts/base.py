@@ -8,6 +8,7 @@ from pathlib import Path
 @dataclass
 class Voice:
     """A TTS voice descriptor."""
+
     id: str
     name: str
     language: str
@@ -24,7 +25,9 @@ class TTSProvider(ABC):
     is_local: bool = False
 
     @abstractmethod
-    def synthesize(self, text: str, language: str, voice: str, output_path: Path) -> Path:
+    def synthesize(
+        self, text: str, language: str, voice: str, output_path: Path
+    ) -> Path:
         """Generate audio file from text. Returns path to the generated file."""
         ...
 

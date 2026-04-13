@@ -236,9 +236,7 @@ class UserRepository:
         """Get user by ID."""
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
-            cursor = conn.execute(
-                self._USER_SELECT + " WHERE id = ?", (user_id,)
-            )
+            cursor = conn.execute(self._USER_SELECT + " WHERE id = ?", (user_id,))
             row = cursor.fetchone()
             return User.from_row(row) if row else None
 

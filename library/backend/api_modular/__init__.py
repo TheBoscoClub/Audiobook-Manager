@@ -51,7 +51,9 @@ from .grouped import grouped_bp, init_grouped_routes
 from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .admin_authors import admin_authors_bp, init_admin_authors_routes
 from .suggestions import suggestions_bp, init_suggestions_routes
-from .i18n_routes import i18n_bp  # uses absolute import for i18n module (sibling to api_modular/)
+from .i18n_routes import (
+    i18n_bp,
+)  # uses absolute import for i18n module (sibling to api_modular/)
 from .translations import translations_bp, init_translations_routes
 from .subtitles import subtitles_bp, init_subtitles_routes
 from .translated_audio import translated_audio_bp, init_translated_audio_routes
@@ -192,9 +194,11 @@ def _register_extension_blueprints(flask_app, database_path, project_root=None):
 
     try:
         from localization.queue import init_queue
+
         init_queue(database_path, project_root)
     except Exception as e:
         import logging
+
         logging.getLogger(__name__).warning("Translation queue init failed: %s", e)
 
 

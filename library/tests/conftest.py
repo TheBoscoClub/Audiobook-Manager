@@ -240,15 +240,19 @@ def ensure_vm_running():
     if VM_SSH_KEY:
         ssh_cmd += ["-i", VM_SSH_KEY]
     ssh_cmd += [
-        "-o", "BatchMode=yes",
-        "-o", "ConnectTimeout=3",
-        "-o", "StrictHostKeyChecking=no",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=3",
+        "-o",
+        "StrictHostKeyChecking=no",
     ]
     deadline = time.time() + 60
     while time.time() < deadline:
         try:
             r = subprocess.run(
-                ssh_cmd + [
+                ssh_cmd
+                + [
                     f"{VM_USER}@{VM_HOST}",
                     "echo",
                     "ok",
