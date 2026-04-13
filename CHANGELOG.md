@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.0.1] - 2026-04-13
+
+### Fixed
+
+- **Untranslated tooltip title attributes** across all user-facing pages: Added `data-i18n-title` attributes to 102 interactive elements (buttons, links, inputs, selects) in `shell.html`, `index.html`, `help.html`, `about.html`, `claim.html`, `login.html`, and `register.html`. Added 63 new tooltip translation keys to both `en.json` and `zh-Hans.json` (1038 keys total). The `i18n.js` engine already supported `[data-i18n-title]` selectors — the HTML elements were simply missing the attribute bindings
+- **Unused import in localization pipeline** (`library/localization/pipeline.py`): Removed `Chapter` import that was flagged by ruff F401 and breaking CI
+
 ## [8.2.0] - 2026-04-13
 
 ### Added
@@ -2643,7 +2650,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.1...HEAD
+[8.2.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0...v8.2.0.1
 [8.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.2...v8.2.0
 [8.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.1...v8.1.2
 [8.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.0...v8.1.1
