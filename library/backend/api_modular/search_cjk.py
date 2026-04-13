@@ -70,7 +70,8 @@ def pinyin_sort_key(text: str | None) -> str | None:
         key = "".join(parts).strip().lower()
         return key or None
     except Exception:  # pragma: no cover — defensive, pypinyin rarely raises
-        logger.exception("pinyin_sort_key failed for text=%r", text)
+        sanitized = str(text).replace("\n", "\\n").replace("\r", "\\r")
+        logger.exception("pinyin_sort_key failed for text=%r", sanitized)
         return None
 
 

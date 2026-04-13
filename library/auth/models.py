@@ -91,6 +91,7 @@ class User:
     recovery_enabled: bool = False
     last_audit_seen_id: int = 0
     multi_session: str = "default"
+    preferred_locale: str = "en"
 
     @staticmethod
     def _parse_timestamp(val) -> Optional[datetime]:
@@ -129,6 +130,10 @@ class User:
         # Multi-session override (schema v9+, column 12)
         if len(row) >= 13:
             fields["multi_session"] = row[12] if row[12] is not None else "default"
+
+        # Preferred locale (schema v10+, column 13)
+        if len(row) >= 14:
+            fields["preferred_locale"] = row[13] if row[13] is not None else "en"
 
         return cls(**fields)
 
@@ -215,20 +220,35 @@ class User:
 class UserRepository:
     """Repository for User operations."""
 
+    # Explicit column list — guarantees positional order matches from_row()
+    # regardless of physical table column order (schema.sql vs ALTER TABLE).
+    # nosemgrep: sqlalchemy-execute-raw-query
+    _USER_SELECT = (
+        "SELECT id, username, auth_type, auth_credential, can_download, is_admin, "
+        "created_at, last_login, recovery_email, recovery_phone, recovery_enabled, "
+        "last_audit_seen_id, multi_session, preferred_locale FROM users"
+    )
+
     def __init__(self, db: AuthDatabase):
         self.db = db
 
     def get_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID."""
         with self.db.connection() as conn:
-            cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            # nosemgrep: sqlalchemy-execute-raw-query
+            cursor = conn.execute(
+                self._USER_SELECT + " WHERE id = ?", (user_id,)
+            )
             row = cursor.fetchone()
             return User.from_row(row) if row else None
 
     def get_by_username(self, username: str) -> Optional[User]:
         """Get user by username (case-sensitive)."""
         with self.db.connection() as conn:
-            cursor = conn.execute("SELECT * FROM users WHERE username = ?", (username,))
+            # nosemgrep: sqlalchemy-execute-raw-query
+            cursor = conn.execute(
+                self._USER_SELECT + " WHERE username = ?", (username,)
+            )
             row = cursor.fetchone()
             return User.from_row(row) if row else None
 
@@ -242,10 +262,12 @@ class UserRepository:
         """List all users."""
         with self.db.connection() as conn:
             if include_admin:
-                cursor = conn.execute("SELECT * FROM users ORDER BY username")
+                # nosemgrep: sqlalchemy-execute-raw-query
+                cursor = conn.execute(self._USER_SELECT + " ORDER BY username")
             else:
+                # nosemgrep: sqlalchemy-execute-raw-query
                 cursor = conn.execute(
-                    "SELECT * FROM users WHERE is_admin = 0 ORDER BY username"
+                    self._USER_SELECT + " WHERE is_admin = 0 ORDER BY username"
                 )
             return [User.from_row(row) for row in cursor.fetchall()]
 
@@ -342,8 +364,9 @@ class UserRepository:
     def get_by_email(self, email: str) -> Optional[User]:
         """Get user by recovery email address."""
         with self.db.connection() as conn:
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM users WHERE recovery_email = ?", (email,)
+                self._USER_SELECT + " WHERE recovery_email = ?", (email,)
             )
             row = cursor.fetchone()
             return User.from_row(row) if row else None
@@ -1547,6 +1570,8 @@ class AccessRequest:
     preferred_auth_method: str = "totp"
     # Expiry for claim token (invitations only)
     claim_expires_at: Optional[datetime] = None
+    # Locale for guest-facing emails
+    preferred_locale: str = "en"
 
     @staticmethod
     def _parse_claim_expires(val) -> Optional[datetime]:
@@ -1597,6 +1622,8 @@ class AccessRequest:
             fields["preferred_auth_method"] = row[13] or "totp"
         if len(row) > 14:
             fields["claim_expires_at"] = cls._parse_claim_expires(row[14])
+        if len(row) > 15:
+            fields["preferred_locale"] = row[15] or "en"
 
         return cls(**fields)
 
@@ -1629,6 +1656,18 @@ class AccessRequest:
 class AccessRequestRepository:
     """Repository for AccessRequest operations."""
 
+    # Explicit column list for SELECT queries — guarantees positional order
+    # matches from_row() regardless of physical table column order.
+    # schema.sql and _ensure_table() may create columns in different orders
+    # (ALTER TABLE appends at end), so SELECT * is unsafe.
+    # nosemgrep: sqlalchemy-execute-raw-query
+    _AR_SELECT = (
+        "SELECT id, username, requested_at, status, reviewed_at, reviewed_by, "
+        "deny_reason, claim_token_hash, contact_email, totp_secret, totp_uri, "
+        "backup_codes_json, credentials_claimed, preferred_auth_method, "
+        "claim_expires_at, preferred_locale FROM access_requests"
+    )
+
     def __init__(self, db: AuthDatabase):
         self.db = db
         self._ensure_table()
@@ -1652,7 +1691,9 @@ class AccessRequestRepository:
                     totp_uri TEXT,
                     backup_codes_json TEXT,
                     credentials_claimed BOOLEAN DEFAULT FALSE,
+                    preferred_auth_method TEXT DEFAULT 'totp',
                     claim_expires_at TIMESTAMP,
+                    preferred_locale TEXT DEFAULT 'en',
                     CHECK (length(username) >= 3 AND length(username) <= 24)
                 )
             """)
@@ -1685,6 +1726,16 @@ class AccessRequestRepository:
             if "claim_expires_at" not in columns:
                 conn.execute(
                     "ALTER TABLE access_requests ADD COLUMN claim_expires_at TIMESTAMP"
+                )
+            if "preferred_auth_method" not in columns:
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN"
+                    " preferred_auth_method TEXT DEFAULT 'totp'"
+                )
+            if "preferred_locale" not in columns:
+                conn.execute(
+                    "ALTER TABLE access_requests ADD COLUMN"
+                    " preferred_locale TEXT DEFAULT 'en'"
                 )
 
             # Create indexes AFTER columns exist
@@ -1722,16 +1773,20 @@ class AccessRequestRepository:
                 ),
             )
             request_id = cursor.lastrowid
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM access_requests WHERE id = ?", (request_id,)
+                self._AR_SELECT + " WHERE id = ?",
+                (request_id,),
             )
             return AccessRequest.from_row(cursor.fetchone())
 
     def get_by_id(self, request_id: int) -> Optional[AccessRequest]:
         """Get access request by ID."""
         with self.db.connection() as conn:
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM access_requests WHERE id = ?", (request_id,)
+                self._AR_SELECT + " WHERE id = ?",
+                (request_id,),
             )
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None
@@ -1739,8 +1794,10 @@ class AccessRequestRepository:
     def get_by_username(self, username: str) -> Optional[AccessRequest]:
         """Get access request by username."""
         with self.db.connection() as conn:
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM access_requests WHERE username = ?", (username,)
+                self._AR_SELECT + " WHERE username = ?",
+                (username,),
             )
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None
@@ -1748,8 +1805,9 @@ class AccessRequestRepository:
     def list_pending(self, limit: int = 50) -> List[AccessRequest]:
         """List all pending access requests."""
         with self.db.connection() as conn:
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM access_requests WHERE status = 'pending'"
+                self._AR_SELECT + " WHERE status = 'pending'"
                 " ORDER BY requested_at ASC LIMIT ?",
                 (limit,),
             )
@@ -1758,8 +1816,9 @@ class AccessRequestRepository:
     def list_all(self, limit: int = 100) -> List[AccessRequest]:
         """List all access requests (any status)."""
         with self.db.connection() as conn:
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM access_requests ORDER BY requested_at DESC LIMIT ?",
+                self._AR_SELECT + " ORDER BY requested_at DESC LIMIT ?",
                 (limit,),
             )
             return [AccessRequest.from_row(row) for row in cursor.fetchall()]
@@ -1837,8 +1896,9 @@ class AccessRequestRepository:
     def get_by_claim_token(self, claim_token_hash: str) -> Optional[AccessRequest]:
         """Get access request by claim token hash."""
         with self.db.connection() as conn:
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM access_requests WHERE claim_token_hash = ?",
+                self._AR_SELECT + " WHERE claim_token_hash = ?",
                 (claim_token_hash,),
             )
             row = cursor.fetchone()
@@ -1889,9 +1949,9 @@ class AccessRequestRepository:
     ) -> Optional[AccessRequest]:
         """Get access request by username and claim token (for status check)."""
         with self.db.connection() as conn:
+            # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                "SELECT * FROM access_requests"
-                " WHERE username = ? AND claim_token_hash = ?",
+                self._AR_SELECT + " WHERE username = ? AND claim_token_hash = ?",
                 (username, claim_token_hash),
             )
             row = cursor.fetchone()

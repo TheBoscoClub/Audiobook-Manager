@@ -280,7 +280,7 @@ class ShellPlayer {
 
     if (locale !== "en") {
       try {
-        const taResp = await fetch(`${API_BASE}/audiobooks/${bookId}/translated-audio?locale=${encodeURIComponent(locale)}`);
+        const taResp = await fetch(`${API_BASE}/audiobooks/${bookId}/translated-audio?locale=${encodeURIComponent(locale)}`, { credentials: "include" });
         if (taResp.ok) {
           const entries = await taResp.json();
           if (entries.length > 0) {
@@ -294,6 +294,7 @@ class ShellPlayer {
       if (!useTranslatedAudio) {
         fetch(`${API_BASE}/translation/bump`, {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ audiobook_id: bookId, locale }),
         }).catch(() => {});

@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.0.2] - 2026-04-13
+
+### Fixed
+
+- **Schema drift in auth database**: `preferred_locale` column was added to `schema.sql` (users and access_requests tables) but missing from `database.py` ALTER TABLE migrations, causing `SELECT *` queries to return columns in wrong positional order. Replaced all `SELECT *` in `UserRepository` and `AccessRequestRepository` with explicit column-list constants (`_USER_SELECT`, `_AR_SELECT`) that guarantee deterministic positional order regardless of physical table layout. Added missing ALTER TABLE migration for `preferred_locale` in users table
+- **Schema version bump to 10**: Updated `SCHEMA_VERSION` constant and all test assertions to match `schema.sql` version 10 (was stuck at 9)
+- **Missing `credentials: "include"` on i18n fetch calls** in `shell.js`: Two new fetch calls added by the localization feature (translated-audio lookup and translation bump) were missing auth cookie forwarding, which would fail silently when `AUTH_ENABLED=true`
+- **Dry-run mode calling backfill script**: Data migration `001_podcast_detection.sh` attempted to execute `backfill_enrichment.py` even in `--dry-run` mode, triggering upgrade.sh's ERR trap when the script wasn't present in the target directory
+- **CodeQL security alerts in i18n code**: Sanitized log injection vectors in `translations.py`, `search_cjk.py`, `i18n.py`, `i18n_routes.py`, and `whisper_gpu_service.py` — replaced user-controlled `str(e)` in error responses with generic messages, added regex validation for locale path construction, added `_sanitize_log()` helper for safe logging of user input
+- **MIME-encoded email test assertions**: Updated 7 email tests to decode multipart/alternative MIME bodies (base64-encoded by i18n changes) before checking content
+
 ## [8.2.0.1] - 2026-04-13
 
 ### Added
@@ -2655,7 +2666,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.2...HEAD
+[8.2.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.1...v8.2.0.2
 [8.2.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0...v8.2.0.1
 [8.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.2...v8.2.0
 [8.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.1...v8.1.2

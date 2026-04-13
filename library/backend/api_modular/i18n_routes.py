@@ -8,11 +8,14 @@ GET  /api/translation/queue    → queue status summary
 GET  /api/translation/status/<id>/<locale> → per-book translation status
 """
 
+import logging
+
 from flask import Blueprint, jsonify, request
 
 from i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, get_catalog, reload_catalogs
 
 i18n_bp = Blueprint("i18n", __name__)
+logger = logging.getLogger(__name__)
 
 
 @i18n_bp.route("/api/i18n/supported")
@@ -63,8 +66,9 @@ def activate_locale():
         enqueue_all_books_for_locale(locale)
         status = get_queue_status()
         return jsonify({"status": "ok", "queued": status.get("pending", 0)})
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
+    except Exception:
+        logger.exception("Locale activation failed")
+        return jsonify({"status": "error", "error": "Internal server error"}), 500
 
 
 @i18n_bp.route("/api/translation/queue")
@@ -73,8 +77,9 @@ def translation_queue_status():
     try:
         from localization.queue import get_queue_status
         return jsonify(get_queue_status())
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("Failed to get translation queue status")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @i18n_bp.route("/api/translation/bump", methods=["POST"])
@@ -94,8 +99,9 @@ def translation_bump_priority():
         bump_priority(audiobook_id, locale, priority=100)
         enqueue(audiobook_id, locale, priority=100, start_worker=True)
         return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
+    except Exception:
+        logger.exception("Failed to bump translation priority")
+        return jsonify({"status": "error", "error": "Internal server error"}), 500
 
 
 @i18n_bp.route("/api/translation/status/<int:book_id>/<locale>")
@@ -107,5 +113,6 @@ def translation_book_status(book_id, locale):
         if not status:
             return jsonify({"state": "not_queued"})
         return jsonify(status)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("Failed to get book translation status")
+        return jsonify({"error": "Internal server error"}), 500

@@ -13,6 +13,7 @@ Usage:
 
 import json
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -32,6 +33,9 @@ SUPPORTED_LOCALES = set(
 @lru_cache(maxsize=16)
 def _load_catalog(locale: str) -> dict:
     """Load and cache a locale's JSON catalog."""
+    # Prevent path traversal — locale must be alphanumeric with optional hyphens
+    if not re.match(r"^[a-zA-Z0-9-]+$", locale):
+        return {}
     catalog_path = _LOCALES_DIR / f"{locale}.json"
     if not catalog_path.exists():
         return {}

@@ -69,7 +69,6 @@ echo "  Podcast detection: scanning $_dm001_candidate_count Product rows for pod
 
 if [[ "$DRY_RUN" == "true" ]]; then
     echo "  [DRY-RUN] Would run podcast detection backfill"
-    _dm001_run_backfill
     return 0
 fi
 

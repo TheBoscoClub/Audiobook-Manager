@@ -79,7 +79,7 @@ class TestHelpPageStructure:
     def test_accessibility_lang_attr(self):
         """help.html must have lang='en' on the html element."""
         content = (WEB_DIR / "help.html").read_text()
-        assert '<html lang="en">' in content, "help.html should have <html lang='en'>"
+        assert '<html lang="en"' in content, "help.html should have lang='en' on <html>"
 
 
 class TestHelpCSS:

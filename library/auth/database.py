@@ -45,7 +45,7 @@ class AuthDatabase:
             cursor = conn.execute("SELECT * FROM users")
     """
 
-    SCHEMA_VERSION = 9
+    SCHEMA_VERSION = 10
     KEY_LENGTH = 32  # 256 bits
 
     def __init__(
@@ -268,6 +268,10 @@ class AuthDatabase:
             if "multi_session" not in cols:
                 conn.execute(
                     "ALTER TABLE users ADD COLUMN multi_session TEXT NOT NULL DEFAULT 'default'"
+                )
+            if "preferred_locale" not in cols:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN preferred_locale TEXT DEFAULT 'en'"
                 )
 
         return created

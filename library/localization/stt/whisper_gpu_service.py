@@ -126,9 +126,9 @@ def create_app():
         try:
             result = transcribe_file(tmp_path, language=language)
             return jsonify(result)
-        except Exception as e:
+        except Exception:
             logger.exception("Transcription failed")
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Transcription failed"}), 500
         finally:
             tmp_path.unlink(missing_ok=True)
 

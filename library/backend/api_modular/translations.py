@@ -26,6 +26,11 @@ from .search_cjk import pinyin_sort_key
 translations_bp = Blueprint("translations", __name__)
 logger = logging.getLogger(__name__)
 
+
+def _sanitize_log(value) -> str:
+    """Sanitize user-controlled values for safe logging (prevent log injection)."""
+    return str(value).replace("\n", "\\n").replace("\r", "\\r")
+
 _db_path: Path | None = None
 
 
@@ -406,7 +411,7 @@ def _translate_missing(conn, missing_ids, locale, result_dict):
         conn.commit()
         logger.info(
             "On-demand translated %d books (%d unique series) to %s via DeepL",
-            len(books), len(unique_series), locale,
+            len(books), len(unique_series), _sanitize_log(locale),
         )
 
     except Exception:
@@ -503,7 +508,7 @@ def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result
         conn.commit()
         logger.info(
             "On-demand translated %d collections (%d unique names) to %s",
-            len(missing_ids), len(unique_names), locale,
+            len(missing_ids), len(unique_names), _sanitize_log(locale),
         )
     except Exception:
         logger.exception("Collection translation failed")
@@ -589,7 +594,7 @@ def translate_strings():
                     conn.commit()
                     logger.info(
                         "String-translated %d unique strings to %s via DeepL",
-                        len(missing), locale,
+                        len(missing), _sanitize_log(locale),
                     )
                 else:
                     logger.warning("String translation: no DeepL API key configured")
@@ -730,7 +735,7 @@ def on_demand_translate():
         conn.commit()
         logger.info(
             "On-demand translated %d books to %s via DeepL",
-            len(books_to_translate), locale,
+            len(books_to_translate), _sanitize_log(locale),
         )
 
         # Merge cached + newly translated
@@ -891,7 +896,10 @@ def batch_translate():
             }
 
         conn.commit()
-        logger.info("Batch translated %d books to %s", len(needs_translation), locale)
+        logger.info(
+            "Batch translated %d books to %s",
+            len(needs_translation), _sanitize_log(locale),
+        )
 
         return jsonify({
             "total_books": len(books),

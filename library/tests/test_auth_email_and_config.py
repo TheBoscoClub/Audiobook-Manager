@@ -6,10 +6,27 @@ auto-derivation.
 All tests use mocking — no VM or SMTP server required.
 """
 
+import email
 import json
 import os
 import smtplib
 from unittest.mock import MagicMock, patch
+
+
+def _decode_email_body(raw_msg: str) -> str:
+    """Decode a MIME email message and return the combined text of all parts."""
+    msg = email.message_from_string(raw_msg)
+    parts = []
+    if msg.is_multipart():
+        for part in msg.walk():
+            payload = part.get_payload(decode=True)
+            if payload:
+                parts.append(payload.decode("utf-8", errors="replace"))
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload:
+            parts.append(payload.decode("utf-8", errors="replace"))
+    return "\n".join(parts) if parts else raw_msg
 
 
 # ---------------------------------------------------------------------------
@@ -529,7 +546,7 @@ class TestSendApprovalEmail:
 
                 _send_approval_email("user@example.com", "bob")
                 call_args = mock_server.sendmail.call_args
-                msg_body = call_args[0][2]
+                msg_body = _decode_email_body(call_args[0][2])
                 assert "bob" in msg_body
         finally:
             patcher.stop()
@@ -543,7 +560,7 @@ class TestSendApprovalEmail:
 
                 _send_approval_email("user@example.com", "carol")
                 call_args = mock_server.sendmail.call_args
-                msg_body = call_args[0][2]
+                msg_body = _decode_email_body(call_args[0][2])
                 assert "claim.html" in msg_body
                 assert "carol" in msg_body
         finally:
@@ -573,7 +590,7 @@ class TestSendApprovalEmail:
 
                 _send_approval_email("user@example.com", "eve")
                 call_args = mock_server.sendmail.call_args
-                msg_body = call_args[0][2]
+                msg_body = _decode_email_body(call_args[0][2])
                 assert "Google Authenticator" in msg_body
                 assert "Aegis" in msg_body
                 assert "FreeOTP" in msg_body
@@ -890,7 +907,7 @@ class TestSendInvitationEmail:
                 from backend.api_modular.auth import _send_invitation_email
 
                 _send_invitation_email("user@example.com", "bob", "WXYZ-1234-ABCD-5678")
-                msg_body = mock_server.sendmail.call_args[0][2]
+                msg_body = _decode_email_body(mock_server.sendmail.call_args[0][2])
                 assert "WXYZ-1234-ABCD-5678" in msg_body
         finally:
             patcher.stop()
@@ -905,7 +922,7 @@ class TestSendInvitationEmail:
                 _send_invitation_email(
                     "user@example.com", "carol", "ABCD-EFGH-IJKL-MNOP"
                 )
-                msg_body = mock_server.sendmail.call_args[0][2]
+                msg_body = _decode_email_body(mock_server.sendmail.call_args[0][2])
                 assert "claim.html" in msg_body
                 assert "library.example.com" in msg_body
         finally:
@@ -992,7 +1009,7 @@ class TestSendActivationEmail:
                 from backend.api_modular.auth import _send_activation_email
 
                 _send_activation_email("user@example.com", "bob", "mytoken456")
-                msg_body = mock_server.sendmail.call_args[0][2]
+                msg_body = _decode_email_body(mock_server.sendmail.call_args[0][2])
                 assert "verify.html" in msg_body
                 assert "mytoken456" in msg_body
                 assert "activate=1" in msg_body
@@ -1021,7 +1038,7 @@ class TestSendActivationEmail:
                 from backend.api_modular.auth import _send_activation_email
 
                 _send_activation_email("user@example.com", "uniqueuser99", "tok")
-                msg_body = mock_server.sendmail.call_args[0][2]
+                msg_body = _decode_email_body(mock_server.sendmail.call_args[0][2])
                 assert "uniqueuser99" in msg_body
         finally:
             patcher.stop()

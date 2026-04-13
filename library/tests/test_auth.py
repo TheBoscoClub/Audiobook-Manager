@@ -74,7 +74,7 @@ class TestAuthDatabase:
         assert status["db_exists"]
         assert status["key_exists"]
         assert status["can_connect"]
-        assert status["schema_version"] == 9
+        assert status["schema_version"] == 10
         # 13 original + user_listening_history, user_downloads,
         # user_preferences, webauthn_credentials, audit_log, user_hidden_books,
         # user_settings (v8), system_settings (v9)
