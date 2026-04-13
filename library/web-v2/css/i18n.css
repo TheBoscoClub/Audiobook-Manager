@@ -104,6 +104,12 @@ html.cjk h1, html.cjk h2, html.cjk h3 {
 .subtitle-line {
   padding: 2px 0;
   min-height: 1.4em;
+  transition: opacity 0.3s ease;
+}
+
+/* Crossfade class applied by JS during text swap */
+.subtitle-line.crossfade {
+  opacity: 0;
 }
 
 .subtitle-source {

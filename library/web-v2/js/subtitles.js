@@ -700,18 +700,22 @@
     // Hide the source line in inline mode — only show translated text
     if (subtitleSource) subtitleSource.style.display = "none";
 
-    if (newIndex === -1) {
-      if (subtitleTranslated) subtitleTranslated.textContent = "";
-    } else {
-      if (subtitleTranslated) {
-        // Show translated text; fall back to source if no translation
-        var text = translatedCues[newIndex]
-          ? translatedCues[newIndex].text
-          : sourceCues[newIndex]
-            ? sourceCues[newIndex].text
-            : "";
-        subtitleTranslated.textContent = text;
-      }
+    // Crossfade: fade out, swap text, fade in
+    var newText = "";
+    if (newIndex !== -1) {
+      newText = translatedCues[newIndex]
+        ? translatedCues[newIndex].text
+        : sourceCues[newIndex]
+          ? sourceCues[newIndex].text
+          : "";
+    }
+
+    if (subtitleTranslated) {
+      subtitleTranslated.classList.add("crossfade");
+      setTimeout(function () {
+        subtitleTranslated.textContent = newText;
+        subtitleTranslated.classList.remove("crossfade");
+      }, 300);
     }
 
     // Highlight active cue in transcript
@@ -814,6 +818,10 @@
     var btn = document.getElementById("sp-transcript-toggle");
     if (btn) {
       btn.classList.toggle("active", transcriptVisible);
+    }
+    // When opening, immediately highlight + scroll to the current cue
+    if (transcriptVisible && currentCueIndex >= 0) {
+      highlightTranscriptCue(currentCueIndex);
     }
   }
 
