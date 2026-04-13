@@ -120,25 +120,43 @@ def enqueue(audiobook_id: int, locale: str, priority: int = 0,
 def enqueue_book_all_locales(audiobook_id: int, priority: int = 0) -> None:
     """Queue a book for translation in all configured non-English locales."""
     from .config import SUPPORTED_LOCALES
-    for locale in SUPPORTED_LOCALES:
-        if locale != "en":
-            enqueue(audiobook_id, locale, priority)
-
-
-def enqueue_all_books_for_locale(locale: str, priority: int = 0) -> None:
-    """Queue all books missing translations for a locale."""
+    locales = [loc for loc in SUPPORTED_LOCALES if loc != "en"]
+    if not locales:
+        return
     conn = _get_db()
     try:
-        rows = conn.execute(
-            "SELECT a.id FROM audiobooks a "
+        conn.executemany(
+            "INSERT OR IGNORE INTO translation_queue "
+            "(audiobook_id, locale, priority) VALUES (?, ?, ?)",
+            [(audiobook_id, loc, priority) for loc in locales],
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def enqueue_all_books_for_locale(locale: str, priority: int = 0) -> int:
+    """Queue all books missing translations for a locale.
+
+    Uses a single INSERT … SELECT to avoid opening/closing 1800+
+    individual connections, which blocks the gevent worker for seconds.
+    Returns the number of rows inserted.
+    """
+    conn = _get_db()
+    try:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO translation_queue "
+            "(audiobook_id, locale, priority) "
+            "SELECT a.id, ?, ? FROM audiobooks a "
             "WHERE a.id NOT IN ("
             "  SELECT cs.audiobook_id FROM chapter_subtitles cs "
             "  WHERE cs.locale = 'en' "
             "  GROUP BY cs.audiobook_id"
             ")",
-        ).fetchall()
-        for row in rows:
-            enqueue(row["id"], locale, priority)
+            (locale, priority),
+        )
+        conn.commit()
+        return cur.rowcount
     finally:
         conn.close()
 
