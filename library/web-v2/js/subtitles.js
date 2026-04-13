@@ -724,6 +724,11 @@
 
   // ── Transcript Panel ──
 
+  // Gap threshold (ms) — insert a break divider when consecutive cues
+  // are separated by more than this. 2s catches speaker changes, paragraph
+  // breaks, and scene transitions in typical audiobook narration.
+  var GAP_THRESHOLD_MS = 2000;
+
   function buildTranscriptPanel() {
     if (!transcriptContent) return;
     transcriptContent.textContent = "";
@@ -731,6 +736,18 @@
     var cues = sourceCues.length >= translatedCues.length ? sourceCues : translatedCues;
 
     for (var i = 0; i < cues.length; i++) {
+      // Insert a break divider when there's a significant time gap
+      if (i > 0) {
+        var gap = cues[i].startMs - cues[i - 1].endMs;
+        if (gap >= GAP_THRESHOLD_MS) {
+          var divider = document.createElement("div");
+          divider.className = "transcript-break";
+          divider.setAttribute("aria-hidden", "true");
+          divider.textContent = "\u25C6"; // ◆ diamond
+          transcriptContent.appendChild(divider);
+        }
+      }
+
       var cueEl = document.createElement("div");
       cueEl.className = "transcript-cue";
       cueEl.setAttribute("data-cue-index", i);

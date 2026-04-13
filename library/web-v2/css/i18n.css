@@ -443,6 +443,29 @@ html.cjk .transcript-cue.active .transcript-cue-translated {
   font-size: 1.05rem;
 }
 
+/* Break divider — ornamental line with diamond for speaker/paragraph breaks */
+.transcript-break {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 10px;
+  opacity: 0.45;
+}
+
+.transcript-break::before,
+.transcript-break::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--deco-gold, #c5a55a);
+}
+
+/* Diamond ornament styling */
+.transcript-break {
+  font-size: 0.5rem;
+  color: var(--deco-gold, #c5a55a);
+}
+
 /* Mobile: full-width drawer */
 @media (max-width: 768px) {
   .transcript-panel {
