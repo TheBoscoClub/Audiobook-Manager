@@ -15,9 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [8.2.0.1] - 2026-04-13
 
+### Added
+
+- **Multi-language setup and installation guide** (`docs/MULTI-LANGUAGE-SETUP.md`): Comprehensive documentation covering provider setup (DeepL, Vast.ai, RunPod, local GPU), configuration reference for all 16 environment variables, step-by-step guide for adding new languages, real-world cost and time investment breakdown (~$70k+ total project, ~$150-450 GPU costs for full library translation), translation asset portability, dependency matrix, attribution for all AI services, and troubleshooting guide
+- **Admin exclusion rationale in all relevant docs**: Explained in README, ARCHITECTURE.md, About page, and Help page why the admin/backoffice UI is intentionally not translated — 100% of user-facing content is translated while admin-only tools used solely by the operator remain in English to avoid doubling maintenance for pages no patron ever sees
+
 ### Fixed
 
-- **Untranslated tooltip title attributes** across all user-facing pages: Added `data-i18n-title` attributes to 102 interactive elements (buttons, links, inputs, selects) in `shell.html`, `index.html`, `help.html`, `about.html`, `claim.html`, `login.html`, and `register.html`. Added 63 new tooltip translation keys to both `en.json` and `zh-Hans.json` (1038 keys total). The `i18n.js` engine already supported `[data-i18n-title]` selectors — the HTML elements were simply missing the attribute bindings
+- **Untranslated tooltip title attributes** across all user-facing pages: Added `data-i18n-title` attributes to 102 interactive elements (buttons, links, inputs, selects) in `shell.html`, `index.html`, `help.html`, `about.html`, `claim.html`, `login.html`, and `register.html`. Added 63 new tooltip translation keys to both `en.json` and `zh-Hans.json` (1,039 keys total). The `i18n.js` engine already supported `[data-i18n-title]` selectors — the HTML elements were simply missing the attribute bindings
 - **Unused import in localization pipeline** (`library/localization/pipeline.py`): Removed `Chapter` import that was flagged by ruff F401 and breaking CI
 
 ## [8.2.0] - 2026-04-13

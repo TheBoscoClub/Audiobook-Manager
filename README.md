@@ -219,7 +219,7 @@ Web-based audiobook library browser with:
 - **Accessibility quick panel** — slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls (v8.0+)
 - **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
 - **Multi-session login** — admin-configurable concurrent device sessions with global default and per-user override (v8.0.1.2+)
-- **Multi-language support** — full i18n with Simplified Chinese (zh-Hans) as first non-English locale; catalog-based UI strings with DeepL-powered dynamic content translation (v8.1.0+)
+- **Multi-language support** — full i18n with Simplified Chinese (zh-Hans) as first non-English locale; catalog-based UI strings with DeepL-powered dynamic content translation. All user-facing content is translated (1,038 keys per locale); admin/backoffice UI remains English-only by design since only the operator sees it. See [Multi-Language Setup Guide](docs/MULTI-LANGUAGE-SETUP.md) for installation, provider setup, and cost estimates (v8.1.0+)
 - **Bilingual subtitles** — on-demand STT transcription via Whisper (Vast.ai/RunPod/local GPU) with DeepL translation, producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
 - **Text-to-speech translated audio** — TTS generation via edge-tts (CPU) or XTTS v2 (GPU) producing translated Opus audio tracks per chapter (v8.1.0+)
 - **Translation pipeline** — three-step chain (STT → Translation → TTS) with background queue processing, priority bumping on book open, and chapter-by-chapter progress reporting (v8.1.0+)

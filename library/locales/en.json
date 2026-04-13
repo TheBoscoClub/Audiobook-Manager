@@ -52,6 +52,7 @@
   "about.loading": "loading...",
   "about.localizationHeading": "Localization & AI Services",
   "about.localizationIntro": "Chinese (and other future language) support in The Library would not be possible without the generosity and craft of the open AI community and the GPU hosts who keep these models affordable to run. The Library extends heartfelt gratitude to:",
+  "about.localizationScope": "Every element of the library that patrons interact with is fully translated — navigation, player controls, tooltips, book descriptions, subtitles, help documentation, and audio narration. The administrative backoffice is intentionally excluded from translation: it is used solely by the system operator and keeping it in English avoids doubling maintenance work for pages no patron ever sees.",
   "about.mutagenDesc": "Audio metadata parsing library for reading and writing tags across multiple audio formats including Opus, M4B, MP3, and FLAC.",
   "about.pyotpDesc": "TOTP-based authentication providing time-based one-time passwords compatible with standard authenticator apps.",
   "about.runpodDesc": "Serverless GPU platform used as a secondary provider for longer narration jobs. Fast spin-up times and fair pricing keep The Library's translated audio pipeline responsive.",

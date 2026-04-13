@@ -52,6 +52,7 @@
   "about.loading": "加载中...",
   "about.localizationHeading": "本地化与 AI 服务",
   "about.localizationIntro": "如果没有开放 AI 社区的慷慨与匠心,以及让这些模型得以低成本运行的 GPU 提供商,The Library 对中文(及未来其他语言)的支持将无从谈起。The Library 衷心感谢:",
+  "about.localizationScope": "图书馆中读者使用的每一个界面元素都已完整翻译——包括导航、播放器控件、工具提示、书籍描述、字幕、帮助文档和音频旁白。管理后台有意不做翻译：它仅由系统管理员使用,保持英文可以避免为读者永远不会看到的页面增加双倍的维护工作量。",
   "about.mutagenDesc": "音频元数据解析库,用于读写 Opus、M4B、MP3 和 FLAC 等多种音频格式的标签。",
   "about.pyotpDesc": "基于 TOTP 的身份验证,提供与标准身份验证器应用兼容的一次性动态密码。",
   "about.runpodDesc": "作为辅助供应商的无服务器 GPU 平台,用于时长较长的朗读任务。快速的启动时间与公道的价格让 The Library 的翻译音频流水线始终保持响应迅速。",

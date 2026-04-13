@@ -707,7 +707,7 @@ library/backend/api_modular/utilities_ops/
 
 ## Localization & Translation Pipeline
 
-The localization subsystem (v8.1.0+) provides full multi-language support with three layers: static UI translation, dynamic content translation, and audiobook media translation.
+The localization subsystem (v8.1.0+) provides full multi-language support with three layers: static UI translation, dynamic content translation, and audiobook media translation. All user-facing content is translated (1,038 keys per locale, plus book descriptions, subtitles, and TTS narration). The admin/backoffice interface (`utilities.html`) is intentionally excluded: it is used exclusively by the system operator and translating admin-only pages would add maintenance burden with zero patron benefit. For a complete setup guide including provider configuration, cost estimates, and instructions for adding new languages, see [MULTI-LANGUAGE-SETUP.md](MULTI-LANGUAGE-SETUP.md).
 
 ### Architecture Overview
 
