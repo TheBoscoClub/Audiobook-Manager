@@ -24,11 +24,11 @@
         <h1 data-i18n="help.title">User Guide</h1>
         <p data-i18n="app.tagline">A Private Collection of Audiobooks</p>
         <div class="help-header-actions">
-            <a href="index.html" title="Return to the audiobook library" data-i18n="help.backToLibrary">&larr; Back to Library</a>
-            <button id="start-tutorial-btn" title="Take a guided tour of the library interface" data-i18n="help.startTutorial">Start Tutorial</button>
-            <a href="about.html" title="About The Library &mdash; credits, attributions, and version info" data-i18n="help.about">About</a>
-            <button id="suggestion-btn" class="suggestion-btn" title="Share your thoughts with the librarian" data-i18n="help.suggestions">Suggestions? Desires? Likes? Dislikes? <span class="unsolicited"><s>Un</s>solicited</span> Praise?</button>
-            <a href="#roadmap" class="forthcoming-link" title="See what's coming next" data-i18n="help.comingSoon">Coming soon to your local branch library</a>
+            <a href="index.html" title="Return to the audiobook library" data-i18n-title="help.title.backToLibrary" data-i18n="help.backToLibrary">&larr; Back to Library</a>
+            <button id="start-tutorial-btn" title="Take a guided tour of the library interface" data-i18n-title="help.title.guidedTour" data-i18n="help.startTutorial">Start Tutorial</button>
+            <a href="about.html" title="About The Library &mdash; credits, attributions, and version info" data-i18n-title="help.title.about" data-i18n="help.about">About</a>
+            <button id="suggestion-btn" class="suggestion-btn" title="Share your thoughts with the librarian" data-i18n-title="help.title.suggestion" data-i18n="help.suggestions">Suggestions? Desires? Likes? Dislikes? <span class="unsolicited"><s>Un</s>solicited</span> Praise?</button>
+            <a href="#roadmap" class="forthcoming-link" title="See what's coming next" data-i18n-title="help.title.comingNext" data-i18n="help.comingSoon">Coming soon to your local branch library</a>
         </div>
     </header>
 
@@ -42,8 +42,8 @@
                 <textarea id="suggestion-text" maxlength="2048" placeholder="Write your thoughts here..." data-i18n-placeholder="help.writePlaceholder"></textarea>
                 <div class="comment-pad-counter"><span id="suggestion-char-count">0</span> / 2048</div>
                 <div class="comment-pad-actions">
-                    <button class="pad-cancel" id="suggestion-cancel" title="Discard and close" data-i18n="help.cancel">Cancel</button>
-                    <button class="pad-submit" id="suggestion-submit" title="Submit your suggestion" data-i18n="help.submit">Submit</button>
+                    <button class="pad-cancel" id="suggestion-cancel" title="Discard and close" data-i18n-title="help.title.discardSuggestion" data-i18n="help.cancel">Cancel</button>
+                    <button class="pad-submit" id="suggestion-submit" title="Submit your suggestion" data-i18n-title="help.title.submitSuggestion" data-i18n="help.submit">Submit</button>
                 </div>
             </div>
             <div id="suggestion-thanks" class="comment-pad-thanks">
@@ -406,7 +406,7 @@
             <p>The Library supports three ways to sign in. Your administrator may set your initial method when they invite you, and you can change it later in your profile.</p>
 
             <h3>Authenticator App (TOTP)</h3>
-            <p>Use an app like <a href="https://2fas.com" target="_blank" rel="noopener" title="2FAS — free, open source authenticator for iPhone, Android, and browsers">2FAS</a>, Google Authenticator, or Aegis to generate a 6-digit code that changes every 30 seconds. This is the most common method and works without internet access on your phone.</p>
+            <p>Use an app like <a href="https://2fas.com" target="_blank" rel="noopener" title="2FAS — free, open source authenticator for iPhone, Android, and browsers" data-i18n-title="help.title.2fasDesc">2FAS</a>, Google Authenticator, or Aegis to generate a 6-digit code that changes every 30 seconds. This is the most common method and works without internet access on your phone.</p>
 
             <h3>Passkey / Security Key</h3>
             <p>Use your device's biometric sensor (fingerprint, face recognition) or a physical security key (like a YubiKey). Passkeys are the most convenient &mdash; just tap to sign in. Your browser must support WebAuthn.</p>

@@ -44,13 +44,13 @@
     <div id="shell-header">
         <!-- Left group -->
         <div class="header-group-left">
-            <button id="my-account-btn" class="header-btn account-btn" title="My Account settings">
+            <button id="my-account-btn" class="header-btn account-btn" title="My Account settings" data-i18n-title="chrome.title.accountSettings">
                 <span class="account-icon" id="account-initial">?</span>
                 <span id="account-username" data-i18n="shell.account">Account</span>
             </button>
             <span id="instance-badge" class="instance-badge" style="display:none"></span>
             <!-- Accessibility quick-panel toggle -->
-            <button id="accessibility-btn" class="header-btn a11y-btn" title="Accessibility &amp; display settings">
+            <button id="accessibility-btn" class="header-btn a11y-btn" title="Accessibility &amp; display settings" data-i18n-title="chrome.title.displaySettings">
                 <span class="a11y-icon">
                     <svg viewBox="0 0 30 22" width="22" height="16" aria-hidden="true">
                         <!-- Left lens (half-frame) -->
@@ -70,7 +70,7 @@
                 <span class="a11y-label" data-i18n="shell.display">Display</span>
             </button>
             <!-- Locale switcher -->
-            <div class="locale-switcher" id="locale-switcher" title="Language / 语言">
+            <div class="locale-switcher" id="locale-switcher" title="Language / 语言" data-i18n-title="chrome.title.language">
                 <svg class="locale-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                     <circle cx="12" cy="12" r="10"/>
                     <path d="M2 12h20"/>
@@ -85,11 +85,11 @@
         </div>
         <!-- Right group -->
         <div class="header-group-right">
-            <a href="help.html" target="content-frame" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide">
+            <a href="help.html" target="content-frame" class="header-btn help-btn" id="help-knocker-link" title="Help &amp; User Guide" data-i18n-title="chrome.title.help">
                 <span class="help-icon">?</span>
                 <span class="help-label" data-i18n="shell.help">Help</span>
             </a>
-            <a href="utilities.html" target="content-frame" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only">
+            <a href="utilities.html" target="content-frame" id="admin-backoffice-link" class="header-btn backoffice-btn" hidden title="Library Administration — Staff Only" data-i18n-title="chrome.title.backOffice">
                 <span class="backoffice-icon">
                     <svg viewBox="0 0 24 32" width="14" height="18" aria-hidden="true">
                         <ellipse cx="12" cy="10" rx="7" ry="8" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -164,7 +164,7 @@
     </div>
 
     <!-- Content iframe: loads all authenticated pages -->
-    <iframe id="content-frame" name="content-frame" src="index.html?v=1776053483" title="Library content"></iframe>
+    <iframe id="content-frame" name="content-frame" src="index.html?v=1776053483" title="Library content" data-i18n-title="chrome.title.libraryContent"></iframe>
 
     <!-- Subtitle banner (full-width, above player bar) -->
     <div id="subtitle-display" class="subtitle-display" style="display:none;">
@@ -228,7 +228,7 @@
             </button>
             <input type="range" id="sp-volume" class="sp-volume" min="0" max="100" value="100" title="Volume" data-i18n-title="player.volume">
             <span id="sp-speed-display">1x</span>
-            <button class="sp-btn sp-btn-sm" id="sp-speed" title="Click: faster · Right-click/Shift+click: slower" data-i18n="player.speed">Speed</button>
+            <button class="sp-btn sp-btn-sm" id="sp-speed" title="Click: faster · Right-click/Shift+click: slower" data-i18n-title="player.title.speedControl" data-i18n="player.speed">Speed</button>
             <button class="sp-btn sp-btn-sm" id="sp-subtitle-toggle" title="Toggle subtitles (CC)" data-i18n-title="player.toggleSubtitles" style="display:none;">CC</button>
             <button class="sp-btn sp-btn-sm" id="sp-transcript-toggle" title="Toggle transcript panel" data-i18n-title="player.toggleTranscript" style="display:none;">&#9776;</button>
             <button class="sp-btn sp-btn-sm" id="sp-lang-toggle" title="Switch audio language" data-i18n-title="player.switchLanguage" style="display:none;">&#127760;</button>
@@ -251,7 +251,7 @@
         <div class="modal-content modal-small">
             <div class="modal-header">
                 <h2 data-i18n="account.title">My Account</h2>
-                <button class="modal-close" id="account-modal-close" title="Close My Account">&times;</button>
+                <button class="modal-close" id="account-modal-close" title="Close My Account" data-i18n-title="account.title.close">&times;</button>
             </div>
             <div class="modal-body">
                 <!-- Profile Section -->
@@ -259,17 +259,17 @@
                     <h3 data-i18n="account.profile">Profile</h3>
                     <div class="account-field">
                         <label data-i18n="account.username">Username</label>
-                        <span id="acct-username" class="editable-field" title="Click to edit username"></span>
-                        <input id="acct-username-input" class="edit-input" hidden maxlength="24" title="New username">
-                        <button class="btn-inline" id="acct-username-save" hidden title="Save username change" data-i18n="common.save">Save</button>
-                        <button class="btn-inline" id="acct-username-cancel" hidden title="Cancel" data-i18n="common.cancel">Cancel</button>
+                        <span id="acct-username" class="editable-field" title="Click to edit username" data-i18n-title="account.title.editUsername"></span>
+                        <input id="acct-username-input" class="edit-input" hidden maxlength="24" title="New username" data-i18n-title="account.title.newUsername">
+                        <button class="btn-inline" id="acct-username-save" hidden title="Save username change" data-i18n-title="account.title.saveUsername" data-i18n="common.save">Save</button>
+                        <button class="btn-inline" id="acct-username-cancel" hidden title="Cancel" data-i18n-title="account.title.cancelUsername" data-i18n="common.cancel">Cancel</button>
                     </div>
                     <div class="account-field">
                         <label data-i18n="account.email">Email</label>
-                        <span id="acct-email" class="editable-field" title="Click to edit email"></span>
-                        <input id="acct-email-input" class="edit-input" hidden type="email" title="New email address">
-                        <button class="btn-inline" id="acct-email-save" hidden title="Save email change" data-i18n="common.save">Save</button>
-                        <button class="btn-inline" id="acct-email-cancel" hidden title="Cancel" data-i18n="common.cancel">Cancel</button>
+                        <span id="acct-email" class="editable-field" title="Click to edit email" data-i18n-title="account.title.editEmail"></span>
+                        <input id="acct-email-input" class="edit-input" hidden type="email" title="New email address" data-i18n-title="account.title.newEmail">
+                        <button class="btn-inline" id="acct-email-save" hidden title="Save email change" data-i18n-title="account.title.saveEmail" data-i18n="common.save">Save</button>
+                        <button class="btn-inline" id="acct-email-cancel" hidden title="Cancel" data-i18n-title="account.title.cancelEmail" data-i18n="common.cancel">Cancel</button>
                     </div>
                     <div class="account-field">
                         <label data-i18n="account.memberSince">Member since</label>
@@ -285,16 +285,16 @@
                         <span id="acct-auth-badge" class="auth-badge"></span>
                     </div>
                     <div class="auth-actions">
-                        <button class="btn btn-secondary" id="auth-switch-btn" title="Switch to a different authentication method">Switch Method</button>
-                        <button class="btn btn-secondary" id="auth-reset-btn" title="Reset your authentication credentials">Reset Credentials</button>
+                        <button class="btn btn-secondary" id="auth-switch-btn" title="Switch to a different authentication method" data-i18n-title="account.title.switchAuth">Switch Method</button>
+                        <button class="btn btn-secondary" id="auth-reset-btn" title="Reset your authentication credentials" data-i18n-title="account.title.resetAuth">Reset Credentials</button>
                     </div>
                     <div id="auth-switch-panel" hidden>
                         <div class="radio-group">
-                            <label title="Time-based one-time password"><input type="radio" name="switch_auth" value="totp"> TOTP</label>
-                            <label title="Login link via email"><input type="radio" name="switch_auth" value="magic_link"> Magic Link</label>
-                            <label title="FIDO2 hardware key"><input type="radio" name="switch_auth" value="passkey"> Passkey</label>
+                            <label title="Time-based one-time password" data-i18n-title="account.title.authTotp"><input type="radio" name="switch_auth" value="totp"> TOTP</label>
+                            <label title="Login link via email" data-i18n-title="account.title.authMagicLink"><input type="radio" name="switch_auth" value="magic_link"> Magic Link</label>
+                            <label title="FIDO2 hardware key" data-i18n-title="account.title.authFido2"><input type="radio" name="switch_auth" value="passkey"> Passkey</label>
                         </div>
-                        <button class="btn btn-primary" id="auth-switch-confirm" title="Confirm auth method switch">Switch</button>
+                        <button class="btn btn-primary" id="auth-switch-confirm" title="Confirm auth method switch" data-i18n-title="account.title.confirmAuth">Switch</button>
                     </div>
                     <div id="auth-setup-result" hidden></div>
                 </div>
@@ -302,8 +302,8 @@
                 <!-- Quick Actions -->
                 <div class="account-section">
                     <div class="auth-actions">
-                        <a href="contact.html" class="btn btn-secondary" id="contact-admin-btn" title="Send a message to the admin" data-i18n="account.contactAdmin">Contact Admin</a>
-                        <button class="btn btn-secondary" id="sign-out-btn" title="Sign out of your account" data-i18n="account.signOut">Sign Out</button>
+                        <a href="contact.html" class="btn btn-secondary" id="contact-admin-btn" title="Send a message to the admin" data-i18n-title="account.title.contactAdmin" data-i18n="account.contactAdmin">Contact Admin</a>
+                        <button class="btn btn-secondary" id="sign-out-btn" title="Sign out of your account" data-i18n-title="account.title.signOut" data-i18n="account.signOut">Sign Out</button>
                     </div>
                 </div>
 
@@ -312,7 +312,7 @@
                     <h3 data-i18n="prefs.browsing">Browsing</h3>
                     <div class="account-field">
                         <label for="pref-sort-order" data-i18n="prefs.sortOrder">Sort order</label>
-                        <select id="pref-sort-order" class="pref-select" data-key="sort_order" title="Default sort order for the library">
+                        <select id="pref-sort-order" class="pref-select" data-key="sort_order" title="Default sort order for the library" data-i18n-title="prefs.title.sortOrder">
                             <option value="title_asc" data-i18n="sort.titleAZ">Title A–Z</option>
                             <option value="title_desc" data-i18n="sort.titleZA">Title Z–A</option>
                             <option value="author_last_asc" data-i18n="sort.authorLastAZ">Author Last Name A–Z</option>
@@ -331,13 +331,13 @@
                     <div class="account-field">
                         <label for="pref-view-mode" data-i18n="prefs.viewMode">View mode</label>
                         <div class="pref-toggle-group" id="pref-view-mode" data-key="view_mode">
-                            <button data-value="grid" class="active" title="Grid view" data-i18n="prefs.grid">Grid</button>
-                            <button data-value="list" title="List view" data-i18n="prefs.list">List</button>
+                            <button data-value="grid" class="active" title="Grid view" data-i18n-title="prefs.title.gridView" data-i18n="prefs.grid">Grid</button>
+                            <button data-value="list" title="List view" data-i18n-title="prefs.title.listView" data-i18n="prefs.list">List</button>
                         </div>
                     </div>
                     <div class="account-field">
                         <label for="pref-items-per-page" data-i18n="prefs.itemsPerPage">Items per page</label>
-                        <select id="pref-items-per-page" class="pref-select" data-key="items_per_page" title="Number of items shown per page">
+                        <select id="pref-items-per-page" class="pref-select" data-key="items_per_page" title="Number of items shown per page" data-i18n-title="prefs.title.itemsPerPage">
                             <option value="25">25</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
@@ -346,14 +346,14 @@
                     </div>
                     <div class="account-field">
                         <label for="pref-content-filter" data-i18n="prefs.contentFilter">Content filter</label>
-                        <select id="pref-content-filter" class="pref-select" data-key="content_filter" title="Filter library content">
+                        <select id="pref-content-filter" class="pref-select" data-key="content_filter" title="Filter library content" data-i18n-title="prefs.title.contentFilter">
                             <option value="all" data-i18n="prefs.allContent">All content</option>
                             <option value="audiobooks" data-i18n="prefs.audiobooksOnly">Audiobooks only</option>
                         </select>
                     </div>
                     <div class="account-field">
                         <label for="pref-locale" data-i18n="prefs.language">Language</label>
-                        <select id="pref-locale" class="pref-select" data-key="locale" title="Display language / 显示语言">
+                        <select id="pref-locale" class="pref-select" data-key="locale" title="Display language / 显示语言" data-i18n-title="prefs.title.language">
                             <option value="en">English</option>
                             <option value="zh-Hans">简体中文 (Simplified Chinese)</option>
                         </select>
@@ -362,7 +362,7 @@
                     <h3 style="margin-top:1.2em" data-i18n="prefs.playback">Playback</h3>
                     <div class="account-field">
                         <label for="pref-playback-speed" data-i18n="prefs.defaultSpeed">Default speed</label>
-                        <select id="pref-playback-speed" class="pref-select" data-key="playback_speed" title="Default playback speed">
+                        <select id="pref-playback-speed" class="pref-select" data-key="playback_speed" title="Default playback speed" data-i18n-title="prefs.title.playbackSpeed">
                             <option value="0.75">0.75×</option>
                             <option value="1">1×</option>
                             <option value="1.25">1.25×</option>
@@ -372,7 +372,7 @@
                     </div>
                     <div class="account-field">
                         <label for="pref-sleep-timer" data-i18n="prefs.sleepTimer">Sleep timer</label>
-                        <select id="pref-sleep-timer" class="pref-select" data-key="sleep_timer" title="Default sleep timer duration">
+                        <select id="pref-sleep-timer" class="pref-select" data-key="sleep_timer" title="Default sleep timer duration" data-i18n-title="prefs.title.sleepTimer">
                             <option value="0" data-i18n="prefs.sleepOff">Off</option>
                             <option value="15">15 min</option>
                             <option value="30">30 min</option>
@@ -381,14 +381,14 @@
                     </div>
                     <div class="account-field">
                         <label for="pref-auto-play" data-i18n="prefs.autoPlaySeries">Auto-play series</label>
-                        <input type="checkbox" id="pref-auto-play" data-key="auto_play_series" title="Automatically play next book in series">
+                        <input type="checkbox" id="pref-auto-play" data-key="auto_play_series" title="Automatically play next book in series" data-i18n-title="prefs.title.autoPlay">
                     </div>
                 </div>
 
                 <!-- Danger Zone -->
                 <div class="account-section danger-zone">
                     <h3 data-i18n="account.dangerZone">Danger Zone</h3>
-                    <button class="btn btn-danger" id="delete-account-btn" title="Permanently delete your account" data-i18n="account.deleteAccount">Delete My Account</button>
+                    <button class="btn btn-danger" id="delete-account-btn" title="Permanently delete your account" data-i18n-title="account.title.deleteAccount" data-i18n="account.deleteAccount">Delete My Account</button>
                 </div>
             </div>
         </div>

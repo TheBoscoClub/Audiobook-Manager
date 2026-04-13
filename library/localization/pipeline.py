@@ -17,7 +17,7 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
-from .chapters import Chapter, extract_chapters, split_chapter
+from .chapters import extract_chapters, split_chapter
 from .config import (
     DEEPL_API_KEY,
     RUNPOD_API_KEY,

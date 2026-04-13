@@ -85,7 +85,7 @@
                         <button class="letter-group" data-group="p-t">P-T</button>
                         <button class="letter-group" data-group="u-z">U-Z</button>
                     </div>
-                    <button class="sort-toggle" id="author-sort" title="Toggle sort order">A-Z</button>
+                    <button class="sort-toggle" id="author-sort" title="Toggle sort order" data-i18n-title="library.title.toggleSort">A-Z</button>
                 </div>
                 <div class="author-search-row">
                     <input type="text"
@@ -94,7 +94,7 @@
                            placeholder="Search authors..."
                    data-i18n-placeholder="library.searchAuthors"
                            autocomplete="off">
-                    <button id="author-clear" class="author-clear" title="Clear author filter">&times;</button>
+                    <button id="author-clear" class="author-clear" title="Clear author filter" data-i18n-title="library.title.clearAuthor">&times;</button>
                 </div>
                 <div class="author-dropdown" id="author-dropdown"></div>
             </div>
@@ -109,7 +109,7 @@
                         <button class="letter-group" data-group="p-t">P-T</button>
                         <button class="letter-group" data-group="u-z">U-Z</button>
                     </div>
-                    <button class="sort-toggle" id="narrator-sort" title="Toggle sort order">A-Z</button>
+                    <button class="sort-toggle" id="narrator-sort" title="Toggle sort order" data-i18n-title="library.title.toggleSort">A-Z</button>
                 </div>
                 <div class="narrator-search-row">
                     <input type="text"
@@ -118,7 +118,7 @@
                            placeholder="Search narrators..."
                    data-i18n-placeholder="library.searchNarrators"
                            autocomplete="off">
-                    <button id="narrator-clear" class="narrator-clear" title="Clear narrator filter">&times;</button>
+                    <button id="narrator-clear" class="narrator-clear" title="Clear narrator filter" data-i18n-title="library.title.clearNarrator">&times;</button>
                 </div>
                 <div class="narrator-dropdown" id="narrator-dropdown"></div>
             </div>
@@ -168,10 +168,10 @@
 
     <!-- Library Tabs (shown when user is logged in) -->
     <div class="library-tabs" id="library-tabs" style="display: none;">
-        <button class="tab-btn active" data-tab="browse" title="Browse the full audiobook collection" data-i18n="library.browseAll">Browse All</button>
-        <button class="tab-btn" data-tab="my-library" title="View your listening history and saved books" data-i18n="library.myLibrary">My Library</button>
-        <button id="hide-selected-btn" class="hide-btn depressed" style="display: none;" title="Hide selected books from your library view">Hide Selected</button>
-        <button id="hidden-books-btn" class="hidden-books-pill" style="display: none;" title="View hidden books"></button>
+        <button class="tab-btn active" data-tab="browse" title="Browse the full audiobook collection" data-i18n-title="library.title.browseAll" data-i18n="library.browseAll">Browse All</button>
+        <button class="tab-btn" data-tab="my-library" title="View your listening history and saved books" data-i18n-title="library.title.myLibrary" data-i18n="library.myLibrary">My Library</button>
+        <button id="hide-selected-btn" class="hide-btn depressed" style="display: none;" title="Hide selected books from your library view" data-i18n-title="library.title.hideSelected">Hide Selected</button>
+        <button id="hidden-books-btn" class="hidden-books-pill" style="display: none;" title="View hidden books" data-i18n-title="library.title.viewHidden"></button>
     </div>
 
     <!-- Collections Sidebar -->
@@ -179,7 +179,7 @@
     <aside class="collections-sidebar" id="collections-sidebar">
         <div class="sidebar-header">
             <h2 data-i18n="library.collections">Collections</h2>
-            <button class="sidebar-close" id="sidebar-close" title="Close sidebar">&times;</button>
+            <button class="sidebar-close" id="sidebar-close" title="Close sidebar" data-i18n-title="library.title.closeSidebar">&times;</button>
         </div>
         <div class="sidebar-content" id="collections-buttons">
             <!-- Collection buttons loaded dynamically -->
@@ -192,7 +192,7 @@
     <!-- Results Info with Sidebar Toggle -->
     <div class="results-info">
         <div class="results-left">
-            <button class="sidebar-toggle" id="sidebar-toggle" title="Browse Collections">
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Browse Collections" data-i18n-title="library.title.browseCollections">
                 <span class="toggle-icon">☰</span>
                 <span class="toggle-text" data-i18n="library.collections">Collections</span>
                 <span class="active-filter" id="active-filter-badge"></span>
@@ -232,24 +232,24 @@
         <div class="modal-content modal-small">
             <div class="modal-header">
                 <h2>My Account</h2>
-                <button class="modal-close" id="account-modal-close" title="Close My Account">&times;</button>
+                <button class="modal-close" id="account-modal-close" title="Close My Account" data-i18n-title="account.title.close">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="account-section">
                     <h3>Profile</h3>
                     <div class="account-field">
                         <label>Username</label>
-                        <span id="acct-username" class="editable-field" title="Click to edit username"></span>
-                        <input id="acct-username-input" class="edit-input" hidden maxlength="24" title="New username">
-                        <button class="btn-inline" id="acct-username-save" hidden title="Save username change">Save</button>
-                        <button class="btn-inline" id="acct-username-cancel" hidden title="Cancel">Cancel</button>
+                        <span id="acct-username" class="editable-field" title="Click to edit username" data-i18n-title="account.title.editUsername"></span>
+                        <input id="acct-username-input" class="edit-input" hidden maxlength="24" title="New username" data-i18n-title="account.title.newUsername">
+                        <button class="btn-inline" id="acct-username-save" hidden title="Save username change" data-i18n-title="account.title.saveUsername">Save</button>
+                        <button class="btn-inline" id="acct-username-cancel" hidden title="Cancel" data-i18n-title="account.title.cancelUsername">Cancel</button>
                     </div>
                     <div class="account-field">
                         <label>Email</label>
-                        <span id="acct-email" class="editable-field" title="Click to edit email"></span>
-                        <input id="acct-email-input" class="edit-input" hidden type="email" title="New email address">
-                        <button class="btn-inline" id="acct-email-save" hidden title="Save email change">Save</button>
-                        <button class="btn-inline" id="acct-email-cancel" hidden title="Cancel">Cancel</button>
+                        <span id="acct-email" class="editable-field" title="Click to edit email" data-i18n-title="account.title.editEmail"></span>
+                        <input id="acct-email-input" class="edit-input" hidden type="email" title="New email address" data-i18n-title="account.title.newEmail">
+                        <button class="btn-inline" id="acct-email-save" hidden title="Save email change" data-i18n-title="account.title.saveEmail">Save</button>
+                        <button class="btn-inline" id="acct-email-cancel" hidden title="Cancel" data-i18n-title="account.title.cancelEmail">Cancel</button>
                     </div>
                     <div class="account-field">
                         <label>Member since</label>
@@ -263,28 +263,28 @@
                         <span id="acct-auth-badge" class="auth-badge"></span>
                     </div>
                     <div class="auth-actions">
-                        <button class="btn btn-secondary" id="auth-switch-btn" title="Switch to a different authentication method">Switch Method</button>
-                        <button class="btn btn-secondary" id="auth-reset-btn" title="Reset your authentication credentials">Reset Credentials</button>
+                        <button class="btn btn-secondary" id="auth-switch-btn" title="Switch to a different authentication method" data-i18n-title="account.title.switchAuth">Switch Method</button>
+                        <button class="btn btn-secondary" id="auth-reset-btn" title="Reset your authentication credentials" data-i18n-title="account.title.resetAuth">Reset Credentials</button>
                     </div>
                     <div id="auth-switch-panel" hidden>
                         <div class="radio-group">
-                            <label title="Time-based one-time password"><input type="radio" name="switch_auth" value="totp"> TOTP</label>
-                            <label title="Login link via email"><input type="radio" name="switch_auth" value="magic_link"> Magic Link</label>
-                            <label title="FIDO2 hardware key"><input type="radio" name="switch_auth" value="passkey"> Passkey</label>
+                            <label title="Time-based one-time password" data-i18n-title="account.title.authTotp"><input type="radio" name="switch_auth" value="totp"> TOTP</label>
+                            <label title="Login link via email" data-i18n-title="account.title.authMagicLink"><input type="radio" name="switch_auth" value="magic_link"> Magic Link</label>
+                            <label title="FIDO2 hardware key" data-i18n-title="account.title.authFido2"><input type="radio" name="switch_auth" value="passkey"> Passkey</label>
                         </div>
-                        <button class="btn btn-primary" id="auth-switch-confirm" title="Confirm auth method switch">Switch</button>
+                        <button class="btn btn-primary" id="auth-switch-confirm" title="Confirm auth method switch" data-i18n-title="account.title.confirmAuth">Switch</button>
                     </div>
                     <div id="auth-setup-result" hidden></div>
                 </div>
                 <div class="account-section">
                     <div class="auth-actions">
-                        <a href="contact.html" class="btn btn-secondary" id="contact-admin-btn" title="Send a message to the admin">Contact Admin</a>
-                        <button class="btn btn-secondary" id="sign-out-btn" title="Sign out of your account">Sign Out</button>
+                        <a href="contact.html" class="btn btn-secondary" id="contact-admin-btn" title="Send a message to the admin" data-i18n-title="account.title.contactAdmin">Contact Admin</a>
+                        <button class="btn btn-secondary" id="sign-out-btn" title="Sign out of your account" data-i18n-title="account.title.signOut">Sign Out</button>
                     </div>
                 </div>
                 <div class="account-section danger-zone">
                     <h3>Danger Zone</h3>
-                    <button class="btn btn-danger" id="delete-account-btn" title="Permanently delete your account">Delete My Account</button>
+                    <button class="btn btn-danger" id="delete-account-btn" title="Permanently delete your account" data-i18n-title="account.title.deleteAccount">Delete My Account</button>
                 </div>
             </div>
         </div>
