@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.0] - 2026-04-13
+
+### Added
+
+- **Bilingual feature announcement banner** (`library/web-v2/js/feature-announce.js`, `css/feature-announce.css`): Art Deco styled one-time dismissible banner announcing Chinese language support — shows EN + ZH headlines, body text, and four feature highlight cards (Multi-Language, Subtitles, Transcript, CJK Search). Dismissed state persists in localStorage; safe DOM construction only (createElement + textContent)
+- **Translation asset export/import CLI** (`scripts/audiobook-translations`): Portable transfer tool for moving subtitles, TTS audio, and metadata translations between environments without re-translating. Supports `export`, `import`, and `list` subcommands with configurable data directory
+- **Localization documentation**: README updated with 8 localization feature bullets, ARCHITECTURE.md gains full "Localization & Translation Pipeline" section (STT → Translation → TTS architecture, provider tables, DB schema, CJK search/sort), help.html adds "Language & Translation" section with 4-card feature grid and 4 FAQ entries
+
+### Fixed
+
+- **Translation worker not starting on user-triggered locale bump** (`library/backend/api_modular/i18n_routes.py`): When a user changed their locale preference, the background translation worker was not spawned to process the new locale's pending translations
+
 ## [8.1.2] - 2026-04-12
 
 ### Added
@@ -2631,7 +2643,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0...HEAD
+[8.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.2...v8.2.0
 [8.1.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.1...v8.1.2
 [8.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.0...v8.1.1
 [8.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.0.4.1...v8.1.0

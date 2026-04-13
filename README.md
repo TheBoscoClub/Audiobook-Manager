@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![8](https://img.shields.io/badge/8-brightgreen)![1](https://img.shields.io/badge/1-darkgreen)![2](https://img.shields.io/badge/2-green) | Latest patch | [v8.1.2](../../releases/tag/v8.1.2) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![2](https://img.shields.io/badge/2-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v8.2.0](../../releases/tag/v8.2.0) |
+| ![8](https://img.shields.io/badge/8-brightred)![1](https://img.shields.io/badge/1-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v8.1.2](../../releases/tag/v8.1.2) |
 | ![8](https://img.shields.io/badge/8-brightred)![1](https://img.shields.io/badge/1-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v8.1.1](../../releases/tag/v8.1.1) |
 | ![8](https://img.shields.io/badge/8-brightred)![1](https://img.shields.io/badge/1-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v8.1.0](../../releases/tag/v8.1.0) |
 | ![8](https://img.shields.io/badge/8-brightred)![0](https://img.shields.io/badge/0-darkred)![4](https://img.shields.io/badge/4-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v8.0.4.1](../../releases/tag/v8.0.4.1) |
@@ -223,7 +224,7 @@ Web-based audiobook library browser with:
 - **Translation pipeline** — three-step chain (STT → Translation → TTS) with background queue processing, priority bumping on book open, and chapter-by-chapter progress reporting (v8.1.0+)
 - **Pinyin sort order** — Chinese locale uses pypinyin-based sort for natural Han character ordering with English title fallback (v8.1.0+)
 - **CJK bigram search** — queries with CJK characters use LIKE-based bigram matching instead of FTS (SQLite unicode61 drops CJK tokens) (v8.1.0+)
-- **Translation asset transfer** — `audiobook-translations` CLI tool exports/imports subtitles, TTS audio, and metadata translations between environments to avoid re-translating (v8.1.2+)
+- **Translation asset transfer** — `audiobook-translations` CLI tool exports/imports subtitles, TTS audio, and metadata translations between environments to avoid re-translating (v8.2.0+)
 - **DeepL quota tracking** — monthly character usage with soft warning at 90% and hard stop at 99%, admin dashboard endpoint (v8.1.0+)
 
 ## Quick Start
