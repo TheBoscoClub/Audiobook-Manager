@@ -82,12 +82,21 @@ html.cjk h1, html.cjk h2, html.cjk h3 {
 }
 
 /* ── Subtitle Display (inline, below player) ─────────── */
+/* Styled to match the "New Books" marquee: opaque dark bar with gold borders */
 
 .subtitle-display {
   text-align: center;
   padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.6);
-  border-top: 1px solid rgba(197, 165, 90, 0.2);
+  background: linear-gradient(
+    180deg,
+    var(--deco-charcoal, #141414) 0%,
+    var(--deco-black, #080808) 100%
+  );
+  border-top: 1px solid var(--gold-dark, #B8860B);
+  border-bottom: 2px solid var(--gold, #DAA520);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .subtitle-line {
@@ -98,7 +107,7 @@ html.cjk h1, html.cjk h2, html.cjk h3 {
 .subtitle-source {
   color: var(--parchment, #f4e8c1);
   font-size: 0.95rem;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .subtitle-translated {
@@ -117,8 +126,16 @@ html.cjk .subtitle-translated {
 
 .subtitle-gen-banner {
   padding: 10px 16px;
-  background: rgba(0, 0, 0, 0.72);
-  border-top: 1px solid rgba(197, 165, 90, 0.35);
+  background: linear-gradient(
+    180deg,
+    var(--deco-charcoal, #141414) 0%,
+    var(--deco-black, #080808) 100%
+  );
+  border-top: 1px solid var(--gold-dark, #B8860B);
+  border-bottom: 2px solid var(--gold, #DAA520);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 1px 4px rgba(0, 0, 0, 0.3);
   color: var(--parchment, #f4e8c1);
   font-size: 0.92rem;
 }
@@ -343,7 +360,7 @@ html.cjk .subtitle-translated {
   font-size: 1.5rem;
   cursor: pointer;
   padding: 0 4px;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .transcript-close:hover {
@@ -376,14 +393,14 @@ html.cjk .subtitle-translated {
 .transcript-cue-time {
   font-size: 0.7rem;
   color: var(--deco-gold, #c5a55a);
-  opacity: 0.7;
+  opacity: 0.85;
   margin-bottom: 2px;
 }
 
 .transcript-cue-source {
   color: var(--parchment, #f4e8c1);
   font-size: 0.85rem;
-  opacity: 0.8;
+  opacity: 0.95;
   margin-bottom: 2px;
 }
 
