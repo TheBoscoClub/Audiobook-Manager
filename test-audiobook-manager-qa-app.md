@@ -689,6 +689,104 @@ fi
 echo "SSL status: $SSL_STATUS"
 ```
 
+### 6g. Cross-Component Regression
+
+**Mandatory holistic check**: Verify that the subsystems are working together correctly, not just individually. These checks catch "I didn't know those were related" breakages.
+
+```bash
+echo "=== 6g. Cross-Component Regression ==="
+CROSS_TESTS_TOTAL=0
+CROSS_TESTS_PASSED=0
+
+# 1. API returns book data that matches what web UI would show
+CROSS_TESTS_TOTAL=$((CROSS_TESTS_TOTAL + 1))
+API_BOOK=$($SSH_CMD "curl -s 'http://localhost:5001/api/audiobooks?limit=1'" 2>/dev/null)
+API_TITLE=$(echo "$API_BOOK" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['audiobooks'][0]['title'])" 2>/dev/null)
+WEB_HAS_TITLE=$(curl -sk "$WEB_BASE/" 2>/dev/null | grep -c "$API_TITLE" || true)
+if [[ -n "$API_TITLE" && "$WEB_HAS_TITLE" -gt 0 ]]; then
+    echo "  PASS: API book title found in web UI"
+    CROSS_TESTS_PASSED=$((CROSS_TESTS_PASSED + 1))
+else
+    echo "  FAIL: API returned '$API_TITLE' but web UI doesn't show it"
+fi
+
+# 2. Service restart doesn't break API responses
+CROSS_TESTS_TOTAL=$((CROSS_TESTS_TOTAL + 1))
+PRE_RESTART=$($SSH_CMD "curl -s http://localhost:5001/api/system/version" 2>/dev/null)
+$SSH_CMD "sudo systemctl restart audiobook-api" 2>/dev/null
+sleep 3
+POST_RESTART=$($SSH_CMD "curl -s http://localhost:5001/api/system/version" 2>/dev/null)
+if [[ "$PRE_RESTART" == "$POST_RESTART" && -n "$PRE_RESTART" ]]; then
+    echo "  PASS: API version consistent across service restart"
+    CROSS_TESTS_PASSED=$((CROSS_TESTS_PASSED + 1))
+else
+    echo "  FAIL: API response changed after restart (pre: '$PRE_RESTART', post: '$POST_RESTART')"
+fi
+
+# 3. Database book count matches API book count
+CROSS_TESTS_TOTAL=$((CROSS_TESTS_TOTAL + 1))
+DB_COUNT=$($SSH_CMD "sqlite3 /var/lib/audiobooks/db/audiobooks.db 'SELECT COUNT(*) FROM audiobooks'" 2>/dev/null)
+API_COUNT=$($SSH_CMD "curl -s 'http://localhost:5001/api/audiobooks?limit=1'" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null)
+if [[ "$DB_COUNT" == "$API_COUNT" && -n "$DB_COUNT" ]]; then
+    echo "  PASS: DB count ($DB_COUNT) matches API count ($API_COUNT)"
+    CROSS_TESTS_PASSED=$((CROSS_TESTS_PASSED + 1))
+else
+    echo "  FAIL: DB count ($DB_COUNT) != API count ($API_COUNT)"
+fi
+
+# 4. Config values used by both API and services are consistent
+CROSS_TESTS_TOTAL=$((CROSS_TESTS_TOTAL + 1))
+API_PORT=$($SSH_CMD "grep -oP 'API_PORT=\K[0-9]+' /etc/audiobooks/audiobooks.conf" 2>/dev/null)
+LISTENING=$($SSH_CMD "ss -tlnp | grep ':${API_PORT:-5001} '" 2>/dev/null)
+if [[ -n "$LISTENING" ]]; then
+    echo "  PASS: API listening on configured port $API_PORT"
+    CROSS_TESTS_PASSED=$((CROSS_TESTS_PASSED + 1))
+else
+    echo "  FAIL: Nothing listening on configured API port $API_PORT"
+fi
+
+echo "Cross-component: $CROSS_TESTS_PASSED/$CROSS_TESTS_TOTAL passed"
+```
+
+### 6h. AI Self-Promotion Purge
+
+Scan the installed application and documentation for AI-generated self-promotion, branding, and attribution that should not be present in a deployed application.
+
+```bash
+echo "=== 6h. AI Self-Promotion Purge ==="
+AI_PROMO_TOTAL=0
+AI_PROMO_FOUND=0
+
+# Scan installed application files for AI branding
+AI_IN_APP=$($SSH_CMD "grep -rn -i \
+  -e 'Co-Authored-By.*Claude\|Co-Authored-By.*Anthropic' \
+  -e 'Generated with.*Claude\|Built with Claude\|Powered by Anthropic' \
+  -e 'claude\.ai/claude-code\|noreply@anthropic\.com' \
+  -e '🤖 Generated' \
+  /opt/audiobooks/ 2>/dev/null | grep -v '.pyc\|__pycache__\|.git/' | head -20" 2>/dev/null)
+AI_PROMO_TOTAL=$((AI_PROMO_TOTAL + 1))
+if [[ -z "$AI_IN_APP" ]]; then
+    echo "  PASS: No AI self-promotion in installed app"
+    AI_PROMO_FOUND=0
+else
+    AI_COUNT=$(echo "$AI_IN_APP" | wc -l)
+    echo "  FAIL: $AI_COUNT AI self-promotion instances in installed app:"
+    echo "$AI_IN_APP" | head -10
+    AI_PROMO_FOUND=$AI_COUNT
+fi
+
+# Scan web UI served content for AI branding
+AI_PROMO_TOTAL=$((AI_PROMO_TOTAL + 1))
+AI_IN_WEB=$(curl -sk "$WEB_BASE/" 2>/dev/null | grep -i -c "claude\|anthropic\|generated.*with.*ai" || true)
+if [[ "$AI_IN_WEB" -eq 0 ]]; then
+    echo "  PASS: No AI branding in served web content"
+else
+    echo "  FAIL: AI branding found in served web pages ($AI_IN_WEB instances)"
+fi
+
+echo "AI self-promotion check: $AI_PROMO_FOUND instances found"
+```
+
 ---
 
 ## Step 7: Report
@@ -723,6 +821,8 @@ echo "  Auth Flow:         $AUTH_FLOW"
 echo "  Service Resilience:$SERVICE_RESILIENCE"
 echo "  Log Errors:        $LOG_ERRORS errors found"
 echo "  SSL Certificate:   $SSL_STATUS"
+echo "  Cross-Component:   $CROSS_TESTS_PASSED/$CROSS_TESTS_TOTAL passed"
+echo "  AI Self-Promotion: $AI_PROMO_FOUND instances found"
 echo ""
 echo "  OVERALL: $OVERALL"
 echo "═══════════════════════════════════════════════"

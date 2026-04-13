@@ -6,7 +6,7 @@
 
 - **Dev machine**: Unit tests, linting, static analysis, code editing
 - **VM**: Integration tests, API tests, UI/Playwright tests, auth tests, E2E tests
-- **`/test` handles this automatically**: Phase VM-lifecycle detects pristine state and auto-installs before tests run
+- **`/test` handles this automatically**: Phase 10b (VM Lifecycle) detects pristine state and auto-installs before tests run
 
 ### What Runs Where
 
@@ -65,7 +65,7 @@ Production audiobook files are personally owned and licensed content. Accidental
 
 **Mandatory safeguards:**
 
-- **Docker test containers**: Any production data copied into a test container MUST be cleaned up (container removed) during Phase D cleanup or Phase C, BEFORE `/test` formally ends
+- **Docker test containers**: Any production data copied into a test container MUST be cleaned up (container removed) during Phase 9c cleanup or Phase 11, BEFORE `/test` formally ends
 - **Docker test images**: NEVER build a Docker image with production data baked in via `COPY`. Use runtime `-v` mounts or `docker cp` for test data — these don't persist in the image
 - **Project working tree**: NEVER copy production data (audiobooks, databases, configs) into the project directory. If this happens accidentally, remove it BEFORE any commit or release operation
 - **Pre-release guard**: `/git-release` checks for production paths in release artifacts (see separation check in git-release skill). This is the last line of defense.
@@ -108,6 +108,53 @@ def test_new_v8_feature():
 - If a v8 feature completely replaces a v7 feature, the v7 test stays (for v7 releases) and a new v8 test is written
 
 **Adding future versions:** To add `v9`, `v10`, etc., follow the same pattern — add marker to `pytest.ini`, register in `pytest_configure`, add gating block in `pytest_collection_modifyitems`.
+
+## Cross-Component Holistic Testing (Mandatory)
+
+**Every test — unit, integration, QA, or /test audit — must include cross-component verification.** This project has tightly coupled subsystems (API, web UI, scanner, converter, services, database, auth) where changes to one component frequently break another in non-obvious ways.
+
+**Cross-component checks required for all test types:**
+
+| Change Area | Must Also Verify |
+|-------------|-----------------|
+| API endpoint changes | Web UI pages that call it, CLI wrappers, systemd services |
+| Database schema/queries | Scanner, API, web UI library views, converter pipeline |
+| Auth/WebAuthn changes | API auth middleware, web login flow, session persistence |
+| Scanner/metadata changes | Library view (titles, covers, durations), API search results |
+| Converter pipeline changes | Mover service, library file structure, metadata consistency |
+| Config changes | All services that read config, upgrade.sh, install.sh |
+| Systemd service changes | `audiobook.target` ordering, API/proxy startup, upgrade flow |
+
+**The question every test must answer**: "Did this change break something else I didn't know was related?"
+
+## Verified Proof Required
+
+**No test is complete or successful without verified, verifiable proof.** Every test result MUST be backed by a proof artifact — command output, API response, HTTP status code, screenshot, or log excerpt — that demonstrates the claimed result.
+
+| Claim | Required Proof |
+|-------|---------------|
+| "API works" | Actual `curl` output with HTTP status and response body |
+| "Services are running" | `systemctl status` output showing `active (running)` |
+| "Web UI loads" | HTTP response code + page content (or screenshot via Playwright) |
+| "Tests pass" | `pytest` output with pass/fail counts and coverage percentage |
+| "Upgrade succeeded" | Version file before and after, service status after restart |
+| "DB is consistent" | `PRAGMA integrity_check` output, row counts matching expectations |
+
+**"It should work" is not proof. "The code looks correct" is not proof. Only observable output is proof.**
+
+**FVP Protocol**: Every individual fix during a /test audit must emit a structured FVP proof block (Fix-Verify-Proof) with the exact command executed, before/after output, and collateral damage check. See the FVP Protocol in the /test skill for the mandatory format. A fix without a proof block is an incomplete fix.
+
+## AI Self-Promotion Prohibition
+
+**All code, documentation, commits, templates, and metadata in this project must be free of AI-generated self-promotion, advertising, branding, and attribution.** This includes:
+
+- `Co-Authored-By:` lines referencing Claude, Anthropic, or any AI tool
+- "Generated with Claude Code", "Built with Claude", "Powered by Anthropic" — anywhere
+- Anthropic URLs (`claude.ai`, `anthropic.com`) injected as attribution
+- AI branding emojis or badges in documentation
+- "AI-assisted" or "AI-generated" attribution in any file
+
+The /test audit (Phase 5c + Phase 8) and QA modules (Step 6h) scan for and remove these automatically. Any new instance introduced by a code generation tool must be caught and removed before commit.
 
 ## Testing & Validation Notes
 
