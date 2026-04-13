@@ -39,29 +39,20 @@ body {
 
 /* Player bar — flex child at bottom, hidden by default via hidden attr.
    When hidden, display:none removes it from flex flow and iframe gets
-   full height. When shown, iframe shrinks to accommodate.
-   Column layout: banners stack above/below the main controls row. */
+   full height. When shown, iframe shrinks to accommodate. */
 #shell-player {
     flex-shrink: 0;
     position: relative;
     z-index: 9999;
     width: 100%;
+    height: calc(var(--player-height) + env(safe-area-inset-bottom, 0px));
     background: linear-gradient(to top, var(--deep-burgundy), var(--dark-wood));
     border-top: 1px solid var(--gold);
     display: flex;
-    flex-direction: column;
-    color: var(--parchment);
-}
-
-/* Main controls row — horizontal layout for cover, info, buttons.
-   order: 10 places it after banners (order defaults to 0). */
-.player-main-row {
-    display: flex;
     align-items: center;
     gap: 12px;
-    height: calc(var(--player-height) + env(safe-area-inset-bottom, 0px));
     padding: 0 16px env(safe-area-inset-bottom, 0px);
-    order: 10;
+    color: var(--parchment);
 }
 
 /* Respect hidden attribute (same pattern as auth.css .button-loading) */
@@ -196,7 +187,7 @@ body {
 @media (max-width: 768px) {
     :root { --player-height: 100px; }
 
-    .player-main-row {
+    #shell-player {
         flex-wrap: wrap;
         padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
         gap: 4px;

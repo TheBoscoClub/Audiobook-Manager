@@ -166,74 +166,73 @@
     <!-- Content iframe: loads all authenticated pages -->
     <iframe id="content-frame" name="content-frame" src="index.html?v=1775921000" title="Library content"></iframe>
 
+    <!-- Subtitle banner (full-width, above player bar) -->
+    <div id="subtitle-display" class="subtitle-display" style="display:none;">
+        <div id="subtitle-source" class="subtitle-line subtitle-source"></div>
+        <div id="subtitle-translated" class="subtitle-line subtitle-translated"></div>
+    </div>
+    <!-- Subtitle generation banner (on-demand STT/translation) -->
+    <div id="subtitle-gen-banner" class="subtitle-gen-banner" style="display:none;">
+        <div class="sgb-idle">
+            <span class="sgb-message" data-i18n="subtitleGen.offer">Translated subtitles aren't available for this book yet. Generate them now?</span>
+            <button type="button" class="sgb-button" id="sgb-generate" data-i18n="subtitleGen.generate">Generate subtitles</button>
+        </div>
+        <div class="sgb-progress" style="display:none;">
+            <div class="sgb-spinner" aria-hidden="true"></div>
+            <div class="sgb-progress-text">
+                <div class="sgb-phase" id="sgb-phase" data-i18n="subtitleGen.starting">Starting…</div>
+                <div class="sgb-progress-track" style="display:none;"><div class="sgb-progress-fill" id="sgb-progress-bar"></div></div>
+                <div class="sgb-detail" id="sgb-detail"></div>
+            </div>
+        </div>
+    </div>
+    <!-- TTS generation banner (on-demand translated audio) -->
+    <div id="tts-gen-banner" class="tts-gen-banner" style="display:none;">
+        <div class="tgb-idle">
+            <span class="tgb-message" data-i18n="ttsGen.offer">Translated audio isn't available for this book yet. Generate it now?</span>
+            <button type="button" class="tgb-button" id="tgb-generate" data-i18n="ttsGen.generate">Generate audio</button>
+        </div>
+        <div class="tgb-progress" style="display:none;">
+            <div class="tgb-spinner" aria-hidden="true"></div>
+            <div class="tgb-progress-text">
+                <div class="tgb-phase" id="tgb-phase" data-i18n="ttsGen.starting">Starting…</div>
+                <div class="tgb-detail" id="tgb-detail"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Persistent player bar (hidden until a book is played) -->
     <div id="shell-player" hidden>
-        <div class="player-main-row">
-            <div class="player-cover-wrap">
-                <img id="sp-cover" src="" alt="" class="sp-cover">
-            </div>
-            <div class="player-info-bar">
-                <div class="sp-title" id="sp-title">-</div>
-                <div class="sp-author" id="sp-author">-</div>
-            </div>
-            <div class="player-controls-bar">
-                <button class="sp-btn" id="sp-rewind" title="Back 30 seconds" data-i18n="player.backSeconds" data-i18n-title="player.back30">-30s</button>
-                <button class="sp-btn sp-play" id="sp-play-pause" title="Play / Pause" data-i18n-title="player.playPause">&#9654;</button>
-                <button class="sp-btn" id="sp-forward" title="Forward 30 seconds" data-i18n="player.forwardSeconds" data-i18n-title="player.forward30">+30s</button>
-            </div>
-            <div class="player-progress-bar">
-                <span id="sp-current-time">0:00</span>
-                <input type="range" id="sp-progress" class="sp-progress" min="0" max="1000" value="0">
-                <span id="sp-total-time">0:00</span>
-            </div>
-            <div class="player-extras-bar">
-                <button class="sp-btn sp-btn-sm sp-volume-icon" id="sp-volume-icon" title="Mute / Unmute" data-i18n-title="player.muteUnmute">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-                        <path id="sp-volume-path" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v1.5a3 3 0 010 4V15.5a4.5 4.5 0 004.5-4.5zM12 3.23v2.06a7 7 0 010 13.42v2.06A9 9 0 0021 12 9 9 0 0012 3.23z"/>
-                    </svg>
-                </button>
-                <input type="range" id="sp-volume" class="sp-volume" min="0" max="100" value="100" title="Volume" data-i18n-title="player.volume">
-                <span id="sp-speed-display">1x</span>
-                <button class="sp-btn sp-btn-sm" id="sp-speed" title="Click: faster · Right-click/Shift+click: slower" data-i18n="player.speed">Speed</button>
-                <button class="sp-btn sp-btn-sm" id="sp-subtitle-toggle" title="Toggle subtitles (CC)" data-i18n-title="player.toggleSubtitles" style="display:none;">CC</button>
-                <button class="sp-btn sp-btn-sm" id="sp-transcript-toggle" title="Toggle transcript panel" data-i18n-title="player.toggleTranscript" style="display:none;">&#9776;</button>
-                <button class="sp-btn sp-btn-sm" id="sp-lang-toggle" title="Switch audio language" data-i18n-title="player.switchLanguage" style="display:none;">&#127760;</button>
-                <button class="sp-btn sp-btn-sm sp-close" id="sp-close" title="Close player" data-i18n-title="player.close">&times;</button>
-            </div>
+        <div class="player-cover-wrap">
+            <img id="sp-cover" src="" alt="" class="sp-cover">
         </div>
-        <!-- Subtitle display (full-width banner above player controls row) -->
-        <div id="subtitle-display" class="subtitle-display" style="display:none;">
-            <div id="subtitle-source" class="subtitle-line subtitle-source"></div>
-            <div id="subtitle-translated" class="subtitle-line subtitle-translated"></div>
+        <div class="player-info-bar">
+            <div class="sp-title" id="sp-title">-</div>
+            <div class="sp-author" id="sp-author">-</div>
         </div>
-        <!-- Subtitle generation banner (on-demand STT/translation) -->
-        <div id="subtitle-gen-banner" class="subtitle-gen-banner" style="display:none;">
-            <div class="sgb-idle">
-                <span class="sgb-message" data-i18n="subtitleGen.offer">Translated subtitles aren't available for this book yet. Generate them now?</span>
-                <button type="button" class="sgb-button" id="sgb-generate" data-i18n="subtitleGen.generate">Generate subtitles</button>
-            </div>
-            <div class="sgb-progress" style="display:none;">
-                <div class="sgb-spinner" aria-hidden="true"></div>
-                <div class="sgb-progress-text">
-                    <div class="sgb-phase" id="sgb-phase" data-i18n="subtitleGen.starting">Starting…</div>
-                    <div class="sgb-progress-track" style="display:none;"><div class="sgb-progress-fill" id="sgb-progress-bar"></div></div>
-                    <div class="sgb-detail" id="sgb-detail"></div>
-                </div>
-            </div>
+        <div class="player-controls-bar">
+            <button class="sp-btn" id="sp-rewind" title="Back 30 seconds" data-i18n="player.backSeconds" data-i18n-title="player.back30">-30s</button>
+            <button class="sp-btn sp-play" id="sp-play-pause" title="Play / Pause" data-i18n-title="player.playPause">&#9654;</button>
+            <button class="sp-btn" id="sp-forward" title="Forward 30 seconds" data-i18n="player.forwardSeconds" data-i18n-title="player.forward30">+30s</button>
         </div>
-        <!-- TTS generation banner (on-demand translated audio) -->
-        <div id="tts-gen-banner" class="tts-gen-banner" style="display:none;">
-            <div class="tgb-idle">
-                <span class="tgb-message" data-i18n="ttsGen.offer">Translated audio isn't available for this book yet. Generate it now?</span>
-                <button type="button" class="tgb-button" id="tgb-generate" data-i18n="ttsGen.generate">Generate audio</button>
-            </div>
-            <div class="tgb-progress" style="display:none;">
-                <div class="tgb-spinner" aria-hidden="true"></div>
-                <div class="tgb-progress-text">
-                    <div class="tgb-phase" id="tgb-phase" data-i18n="ttsGen.starting">Starting…</div>
-                    <div class="tgb-detail" id="tgb-detail"></div>
-                </div>
-            </div>
+        <div class="player-progress-bar">
+            <span id="sp-current-time">0:00</span>
+            <input type="range" id="sp-progress" class="sp-progress" min="0" max="1000" value="0">
+            <span id="sp-total-time">0:00</span>
+        </div>
+        <div class="player-extras-bar">
+            <button class="sp-btn sp-btn-sm sp-volume-icon" id="sp-volume-icon" title="Mute / Unmute" data-i18n-title="player.muteUnmute">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                    <path id="sp-volume-path" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0012 8.5v1.5a3 3 0 010 4V15.5a4.5 4.5 0 004.5-4.5zM12 3.23v2.06a7 7 0 010 13.42v2.06A9 9 0 0021 12 9 9 0 0012 3.23z"/>
+                </svg>
+            </button>
+            <input type="range" id="sp-volume" class="sp-volume" min="0" max="100" value="100" title="Volume" data-i18n-title="player.volume">
+            <span id="sp-speed-display">1x</span>
+            <button class="sp-btn sp-btn-sm" id="sp-speed" title="Click: faster · Right-click/Shift+click: slower" data-i18n="player.speed">Speed</button>
+            <button class="sp-btn sp-btn-sm" id="sp-subtitle-toggle" title="Toggle subtitles (CC)" data-i18n-title="player.toggleSubtitles" style="display:none;">CC</button>
+            <button class="sp-btn sp-btn-sm" id="sp-transcript-toggle" title="Toggle transcript panel" data-i18n-title="player.toggleTranscript" style="display:none;">&#9776;</button>
+            <button class="sp-btn sp-btn-sm" id="sp-lang-toggle" title="Switch audio language" data-i18n-title="player.switchLanguage" style="display:none;">&#127760;</button>
+            <button class="sp-btn sp-btn-sm sp-close" id="sp-close" title="Close player" data-i18n-title="player.close">&times;</button>
         </div>
         <audio id="audio-element"></audio>
     </div>
