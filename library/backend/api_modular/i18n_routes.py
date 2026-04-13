@@ -92,7 +92,7 @@ def translation_bump_priority():
     try:
         from localization.queue import bump_priority, enqueue
         bump_priority(audiobook_id, locale, priority=100)
-        enqueue(audiobook_id, locale, priority=100)
+        enqueue(audiobook_id, locale, priority=100, start_worker=True)
         return jsonify({"status": "ok"})
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
