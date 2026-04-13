@@ -217,6 +217,14 @@ Web-based audiobook library browser with:
 - **Accessibility quick panel** — slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls (v8.0+)
 - **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
 - **Multi-session login** — admin-configurable concurrent device sessions with global default and per-user override (v8.0.1.2+)
+- **Multi-language support** — full i18n with Simplified Chinese (zh-Hans) as first non-English locale; catalog-based UI strings with DeepL-powered dynamic content translation (v8.1.0+)
+- **Bilingual subtitles** — on-demand STT transcription via Whisper (Vast.ai/RunPod/local GPU) with DeepL translation, producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
+- **Text-to-speech translated audio** — TTS generation via edge-tts (CPU) or XTTS v2 (GPU) producing translated Opus audio tracks per chapter (v8.1.0+)
+- **Translation pipeline** — three-step chain (STT → Translation → TTS) with background queue processing, priority bumping on book open, and chapter-by-chapter progress reporting (v8.1.0+)
+- **Pinyin sort order** — Chinese locale uses pypinyin-based sort for natural Han character ordering with English title fallback (v8.1.0+)
+- **CJK bigram search** — queries with CJK characters use LIKE-based bigram matching instead of FTS (SQLite unicode61 drops CJK tokens) (v8.1.0+)
+- **Translation asset transfer** — `audiobook-translations` CLI tool exports/imports subtitles, TTS audio, and metadata translations between environments to avoid re-translating (v8.1.2+)
+- **DeepL quota tracking** — monthly character usage with soft warning at 90% and hard stop at 99%, admin dashboard endpoint (v8.1.0+)
 
 ## Quick Start
 
@@ -939,7 +947,7 @@ An Art Deco neon-styled marquee highlights audiobooks added since your last visi
 
 ### About Page
 
-Version info (displayed prominently at the top, fetched live from the API), credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js), and project links. Accessible from the Help page header.
+Version info (displayed prominently at the top, fetched live from the API), credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js, DeepL, OpenAI Whisper, Coqui XTTS), and project links. Accessible from the Help page header.
 
 ### Shell Architecture
 
@@ -2216,6 +2224,14 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - ~~**Audiobook Management**~~: ✅ Metadata editing, bulk operations, bulk delete
 - ~~**Bulk Operations**~~: ✅ Filter → Select → Act workflow with genre management
 
+**Localization & Multi-Language (v8.1)**
+
+- ~~**Internationalization Framework**~~: ✅ Catalog-based i18n with cross-frame locale sync, document chrome localization, and DeepL-powered dynamic content overlay
+- ~~**Simplified Chinese (zh-Hans)**~~: ✅ Full locale including UI strings, book metadata, collection names, email templates, sort order, and CJK search
+- ~~**Subtitle Pipeline**~~: ✅ On-demand chapter-by-chapter STT (Whisper) → Translation (DeepL) → VTT generation with bilingual transcript panel
+- ~~**Text-to-Speech**~~: ✅ Translated audio via edge-tts or XTTS v2 with provider fallback
+- ~~**Translation Portability**~~: ✅ Export/import CLI tool for transferring GPU-generated assets between environments
+
 ### Planned Features
 
 **Security Hardening**
@@ -2230,6 +2246,12 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - Bookmarks and notes
 - Sleep timer
 - Queue/playlist management
+
+**Multi-Language Expansion**
+
+- Additional locales (Japanese, Korean, Spanish, French, German)
+- Locale-specific voice selection for TTS
+- Community-contributed translation catalogs
 
 **Mobile Support**
 

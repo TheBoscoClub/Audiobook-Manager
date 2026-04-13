@@ -1,0 +1,160 @@
+/* ============================================
+   Feature Announcement Banner — Art Deco
+   One-time dismissible banner for major features.
+   ============================================ */
+
+.feature-announce {
+    position: relative;
+    margin: 0 auto 1rem;
+    max-width: 900px;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, var(--deco-charcoal) 0%, var(--deco-slate) 100%);
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    box-shadow:
+        0 0 20px rgba(218, 165, 32, 0.15),
+        inset 0 1px 0 rgba(255, 215, 0, 0.1);
+    text-align: center;
+    animation: announce-fade-in 0.6s ease-out;
+}
+
+@keyframes announce-fade-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Gold Art Deco rule lines */
+.feature-announce::before,
+.feature-announce::after {
+    content: "";
+    display: block;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 0 auto;
+    width: 60%;
+}
+.feature-announce::before { margin-bottom: 1rem; }
+.feature-announce::after  { margin-top: 1rem; }
+
+/* Primary headline — bilingual */
+.announce-headline {
+    font-family: "Playfair Display", Georgia, serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--gold-bright);
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+}
+
+.announce-headline-zh {
+    font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--gold-bright);
+    letter-spacing: 0.05em;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+}
+
+/* Subtitle text */
+.announce-body {
+    font-size: 0.95rem;
+    color: var(--cream);
+    line-height: 1.6;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.announce-body-zh {
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 1rem;
+    color: var(--cream);
+    line-height: 1.7;
+    max-width: 700px;
+    margin: 0.4rem auto 0;
+}
+
+/* Divider between EN and ZH */
+.announce-divider {
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: var(--emerald-light);
+    margin: 0.75rem auto;
+    opacity: 0.6;
+}
+
+/* Feature highlights */
+.announce-features {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+.announce-feature {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 100px;
+}
+
+.announce-feature-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.announce-feature-label {
+    font-size: 0.8rem;
+    color: var(--emerald-light);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.announce-feature-label-zh {
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 0.85rem;
+    color: var(--emerald-light);
+}
+
+/* Dismiss button */
+.announce-dismiss {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    color: var(--cream);
+    font-size: 1.2rem;
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: opacity 0.2s;
+}
+.announce-dismiss:hover {
+    opacity: 1;
+    color: var(--gold);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .feature-announce {
+        margin: 0 0.5rem 1rem;
+        padding: 1rem 1.25rem;
+    }
+    .announce-headline {
+        font-size: 1.2rem;
+    }
+    .announce-headline-zh {
+        font-size: 1.4rem;
+    }
+    .announce-features {
+        gap: 1rem;
+    }
+}

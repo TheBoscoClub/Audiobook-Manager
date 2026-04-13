@@ -74,6 +74,7 @@
                 <li><a href="#my-library">My Library</a></li>
                 <li><a href="#new-books">New Books</a></li>
                 <li><a href="#player">Audio Player</a></li>
+                <li><a href="#language">Language &amp; Translation</a></li>
                 <li><a href="#position-saving">Progress Tracking</a></li>
                 <li><a href="#downloads">Downloads</a></li>
                 <li><a href="#auth-methods">Authentication Methods</a></li>
@@ -300,6 +301,58 @@
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
+        <!-- Language & Translation -->
+        <section id="language" class="help-section">
+            <h2><span class="section-icon">&#127760;</span> Language &amp; Translation</h2>
+            <p>The Library supports multiple languages. Currently available: <strong>English</strong> and <strong>Simplified Chinese (&#31616;&#20307;&#20013;&#25991;)</strong>.</p>
+
+            <h3>Switching Languages</h3>
+            <p>Click the <strong>language selector</strong> (globe icon) in the header bar. Choose your preferred language &mdash; the entire interface updates instantly without a page reload. Your choice is remembered across sessions.</p>
+
+            <h3>What Gets Translated</h3>
+            <div class="help-feature-grid">
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#128196;</div>
+                    <h4>Interface</h4>
+                    <p>All buttons, labels, menus, headings, and navigation are translated via built-in catalogs.</p>
+                </div>
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#128214;</div>
+                    <h4>Book Metadata</h4>
+                    <p>Titles, authors, narrators, series names, and descriptions are translated automatically via DeepL.</p>
+                </div>
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#127908;</div>
+                    <h4>Subtitles</h4>
+                    <p>Bilingual subtitles generated on-demand: English source text with translated overlay while you listen.</p>
+                </div>
+                <div class="help-feature-card">
+                    <div class="feature-icon">&#128220;</div>
+                    <h4>Transcript</h4>
+                    <p>Full bilingual transcript panel with synchronized scrolling &mdash; tap any line to jump to that point.</p>
+                </div>
+            </div>
+
+            <h3>Subtitles &amp; Transcript Panel</h3>
+            <p>When listening in a non-English locale, the player automatically generates subtitles for the current audiobook. A progress banner shows transcription status chapter by chapter.</p>
+            <ul>
+                <li><strong>Translated banner</strong>: The translated text appears at the bottom of the player during playback</li>
+                <li><strong>Transcript panel</strong>: Click the transcript icon to open a side panel showing the full bilingual text, with the current line highlighted and auto-scrolling</li>
+                <li><strong>Click to seek</strong>: Click any line in the transcript to jump to that point in the audiobook</li>
+            </ul>
+            <p>Subtitle generation happens once per book and is cached &mdash; subsequent listens load instantly.</p>
+
+            <h3>How Translation Works</h3>
+            <p>Translation is automatic and happens in the background:</p>
+            <ol>
+                <li><strong>Speech-to-text</strong>: The audiobook audio is transcribed chapter by chapter using AI (Whisper)</li>
+                <li><strong>Translation</strong>: The English text is translated to your language via DeepL</li>
+                <li><strong>Subtitle files</strong>: Timed subtitle files (VTT) are generated with word-level alignment</li>
+            </ol>
+            <p>The first time you play a book in a non-English locale, you may see a brief "Generating subtitles" banner while the system processes the current chapter. Subsequent chapters are processed in the background.</p>
+            <a href="#" class="back-to-top">&uarr; Back to top</a>
+        </section>
+
         <!-- 9. Progress Tracking -->
         <section id="position-saving" class="help-section">
             <h2><span class="section-icon">&#128278;</span> Progress Tracking</h2>
@@ -503,6 +556,18 @@
 
             <h3>Do media keys work with the player?</h3>
             <p>Yes. Play/Pause, Next Track (+30s), and Previous Track (-30s) media keys work during playback. On mobile, lockscreen controls also integrate with the player. See <a href="#keyboard">Keyboard &amp; Media Keys</a>.</p>
+
+            <h3>How do I change the language?</h3>
+            <p>Click the <strong>globe icon</strong> in the header bar and select your preferred language. The interface switches instantly and your preference is remembered.</p>
+
+            <h3>Why do I see a "Generating subtitles" banner?</h3>
+            <p>The first time you play a book in a non-English language, the system transcribes and translates the audio chapter by chapter. This typically takes 30&ndash;60 seconds per chapter. Once generated, subtitles load instantly on future plays.</p>
+
+            <h3>Can I see both English and translated text?</h3>
+            <p>Yes. Open the <strong>Transcript panel</strong> (click the transcript icon in the player bar) to see a bilingual view with English and your selected language side by side. The current line is highlighted and the panel auto-scrolls to follow playback.</p>
+
+            <h3>What languages are available?</h3>
+            <p>Currently <strong>English</strong> and <strong>Simplified Chinese (&#31616;&#20307;&#20013;&#25991;)</strong>. Additional languages may be added in future updates.</p>
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 

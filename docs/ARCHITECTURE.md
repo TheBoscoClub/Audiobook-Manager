@@ -9,19 +9,20 @@ This document describes the system architecture, installation workflows, storage
 3. [Authentication Module Architecture](#authentication-module-architecture)
 4. [Scanner Module Architecture](#scanner-module-architecture)
 5. [API Module Architecture](#api-module-architecture)
-6. [Multi-Author/Narrator Normalization](#multi-authornarrator-normalization-v70)
-7. [Position Tracking Architecture](#position-tracking-architecture)
-8. [Systemd Services Reference](#systemd-services-reference)
-9. [Scripts Reference](#scripts-reference)
-10. [Installation Workflow](#installation-workflow)
-11. [Upgrade Workflow](#upgrade-workflow)
-12. [Migration Workflow](#migration-workflow)
-13. [Storage Layout](#storage-layout)
-14. [Storage Recommendations](#storage-recommendations)
-15. [Filesystem Recommendations](#filesystem-recommendations)
-16. [Kernel Compatibility](#kernel-compatibility)
-17. [Quick Reference](#quick-reference)
-18. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
+6. [Localization & Translation Pipeline](#localization--translation-pipeline)
+7. [Multi-Author/Narrator Normalization](#multi-authornarrator-normalization-v70)
+8. [Position Tracking Architecture](#position-tracking-architecture)
+9. [Systemd Services Reference](#systemd-services-reference)
+10. [Scripts Reference](#scripts-reference)
+11. [Installation Workflow](#installation-workflow)
+12. [Upgrade Workflow](#upgrade-workflow)
+13. [Migration Workflow](#migration-workflow)
+14. [Storage Layout](#storage-layout)
+15. [Storage Recommendations](#storage-recommendations)
+16. [Filesystem Recommendations](#filesystem-recommendations)
+17. [Kernel Compatibility](#kernel-compatibility)
+18. [Quick Reference](#quick-reference)
+19. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
 
 ---
 
@@ -704,6 +705,127 @@ library/backend/api_modular/utilities_ops/
 | `maintenance.py` | `vacuum_database()`, `rebuild_fts()` | POST `/api/utilities/maintenance` |
 | `status.py` | `get_operation_status()` | GET `/api/utilities/status/<id>` |
 
+## Localization & Translation Pipeline
+
+The localization subsystem (v8.1.0+) provides full multi-language support with three layers: static UI translation, dynamic content translation, and audiobook media translation.
+
+### Architecture Overview
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                   LOCALIZATION SUBSYSTEM                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  UI STRINGS  │  │   DYNAMIC    │  │    MEDIA     │          │
+│  │  (Catalogs)  │  │  (DeepL API) │  │  (Pipeline)  │          │
+│  │              │  │              │  │              │          │
+│  │ en.json      │  │ String cache │  │ STT (Whisper)│          │
+│  │ zh-Hans.json │  │ Hash-keyed   │  │ Translation  │          │
+│  │ i18n.js      │  │ Quota track  │  │ TTS (edge/   │          │
+│  │              │  │ Glossary     │  │   XTTS)      │          │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
+│         │                  │                  │                  │
+│         ▼                  ▼                  ▼                  │
+│  ┌─────────────────────────────────────────────────────┐        │
+│  │              TRANSLATION QUEUE                       │        │
+│  │  Background worker · Priority bumping · Per-chapter  │        │
+│  └─────────────────────────────────────────────────────┘        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### i18n Framework (`library/i18n/`, `library/locales/`)
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| Locale catalogs | `library/locales/{locale}.json` | Static UI strings (keys like `shell.play`, `help.title`) |
+| i18n.js | `library/web-v2/js/i18n.js` | Client-side catalog loader, `data-i18n` attribute binder, cross-frame locale sync via `postMessage` |
+| i18n Python module | `library/i18n/__init__.py` | Server-side catalog access, `SUPPORTED_LOCALES`, `get_catalog()` |
+| i18n API routes | `library/backend/api_modular/i18n_routes.py` | `GET /api/i18n/<locale>`, `GET /api/i18n/supported`, `POST /api/i18n/activate` |
+
+Supported locales: `en` (default), `zh-Hans` (Simplified Chinese). Adding a new locale requires creating `library/locales/{locale}.json` and adding the locale code to `SUPPORTED_LOCALES`.
+
+### Dynamic Content Translation (`library/localization/translation/`)
+
+User-facing dynamic content (book titles, author names, collection names, announcements) is translated on-demand via the DeepL Pro API.
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| DeepL translator | `library/localization/translation/deepl_translate.py` | API client with string cache (SHA-256 hash keys), glossary support, and quota tracking |
+| Quota tracker | `library/localization/translation/quota.py` | Monthly character usage in `deepl_quota` table, soft warn at 90%, hard stop at 99% |
+| Glossary manager | `library/localization/translation/glossary.py` | Pushes YAML glossaries (`library/localization/glossary/en-zh.yaml`) to DeepL API |
+| String translations API | `library/backend/api_modular/translations.py` | `POST /api/translations/strings` (hash-based batch lookup), `GET /api/translations/by-locale/{locale}` |
+
+### Media Translation Pipeline (`library/localization/`)
+
+The three-step pipeline generates bilingual subtitles and translated audio for audiobook chapters:
+
+```text
+Audio Chapter ──► STT (Whisper) ──► Translation (DeepL) ──► TTS (edge-tts/XTTS)
+                     │                    │                       │
+                     ▼                    ▼                       ▼
+               English VTT         Translated VTT          Translated Opus
+               (word-level          (sentence-level         (per-chapter
+                timestamps)          alignment)              audio file)
+```
+
+#### STT Provider Abstraction (`library/localization/stt/`)
+
+| Provider | Class | Config Key | Use Case |
+|----------|-------|------------|----------|
+| Vast.ai Whisper | `VastaiWhisperSTT` | `AUDIOBOOKS_VASTAI_WHISPER_HOST` | Preferred: dedicated GPU instance |
+| RunPod Whisper | `RunPodWhisperSTT` | `AUDIOBOOKS_RUNPOD_API_KEY` | Serverless GPU (cold-start latency) |
+| Local GPU | `LocalWhisperSTT` | `AUDIOBOOKS_STT_PROVIDER=local` | Self-hosted, ROCm AMD or CUDA |
+| DeepL Transcription | `DeepLSTT` | `DEEPL_API_KEY` | Legacy fallback (100 MB limit) |
+
+Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) selects: Vast.ai → RunPod → Local GPU → DeepL. Runtime fallback retries once against local Whisper on network errors.
+
+#### TTS Provider Factory (`library/localization/tts/factory.py`)
+
+| Provider | Config Value | Output | Use Case |
+|----------|-------------|--------|----------|
+| edge-tts | `edge-tts` (default) | MP3 → Opus | CPU, no GPU required, always available |
+| XTTS v2 (RunPod) | `xtts-runpod` | WAV → Opus | GPU serverless, natural voice |
+| XTTS v2 (Vast.ai) | `xtts-vastai` | WAV → Opus | Self-hosted GPU |
+
+#### Translation Queue (`library/localization/queue.py`)
+
+Background daemon thread polls `translation_queue` every 10 seconds. Jobs progress through states: `pending` → `stt` → `translating` → `tts` → `completed`. Priority bumping via `/api/translation/bump` when a user opens a book.
+
+#### Chapter Processing (`library/localization/chapters.py`)
+
+Audiobooks are split into chapters via ffprobe metadata (with Audible `chapters.json` sidecar fallback). Each chapter is transcribed individually, producing per-chapter VTT files with offset-adjusted timestamps. Frontend shows "Chapter 3 of 42: Title" with a teal progress bar.
+
+### Translation Asset Transfer (`library/localization/transfer.py`)
+
+CLI tool (`audiobook-translations`) exports/imports translation assets between environments:
+
+```bash
+audiobook-translations export -o translations.tar.gz [--locale zh-Hans]
+audiobook-translations import -a translations.tar.gz
+```
+
+Archive contains `manifest.json`, `vtt/*.vtt`, `audio/*.opus`. Import matches books by **title** (not ID) and rewrites file paths for the target environment. Manifest version 2 includes: subtitles, translated audio, audiobook translations, collection translations, string translations, and completed queue entries.
+
+### Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `chapter_subtitles` | Per-chapter VTT paths, locale, STT/translation provider |
+| `chapter_translations_audio` | Per-chapter translated audio paths, TTS provider, duration |
+| `audiobook_translations` | Per-book translated title, author, series, description, pinyin sort |
+| `collection_translations` | Genre/series name translations |
+| `string_translations` | DeepL cache: SHA-256 hash → translated string |
+| `translation_queue` | Job queue: audiobook_id, locale, state, step, priority |
+| `deepl_quota` | Monthly character usage tracking |
+
+### CJK Search & Sort (`library/backend/api_modular/search_cjk.py`)
+
+SQLite's `unicode61` tokenizer drops CJK characters entirely, so queries containing CJK characters swap FTS `MATCH` for LIKE-based bigram matching against `audiobooks.title`, `audiobooks.author`, and `audiobook_translations.title`.
+
+Chinese locale sort uses `pinyin_sort` column (populated via `pypinyin`) with `ORDER BY COALESCE(NULLIF(pinyin_sort, ''), audiobooks.title)` so untranslated rows fall back to English titles.
+
 ### Multi-Author/Narrator Normalization (v7.0+)
 
 The v7.0.0 release introduced normalized author and narrator storage, replacing the flat `author`/`narrator` text columns with proper many-to-many relationships.
@@ -1216,6 +1338,7 @@ All scripts are located in `scripts/` and installed to `/opt/audiobooks/scripts/
 | `audiobook-download-monitor` | Watch download progress |
 | `audiobook-save-staging` | Manually save staging to persistent storage |
 | `audiobook-save-staging-auto` | Auto-save staging (called by shutdown service) |
+| `audiobook-translations` | Export/import translation assets between environments |
 
 ### Symlink Architecture
 
@@ -1234,6 +1357,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 - `audiobook-migrate` → `migrate-api.sh`
 - `audiobook-status` → `audiobook-status`
 - `audiobook-help` → `audiobook-help`
+- `audiobook-translations` → `audiobook-translations`
 
 ---
 
