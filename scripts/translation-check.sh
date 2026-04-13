@@ -9,7 +9,13 @@
 
 set -uo pipefail
 
+# Load DB path from audiobooks.conf or use default
 DB_PATH="/var/lib/audiobooks/db/audiobooks.db"
+CONF_FILE="/etc/audiobooks/audiobooks.conf"
+if [[ -f "$CONF_FILE" ]]; then
+    conf_db=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' "$CONF_FILE" 2>/dev/null)
+    [[ -n "$conf_db" ]] && DB_PATH="$conf_db"
+fi
 
 log() { echo "$(date +%H:%M:%S) [translate-check] $*"; }
 
@@ -20,7 +26,7 @@ if systemctl is-active --quiet audiobook-translate.service; then
 fi
 
 # Count pending translations
-pending=$(sudo -u audiobooks sqlite3 "$DB_PATH" \
+pending=$(sqlite3 "$DB_PATH" \
     "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
 
 if [ "${pending:-0}" -eq 0 ]; then
@@ -28,8 +34,16 @@ if [ "${pending:-0}" -eq 0 ]; then
     exit 0
 fi
 
+# Verify translation config exists before starting
+TRANSLATION_ENV="${AUDIOBOOKS_TRANSLATION_ENV:-/etc/audiobooks/scripts/translation-env.sh}"
+if [[ ! -f "$TRANSLATION_ENV" ]]; then
+    log "No translation config at $TRANSLATION_ENV — cannot start daemon"
+    log "Copy etc/translation-env.sh.example to $TRANSLATION_ENV and configure GPU instances"
+    exit 0
+fi
+
 log "Found $pending pending translations — starting translation daemon"
-sudo systemctl start audiobook-translate.service
+systemctl start audiobook-translate.service
 
 # Verify it started
 if systemctl is-active --quiet audiobook-translate.service; then

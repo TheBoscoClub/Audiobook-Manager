@@ -20,37 +20,52 @@
 
 set -uo pipefail
 
-# ── Configuration ────────────────────────────────────────────────────────────
+# ── Configuration Defaults ──────────────────────────────────────────────────
+# These defaults work with a standard /opt/audiobooks installation.
+# Override any of them in /etc/audiobooks/scripts/translation-env.sh
+# (see etc/translation-env.sh.example for documentation).
+
+# Resolve SCRIPT_DIR for finding sibling scripts (batch-translate.py, etc.)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 DB_PATH="/var/lib/audiobooks/db/audiobooks.db"
-LIBRARY_PATH="/hddRaid1/Audiobooks/Library"
-BATCH_SCRIPT="/hddRaid1/ClaudeCodeProjects/Audiobook-Manager/scripts/batch-translate.py"
+LIBRARY_PATH="/srv/audiobooks/Library"
+BATCH_SCRIPT="${SCRIPT_DIR}/batch-translate.py"
 VENV_PYTHON="/opt/audiobooks/library/venv/bin/python"
-SSH_KEY="/home/bosco/.claude/ssh/id_ed25519"
+SSH_KEY=""
 LOG_DIR="/var/log/audiobooks/translate"
 PID_FILE="/var/lib/audiobooks/.run/translate-daemon.pid"
-HEALTH_CHECK_INTERVAL=120  # seconds between tunnel/worker health checks
-EMPTY_QUEUE_CHECKS=3       # consecutive empty checks before auto-stop
+HEALTH_CHECK_INTERVAL=120
+EMPTY_QUEUE_CHECKS=3
+AUTO_TEARDOWN_GPU=false
+GPU_API_KEYS_FILE=""
+NOTIFY_EMAIL=""
+POST_COMPLETION_HOOK=""
 
-# ── GPU Instance Definitions ─────────────────────────────────────────────────
-# Format: "local_port|ssh_port|ssh_host|label|compute_type"
-# Add/remove instances here. Daemon auto-adapts.
-declare -a VASTAI_INSTANCES=(
-    "8100|17828|ssh8.vast.ai|v100-japan|float16"
-    "8101|17934|ssh1.vast.ai|p100-texas|auto"
-    "8102|17936|ssh9.vast.ai|a4000-utah|float16"
-    "8103|17940|ssh6.vast.ai|rtx5060ti-denmark|float16"
-    "8104|18388|ssh5.vast.ai|rtx4060ti-china|float16"
-    "8105|18390|ssh6.vast.ai|a4000-poland|float16"
-    "8106|18998|ssh5.vast.ai|v100-minnesota|float16"
-    "8107|18394|ssh6.vast.ai|rtx4080s-california|float16"
-)
+# GPU instance arrays — empty by default, populated by site-local config
+declare -a VASTAI_INSTANCES=()
+declare -a RUNPOD_INSTANCES=()
 
-# RunPod instances use HTTPS proxy URLs (no SSH tunnel needed)
-declare -a RUNPOD_INSTANCES=(
-    "https://jykskbbews0xb2-8000.proxy.runpod.net|runpod-a4000-1"
-    "https://yw1moek45rczqc-8000.proxy.runpod.net|runpod-a4000-2"
-    "https://m0mtwgl4ukqdqo-8000.proxy.runpod.net|runpod-a4000-3"
-)
+# ── Load Site-Local Config ──────────────────────────────────────────────────
+# Users customize their GPU infrastructure, paths, and notification settings
+# in this file. It persists across upgrades (lives in /etc/audiobooks/).
+TRANSLATION_ENV="${AUDIOBOOKS_TRANSLATION_ENV:-/etc/audiobooks/scripts/translation-env.sh}"
+if [[ -f "$TRANSLATION_ENV" ]]; then
+    # shellcheck source=/dev/null
+    source "$TRANSLATION_ENV"
+else
+    echo "ERROR: No translation environment config found at $TRANSLATION_ENV" >&2
+    echo "Copy etc/translation-env.sh.example to /etc/audiobooks/scripts/translation-env.sh" >&2
+    echo "and configure your GPU instances. See the example file for documentation." >&2
+    exit 1
+fi
+
+# Validate minimum config
+if [[ ${#VASTAI_INSTANCES[@]} -eq 0 && ${#RUNPOD_INSTANCES[@]} -eq 0 && -z "${LOCAL_WHISPER_URL:-}" ]]; then
+    echo "ERROR: No GPU instances configured in $TRANSLATION_ENV" >&2
+    echo "Add VASTAI_INSTANCES, RUNPOD_INSTANCES, or LOCAL_WHISPER_URL entries." >&2
+    exit 1
+fi
 
 # ── State ────────────────────────────────────────────────────────────────────
 declare -A TUNNEL_PIDS
@@ -63,8 +78,11 @@ log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [daemon] $*"; }
 log_worker() { echo "$(date '+%Y-%m-%d %H:%M:%S') [worker:$1] $2"; }
 
 # ── Graceful Shutdown ────────────────────────────────────────────────────────
-shutdown_handler() {
-    log "Shutdown signal received — stopping all workers and tunnels"
+# cleanup_workers_tunnels stops workers and tunnels without exiting.
+# Called by both the signal handler (immediate exit) and the normal
+# completion path (which continues to verification/teardown after cleanup).
+cleanup_workers_tunnels() {
+    log "Stopping all workers and tunnels"
     SHUTDOWN=true
 
     # Kill workers first (they'll finish current chapter)
@@ -100,11 +118,17 @@ shutdown_handler() {
     done
 
     # Reset any stuck processing jobs back to pending
-    sudo -u audiobooks sqlite3 "$DB_PATH" \
+    sqlite3 "$DB_PATH" \
         "UPDATE translation_queue SET state = 'pending', started_at = NULL WHERE state = 'processing';" 2>/dev/null
 
     rm -f "$PID_FILE"
-    log "Shutdown complete"
+    log "Cleanup complete"
+}
+
+# Signal handler — immediate exit (skips post-completion pipeline)
+shutdown_handler() {
+    log "Shutdown signal received"
+    cleanup_workers_tunnels
     exit 0
 }
 trap shutdown_handler SIGTERM SIGINT
@@ -212,7 +236,7 @@ start_worker() {
     fi
 
     log "Starting worker $label (host=$host port=$port)"
-    nohup sudo -u audiobooks \
+    nohup env \
         AUDIOBOOKS_VASTAI_WHISPER_HOST="$host" \
         AUDIOBOOKS_VASTAI_WHISPER_PORT="$port" \
         AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1 \
@@ -226,14 +250,14 @@ start_worker() {
 
 # ── Queue Status ─────────────────────────────────────────────────────────────
 get_queue_status() {
-    sudo -u audiobooks sqlite3 "$DB_PATH" \
+    sqlite3 "$DB_PATH" \
         "SELECT state, COUNT(*) FROM translation_queue GROUP BY state;" 2>/dev/null
 }
 
 get_subtitle_counts() {
     local en zh
-    en=$(sudo -u audiobooks sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
-    zh=$(sudo -u audiobooks sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
+    en=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
+    zh=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
     echo "en=$en zh-Hans=$zh"
 }
 
@@ -310,10 +334,10 @@ main() {
 
         # Check queue
         local pending processing completed failed
-        pending=$(sudo -u audiobooks sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
-        processing=$(sudo -u audiobooks sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
-        completed=$(sudo -u audiobooks sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='completed';" 2>/dev/null)
-        failed=$(sudo -u audiobooks sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='failed';" 2>/dev/null)
+        pending=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
+        processing=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
+        completed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='completed';" 2>/dev/null)
+        failed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='failed';" 2>/dev/null)
 
         log "Queue: ${pending:-0} pending, ${processing:-0} processing, ${completed:-0} completed, ${failed:-0} failed | $(get_subtitle_counts)"
 
@@ -381,17 +405,17 @@ main() {
     log "Subtitles: $(get_subtitle_counts)"
     log "═══════════════════════════════════════════════════════════════"
 
-    # Clean shutdown
-    shutdown_handler
+    # Stop workers and tunnels (but don't exit — run post-completion pipeline)
+    cleanup_workers_tunnels
 
+    # ── Post-Completion Pipeline ────────────────────────────────────────────
     # Run verification with proof
     log "Running translation verification..."
-    local verify_script
-    verify_script="$(dirname "$BATCH_SCRIPT")/verify-translations.py"
-    if [ -f "$verify_script" ]; then
+    local verify_script="${SCRIPT_DIR}/verify-translations.py"
+    if [[ -f "$verify_script" ]]; then
         "$VENV_PYTHON" "$verify_script" --db "$DB_PATH" --json --fix 2>&1 | tee -a "$LOG_DIR/verify-$(date +%Y%m%d-%H%M%S).log"
         local verify_exit=$?
-        if [ $verify_exit -eq 0 ]; then
+        if [[ $verify_exit -eq 0 ]]; then
             log "VERIFICATION PASSED — all translations verified with proof"
         else
             log "VERIFICATION FOUND FAILURES — failed books re-queued for retry"
@@ -401,26 +425,38 @@ main() {
         log "WARNING: verify-translations.py not found at $verify_script"
     fi
 
-    # Email verification report
-    local email_script
-    email_script="$(dirname "$BATCH_SCRIPT")/email-report.py"
-    local report_json
-    report_json="$(dirname "$DB_PATH")/translation-verification.json"
-    if [ -f "$email_script" ] && [ -f "$report_json" ]; then
-        log "Emailing verification report to bosco@thebosco.club..."
-        "$VENV_PYTHON" "$email_script" \
-            --to bosco@thebosco.club \
-            --report "$report_json" 2>&1 || log "WARNING: Email send failed"
+    # Email verification report (if NOTIFY_EMAIL configured)
+    if [[ -n "$NOTIFY_EMAIL" ]]; then
+        local email_script="${SCRIPT_DIR}/email-report.py"
+        local report_json="$(dirname "$DB_PATH")/translation-verification.json"
+        if [[ -f "$email_script" && -f "$report_json" ]]; then
+            log "Emailing verification report to $NOTIFY_EMAIL..."
+            "$VENV_PYTHON" "$email_script" \
+                --to "$NOTIFY_EMAIL" \
+                --report "$report_json" 2>&1 || log "WARNING: Email send failed"
+        fi
     fi
 
-    # Tear down GPU instances to stop billing
-    local teardown_script
-    teardown_script="$(dirname "$BATCH_SCRIPT")/teardown-gpu.sh"
-    if [ -f "$teardown_script" ]; then
-        log "Tearing down GPU instances to stop billing..."
-        bash "$teardown_script" 2>&1 | tee -a "$LOG_DIR/teardown-$(date +%Y%m%d-%H%M%S).log"
-    else
-        log "WARNING: teardown-gpu.sh not found — GPU instances may still be running"
+    # Tear down GPU instances to stop billing (if AUTO_TEARDOWN_GPU enabled)
+    if [[ "$AUTO_TEARDOWN_GPU" == "true" ]]; then
+        local teardown_script="${SCRIPT_DIR}/teardown-gpu.sh"
+        if [[ -f "$teardown_script" ]]; then
+            log "Tearing down GPU instances to stop billing..."
+            # Pass API keys file if configured
+            local teardown_env=()
+            if [[ -n "$GPU_API_KEYS_FILE" && -f "$GPU_API_KEYS_FILE" ]]; then
+                teardown_env=(env GPU_API_KEYS_FILE="$GPU_API_KEYS_FILE")
+            fi
+            "${teardown_env[@]}" bash "$teardown_script" 2>&1 | tee -a "$LOG_DIR/teardown-$(date +%Y%m%d-%H%M%S).log"
+        else
+            log "WARNING: teardown-gpu.sh not found — GPU instances may still be running"
+        fi
+    fi
+
+    # Run custom post-completion hook if configured
+    if [[ -n "$POST_COMPLETION_HOOK" && -x "$POST_COMPLETION_HOOK" ]]; then
+        log "Running post-completion hook: $POST_COMPLETION_HOOK"
+        bash "$POST_COMPLETION_HOOK" 2>&1 || log "WARNING: Post-completion hook failed"
     fi
 }
 

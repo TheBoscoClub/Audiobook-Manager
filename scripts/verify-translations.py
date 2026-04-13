@@ -19,7 +19,6 @@ Usage:
 import argparse
 import json
 import logging
-import os
 import sqlite3
 import sys
 import time
@@ -101,8 +100,6 @@ def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
         result["status"] = "FAIL"
         result["issues"].append("Book not found in DB")
         return result
-
-    audio_path = Path(book["file_path"])
 
     # Get subtitle rows
     en_rows = conn.execute(
@@ -236,7 +233,7 @@ def main():
         "SELECT COUNT(*) FROM chapter_subtitles WHERE locale = 'en'"
     ).fetchone()[0]
     total_zh = conn.execute(
-        f"SELECT COUNT(*) FROM chapter_subtitles WHERE locale = ?",
+        "SELECT COUNT(*) FROM chapter_subtitles WHERE locale = ?",
         (args.locale,),
     ).fetchone()[0]
     total_en_books = conn.execute(
@@ -246,12 +243,6 @@ def main():
         "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale = ?",
         (args.locale,),
     ).fetchone()[0]
-
-    # Disk usage of subtitle files
-    subtitle_dirs = conn.execute(
-        "SELECT DISTINCT substr(vtt_path, 1, instr(vtt_path, '/subtitles/') + 10) "
-        "FROM chapter_subtitles LIMIT 100"
-    ).fetchall()
 
     logger.info("-" * 70)
     logger.info("SUMMARY")

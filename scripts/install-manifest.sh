@@ -40,6 +40,7 @@ REQUIRED_DIRS=(
     "${LIB_DIR}|audiobooks:audiobooks|0755"
     "${LIB_DIR}/library/data|audiobooks:audiobooks|0755"
     "${CONFIG_DIR}|root:audiobooks|0750"
+    "${CONFIG_DIR}/scripts|audiobooks:audiobooks|0755"
     "${STATE_DIR}|audiobooks:audiobooks|0755"
     "${STATE_DIR}/db|audiobooks:audiobooks|0750"
     "${STATE_DIR}/data|audiobooks:audiobooks|0755"
@@ -69,6 +70,9 @@ CANONICAL_UNITS=(
     "audiobook-shutdown-saver.service"
     "audiobook-upgrade-helper.service"
     "audiobook-upgrade-helper.path"
+    "audiobook-translate.service"
+    "audiobook-translate-check.service"
+    "audiobook-translate-check.timer"
 )
 
 # ---------------------------------------------------------------------------

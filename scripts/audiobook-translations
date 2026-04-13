@@ -1,9 +1,16 @@
 #!/bin/bash
-# Audiobook Translation Asset Transfer
-# Export/import translation assets (subtitles, TTS audio, metadata)
-# between environments without re-translating.
+# Audiobook Translation Management
 #
-# Usage:
+# Unified CLI for translation pipeline control and asset transfer.
+#
+# Queue control:
+#   audiobook-translations status              # Show queue state + daemon status
+#   audiobook-translations pause               # Pause queue (finish in-progress, stop new)
+#   audiobook-translations resume              # Resume paused queue
+#   audiobook-translations start               # Start translation daemon
+#   audiobook-translations stop                # Stop translation daemon (graceful)
+#
+# Asset transfer:
 #   audiobook-translations export -o translations.tar.gz [--locale zh-Hans]
 #   audiobook-translations import -a translations.tar.gz
 #
@@ -12,6 +19,230 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
 
 export AUDIOBOOKS_DATABASE="${AUDIOBOOKS_DATABASE:-/var/lib/audiobooks/db/audiobooks.db}"
+DB="$AUDIOBOOKS_DATABASE"
 
-cd "${AUDIOBOOKS_HOME}/library" || exit 1
-exec "$(audiobooks_python)" -m localization.transfer "$@"
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+usage() {
+    echo "Usage: audiobook-translations <command> [options]"
+    echo ""
+    echo "Queue control:"
+    echo "  status    Show translation queue state and daemon status"
+    echo "  pause     Pause queue (in-progress books finish, no new ones start)"
+    echo "  resume    Resume paused translations"
+    echo "  start     Start the translation daemon"
+    echo "  stop      Stop the translation daemon gracefully"
+    echo ""
+    echo "Asset transfer:"
+    echo "  export    Export translation assets to archive"
+    echo "  import    Import translation assets from archive"
+    echo ""
+    echo "Run 'audiobook-translations <command> --help' for command-specific options."
+}
+
+cmd_status() {
+    echo -e "${BLUE}Translation Queue Status${NC}"
+    echo "─────────────────────────────────────"
+
+    if [[ ! -f "$DB" ]]; then
+        echo -e "${RED}Database not found: $DB${NC}"
+        exit 1
+    fi
+
+    # Queue counts by state
+    local states
+    states=$(sqlite3 "$DB" "SELECT state, COUNT(*) FROM translation_queue GROUP BY state ORDER BY state;" 2>/dev/null)
+    if [[ -z "$states" ]]; then
+        echo "  Queue: empty (no translation jobs)"
+    else
+        while IFS='|' read -r state count; do
+            case "$state" in
+                completed) echo -e "  ${GREEN}${state}${NC}: ${count}" ;;
+                processing) echo -e "  ${BLUE}${state}${NC}: ${count}" ;;
+                pending)    echo -e "  ${YELLOW}${state}${NC}: ${count}" ;;
+                paused)     echo -e "  ${YELLOW}${state} (frozen)${NC}: ${count}" ;;
+                failed)     echo -e "  ${RED}${state}${NC}: ${count}" ;;
+                *)          echo "  ${state}: ${count}" ;;
+            esac
+        done <<< "$states"
+    fi
+
+    # Subtitle counts
+    local en_chapters zh_chapters en_books zh_books
+    en_chapters=$(sqlite3 "$DB" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
+    zh_chapters=$(sqlite3 "$DB" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
+    en_books=$(sqlite3 "$DB" "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
+    zh_books=$(sqlite3 "$DB" "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
+
+    echo ""
+    echo "Subtitles:"
+    echo "  English:  ${en_chapters:-0} chapters across ${en_books:-0} books"
+    echo "  zh-Hans:  ${zh_chapters:-0} chapters across ${zh_books:-0} books"
+
+    # Daemon status
+    echo ""
+    echo "Daemon:"
+    if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+        echo -e "  Service: ${GREEN}active${NC}"
+        local pid
+        pid=$(systemctl show audiobook-translate.service --property=MainPID --value 2>/dev/null)
+        [[ -n "$pid" && "$pid" != "0" ]] && echo "  PID: $pid"
+    else
+        echo -e "  Service: ${YELLOW}inactive${NC}"
+    fi
+
+    # Timer status
+    if systemctl is-active --quiet audiobook-translate-check.timer 2>/dev/null; then
+        local next
+        next=$(systemctl show audiobook-translate-check.timer --property=NextElapseUSecRealtime --value 2>/dev/null)
+        echo -e "  Timer: ${GREEN}active${NC} (next check: ${next:-unknown})"
+    else
+        echo -e "  Timer: ${YELLOW}inactive${NC}"
+    fi
+}
+
+cmd_pause() {
+    if [[ ! -f "$DB" ]]; then
+        echo -e "${RED}Database not found: $DB${NC}"
+        exit 1
+    fi
+
+    local pending
+    pending=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
+    local processing
+    processing=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
+
+    if [[ "${pending:-0}" -eq 0 ]]; then
+        local paused
+        paused=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='paused';" 2>/dev/null)
+        if [[ "${paused:-0}" -gt 0 ]]; then
+            echo -e "${YELLOW}Queue is already paused (${paused} paused jobs)${NC}"
+        else
+            echo "No pending translations to pause."
+        fi
+        [[ "${processing:-0}" -gt 0 ]] && echo -e "${BLUE}${processing} books still processing — they will finish naturally.${NC}"
+        return 0
+    fi
+
+    sqlite3 "$DB" "UPDATE translation_queue SET state = 'paused' WHERE state = 'pending';"
+    echo -e "${GREEN}Paused ${pending} pending translations.${NC}"
+    [[ "${processing:-0}" -gt 0 ]] && echo -e "${BLUE}${processing} books still processing — they will finish, then the daemon stops.${NC}"
+    echo ""
+    echo "Resume with: audiobook-translations resume"
+}
+
+cmd_resume() {
+    if [[ ! -f "$DB" ]]; then
+        echo -e "${RED}Database not found: $DB${NC}"
+        exit 1
+    fi
+
+    local paused
+    paused=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='paused';" 2>/dev/null)
+
+    if [[ "${paused:-0}" -eq 0 ]]; then
+        echo "No paused translations to resume."
+        return 0
+    fi
+
+    sqlite3 "$DB" "UPDATE translation_queue SET state = 'pending' WHERE state = 'paused';"
+    echo -e "${GREEN}Resumed ${paused} translations.${NC}"
+
+    # Start daemon if not running and timer is active
+    if ! systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+        local env_file="${AUDIOBOOKS_TRANSLATION_ENV:-/etc/audiobooks/scripts/translation-env.sh}"
+        if [[ -f "$env_file" ]]; then
+            echo "Starting translation daemon..."
+            sudo systemctl start audiobook-translate.service 2>/dev/null
+            if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+                echo -e "${GREEN}Daemon started.${NC}"
+            else
+                echo -e "${YELLOW}Daemon not started — the 5-minute timer will pick it up, or run: audiobook-translations start${NC}"
+            fi
+        else
+            echo -e "${YELLOW}No translation config at ${env_file} — configure GPU instances first.${NC}"
+        fi
+    else
+        echo "Daemon is already running — it will pick up resumed jobs."
+    fi
+}
+
+cmd_start() {
+    if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+        echo "Translation daemon is already running."
+        return 0
+    fi
+
+    local env_file="${AUDIOBOOKS_TRANSLATION_ENV:-/etc/audiobooks/scripts/translation-env.sh}"
+    if [[ ! -f "$env_file" ]]; then
+        echo -e "${RED}No translation config at ${env_file}${NC}"
+        echo "Copy the example and configure your GPU instances:"
+        echo "  sudo cp /opt/audiobooks/etc/translation-env.sh.example ${env_file}"
+        exit 1
+    fi
+
+    echo "Starting translation daemon..."
+    sudo systemctl start audiobook-translate.service
+    sleep 2
+    if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+        echo -e "${GREEN}Translation daemon started.${NC}"
+        echo "Monitor with: journalctl -fu audiobook-translate"
+    else
+        echo -e "${RED}Failed to start translation daemon.${NC}"
+        echo "Check logs: journalctl -u audiobook-translate --no-pager -n 20"
+        exit 1
+    fi
+}
+
+cmd_stop() {
+    if ! systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+        echo "Translation daemon is not running."
+        return 0
+    fi
+
+    echo "Stopping translation daemon (workers finish current chapter, then exit)..."
+    sudo systemctl stop audiobook-translate.service
+    echo -e "${GREEN}Translation daemon stopped.${NC}"
+
+    # Show if anything was reset
+    local pending
+    pending=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
+    [[ "${pending:-0}" -gt 0 ]] && echo "${pending} jobs reset to pending (will resume on next start)."
+}
+
+# ── Dispatch ────────────────────────────────────────────────────────────────
+case "${1:-}" in
+    status)
+        cmd_status
+        ;;
+    pause)
+        cmd_pause
+        ;;
+    resume)
+        cmd_resume
+        ;;
+    start)
+        cmd_start
+        ;;
+    stop)
+        cmd_stop
+        ;;
+    export|import)
+        # Delegate to the Python transfer module
+        cd "${AUDIOBOOKS_HOME}/library" || exit 1
+        exec "$(audiobooks_python)" -m localization.transfer "$@"
+        ;;
+    -h|--help|help|"")
+        usage
+        ;;
+    *)
+        echo -e "${RED}Unknown command: $1${NC}"
+        echo ""
+        usage
+        exit 1
+        ;;
+esac

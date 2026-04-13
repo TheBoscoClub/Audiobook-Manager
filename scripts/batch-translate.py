@@ -128,8 +128,6 @@ def process_book_stt(
     db_path: str, book_id: int, locale: str, audio_path: Path
 ) -> bool:
     """Run STT + subtitle translation for a single book. Returns True on success."""
-    from localization.chapters import extract_chapters, split_chapter
-    from localization.config import DEEPL_API_KEY
     from localization.pipeline import generate_book_subtitles, get_stt_provider
     from localization.selection import WorkloadHint
 
@@ -314,7 +312,6 @@ def main():
     args = parser.parse_args()
 
     db_path = args.db
-    library_path = Path(args.library)
 
     if not Path(db_path).exists():
         logger.error("Database not found: %s", db_path)

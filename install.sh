@@ -1281,6 +1281,7 @@ do_system_install() {
     # Create directories
     echo -e "${BLUE}Creating directories...${NC}"
     sudo mkdir -p "${CONFIG_DIR}"
+    sudo mkdir -p "${CONFIG_DIR}/scripts"
     sudo mkdir -p "${APP_DIR}"
     sudo mkdir -p "${APP_DIR}/library/data"
     sudo mkdir -p "${data_dir}/Library"
@@ -1341,6 +1342,11 @@ do_system_install() {
     sudo mkdir -p "/usr/local/lib"
     sudo ln -sfn "${APP_DIR}/lib" "/usr/local/lib/audiobooks"
     sudo cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
+
+    # Install translation environment example
+    if [[ -f "${SCRIPT_DIR}/etc/translation-env.sh.example" ]]; then
+        sudo cp "${SCRIPT_DIR}/etc/translation-env.sh.example" "${CONFIG_DIR}/scripts/"
+    fi
 
     # Create config file if it doesn't exist
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
@@ -1852,6 +1858,7 @@ do_user_install() {
     # Create directories
     echo -e "${BLUE}Creating directories...${NC}"
     mkdir -p "${CONFIG_DIR}"
+    mkdir -p "${CONFIG_DIR}/scripts"
     mkdir -p "${LIB_DIR}"
     mkdir -p "${BIN_DIR}"
     mkdir -p "${data_dir}/Library"
@@ -1868,6 +1875,11 @@ do_user_install() {
     cp -r "${SCRIPT_DIR}/lib" "${LIB_DIR}/"
     [[ -d "${SCRIPT_DIR}/converter" ]] && cp -r "${SCRIPT_DIR}/converter" "${LIB_DIR}/"
     cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
+
+    # Install translation environment example
+    if [[ -f "${SCRIPT_DIR}/etc/translation-env.sh.example" ]]; then
+        cp "${SCRIPT_DIR}/etc/translation-env.sh.example" "${CONFIG_DIR}/scripts/"
+    fi
 
     # Install VERSION file
     if [[ -f "${SCRIPT_DIR}/VERSION" ]]; then

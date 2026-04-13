@@ -2,14 +2,13 @@
 """Email a translation verification report.
 
 Usage:
-    python scripts/email-report.py --to bosco@thebosco.club \
+    python scripts/email-report.py --to you@example.com \
         --report $AUDIOBOOKS_VAR_DIR/db/translation-verification.json
 """
 
 import argparse
 import json
 import smtplib
-import subprocess
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -87,7 +86,7 @@ def send_email(to: str, subject: str, body: str, conf: dict) -> None:
     port = int(conf.get("SMTP_PORT", "587"))
     user = conf.get("SMTP_USER", "resend")
     password = conf.get("SMTP_PASS", "")
-    from_addr = conf.get("SMTP_FROM", "library@thebosco.club")
+    from_addr = conf.get("SMTP_FROM", "audiobooks@localhost")
 
     msg = MIMEMultipart()
     msg["From"] = from_addr

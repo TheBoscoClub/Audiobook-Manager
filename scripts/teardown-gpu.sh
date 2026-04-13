@@ -10,7 +10,14 @@
 
 set -uo pipefail
 
-source "${HOME}/.config/api-keys.env"
+# Load API keys from configured file or default location
+API_KEYS_FILE="${GPU_API_KEYS_FILE:-${HOME}/.config/api-keys.env}"
+if [[ -f "$API_KEYS_FILE" ]]; then
+    # shellcheck source=/dev/null
+    source "$API_KEYS_FILE"
+else
+    echo "WARNING: API keys file not found at $API_KEYS_FILE" >&2
+fi
 
 DRY_RUN=false
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
