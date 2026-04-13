@@ -786,7 +786,8 @@ def batch_translate():
     conn = _get_db()
     try:
         all_rows = conn.execute(
-            "SELECT id, title, author FROM audiobooks"
+            "SELECT id, title, author, series, description, publisher_summary "
+            "FROM audiobooks"
         ).fetchall()
         if requested_ids is not None:
             books = [dict(r) for r in all_rows if r["id"] in requested_ids]
@@ -818,43 +819,75 @@ def batch_translate():
             return jsonify({"error": "DeepL API key not configured"}), 503
 
         from localization.translation.deepl_translate import DeepLTranslator
-        translator = DeepLTranslator(DEEPL_API_KEY)
+        translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path))
 
         titles = [b["title"] for b in needs_translation]
         authors = [b["author"] or "" for b in needs_translation]
+        series_list = [b["series"] or "" for b in needs_translation]
+        descriptions = [
+            b["description"] or b["publisher_summary"] or ""
+            for b in needs_translation
+        ]
 
         translated_titles = translator.translate(titles, locale)
-        translated_authors = translator.translate(
-            [a for a in authors if a], locale
-        ) if any(authors) else []
 
+        non_empty_authors = [a for a in authors if a.strip()]
+        translated_authors = translator.translate(
+            non_empty_authors, locale
+        ) if non_empty_authors else []
         author_iter = iter(translated_authors)
         author_map = []
         for a in authors:
-            author_map.append(next(author_iter, a) if a else "")
+            author_map.append(next(author_iter, a) if a.strip() else "")
+
+        non_empty_series = [s for s in series_list if s.strip()]
+        translated_series = translator.translate(
+            non_empty_series, locale
+        ) if non_empty_series else []
+        series_iter = iter(translated_series)
+        series_map = []
+        for s in series_list:
+            series_map.append(next(series_iter, s) if s.strip() else "")
+
+        # Translate descriptions in sub-batches to stay within request limits
+        desc_map = [""] * len(descriptions)
+        desc_indices = [(j, d) for j, d in enumerate(descriptions) if d.strip()]
+        for di in range(0, len(desc_indices), 10):
+            sub = desc_indices[di:di + 10]
+            t_descs = translator.translate([d for _, d in sub], locale)
+            for k, (orig_idx, _) in enumerate(sub):
+                if k < len(t_descs):
+                    desc_map[orig_idx] = t_descs[k]
 
         translations = {}
         for i, book in enumerate(needs_translation):
             t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
             t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
+            t_series = series_map[i] if i < len(series_map) else ""
+            t_desc = desc_map[i]
 
             pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
             conn.execute(
                 """INSERT INTO audiobook_translations
-                   (audiobook_id, locale, title, author_display, translator, pinyin_sort)
-                   VALUES (?, ?, ?, ?, 'deepl', ?)
+                   (audiobook_id, locale, title, author_display, series_display,
+                    description, translator, pinyin_sort)
+                   VALUES (?, ?, ?, ?, ?, ?, 'deepl', ?)
                    ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                        title = excluded.title,
                        author_display = excluded.author_display,
+                       series_display = excluded.series_display,
+                       description = excluded.description,
                        translator = excluded.translator,
                        pinyin_sort = excluded.pinyin_sort,
                        updated_at = CURRENT_TIMESTAMP
                 """,
-                (book["id"], locale, t_title, t_author, pinyin),
+                (book["id"], locale, t_title, t_author, t_series, t_desc, pinyin),
             )
             translations[str(book["id"])] = {
                 "title": t_title,
                 "author_display": t_author,
+                "series_display": t_series,
+                "description": t_desc,
             }
 
         conn.commit()

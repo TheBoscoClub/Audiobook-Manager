@@ -81,7 +81,7 @@ class QuotaTracker:
                 """CREATE TABLE IF NOT EXISTS deepl_quota (
                     id TEXT PRIMARY KEY DEFAULT 'default',
                     chars_used INTEGER NOT NULL DEFAULT 0,
-                    char_limit INTEGER NOT NULL DEFAULT 500000,
+                    char_limit INTEGER NOT NULL DEFAULT 1000000000000,
                     period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_api_check TIMESTAMP,
                     glossary_id TEXT,
@@ -259,24 +259,19 @@ class QuotaTracker:
         resp.raise_for_status()
         payload = resp.json() or {}
         used = int(payload.get("character_count", 0))
-        limit = int(payload.get("character_limit", 0)) or None
+        raw_limit = int(payload.get("character_limit", 0))
+        # DeepL Pro returns character_limit=0 meaning unlimited.
+        # Use a very high sentinel so quota checks never block.
+        limit = raw_limit if raw_limit > 0 else 1_000_000_000_000
         with self._lock:
             conn = self._connect()
             try:
-                if limit:
-                    conn.execute(
-                        "UPDATE deepl_quota SET chars_used = ?, "
-                        "char_limit = ?, last_api_check = CURRENT_TIMESTAMP, "
-                        "updated_at = CURRENT_TIMESTAMP WHERE id = 'default'",
-                        (used, limit),
-                    )
-                else:
-                    conn.execute(
-                        "UPDATE deepl_quota SET chars_used = ?, "
-                        "last_api_check = CURRENT_TIMESTAMP, "
-                        "updated_at = CURRENT_TIMESTAMP WHERE id = 'default'",
-                        (used,),
-                    )
+                conn.execute(
+                    "UPDATE deepl_quota SET chars_used = ?, "
+                    "char_limit = ?, last_api_check = CURRENT_TIMESTAMP, "
+                    "updated_at = CURRENT_TIMESTAMP WHERE id = 'default'",
+                    (used, limit),
+                )
                 conn.commit()
             finally:
                 conn.close()
