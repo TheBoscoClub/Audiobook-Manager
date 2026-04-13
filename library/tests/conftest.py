@@ -182,6 +182,8 @@ def hardware_touch_attempt(fido2_callable, *args, **kwargs):
 # Add library directory to path for imports
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
+# Also add backend/ for modules that self-import (e.g., i18n_routes does `from i18n import ...`)
+sys.path.insert(0, str(LIBRARY_DIR / "backend"))
 
 # Project root (two levels up from library/tests/)
 PROJECT_ROOT = LIBRARY_DIR.parent
@@ -348,7 +350,7 @@ def flask_app(session_temp_dir):
         supplements_dir=supplements_dir,
         api_port=5099,
     )
-    app.config["TESTING"] = True
+    app.config["TESTING"] = True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
 
     return app
 
@@ -620,7 +622,7 @@ def auth_app(auth_temp_dir):
         auth_dev_mode=True,
     )
     app.config["AUTH_DEV_MODE"] = True
-    app.config["TESTING"] = True
+    app.config["TESTING"] = True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
 
     # Store test data for tests to use
     app.test_user_secret = secret

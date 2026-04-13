@@ -297,11 +297,13 @@ def _preserve_enrichment(cursor):
     """Preserve Audible enrichment data keyed by file_path."""
     preserved = {}
     field_list = ", ".join(_ENRICHMENT_FIELDS)
-    cursor.execute(f"""  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query,python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        f"""
         SELECT file_path, {field_list}
         FROM audiobooks
         WHERE audible_enriched_at IS NOT NULL OR isbn_enriched_at IS NOT NULL
-    """)  # nosec B608
+    """  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+    )
     for row in cursor.fetchall():
         preserved[row[0]] = dict(zip(_ENRICHMENT_FIELDS, row[1:]))
     print(f"  Preserved enrichment data for {len(preserved)} audiobooks")
@@ -461,7 +463,7 @@ def import_audiobooks(conn):
 
     # Clear existing data
     for table in _CLEAR_TABLES:
-        cursor.execute(f"DELETE FROM {table}")  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(f"DELETE FROM {table}")  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query,python.lang.security.audit.formatted-sql-query.formatted-sql-query
 
     print("\nImporting audiobooks...")
 

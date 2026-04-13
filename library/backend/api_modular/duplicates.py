@@ -956,14 +956,9 @@ def verify_deletion_safe() -> FlaskResponse:
     cursor = conn.cursor()
 
     placeholders = ",".join("?" * len(ids_to_check))
-    cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"""  # nosec B608  # nosemgrep: python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string
-        SELECT id, sha256_hash, title
-        FROM audiobooks
-        WHERE id IN ({placeholders})
-    """,  # nosec B608
-        ids_to_check,
-    )
+    # nosec B608 — placeholders is `?,?,?...` literal; ids_to_check bound via params
+    _dup_sql = f"SELECT id, sha256_hash, title FROM audiobooks WHERE id IN ({placeholders})"  # nosec B608  # nosemgrep: python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string,python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(_dup_sql, ids_to_check)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
     items = [dict(row) for row in cursor.fetchall()]
 
