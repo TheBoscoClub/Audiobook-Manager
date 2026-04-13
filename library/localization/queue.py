@@ -76,7 +76,12 @@ def _ensure_queue_table() -> None:
 
 
 def _recover_stale_jobs() -> None:
-    """Reset jobs left in 'processing' state from a prior crash/restart."""
+    """Reset jobs left in 'processing' state from a prior crash/restart.
+
+    Does NOT auto-start the worker — recovered jobs wait in 'pending'
+    until explicitly triggered (user action or admin API).  Auto-starting
+    under gevent's single worker blocks the entire API.
+    """
     conn = _get_db()
     try:
         updated = conn.execute(
@@ -86,13 +91,18 @@ def _recover_stale_jobs() -> None:
         conn.commit()
         if updated:
             logger.info("Recovered %d stale processing jobs to pending", updated)
-            _ensure_worker()
     finally:
         conn.close()
 
 
-def enqueue(audiobook_id: int, locale: str, priority: int = 0) -> None:
-    """Add a book+locale to the translation queue. Idempotent."""
+def enqueue(audiobook_id: int, locale: str, priority: int = 0,
+            *, start_worker: bool = False) -> None:
+    """Add a book+locale to the translation queue. Idempotent.
+
+    Does NOT auto-start the worker by default — under gevent's single
+    worker, starting the translation thread blocks the entire API.
+    Pass ``start_worker=True`` only from explicit user-triggered endpoints.
+    """
     conn = _get_db()
     try:
         conn.execute(
@@ -103,7 +113,8 @@ def enqueue(audiobook_id: int, locale: str, priority: int = 0) -> None:
         conn.commit()
     finally:
         conn.close()
-    _ensure_worker()
+    if start_worker:
+        _ensure_worker()
 
 
 def enqueue_book_all_locales(audiobook_id: int, priority: int = 0) -> None:
@@ -130,6 +141,15 @@ def enqueue_all_books_for_locale(locale: str, priority: int = 0) -> None:
             enqueue(row["id"], locale, priority)
     finally:
         conn.close()
+
+
+def start_processing() -> None:
+    """Explicitly start the queue worker.
+
+    Call this ONLY from user-triggered endpoints (e.g., "Generate narration"
+    button).  Never from background import/scan paths — those just enqueue.
+    """
+    _ensure_worker()
 
 
 def bump_priority(audiobook_id: int, locale: str, priority: int = 100) -> None:
