@@ -307,6 +307,7 @@ junit*.xml
 *.temp
 *.bak
 *.swp
+*.lock
 .cache/
 .temp/
 tmp/
