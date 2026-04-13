@@ -85,6 +85,8 @@ html.cjk h1, html.cjk h2, html.cjk h3 {
 /* Styled to match the "New Books" marquee: opaque dark bar with gold borders */
 
 .subtitle-display {
+  width: 100%;
+  order: 1;
   text-align: center;
   padding: 8px 16px;
   background: linear-gradient(
@@ -125,6 +127,8 @@ html.cjk .subtitle-translated {
 /* ── On-demand Subtitle Generation Banner ────────────── */
 
 .subtitle-gen-banner {
+  width: 100%;
+  order: 2;
   padding: 10px 16px;
   background: linear-gradient(
     180deg,
@@ -238,6 +242,8 @@ html.cjk .subtitle-translated {
 /* ── On-demand TTS Generation Banner ──────────────────── */
 
 .tts-gen-banner {
+  width: 100%;
+  order: 3;
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.72);
   border-top: 1px solid rgba(90, 160, 197, 0.3);
