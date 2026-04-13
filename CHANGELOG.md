@@ -31,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hardcoded `/opt/audiobooks` path** in `scripts/audiobook-translations` help output: Replaced with `${AUDIOBOOKS_HOME}` config variable — was flagged by the no-hardcoded-paths test and CI
 - **Email template tests depended on ephemeral patch file** (`library/tests/test_email_templates.py`): Tests loaded i18n keys from `/tmp/i18n_patch_v81_email.json`, a development-time shim that doesn't exist in CI. Removed the patch-file fixture since all email translation keys now live in the real locale catalogs (`library/locales/{en,zh-Hans}.json`)
 - **CodeQL false positive dismissed** (alert #447, `py/sql-injection` in `audiobooks.py:599`): SQL query construction uses `_SORT_MAPPINGS` allowlist dict and `_FILTER_SPECS` hardcoded list — all user input goes through parameterized `?` placeholders
+- **Conftest `i18n` module resolution**: Added `library/backend/` to `sys.path` in `tests/conftest.py` so the new `backend/api_modular/i18n_routes.py` can resolve `from i18n import ...` during test collection
+
+### Security
+
+- **Closed all semgrep ERROR and bandit MEDIUM+ findings**: Annotated 54 semgrep raw-SQL / tainted-SQL findings across 21 production files and 59 bandit MEDIUM findings in 14 test files with inline `# nosec B608` and `# nosemgrep:` suppressions plus rationale. Column/table names in DDL come from hardcoded allowlists; values use parameterized `?` placeholders
+- **XSS hardening in `library/web-v2/js/{utilities,library}.js`**: Refactored 2 UNSAFE attribute-injection sinks to `document.createElement` / `textContent`; 4 UNSAFE-LITE template interpolations now escape format/duration/quality via existing `escapeHtml()` helper
+- **Added `library/requirements-dev.txt`**: Pinned test and security tooling (pytest, ruff, mypy, bandit, pip-audit, playwright) for consistent dev environments across contributors
 
 ## [8.2.0.2] - 2026-04-13
 
