@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.1] - 2026-04-13
+
+### Added
+
+- **Massively parallel translation pipeline** (`scripts/translation-daemon.sh`, `scripts/batch-translate.py`, `scripts/verify-translations.py`): Multi-GPU translation engine supporting simultaneous Vast.ai and RunPod instances with automatic GPU lifecycle management (provision → translate → teardown). Includes batch metadata translation, verification with quality scoring, and email reporting — all orchestrated through three new systemd units (`audiobook-translate.service`, `audiobook-translate-check.service/.timer`)
+- **Translation queue CLI** (`scripts/audiobook-translations`): Extended with `status`, `pause`, `resume`, `start`, `stop` subcommands for operational control. Pause/resume uses DB state transitions (`pending` ↔ `paused`) so workers drain naturally when no pending jobs remain
+- **Site-local translation configuration** (`etc/translation-env.sh.example`): GPU instance definitions (Vast.ai/RunPod IDs, SSH ports, API keys) now live in `/etc/audiobooks/scripts/translation-env.sh` — a site-local config file that survives upgrades. Ships with documented example template
+- **GPU teardown and health-check scripts** (`scripts/teardown-gpu.sh`, `scripts/translation-check.sh`): Automated GPU instance lifecycle management and translation progress monitoring with email notifications
+
+### Changed
+
+- **Translation daemon reads site-local config**: `scripts/translation-daemon.sh` now sources `/etc/audiobooks/scripts/translation-env.sh` instead of embedding hardcoded GPU instance definitions, making the pipeline upgrade-safe
+
+### Fixed
+
+- **Hardcoded `/opt/audiobooks` path** in `scripts/audiobook-translations` help output: Replaced with `${AUDIOBOOKS_HOME}` config variable — was flagged by the no-hardcoded-paths test and CI
+- **Email template tests depended on ephemeral patch file** (`library/tests/test_email_templates.py`): Tests loaded i18n keys from `/tmp/i18n_patch_v81_email.json`, a development-time shim that doesn't exist in CI. Removed the patch-file fixture since all email translation keys now live in the real locale catalogs (`library/locales/{en,zh-Hans}.json`)
+- **CodeQL false positive dismissed** (alert #447, `py/sql-injection` in `audiobooks.py:599`): SQL query construction uses `_SORT_MAPPINGS` allowlist dict and `_FILTER_SPECS` hardcoded list — all user input goes through parameterized `?` placeholders
+
 ## [8.2.0.2] - 2026-04-13
 
 ### Fixed
@@ -2670,7 +2689,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1...HEAD
+[8.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.2...v8.2.1
 [8.2.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.1...v8.2.0.2
 [8.2.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0...v8.2.0.1
 [8.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.1.2...v8.2.0

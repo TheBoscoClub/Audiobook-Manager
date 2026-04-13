@@ -181,7 +181,7 @@ cmd_start() {
     if [[ ! -f "$env_file" ]]; then
         echo -e "${RED}No translation config at ${env_file}${NC}"
         echo "Copy the example and configure your GPU instances:"
-        echo "  sudo cp /opt/audiobooks/etc/translation-env.sh.example ${env_file}"
+        echo "  sudo cp ${AUDIOBOOKS_HOME}/etc/translation-env.sh.example ${env_file}"
         exit 1
     fi
 

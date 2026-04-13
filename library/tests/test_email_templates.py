@@ -1,18 +1,11 @@
 """
-Tests for ``backend.api_modular.email_templates`` (v8.1 localization task #3).
+Tests for ``backend.api_modular.email_templates``.
 
 These tests verify the localized email rendering infrastructure that backs
 the guest-facing email flows (magic link, approval, denial, reply,
-invitation, activation) on the ``Localization-RND`` branch.
+invitation, activation).
 
-The real locale catalog files at ``library/locales/{en,zh-Hans}.json`` have
-intentionally NOT been edited for this task — the new keys live in a patch
-file at ``/tmp/i18n_patch_v81_email.json`` that the test fixture merges
-into the live ``_CATALOGS`` dict at module setup time. That way the test
-suite exercises the production code path (``_t`` → ``_format_*`` →
-renderer) without requiring a catalog edit/commit first.
-
-Scenarios covered (all required by the task spec):
+Scenarios covered:
 
 1. Every template renders in both ``en`` and ``zh-Hans`` without raising.
 2. User-supplied ``username`` is HTML-escaped in the HTML body so
@@ -25,10 +18,8 @@ Pure unit tests — no SQLCipher, no SMTP, no Flask app required.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from typing import Dict, Iterator
 
 import pytest
 
@@ -42,37 +33,6 @@ if str(_LIBRARY_BACKEND) not in sys.path:
     sys.path.insert(0, str(_LIBRARY_BACKEND))
 
 from backend.api_modular import email_templates  # noqa: E402
-
-
-PATCH_FILE = Path("/tmp/i18n_patch_v81_email.json")
-
-
-def _load_patch_keys() -> Dict[str, Dict[str, str]]:
-    """Load the v8.1 email patch file and return per-locale key maps."""
-    with PATCH_FILE.open("r", encoding="utf-8") as fh:
-        raw = json.load(fh)
-    # The patch file has a ``notes`` field plus one key per locale.
-    return {locale: raw[locale] for locale in ("en", "zh-Hans")}
-
-
-@pytest.fixture(autouse=True)
-def _merge_patch_into_catalogs() -> Iterator[None]:
-    """Merge the patch file into ``_CATALOGS`` for the duration of a test.
-
-    Saves the originals, overlays the patch, then restores exactly what
-    was there before. This keeps the fixture hermetic — nothing leaks
-    into other test modules that import ``email_templates``.
-    """
-    patch = _load_patch_keys()
-    original: Dict[str, Dict[str, str]] = {}
-    for locale, keys in patch.items():
-        original[locale] = dict(email_templates._CATALOGS.get(locale, {}))
-        email_templates._CATALOGS.setdefault(locale, {}).update(keys)
-    try:
-        yield
-    finally:
-        for locale, snapshot in original.items():
-            email_templates._CATALOGS[locale] = snapshot
 
 
 # ---------------------------------------------------------------------------
@@ -192,8 +152,6 @@ def test_reply_text_is_html_escaped() -> None:
 
 def test_missing_zh_key_falls_back_to_english() -> None:
     """If a zh-Hans slot is missing the renderer must pull from English."""
-    # Pop one Chinese slot for this test only. The autouse fixture
-    # restores the full zh-Hans map afterwards.
     removed = email_templates._CATALOGS["zh-Hans"].pop("email.magic_link.intro")
     try:
         _subject, _text, html_body = email_templates.render_email(
