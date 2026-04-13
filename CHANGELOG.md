@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dry-run mode calling backfill script**: Data migration `001_podcast_detection.sh` attempted to execute `backfill_enrichment.py` even in `--dry-run` mode, triggering upgrade.sh's ERR trap when the script wasn't present in the target directory
 - **CodeQL security alerts in i18n code**: Sanitized log injection vectors in `translations.py`, `search_cjk.py`, `i18n.py`, `i18n_routes.py`, and `whisper_gpu_service.py` — replaced user-controlled `str(e)` in error responses with generic messages, added regex validation for locale path construction, added `_sanitize_log()` helper for safe logging of user input
 - **MIME-encoded email test assertions**: Updated 7 email tests to decode multipart/alternative MIME bodies (base64-encoded by i18n changes) before checking content
+- **DeepL Pro quota handling** (`library/localization/translation/quota.py`): `QuotaTracker` was treating DeepL Pro's unlimited plan (`character_limit=0`) as falsy, leaving the default 500K cap in place and blocking translations for Pro users. Fixed by treating `0` as unlimited (sentinel: 1 trillion). Raised default `char_limit` from 500K to 1T for new installs
+- **Batch translate endpoint now includes descriptions, series, and pinyin sort keys** (`library/backend/api_modular/translations.py`): Previously only translated titles and authors. Descriptions translated in sub-batches of 10 to stay within API limits. `db_path` passed to `DeepLTranslator` so translation memory (TM) cache is used
+- **CVE-2026-39892 (cryptography)**: Bumped `cryptography` minimum from `>=46.0.6` to `>=46.0.7` in `requirements.txt` to resolve security advisory
+- **Ruff format and additional CodeQL dismissals**: Applied `ruff format` across 55 files — `translated_audio.py`, `subtitles.py`, `email_templates.py`, `chapters.py`, `translations.py`, and test suite. Dismissed remaining CodeQL alerts for intentional patterns with documented rationale
 
 ## [8.2.0.1] - 2026-04-13
 
