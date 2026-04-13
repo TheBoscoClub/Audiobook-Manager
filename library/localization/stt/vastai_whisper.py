@@ -17,7 +17,11 @@ class VastaiWhisperSTT(STTProvider):
     def __init__(self, host: str, port: int = 8000):
         if not host:
             raise ValueError("Vast.ai Whisper host address is required")
-        self._base_url = f"http://{host}:{port}"
+        # Support full URLs (e.g., RunPod proxy: https://pod-8000.proxy.runpod.net)
+        if host.startswith("http://") or host.startswith("https://"):
+            self._base_url = host.rstrip("/")
+        else:
+            self._base_url = f"http://{host}:{port}"
 
     @property
     def name(self) -> str:
@@ -47,7 +51,7 @@ class VastaiWhisperSTT(STTProvider):
                 f"{self._base_url}/v1/audio/transcriptions",
                 files={"file": (audio_path.name, f)},
                 data={"language": language},
-                timeout=600,
+                timeout=(30, 300),  # (connect, read) — fail fast on dead tunnels
             )
         resp.raise_for_status()
         result = resp.json()

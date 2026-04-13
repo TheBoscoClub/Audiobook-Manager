@@ -1,0 +1,13 @@
+[Unit]
+Description=Check for pending audiobook translations
+After=network-online.target audiobook-api.service
+
+[Service]
+Type=oneshot
+User=bosco
+Group=bosco
+ExecStart=/hddRaid1/ClaudeCodeProjects/Audiobook-Manager/scripts/translation-check.sh
+Environment=HOME=/home/bosco
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-translate-check

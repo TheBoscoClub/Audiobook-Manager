@@ -1,0 +1,46 @@
+[Unit]
+Description=Audiobook translation pipeline (STT + DeepL + TTS)
+Documentation=file:///hddRaid1/ClaudeCodeProjects/Audiobook-Manager/scripts/translation-daemon.sh
+After=network-online.target audiobook-api.service
+Wants=network-online.target
+PartOf=audiobook.target
+
+[Service]
+Type=simple
+User=bosco
+Group=bosco
+
+# The daemon manages SSH tunnels and batch-translate workers.
+# It exits cleanly (0) when the queue is empty, or on SIGTERM.
+ExecStart=/hddRaid1/ClaudeCodeProjects/Audiobook-Manager/scripts/translation-daemon.sh
+
+# Create log directory before starting
+ExecStartPre=/bin/bash -c 'sudo mkdir -p /var/log/audiobooks/translate && sudo chown bosco:bosco /var/log/audiobooks/translate'
+
+# On clean exit (queue empty): don't restart — the job is done.
+# On failure: restart after 60s to retry dead tunnels/workers.
+Restart=on-failure
+RestartSec=60
+
+# Allow generous startup time for SSH tunnels + model loading
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+# Send SIGTERM for graceful shutdown (resets stuck processing→pending)
+KillSignal=SIGTERM
+KillMode=mixed
+
+# Environment for SSH
+Environment=HOME=/home/bosco
+Environment=SSH_AUTH_SOCK=
+
+# Resource limits
+LimitNOFILE=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-translate
+
+[Install]
+WantedBy=audiobook.target
