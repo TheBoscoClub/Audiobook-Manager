@@ -196,7 +196,7 @@ def _resolve_staging_dir():
 
         return AUDIOBOOKS_STAGING
     except ImportError:
-        return Path(os.environ.get("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"))
+        return Path(os.environ.get("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"))  # nosec B108 — config fallback
 
 
 def _is_conversion_active():

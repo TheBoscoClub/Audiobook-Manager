@@ -330,7 +330,7 @@ def _build_cjk_search_clause(query: str) -> tuple[str, list[str]]:
     # (locale LIKE 'zh%' covers zh-Hans, zh-Hant, zh-CN, etc.).
     trans_frag, trans_params = cjk_bigram_like_clause("at.title", query)
     clauses.append(
-        " OR audiobooks.id IN (SELECT at.audiobook_id FROM audiobook_translations at"
+        " OR audiobooks.id IN (SELECT at.audiobook_id FROM audiobook_translations at"  # nosec B608
         f" WHERE at.locale LIKE 'zh%' AND {trans_frag}))"
     )
     params.extend(trans_params)
@@ -595,9 +595,9 @@ def get_audiobooks() -> Response:
     # Count total matching audiobooks
     # where_sql is built from validated allowlists (filter specs + AUDIOBOOK_FILTER const), not user input.
     count_query = f"SELECT COUNT(*) as total FROM audiobooks{join_sql} {where_sql}"  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-    cursor.execute(
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         count_query, join_params + params
-    )  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    )
     total_count = cursor.fetchone()["total"]
 
     # Get paginated audiobooks
@@ -716,8 +716,8 @@ def get_filters() -> Response:
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
         f"""SELECT DISTINCT publisher FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
-        ORDER BY publisher COLLATE NOCASE"""
-    )  # nosec B608
+        ORDER BY publisher COLLATE NOCASE"""  # nosec B608
+    )
     publishers = [row["publisher"] for row in cursor.fetchall()]
 
     # Get genres
@@ -736,8 +736,8 @@ def get_filters() -> Response:
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
         f"""SELECT DISTINCT format FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
-        ORDER BY format COLLATE NOCASE"""
-    )  # nosec B608
+        ORDER BY format COLLATE NOCASE"""  # nosec B608
+    )
     formats = [row["format"] for row in cursor.fetchall()]
 
     conn.close()

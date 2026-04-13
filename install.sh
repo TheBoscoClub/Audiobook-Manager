@@ -1762,12 +1762,13 @@ EOF
     verify_installation_permissions "system"
 
     # Reconcile filesystem against install manifest (report-only for now)
+    local _conf_file="${CONFIG_DIR}/audiobooks.conf"
     PROJECT_DIR="$SCRIPT_DIR" \
     LIB_DIR="$APP_DIR" \
     STATE_DIR="/var/lib/audiobooks" \
     LOG_DIR="/var/log/audiobooks" \
     CONFIG_DIR="$CONFIG_DIR" \
-    CONF_FILE="${CONFIG_DIR}/audiobooks.conf" \
+    CONF_FILE="$_conf_file" \
     USE_SUDO="sudo" \
     SYSTEMD_DIR="/etc/systemd/system" \
     BIN_DIR="/usr/local/bin" \
@@ -2294,12 +2295,13 @@ EOF
     verify_installation_permissions "user"
 
     # Reconcile filesystem against install manifest (report-only for now)
+    local _conf_file="${CONFIG_DIR}/audiobooks.conf"
     PROJECT_DIR="$SCRIPT_DIR" \
     LIB_DIR="$LIB_DIR" \
     STATE_DIR="$STATE_DIR" \
     LOG_DIR="$LOG_DIR" \
     CONFIG_DIR="$CONFIG_DIR" \
-    CONF_FILE="${CONFIG_DIR}/audiobooks.conf" \
+    CONF_FILE="$_conf_file" \
     USE_SUDO="" \
     SYSTEMD_DIR="${HOME}/.config/systemd/user" \
     BIN_DIR="${HOME}/.local/bin" \

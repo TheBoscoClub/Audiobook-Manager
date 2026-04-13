@@ -577,7 +577,7 @@ def translate_strings():
     try:
         placeholders = ",".join("?" * len(seen))
         rows = conn.execute(
-            f"SELECT source_hash, translation FROM string_translations "
+            f"SELECT source_hash, translation FROM string_translations "  # nosec B608
             f"WHERE locale = ? AND source_hash IN ({placeholders})",
             (locale, *seen.keys()),
         ).fetchall()

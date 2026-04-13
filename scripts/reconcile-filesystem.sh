@@ -153,6 +153,7 @@ _reconcile_pycache() {
     if (( count > 0 )); then
         _log "found ${count} __pycache__ directories under ${LIB_DIR}"
         if _should_act; then
+            # shellcheck disable=SC2086
             find "$LIB_DIR" -type d -name __pycache__ -exec $USE_SUDO rm -rf {} + 2>/dev/null || true
             _fix "cleaned ${count} __pycache__ directories"
         fi
