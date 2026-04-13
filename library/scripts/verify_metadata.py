@@ -537,7 +537,7 @@ def apply_fixes(
             and issue.severity in fixable_severities
             and issue.field in fixable_fields
         ):
-            cursor.execute(
+            cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
                 f"UPDATE audiobooks SET {issue.field} = ? WHERE id = ?",  # nosec B608
                 (issue.recommended_value, issue.book_id),
             )

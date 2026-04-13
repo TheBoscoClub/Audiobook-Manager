@@ -106,7 +106,7 @@ def _process_person_names(raw_name, person_map, cursor, table_name):
         dedup_key = normalize_for_dedup(cleaned)
         if dedup_key not in person_map:
             sort_name = generate_sort_name(cleaned) or cleaned
-            cursor.execute(
+            cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
                 f"INSERT INTO {table_name} (name, sort_name) VALUES (?, ?)",  # nosec B608
                 (cleaned, sort_name),
             )
@@ -147,7 +147,7 @@ def rebuild_junction_tables(conn: sqlite3.Connection) -> tuple[int, int]:
 
     # Clear existing junction data
     for table in ("book_authors", "book_narrators", "authors", "narrators"):
-        cursor.execute(f"DELETE FROM {table}")  # nosec B608
+        cursor.execute(f"DELETE FROM {table}")  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
     cursor.execute("SELECT id, author, narrator FROM audiobooks")
     rows = cursor.fetchall()

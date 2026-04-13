@@ -1685,6 +1685,30 @@ class AudiobookLibraryV2 {
     return div.innerHTML;
   }
 
+  /**
+   * Book-cover onerror handler — retries the image up to 2x with cache-busting,
+   * then swaps in a placeholder using safe DOM methods (no innerHTML).
+   * Replaces the previous inline onerror that used `parentElement.innerHTML`.
+   */
+  handleCoverLoadError(imgEl) {
+    if (!imgEl) return;
+    const retries = parseInt(imgEl.dataset.retries || "0", 10) || 0;
+    if (retries < 2) {
+      imgEl.dataset.retries = String(retries + 1);
+      const base = (imgEl.src || "").split("?")[0];
+      setTimeout(function () {
+        imgEl.src = base + "?r=" + Date.now();
+      }, 500 * (retries + 1));
+      return;
+    }
+    const parent = imgEl.parentElement;
+    if (!parent) return;
+    const placeholder = document.createElement("span");
+    placeholder.className = "book-cover-placeholder";
+    placeholder.textContent = "\uD83D\uDCD6"; // 📖
+    parent.replaceChildren(placeholder);
+  }
+
   escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
@@ -1803,35 +1827,46 @@ class AudiobookLibraryV2 {
   }
 
   createBookCard(book) {
-    const formatQuality = book.format ? book.format.toUpperCase() : "M4B";
-    const quality = book.quality ? ` ${book.quality}` : "";
+    // XSS hardening: coerce numeric ids and escape all server-supplied strings
+    // that appear inside attributes or raw template interpolation.
+    const bookId = Number(book.id) || 0;
+    const formatQuality = book.format
+      ? this.escapeHtml(String(book.format).toUpperCase())
+      : "M4B";
+    const quality = book.quality ? ` ${this.escapeHtml(book.quality)}` : "";
+    const durationFormatted = book.duration_formatted
+      ? this.escapeHtml(book.duration_formatted)
+      : `${Math.round(book.duration_hours || 0)}h`;
+    const coverPathSafe = book.cover_path
+      ? encodeURI(String(book.cover_path)).replace(/"/g, "%22")
+      : "";
     const hasSupplement = book.supplement_count > 0;
     const hasEditions = book.edition_count && book.edition_count > 1;
 
     // Check for saved playback position (lightweight localStorage read)
-    const savedPosition = getLocalPosition(book.id);
-    const percentComplete = getLocalPercentComplete(book.id);
+    const savedPosition = getLocalPosition(bookId);
+    const percentComplete = Number(getLocalPercentComplete(bookId)) || 0;
     const hasContinue = savedPosition !== null;
 
     return `
-            <div class="book-card" data-id="${book.id}">
+            <div class="book-card" data-id="${bookId}">
                 <div class="book-cover">
                     ${
                       book.cover_path
-                        ? `<img src="/covers/${book.cover_path}" alt="${this.escapeHtml(book.title)}" onerror="if(!this.dataset.retries){this.dataset.retries='0';}var r=parseInt(this.dataset.retries);if(r<2){this.dataset.retries=r+1;var s=this;setTimeout(function(){s.src=s.src.split('?')[0]+'?r='+Date.now()},500*(r+1));}else{this.parentElement.innerHTML='<span class=\\'book-cover-placeholder\\'>📖</span>';}">`
+                        ? `<img src="/covers/${coverPathSafe}" alt="${this.escapeHtml(book.title)}" onerror="library.handleCoverLoadError(this)">`
                         : '<span class="book-cover-placeholder">📖</span>'
                     }
-                    ${hasSupplement ? `<span class="supplement-badge" title="${t("book.hasPdf")}" onclick="event.stopPropagation(); library.showSupplements(${book.id})">PDF</span>` : ""}
+                    ${hasSupplement ? `<span class="supplement-badge" title="${this.escapeHtml(t("book.hasPdf"))}" onclick="event.stopPropagation(); library.showSupplements(${bookId})">PDF</span>` : ""}
                     ${""/* Play button always resumes from saved position */}
-                    ${hasEditions ? `<span class="editions-badge" title="${t("book.editions", { n: book.edition_count })}" onclick="event.stopPropagation(); library.toggleEditions(${book.id})">${t("book.editions", { n: book.edition_count })}</span>` : ""}
+                    ${hasEditions ? `<span class="editions-badge" title="${this.escapeHtml(t("book.editions", { n: book.edition_count }))}" onclick="event.stopPropagation(); library.toggleEditions(${bookId})">${this.escapeHtml(t("book.editions", { n: book.edition_count }))}</span>` : ""}
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
-                ${book.author ? `<div class="book-author">${t("book.byAuthor", { author: this.escapeHtml(book.author) })}</div>` : ""}
-                ${book.narrator ? `<div class="book-narrator">${t("book.narratedByName", { narrator: this.escapeHtml(book.narrator === "Unknown Narrator" ? t("book.unknownNarrator") : book.narrator) })}</div>` : ""}
-                ${book.series ? `<div class="book-series">(${this.escapeHtml(book.series)}${book.series_sequence ? `, ${t("book.seriesBook", { n: book.series_sequence })}` : ""})</div>` : ""}
+                ${book.author ? `<div class="book-author">${this.escapeHtml(t("book.byAuthor", { author: book.author }))}</div>` : ""}
+                ${book.narrator ? `<div class="book-narrator">${this.escapeHtml(t("book.narratedByName", { narrator: book.narrator === "Unknown Narrator" ? t("book.unknownNarrator") : book.narrator }))}</div>` : ""}
+                ${book.series ? `<div class="book-series">(${this.escapeHtml(book.series)}${book.series_sequence ? `, ${this.escapeHtml(t("book.seriesBook", { n: book.series_sequence }))}` : ""})</div>` : ""}
                 <div class="book-meta">
                     <span class="book-format">${formatQuality}${quality}</span>
-                    <span class="book-duration">${book.duration_formatted || `${Math.round(book.duration_hours || 0)}h`}</span>
+                    <span class="book-duration">${durationFormatted}</span>
                 </div>
                 ${
                   hasContinue
@@ -1846,12 +1881,12 @@ class AudiobookLibraryV2 {
                     : ""
                 }
                 <div class="book-actions">
-                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${hasContinue ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) }) : t("book.playFromBeginning")}">${t("book.playFull")}</button>
-                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${book.id})" title="${t("book.downloadTooltip")}">
-                        ${t("book.downloadFull")}
+                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${this.escapeHtml(hasContinue ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) }) : t("book.playFromBeginning"))}">${this.escapeHtml(t("book.playFull"))}</button>
+                    <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${bookId})" title="${this.escapeHtml(t("book.downloadTooltip"))}">
+                        ${this.escapeHtml(t("book.downloadFull"))}
                     </button>
                 </div>
-                ${hasEditions ? '<div class="book-editions" data-book-id="' + book.id + '" style="display: none;"></div>' : ""}
+                ${hasEditions ? `<div class="book-editions" data-book-id="${bookId}" style="display: none;"></div>` : ""}
             </div>
         `;
   }
@@ -2028,10 +2063,17 @@ class AudiobookLibraryV2 {
   }
 
   renderEditionItem(edition) {
-    const formatQuality = edition.format ? edition.format.toUpperCase() : "M4B";
-    const quality = edition.quality ? ` ${edition.quality}` : "";
+    // XSS hardening: escape all server-supplied strings; coerce numerics.
+    const formatQuality = edition.format
+      ? this.escapeHtml(String(edition.format).toUpperCase())
+      : "M4B";
+    const quality = edition.quality ? ` ${this.escapeHtml(edition.quality)}` : "";
+    const durationFormatted = edition.duration_formatted
+      ? this.escapeHtml(edition.duration_formatted)
+      : `${Math.round(edition.duration_hours || 0)}h`;
+    const fileSizeMb = Math.round(Number(edition.file_size_mb) || 0);
     const savedPosition = getLocalPosition(edition.id);
-    const percentComplete = getLocalPercentComplete(edition.id);
+    const percentComplete = Number(getLocalPercentComplete(edition.id)) || 0;
     const hasContinue = savedPosition !== null;
 
     return `
@@ -2040,8 +2082,8 @@ class AudiobookLibraryV2 {
                     <div class="edition-narrator">🎙️ ${this.escapeHtml(edition.narrator || t("book.unknownNarrator"))}</div>
                     <div class="edition-details">
                         <span class="edition-format">${formatQuality}${quality}</span>
-                        <span class="edition-duration">${edition.duration_formatted || `${Math.round(edition.duration_hours || 0)}h`}</span>
-                        <span class="edition-size">${Math.round(edition.file_size_mb)}MB</span>
+                        <span class="edition-duration">${durationFormatted}</span>
+                        <span class="edition-size">${fileSizeMb}MB</span>
                         ${hasContinue ? `<span class="edition-progress">${percentComplete}% played</span>` : ""}
                     </div>
                 </div>
@@ -3398,9 +3440,9 @@ class DuplicateManager {
                         <div class="duplicate-path">${this.escapeHtml(file.file_path)}</div>
                     </div>
                     <div class="duplicate-meta">
-                        <span>${file.format?.toUpperCase() || "N/A"}</span>
-                        <span>${file.duration_formatted || "N/A"}</span>
-                        <span>${this.formatSize(file.file_size_mb)}</span>
+                        <span>${this.escapeHtml(file.format ? String(file.format).toUpperCase() : "N/A")}</span>
+                        <span>${this.escapeHtml(file.duration_formatted || "N/A")}</span>
+                        <span>${this.escapeHtml(this.formatSize(file.file_size_mb))}</span>
                     </div>
                     <span class="duplicate-badge ${badgeClass}">${badgeText}</span>
                 </div>

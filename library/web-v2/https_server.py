@@ -184,8 +184,8 @@ def run_http_redirect_server():
     """Run HTTP server that redirects to HTTPS."""
     try:
         server = http.server.HTTPServer(
-            ("0.0.0.0", HTTP_PORT),
-            HTTPToHTTPSRedirectHandler,  # nosec B104 — HTTP redirect server, intentional
+            ("0.0.0.0", HTTP_PORT),  # nosec B104 - HTTP redirect server, intentional all-interfaces bind
+            HTTPToHTTPSRedirectHandler,
         )
         print(
             f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/"

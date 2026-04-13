@@ -98,7 +98,7 @@ def _remove_orphaned_entries(cursor, conn, verbose):
     removed = 0
     if orphaned_ids:
         placeholders = ",".join("?" * len(orphaned_ids))
-        cursor.execute(
+        cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"DELETE FROM supplements WHERE id IN ({placeholders})",  # nosec B608
             orphaned_ids,
         )

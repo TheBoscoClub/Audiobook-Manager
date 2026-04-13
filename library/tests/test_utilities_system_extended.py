@@ -359,7 +359,7 @@ class TestStartUpgradeExtended:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade",
-                json={"source": "project", "project_path": "/tmp/../etc/passwd"},
+                json={"source": "project", "project_path": "/tmp/../etc/passwd"},  # nosec B108  # test fixture path
             )
 
         assert response.status_code == 400
@@ -374,7 +374,7 @@ class TestStartUpgradeExtended:
                 "/api/system/upgrade",
                 json={
                     "source": "project",
-                    "project_path": "/tmp",
+                    "project_path": "/tmp",  # nosec B108  # test fixture path
                     "version": "1.0.0",
                 },
             )

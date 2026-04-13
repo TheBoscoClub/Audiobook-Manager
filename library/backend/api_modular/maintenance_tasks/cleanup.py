@@ -155,7 +155,7 @@ class OrphanedSupplementsTask(MaintenanceTask):
 
             if orphan_ids:
                 placeholders = ",".join("?" * len(orphan_ids))
-                cursor.execute(
+                cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
                     f"DELETE FROM supplements WHERE id IN ({placeholders})",  # nosec B608
                     orphan_ids,
                 )

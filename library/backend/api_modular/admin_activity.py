@@ -222,12 +222,12 @@ def get_activity():
 
     data_sql = f"{union_sql} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
     data_params = all_params + [limit, offset]
-    count_sql = f"SELECT COUNT(*) FROM ({union_sql})"  # nosec B608
+    count_sql = f"SELECT COUNT(*) FROM ({union_sql})"  # nosec B608  # nosemgrep: python.lang.security.audit.tainted-sql-string.tainted-sql-string,python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string
 
     auth_db = get_auth_db()
     with auth_db.connection() as conn:
-        rows = _rows_to_dicts(conn.execute(data_sql, data_params))
-        total = conn.execute(count_sql, list(all_params)).fetchone()[0]
+        rows = _rows_to_dicts(conn.execute(data_sql, data_params))  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        total = conn.execute(count_sql, list(all_params)).fetchone()[0]  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
     # Resolve titles from library DB
     book_ids = {str(row["audiobook_id"]) for row in rows}
@@ -371,7 +371,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
 
     try:
         placeholders = ",".join("?" * len(int_ids))
-        cursor = conn.execute(
+        cursor = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})",  # nosec B608
             int_ids,
         )

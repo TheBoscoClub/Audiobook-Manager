@@ -84,7 +84,7 @@ def fetch_audible_product(asin: str) -> dict | None:
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
@@ -535,7 +535,7 @@ def _execute_book_update(
     params.append(book_id)
     sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
     try:
-        cursor.execute(sql, params)
+        cursor.execute(sql, params)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         return True
     except sqlite3.DatabaseError as e:
         print(f"  DB ERROR on book_id={book_id}: {e}")

@@ -116,7 +116,7 @@ class TestSkipServiceLifecycleFlag:
             "--from-project",
             str(PROJECT_ROOT),
             "--target",
-            "/tmp/nonexistent-target-abc123",
+            "/tmp/nonexistent-target-abc123",  # nosec B108  # test fixture path
         )
         # The script may fail because the target doesn't exist, but the error
         # should NOT be about an unknown option.
@@ -380,7 +380,7 @@ class TestInvalidTarget:
             "--from-project",
             str(PROJECT_ROOT),
             "--target",
-            "/tmp/does-not-exist-xyz-999",
+            "/tmp/does-not-exist-xyz-999",  # nosec B108  # test fixture path
             "--dry-run",
         )
         assert result.returncode != 0

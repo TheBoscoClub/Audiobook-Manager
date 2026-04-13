@@ -153,11 +153,11 @@ def _upsert_entity(conn, name, seen, stats, table, dry_run):
     if dry_run:
         return None
 
-    conn.execute(
+    conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"INSERT OR IGNORE INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608
         (name, sort_name),
     )
-    return conn.execute(
+    return conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"SELECT id FROM {table} WHERE name = ?",  # nosec B608
         (name,),
     ).fetchone()["id"]

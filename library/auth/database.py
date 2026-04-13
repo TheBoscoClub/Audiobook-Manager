@@ -147,8 +147,12 @@ class AuthDatabase:
         """Create new encrypted database connection."""
         conn = sqlcipher.connect(str(self.db_path))
 
-        # CRITICAL: Set encryption key FIRST, before any other operations
-        conn.execute(f"PRAGMA key = \"x'{self.key}'\"")
+        # CRITICAL: Set encryption key FIRST, before any other operations.
+        # SQLCipher PRAGMA key does NOT accept parameterized bind values
+        # (documented limitation). `self.key` is a 64-hex string loaded from
+        # auth.key (0600, root:audiobooks), never user-controlled. The only
+        # way to set the encryption key is via string interpolation here.
+        conn.execute(f"PRAGMA key = \"x'{self.key}'\"")  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
         # Verify encryption is working
         try:
@@ -350,16 +354,41 @@ class AuthDatabase:
         conn.execute("PRAGMA foreign_keys = ON")
         logger.info("Recreated users table with magic_link support")
 
+    # Allowlist of tables/columns/definitions permitted in schema migrations.
+    # Defense-in-depth: all call sites pass hardcoded constants, but an
+    # allowlist check prevents a future caller from accidentally passing
+    # user-controlled values into the interpolated DDL below.
+    _V5_MIGRATION_ALLOWLIST: tuple[tuple[str, str, str], ...] = (
+        ("sessions", "is_persistent", "BOOLEAN DEFAULT 0"),
+        ("access_requests", "preferred_auth_method", "TEXT DEFAULT 'totp'"),
+    )
+    _V5_ALLOWED_TABLES_FOR_PRAGMA: frozenset[str] = frozenset(
+        {"sessions", "access_requests", "users", "user_listening_history", "user_downloads"}
+    )
+
     @staticmethod
     def _v5_add_column_if_missing(
         conn, table: str, column: str, definition: str, logger
     ) -> None:
         """Add a column to a table if it doesn't already exist."""
+        if (table, column, definition) not in AuthDatabase._V5_MIGRATION_ALLOWLIST:
+            raise ValueError(
+                f"Schema migration not permitted: {table}.{column} {definition!r} "
+                "is not in _V5_MIGRATION_ALLOWLIST"
+            )
+        if table not in AuthDatabase._V5_ALLOWED_TABLES_FOR_PRAGMA:
+            raise ValueError(f"PRAGMA table_info on unlisted table: {table}")
         cols = {
-            row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+            row[1]
+            for row in conn.execute(  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                f"PRAGMA table_info({table})"  # table validated against allowlist above
+            ).fetchall()
         }
         if column not in cols:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            # All three interpolated values validated against allowlist above.
+            conn.execute(  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+            )
             logger.info("Added %s to %s", column, table)
 
     @staticmethod
@@ -461,9 +490,17 @@ class AuthDatabase:
                 continue
 
             # Check if column already exists
-            cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            # table is from hardcoded tuple ("user_listening_history", "user_downloads")
+            cols = {
+                row[1]
+                for row in conn.execute(  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    f"PRAGMA table_info({table})"
+                )
+            }
             if "title" not in cols:
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN title TEXT")
+                conn.execute(  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    f"ALTER TABLE {table} ADD COLUMN title TEXT"
+                )
                 logger.info("v6→v7: added title column to %s", table)
             else:
                 logger.info("v6→v7: %s already has title column", table)

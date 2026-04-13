@@ -63,7 +63,7 @@ def web_available():
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     try:
-        urllib.request.urlopen(f"{WEB_BASE_URL}/login.html", timeout=5, context=ctx)
+        urllib.request.urlopen(f"{WEB_BASE_URL}/login.html", timeout=5, context=ctx)  # nosec B310  # test fetches from hardcoded test URL
         return True
     except Exception:
         pytest.skip(f"Web UI not reachable at {WEB_BASE_URL}")

@@ -446,7 +446,7 @@ def init_collections_routes(db_path):
         COLLECTIONS.update(flat_lookup)
 
         def get_count(query: str) -> int:
-            cursor.execute(
+            cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
                 f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}"  # nosec B608
             )
             return cursor.fetchone()["count"]

@@ -126,7 +126,7 @@ def _print_duplicate_samples(duplicates):
 def _delete_audiobook_entry(cursor, audiobook_id):
     """Delete an audiobook and its related junction table rows."""
     for table in ("audiobook_topics", "audiobook_eras", "audiobook_genres"):
-        cursor.execute(f"DELETE FROM {table} WHERE audiobook_id = ?", (audiobook_id,))  # nosec B608
+        cursor.execute(f"DELETE FROM {table} WHERE audiobook_id = ?", (audiobook_id,))  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     cursor.execute("DELETE FROM audiobooks WHERE id = ?", (audiobook_id,))
 
 

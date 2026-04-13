@@ -26,10 +26,10 @@ class TestHopByHopHeaders:
 
         mock_config = types.ModuleType("config")
         mock_config.AUDIOBOOKS_API_PORT = 5001
-        mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"
-        mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")
+        mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"  # nosec B104  # test fixture binds localhost/test network
+        mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")  # nosec B108  # test fixture path
         mock_config.AUDIOBOOKS_WEB_PORT = 8443
-        mock_config.COVER_DIR = Path("/tmp/covers")
+        mock_config.COVER_DIR = Path("/tmp/covers")  # nosec B108  # test fixture path
         sys.modules["config"] = mock_config
         try:
             import importlib
@@ -84,10 +84,10 @@ class TestProxyPrefixes:
 
         mock_config = types.ModuleType("config")
         mock_config.AUDIOBOOKS_API_PORT = 5001
-        mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"
-        mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")
+        mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"  # nosec B104  # test fixture binds localhost/test network
+        mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")  # nosec B108  # test fixture path
         mock_config.AUDIOBOOKS_WEB_PORT = 8443
-        mock_config.COVER_DIR = Path("/tmp/covers")
+        mock_config.COVER_DIR = Path("/tmp/covers")  # nosec B108  # test fixture path
         sys.modules["config"] = mock_config
         try:
             import importlib

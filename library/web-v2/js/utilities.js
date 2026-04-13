@@ -309,30 +309,39 @@ async function searchForEdit(query) {
     );
 
     if (data.audiobooks?.length > 0) {
-      resultsContainer.innerHTML = data.audiobooks
-        .map(
-          (book) => `
-                <div class="search-result-item" data-id="${book.id}">
-                    <img src="${book.cover_url || "/covers/default.jpg"}"
-                         alt="" class="result-cover"
-                         onerror="this.src='/covers/default.jpg'">
-                    <div class="result-info">
-                        <div class="result-title">${escapeHtml(book.title)}</div>
-                        <div class="result-meta">${escapeHtml(book.author)} | ${escapeHtml(book.narrator || "Unknown narrator")}</div>
-                    </div>
-                </div>
-            `,
-        )
-        .join("");
+      // XSS-safe: build result list with DOM methods (no innerHTML interpolation)
+      resultsContainer.textContent = "";
+      data.audiobooks.forEach((book) => {
+        const item = document.createElement("div");
+        item.className = "search-result-item";
+        item.dataset.id = String(book.id);
 
-      // Add click handlers
-      resultsContainer
-        .querySelectorAll(".search-result-item")
-        .forEach((item) => {
-          item.addEventListener("click", () =>
-            loadAudiobookForEdit(item.dataset.id),
-          );
-        });
+        const img = document.createElement("img");
+        img.src = book.cover_url || "/covers/default.jpg";
+        img.alt = "";
+        img.className = "result-cover";
+        img.onerror = function () {
+          this.src = "/covers/default.jpg";
+        };
+        item.appendChild(img);
+
+        const info = document.createElement("div");
+        info.className = "result-info";
+
+        const titleDiv = document.createElement("div");
+        titleDiv.className = "result-title";
+        titleDiv.textContent = book.title || "";
+        info.appendChild(titleDiv);
+
+        const metaDiv = document.createElement("div");
+        metaDiv.className = "result-meta";
+        metaDiv.textContent = `${book.author || ""} | ${book.narrator || "Unknown narrator"}`;
+        info.appendChild(metaDiv);
+
+        item.appendChild(info);
+        item.addEventListener("click", () => loadAudiobookForEdit(item.dataset.id));
+        resultsContainer.appendChild(item);
+      });
     } else {
       resultsContainer.innerHTML =
         '<p class="placeholder-text">No audiobooks found</p>';

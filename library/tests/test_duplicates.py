@@ -127,9 +127,9 @@ class TestRegenerateChecksums:
                 with patch.dict(
                     os.environ,
                     {
-                        "AUDIOBOOKS_DATA": "/tmp/test",
-                        "AUDIOBOOKS_SOURCES": "/tmp/sources",
-                        "AUDIOBOOKS_LIBRARY": "/tmp/library",
+                        "AUDIOBOOKS_DATA": "/tmp/test",  # nosec B108  # test fixture path
+                        "AUDIOBOOKS_SOURCES": "/tmp/sources",  # nosec B108  # test fixture path
+                        "AUDIOBOOKS_LIBRARY": "/tmp/library",  # nosec B108  # test fixture path
                     },
                 ):
                     with flask_app.test_client() as client:
@@ -149,9 +149,9 @@ class TestRegenerateChecksums:
         with patch.dict(
             os.environ,
             {
-                "AUDIOBOOKS_DATA": "/tmp/test",
-                "AUDIOBOOKS_SOURCES": "/tmp/sources",
-                "AUDIOBOOKS_LIBRARY": "/tmp/library",
+                "AUDIOBOOKS_DATA": "/tmp/test",  # nosec B108  # test fixture path
+                "AUDIOBOOKS_SOURCES": "/tmp/sources",  # nosec B108  # test fixture path
+                "AUDIOBOOKS_LIBRARY": "/tmp/library",  # nosec B108  # test fixture path
             },
         ):
             with flask_app.test_client() as client:

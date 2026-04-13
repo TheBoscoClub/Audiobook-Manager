@@ -956,8 +956,8 @@ def verify_deletion_safe() -> FlaskResponse:
     cursor = conn.cursor()
 
     placeholders = ",".join("?" * len(ids_to_check))
-    cursor.execute(
-        f"""
+    cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        f"""  # nosec B608  # nosemgrep: python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string
         SELECT id, sha256_hash, title
         FROM audiobooks
         WHERE id IN ({placeholders})

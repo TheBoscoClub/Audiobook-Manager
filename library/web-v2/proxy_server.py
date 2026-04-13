@@ -265,7 +265,18 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def _build_ws_upgrade_request(self) -> bytes:
-        """Build raw HTTP upgrade request bytes for the backend."""
+        """Build raw HTTP upgrade request bytes for the backend.
+
+        Raw header passthrough is INTENTIONAL here. Unlike normal HTTP
+        forwarding (which strips hop-by-hop headers via HOP_BY_HOP_HEADERS),
+        a WebSocket upgrade requires ``Connection: Upgrade`` and ``Upgrade:
+        websocket`` — the very headers the hop-by-hop filter would strip.
+        After the 101 Switching Protocols response this socket becomes a
+        raw bidirectional tunnel, not a WSGI-forwarded request, so the
+        HOP_BY_HOP_HEADERS filter must not be applied here.
+
+        Do not "fix" this to use the filter — it will break WebSocket.
+        """
         request_line = f"{self.command} {self.path} HTTP/1.1\r\n"
         header_lines = ""
         for key, value in self.headers.items():
@@ -400,7 +411,10 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 api_url, data=body, headers=headers, method=method
             )
 
-            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
+            # URL scheme is always http:// built from fixed API_PORT; path is
+            # validated against PROXY_PREFIXES allowlist at line 400 before
+            # reaching this point, so urllib cannot be coerced to file://.
+            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
                 self.send_response(response.status)
                 self._forward_response_headers(response.headers)
                 self.end_headers()

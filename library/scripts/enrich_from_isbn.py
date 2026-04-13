@@ -76,7 +76,7 @@ def query_google_books(
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
             data = json.loads(resp.read())
             items = data.get("items", [])
             if items:
@@ -92,7 +92,7 @@ def query_openlibrary_isbn(isbn: str) -> dict | None:
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
             return json.loads(resp.read())
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
         return None
@@ -107,7 +107,7 @@ def query_openlibrary_search(title: str, author: str | None = None) -> dict | No
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None
@@ -319,7 +319,7 @@ def _enrich_one_book(
         params.append(now)
         params.append(book_id)
         sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
-        cursor.execute(sql, params)
+        cursor.execute(sql, params)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         return "enriched", isbn_found
 
     # No data found but mark as attempted

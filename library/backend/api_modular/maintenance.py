@@ -232,7 +232,7 @@ def update_window(wid):
 
         set_clause = ", ".join(f'"{k}" = ?' for k in sanitized)
         values = list(sanitized.values()) + [wid]
-        conn.execute(
+        conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             "UPDATE maintenance_windows SET "  # noqa: S608  # nosec B608
             + set_clause
             + " WHERE id = ?",

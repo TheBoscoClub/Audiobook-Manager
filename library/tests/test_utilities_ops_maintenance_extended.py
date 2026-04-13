@@ -472,7 +472,7 @@ class TestPopulateAsinsWorkerThread:
         with flask_app.test_client() as client:
             with patch(f"{MODULE}.Path.exists", return_value=True):
                 with patch(
-                    f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")
+                    f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")  # nosec B108  # test fixture path
                 ):
                     with patch(f"{MODULE}.os.close"):
                         resp = client.post(
@@ -500,7 +500,7 @@ class TestPopulateAsinsWorkerThread:
 
         with flask_app.test_client() as client:
             with patch(
-                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")
+                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")  # nosec B108  # test fixture path
             ):
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
@@ -526,7 +526,7 @@ class TestPopulateAsinsWorkerThread:
 
         with flask_app.test_client() as client:
             with patch(
-                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")
+                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/test.json")  # nosec B108  # test fixture path
             ):
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
@@ -554,7 +554,7 @@ class TestPopulateAsinsWorkerThread:
 
         with flask_app.test_client() as client:
             with patch(
-                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/nonexist.json")
+                f"{MODULE}.tempfile.mkstemp", return_value=(3, "/tmp/nonexist.json")  # nosec B108  # test fixture path
             ):
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})

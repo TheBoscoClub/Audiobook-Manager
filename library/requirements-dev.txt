@@ -1,0 +1,20 @@
+# Development / CI dependencies — not installed into production venv.
+# Install with: pip install -r library/requirements-dev.txt
+-r requirements.txt
+
+# Test framework
+pytest>=9.0.3
+pytest-cov>=6.0.0
+pytest-asyncio>=1.0.0
+pytest-playwright>=0.7.0
+requests-mock>=1.12.1
+
+# Linters / formatters
+ruff>=0.14.0
+mypy>=1.18.0
+black>=25.11.0
+isort>=7.0.0
+
+# Security scanners
+bandit>=1.9.2
+pip-audit>=2.9.0

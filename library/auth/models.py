@@ -778,7 +778,7 @@ class ListeningHistoryRepository:
         """Get the current open (not yet ended) listening session, if any."""
         cols = UserListeningHistory._COLUMNS
         with self.db.connection() as conn:
-            cursor = conn.execute(
+            cursor = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
                 f"""
                 SELECT {cols} FROM user_listening_history
                 WHERE user_id = ? AND audiobook_id = ? AND ended_at IS NULL
@@ -855,7 +855,7 @@ class DownloadRepository:
         """Get download history for a user, ordered by most recent first."""
         cols = UserDownload._COLUMNS
         with self.db.connection() as conn:
-            cursor = conn.execute(
+            cursor = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
                 f"""
                 SELECT {cols} FROM user_downloads
                 WHERE user_id = ?

@@ -39,11 +39,11 @@ def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> in
             f"Invalid table name: {table}. Must be one of: {ALLOWED_LOOKUP_TABLES}"
         )
 
-    cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))  # nosec B608 - table validated above
+    cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))  # nosec B608 - table validated above  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     row = cursor.fetchone()
     if row:
         return row[0]
-    cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (name,))  # nosec B608 - table validated above
+    cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (name,))  # nosec B608 - table validated above  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     lastrowid = cursor.lastrowid
     if lastrowid is None:
         raise RuntimeError(f"Failed to insert into {table}")

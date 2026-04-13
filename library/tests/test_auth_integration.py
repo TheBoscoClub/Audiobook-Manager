@@ -162,10 +162,10 @@ def _cleanup_access_request_db(username: str) -> None:
             "    key_path='/etc/audiobooks/auth.key')",
             "db.initialize()",
             "with db.connection() as conn:",
-            f"    conn.execute('DELETE FROM access_requests WHERE username = ?', ('{username}',))",
+            f"    conn.execute('DELETE FROM access_requests WHERE username = ?', ('{username}',))",  # nosec B608  # test SQL uses hardcoded identifiers
         ]
     )
-    script_path = f"/tmp/cleanup_req_{username}.py"  # noqa: S108
+    script_path = f"/tmp/cleanup_req_{username}.py"  # noqa: S108  # nosec B108  # test fixture path
     write_cmd = json.dumps(
         {
             "execute": "guest-exec",

@@ -134,8 +134,8 @@ def _apply_scalar_updates(
             raise ValueError(f"Invalid column name: {col}")
     set_clause = ", ".join(f"{col} = ?" for col in scalar)
     params = list(scalar.values()) + [book_id]
-    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"UPDATE audiobooks SET {set_clause} WHERE id = ?",  # noqa: S608
+    cursor.execute(  # nosec B608 - columns validated against _SCALAR_COLUMNS allowlist (line 128); values via parameterized `?`  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        f"UPDATE audiobooks SET {set_clause} WHERE id = ?",  # nosec B608  # noqa: S608
         params,
     )
     return len(scalar) - 2  # Don't count timestamp + source as "fields"

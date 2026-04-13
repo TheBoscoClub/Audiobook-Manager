@@ -46,7 +46,7 @@ def _search_google_books(title: str, author: str) -> dict | None:
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
         with (
-            urllib.request.urlopen(req, timeout=10) as resp
+            urllib.request.urlopen(req, timeout=10) as resp  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
         ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
             data = json.loads(resp.read())
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):

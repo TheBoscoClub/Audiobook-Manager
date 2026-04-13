@@ -213,7 +213,7 @@ class TestCmdInit:
         }
         mock_get_db.return_value = db
 
-        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")
+        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
         result = cmd_init(args)
 
         assert result == 0
@@ -232,7 +232,7 @@ class TestCmdInit:
         }
         mock_get_db.return_value = db
 
-        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")
+        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
         result = cmd_init(args)
 
         assert result == 0
@@ -245,7 +245,7 @@ class TestCmdInit:
         db.initialize.side_effect = RuntimeError("disk full")
         mock_get_db.return_value = db
 
-        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")
+        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
         result = cmd_init(args)
 
         assert result == 1

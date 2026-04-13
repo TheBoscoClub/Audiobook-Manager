@@ -50,7 +50,7 @@ def fetch_series_from_audible(asin: str) -> list[dict]:
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
             data = json.loads(resp.read())
             return data.get("product", {}).get("series", [])
     except urllib.error.HTTPError as e:

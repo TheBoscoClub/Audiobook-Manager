@@ -99,7 +99,7 @@ def _get_affected_book_ids(
     else:
         table = "book_narrators"
         col = "narrator_id"
-    rows = conn.execute(
+    rows = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"SELECT book_id FROM {table} WHERE {col} = ?",  # noqa: S608  # nosec B608
         (entity_id,),
     ).fetchall()
@@ -219,7 +219,7 @@ def rename_author(author_id: int):
             params.append(sort_name)
         params.append(author_id)
 
-        conn.execute(
+        conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"UPDATE authors SET {', '.join(updates)} WHERE id = ?",  # noqa: S608  # nosec B608
             params,
         )
@@ -286,7 +286,7 @@ def _merge_entities(
                 )
             books_reassigned += 1
 
-        conn.execute(
+        conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"DELETE FROM {entity_table} WHERE id = ?",  # nosec B608
             (sid,),
         )
@@ -336,7 +336,7 @@ def _validate_merge_request(data, entity_label):
 
 def _verify_entities_exist(conn, entity_table, target_id, source_ids, label):
     """Verify target and all source entities exist. Returns error response or None."""
-    target = conn.execute(
+    target = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"SELECT * FROM {entity_table} WHERE id = ?",  # nosec B608
         (target_id,),
     ).fetchone()
@@ -344,7 +344,7 @@ def _verify_entities_exist(conn, entity_table, target_id, source_ids, label):
         return jsonify({"error": f"Target {label} not found"}), 404
 
     for sid in source_ids:
-        src = conn.execute(
+        src = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"SELECT id FROM {entity_table} WHERE id = ?",  # nosec B608
             (sid,),
         ).fetchone()
@@ -505,7 +505,7 @@ def rename_narrator(narrator_id: int):
             params.append(sort_name)
         params.append(narrator_id)
 
-        conn.execute(
+        conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"UPDATE narrators SET {', '.join(updates)} WHERE id = ?",  # noqa: S608  # nosec B608
             params,
         )

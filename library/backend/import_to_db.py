@@ -108,7 +108,7 @@ def _ensure_entity(cursor, cleaned, entity_map, table):
     dedup_key = normalize_for_dedup(cleaned)
     if dedup_key not in entity_map:
         sn = generate_sort_name(cleaned) or cleaned
-        cursor.execute(
+        cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"INSERT INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608
             (cleaned, sn),
         )
@@ -297,7 +297,7 @@ def _preserve_enrichment(cursor):
     """Preserve Audible enrichment data keyed by file_path."""
     preserved = {}
     field_list = ", ".join(_ENRICHMENT_FIELDS)
-    cursor.execute(f"""
+    cursor.execute(f"""  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         SELECT file_path, {field_list}
         FROM audiobooks
         WHERE audible_enriched_at IS NOT NULL OR isbn_enriched_at IS NOT NULL
@@ -361,7 +361,7 @@ def _restore_enrichment(cursor, audiobook_id, enrichment):
             enrich_params.append(val)
     if enrich_updates:
         enrich_params.append(audiobook_id)
-        cursor.execute(
+        cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"UPDATE audiobooks SET {', '.join(enrich_updates)} WHERE id = ?",  # nosec B608 — column names whitelisted
             enrich_params,
         )
@@ -413,9 +413,9 @@ def _insert_taxonomy_items(
     id_col = table.rstrip("s") + "_id"
     for item_name in items:
         if item_name not in entity_map:
-            cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (item_name,))  # nosec B608
+            cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (item_name,))  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             entity_map[item_name] = cursor.lastrowid
-        cursor.execute(
+        cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"INSERT INTO {junction_table} (audiobook_id, {id_col}) VALUES (?, ?)",  # nosec B608
             (audiobook_id, entity_map[item_name]),
         )
@@ -461,7 +461,7 @@ def import_audiobooks(conn):
 
     # Clear existing data
     for table in _CLEAR_TABLES:
-        cursor.execute(f"DELETE FROM {table}")  # nosec B608
+        cursor.execute(f"DELETE FROM {table}")  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
     print("\nImporting audiobooks...")
 

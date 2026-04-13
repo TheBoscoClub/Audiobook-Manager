@@ -132,7 +132,7 @@ def update_roadmap_item(item_id):
     params.append(datetime.now(timezone.utc).isoformat())
     params.append(item_id)
 
-    conn.execute(
+    conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"UPDATE roadmap_items SET {', '.join(fields)} WHERE id = ?",  # nosec B608
         params,
     )
