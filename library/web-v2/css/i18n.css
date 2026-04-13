@@ -379,20 +379,24 @@ html.cjk .subtitle-translated {
   padding: 12px 16px;
 }
 
+/* Spotify-style lyrics: inactive cues are dimmed, active cue is bright */
 .transcript-cue {
   padding: 8px 10px;
   margin-bottom: 4px;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.2s;
+  opacity: 0.4;
+  transition: opacity 0.4s ease, background 0.3s ease, transform 0.3s ease;
 }
 
 .transcript-cue:hover {
   background: rgba(197, 165, 90, 0.1);
+  opacity: 0.7;
 }
 
 .transcript-cue.active {
-  background: rgba(197, 165, 90, 0.2);
+  opacity: 1;
+  background: rgba(197, 165, 90, 0.15);
   border-left: 3px solid var(--deco-gold, #c5a55a);
 }
 
@@ -406,8 +410,12 @@ html.cjk .subtitle-translated {
 .transcript-cue-source {
   color: var(--parchment, #f4e8c1);
   font-size: 0.85rem;
-  opacity: 0.95;
   margin-bottom: 2px;
+}
+
+.transcript-cue.active .transcript-cue-source {
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .transcript-cue-translated {
@@ -415,9 +423,18 @@ html.cjk .subtitle-translated {
   font-size: 0.9rem;
 }
 
+.transcript-cue.active .transcript-cue-translated {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 html.cjk .transcript-cue-translated {
   font-size: 0.95rem;
   line-height: 1.6;
+}
+
+html.cjk .transcript-cue.active .transcript-cue-translated {
+  font-size: 1.05rem;
 }
 
 /* Mobile: full-width drawer */
