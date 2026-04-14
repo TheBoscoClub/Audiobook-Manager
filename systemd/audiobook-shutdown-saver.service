@@ -21,5 +21,10 @@ ExecStart=/usr/local/bin/audiobook-save-staging
 # Run only at shutdown
 RemainAfterExit=yes
 
+# Security hardening (PrivateTmp intentionally omitted — needs real /tmp to save staging files)
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+
 [Install]
 WantedBy=halt.target reboot.target shutdown.target

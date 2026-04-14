@@ -44,5 +44,11 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=audiobook-translate
 
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+
 [Install]
 WantedBy=audiobook.target

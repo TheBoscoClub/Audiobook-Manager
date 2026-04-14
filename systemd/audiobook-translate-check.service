@@ -8,3 +8,9 @@ ExecStart=/opt/audiobooks/scripts/translation-check.sh
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=audiobook-translate-check
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
