@@ -30,6 +30,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Permission normalizer now chmods extension-less shebang wrappers**:
+  the first pass of the unconditional normalizer only handled `*.sh` and
+  `launch*.sh`, which silently reset `/opt/audiobooks/scripts/audiobook-*`
+  (extension-less entry points) to `0644`. The `/usr/local/bin/audiobook-*`
+  symlinks then failed the `-x` test and `reconcile-filesystem.sh` reported
+  20 "missing wrapper" drift items on every upgrade. The normalizer now
+  detects `#!` shebang headers under `$target/scripts` and chmods those files
+  to `0755`. Fix applied in `lib/audiobook-config.sh`, `install.sh`, and
+  `upgrade.sh`. Verified on `test-audiobook-cachyos`: drift count dropped
+  from 20 to 0 after re-deploy
 - **markdownlint cleanup**: `CHANGELOG.md`, `README.md`, and
   `docs/MULTI-LANGUAGE-SETUP.md` now pass `markdownlint-cli2` with zero errors.
   Wrapped long CHANGELOG bullets, added blank lines around fenced code blocks
