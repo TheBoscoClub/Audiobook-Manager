@@ -10,7 +10,7 @@
 #   audiobook-translations start               # Start translation daemon
 #   audiobook-translations stop                # Stop translation daemon (graceful)
 #   audiobook-translations check               # Run liveness check now (don't wait for 5-min timer)
-#   audiobook-translations report [options]    # One-time report of all completed translations
+#   audiobook-translations report [options]    # On-demand report of all completed translations
 #
 # Asset transfer:
 #   audiobook-translations export -o translations.tar.gz [--locale zh-Hans]
@@ -51,7 +51,7 @@ usage() {
     echo "  start     Start the translation daemon"
     echo "  stop      Stop the translation daemon gracefully"
     echo "  check     Run the liveness check now (equivalent to firing the 5-min timer early)"
-    echo "  report    One-time report of all completed translations"
+    echo "  report    On-demand report of all completed translations"
     echo "            Options: --locale LOCALE  --since DATE  --csv  --no-summary"
     echo ""
     echo "Asset transfer:"
@@ -430,7 +430,7 @@ cmd_status_watch() {
     done
 }
 
-# One-time report of completed translations. Unlike `status`, which is a
+# On-demand report of completed translations. Unlike `status`, which is a
 # live daemon dashboard, `report` is a historical audit — "what did the
 # pipeline actually deliver?" — suitable for release notes, cost attribution,
 # and verifying a locale rollout finished.
@@ -459,7 +459,7 @@ cmd_report() {
                 cat <<'EOF'
 Usage: audiobook-translations report [options]
 
-One-time report of all completed translations.
+On-demand report of all completed translations.
 
 Options:
   --locale LOCALE   Filter to a single locale (e.g. zh-Hans)
