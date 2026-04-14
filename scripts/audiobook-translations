@@ -85,6 +85,16 @@ cmd_status() {
     if [[ "${processing_count:-0}" -gt 0 ]]; then
         echo ""
         echo -e "${BLUE}In progress:${NC}"
+        # Title truncation width adapts to terminal size. Fixed columns (STEP +
+        # ID + CHAPTERS + ELAPSED + padding) consume ~37 chars; leave the rest
+        # for the title. Falls back to 50 when we can't read the terminal width
+        # (e.g. piped to a file or tput unavailable).
+        local term_cols title_max
+        term_cols=$(tput cols 2>/dev/null || echo 120)
+        title_max=$(( term_cols - 37 ))
+        [[ "$title_max" -lt 20 ]] && title_max=20
+        [[ "$title_max" -gt 200 ]] && title_max=200
+
         # chapter_subtitles rows for locale='en' exist once STT finishes a chapter,
         # so per-book en count approximates "chapters transcribed so far".
         local rows
@@ -93,7 +103,7 @@ cmd_status() {
                    tq.step,
                    COALESCE(cs.ch_count, 0),
                    CAST((strftime('%s','now') - strftime('%s', tq.started_at)) AS INTEGER),
-                   substr(a.title, 1, 50)
+                   substr(a.title, 1, ${title_max})
             FROM translation_queue tq
             JOIN audiobooks a ON a.id = tq.audiobook_id
             LEFT JOIN (
