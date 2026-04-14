@@ -9,11 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`audiobook-translations report`**: one-time historical report of all completed translations. Unlike `status` (live daemon dashboard), `report` is an audit — "what did the pipeline actually deliver?" — useful for release notes, cost attribution, and verifying a locale rollout finished. Shows per-book locale, chapter count (from `chapter_subtitles`), wall-clock duration (`finished_at − started_at`), and finish timestamp, with a totals line. Options: `--locale LOCALE` to filter, `--since DATE` to window by finish date, `--csv` for spreadsheet export, `--no-summary` to suppress totals
-
 ### Changed
 
 ### Fixed
+
+## [8.2.2.1] - 2026-04-14
+
+### Added
+
+- **`audiobook-translations report`**: on-demand historical report of all completed translations, runnable anytime against the live DB. Unlike `status` (live daemon dashboard), `report` is an audit — "what has the pipeline actually delivered to date?" — useful for release notes, cost attribution, and verifying a locale rollout finished. Shows per-book locale, chapter count (from `chapter_subtitles`), wall-clock duration (`finished_at − started_at`), and finish timestamp, with a totals line. Options: `--locale LOCALE` to filter, `--since DATE` to window by finish date, `--csv` for spreadsheet export, `--no-summary` to suppress totals
 
 ## [8.2.2] - 2026-04-14
 
@@ -2729,7 +2733,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2.1...HEAD
+[8.2.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2...v8.2.2.1
 [8.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1.1...v8.2.2
 [8.2.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1...v8.2.1.1
 [8.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.2...v8.2.1
