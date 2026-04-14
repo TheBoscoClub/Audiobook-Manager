@@ -528,7 +528,7 @@ def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
             logger.warning("VTT missing for chapter %d: %s", ch_idx, vtt_path)
             continue
 
-        vtt_text = vtt_path.read_text(encoding="utf-8")
+        vtt_text = vtt_path.read_text(encoding="utf-8", errors="replace")
         lines = []
         for block in vtt_text.split("\n\n"):
             for line in block.strip().split("\n"):

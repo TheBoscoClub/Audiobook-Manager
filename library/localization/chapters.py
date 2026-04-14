@@ -165,11 +165,13 @@ def split_chapter(
         "-1",
         str(out_path),
     ]
+    chunk_seconds = chapter.end_sec - chapter.start_sec
+    timeout_s = max(120, int(chunk_seconds * 0.05) + 60)
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=timeout_s,
     )
     if result.returncode != 0:
         logger.error("ffmpeg chapter split failed: %s", result.stderr[-500:])

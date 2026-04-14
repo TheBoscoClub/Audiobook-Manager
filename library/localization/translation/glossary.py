@@ -51,7 +51,7 @@ def _parse_yaml_glossary(path: Path) -> dict[str, str]:
     entries: dict[str, str] = {}
     if not path.exists():
         return entries
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
