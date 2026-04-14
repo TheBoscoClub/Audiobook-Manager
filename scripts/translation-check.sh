@@ -19,8 +19,29 @@ fi
 
 log() { echo "$(date +%H:%M:%S) [translate-check] $*"; }
 
-# Check if daemon is already running
+# Liveness check: if daemon is active AND there are processing rows
+# AND the heartbeat is stale (>15min), restart the daemon. Wedged event
+# loops show as "active" to systemd but stop touching last_progress_at.
+STALE_THRESHOLD_SEC=900   # 15 minutes
 if systemctl is-active --quiet audiobook-translate.service; then
+    stale=$(sqlite3 "$DB_PATH" \
+        "SELECT COUNT(*) FROM translation_queue \
+         WHERE state='processing' \
+           AND (last_progress_at IS NULL \
+                OR strftime('%s','now') - strftime('%s', last_progress_at) > $STALE_THRESHOLD_SEC);" \
+        2>/dev/null)
+    if [ "${stale:-0}" -gt 0 ]; then
+        log "Daemon wedged: $stale processing rows have no heartbeat in ${STALE_THRESHOLD_SEC}s — restarting"
+        systemctl restart audiobook-translate.service
+        # Reset the wedged rows so the new daemon picks them up.
+        sqlite3 "$DB_PATH" \
+            "UPDATE translation_queue SET state='pending', started_at=NULL \
+             WHERE state='processing' \
+               AND (last_progress_at IS NULL \
+                    OR strftime('%s','now') - strftime('%s', last_progress_at) > $STALE_THRESHOLD_SEC);" \
+            2>/dev/null
+        exit 0
+    fi
     log "Translation daemon already running — nothing to do"
     exit 0
 fi

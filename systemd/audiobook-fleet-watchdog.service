@@ -1,0 +1,10 @@
+[Unit]
+Description=Detect dead GPU fleet during translation processing
+After=network-online.target audiobook-api.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/audiobooks/scripts/fleet-watchdog.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-fleet-watchdog

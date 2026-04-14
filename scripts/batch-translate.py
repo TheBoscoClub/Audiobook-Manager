@@ -100,10 +100,12 @@ def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
         if not row:
             return None
         job = dict(row)
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
-            "UPDATE translation_queue SET state = 'processing', started_at = ? "
+            "UPDATE translation_queue "
+            "SET state = 'processing', started_at = ?, last_progress_at = ? "
             "WHERE id = ?",
-            (time.strftime("%Y-%m-%d %H:%M:%S"), job["id"]),
+            (now, now, job["id"]),
         )
         conn.commit()
         return job
@@ -114,10 +116,12 @@ def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
 def finish_job(db_path: str, job_id: int, state: str, error: str | None = None) -> None:
     conn = get_db(db_path)
     try:
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
-            "UPDATE translation_queue SET state = ?, error = ?, finished_at = ? "
+            "UPDATE translation_queue "
+            "SET state = ?, error = ?, finished_at = ?, last_progress_at = ? "
             "WHERE id = ?",
-            (state, error, time.strftime("%Y-%m-%d %H:%M:%S"), job_id),
+            (state, error, now, now, job_id),
         )
         conn.commit()
     finally:
@@ -159,6 +163,16 @@ def process_book_stt(
     try:
         def on_progress(ch_idx: int, total: int, title: str):
             logger.info("  Chapter %d/%d: %s", ch_idx + 1, total, title)
+            try:
+                gen_conn.execute(
+                    "UPDATE translation_queue "
+                    "SET last_progress_at = CURRENT_TIMESTAMP, total_chapters = ? "
+                    "WHERE audiobook_id = ? AND locale = ? AND state = 'processing'",
+                    (total, book_id, locale),
+                )
+                gen_conn.commit()
+            except Exception:
+                pass
 
         def on_chapter_complete(ch_idx: int, source_vtt: Path, translated_vtt: Path | None):
             gen_conn.execute(

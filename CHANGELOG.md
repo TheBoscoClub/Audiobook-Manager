@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.2] - 2026-04-14
+
+### Added
+
+- **Three-layer cost-safety watchdog architecture** to prevent paying for idle GPU compute when the translation pipeline hangs. Prior behavior: a wedged daemon or dead remote fleet could silently burn hours of rented GPU time while `systemctl is-active` reported "running". Each layer catches a distinct failure mode:
+  - **Layer 1 — daemon heartbeat** (`library/localization/queue.py`, `scripts/batch-translate.py`, `scripts/translation-check.sh`): new `translation_queue.last_progress_at` column bumped at pickup, per-chapter `_on_progress`, step transitions, and finish. `translation-check.sh` treats any `processing` row whose heartbeat is older than 15 minutes as wedged — restarts `audiobook-translate.service` and resets the row to `pending` so a fresh worker re-picks it
+  - **Layer 2 — fleet utilization** (`scripts/fleet-watchdog.sh`, `systemd/audiobook-fleet-watchdog.service/.timer`): new oneshot running every 5 minutes. When the daemon is active AND `translation_queue` has `processing` rows AND zero new `chapter_subtitles` rows have been inserted in 20 minutes, the fleet is dead — restart the daemon to trigger re-provisioning and flip stuck rows back to `pending`. Catches the case where Layer 1's heartbeat is fresh (daemon is happily retrying) but the remote GPU instances died
+  - **Layer 3 — remote dead-man TTL** (`scripts/translation-daemon.sh` whisper-server heredoc): embedded daemon thread in the Flask whisper server calls `shutdown -h now` after `IDLE_SHUTDOWN_SEC` (default 1800s) without a request. Each Vast.ai/RunPod instance halts itself if the local daemon stops talking to it, so a local crash can't leave remote GPUs burning
+- **Per-book progress display in `audiobook-translations status`**: replaces the uninformative "5h12m ELAPSED" column with `X/Y (NN%)` showing chapter progress against the real total, plus a new `IDLE` column (seconds since last heartbeat) that colors yellow at ≥15min and red at ≥1h. Total chapter count persists on `translation_queue.total_chapters` via the same heartbeat path, so the denominator survives worker restarts
+- **Data migration `003_translation_heartbeat.sh`** (MIN_VERSION=8.2.2): idempotent `ALTER TABLE` adding `last_progress_at` and `total_chapters` to existing queue rows, backfills `last_progress_at` from `started_at`/`created_at`, creates `idx_tq_last_progress`. Also applied in-place at daemon startup via `PRAGMA table_info` guard so upgrade paths that skip migrations still converge
+
+### Changed
+
+- **`install.sh` now explicitly enables `audiobook-translate-check.timer` and `audiobook-fleet-watchdog.timer`** instead of relying on `audiobook.target` auto-wanting. Matches the other timer-enable pattern in the installer and ensures watchdog coverage is active from first boot
+
 ## [8.2.1.1] - 2026-04-14
 
 ### Added
@@ -2712,7 +2727,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2...HEAD
+[8.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1.1...v8.2.2
 [8.2.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1...v8.2.1.1
 [8.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.2...v8.2.1
 [8.2.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.1...v8.2.0.2

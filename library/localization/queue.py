@@ -62,6 +62,8 @@ def _ensure_queue_table() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 started_at TIMESTAMP,
                 finished_at TIMESTAMP,
+                last_progress_at TIMESTAMP,
+                total_chapters INTEGER,
                 UNIQUE(audiobook_id, locale),
                 FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
             )
@@ -70,6 +72,22 @@ def _ensure_queue_table() -> None:
             CREATE INDEX IF NOT EXISTS idx_tq_state
             ON translation_queue(state, priority DESC)
         """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tq_last_progress
+            ON translation_queue(last_progress_at)
+        """)
+        # In-place ALTER for upgraded DBs that pre-date these columns.
+        existing_cols = {row[1] for row in conn.execute(
+            "PRAGMA table_info(translation_queue)").fetchall()}
+        if "last_progress_at" not in existing_cols:
+            conn.execute(
+                "ALTER TABLE translation_queue ADD COLUMN last_progress_at TIMESTAMP")
+            conn.execute(
+                "UPDATE translation_queue SET last_progress_at = "
+                "COALESCE(started_at, created_at)")
+        if "total_chapters" not in existing_cols:
+            conn.execute(
+                "ALTER TABLE translation_queue ADD COLUMN total_chapters INTEGER")
         conn.commit()
     finally:
         conn.close()
@@ -264,10 +282,12 @@ def _next_job() -> dict | None:
         if not row:
             return None
         job = dict(row)
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
-            "UPDATE translation_queue SET state = 'processing', started_at = ? "
+            "UPDATE translation_queue "
+            "SET state = 'processing', started_at = ?, last_progress_at = ? "
             "WHERE id = ?",
-            (time.strftime("%Y-%m-%d %H:%M:%S"), job["id"]),
+            (now, now, job["id"]),
         )
         conn.commit()
         return job
@@ -288,7 +308,8 @@ def _set_current(audiobook_id: int, locale: str, **fields) -> None:
         try:
             conn = _get_db()
             conn.execute(
-                "UPDATE translation_queue SET step = ? "
+                "UPDATE translation_queue "
+                "SET step = ?, last_progress_at = CURRENT_TIMESTAMP "
                 "WHERE audiobook_id = ? AND locale = ? AND state = 'processing'",
                 (step, audiobook_id, locale),
             )
@@ -431,6 +452,18 @@ def _run_stt_and_translate(
             chapter_index=ch_idx,
             chapter_total=total,
         )
+        try:
+            hb_conn = _get_db()
+            hb_conn.execute(
+                "UPDATE translation_queue "
+                "SET last_progress_at = CURRENT_TIMESTAMP, total_chapters = ? "
+                "WHERE audiobook_id = ? AND locale = ? AND state = 'processing'",
+                (total, book_id, locale),
+            )
+            hb_conn.commit()
+            hb_conn.close()
+        except Exception:
+            pass
 
     gen_conn = sqlite3.connect(db_path)
     gen_conn.execute("PRAGMA journal_mode=WAL")
@@ -627,10 +660,12 @@ def _finish_job(job_id: int, state: str, error: str | None = None) -> None:
     global _current_status
     conn = _get_db()
     try:
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
-            "UPDATE translation_queue SET state = ?, error = ?, finished_at = ? "
+            "UPDATE translation_queue "
+            "SET state = ?, error = ?, finished_at = ?, last_progress_at = ? "
             "WHERE id = ?",
-            (state, error, time.strftime("%Y-%m-%d %H:%M:%S"), job_id),
+            (state, error, now, now, job_id),
         )
         conn.commit()
     finally:

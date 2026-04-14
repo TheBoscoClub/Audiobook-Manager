@@ -74,6 +74,8 @@ CANONICAL_UNITS=(
     "audiobook-translate.service"
     "audiobook-translate-check.service"
     "audiobook-translate-check.timer"
+    "audiobook-fleet-watchdog.service"
+    "audiobook-fleet-watchdog.timer"
 )
 
 # ---------------------------------------------------------------------------

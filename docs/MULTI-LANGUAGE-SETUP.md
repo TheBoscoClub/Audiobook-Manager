@@ -25,7 +25,7 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
 
 ## Overview and Scope
 
-Audiobook Manager (v8.2.1.1) includes a full localization system that translates both the web interface and audiobook content itself. The system currently ships with English (`en`) and Simplified Chinese (`zh-Hans`), but the architecture supports adding more locales without code changes.
+Audiobook Manager (v8.2.2) includes a full localization system that translates both the web interface and audiobook content itself. The system currently ships with English (`en`) and Simplified Chinese (`zh-Hans`), but the architecture supports adding more locales without code changes.
 
 ### What Is Translated
 

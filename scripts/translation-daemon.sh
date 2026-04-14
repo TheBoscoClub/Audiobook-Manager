@@ -198,13 +198,44 @@ ensure_whisper_server() {
 
 create_whisper_script() {
     local ct=$1
+    # Dead-man TTL: if no /v1/audio/transcriptions request in IDLE_SHUTDOWN_SEC,
+    # the instance halts itself. Caps wasted GPU spend even if the local daemon
+    # forgets to tear down. IDLE_SHUTDOWN_SEC defaults to 1800 (30 min).
     cat > "/tmp/whisper_server_${ct}.py" << PYEOF
-import tempfile, os, logging
+import tempfile, os, time, logging, threading, subprocess
 from flask import Flask, request, jsonify
 from faster_whisper import WhisperModel
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 model = WhisperModel('large-v3', device='cuda', compute_type='${ct}')
+
+IDLE_SHUTDOWN_SEC = int(os.environ.get('IDLE_SHUTDOWN_SEC', '1800'))
+LAST_REQUEST_TIME = time.time()
+_last_lock = threading.Lock()
+
+@app.before_request
+def _bump_idle_timer():
+    global LAST_REQUEST_TIME
+    with _last_lock:
+        LAST_REQUEST_TIME = time.time()
+
+def _deadman_loop():
+    while True:
+        time.sleep(60)
+        with _last_lock:
+            idle = time.time() - LAST_REQUEST_TIME
+        if idle > IDLE_SHUTDOWN_SEC:
+            logging.warning('Dead-man TTL: idle %ds > %ds — halting instance', int(idle), IDLE_SHUTDOWN_SEC)
+            for cmd in (['shutdown', '-h', 'now'], ['halt', '-p'], ['poweroff']):
+                try:
+                    subprocess.run(cmd, check=False, timeout=10)  # noqa: S603 - static cmd, no user input
+                    break
+                except Exception:
+                    continue
+            os._exit(0)
+
+threading.Thread(target=_deadman_loop, daemon=True).start()
+
 @app.route('/v1/audio/transcriptions', methods=['POST'])
 def transcribe():
     audio_file = request.files.get('file')

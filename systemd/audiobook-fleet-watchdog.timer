@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodically watch for dead GPU fleets
+PartOf=audiobook.target
+
+[Timer]
+# Check every 5 minutes — slow enough not to thrash, fast enough to
+# limit wasted GPU spend to one timer interval.
+OnCalendar=*:2/5
+OnBootSec=5min
+Persistent=true
+
+[Install]
+WantedBy=audiobook.target

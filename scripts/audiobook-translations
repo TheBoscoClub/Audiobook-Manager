@@ -99,7 +99,9 @@ cmd_status() {
             SELECT tq.audiobook_id,
                    tq.step,
                    COALESCE(cs.ch_count, 0),
+                   COALESCE(tq.total_chapters, 0),
                    CAST((strftime('%s','now') - strftime('%s', tq.started_at)) AS INTEGER),
+                   CAST((strftime('%s','now') - strftime('%s', COALESCE(tq.last_progress_at, tq.started_at))) AS INTEGER),
                    a.title
             FROM translation_queue tq
             JOIN audiobooks a ON a.id = tq.audiobook_id
@@ -114,15 +116,35 @@ cmd_status() {
             LIMIT 20;
         " 2>/dev/null)
         if [[ -n "$rows" ]]; then
-            printf "  %-7s %-7s %-8s %-9s %s\n" "STEP" "ID" "CHAPTERS" "ELAPSED" "TITLE"
-            while IFS=$'\t' read -r bid step chapters elapsed title; do
+            printf "  %-7s %-7s %-13s %-9s %-7s %s\n" "STEP" "ID" "PROGRESS" "ELAPSED" "IDLE" "TITLE"
+            while IFS=$'\t' read -r bid step chapters total elapsed idle title; do
+                local progress
+                if [[ "${total:-0}" -gt 0 ]]; then
+                    local pct=$(( chapters * 100 / total ))
+                    progress=$(printf "%d/%d (%d%%)" "$chapters" "$total" "$pct")
+                elif [[ "${chapters:-0}" -gt 0 ]]; then
+                    progress=$(printf "%d ch" "$chapters")
+                else
+                    progress="—"
+                fi
                 local el_fmt
                 if [[ "$elapsed" -ge 3600 ]]; then
                     el_fmt=$(printf "%dh%02dm" $((elapsed/3600)) $(((elapsed%3600)/60)))
                 else
                     el_fmt=$(printf "%02d:%02d" $((elapsed/60)) $((elapsed%60)))
                 fi
-                printf "  %-7s %-7s %-8s %-9s %s\n" "$step" "#$bid" "${chapters} ch" "$el_fmt" "$title"
+                local idle_fmt idle_color="${NC}"
+                if [[ "$idle" -ge 3600 ]]; then
+                    idle_fmt=$(printf "%dh%02dm" $((idle/3600)) $(((idle%3600)/60)))
+                    idle_color="${RED}"
+                elif [[ "$idle" -ge 900 ]]; then
+                    idle_fmt=$(printf "%02d:%02d" $((idle/60)) $((idle%60)))
+                    idle_color="${YELLOW}"
+                else
+                    idle_fmt=$(printf "%02d:%02d" $((idle/60)) $((idle%60)))
+                fi
+                printf "  %-7s %-7s %-13s %-9s ${idle_color}%-7s${NC} %s\n" \
+                    "$step" "#$bid" "$progress" "$el_fmt" "$idle_fmt" "$title"
             done <<< "$rows"
         fi
 
