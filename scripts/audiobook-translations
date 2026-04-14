@@ -10,6 +10,7 @@
 #   audiobook-translations start               # Start translation daemon
 #   audiobook-translations stop                # Stop translation daemon (graceful)
 #   audiobook-translations check               # Run liveness check now (don't wait for 5-min timer)
+#   audiobook-translations report [options]    # One-time report of all completed translations
 #
 # Asset transfer:
 #   audiobook-translations export -o translations.tar.gz [--locale zh-Hans]
@@ -50,6 +51,8 @@ usage() {
     echo "  start     Start the translation daemon"
     echo "  stop      Stop the translation daemon gracefully"
     echo "  check     Run the liveness check now (equivalent to firing the 5-min timer early)"
+    echo "  report    One-time report of all completed translations"
+    echo "            Options: --locale LOCALE  --since DATE  --csv  --no-summary"
     echo ""
     echo "Asset transfer:"
     echo "  export    Export translation assets to archive"
@@ -427,6 +430,134 @@ cmd_status_watch() {
     done
 }
 
+# One-time report of completed translations. Unlike `status`, which is a
+# live daemon dashboard, `report` is a historical audit — "what did the
+# pipeline actually deliver?" — suitable for release notes, cost attribution,
+# and verifying a locale rollout finished.
+#
+# Columns: audiobook title+author, locale, chapter count (actual VTT rows in
+# chapter_subtitles), wall-clock duration (finished_at − started_at), and
+# finish timestamp. Falls back gracefully when started_at is NULL on rows
+# imported from older schema versions.
+#
+# Options:
+#   --locale LOCALE   Filter to a single locale (e.g. zh-Hans)
+#   --since DATE      Only rows with finished_at >= DATE (YYYY-MM-DD or ISO-8601)
+#   --csv             CSV output for spreadsheet import
+#   --no-summary      Suppress trailing summary line
+cmd_report() {
+    local locale_filter="" since_filter="" fmt="human" show_summary=1
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --locale)     locale_filter="$2"; shift 2 ;;
+            --locale=*)   locale_filter="${1#*=}"; shift ;;
+            --since)      since_filter="$2"; shift 2 ;;
+            --since=*)    since_filter="${1#*=}"; shift ;;
+            --csv)        fmt="csv"; shift ;;
+            --no-summary) show_summary=0; shift ;;
+            -h|--help)
+                cat <<'EOF'
+Usage: audiobook-translations report [options]
+
+One-time report of all completed translations.
+
+Options:
+  --locale LOCALE   Filter to a single locale (e.g. zh-Hans)
+  --since DATE      Only include translations finished on/after DATE
+                    (YYYY-MM-DD or full ISO-8601 timestamp)
+  --csv             Emit CSV (title,author,locale,chapters,duration_sec,finished_at)
+  --no-summary      Omit the trailing totals line
+EOF
+                return 0
+                ;;
+            *)
+                echo -e "${RED}Unknown option for report: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    if [[ ! -f "$DB" ]]; then
+        echo -e "${RED}Database not found: $DB${NC}" >&2
+        return 1
+    fi
+
+    local where="tq.state = 'completed'"
+    [[ -n "$locale_filter" ]] && where="${where} AND tq.locale = '$(printf '%s' "$locale_filter" | sed "s/'/''/g")'"
+    [[ -n "$since_filter" ]]  && where="${where} AND tq.finished_at >= '$(printf '%s' "$since_filter" | sed "s/'/''/g")'"
+
+    # Per-row detail. chapter_subtitles is the canonical per-chapter record;
+    # COUNT(DISTINCT) handles multi-provider rows for the same chapter.
+    local rows
+    rows=$(sq "\
+        SELECT \
+            COALESCE(a.title, '(unknown #' || tq.audiobook_id || ')') AS title, \
+            COALESCE(a.author, '—') AS author, \
+            tq.locale, \
+            (SELECT COUNT(DISTINCT chapter_index) FROM chapter_subtitles \
+             WHERE audiobook_id = tq.audiobook_id AND locale = tq.locale) AS chapters, \
+            CASE WHEN tq.started_at IS NOT NULL AND tq.finished_at IS NOT NULL \
+                 THEN CAST(strftime('%s', tq.finished_at) - strftime('%s', tq.started_at) AS INTEGER) \
+                 ELSE NULL END AS duration_sec, \
+            tq.finished_at \
+        FROM translation_queue tq \
+        LEFT JOIN audiobooks a ON a.id = tq.audiobook_id \
+        WHERE ${where} \
+        ORDER BY tq.finished_at ASC, a.title ASC;" 2>/dev/null)
+
+    if [[ "$fmt" == "csv" ]]; then
+        echo "title,author,locale,chapters,duration_sec,finished_at"
+        # sqlite3 pipe-separated → CSV (quote fields containing commas/quotes)
+        [[ -z "$rows" ]] && return 0
+        while IFS='|' read -r title author locale chapters dur finished; do
+            local q_title q_author
+            q_title=$(printf '"%s"' "${title//\"/\"\"}")
+            q_author=$(printf '"%s"' "${author//\"/\"\"}")
+            printf '%s,%s,%s,%s,%s,%s\n' "$q_title" "$q_author" "$locale" "$chapters" "${dur:-}" "$finished"
+        done <<< "$rows"
+        return 0
+    fi
+
+    # Human-readable output
+    echo -e "${BLUE}Completed Translations Report${NC}  $(date '+%Y-%m-%d %H:%M:%S')"
+    [[ -n "$locale_filter" ]] && echo "  Locale filter: $locale_filter"
+    [[ -n "$since_filter" ]]  && echo "  Since:         $since_filter"
+    echo "─────────────────────────────────────────────────────────────────────────────"
+
+    if [[ -z "$rows" ]]; then
+        echo "  (no completed translations match the filter)"
+        return 0
+    fi
+
+    printf "  %-7s %-9s %-9s %s\n" "LOCALE" "CHAPTERS" "DURATION" "TITLE — AUTHOR"
+    local total_books=0 total_chapters=0 total_duration=0
+    while IFS='|' read -r title author locale chapters dur finished; do
+        total_books=$((total_books + 1))
+        total_chapters=$((total_chapters + ${chapters:-0}))
+        local dur_label="—"
+        if [[ -n "$dur" && "$dur" -gt 0 ]]; then
+            total_duration=$((total_duration + dur))
+            if [[ "$dur" -ge 3600 ]]; then
+                dur_label="$((dur / 3600))h$(((dur % 3600) / 60))m"
+            else
+                dur_label="$((dur / 60))m$((dur % 60))s"
+            fi
+        fi
+        local byline="${title}"
+        [[ "$author" != "—" ]] && byline="${title} — ${author}"
+        printf "  %-7s %-9s %-9s %s\n" "$locale" "${chapters:-0}" "$dur_label" "$byline"
+    done <<< "$rows"
+
+    if [[ "$show_summary" == "1" ]]; then
+        local total_dur_label="—"
+        if [[ "$total_duration" -gt 0 ]]; then
+            total_dur_label="$((total_duration / 3600))h$(((total_duration % 3600) / 60))m"
+        fi
+        echo "─────────────────────────────────────────────────────────────────────────────"
+        echo -e "${GREEN}Total:${NC} ${total_books} book-locale pair(s), ${total_chapters} chapter(s), ${total_dur_label} wall-clock"
+    fi
+}
+
 # ── Dispatch ────────────────────────────────────────────────────────────────
 case "${1:-}" in
     status)
@@ -480,6 +611,10 @@ case "${1:-}" in
         ;;
     check)
         cmd_check
+        ;;
+    report)
+        shift
+        cmd_report "$@"
         ;;
     export|import)
         # Delegate to the Python transfer module

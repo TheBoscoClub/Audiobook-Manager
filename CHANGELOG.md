@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`audiobook-translations report`**: one-time historical report of all completed translations. Unlike `status` (live daemon dashboard), `report` is an audit — "what did the pipeline actually deliver?" — useful for release notes, cost attribution, and verifying a locale rollout finished. Shows per-book locale, chapter count (from `chapter_subtitles`), wall-clock duration (`finished_at − started_at`), and finish timestamp, with a totals line. Options: `--locale LOCALE` to filter, `--since DATE` to window by finish date, `--csv` for spreadsheet export, `--no-summary` to suppress totals
+
 ### Changed
 
 ### Fixed
