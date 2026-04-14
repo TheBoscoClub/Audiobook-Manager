@@ -25,7 +25,7 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
 
 ## Overview and Scope
 
-Audiobook Manager (v8.2.2.1) includes a full localization system that translates both the web interface and audiobook content itself. The system currently ships with English (`en`) and Simplified Chinese (`zh-Hans`), but the architecture supports adding more locales without code changes.
+Audiobook Manager (v8.2.3) includes a full localization system that translates both the web interface and audiobook content itself. The system currently ships with English (`en`) and Simplified Chinese (`zh-Hans`), but the architecture supports adding more locales without code changes.
 
 ### What Is Translated
 
@@ -537,7 +537,6 @@ The localization system was built using the following open-source and commercial
 | [Vast.ai](https://vast.ai/) | Peer-to-peer GPU marketplace | Commercial |
 | [RunPod](https://www.runpod.io/) | Serverless GPU platform | Commercial |
 | [Hugging Face](https://huggingface.co/) | Model hosting (Whisper, XTTS models) | Various open licenses |
-| [Anthropic Claude](https://www.anthropic.com/) | AI development partner (architecture, code, testing) | Claude Code CLI with Max plan |
 
 ---
 

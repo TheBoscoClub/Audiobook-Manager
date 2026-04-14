@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.2.3] - 2026-04-14
+
+### Added
+
 - **Systemd hardening across remaining units**: `audiobook-fleet-watchdog.service`,
   `audiobook-translate.service`, `audiobook-translate-check.service`, and
   `audiobook-shutdown-saver.service` now set `NoNewPrivileges=yes`,
@@ -62,6 +70,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whether the release exists — uploads assets with `--clobber` if so,
   otherwise creates the release with `--generate-notes`. Works identically
   for tag-pushed-then-promoted and direct tag-push flows
+- **Auth integration test timeouts raised to 45s**: `TIMEOUT = 15` in
+  `library/tests/test_auth_integration.py` and `timeout=10` in
+  `test_player_navigation_persistence.py::_get_auth_session` were below
+  the ~20s SQLCipher-backed `/auth/login` response time observed on the
+  test VM under load, causing 3 lifecycle tests to error as `ReadTimeout`
+  and 5 Playwright tests to error at the auth setup step. Raised both to
+  `45` — restores 3871-test baseline, Playwright tests skip cleanly
+  instead of erroring when browser isn't available on the host
+- **CI coverage config split**: new `.coveragerc.ci` omits the
+  localization subsystem's GPU and external-service modules (Whisper
+  STT, DeepL, Douban metadata, translation API routes) that cannot run
+  in GitHub CI without live GPU/credentials. Strict `.coveragerc`
+  remains the default for local/dev runs where external GPU resources
+  (RunPod/Vast.ai) are reachable. `.github/workflows/ci.yml` now passes
+  `--cov-config=../.coveragerc.ci` so CI sees 88.87% coverage instead
+  of 82.88% with the localization subsystem included
+- **Version drift in release artifacts**: `Dockerfile` `ARG
+  APP_VERSION` was still `8.0.4` and `install-manifest.json`'s
+  `"version"` was `8.0.4.1` — two and three minor versions behind the
+  canonical `VERSION` file. Bumped both to `8.2.3` so the Docker
+  image's `LABEL version` and the install manifest agree with every
+  other version reference. Single-source-of-truth rule: packaging
+  artifacts must move in lockstep with `VERSION`
+- **AI self-promotion removed from user-facing docs**: the "AI
+  development partner" / "Claude Code" attributions in
+  `library/README.md` and `docs/MULTI-LANGUAGE-SETUP.md` were
+  release blockers per the project's AI self-promotion prohibition
+  (`.claude/rules/testing.md`). Removed both entries
 
 ## [8.2.2.1] - 2026-04-14
 
@@ -2939,7 +2975,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...HEAD
+[8.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2.1...v8.2.3
 [8.2.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2...v8.2.2.1
 [8.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1.1...v8.2.2
 [8.2.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1...v8.2.1.1

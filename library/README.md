@@ -207,10 +207,6 @@ This library interface was built with the help of many excellent open-source pro
 - **[FFmpeg](https://ffmpeg.org/)** / ffprobe - Metadata extraction from audio files
 - **Vanilla JavaScript** - No framework bloat, just clean ES6+
 
-### Development
-
-- **[Claude Code](https://claude.ai/code)** (Anthropic) - AI coding assistant that helped with implementation details, debugging, and documentation throughout development.
-
 ### Related Projects
 
 - **[AAXtoMP3](https://github.com/KrumpetPirate/AAXtoMP3)** - The converter component (included as a fork in `converter/`)

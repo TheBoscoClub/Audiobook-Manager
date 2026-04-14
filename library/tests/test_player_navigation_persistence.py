@@ -77,10 +77,12 @@ def _get_auth_session() -> req_lib.Session:
     """Authenticate as testadmin and return a requests session with cookie."""
     session = req_lib.Session()
     code = pyotp.TOTP(ADMIN_TOTP_SECRET).now()
+    # Internal VM API on port 5001 is HTTP-only; public traffic goes via Caddy on 8443.
     resp = session.post(
+        # nosemgrep: python.lang.security.audit.insecure-transport.requests.request-session-with-http.request-session-with-http
         f"{API_BASE_URL}/auth/login",
         json={"username": ADMIN_USERNAME, "code": code},
-        timeout=10,
+        timeout=45,
     )
     resp.raise_for_status()
     data = resp.json()

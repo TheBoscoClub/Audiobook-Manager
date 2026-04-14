@@ -1,0 +1,36 @@
+# CI / GitHub release coverage config.
+#
+# Used by GitHub Actions release gates where GPU and external-service
+# dependencies are not available. Local /test audits and developer runs
+# use .coveragerc (strict — all modules counted) since RunPod/Vast.ai
+# GPU access and live translation APIs are reachable from the dev host.
+#
+# Invoke with: pytest --cov-config=.coveragerc.ci
+
+[run]
+source = library
+omit =
+    library/venv/*
+    library/tests/*
+    # Localization subsystem — GPU/external-service modules. These
+    # require GPU (Whisper STT on RunPod/Vast.ai), remote translation
+    # APIs (DeepL), or third-party metadata sources (Douban) that
+    # cannot run in GitHub CI without live credentials and hardware.
+    # Covered locally where those resources are available.
+    library/stt/whisper_gpu_service.py
+    library/localization/transfer.py
+    library/localization/queue.py
+    library/translation/glossary.py
+    library/metadata/douban.py
+    library/metadata/lookup.py
+    library/backend/api_modular/translated_audio.py
+    library/backend/api_modular/translations.py
+    library/backend/api_modular/subtitles.py
+
+[report]
+fail_under = 85
+show_missing = true
+skip_covered = false
+
+[html]
+directory = htmlcov

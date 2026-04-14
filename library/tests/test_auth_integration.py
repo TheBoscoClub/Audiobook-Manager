@@ -67,7 +67,7 @@ PASSKEY_USER = "pkeytest1"
 FIDO2_USER = "fidotest1"
 
 # Timeout for HTTP requests
-TIMEOUT = 15
+TIMEOUT = 45
 
 
 # ---------------------------------------------------------------------------
