@@ -153,11 +153,20 @@
 
     <script data-cfasync="false" src="js/i18n.js?v=1775885000"></script>
     <script>
-        fetch('/api/system/version').then(r => r.json()).then(data => {
-            document.getElementById('app-version').textContent = data.version || 'Unknown';
-        }).catch(() => {
-            document.getElementById('app-version').textContent = 'Unknown';
-        });
+        // Populate version and drop data-i18n so the i18n overlay (which re-fires
+        // on localeChanged) can't revert the value back to the "loading..." key.
+        (function () {
+            function setVersion(text) {
+                var el = document.getElementById('app-version');
+                if (!el) return;
+                el.removeAttribute('data-i18n');
+                el.textContent = text;
+            }
+            fetch('/api/system/version')
+                .then(function (r) { return r.json(); })
+                .then(function (data) { setVersion(data.version || 'Unknown'); })
+                .catch(function () { setVersion('Unknown'); });
+        })();
 
         // Generic string translation for section headings + prose.
         (function () {
