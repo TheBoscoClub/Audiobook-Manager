@@ -2048,6 +2048,16 @@ verify_installation_permissions() {
         sudo find "$target_dir" -type d -exec chmod 755 {} +
         sudo find "$target_dir" -type f -exec chmod 644 {} +
         sudo find "$target_dir" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} +
+        # Extension-less shebang scripts under scripts/ (e.g. audiobook-api).
+        # These back the /usr/local/bin/audiobook-* symlinks. Left at 644 the
+        # reconciler reports 20 "missing wrapper" drift items on every upgrade.
+        if [[ -d "$target_dir/scripts" ]]; then
+            while IFS= read -r -d '' _f; do
+                if sudo head -c 2 "$_f" 2>/dev/null | grep -q '^#!'; then
+                    sudo chmod 755 "$_f"
+                fi
+            done < <(sudo find "$target_dir/scripts" -maxdepth 2 -type f -print0)
+        fi
         [[ -d "$target_dir/library/venv/bin" ]] && sudo find "$target_dir/library/venv/bin" -type f -exec chmod 755 {} +
         [[ -d "$target_dir/library/audible-venv/bin" ]] && sudo find "$target_dir/library/audible-venv/bin" -type f -exec chmod 755 {} +
         local _cert_dir="${AUDIOBOOKS_CERTS:-/etc/audiobooks/certs}"

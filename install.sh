@@ -901,6 +901,16 @@ verify_installation_permissions() {
         sudo find "$APP_DIR" -type d -exec chmod 755 {} +
         sudo find "$APP_DIR" -type f -exec chmod 644 {} +
         sudo find "$APP_DIR" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} +
+        # Extension-less shebang scripts under scripts/ (e.g. audiobook-api,
+        # audiobook-config). These are the canonical targets of /usr/local/bin
+        # symlinks — if left at 644 the reconciler reports "missing wrapper".
+        if [[ -d "$APP_DIR/scripts" ]]; then
+            while IFS= read -r -d '' _f; do
+                if sudo head -c 2 "$_f" 2>/dev/null | grep -q '^#!'; then
+                    sudo chmod 755 "$_f"
+                fi
+            done < <(sudo find "$APP_DIR/scripts" -maxdepth 2 -type f -print0)
+        fi
         [[ -d "$APP_DIR/library/venv/bin" ]] && sudo find "$APP_DIR/library/venv/bin" -type f -exec chmod 755 {} +
         [[ -d "$APP_DIR/library/audible-venv/bin" ]] && sudo find "$APP_DIR/library/audible-venv/bin" -type f -exec chmod 755 {} +
         # Sensitive files: tighter modes

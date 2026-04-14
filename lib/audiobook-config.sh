@@ -262,6 +262,18 @@ audiobooks_normalize_permissions() {
     # 4) Shell scripts and python entry scripts: 755
     $sudo_cmd find "$target" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} +
 
+    # 4b) Extension-less shebang scripts under scripts/ and library/**/scripts
+    # (e.g. /opt/audiobooks/scripts/audiobook-api). These are the canonical
+    # targets of /usr/local/bin/audiobook-* symlinks and MUST be executable
+    # or the symlinks break and reconcile-filesystem reports "missing wrapper".
+    if [[ -d "$target/scripts" ]]; then
+        while IFS= read -r -d '' _f; do
+            if $sudo_cmd head -c 2 "$_f" 2>/dev/null | grep -q '^#!'; then
+                $sudo_cmd chmod 755 "$_f"
+            fi
+        done < <($sudo_cmd find "$target/scripts" -maxdepth 2 -type f -print0)
+    fi
+
     # 5) Preserve venv executable bits (venv/bin/* must remain executable)
     if [[ -d "$target/library/venv/bin" ]]; then
         $sudo_cmd find "$target/library/venv/bin" -type f -exec chmod 755 {} +
