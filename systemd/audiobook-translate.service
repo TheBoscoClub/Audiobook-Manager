@@ -16,6 +16,13 @@ ExecStart=/opt/audiobooks/scripts/translation-daemon.sh
 # Create log directory before starting
 ExecStartPre=/bin/mkdir -p /var/log/audiobooks/translate
 
+# Self-heal ownership drift: worker logs must be writable by the audiobooks
+# service account. Interactive runs or manual debugging can leave files owned
+# by another user, which silently breaks worker log writes. Runs as root via
+# the `+` prefix, independent of User= below.
+ExecStartPre=+/bin/chown -R audiobooks:audiobooks /var/log/audiobooks/translate
+ExecStartPre=+/bin/chmod 0775 /var/log/audiobooks/translate
+
 # On clean exit (queue empty): don't restart — the job is done.
 # On failure: restart after 60s to retry dead tunnels/workers.
 Restart=on-failure
