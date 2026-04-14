@@ -223,6 +223,72 @@ audiobooks_check_dirs() {
     return $missing
 }
 
+# Normalize ownership and permissions on a system installation tree.
+# MUST be called unconditionally at the end of install.sh and upgrade.sh for
+# system installs (/opt/audiobooks). Previous deployments occasionally left
+# files owned by the wrong user (e.g. bosco:bosco with dir mode 700), which
+# broke the audiobook-proxy service (static files unreadable -> 404).
+#
+# Usage: audiobooks_normalize_permissions <target_dir>
+# Returns 0 on success, nonzero on error. Requires root (caller must invoke
+# this under sudo or the function will attempt `sudo` internally if available).
+audiobooks_normalize_permissions() {
+    local target="${1:-}"
+    if [[ -z "$target" || ! -d "$target" ]]; then
+        echo "audiobooks_normalize_permissions: target dir missing: $target" >&2
+        return 1
+    fi
+
+    local owner="audiobooks:audiobooks"
+    local sudo_cmd=""
+    if [[ "$(id -u)" -ne 0 ]]; then
+        if command -v sudo >/dev/null 2>&1; then
+            sudo_cmd="sudo"
+        else
+            echo "audiobooks_normalize_permissions: not root and sudo unavailable" >&2
+            return 1
+        fi
+    fi
+
+    # 1) Ownership: every file and directory must be audiobooks:audiobooks
+    $sudo_cmd chown -R "$owner" "$target"
+
+    # 2) Directories: 755 (service user MUST be able to traverse/list)
+    $sudo_cmd find "$target" -type d -exec chmod 755 {} +
+
+    # 3) Regular files: 644 default (readable by all)
+    $sudo_cmd find "$target" -type f -exec chmod 644 {} +
+
+    # 4) Shell scripts and python entry scripts: 755
+    $sudo_cmd find "$target" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} +
+
+    # 5) Preserve venv executable bits (venv/bin/* must remain executable)
+    if [[ -d "$target/library/venv/bin" ]]; then
+        $sudo_cmd find "$target/library/venv/bin" -type f -exec chmod 755 {} +
+    fi
+    if [[ -d "$target/library/audible-venv/bin" ]]; then
+        $sudo_cmd find "$target/library/audible-venv/bin" -type f -exec chmod 755 {} +
+    fi
+
+    # 6) Sensitive files (tighter than 644)
+    local cert_dir="${AUDIOBOOKS_CERTS:-/etc/audiobooks/certs}"
+    if [[ -f "$cert_dir/server.key" ]]; then
+        $sudo_cmd chmod 640 "$cert_dir/server.key"
+        $sudo_cmd chown "$owner" "$cert_dir/server.key"
+    fi
+    local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+    if [[ -f "$var_dir/auth.key" ]]; then
+        $sudo_cmd chmod 600 "$var_dir/auth.key"
+        $sudo_cmd chown "$owner" "$var_dir/auth.key"
+    fi
+    if [[ -f "$var_dir/auth.db" ]]; then
+        $sudo_cmd chmod 640 "$var_dir/auth.db"
+        $sudo_cmd chown "$owner" "$var_dir/auth.db"
+    fi
+
+    return 0
+}
+
 # Get Python interpreter from venv
 audiobooks_python() {
     if [[ -x "${AUDIOBOOKS_VENV}/bin/python" ]]; then

@@ -892,6 +892,23 @@ verify_installation_permissions() {
         local SERVICE_USER="audiobooks"
         local SERVICE_GROUP="audiobooks"
 
+        # MANDATORY: unconditional full-tree ownership + permission normalization.
+        # Prior deployments left files owned by the deploying user (e.g. bosco)
+        # with mode 700 directories, which broke audiobook-proxy static serving.
+        # Every install/upgrade now normalizes the entire tree before exiting.
+        echo -n "  Normalizing ownership + permissions (entire tree)... "
+        sudo chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "$APP_DIR"
+        sudo find "$APP_DIR" -type d -exec chmod 755 {} +
+        sudo find "$APP_DIR" -type f -exec chmod 644 {} +
+        sudo find "$APP_DIR" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} +
+        [[ -d "$APP_DIR/library/venv/bin" ]] && sudo find "$APP_DIR/library/venv/bin" -type f -exec chmod 755 {} +
+        [[ -d "$APP_DIR/library/audible-venv/bin" ]] && sudo find "$APP_DIR/library/audible-venv/bin" -type f -exec chmod 755 {} +
+        # Sensitive files: tighter modes
+        [[ -f "${CERT_DIR:-/etc/audiobooks/certs}/server.key" ]] && sudo chmod 640 "${CERT_DIR:-/etc/audiobooks/certs}/server.key"
+        [[ -f /var/lib/audiobooks/auth.key ]] && sudo chmod 600 /var/lib/audiobooks/auth.key
+        [[ -f /var/lib/audiobooks/auth.db ]]  && sudo chmod 640 /var/lib/audiobooks/auth.db
+        echo -e "${GREEN}OK${NC}"
+
         # Check directory permissions (should be 755)
         echo -n "  Checking directory permissions... "
         local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2>/dev/null | wc -l)
@@ -961,6 +978,14 @@ verify_installation_permissions() {
     else
         # User installation checks
         local APP_DIR="$HOME/.local/share/audiobooks"
+
+        # MANDATORY: unconditional full-tree permission normalization (user install).
+        echo -n "  Normalizing permissions (entire tree)... "
+        find "$APP_DIR" -type d -exec chmod 755 {} + 2>/dev/null
+        find "$APP_DIR" -type f -exec chmod 644 {} + 2>/dev/null
+        find "$APP_DIR" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} + 2>/dev/null
+        [[ -d "$APP_DIR/library/venv/bin" ]] && find "$APP_DIR/library/venv/bin" -type f -exec chmod 755 {} + 2>/dev/null
+        echo -e "${GREEN}OK${NC}"
 
         echo -n "  Checking directory permissions... "
         local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2>/dev/null | wc -l)

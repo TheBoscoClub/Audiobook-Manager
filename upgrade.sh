@@ -2038,6 +2038,26 @@ verify_installation_permissions() {
     local is_system=false
     [[ "$target_dir" == /opt/* ]] || [[ "$target_dir" == /usr/* ]] && is_system=true
 
+    # MANDATORY: unconditional full-tree ownership + permission normalization.
+    # Runs for every system upgrade regardless of prior state, because cp/rsync
+    # (especially from dev machine with differing UIDs) may leave files owned by
+    # the wrong user or with mode 700 directories, which breaks audiobook-proxy.
+    if [[ "$is_system" == "true" ]]; then
+        echo -n "  Normalizing ownership + permissions (entire tree)... "
+        sudo chown -R audiobooks:audiobooks "$target_dir"
+        sudo find "$target_dir" -type d -exec chmod 755 {} +
+        sudo find "$target_dir" -type f -exec chmod 644 {} +
+        sudo find "$target_dir" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} +
+        [[ -d "$target_dir/library/venv/bin" ]] && sudo find "$target_dir/library/venv/bin" -type f -exec chmod 755 {} +
+        [[ -d "$target_dir/library/audible-venv/bin" ]] && sudo find "$target_dir/library/audible-venv/bin" -type f -exec chmod 755 {} +
+        local _cert_dir="${AUDIOBOOKS_CERTS:-/etc/audiobooks/certs}"
+        local _var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+        [[ -f "$_cert_dir/server.key" ]] && sudo chmod 640 "$_cert_dir/server.key"
+        [[ -f "$_var_dir/auth.key" ]]    && sudo chmod 600 "$_var_dir/auth.key"
+        [[ -f "$_var_dir/auth.db" ]]     && sudo chmod 640 "$_var_dir/auth.db"
+        echo -e "${GREEN}OK${NC}"
+    fi
+
     # For system installations, verify ownership is audiobooks:audiobooks for ENTIRE installation
     if [[ "$is_system" == "true" ]]; then
         echo -n "  Checking ownership (audiobooks:audiobooks)... "
