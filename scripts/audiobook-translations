@@ -39,7 +39,8 @@ usage() {
     echo "Usage: audiobook-translations <command> [options]"
     echo ""
     echo "Queue control:"
-    echo "  status    Show translation queue state and daemon status"
+    echo "  status              Show translation queue state and daemon status"
+    echo "  status --watch [N]  Auto-refresh every N seconds (default 5); Ctrl+C exits"
     echo "  pause     Pause queue (in-progress books finish, no new ones start)"
     echo "  resume    Resume paused translations"
     echo "  start     Start the translation daemon"
@@ -53,7 +54,7 @@ usage() {
 }
 
 cmd_status() {
-    echo -e "${BLUE}Translation Queue Status${NC}"
+    echo -e "${BLUE}Translation Queue Status${NC}  $(date '+%Y-%m-%d %H:%M:%S')"
     echo "─────────────────────────────────────"
 
     if [[ ! -f "$DB" ]]; then
@@ -290,10 +291,45 @@ cmd_stop() {
     [[ "${pending:-0}" -gt 0 ]] && echo "${pending} jobs reset to pending (will resume on next start)."
 }
 
+# Run cmd_status in a refresh loop until SIGINT. Default interval 5s; override
+# via --watch=N or -wN. Clears the screen each tick so the display doesn't
+# grow without bound; trap SIGINT so Ctrl+C exits cleanly without a traceback.
+cmd_status_watch() {
+    local interval="${1:-5}"
+    if ! [[ "$interval" =~ ^[0-9]+$ ]] || [[ "$interval" -lt 1 ]]; then
+        echo -e "${RED}Invalid interval: $interval${NC}" >&2
+        exit 1
+    fi
+    trap 'printf "\n"; exit 0' INT
+    while true; do
+        tput clear 2>/dev/null || clear
+        cmd_status
+        echo ""
+        echo -e "${BLUE}Refreshing every ${interval}s — press Ctrl+C to exit${NC}"
+        sleep "$interval"
+    done
+}
+
 # ── Dispatch ────────────────────────────────────────────────────────────────
 case "${1:-}" in
     status)
-        cmd_status
+        shift
+        case "${1:-}" in
+            -w|--watch)
+                cmd_status_watch "${2:-5}"
+                ;;
+            -w=*|--watch=*)
+                cmd_status_watch "${1#*=}"
+                ;;
+            "")
+                cmd_status
+                ;;
+            *)
+                echo -e "${RED}Unknown option for status: $1${NC}" >&2
+                echo "Usage: audiobook-translations status [--watch [SECONDS]]"
+                exit 1
+                ;;
+        esac
         ;;
     pause)
         cmd_pause
