@@ -17,18 +17,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`audiobook-translations report`**: on-demand historical report of all completed translations, runnable anytime against the live DB. Unlike `status` (live daemon dashboard), `report` is an audit — "what has the pipeline actually delivered to date?" — useful for release notes, cost attribution, and verifying a locale rollout finished. Shows per-book locale, chapter count (from `chapter_subtitles`), wall-clock duration (`finished_at − started_at`), and finish timestamp, with a totals line. Options: `--locale LOCALE` to filter, `--since DATE` to window by finish date, `--csv` for spreadsheet export, `--no-summary` to suppress totals
+- **`audiobook-translations report`**: on-demand historical report of all
+  completed translations, runnable anytime against the live DB. Unlike
+  `status` (live daemon dashboard), `report` is an audit — "what has the
+  pipeline actually delivered to date?" — useful for release notes, cost
+  attribution, and verifying a locale rollout finished. Shows per-book
+  locale, chapter count (from `chapter_subtitles`), wall-clock duration
+  (`finished_at − started_at`), and finish timestamp, with a totals line.
+  Options: `--locale LOCALE` to filter, `--since DATE` to window by finish
+  date, `--csv` for spreadsheet export, `--no-summary` to suppress totals
 
 ## [8.2.2] - 2026-04-14
 
 ### Added
 
-- **Three-layer cost-safety watchdog architecture** to prevent paying for idle GPU compute when the translation pipeline hangs. Prior behavior: a wedged daemon or dead remote fleet could silently burn hours of rented GPU time while `systemctl is-active` reported "running". Each layer catches a distinct failure mode:
-  - **Layer 1 — daemon heartbeat** (`library/localization/queue.py`, `scripts/batch-translate.py`, `scripts/translation-check.sh`): new `translation_queue.last_progress_at` column bumped at pickup, per-chapter `_on_progress`, step transitions, and finish. `translation-check.sh` treats any `processing` row whose heartbeat is older than 15 minutes as wedged — restarts `audiobook-translate.service` and resets the row to `pending` so a fresh worker re-picks it
-  - **Layer 2 — fleet utilization** (`scripts/fleet-watchdog.sh`, `systemd/audiobook-fleet-watchdog.service/.timer`): new oneshot running every 5 minutes. When the daemon is active AND `translation_queue` has `processing` rows AND zero new `chapter_subtitles` rows have been inserted in 20 minutes, the fleet is dead — restart the daemon to trigger re-provisioning and flip stuck rows back to `pending`. Catches the case where Layer 1's heartbeat is fresh (daemon is happily retrying) but the remote GPU instances died
-  - **Layer 3 — remote dead-man TTL** (`scripts/translation-daemon.sh` whisper-server heredoc): embedded daemon thread in the Flask whisper server calls `shutdown -h now` after `IDLE_SHUTDOWN_SEC` (default 1800s) without a request. Each Vast.ai/RunPod instance halts itself if the local daemon stops talking to it, so a local crash can't leave remote GPUs burning
-- **Per-book progress display in `audiobook-translations status`**: replaces the uninformative "5h12m ELAPSED" column with `X/Y (NN%)` showing chapter progress against the real total, plus a new `IDLE` column (seconds since last heartbeat) that colors yellow at ≥15min and red at ≥1h. Total chapter count persists on `translation_queue.total_chapters` via the same heartbeat path, so the denominator survives worker restarts
-- **Data migration `003_translation_heartbeat.sh`** (MIN_VERSION=8.2.2): idempotent `ALTER TABLE` adding `last_progress_at` and `total_chapters` to existing queue rows, backfills `last_progress_at` from `started_at`/`created_at`, creates `idx_tq_last_progress`. Also applied in-place at daemon startup via `PRAGMA table_info` guard so upgrade paths that skip migrations still converge
+- **Three-layer cost-safety watchdog architecture** to prevent paying for
+  idle GPU compute when the translation pipeline hangs. Prior behavior: a
+  wedged daemon or dead remote fleet could silently burn hours of rented
+  GPU time while `systemctl is-active` reported "running". Each layer
+  catches a distinct failure mode:
+  - **Layer 1 — daemon heartbeat** (`library/localization/queue.py`,
+    `scripts/batch-translate.py`, `scripts/translation-check.sh`): new
+    `translation_queue.last_progress_at` column bumped at pickup,
+    per-chapter `_on_progress`, step transitions, and finish.
+    `translation-check.sh` treats any `processing` row whose heartbeat is
+    older than 15 minutes as wedged — restarts `audiobook-translate.service`
+    and resets the row to `pending` so a fresh worker re-picks it
+  - **Layer 2 — fleet utilization** (`scripts/fleet-watchdog.sh`,
+    `systemd/audiobook-fleet-watchdog.service/.timer`): new oneshot running
+    every 5 minutes. When the daemon is active AND `translation_queue` has
+    `processing` rows AND zero new `chapter_subtitles` rows have been
+    inserted in 20 minutes, the fleet is dead — restart the daemon to
+    trigger re-provisioning and flip stuck rows back to `pending`. Catches
+    the case where Layer 1's heartbeat is fresh (daemon is happily retrying)
+    but the remote GPU instances died
+  - **Layer 3 — remote dead-man TTL** (`scripts/translation-daemon.sh`
+    whisper-server heredoc): embedded daemon thread in the Flask whisper
+    server calls `shutdown -h now` after `IDLE_SHUTDOWN_SEC` (default 1800s)
+    without a request. Each Vast.ai/RunPod instance halts itself if the
+    local daemon stops talking to it, so a local crash can't leave remote
+    GPUs burning
+- **Per-book progress display in `audiobook-translations status`**: replaces
+  the uninformative "5h12m ELAPSED" column with `X/Y (NN%)` showing chapter
+  progress against the real total, plus a new `IDLE` column (seconds since
+  last heartbeat) that colors yellow at ≥15min and red at ≥1h. Total
+  chapter count persists on `translation_queue.total_chapters` via the same
+  heartbeat path, so the denominator survives worker restarts
+- **Data migration `003_translation_heartbeat.sh`** (MIN_VERSION=8.2.2):
+  idempotent `ALTER TABLE` adding `last_progress_at` and `total_chapters`
+  to existing queue rows, backfills `last_progress_at` from
+  `started_at`/`created_at`, creates `idx_tq_last_progress`. Also applied
+  in-place at daemon startup via `PRAGMA table_info` guard so upgrade paths
+  that skip migrations still converge
 
 ### Changed
 
@@ -38,7 +78,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Interactive `--watch` controls in `audiobook-translations`**: live refresh now supports `+`/`-` to tune the tick interval (±5s, min 1s), `a` to toggle aggressive mode (fires the liveness check every tick instead of only when the daemon is idle), `r` to refresh immediately, and `q` to quit. Status output shows the current tick number, observed gap since the previous tick, active mode label, and an annotation on the `Timer:` line that explains how `--watch` is relating to the 5-minute systemd cadence (override, will-trigger-if-idle, or read-only)
+- **Interactive `--watch` controls in `audiobook-translations`**: live
+  refresh now supports `+`/`-` to tune the tick interval (±5s, min 1s), `a`
+  to toggle aggressive mode (fires the liveness check every tick instead of
+  only when the daemon is idle), `r` to refresh immediately, and `q` to
+  quit. Status output shows the current tick number, observed gap since the
+  previous tick, active mode label, and an annotation on the `Timer:` line
+  that explains how `--watch` is relating to the 5-minute systemd cadence
+  (override, will-trigger-if-idle, or read-only)
 - **`audiobook-translations check` subcommand**: one-shot invocation of `audiobook-translate-check.service` so operators can force the daemon-liveness check from the CLI without waiting for the 5-minute timer
 
 ### Changed
@@ -80,7 +127,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Schema drift in auth database**: `preferred_locale` column was added to `schema.sql` (users and access_requests tables) but missing from `database.py` ALTER TABLE migrations, causing `SELECT *` queries to return columns in wrong positional order. Replaced all `SELECT *` in `UserRepository` and `AccessRequestRepository` with explicit column-list constants (`_USER_SELECT`, `_AR_SELECT`) that guarantee deterministic positional order regardless of physical table layout. Added missing ALTER TABLE migration for `preferred_locale` in users table
+- **Schema drift in auth database**: `preferred_locale` column was added to
+  `schema.sql` (users and access_requests tables) but missing from
+  `database.py` ALTER TABLE migrations, causing `SELECT *` queries to return
+  columns in wrong positional order. Replaced all `SELECT *` in
+  `UserRepository` and `AccessRequestRepository` with explicit column-list
+  constants (`_USER_SELECT`, `_AR_SELECT`) that guarantee deterministic
+  positional order regardless of physical table layout. Added missing ALTER
+  TABLE migration for `preferred_locale` in users table
 - **Schema version bump to 10**: Updated `SCHEMA_VERSION` constant and all test assertions to match `schema.sql` version 10 (was stuck at 9)
 - **Missing `credentials: "include"` on i18n fetch calls** in `shell.js`: Two new fetch calls added by the localization feature (translated-audio lookup and translation bump) were missing auth cookie forwarding, which would fail silently when `AUTH_ENABLED=true`
 - **Dry-run mode calling backfill script**: Data migration `001_podcast_detection.sh` attempted to execute `backfill_enrichment.py` even in `--dry-run` mode, triggering upgrade.sh's ERR trap when the script wasn't present in the target directory
@@ -141,23 +195,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Installer architecture documentation** (`docs/INSTALLER-ARCHITECTURE.md`): Source-of-truth reference for `install.sh`, `uninstall.sh`, `upgrade.sh`, the manifest, and the reconciler — documents the 2026-04 drift incident, the canonical-defaults pairing rule (`library/config.py` + `lib/audiobook-config.sh` must agree), the subset-preservation invariant, and six rules for future installer changes
-- **Content classification drift documentation** (`docs/CONTENT-CLASSIFICATION-DRIFT.md`): Explains how `audiobooks.content_type` gets stale when scans predate classification fixes, how to detect drift via cross-DB ASIN comparison, how to repair with a surgical ASIN-based rewrite, and why `library/scripts/backfill_enrichment.py --podcast-detection` must be run after any DB import on a Phase-0+ install. Documents the 2026-04-07 dev VM incident (scan preceded Phase 0 podcast detection commits `ccb863e` + `c10b335` by ~21 hours, leaving 101 rows mis-labeled as `Podcast` that should have been `Show`, `Episode`, or `Product`)
-- **End-to-end uninstall preservation tests** (`library/tests/test_uninstall_keep_data.py`): Four pytest cases run `uninstall.sh --user --force` against a scratch `$HOME` and assert that `--keep-data` preserves DB, `auth.db`, `auth.key` (mode 0600 after restore), covers cache, and `audiobooks.conf`; `--delete-data` wipes them; preservation tolerates absent optional items; script stays executable
+- **Installer architecture documentation**
+  (`docs/INSTALLER-ARCHITECTURE.md`): Source-of-truth reference for
+  `install.sh`, `uninstall.sh`, `upgrade.sh`, the manifest, and the
+  reconciler — documents the 2026-04 drift incident, the canonical-defaults
+  pairing rule (`library/config.py` + `lib/audiobook-config.sh` must agree),
+  the subset-preservation invariant, and six rules for future installer
+  changes
+- **Content classification drift documentation**
+  (`docs/CONTENT-CLASSIFICATION-DRIFT.md`): Explains how
+  `audiobooks.content_type` gets stale when scans predate classification
+  fixes, how to detect drift via cross-DB ASIN comparison, how to repair
+  with a surgical ASIN-based rewrite, and why
+  `library/scripts/backfill_enrichment.py --podcast-detection` must be run
+  after any DB import on a Phase-0+ install. Documents the 2026-04-07 dev
+  VM incident (scan preceded Phase 0 podcast detection commits `ccb863e` +
+  `c10b335` by ~21 hours, leaving 101 rows mis-labeled as `Podcast` that
+  should have been `Show`, `Episode`, or `Product`)
+- **End-to-end uninstall preservation tests**
+  (`library/tests/test_uninstall_keep_data.py`): Four pytest cases run
+  `uninstall.sh --user --force` against a scratch `$HOME` and assert that
+  `--keep-data` preserves DB, `auth.db`, `auth.key` (mode 0600 after
+  restore), covers cache, and `audiobooks.conf`; `--delete-data` wipes
+  them; preservation tolerates absent optional items; script stays
+  executable
 - **Manifest entry for flat-database drift**: `scripts/install-manifest.sh` `CONFIG_CANONICAL_DEFAULTS` now also lists `AUDIOBOOKS_DATABASE|${STATE_DIR}/audiobooks.db` so the reconciler strips the legacy flat-file override that pre-dated the `db/` subdirectory layout
 
 ### Changed
 
-- **`config-migrations/002_strip_legacy_path_overrides.sh`** (renamed from `002_strip_legacy_covers_override.sh` via `git mv`): Now strips BOTH `AUDIOBOOKS_COVERS` (legacy `library/web-v2/covers` and `library/covers`) and `AUDIOBOOKS_DATABASE` (legacy `/var/lib/audiobooks/audiobooks.db`) via a shared `_strip_key` helper that only removes exact legacy defaults and preserves any user customization. `AUDIOBOOKS_VENV`/`AUDIOBOOKS_CERTS` deliberately excluded — their canonical defaults still live under `${AUDIOBOOKS_HOME}/library/*`
-- **`etc/audiobooks.conf.example`** — all path keys commented out: `AUDIOBOOKS_DATA`, `LIBRARY`, `SOURCES`, `SUPPLEMENTS`, `HOME`, `DATABASE`, `COVERS`, `RUN_DIR`, `CERTS`, `LOGS`, `VENV`, `CONVERTER`, `AUTH_DATABASE`, `AUTH_KEY_FILE`, `DATA_DIR`. Added preamble explaining that hardcoding defaults in this template is the exact drift mechanism that caused the 2026-04 cover-art 404 / split-DB incident. Users uncomment only the keys they actually want to override
+- **`config-migrations/002_strip_legacy_path_overrides.sh`** (renamed from
+  `002_strip_legacy_covers_override.sh` via `git mv`): Now strips BOTH
+  `AUDIOBOOKS_COVERS` (legacy `library/web-v2/covers` and `library/covers`)
+  and `AUDIOBOOKS_DATABASE` (legacy `/var/lib/audiobooks/audiobooks.db`)
+  via a shared `_strip_key` helper that only removes exact legacy defaults
+  and preserves any user customization. `AUDIOBOOKS_VENV`/`AUDIOBOOKS_CERTS`
+  deliberately excluded — their canonical defaults still live under
+  `${AUDIOBOOKS_HOME}/library/*`
+- **`etc/audiobooks.conf.example`** — all path keys commented out:
+  `AUDIOBOOKS_DATA`, `LIBRARY`, `SOURCES`, `SUPPLEMENTS`, `HOME`,
+  `DATABASE`, `COVERS`, `RUN_DIR`, `CERTS`, `LOGS`, `VENV`, `CONVERTER`,
+  `AUTH_DATABASE`, `AUTH_KEY_FILE`, `DATA_DIR`. Added preamble explaining
+  that hardcoding defaults in this template is the exact drift mechanism
+  that caused the 2026-04 cover-art 404 / split-DB incident. Users
+  uncomment only the keys they actually want to override
 
 ### Fixed
 
-- **`uninstall.sh --keep-data` silently wiped user state** (2026-04 incident): The helper preserved only `/srv/audiobooks/{Library,Sources,Supplements}` and happily deleted `/var/lib/audiobooks` (DB, `auth.db`, covers cache) plus `/etc/audiobooks/audiobooks.conf` and `auth.key`. New `stage_preserved_state` stages DB dir, `auth.db`, `auth.key`, covers cache, and `audiobooks.conf` to a `mktemp -d` with an `EXIT` trap; `restore_preserved_state` replays the staging dir after the wipe, re-applies `chmod 0600` to `auth.key`, and re-chowns everything to the service account. `--delete-data` short-circuits staging entirely
+- **`uninstall.sh --keep-data` silently wiped user state** (2026-04
+  incident): The helper preserved only
+  `/srv/audiobooks/{Library,Sources,Supplements}` and happily deleted
+  `/var/lib/audiobooks` (DB, `auth.db`, covers cache) plus
+  `/etc/audiobooks/audiobooks.conf` and `auth.key`. New
+  `stage_preserved_state` stages DB dir, `auth.db`, `auth.key`, covers
+  cache, and `audiobooks.conf` to a `mktemp -d` with an `EXIT` trap;
+  `restore_preserved_state` replays the staging dir after the wipe,
+  re-applies `chmod 0600` to `auth.key`, and re-chowns everything to the
+  service account. `--delete-data` short-circuits staging entirely
 - **`install.sh --fresh-install` lost new config keys**: Because uninstall now restores `audiobooks.conf`, a fresh install path would keep the OLD config and never pick up new default keys. `do_fresh_install` Step 3b now deletes the restored `audiobooks.conf` so `install.sh` writes a fresh default, and Step 5 merges the user's non-default overrides back on top from `fresh_backup_dir`
 - **`do_fresh_install` auth.db staging path**: Now uses canonical `${state_src}/auth.db` with a fallback to legacy `${state_src}/db/auth.db` for pre-v8 installs that still kept the auth DB under `db/`
 - **`uninstall.sh` user-mode crash on /tmp/audiobook\* artifacts**: In user mode, `remove_runtime_files` would try to unlink `/tmp/audiobook-staging` owned by the `audiobooks` service account and crash on the sticky-bit. New `_can_touch_runtime` helper gates removal on ownership (`[[ -O "$target" ]]` — not `-w`, which lies on group-writable sticky-bit dirs) and skips anything the invoking user doesn't own, logging the skip instead of failing
-- **Dev VM content classification drift** (2026-04-07 incident): The dev VM's audiobooks DB was bulk-imported on 2026-04-07 19:20:17 — all 1,844 rows landed in a one-second window, 21 hours before commits `ccb863e` and `c10b335` added Phase 0 podcast detection (publisher/author heuristics + backfill sweep). Because `content_type` is set at insertion time and never recomputed, dev rows stayed mis-labeled while prod's later scan correctly classified the same titles. Total **118 rows reclassified** in four passes: (1) 101-row ASIN-JOIN cross-sync from prod's TSV — 70 `Podcast`→`Show`, 21 `Podcast`→`Episode`, 10 `Podcast`→`Product` false-positive corrections; (2) 1 Brian Cox `Meditation` singleton → `Product`; (3) 10 Wondery ad-free rows caught by `backfill_enrichment.py --podcast-detection` publisher heuristics (America's Coup in Iran, Encore: Enron, The Osage Murders); (4) 6 residual rows — 3 Michelle Obama "The Light Podcast" episodes and 3 Stephen Fry "Ep." episodes — caught only by a secondary cross-classification author-match query after an initial "resolved" claim was disproven by the user's browser screenshots. The 6-row blind spot existed because the ASIN-JOIN requires prod and dev to share ASINs; these titles had different ASINs on prod, so the JOIN never linked them, and their authors weren't in `_PODCAST_PUBLISHERS`. Root-cause prevention (run `backfill_enrichment.py --podcast-detection` after any DB import on a Phase-0+ install) and the new cross-classification author-analysis detection pattern are now documented in `docs/CONTENT-CLASSIFICATION-DRIFT.md`. Final state verified via Playwright against `devlib.thebosco.club`: API `total_count: 1160`, zero Michelle Obama / Stephen Fry podcast episodes in the library view, matching the user's independent browser check
+- **Dev VM content classification drift** (2026-04-07 incident): The dev VM's
+  audiobooks DB was bulk-imported on 2026-04-07 19:20:17 — all 1,844 rows
+  landed in a one-second window, 21 hours before commits `ccb863e` and
+  `c10b335` added Phase 0 podcast detection (publisher/author heuristics +
+  backfill sweep). Because `content_type` is set at insertion time and never
+  recomputed, dev rows stayed mis-labeled while prod's later scan correctly
+  classified the same titles. Total **118 rows reclassified** in four passes:
+  (1) 101-row ASIN-JOIN cross-sync from prod's TSV — 70 `Podcast`→`Show`,
+  21 `Podcast`→`Episode`, 10 `Podcast`→`Product` false-positive corrections;
+  (2) 1 Brian Cox `Meditation` singleton → `Product`; (3) 10 Wondery ad-free
+  rows caught by `backfill_enrichment.py --podcast-detection` publisher
+  heuristics (America's Coup in Iran, Encore: Enron, The Osage Murders);
+  (4) 6 residual rows — 3 Michelle Obama "The Light Podcast" episodes and
+  3 Stephen Fry "Ep." episodes — caught only by a secondary
+  cross-classification author-match query after an initial "resolved" claim
+  was disproven by the user's browser screenshots. The 6-row blind spot
+  existed because the ASIN-JOIN requires prod and dev to share ASINs; these
+  titles had different ASINs on prod, so the JOIN never linked them, and
+  their authors weren't in `_PODCAST_PUBLISHERS`. Root-cause prevention (run
+  `backfill_enrichment.py --podcast-detection` after any DB import on a
+  Phase-0+ install) and the new cross-classification author-analysis
+  detection pattern are now documented in
+  `docs/CONTENT-CLASSIFICATION-DRIFT.md`. Final state verified via Playwright
+  against `devlib.thebosco.club`: API `total_count: 1160`, zero Michelle
+  Obama / Stephen Fry podcast episodes in the library view, matching the
+  user's independent browser check
 
 ## [8.1.0] - 2026-04-11
 
@@ -178,10 +300,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Workload-aware STT/TTS selection** (`library/localization/selection.py`, `pipeline.py`, `tts/factory.py`): New `WorkloadHint` enum (`SHORT_CLIP`, `LONG_FORM`, `ANY`) lets callers express intent. Long-form audiobook work prefers RunPod serverless → Vast.ai → local; short interactive clips prefer local to avoid cold-start. Both STT and TTS share the same `with_local_fallback()` helper (`library/localization/fallback.py`) so network errors retry locally exactly once
 - **TTS runtime fallback** (`library/localization/tts/factory.py::synthesize_with_fallback`): Mirrors the STT fallback shape — any network error from an XTTS backend retries once against `edge-tts` (always-available local fallback, no cold-start, no GPU)
 - **End-to-end subtitle pipeline test** (`library/tests/test_subtitle_pipeline_e2e.py`): Stubs `STTProvider` and `DeepLTranslator` so `generate_subtitles()` runs the full STT → sentence segmentation → alignment → VTT chain in ~0.1s without loading Whisper. Five tests cover source-only, dual-language, target-equals-source, silent-audio error, and VTT format sanity
-- **Localized guest email templates** (`library/backend/api_modular/email_templates.py`): Magic-link, approval, denial, reply, invitation, and activation emails now render from the JSON catalogs via a new `render_email(template_name, locale, **vars)` helper. Adds `preferred_locale` columns to `users` and `access_requests` (migration `library/auth/migrations/010_user_locale.sql`) so senders pick the recipient's language. HTML scaffold lives in Python, all copy lives in the catalog; HTML bodies escape user-supplied values via `str.format_map` with an `_EscapedMapping` wrapper. 18 tests in `library/tests/test_email_templates.py`
-- **Pinyin-based Chinese sort order** (`library/backend/api_modular/search_cjk.py`, `audiobooks.py`, `grouped.py`): Adds `pinyin_sort` column to `audiobook_translations` (migration `021_audiobook_translations_pinyin_sort.sql` + idempotent `backfill_pinyin_sort.py`), populated via `pypinyin` on every translation write and on demand for existing rows. Title grids for `locale=zh*` sort via `LEFT JOIN audiobook_translations ON locale` and `ORDER BY COALESCE(NULLIF(pinyin_sort, ''), audiobooks.title)`, so untranslated rows fall back to the English title instead of floating
-- **CJK bigram search** (`library/backend/api_modular/search_cjk.py`): Queries containing any CJK character swap FTS `MATCH` for LIKE-based bigram matching against `audiobooks.title`, `audiobooks.author`, and `audiobook_translations.title`. Works around SQLite `unicode61` tokenizer dropping CJK characters entirely. 18 tests in `library/tests/test_chinese_sort.py`
-- **DeepL quota + glossary + translation memory** (`library/localization/translation/quota.py`, `glossary.py`, `deepl_translate.py`): `QuotaTracker` persists monthly character usage in a new `deepl_quota` table (migration `020_deepl_quota.sql`) with soft warning at 90% and hard stop at 99%. `GlossaryManager` pushes a YAML-driven en→zh glossary (`library/localization/glossary/en-zh.yaml`, 16 domain terms) to DeepL's `/v2/glossaries` endpoint once per process and caches the glossary ID by content hash. `DeepLTranslator.translate()` now checks `string_translations` (SHA-256 cache keys) before hitting the API, bills only unique misses, and writes results back to the TM. Admin endpoint `GET /api/admin/localization/quota` returns the snapshot. 5 tests in `library/tests/test_deepl_quota.py`
+- **Localized guest email templates**
+  (`library/backend/api_modular/email_templates.py`): Magic-link, approval,
+  denial, reply, invitation, and activation emails now render from the
+  JSON catalogs via a new `render_email(template_name, locale, **vars)`
+  helper. Adds `preferred_locale` columns to `users` and `access_requests`
+  (migration `library/auth/migrations/010_user_locale.sql`) so senders
+  pick the recipient's language. HTML scaffold lives in Python, all copy
+  lives in the catalog; HTML bodies escape user-supplied values via
+  `str.format_map` with an `_EscapedMapping` wrapper. 18 tests in
+  `library/tests/test_email_templates.py`
+- **Pinyin-based Chinese sort order**
+  (`library/backend/api_modular/search_cjk.py`, `audiobooks.py`,
+  `grouped.py`): Adds `pinyin_sort` column to `audiobook_translations`
+  (migration `021_audiobook_translations_pinyin_sort.sql` + idempotent
+  `backfill_pinyin_sort.py`), populated via `pypinyin` on every
+  translation write and on demand for existing rows. Title grids for
+  `locale=zh*` sort via `LEFT JOIN audiobook_translations ON locale` and
+  `ORDER BY COALESCE(NULLIF(pinyin_sort, ''), audiobooks.title)`, so
+  untranslated rows fall back to the English title instead of floating
+- **CJK bigram search** (`library/backend/api_modular/search_cjk.py`):
+  Queries containing any CJK character swap FTS `MATCH` for LIKE-based
+  bigram matching against `audiobooks.title`, `audiobooks.author`, and
+  `audiobook_translations.title`. Works around SQLite `unicode61`
+  tokenizer dropping CJK characters entirely. 18 tests in
+  `library/tests/test_chinese_sort.py`
+- **DeepL quota + glossary + translation memory**
+  (`library/localization/translation/quota.py`, `glossary.py`,
+  `deepl_translate.py`): `QuotaTracker` persists monthly character usage
+  in a new `deepl_quota` table (migration `020_deepl_quota.sql`) with
+  soft warning at 90% and hard stop at 99%. `GlossaryManager` pushes a
+  YAML-driven en→zh glossary (`library/localization/glossary/en-zh.yaml`,
+  16 domain terms) to DeepL's `/v2/glossaries` endpoint once per process
+  and caches the glossary ID by content hash. `DeepLTranslator.translate()`
+  now checks `string_translations` (SHA-256 cache keys) before hitting
+  the API, bills only unique misses, and writes results back to the TM.
+  Admin endpoint `GET /api/admin/localization/quota` returns the
+  snapshot. 5 tests in `library/tests/test_deepl_quota.py`
 - **Document chrome localization**: All 11 user-facing HTML pages (`shell`, `index`, `about`, `help`, `register`, `login`, `contact`, `claim`, `verify`, `401`, `403`) tagged with `data-page-title-key` on `<html>`, rewritten on `localeChanged` via a new `applyChrome()` helper in `i18n.js`. Titles follow a consistent em-dash + localized-brand convention (`关于 — 图书馆` / `About — The Library`)
 - **JavaScript string sweep**: 45 new keys wrap hardcoded English in `account.js`, `library.js`, `shell.js`, `subtitles.js`, `utils.js`, and `webauthn.js` (alerts, confirms, thrown `Error` messages, player bar fallbacks, relative-time helpers, WebAuthn diagnostics). Admin-only JS (`utilities.js`, `suggestions-admin.js`, `maint-sched.js`) intentionally excluded per i18n scope rules
 
@@ -211,6 +366,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - **No hardcoded credentials in scripts**: Audit + cleanup of `install.sh`, `upgrade.sh`, and helper scripts to ensure no SSH keys, usernames, or passwords are baked into the repository
+
 ## [8.0.4.1] - 2026-04-08
 
 ### Added

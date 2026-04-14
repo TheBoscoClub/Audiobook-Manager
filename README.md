@@ -549,6 +549,7 @@ audiobook-config   # Show configuration
 If you use the localization features (subtitles, translations for non-English locales) and your host has an AMD GPU with ROCm support, you can run a local Whisper transcription service for GPU-accelerated speech-to-text. This avoids cloud provider costs and latency.
 
 **Requirements:**
+
 - AMD GPU with ROCm support (RDNA 2 or newer recommended)
 - `python-pytorch-opt-rocm` and `python-openai-whisper` (Arch/CachyOS) or equivalent PyTorch ROCm packages
 - The audiobook application installed at `/opt/audiobooks`

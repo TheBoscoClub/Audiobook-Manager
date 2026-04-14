@@ -65,7 +65,7 @@ The architecture supports any BCP 47 locale code. Adding a new language requires
 
 The localization system is a three-stage pipeline that converts English audiobook content into translated text and narrated audio:
 
-```
+```text
 Source Audio (English)
     |
     v
@@ -146,6 +146,7 @@ DeepL handles all text translation (UI strings, book metadata, subtitle text).
 3. **Configure the API key**:
 
    Add to `~/.config/api-keys.env`:
+
    ```bash
    # DeepL — translation API key for audiobook localization
    AUDIOBOOKS_DEEPL_API_KEY=your-key-here
@@ -169,6 +170,7 @@ Vast.ai is a peer-to-peer GPU marketplace where you rent dedicated GPU instances
 3. **Configure Whisper (STT)**:
 
    Once your instance is running, note its IP address and port, then add to `~/.config/api-keys.env` or `/etc/audiobooks/audiobooks.conf`:
+
    ```bash
    # Vast.ai — Whisper STT GPU instance
    AUDIOBOOKS_VASTAI_WHISPER_HOST=203.0.113.42
@@ -178,6 +180,7 @@ Vast.ai is a peer-to-peer GPU marketplace where you rent dedicated GPU instances
 4. **Configure XTTS (TTS, optional)**:
 
    If you want voice-cloned narration (preserves the original narrator's voice), deploy an XTTS instance:
+
    ```bash
    # Vast.ai — XTTS voice cloning GPU instance
    AUDIOBOOKS_VASTAI_XTTS_HOST=203.0.113.42
@@ -258,6 +261,7 @@ All localization settings are environment variables, read from `/etc/audiobooks/
 For additional languages, set `AUDIOBOOKS_TTS_VOICE_<LANG>` where `<LANG>` is the uppercase language subtag. For example, `AUDIOBOOKS_TTS_VOICE_JA` for Japanese, `AUDIOBOOKS_TTS_VOICE_KO` for Korean.
 
 To list all available edge-tts voices:
+
 ```bash
 edge-tts --list-voices
 ```
@@ -303,6 +307,7 @@ cp library/locales/en.json library/locales/<locale>.json
 ```
 
 For example, to add Japanese:
+
 ```bash
 cp library/locales/en.json library/locales/ja.json
 ```
@@ -331,6 +336,7 @@ AUDIOBOOKS_SUPPORTED_LOCALES="en,zh-Hans,ja"
 ```
 
 Restart the API service after changing this value:
+
 ```bash
 sudo systemctl restart audiobook-api.service
 ```
@@ -344,12 +350,14 @@ edge-tts --list-voices | grep ja-JP
 ```
 
 Example output:
-```
+
+```text
 ja-JP-NanamiNeural
 ja-JP-KeitaNeural
 ```
 
 Then set the voice in `/etc/audiobooks/audiobooks.conf`:
+
 ```bash
 AUDIOBOOKS_TTS_VOICE_JA="ja-JP-NanamiNeural"
 ```
@@ -442,6 +450,7 @@ audiobook-translations export -o zh-translations.tar.gz --locale zh-Hans
 ```
 
 The export bundles:
+
 - VTT subtitle files (English source + translated)
 - TTS audio files
 - Database rows (metadata translations, collection translations, string translations)
@@ -456,6 +465,7 @@ audiobook-translations import -a translations.tar.gz
 ```
 
 The import process:
+
 1. Reads the manifest from the archive
 2. Matches books by title between source and target databases
 3. Extracts VTT and audio files to the correct book directories
@@ -507,6 +517,7 @@ pip install edge-tts requests pypinyin
 ```
 
 For local Whisper fallback (optional):
+
 ```bash
 pip install openai-whisper
 ```
@@ -566,6 +577,7 @@ The localization system was built using the following open-source and commercial
 **Symptom**: Chinese/Japanese/Korean characters display as boxes or tofu in the web UI.
 
 - The web UI uses system font stacks with CJK fallbacks. If your browser or OS lacks CJK fonts, install them:
+
   ```bash
   # Arch/CachyOS
   sudo pacman -S noto-fonts-cjk
@@ -576,6 +588,7 @@ The localization system was built using the following open-source and commercial
   # Fedora
   sudo dnf install google-noto-sans-cjk-fonts
   ```
+
 - Clear browser cache after font installation.
 
 ### Subtitle Sync Issues
