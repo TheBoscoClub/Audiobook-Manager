@@ -70,18 +70,24 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Release version: $VERSION"
 
-      - name: Create GitHub Release
-        uses: >-
-          softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
-        # v3.0.0
-        with:
-          files: |
-            artifacts/*.tar.gz
-            artifacts/*.sha256
-          generate_release_notes: true
-          draft: false
+      - name: Upload or create GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — uploading assets only"
+            gh release upload "$TAG" artifacts/*.tar.gz artifacts/*.sha256 \
+              --repo "$REPO" --clobber
+          else
+            echo "Creating release $TAG"
+            gh release create "$TAG" \
+              --repo "$REPO" \
+              --generate-notes \
+              artifacts/*.tar.gz artifacts/*.sha256
+          fi
 
   build-docker:
     name: Build Docker Image

@@ -44,6 +44,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/MULTI-LANGUAGE-SETUP.md` now pass `markdownlint-cli2` with zero errors.
   Wrapped long CHANGELOG bullets, added blank lines around fenced code blocks
   and lists, tagged bare fences with `text` language
+- **`docs/ARCHITECTURE.md` line-length fix**: the localization-subsystem
+  intro paragraph on line 710 was 681 chars; wrapped to ≤100 cols so
+  `markdownlint-cli2 MD013` passes clean
+- **Bandit B608 suppression moved to the reported line**: in
+  `library/backend/import_to_db.py::get_enriched_books_in_library`, the
+  `# nosec B608` comment was on the `cursor.execute(` line, but bandit
+  reports the offense at the f-string that follows. The suppression now
+  sits on the closing `"""` line where bandit actually flags it, bringing
+  bandit MEDIUM count from 1 to 0
+- **Release workflow no longer fails on immutable-release update**: the
+  `v8.2.2.1` Release run failed because `softprops/action-gh-release`
+  attempts to patch `target_commitish` on a release that `/git-release
+  --promote` already created, and GitHub rejects that on immutable
+  releases (`target_commitish cannot be changed when release is
+  immutable`). Replaced the action with a `gh` CLI block that detects
+  whether the release exists — uploads assets with `--clobber` if so,
+  otherwise creates the release with `--generate-notes`. Works identically
+  for tag-pushed-then-promoted and direct tag-push flows
 
 ## [8.2.2.1] - 2026-04-14
 

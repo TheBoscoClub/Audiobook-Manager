@@ -297,12 +297,12 @@ def _preserve_enrichment(cursor):
     """Preserve Audible enrichment data keyed by file_path."""
     preserved = {}
     field_list = ", ".join(_ENRICHMENT_FIELDS)
-    cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query,python.lang.security.audit.formatted-sql-query.formatted-sql-query
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query,python.lang.security.audit.formatted-sql-query.formatted-sql-query
         f"""
         SELECT file_path, {field_list}
         FROM audiobooks
         WHERE audible_enriched_at IS NOT NULL OR isbn_enriched_at IS NOT NULL
-    """  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+    """  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
     )
     for row in cursor.fetchall():
         preserved[row[0]] = dict(zip(_ENRICHMENT_FIELDS, row[1:]))
