@@ -54,21 +54,88 @@ cmd_status() {
     fi
 
     # Queue counts by state
-    local states
+    local states pending_count processing_count
     states=$(sqlite3 "$DB" "SELECT state, COUNT(*) FROM translation_queue GROUP BY state ORDER BY state;" 2>/dev/null)
+    pending_count=0
+    processing_count=0
     if [[ -z "$states" ]]; then
         echo "  Queue: empty (no translation jobs)"
     else
         while IFS='|' read -r state count; do
             case "$state" in
                 completed) echo -e "  ${GREEN}${state}${NC}: ${count}" ;;
-                processing) echo -e "  ${BLUE}${state}${NC}: ${count}" ;;
-                pending)    echo -e "  ${YELLOW}${state}${NC}: ${count}" ;;
+                processing) echo -e "  ${BLUE}${state}${NC}: ${count}"; processing_count="$count" ;;
+                pending)    echo -e "  ${YELLOW}${state}${NC}: ${count}"; pending_count="$count" ;;
                 paused)     echo -e "  ${YELLOW}${state} (frozen)${NC}: ${count}" ;;
                 failed)     echo -e "  ${RED}${state}${NC}: ${count}" ;;
                 *)          echo "  ${state}: ${count}" ;;
             esac
         done <<< "$states"
+    fi
+
+    # In-progress details: title, step, chapters done, elapsed time
+    if [[ "${processing_count:-0}" -gt 0 ]]; then
+        echo ""
+        echo -e "${BLUE}In progress:${NC}"
+        # chapter_subtitles rows for locale='en' exist once STT finishes a chapter,
+        # so per-book en count approximates "chapters transcribed so far".
+        local rows
+        rows=$(sqlite3 -separator $'\t' "$DB" "
+            SELECT tq.audiobook_id,
+                   tq.step,
+                   COALESCE(cs.ch_count, 0),
+                   CAST((strftime('%s','now') - strftime('%s', tq.started_at)) AS INTEGER),
+                   substr(a.title, 1, 50)
+            FROM translation_queue tq
+            JOIN audiobooks a ON a.id = tq.audiobook_id
+            LEFT JOIN (
+                SELECT audiobook_id, COUNT(*) AS ch_count
+                FROM chapter_subtitles
+                WHERE locale = 'en'
+                GROUP BY audiobook_id
+            ) cs ON cs.audiobook_id = tq.audiobook_id
+            WHERE tq.state = 'processing'
+            ORDER BY tq.started_at
+            LIMIT 20;
+        " 2>/dev/null)
+        if [[ -n "$rows" ]]; then
+            printf "  %-7s %-7s %-8s %-9s %s\n" "STEP" "ID" "CHAPTERS" "ELAPSED" "TITLE"
+            while IFS=$'\t' read -r bid step chapters elapsed title; do
+                local el_fmt
+                if [[ "$elapsed" -ge 3600 ]]; then
+                    el_fmt=$(printf "%dh%02dm" $((elapsed/3600)) $(((elapsed%3600)/60)))
+                else
+                    el_fmt=$(printf "%02d:%02d" $((elapsed/60)) $((elapsed%60)))
+                fi
+                printf "  %-7s %-7s %-8s %-9s %s\n" "$step" "#$bid" "${chapters} ch" "$el_fmt" "$title"
+            done <<< "$rows"
+        fi
+
+        # ETA calculation — avg per-book completion time × pending ÷ active workers
+        local avg_sec
+        avg_sec=$(sqlite3 "$DB" "
+            SELECT CAST(AVG(strftime('%s', finished_at) - strftime('%s', started_at)) AS INTEGER)
+            FROM translation_queue
+            WHERE state = 'completed'
+              AND started_at IS NOT NULL
+              AND finished_at IS NOT NULL;
+        " 2>/dev/null)
+        if [[ -n "$avg_sec" && "$avg_sec" -gt 0 && "${pending_count:-0}" -gt 0 ]]; then
+            local eta_sec workers avg_min
+            workers=${processing_count:-1}
+            eta_sec=$(( pending_count * avg_sec / workers ))
+            avg_min=$(( avg_sec / 60 ))
+            local eta_fmt
+            if [[ "$eta_sec" -ge 86400 ]]; then
+                eta_fmt=$(printf "~%dd %02dh" $((eta_sec/86400)) $(((eta_sec%86400)/3600)))
+            elif [[ "$eta_sec" -ge 3600 ]]; then
+                eta_fmt=$(printf "~%dh %02dm" $((eta_sec/3600)) $(((eta_sec%3600)/60)))
+            else
+                eta_fmt=$(printf "~%dm" $((eta_sec/60)))
+            fi
+            echo ""
+            echo -e "  ${BLUE}ETA${NC}: ${eta_fmt} (${pending_count} pending × ~${avg_min}min/book ÷ ${workers} workers)"
+        fi
     fi
 
     # Subtitle counts
