@@ -954,11 +954,11 @@ audit_and_cleanup() {
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo -e "  ${YELLOW}[DRY-RUN] Would remove orphaned unit: $unit_name${NC}"
             else
-                if [[ -n "$use_sudo" ]]; then
-                    sudo systemctl disable "$unit_name" 2>/dev/null || true
-                    sudo systemctl stop "$unit_name" 2>/dev/null || true
-                    sudo rm -f "$unit_path"
-                fi
+                # $use_sudo is "" when running as root, "sudo" when non-root.
+                # Either way, we have (or need and have) the privilege to rm.
+                $use_sudo systemctl disable "$unit_name" 2>/dev/null || true
+                $use_sudo systemctl stop "$unit_name" 2>/dev/null || true
+                $use_sudo rm -f "$unit_path"
                 echo -e "  ${GREEN}Removed orphaned unit: $unit_name${NC}"
             fi
             orphan_found=$((orphan_found + 1))
@@ -1431,8 +1431,11 @@ do_upgrade() {
         done
     fi
 
-    # Update active systemd services and helper configuration
-    if [[ -n "$use_sudo" ]] && [[ -d "/etc/systemd/system" ]]; then
+    # Update active systemd services and helper configuration.
+    # Gate only on /etc/systemd/system existing — $use_sudo is a command prefix,
+    # empty when we're already root. Gating on `-n $use_sudo` was a bug that
+    # skipped unit installation entirely when upgrade.sh ran under sudo.
+    if [[ -d "/etc/systemd/system" ]]; then
         echo -e "${BLUE}Updating systemd service files...${NC}"
 
         # Copy new/updated service, target, path, and timer units
@@ -1442,8 +1445,8 @@ do_upgrade() {
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would install: $unit_name"
                 else
-                    sudo cp "$unit_file" "/etc/systemd/system/${unit_name}"
-                    sudo chmod 644 "/etc/systemd/system/${unit_name}"
+                    $use_sudo cp "$unit_file" "/etc/systemd/system/${unit_name}"
+                    $use_sudo chmod 644 "/etc/systemd/system/${unit_name}"
                     echo "  Installed: $unit_name"
                 fi
             fi

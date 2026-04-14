@@ -12,11 +12,14 @@
 #                         canonical: /var/lib/audiobooks/covers
 #   AUDIOBOOKS_DATABASE   legacy: /var/lib/audiobooks/audiobooks.db (flat)
 #                         canonical: /var/lib/audiobooks/db/audiobooks.db
+#   AUDIOBOOKS_VENV       legacy: ${AUDIOBOOKS_HOME}/library/venv
+#                         canonical: (unset — falls through to config.py default)
+#   AUDIOBOOKS_CERTS      legacy: ${AUDIOBOOKS_HOME}/library/certs
+#                         canonical: ${CONFIG_DIR}/certs (install.sh writes this)
 #
 # User-customized values (anything not matching the legacy glob) are preserved.
-# Keys whose current defaults still reference ${AUDIOBOOKS_HOME}/library/*
-# (AUDIOBOOKS_VENV, AUDIOBOOKS_CERTS) are intentionally NOT handled — those
-# defaults have not drifted and stripping them would be wrong.
+# Matches the canonical drift list in scripts/install-manifest.sh
+# (CONFIG_CANONICAL_DEFAULTS).
 #
 # Idempotent: runs cleanly on configs that have already been cleaned.
 
@@ -66,6 +69,8 @@ _strip_key() {
 
 _strip_key "AUDIOBOOKS_COVERS"   '*library/web-v2/covers' '*library/covers'
 _strip_key "AUDIOBOOKS_DATABASE" '/var/lib/audiobooks/audiobooks.db'
+_strip_key "AUDIOBOOKS_VENV"     '*library/venv'
+_strip_key "AUDIOBOOKS_CERTS"    '*library/certs'
 
 # Ensure canonical dirs exist for the keys we may have stripped
 if [[ "$DRY_RUN" != "true" ]]; then
