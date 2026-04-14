@@ -9,6 +9,7 @@
 #   audiobook-translations resume              # Resume paused queue
 #   audiobook-translations start               # Start translation daemon
 #   audiobook-translations stop                # Stop translation daemon (graceful)
+#   audiobook-translations check               # Run liveness check now (don't wait for 5-min timer)
 #
 # Asset transfer:
 #   audiobook-translations export -o translations.tar.gz [--locale zh-Hans]
@@ -41,10 +42,14 @@ usage() {
     echo "Queue control:"
     echo "  status              Show translation queue state and daemon status"
     echo "  status --watch [N]  Auto-refresh every N seconds (default 5); Ctrl+C exits"
+    echo "         --no-ensure  With --watch: don't auto-start the daemon if it's inactive"
+    echo "         --aggressive With --watch: fire the liveness check EVERY tick (override 5-min)"
+    echo "                      Interactive keys: +/- adjust interval, a toggle aggressive, q quit"
     echo "  pause     Pause queue (in-progress books finish, no new ones start)"
     echo "  resume    Resume paused translations"
     echo "  start     Start the translation daemon"
     echo "  stop      Stop the translation daemon gracefully"
+    echo "  check     Run the liveness check now (equivalent to firing the 5-min timer early)"
     echo ""
     echo "Asset transfer:"
     echo "  export    Export translation assets to archive"
@@ -172,11 +177,26 @@ cmd_status() {
         echo -e "  Service: ${YELLOW}inactive${NC}"
     fi
 
-    # Timer status
+    # Timer status. When cmd_status is called from cmd_status_watch, the env
+    # vars WATCH_TICK_INTERVAL and WATCH_MODE are set so we can annotate that
+    # --watch is short-circuiting the 5-minute systemd timer cadence.
     if systemctl is-active --quiet audiobook-translate-check.timer 2>/dev/null; then
         local next
         next=$(systemctl show audiobook-translate-check.timer --property=NextElapseUSecRealtime --value 2>/dev/null)
-        echo -e "  Timer: ${GREEN}active${NC} (next check: ${next:-unknown})"
+        echo -e "  Timer: ${GREEN}active${NC} (next scheduled: ${next:-unknown})"
+        if [[ -n "${WATCH_TICK_INTERVAL:-}" ]]; then
+            case "${WATCH_MODE:-}" in
+                aggressive)
+                    echo -e "         ${GREEN}--watch override${NC}: firing liveness check EVERY ${WATCH_TICK_INTERVAL}s (5-min timer is moot)"
+                    ;;
+                auto-ensure)
+                    echo -e "         ${GREEN}--watch override${NC}: will fire liveness check within ${WATCH_TICK_INTERVAL}s if daemon goes inactive"
+                    ;;
+                read-only)
+                    echo -e "         ${YELLOW}--watch${NC}: read-only display refresh every ${WATCH_TICK_INTERVAL}s — 5-min timer cadence unchanged"
+                    ;;
+            esac
+        fi
     else
         echo -e "  Timer: ${YELLOW}inactive${NC}"
     fi
@@ -291,22 +311,97 @@ cmd_stop() {
     [[ "${pending:-0}" -gt 0 ]] && echo "${pending} jobs reset to pending (will resume on next start)."
 }
 
+# Fire the liveness check service. Same codepath the 5-minute timer runs,
+# but on demand — skips the wait when you know the daemon should be moving.
+cmd_check() {
+    echo "Running translation liveness check..."
+    if sudo systemctl start audiobook-translate-check.service 2>/dev/null; then
+        if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+            echo -e "${GREEN}Daemon is active.${NC}"
+        else
+            echo -e "${YELLOW}Check ran but daemon is still inactive — see: journalctl -u audiobook-translate-check -n 20${NC}"
+        fi
+    else
+        echo -e "${RED}Failed to start liveness check service.${NC}"
+        exit 1
+    fi
+}
+
 # Run cmd_status in a refresh loop until SIGINT. Default interval 5s; override
 # via --watch=N or -wN. Clears the screen each tick so the display doesn't
 # grow without bound; trap SIGINT so Ctrl+C exits cleanly without a traceback.
+#
+# ensure_running (default: 1): on each tick, if the daemon is inactive, fire
+# the liveness-check service so --watch self-heals a stopped daemon instead
+# of silently displaying a frozen queue. Pass 0 to opt out.
+#
+# aggressive (default: 0): fire the liveness-check on EVERY tick regardless
+# of service state. Useful when the daemon reports active but appears stalled.
+# Idempotent (oneshot) — harmless when the daemon is healthy.
+#
+# Interactive keys (via `read -t` instead of sleep):
+#   +/= : increase refresh interval by STEP seconds
+#   -/_ : decrease refresh interval by STEP seconds (floor 1s)
+#   a   : toggle aggressive mode
+#   r   : refresh immediately
+#   q   : quit
 cmd_status_watch() {
     local interval="${1:-5}"
+    local ensure_running="${2:-1}"
+    local aggressive="${3:-0}"
+    local step=5
+    local tick=0
+    local last_ts=0
+    local now_ts=0
+    local observed=0
     if ! [[ "$interval" =~ ^[0-9]+$ ]] || [[ "$interval" -lt 1 ]]; then
         echo -e "${RED}Invalid interval: $interval${NC}" >&2
         exit 1
     fi
     trap 'printf "\n"; exit 0' INT
     while true; do
+        tick=$((tick + 1))
+        now_ts=$(date +%s)
+        if [[ "$last_ts" -gt 0 ]]; then
+            observed=$((now_ts - last_ts))
+        else
+            observed=0
+        fi
+        last_ts=$now_ts
+        if [[ "$aggressive" == "1" ]]; then
+            sudo systemctl start audiobook-translate-check.service 2>/dev/null || true
+        elif [[ "$ensure_running" == "1" ]]; then
+            if ! systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+                sudo systemctl start audiobook-translate-check.service 2>/dev/null || true
+            fi
+        fi
+        local mode_label
+        if [[ "$aggressive" == "1" ]]; then
+            mode_label="aggressive"
+        elif [[ "$ensure_running" == "1" ]]; then
+            mode_label="auto-ensure"
+        else
+            mode_label="read-only"
+        fi
         tput clear 2>/dev/null || clear
-        cmd_status
+        WATCH_TICK_INTERVAL="$interval" WATCH_MODE="$mode_label" cmd_status
         echo ""
-        echo -e "${BLUE}Refreshing every ${interval}s — press Ctrl+C to exit${NC}"
-        sleep "$interval"
+        local observed_label=""
+        if [[ "$observed" -gt 0 ]]; then
+            observed_label=" (last tick ${observed}s ago)"
+        fi
+        echo -e "${BLUE}Tick #${tick} @ $(date '+%H:%M:%S')  interval=${interval}s${observed_label}  [${mode_label}]${NC}"
+        echo -e "${BLUE}keys: +/- (±${step}s)  a=toggle aggressive  r=refresh now  q=quit${NC}"
+        local key=""
+        if read -rsn1 -t "$interval" key 2>/dev/null; then
+            case "$key" in
+                +|=) interval=$((interval + step)) ;;
+                -|_) interval=$((interval - step)); [[ "$interval" -lt 1 ]] && interval=1 ;;
+                a|A) if [[ "$aggressive" == "1" ]]; then aggressive=0; else aggressive=1; fi ;;
+                r|R) : ;;
+                q|Q) printf "\n"; exit 0 ;;
+            esac
+        fi
     done
 }
 
@@ -314,22 +409,40 @@ cmd_status_watch() {
 case "${1:-}" in
     status)
         shift
-        case "${1:-}" in
-            -w|--watch)
-                cmd_status_watch "${2:-5}"
-                ;;
-            -w=*|--watch=*)
-                cmd_status_watch "${1#*=}"
-                ;;
-            "")
-                cmd_status
-                ;;
-            *)
-                echo -e "${RED}Unknown option for status: $1${NC}" >&2
-                echo "Usage: audiobook-translations status [--watch [SECONDS]]"
-                exit 1
-                ;;
-        esac
+        # Parse status flags: --watch [N] and --no-ensure can appear in any order.
+        watch_mode=0; watch_interval=5; ensure_running=1; aggressive=0
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                -w|--watch)
+                    watch_mode=1
+                    if [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]]; then
+                        watch_interval="$2"
+                        shift
+                    fi
+                    ;;
+                -w=*|--watch=*)
+                    watch_mode=1
+                    watch_interval="${1#*=}"
+                    ;;
+                --no-ensure)
+                    ensure_running=0
+                    ;;
+                --aggressive)
+                    aggressive=1
+                    ;;
+                *)
+                    echo -e "${RED}Unknown option for status: $1${NC}" >&2
+                    echo "Usage: audiobook-translations status [--watch [SECONDS]] [--no-ensure] [--aggressive]"
+                    exit 1
+                    ;;
+            esac
+            shift
+        done
+        if [[ "$watch_mode" == "1" ]]; then
+            cmd_status_watch "$watch_interval" "$ensure_running" "$aggressive"
+        else
+            cmd_status
+        fi
         ;;
     pause)
         cmd_pause
@@ -342,6 +455,9 @@ case "${1:-}" in
         ;;
     stop)
         cmd_stop
+        ;;
+    check)
+        cmd_check
         ;;
     export|import)
         # Delegate to the Python transfer module

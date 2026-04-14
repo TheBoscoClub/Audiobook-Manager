@@ -353,26 +353,46 @@ main() {
             EMPTY_COUNT=0
         fi
 
-        # Health-check and restart dead tunnels
+        # Health-check and restart dead tunnels. Three phases keep the
+        # expensive work (whisper server restart + 15s model-load wait)
+        # parallel while PID-map updates stay serial in the parent, because
+        # bash subshells can't mutate parent associative arrays.
+        #
+        # Prior serial loop cost 8 × ~18s = ~144s per recovery pass; now the
+        # slow phase collapses to ~18s regardless of instance count.
+
+        # Phase 1 (serial, fast): spawn tunnel restarts for dead tunnels.
+        # start_tunnel is non-blocking (nohup ssh &), so this is ms-scale.
         for instance in "${VASTAI_INSTANCES[@]}"; do
             IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
-
-            # Restart dead tunnel
             local tpid=${TUNNEL_PIDS[$label]:-0}
             if [ "$tpid" -gt 0 ] && ! kill -0 "$tpid" 2>/dev/null; then
                 log "Tunnel $label died — restarting"
                 start_tunnel "$local_port" "$ssh_port" "$ssh_host" "$label"
-                sleep 3
             fi
+        done
+        sleep 3  # single shared settle window for all tunnels
 
-            # Check tunnel health, restart whisper if needed
-            if ! check_tunnel_health "$local_port" "$label"; then
-                log "Tunnel $label unhealthy — checking whisper server"
-                ensure_whisper_server "$ssh_port" "$ssh_host" "$label" "$compute_type"
-                sleep 15  # model load time
-            fi
+        # Phase 2 (parallel, slow): whisper health-check + model-load wait.
+        # This is the old per-instance 15s sleep; now runs concurrently for
+        # every unhealthy instance. Pure side-effect on the remote GPU — no
+        # parent state mutated here.
+        for instance in "${VASTAI_INSTANCES[@]}"; do
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
+            (
+                if ! check_tunnel_health "$local_port" "$label"; then
+                    log "Tunnel $label unhealthy — checking whisper server"
+                    ensure_whisper_server "$ssh_port" "$ssh_host" "$label" "$compute_type"
+                    sleep 15  # model load time
+                fi
+            ) &
+        done
+        wait
 
-            # Restart dead worker
+        # Phase 3 (serial, fast): restart dead workers. start_worker is also
+        # non-blocking, and must update the parent's WORKER_PIDS map.
+        for instance in "${VASTAI_INSTANCES[@]}"; do
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
             local wpid=${WORKER_PIDS[$label]:-0}
             if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2>/dev/null; then
                 log "Worker $label died — restarting"
