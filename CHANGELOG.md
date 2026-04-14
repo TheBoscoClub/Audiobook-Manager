@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.1.1] - 2026-04-14
+
+### Added
+
+- **Interactive `--watch` controls in `audiobook-translations`**: live refresh now supports `+`/`-` to tune the tick interval (±5s, min 1s), `a` to toggle aggressive mode (fires the liveness check every tick instead of only when the daemon is idle), `r` to refresh immediately, and `q` to quit. Status output shows the current tick number, observed gap since the previous tick, active mode label, and an annotation on the `Timer:` line that explains how `--watch` is relating to the 5-minute systemd cadence (override, will-trigger-if-idle, or read-only)
+- **`audiobook-translations check` subcommand**: one-shot invocation of `audiobook-translate-check.service` so operators can force the daemon-liveness check from the CLI without waiting for the 5-minute timer
+
+### Changed
+
+- **`translation-daemon.sh` health-check loop is now parallelized**: reorganized the per-instance recovery path into three phases — serial tunnel restart, parallel whisper-server probe and model-load, serial worker restart — so eight Vast.ai instances needing attention collapse from ~144s of back-to-back work into ~18s. Parent-process PID-map mutations stay in the serial phases so backgrounded subshells never race the parent's bookkeeping
+
+### Fixed
+
+- **ffmpeg chapter-split timeout now scales with chunk duration** (`library/localization/chapters.py`): the fixed 60s cap would kill stream-copy on large opus files with sparse sync points (e.g., a 10-hour chunk from a 266-hour Dostoyevsky collection). Timeout is now `max(120s, 60s + 5% × chunk_seconds)` — long chunks get room to finish, short chapters still bounded at 120s
+- **Malformed UTF-8 bytes no longer crash TTS and glossary reads** (`library/localization/queue.py`, `library/localization/translation/glossary.py`): a single bad byte in an STT-provider-written VTT transcript or glossary file used to raise `UnicodeDecodeError` and fail the whole translation job. Both reads now use `errors="replace"` so isolated bad bytes become `U+FFFD` and downstream TTS skips them harmlessly
+
 ## [8.2.1] - 2026-04-13
 
 ### Added
@@ -2696,7 +2712,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1.1...HEAD
+[8.2.1.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1...v8.2.1.1
 [8.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.2...v8.2.1
 [8.2.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0.1...v8.2.0.2
 [8.2.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.0...v8.2.0.1
