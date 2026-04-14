@@ -9,9 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Systemd hardening across remaining units**: `audiobook-fleet-watchdog.service`,
+  `audiobook-translate.service`, `audiobook-translate-check.service`, and
+  `audiobook-shutdown-saver.service` now set `NoNewPrivileges=yes`,
+  `ProtectSystem=full`, and `ProtectHome=read-only`. `PrivateTmp=yes` added
+  everywhere except `audiobook-shutdown-saver.service` (intentionally omitted —
+  needs real `/tmp` to flush staging files before shutdown)
+
 ### Changed
 
+- **`upgrade.sh` normalizes ownership + permissions on every run**: the
+  `verify_installation_permissions()` helper now unconditionally resets
+  `audiobooks:audiobooks` ownership and canonical mode bits across the entire
+  install tree, venv `bin/` entries, TLS key (`0640`), `auth.key` (`0600`), and
+  `auth.db` (`0640`). Prevents recurrences of the 2026-04-14 outage where
+  `/opt/audiobooks` was left `bosco:bosco` `0700` after an interactive rebuild
+  and blocked the service account from reading its own install. Paths are
+  resolved via `${AUDIOBOOKS_CERTS}` / `${AUDIOBOOKS_VAR_DIR}` from
+  `lib/audiobook-config.sh` (no hardcoded paths)
+
 ### Fixed
+
+- **markdownlint cleanup**: `CHANGELOG.md`, `README.md`, and
+  `docs/MULTI-LANGUAGE-SETUP.md` now pass `markdownlint-cli2` with zero errors.
+  Wrapped long CHANGELOG bullets, added blank lines around fenced code blocks
+  and lists, tagged bare fences with `text` language
 
 ## [8.2.2.1] - 2026-04-14
 
