@@ -21,6 +21,14 @@ source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
 export AUDIOBOOKS_DATABASE="${AUDIOBOOKS_DATABASE:-/var/lib/audiobooks/db/audiobooks.db}"
 DB="$AUDIOBOOKS_DATABASE"
 
+# Wrap sqlite3 so every read tolerates transient write locks from the daemon's
+# workers. Without busy_timeout, a locked DB returns instantly with "database
+# is locked" on stderr, and callers that silence stderr see an empty string —
+# which previously rendered as "Queue: empty" even when 1800+ jobs existed.
+sq() {
+    sqlite3 -cmd ".timeout 5000" "$DB" "$@"
+}
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -55,7 +63,7 @@ cmd_status() {
 
     # Queue counts by state
     local states pending_count processing_count
-    states=$(sqlite3 "$DB" "SELECT state, COUNT(*) FROM translation_queue GROUP BY state ORDER BY state;" 2>/dev/null)
+    states=$(sq "SELECT state, COUNT(*) FROM translation_queue GROUP BY state ORDER BY state;" 2>/dev/null)
     pending_count=0
     processing_count=0
     if [[ -z "$states" ]]; then
@@ -80,7 +88,7 @@ cmd_status() {
         # chapter_subtitles rows for locale='en' exist once STT finishes a chapter,
         # so per-book en count approximates "chapters transcribed so far".
         local rows
-        rows=$(sqlite3 -separator $'\t' "$DB" "
+        rows=$(sq -separator $'\t' "
             SELECT tq.audiobook_id,
                    tq.step,
                    COALESCE(cs.ch_count, 0),
@@ -113,7 +121,7 @@ cmd_status() {
 
         # ETA calculation — avg per-book completion time × pending ÷ active workers
         local avg_sec
-        avg_sec=$(sqlite3 "$DB" "
+        avg_sec=$(sq "
             SELECT CAST(AVG(strftime('%s', finished_at) - strftime('%s', started_at)) AS INTEGER)
             FROM translation_queue
             WHERE state = 'completed'
@@ -140,10 +148,10 @@ cmd_status() {
 
     # Subtitle counts
     local en_chapters zh_chapters en_books zh_books
-    en_chapters=$(sqlite3 "$DB" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
-    zh_chapters=$(sqlite3 "$DB" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
-    en_books=$(sqlite3 "$DB" "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
-    zh_books=$(sqlite3 "$DB" "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
+    en_chapters=$(sq "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
+    zh_chapters=$(sq "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
+    en_books=$(sq "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
+    zh_books=$(sq "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
 
     echo ""
     echo "Subtitles:"
@@ -179,13 +187,13 @@ cmd_pause() {
     fi
 
     local pending
-    pending=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
+    pending=$(sq "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
     local processing
-    processing=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
+    processing=$(sq "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
 
     if [[ "${pending:-0}" -eq 0 ]]; then
         local paused
-        paused=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='paused';" 2>/dev/null)
+        paused=$(sq "SELECT COUNT(*) FROM translation_queue WHERE state='paused';" 2>/dev/null)
         if [[ "${paused:-0}" -gt 0 ]]; then
             echo -e "${YELLOW}Queue is already paused (${paused} paused jobs)${NC}"
         else
@@ -195,7 +203,7 @@ cmd_pause() {
         return 0
     fi
 
-    sqlite3 "$DB" "UPDATE translation_queue SET state = 'paused' WHERE state = 'pending';"
+    sq "UPDATE translation_queue SET state = 'paused' WHERE state = 'pending';"
     echo -e "${GREEN}Paused ${pending} pending translations.${NC}"
     [[ "${processing:-0}" -gt 0 ]] && echo -e "${BLUE}${processing} books still processing — they will finish, then the daemon stops.${NC}"
     echo ""
@@ -209,14 +217,14 @@ cmd_resume() {
     fi
 
     local paused
-    paused=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='paused';" 2>/dev/null)
+    paused=$(sq "SELECT COUNT(*) FROM translation_queue WHERE state='paused';" 2>/dev/null)
 
     if [[ "${paused:-0}" -eq 0 ]]; then
         echo "No paused translations to resume."
         return 0
     fi
 
-    sqlite3 "$DB" "UPDATE translation_queue SET state = 'pending' WHERE state = 'paused';"
+    sq "UPDATE translation_queue SET state = 'pending' WHERE state = 'paused';"
     echo -e "${GREEN}Resumed ${paused} translations.${NC}"
 
     # Start daemon if not running and timer is active
@@ -277,7 +285,7 @@ cmd_stop() {
 
     # Show if anything was reset
     local pending
-    pending=$(sqlite3 "$DB" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
+    pending=$(sq "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
     [[ "${pending:-0}" -gt 0 ]] && echo "${pending} jobs reset to pending (will resume on next start)."
 }
 
