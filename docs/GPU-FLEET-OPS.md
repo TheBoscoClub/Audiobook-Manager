@@ -20,10 +20,14 @@ The translation pipeline (STT → DeepL → TTS) uses rented cloud GPUs to run W
 
 **Cost model**: idle GPUs still bill. Always run `teardown-gpu.sh` after a backlog run. `AUTO_TEARDOWN_GPU=true` in config tears down automatically when the queue drains.
 
-**Typical run**:
+**Typical run** (default `WORKERS_PER_GPU=4`):
 - 6× L40S fleet @ $0.53/hr ≈ $3.20/hr
-- ~15 min STT per book on L40S
-- 1665-book backlog ÷ 6 GPUs × 15 min ≈ 70 hours ≈ $225
+- ~15 min STT per book per stream, 4 streams per L40S
+- 1665 books ÷ (6 GPUs × 4 streams) × 15 min ≈ 17 hours ≈ $55
+
+Pre-v8.2.3.5 (single-stream, `WORKERS_PER_GPU=1`) was ~70 hrs / $225 on the
+same fleet. The speed-up is pure concurrency — no extra VRAM, no extra
+instances.
 
 ---
 
@@ -328,6 +332,7 @@ sudo /usr/local/bin/audiobook-translations resume   # if queue was paused
 | `RUNPOD_INSTANCES` | RunPod fleet config (see §4) | `()` |
 | `AUTO_TEARDOWN_GPU` | Tear down when queue empties | `false` |
 | `GPU_API_KEYS_FILE` | Path to API keys env file | `~/.config/api-keys.env` |
+| `WORKERS_PER_GPU` | Parallel books per GPU (gthreads on remote + N local workers) | `4` |
 
 ### `~/.config/api-keys.env`
 

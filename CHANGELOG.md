@@ -9,7 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-book-per-GPU concurrency**: new `WORKERS_PER_GPU` env var
+  (default 4) spawns N parallel `batch-translate.py` workers per Vast.ai/RunPod
+  tunnel. All N share a single `faster-whisper` model instance on the GPU (no
+  extra VRAM) — the remote gunicorn now runs `-k gthread --threads N`, and
+  CUDA releases the GIL so N transcribes run truly concurrently. On L40S
+  (48GB) this cuts per-book wall time ~4× and collapses the ~1665-book
+  backlog from ~70 hrs / $225 to ~18 hrs / $60 on the same 6-GPU fleet.
+  Configurable via `/etc/audiobooks/scripts/translation-env.sh`; set to 1 to
+  restore pre-change single-stream behavior
+
 ### Changed
+
+- **Atomic job claim in `batch-translate.py::next_pending_job`**: replaced the
+  SELECT-then-UPDATE pair (race window where two workers could claim the same
+  `translation_queue` row) with a single `UPDATE ... RETURNING` statement.
+  Required for correctness under `WORKERS_PER_GPU > 1`; harmless with 1.
+  Requires SQLite ≥ 3.35 (shipped 2021-03; Arch/CachyOS 3.51, Debian 13 3.46
+  — all supported targets satisfy it)
 
 ### Fixed
 

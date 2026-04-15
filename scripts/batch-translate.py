@@ -83,32 +83,37 @@ def ensure_tables(db_path: str) -> None:
 
 
 def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
+    """Atomically claim the next pending job.
+
+    Uses UPDATE ... RETURNING so concurrent workers never grab the same row.
+    Requires SQLite >= 3.35 (2021-03). Claim is serialised by SQLite's
+    writer lock under WAL, so only one worker wins per row.
+    """
     conn = get_db(db_path)
     try:
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         if book_id:
             row = conn.execute(
-                "SELECT * FROM translation_queue "
-                "WHERE audiobook_id = ? AND state = 'pending' LIMIT 1",
-                (book_id,),
+                "UPDATE translation_queue "
+                "SET state = 'processing', started_at = ?, last_progress_at = ? "
+                "WHERE id = (SELECT id FROM translation_queue "
+                "            WHERE audiobook_id = ? AND state = 'pending' "
+                "            LIMIT 1) "
+                "RETURNING *",
+                (now, now, book_id),
             ).fetchone()
         else:
             row = conn.execute(
-                "SELECT * FROM translation_queue "
-                "WHERE state = 'pending' "
-                "ORDER BY priority DESC, created_at ASC LIMIT 1",
+                "UPDATE translation_queue "
+                "SET state = 'processing', started_at = ?, last_progress_at = ? "
+                "WHERE id = (SELECT id FROM translation_queue "
+                "            WHERE state = 'pending' "
+                "            ORDER BY priority DESC, created_at ASC LIMIT 1) "
+                "RETURNING *",
+                (now, now),
             ).fetchone()
-        if not row:
-            return None
-        job = dict(row)
-        now = time.strftime("%Y-%m-%d %H:%M:%S")
-        conn.execute(
-            "UPDATE translation_queue "
-            "SET state = 'processing', started_at = ?, last_progress_at = ? "
-            "WHERE id = ?",
-            (now, now, job["id"]),
-        )
         conn.commit()
-        return job
+        return dict(row) if row else None
     finally:
         conn.close()
 
