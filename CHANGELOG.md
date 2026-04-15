@@ -13,6 +13,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.3.1] - 2026-04-15
+
+### Added
+
+- **`docs/GPU-FLEET-OPS.md`**: end-to-end reference for renting, bootstrapping,
+  monitoring, and tearing down the Vast.ai + RunPod Whisper STT fleet used by
+  the translation pipeline. Covers SSH tunnel setup, `translation-env.sh`
+  configuration, `audiobook-translate` / `audiobook-fleet-watchdog` timers,
+  and `teardown-gpu.sh` usage. Cost model and troubleshooting included
+
+### Changed
+
+- **Dependency bumps (minor)**: `gevent` 25.9.1 → 26.4.0, `filelock` 3.25.2 →
+  3.28.0 (CVE floor updated), `marshmallow` 4.2.4 → 4.3.0, `pytest` 9.0.2 →
+  9.0.3 (dev), `mypy` 1.20.0 → 1.20.1 (dev), plus transitives. `requirements.txt`
+  and `requirements-docker.txt` floors raised accordingly
+- **Complexity reduction — 10 D/E/F functions refactored to A-grade**: extracted
+  cohesive blocks (validation, API calls, mapping, persistence, state transitions)
+  into private `_`-prefixed helpers. Public signatures, return shapes, log
+  messages, exceptions, and side-effects are bit-identical. Affects
+  `library/backend/api_modular/translations.py` (`batch_translate` F/50 → A/2,
+  `on_demand_translate` E/33 → A/2, `_translate_missing` D/28 → A/2,
+  `translate_strings` D/21 → A/3), `library/scripts/enrichment/` (`AudibleProvider.enrich`
+  E/31 → A/3, `GoogleBooksProvider.enrich` D/21 → A/3, `enrich_book` D/28 → A/4),
+  `library/localization/transfer.py` (`import_translations` E/31 → A/5,
+  `export_translations` D/25 → A/1), and `library/localization/translation/deepl_translate.py`
+  (`DeepLTranslator.translate` D/22 → A/5). `radon cc library/ -nc -e 'library/tests/*'`
+  now reports zero D/E/F grades
+
 ## [8.2.3] - 2026-04-14
 
 ### Added
@@ -2975,7 +3004,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.1...HEAD
+[8.2.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.1
 [8.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2.1...v8.2.3
 [8.2.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2...v8.2.2.1
 [8.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.1.1...v8.2.2
