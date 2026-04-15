@@ -353,5 +353,5 @@ sudo /usr/local/bin/audiobook-translations resume   # if queue was paused
 
 ---
 
-*Document Version: 8.2.3.4*
+*Document Version: 8.2.3.5*
 *Last Updated: 2026-04-15*

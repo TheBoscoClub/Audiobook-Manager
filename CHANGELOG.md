@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.2.3.5] - 2026-04-15
+
+### Added
+
 - **Multi-book-per-GPU concurrency**: new `WORKERS_PER_GPU` env var
   (default 4) spawns N parallel `batch-translate.py` workers per Vast.ai/RunPod
   tunnel. All N share a single `faster-whisper` model instance on the GPU (no
@@ -27,8 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Required for correctness under `WORKERS_PER_GPU > 1`; harmless with 1.
   Requires SQLite ≥ 3.35 (shipped 2021-03; Arch/CachyOS 3.51, Debian 13 3.46
   — all supported targets satisfy it)
-
-### Fixed
 
 ## [8.2.3.4] - 2026-04-15
 
@@ -3050,7 +3056,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.4...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.5...HEAD
+[8.2.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.4...v8.2.3.5
 [8.2.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.3...v8.2.3.4
 [8.2.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.2...v8.2.3.3
 [8.2.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.2
