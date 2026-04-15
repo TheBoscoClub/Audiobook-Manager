@@ -507,7 +507,8 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
     req.add_header("Content-Type", "application/json")
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 — URL scheme validated above
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 — URL scheme validated above (hardcoded https://api.cloudflare.com)
             result = json.loads(resp.read())
             if result.get("success"):
                 return jsonify({"success": True})
@@ -734,7 +735,9 @@ def start_upgrade() -> FlaskResponse:
 def get_version() -> FlaskResponse:
     """Get current application version. No auth required."""
     version = _read_version_file()
-    response = {"version": version}
+    response: dict = {"version": version}
+    if _project_root:
+        response["project_root"] = str(Path(_project_root).parent)
     instance_badge = os.environ.get("INSTANCE_BADGE", "")
     if instance_badge:
         response["instance_badge"] = instance_badge
