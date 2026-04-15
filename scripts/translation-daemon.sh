@@ -38,6 +38,11 @@ PID_FILE="/var/lib/audiobooks/.run/translate-daemon.pid"
 HEALTH_CHECK_INTERVAL=120
 EMPTY_QUEUE_CHECKS=3
 AUTO_TEARDOWN_GPU=false
+# How many books to process in parallel on each GPU. L40S (48GB) + Whisper
+# large-v3 float16 fits ~4 concurrent streams with headroom. Each worker is
+# one batch-translate.py process; all N hit the same GPU endpoint over the
+# same SSH tunnel, and faster-whisper serves them via gunicorn gthreads.
+WORKERS_PER_GPU=4
 GPU_API_KEYS_FILE=""
 NOTIFY_EMAIL=""
 POST_COMPLETION_HOOK=""
@@ -191,7 +196,7 @@ ensure_whisper_server() {
         -p "$ssh_port" "root@$ssh_host" "pkill -9 gunicorn 2>/dev/null; echo killed" 2>/dev/null
     ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
         -p "$ssh_port" "root@$ssh_host" \
-        "cd /root; gunicorn -w 1 -b 0.0.0.0:8000 --timeout 600 whisper_server:app >> /var/log/whisper.log 2>&1 & echo PID=\$!" 2>/dev/null
+        "cd /root; gunicorn -w 1 -k gthread --threads ${WORKERS_PER_GPU} -b 0.0.0.0:8000 --timeout 600 whisper_server:app >> /var/log/whisper.log 2>&1 & echo PID=\$!" 2>/dev/null
 
     log "Whisper server started on $label — waiting for model load"
 }
@@ -332,24 +337,30 @@ main() {
     log "Waiting 30s for whisper models to load..."
     sleep 30
 
-    # Start workers for Vast.ai instances
+    # Start workers for Vast.ai instances — WORKERS_PER_GPU parallel workers
+    # per tunnel. All N share the same GPU endpoint; atomic UPDATE...RETURNING
+    # in next_pending_job() ensures no two workers claim the same book.
     for instance in "${VASTAI_INSTANCES[@]}"; do
         IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
         if check_tunnel_health "$local_port" "$label"; then
-            start_worker "127.0.0.1" "$local_port" "$label"
+            for i in $(seq 1 "$WORKERS_PER_GPU"); do
+                start_worker "127.0.0.1" "$local_port" "${label}-w${i}"
+            done
         else
             log "WARNING: $label tunnel unhealthy — skipping worker"
         fi
     done
 
-    # Start workers for RunPod instances
+    # Start workers for RunPod instances — also WORKERS_PER_GPU parallel
     for instance in "${RUNPOD_INSTANCES[@]}"; do
         IFS='|' read -r url label <<< "$instance"
         # Health check RunPod
         local health
         health=$(curl -s --connect-timeout 10 --max-time 30 "$url/health" 2>/dev/null)
         if echo "$health" | grep -q '"ok"' 2>/dev/null; then
-            start_worker "$url" "0" "$label"
+            for i in $(seq 1 "$WORKERS_PER_GPU"); do
+                start_worker "$url" "0" "${label}-w${i}"
+            done
         else
             log "WARNING: $label not reachable — skipping"
         fi
@@ -420,33 +431,43 @@ main() {
         done
         wait
 
-        # Phase 3 (serial, fast): restart dead workers. start_worker is also
-        # non-blocking, and must update the parent's WORKER_PIDS map.
+        # Phase 3 (serial, fast): restart any of the N per-GPU workers that died.
         for instance in "${VASTAI_INSTANCES[@]}"; do
             IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
-            local wpid=${WORKER_PIDS[$label]:-0}
-            if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2>/dev/null; then
-                log "Worker $label died — restarting"
-                if check_tunnel_health "$local_port" "$label"; then
-                    start_worker "127.0.0.1" "$local_port" "$label"
+            for i in $(seq 1 "$WORKERS_PER_GPU"); do
+                local wlabel="${label}-w${i}"
+                local wpid=${WORKER_PIDS[$wlabel]:-0}
+                if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2>/dev/null; then
+                    log "Worker $wlabel died — restarting"
+                    if check_tunnel_health "$local_port" "$label"; then
+                        start_worker "127.0.0.1" "$local_port" "$wlabel"
+                    fi
                 fi
-            fi
+            done
         done
 
-        # Health-check RunPod workers
+        # Health-check RunPod workers (N per pod)
         for instance in "${RUNPOD_INSTANCES[@]}"; do
             IFS='|' read -r url label <<< "$instance"
-            local wpid=${WORKER_PIDS[$label]:-0}
-            if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2>/dev/null; then
-                log "Worker $label died — restarting"
-                local health
-                health=$(curl -s --connect-timeout 10 --max-time 15 "$url/health" 2>/dev/null)
-                if echo "$health" | grep -q '"ok"' 2>/dev/null; then
-                    start_worker "$url" "0" "$label"
-                else
-                    log "WARNING: $label not reachable — skipping"
+            local health_checked=""
+            for i in $(seq 1 "$WORKERS_PER_GPU"); do
+                local wlabel="${label}-w${i}"
+                local wpid=${WORKER_PIDS[$wlabel]:-0}
+                if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2>/dev/null; then
+                    log "Worker $wlabel died — restarting"
+                    if [ -z "$health_checked" ]; then
+                        local health
+                        health=$(curl -s --connect-timeout 10 --max-time 15 "$url/health" 2>/dev/null)
+                        if echo "$health" | grep -q '"ok"' 2>/dev/null; then
+                            health_checked=ok
+                        else
+                            health_checked=bad
+                            log "WARNING: $label not reachable — skipping"
+                        fi
+                    fi
+                    [ "$health_checked" = "ok" ] && start_worker "$url" "0" "$wlabel"
                 fi
-            fi
+            done
         done
     done
 

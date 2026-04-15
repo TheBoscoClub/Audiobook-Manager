@@ -33,6 +33,13 @@
 # if workers are slow to report completion)
 # EMPTY_QUEUE_CHECKS=3
 
+# Parallel books processed per GPU. Default 4 is safe for L40S (48GB) with
+# Whisper large-v3 float16 — a single model instance serves N gunicorn
+# gthread requests concurrently (CUDA releases the GIL). Smaller GPUs
+# (RTX 4090 24GB, A4000 16GB) should use 2; A100 80GB can push to 6–8.
+# Set to 1 to restore the pre-v8.2.3.5 single-stream behavior.
+# WORKERS_PER_GPU=4
+
 # ── Vast.ai GPU Instances ──────────────────────────────────────────────────
 # Format: "local_port|ssh_port|ssh_host|label|compute_type"
 #
