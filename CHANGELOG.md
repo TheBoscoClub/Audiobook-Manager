@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Upgrade modal truncated tweak version**: `scripts/upgrade-helper-process` version regex (`[0-9]+\.[0-9]+\.[0-9]+`) dropped the optional 4th segment, so the modal showed `8.2.3 → 8.2.3` instead of `8.2.3 → 8.2.3.2`. Extended both `current_version` (line 342) and `available_version` (line 345) parsers with `(\.[0-9]+)?` to preserve `x.y.z.w`. `new_version`/`old_version` parsers at lines 551–552 already had the fix
 - **APPLICATION VERSION panel — INSTALL PATH "-"**: the utilities page was reading `data.project_root` from the public version endpoint, where it wasn't (and shouldn't be) populated. Moved to the new `/api/system/install-info` admin endpoint
+- **Stale JS cache-buster on `utilities.html`**: `utilities.js?v=1775585227` was not bumped when the new `loadVersionInfo()` two-call pattern shipped, so browsers with the utilities page cached kept running the old JS and INSTALL PATH stayed "-" even after upgrade. Bumped to `?v=1776270600` so clients re-fetch on next page load
 
 ## [8.2.3.3] - 2026-04-15 [WITHDRAWN]
 
