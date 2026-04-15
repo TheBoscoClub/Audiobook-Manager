@@ -13,12 +13,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [8.2.3.3] - 2026-04-15
+## [8.2.3.4] - 2026-04-15
+
+### Security
+
+- **`project_root` info-leak avoided**: The 8.2.3.3 attempt populated
+  `project_root` directly on the unauthenticated `/api/system/version` endpoint,
+  which previously had project_root removed on purpose (filesystem-path
+  disclosure to anonymous callers). Reverted that change and added a new
+  admin-gated `/api/system/install-info` endpoint (`@admin_or_localhost`) that
+  returns only the install path. `utilities.js::loadVersionInfo()` now calls
+  both endpoints — anonymous callers see version only, admins see the install
+  path
 
 ### Fixed
 
 - **Upgrade modal truncated tweak version**: `scripts/upgrade-helper-process` version regex (`[0-9]+\.[0-9]+\.[0-9]+`) dropped the optional 4th segment, so the modal showed `8.2.3 → 8.2.3` instead of `8.2.3 → 8.2.3.2`. Extended both `current_version` (line 342) and `available_version` (line 345) parsers with `(\.[0-9]+)?` to preserve `x.y.z.w`. `new_version`/`old_version` parsers at lines 551–552 already had the fix
-- **APPLICATION VERSION panel — INSTALL PATH "-"**: `library/web-v2/js/utilities.js::loadVersionInfo()` reads `data.project_root` from `/api/system/version`, but the Python endpoint (`utilities_system.py::get_version`) never populated that key, so the UI fell back to `"-"`. Added `response["project_root"] = str(Path(_project_root).parent)` — `_project_root` is already initialized at blueprint registration time
+- **APPLICATION VERSION panel — INSTALL PATH "-"**: the utilities page was reading `data.project_root` from the public version endpoint, where it wasn't (and shouldn't be) populated. Moved to the new `/api/system/install-info` admin endpoint
+
+## [8.2.3.3] - 2026-04-15 [WITHDRAWN]
+
+Release withdrawn — CI failed on `test_utilities_system.py::TestGetVersion::test_returns_version_from_file`. The 8.2.3.3 attempt added `project_root` to the unauthenticated `/api/system/version` response, which violated the pre-existing security contract (no filesystem-path disclosure to anonymous callers). See 8.2.3.4 for the corrected fix.
 
 ## [8.2.3.2] - 2026-04-15
 
@@ -3017,7 +3032,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.4...HEAD
+[8.2.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.3...v8.2.3.4
 [8.2.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.2...v8.2.3.3
 [8.2.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.2
 [8.2.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.1

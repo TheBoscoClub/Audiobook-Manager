@@ -4449,12 +4449,17 @@ async function loadVersionInfo() {
     const data = await api.get("/api/system/version", { toast: false });
 
     const versionEl = document.getElementById("current-version");
-    const pathEl = document.getElementById("install-path");
-
     if (versionEl) versionEl.textContent = data.version || "unknown";
-    if (pathEl) pathEl.textContent = data.project_root || "-";
   } catch (error) {
     console.error("Failed to load version:", error);
+  }
+
+  try {
+    const info = await api.get("/api/system/install-info", { toast: false });
+    const pathEl = document.getElementById("install-path");
+    if (pathEl) pathEl.textContent = info.project_root || "-";
+  } catch (error) {
+    console.error("Failed to load install info:", error);
   }
 }
 

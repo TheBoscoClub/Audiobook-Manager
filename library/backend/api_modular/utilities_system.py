@@ -733,14 +733,26 @@ def start_upgrade() -> FlaskResponse:
 
 @utilities_system_bp.route("/api/system/version", methods=["GET"])
 def get_version() -> FlaskResponse:
-    """Get current application version. No auth required."""
+    """Get current application version. No auth required.
+
+    project_root is only included for admin/localhost callers — leaking
+    install paths to unauthenticated users is an information disclosure.
+    """
     version = _read_version_file()
     response: dict = {"version": version}
-    if _project_root:
-        response["project_root"] = str(Path(_project_root).parent)
     instance_badge = os.environ.get("INSTANCE_BADGE", "")
     if instance_badge:
         response["instance_badge"] = instance_badge
+    return jsonify(response)
+
+
+@utilities_system_bp.route("/api/system/install-info", methods=["GET"])
+@admin_or_localhost
+def get_install_info() -> FlaskResponse:
+    """Return install-path metadata. Admin-gated: exposes filesystem layout."""
+    response: dict = {}
+    if _project_root:
+        response["project_root"] = str(Path(_project_root).parent)
     return jsonify(response)
 
 
