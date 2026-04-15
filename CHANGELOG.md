@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.3.3] - 2026-04-15
+
+### Fixed
+
+- **Upgrade modal truncated tweak version**: `scripts/upgrade-helper-process` version regex (`[0-9]+\.[0-9]+\.[0-9]+`) dropped the optional 4th segment, so the modal showed `8.2.3 → 8.2.3` instead of `8.2.3 → 8.2.3.2`. Extended both `current_version` (line 342) and `available_version` (line 345) parsers with `(\.[0-9]+)?` to preserve `x.y.z.w`. `new_version`/`old_version` parsers at lines 551–552 already had the fix
+- **APPLICATION VERSION panel — INSTALL PATH "-"**: `library/web-v2/js/utilities.js::loadVersionInfo()` reads `data.project_root` from `/api/system/version`, but the Python endpoint (`utilities_system.py::get_version`) never populated that key, so the UI fell back to `"-"`. Added `response["project_root"] = str(Path(_project_root).parent)` — `_project_root` is already initialized at blueprint registration time
+
 ## [8.2.3.2] - 2026-04-15
 
 Re-release of 8.2.3.1 — the v8.2.3.1 GitHub release was created immutable with no
@@ -3010,7 +3017,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.3...HEAD
+[8.2.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.2...v8.2.3.3
 [8.2.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.2
 [8.2.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.1
 [8.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2.1...v8.2.3
